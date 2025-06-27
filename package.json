@@ -1,0 +1,13 @@
+{
+  "name": "your-react-native-app",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {},
+  "dependencies": {
+    "react-native": "latest"
+  },
+  "devDependencies": {
+    "@react-native-community/cli": "latest",
+    "@react-native/metro-config": "^0.80.0"
+  }
+}
