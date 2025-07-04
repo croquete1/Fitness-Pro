@@ -1,4 +1,3 @@
-// src/router/routes.jsx
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useAuthRole } from '../contexts/authRoleContext'
@@ -10,12 +9,12 @@ import Profile from '../pages/Profile'
 import Login from '../pages/Login'
 import ProtectedRoute from './ProtectedRoute'
 
-
-// 🔄 Admin Pages
+// Admin Pages
 import AdminDashboard from '../pages/AdminDashboard'
 import AdminLogsPage from '../pages/AdminLogsPage'
 import AdminTrainersPage from '../pages/AdminTrainersPage'
 import AdminClientsPage from '../pages/AdminClientsPage'
+
 function RoleRedirect() {
   const { user, loading } = useAuthRole()
   const navigate = useNavigate()
@@ -53,6 +52,18 @@ export default function AppRoutes() {
       <Route path="/admin/logs" element={
         <ProtectedRoute>
           <AdminLogsPage />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/admin/trainers" element={
+        <ProtectedRoute>
+          <AdminTrainersPage />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/admin/clients" element={
+        <ProtectedRoute>
+          <AdminClientsPage />
         </ProtectedRoute>
       } />
 
