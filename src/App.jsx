@@ -4,6 +4,8 @@ import { AdminDashboard, TrainerDashboard, ClienteDashboard } from "./pages/Role
 import { AuthRoleProvider } from "./contexts/authRoleContext";
 import { AdminOnly, TrainerOnly, ClienteOnly } from "./pages/ProtectedRoutes";
 import RedirectByRole from "./pages/RedirectByRole";
+import { useAuthRole, AuthRoleProvider } from "../contexts/authRoleContext";
+
 
 export default function App() {
   return (
