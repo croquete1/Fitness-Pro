@@ -5,6 +5,10 @@ import { AdminDashboard, TrainerDashboard, ClienteDashboard } from "./pages/Role
 import { AuthRoleProvider } from "./contexts/authRoleContext";
 import { AdminOnly, TrainerOnly, ClienteOnly } from "./pages/ProtectedRoutes";
 import RedirectByRole from "./pages/RedirectByRole";
+import AppRoutes from './router/routes'
+
+<AppRoutes />
+
 
 export default function App() {
   return (
