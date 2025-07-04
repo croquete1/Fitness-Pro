@@ -13,6 +13,7 @@ import AdminPage from '../pages/AdminPage'
 import AdminLogsPage from '../pages/AdminLogsPage'
 import AdminNotifications from '../pages/AdminNotifications'
 import AdminNotificationCreate from '../pages/AdminNotificationCreate'
+import AdminStatsPage from '../pages/AdminStatsPage'
 
 function RoleRedirect() {
   const { user, loading } = useAuthRole()
