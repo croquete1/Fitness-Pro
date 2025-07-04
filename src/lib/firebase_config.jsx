@@ -14,4 +14,3 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-// PLACEHOLDER: conteúdo real será inserido no próximo passo

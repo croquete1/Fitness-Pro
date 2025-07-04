@@ -2,7 +2,7 @@ import { useState } from "react";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../lib/firebase_config";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 export default function LoginForm() {
   const [email, setEmail] = useState("");
@@ -35,6 +35,10 @@ export default function LoginForm() {
       <input className="w-full border p-2" type="password" placeholder="Palavra-passe" value={password} onChange={e => setPassword(e.target.value)} required />
       <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded">Entrar</button>
       {error && <p className="text-red-600 text-sm">{error}</p>}
+      <p className="text-sm text-center mt-2">
+        Ainda não tem conta?{" "}
+        <Link to="/register" className="text-blue-600 underline">Criar conta</Link>
+      </p>
     </form>
   );
 }
