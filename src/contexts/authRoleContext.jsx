@@ -1,56 +1,49 @@
-import { createContext, useContext, useEffect, useState } from 'react'
-import { auth, db } from '../firebase/firebase'
-import {
-  onAuthStateChanged,
-  signOut,
-  getIdToken
-} from 'firebase/auth'
-import {
-  doc,
-  getDoc,
-  updateDoc
-} from 'firebase/firestore'
-
-const AuthRoleContext = createContext()
-
 export const AuthRoleProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    console.log('🔁 AuthState: Iniciando listener...')
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log('🔥 FirebaseUser:', firebaseUser)
+
       if (firebaseUser) {
         try {
           const ref = doc(db, 'users', firebaseUser.uid)
           const snap = await getDoc(ref)
 
+          console.log('📄 Firestore snapshot exists:', snap.exists())
+
           if (snap.exists()) {
             const userData = snap.data()
-            const token = await getIdToken(firebaseUser)
+            console.log('✅ Firestore userData:', userData)
 
-            console.log('✅ Dados do Firestore:', userData) // 👈 debug
+            const token = await getIdToken(firebaseUser)
             setUser({
               uid: firebaseUser.uid,
               email: firebaseUser.email,
               token,
-              ...userData // garante que role vem aqui
+              ...userData
             })
           } else {
             console.warn('⚠️ Documento do usuário não existe no Firestore.')
             setUser(null)
           }
         } catch (err) {
-          console.error('Erro ao obter dados do Firestore:', err)
+          console.error('💥 Erro ao obter dados do Firestore:', err)
           setUser(null)
         }
       } else {
+        console.log('👤 Usuário não autenticado')
         setUser(null)
       }
+
       setLoading(false)
     })
 
     return () => unsubscribe()
-  }, [])
+  }, []) // ✅ mantém apenas este
 
   const logout = async () => {
     await signOut(auth)
@@ -79,5 +72,3 @@ export const AuthRoleProvider = ({ children }) => {
     </AuthRoleContext.Provider>
   )
 }
-
-export const useAuthRole = () => useContext(AuthRoleContext)
