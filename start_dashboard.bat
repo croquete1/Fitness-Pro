@@ -2,7 +2,7 @@
 echo Abrindo projeto React/Vite...
 
 :: Navegar para a pasta do projeto (ajuste conforme necessário)
-cd /d %~dp0react_vite_dashboard_full
+cd /d "%~dp0"
 
 :: Instalar dependências (apenas na 1ª vez)
 if not exist node_modules (
