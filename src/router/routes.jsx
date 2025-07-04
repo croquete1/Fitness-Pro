@@ -14,6 +14,7 @@ import AdminLogsPage from '../pages/AdminLogsPage'
 import AdminNotifications from '../pages/AdminNotifications'
 import AdminNotificationCreate from '../pages/AdminNotificationCreate'
 import AdminStatsPage from '../pages/AdminStatsPage'
+import AdminClientsPage from '../pages/AdminClientsPage'
 
 function RoleRedirect() {
   const { user, loading } = useAuthRole()
@@ -84,6 +85,22 @@ export default function AppRoutes() {
           <Profile />
         </ProtectedRoute>
       } />
+      <Route path="/admin/stats" element={
+  <ProtectedRoute>
+    <AdminStatsPage />
+  </ProtectedRoute>
+} />
+
+      <Route path="/admin/clients" element={
+  <ProtectedRoute>
+    <AdminClientsPage />
+  </ProtectedRoute>
+} />
+<Route path="/admin/clients" element={
+  <ProtectedRoute>
+    <AdminClientsPage />
+  </ProtectedRoute>
+} />
 
       <Route path="/redirect" element={<RoleRedirect />} />
       <Route path="*" element={<Navigate to="/redirect" />} />
