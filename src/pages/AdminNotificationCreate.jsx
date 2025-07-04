@@ -1,70 +1,22 @@
-import { useEffect, useState, useRef } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
-import { collection, query, orderBy, onSnapshot, updateDoc, doc } from 'firebase/firestore'
-import { db } from '../lib/firebase_config'
 import { useAuthRole } from '../contexts/authRoleContext'
-import { LayoutDashboard, Users, LogOut, ShieldCheck, BarChart, Bell, Plus } from 'lucide-react'
-import { toast } from 'react-hot-toast'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { Users, ShieldCheck, BarChart, LogOut, LayoutDashboard, Bell, Activity } from 'lucide-react'
 
-const playSound = () => {
-  const audio = new Audio('/notification.mp3')
-  audio.play()
-}
-
-export default function AdminNotifications() {
+export default function AdminDashboard() {
   const { user, logout } = useAuthRole()
   const navigate = useNavigate()
   const { pathname } = useLocation()
-  const [notifications, setNotifications] = useState([])
-  const [filter, setFilter] = useState('')
-  const [search, setSearch] = useState('')
-  const readTimers = useRef({})
-  const seenIds = useRef(new Set())
 
-  useEffect(() => {
-    const q = query(collection(db, 'notifications'), orderBy('createdAt', 'desc'))
-    const unsub = onSnapshot(q, snap => {
-      const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-      const newNotifications = data.filter(n => !seenIds.current.has(n.id))
-      newNotifications.forEach(n => seenIds.current.add(n.id))
-      if (newNotifications.length > 0) {
-        playSound()
-        toast.success('📢 Nova notificação recebida!')
-      }
-      setNotifications(data)
-    })
-    return () => unsub()
-  }, [])
+  if (!user || user.role !== 'admin') return <p className="text-center text-red-600 font-medium">Acesso restrito ao administrador.</p>
 
-  useEffect(() => {
-    notifications.forEach(n => {
-      if (!n.read && !readTimers.current[n.id]) {
-        readTimers.current[n.id] = setTimeout(() => {
-          updateDoc(doc(db, 'notifications', n.id), { read: true })
-        }, 5000)
-      }
-    })
-  }, [notifications])
-
-  const navItem = (path, icon, label, badge = 0) => (
+  const navItem = (path, icon, label) => (
     <button
       onClick={() => navigate(path)}
-      className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium w-full justify-between hover:bg-blue-100 ${pathname === path ? 'bg-blue-100 text-blue-600' : 'text-gray-700'}`}
+      className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium w-full justify-start hover:bg-blue-100 ${pathname === path ? 'bg-blue-100 text-blue-600' : 'text-gray-700'}`}
     >
-      <span className="flex items-center gap-2">{icon} {label}</span>
-      {badge > 0 && (
-        <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">{badge}</span>
-      )}
+      {icon} <span>{label}</span>
     </button>
   )
-
-  const unreadCount = notifications.filter(n => !n.read).length
-
-  const filtered = notifications.filter(n => {
-    const matchesType = filter ? n.type === filter : true
-    const matchesSearch = search ? (n.title?.toLowerCase().includes(search.toLowerCase()) || n.message?.toLowerCase().includes(search.toLowerCase())) : true
-    return matchesType && matchesSearch
-  })
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -80,7 +32,7 @@ export default function AdminNotifications() {
           {navItem('/admin/clients', <Users className="w-5 h-5" />, 'Clientes')}
           {navItem('/admin/logs', <ShieldCheck className="w-5 h-5" />, 'Logs')}
           {navItem('/admin/stats', <BarChart className="w-5 h-5" />, 'Estatísticas')}
-          {navItem('/admin/notifications', <Bell className="w-5 h-5" />, 'Notificações', unreadCount)}
+          {navItem('/admin/notifications', <Bell className="w-5 h-5" />, 'Notificações')}
         </nav>
         <div className="p-4 border-t">
           <button
@@ -93,50 +45,78 @@ export default function AdminNotifications() {
       </aside>
 
       {/* Content */}
-      <main className="flex-1 overflow-y-auto p-8">
-        <div className="mb-6 flex justify-between items-center">
-          <div>
-            <h2 className="text-3xl font-bold mb-1">Notificações</h2>
-            <p className="text-gray-500 text-sm">Histórico de notificações recentes do sistema</p>
+      <main className="flex-1 overflow-y-auto p-8 bg-gray-50">
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold mb-1">Painel de Administração</h2>
+          <p className="text-gray-500 text-sm">Resumo geral do sistema e acessos rápidos</p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+          <div className="bg-gradient-to-tr from-blue-500 to-blue-700 text-white shadow rounded-lg p-6">
+            <p className="text-sm">Clientes</p>
+            <p className="text-3xl font-bold">512</p>
           </div>
-          <button
-            onClick={() => navigate('/admin/notifications/create')}
-            className="flex items-center gap-2 bg-blue-600 text-white text-sm px-4 py-2 rounded hover:bg-blue-700"
-          >
-            <Plus className="w-4 h-4" /> Nova Notificação
-          </button>
+          <div className="bg-gradient-to-tr from-green-500 to-green-700 text-white shadow rounded-lg p-6">
+            <p className="text-sm">Personal Trainers</p>
+            <p className="text-3xl font-bold">38</p>
+          </div>
+          <div className="bg-gradient-to-tr from-yellow-500 to-yellow-700 text-white shadow rounded-lg p-6">
+            <p className="text-sm">Utilizadores Ativos</p>
+            <p className="text-3xl font-bold">134</p>
+          </div>
+          <div className="bg-gradient-to-tr from-pink-500 to-pink-700 text-white shadow rounded-lg p-6">
+            <p className="text-sm">Desempenho</p>
+            <p className="text-3xl font-bold">+256%</p>
+          </div>
         </div>
 
-        <div className="mb-4 flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-          <input
-            type="text"
-            placeholder="Pesquisar notificações..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="border rounded px-3 py-2 w-full sm:w-64"
-          />
-          <select
-            value={filter}
-            onChange={e => setFilter(e.target.value)}
-            className="border rounded px-3 py-2 text-sm"
+        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6 mb-6">
+          <div
+            onClick={() => navigate('/admin/trainers')}
+            className="bg-white p-6 rounded-lg shadow hover:shadow-md transition cursor-pointer"
           >
-            <option value="">Todos os tipos</option>
-            <option value="info">Informação</option>
-            <option value="alerta">Alerta</option>
-            <option value="sistema">Sistema</option>
-          </select>
+            <h3 className="text-lg font-semibold mb-1">Gestão de Personal Trainers</h3>
+            <p className="text-sm text-gray-500">Adicionar, editar ou remover treinadores.</p>
+          </div>
+          <div
+            onClick={() => navigate('/admin/clients')}
+            className="bg-white p-6 rounded-lg shadow hover:shadow-md transition cursor-pointer"
+          >
+            <h3 className="text-lg font-semibold mb-1">Gestão de Clientes</h3>
+            <p className="text-sm text-gray-500">Ver todos os clientes registados.</p>
+          </div>
+          <div
+            onClick={() => navigate('/admin/stats')}
+            className="bg-white p-6 rounded-lg shadow hover:shadow-md transition cursor-pointer"
+          >
+            <h3 className="text-lg font-semibold mb-1">Estatísticas</h3>
+            <p className="text-sm text-gray-500">Indicadores de desempenho e relatórios.</p>
+          </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow overflow-hidden divide-y">
-          {filtered.length === 0 ? (
-            <p className="p-4 text-gray-500 text-sm">Nenhuma notificação encontrada.</p>
-          ) : filtered.map(n => (
-            <div key={n.id} className="px-6 py-4 text-sm text-gray-800">
-              <div className="font-medium text-blue-600">{n.title}</div>
-              <p>{n.message}</p>
-              <p className="text-xs text-gray-400 mt-1">{new Date(n.createdAt?.toDate()).toLocaleString()} — tipo: {n.type}</p>
+        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="bg-white p-6 rounded-lg shadow hover:shadow-md transition">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-semibold">Notificações Recentes</h3>
+              <Bell className="w-5 h-5 text-gray-400" />
             </div>
-          ))}
+            <ul className="text-sm text-gray-600 space-y-2">
+              <li>João Silva criou conta (Cliente)</li>
+              <li>Maria Costa submeteu pedido de plano</li>
+              <li>Novo personal trainer: Hugo Mendes</li>
+            </ul>
+          </div>
+          <div className="bg-white p-6 rounded-lg shadow hover:shadow-md transition">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-semibold">Atividade do Sistema</h3>
+              <Activity className="w-5 h-5 text-gray-400" />
+            </div>
+            <ul className="text-sm text-gray-600 space-y-2">
+              <li>5 planos atualizados hoje</li>
+              <li>12 mensagens recebidas</li>
+              <li>1 admin fez login</li>
+            </ul>
+          </div>
         </div>
       </main>
     </div>
