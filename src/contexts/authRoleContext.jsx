@@ -27,7 +27,14 @@ export const AuthRoleProvider = ({ children }) => {
           if (snap.exists()) {
             const userData = snap.data()
             const token = await getIdToken(firebaseUser)
-            setUser({ uid: firebaseUser.uid, email: firebaseUser.email, token, ...userData })
+
+            console.log('✅ Dados do Firestore:', userData) // 👈 debug
+            setUser({
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              token,
+              ...userData // garante que role vem aqui
+            })
           } else {
             console.warn('⚠️ Documento do usuário não existe no Firestore.')
             setUser(null)
