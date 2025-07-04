@@ -10,6 +10,8 @@ import Profile from '../pages/Profile'
 import Login from '../pages/Login'
 import ProtectedRoute from './ProtectedRoute'
 import AdminPage from '../pages/AdminPage'
+import AdminLogsPage from '../pages/AdminLogsPage'
+
 
 function RoleRedirect() {
   const { user, loading } = useAuthRole()
@@ -65,6 +67,11 @@ export default function AppRoutes() {
 
       <Route path="/redirect" element={<RoleRedirect />} />
       <Route path="*" element={<Navigate to="/redirect" />} />
+    <Route path="/admin/logs" element={
+  <ProtectedRoute>
+    <AdminLogsPage />
+  </ProtectedRoute>
+} />
     </Routes>
   )
 }
