@@ -10,10 +10,12 @@ import Profile from '../pages/Profile'
 import Login from '../pages/Login'
 import ProtectedRoute from './ProtectedRoute'
 
+
 // 🔄 Admin Pages
 import AdminDashboard from '../pages/AdminDashboard'
 import AdminLogsPage from '../pages/AdminLogsPage'
-
+import AdminTrainersPage from '../pages/AdminTrainersPage'
+import AdminClientsPage from '../pages/AdminClientsPage'
 function RoleRedirect() {
   const { user, loading } = useAuthRole()
   const navigate = useNavigate()
