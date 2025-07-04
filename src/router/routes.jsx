@@ -1,3 +1,4 @@
+// src/router/routes.jsx
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useAuthRole } from '../contexts/authRoleContext'
@@ -8,12 +9,10 @@ import Settings from '../pages/Settings'
 import Profile from '../pages/Profile'
 import Login from '../pages/Login'
 import ProtectedRoute from './ProtectedRoute'
-
-// Admin Pages
-import AdminDashboard from '../pages/AdminDashboard'
+import AdminPage from '../pages/AdminPage'
 import AdminLogsPage from '../pages/AdminLogsPage'
-import AdminTrainersPage from '../pages/AdminTrainersPage'
-import AdminClientsPage from '../pages/AdminClientsPage'
+import AdminNotifications from '../pages/AdminNotifications'
+import AdminNotificationCreate from '../pages/AdminNotificationCreate'
 
 function RoleRedirect() {
   const { user, loading } = useAuthRole()
@@ -45,7 +44,7 @@ export default function AppRoutes() {
 
       <Route path="/admin" element={
         <ProtectedRoute>
-          <AdminDashboard />
+          <AdminPage />
         </ProtectedRoute>
       } />
 
@@ -55,15 +54,15 @@ export default function AppRoutes() {
         </ProtectedRoute>
       } />
 
-      <Route path="/admin/trainers" element={
+      <Route path="/admin/notifications" element={
         <ProtectedRoute>
-          <AdminTrainersPage />
+          <AdminNotifications />
         </ProtectedRoute>
       } />
 
-      <Route path="/admin/clients" element={
+      <Route path="/admin/notifications/create" element={
         <ProtectedRoute>
-          <AdminClientsPage />
+          <AdminNotificationCreate />
         </ProtectedRoute>
       } />
 
