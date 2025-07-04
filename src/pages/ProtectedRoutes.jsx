@@ -27,3 +27,17 @@ export function ClienteOnly({ children }) {
   if (loading) return <div className="p-4">Verificando...</div>;
   return isClient ? children : <Navigate to="/login" replace />;
 }
+import { useAuthRole } from '../contexts/authRoleContext'
+
+export default function Dashboard() {
+  const { user, loading } = useAuthRole()
+
+  console.log('🧠 USER:', user)
+
+  if (loading) return <p>A carregar...</p>
+  if (!user?.role || user.role === 'client') {
+    return <p>❌ Conta pendente de aprovação pelo administrador.</p>
+  }
+
+  return <h1>✅ Bem-vindo, {user.name}!</h1>
+}
