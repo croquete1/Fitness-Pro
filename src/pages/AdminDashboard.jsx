@@ -1,13 +1,23 @@
 import { useAuthRole } from '../contexts/authRoleContext'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Users, ShieldCheck, BarChart, LogOut, LayoutDashboard } from 'lucide-react'
 
 export default function AdminDashboard() {
   const { user, logout } = useAuthRole()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
 
   if (!user || user.role !== 'admin') return <p className="text-center text-red-600 font-medium">Acesso restrito ao administrador.</p>
+
+  const navItem = (path, icon, label) => (
+    <button
+      onClick={() => navigate(path)}
+      className={`flex items-center gap-2 w-full text-left px-3 py-2 rounded hover:bg-blue-50 ${pathname === path ? 'bg-blue-100 font-semibold' : ''}`}
+    >
+      {icon} {label}
+    </button>
+  )
 
   return (
     <div className="flex min-h-screen">
@@ -18,21 +28,11 @@ export default function AdminDashboard() {
           <p className="text-sm text-gray-500">{user.email}</p>
         </div>
         <nav className="space-y-2 flex-1">
-          <button onClick={() => navigate('/admin')} className="flex items-center gap-2 w-full text-left px-3 py-2 rounded hover:bg-blue-50">
-            <LayoutDashboard className="w-4 h-4 text-gray-600" /> Dashboard
-          </button>
-          <button onClick={() => navigate('/admin/trainers')} className="flex items-center gap-2 w-full text-left px-3 py-2 rounded hover:bg-blue-50">
-            <Users className="w-4 h-4 text-blue-600" /> Personal Trainers
-          </button>
-          <button onClick={() => navigate('/admin/clients')} className="flex items-center gap-2 w-full text-left px-3 py-2 rounded hover:bg-blue-50">
-            <Users className="w-4 h-4 text-emerald-600" /> Clientes
-          </button>
-          <button onClick={() => navigate('/admin/logs')} className="flex items-center gap-2 w-full text-left px-3 py-2 rounded hover:bg-blue-50">
-            <ShieldCheck className="w-4 h-4 text-purple-600" /> Logs
-          </button>
-          <button onClick={() => navigate('/admin/stats')} className="flex items-center gap-2 w-full text-left px-3 py-2 rounded hover:bg-blue-50">
-            <BarChart className="w-4 h-4 text-orange-500" /> Estatísticas
-          </button>
+          {navItem('/admin', <LayoutDashboard className="w-4 h-4 text-gray-600" />, 'Dashboard')}
+          {navItem('/admin/trainers', <Users className="w-4 h-4 text-blue-600" />, 'Personal Trainers')}
+          {navItem('/admin/clients', <Users className="w-4 h-4 text-emerald-600" />, 'Clientes')}
+          {navItem('/admin/logs', <ShieldCheck className="w-4 h-4 text-purple-600" />, 'Logs')}
+          {navItem('/admin/stats', <BarChart className="w-4 h-4 text-orange-500" />, 'Estatísticas')}
         </nav>
         <hr className="my-4" />
         <button onClick={logout} className="w-full bg-red-600 text-white py-2 rounded hover:bg-red-700 flex items-center justify-center gap-2">
