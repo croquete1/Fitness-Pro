@@ -1,7 +1,15 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { auth, db } from '../firebase/firebase'
-import { onAuthStateChanged } from 'firebase/auth'
-import { doc, getDoc } from 'firebase/firestore'
+import {
+  onAuthStateChanged,
+  signOut,
+  getIdToken
+} from 'firebase/auth'
+import {
+  doc,
+  getDoc,
+  updateDoc
+} from 'firebase/firestore'
 
 const AuthRoleContext = createContext()
 
@@ -18,7 +26,8 @@ export const AuthRoleProvider = ({ children }) => {
 
           if (snap.exists()) {
             const userData = snap.data()
-            setUser({ uid: firebaseUser.uid, email: firebaseUser.email, ...userData })
+            const token = await getIdToken(firebaseUser)
+            setUser({ uid: firebaseUser.uid, email: firebaseUser.email, token, ...userData })
           } else {
             console.warn('⚠️ Documento do usuário não existe no Firestore.')
             setUser(null)
@@ -36,8 +45,29 @@ export const AuthRoleProvider = ({ children }) => {
     return () => unsubscribe()
   }, [])
 
+  const logout = async () => {
+    await signOut(auth)
+    setUser(null)
+  }
+
+  const getToken = async () => {
+    const currentUser = auth.currentUser
+    if (currentUser) return await getIdToken(currentUser)
+    return null
+  }
+
+  const promoteUser = async (uid, newRole) => {
+    try {
+      const ref = doc(db, 'users', uid)
+      await updateDoc(ref, { role: newRole })
+      console.log(`✅ Utilizador ${uid} promovido para ${newRole}`)
+    } catch (error) {
+      console.error('Erro ao promover utilizador:', error)
+    }
+  }
+
   return (
-    <AuthRoleContext.Provider value={{ user, loading }}>
+    <AuthRoleContext.Provider value={{ user, loading, logout, getToken, promoteUser }}>
       {children}
     </AuthRoleContext.Provider>
   )
