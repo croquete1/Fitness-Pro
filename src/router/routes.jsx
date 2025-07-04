@@ -9,9 +9,10 @@ import Settings from '../pages/Settings'
 import Profile from '../pages/Profile'
 import Login from '../pages/Login'
 import ProtectedRoute from './ProtectedRoute'
-import AdminPage from '../pages/AdminPage'
-import AdminLogsPage from '../pages/AdminLogsPage'
 
+// 🔄 Admin Pages
+import AdminDashboard from '../pages/AdminDashboard'
+import AdminLogsPage from '../pages/AdminLogsPage'
 
 function RoleRedirect() {
   const { user, loading } = useAuthRole()
@@ -40,12 +41,18 @@ export default function AppRoutes() {
           <Dashboard />
         </ProtectedRoute>
       } />
-<Route path="/admin" element={
-  <ProtectedRoute>
-    <AdminPage />
-  </ProtectedRoute>
-} />
 
+      <Route path="/admin" element={
+        <ProtectedRoute>
+          <AdminDashboard />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/admin/logs" element={
+        <ProtectedRoute>
+          <AdminLogsPage />
+        </ProtectedRoute>
+      } />
 
       <Route path="/chat" element={
         <ProtectedRoute>
@@ -67,11 +74,6 @@ export default function AppRoutes() {
 
       <Route path="/redirect" element={<RoleRedirect />} />
       <Route path="*" element={<Navigate to="/redirect" />} />
-    <Route path="/admin/logs" element={
-  <ProtectedRoute>
-    <AdminLogsPage />
-  </ProtectedRoute>
-} />
     </Routes>
   )
 }
