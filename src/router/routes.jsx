@@ -1,25 +1,49 @@
 // src/router/routes.jsx
-import { Routes, Route, Navigate } from 'react-router-dom'
-import RedirectByRole from '../pages/RedirectByRole'
+
+import { Route, Routes } from 'react-router-dom'
 import Login from '../pages/Login'
+import NotFound from '../pages/NotFound'
 
 import AdminDashboard from '../pages/AdminDashboard'
-import ClientDashboard from '../pages/ClientDashboard'
-import TrainerDashboard from '../pages/TrainerDashboard'
-import NotFound from '../pages/NotFound'
+import DashboardCliente from '../pages/DashboardCliente'
+import DashboardTrainer from '../pages/DashboardTrainer'
 
 import AdminOnly from '../pages/ProtectedRoutes/AdminOnly'
 import ClienteOnly from '../pages/ProtectedRoutes/ClienteOnly'
 import TrainerOnly from '../pages/ProtectedRoutes/TrainerOnly'
 
-export default function AppRoutes() {
+export function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/admin" element={<AdminOnly><AdminDashboard /></AdminOnly>} />
-      <Route path="/cliente" element={<ClienteOnly><ClientDashboard /></ClienteOnly>} />
-      <Route path="/personal-trainer" element={<TrainerOnly><TrainerDashboard /></TrainerOnly>} />
-      <Route path="/redirect" element={<RedirectByRole />} />
+
+      <Route
+        path="/admin/dashboard"
+        element={
+          <AdminOnly>
+            <AdminDashboard />
+          </AdminOnly>
+        }
+      />
+
+      <Route
+        path="/cliente/dashboard"
+        element={
+          <ClienteOnly>
+            <DashboardCliente />
+          </ClienteOnly>
+        }
+      />
+
+      <Route
+        path="/trainer/dashboard"
+        element={
+          <TrainerOnly>
+            <DashboardTrainer />
+          </TrainerOnly>
+        }
+      />
+
       <Route path="*" element={<NotFound />} />
     </Routes>
   )
