@@ -16,8 +16,9 @@ import ClienteOnly from '../pages/ProtectedRoutes/ClienteOnly'
 import TrainerOnly from '../pages/ProtectedRoutes/TrainerOnly'
 
 function RedirectByRole() {
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
 
+  if (loading) return <div style={{ textAlign: 'center', marginTop: '2rem' }}>Loading...</div>
   if (!user || !user.role) return <Navigate to="/login" replace />
 
   switch (user.role) {
