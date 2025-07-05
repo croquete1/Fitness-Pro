@@ -4,6 +4,10 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import { BrowserRouter } from 'react-router-dom'
 import { AuthRoleProvider } from './contexts/authRoleContext'
+import { AppRoutes } from './router/routes'
+
+<AppRoutes />
+
 
 import './index.css'
 
