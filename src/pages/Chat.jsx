@@ -1,17 +1,21 @@
 // src/pages/Chat.jsx
 import { useEffect, useRef, useState } from 'react'
-import { db, storage } from '../firebase/firebase'
+import { db, storage, requestPermission } from '../firebase/firebase'
 import {
   addDoc,
   collection,
+  doc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
-  serverTimestamp
+  serverTimestamp,
+  updateDoc
 } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { useAuthRole } from '../contexts/authRoleContext'
 import { format } from 'date-fns'
+import { onMessage } from 'firebase/messaging'
 
 export default function Chat() {
   const { user } = useAuthRole()
@@ -22,6 +26,7 @@ export default function Chat() {
   const mediaRecorderRef = useRef(null)
   const messagesEndRef = useRef(null)
   const audioRef = useRef(null)
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -49,6 +54,47 @@ export default function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  useEffect(() => {
+    const unsubscribe = onMessage(messaging => {
+      console.log('📩 Notificação recebida:', messaging)
+      alert(`${messaging.notification.title}\n${messaging.notification.body}`)
+    })
+    return unsubscribe
+  }, [])
+
+  const enableNotifications = async () => {
+    const token = await requestPermission()
+    if (token && user?.uid) {
+      await updateDoc(doc(db, 'users', user.uid), {
+        fcmToken: token
+      })
+      setNotificationsEnabled(true)
+    }
+  }
+
+  const sendPushNotification = async (recipientEmail, text) => {
+    const usersSnapshot = await getDocs(collection(db, 'users'))
+    usersSnapshot.forEach(async userDoc => {
+      const userData = userDoc.data()
+      if (userData.email === recipientEmail && userData.fcmToken) {
+        await fetch('https://fcm.googleapis.com/fcm/send', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `key=YOUR_SERVER_KEY` // 🔐 substitui com a server key
+          },
+          body: JSON.stringify({
+            to: userData.fcmToken,
+            notification: {
+              title: 'Nova mensagem',
+              body: text
+            }
+          })
+        })
+      }
+    })
+  }
+
   const handleSend = async (e) => {
     e.preventDefault()
     if (!newMessage.trim()) return
@@ -60,6 +106,7 @@ export default function Chat() {
     }
 
     await addDoc(collection(db, 'chats', user.uid, 'messages'), msg)
+    await sendPushNotification('RECIPIENT_EMAIL', newMessage) // 🔁 Substitui com a lógica do destinatário
     setNewMessage('')
   }
 
@@ -108,13 +155,23 @@ export default function Chat() {
 
       setTimeout(() => {
         mediaRecorder.stop()
-      }, 5000) // grava 5s
+      }, 5000)
     })
   }
 
   return (
     <div className="p-6 max-w-2xl mx-auto h-screen flex flex-col">
       <h2 className="text-xl font-bold mb-4">Chat</h2>
+
+      {!notificationsEnabled && (
+        <button
+          onClick={enableNotifications}
+          className="mb-4 px-4 py-2 bg-indigo-600 text-white rounded"
+        >
+          Ativar notificações
+        </button>
+      )}
+
       <div className="flex-1 overflow-y-auto bg-white rounded p-4 shadow">
         {messages.map(msg => (
           <div
