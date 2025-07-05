@@ -1,10 +1,13 @@
+
 // src/pages/TrainerDashboard.jsx
 import { useEffect, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { getAuth } from 'firebase/auth'
+import { Loader2 } from 'lucide-react'
 
 export default function TrainerDashboard() {
   const [trainerData, setTrainerData] = useState(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -13,9 +16,18 @@ export default function TrainerDashboard() {
       if (user) {
         setTrainerData({ name: user.displayName || user.email })
       }
+      setLoading(false)
     }
     fetchData()
   }, [])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="animate-spin h-8 w-8 text-gray-500" />
+      </div>
+    )
+  }
 
   return (
     <div className="p-6 space-y-6">
