@@ -81,7 +81,7 @@ export default function Chat() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `key=YOUR_SERVER_KEY` // 🔐 substitui com a server key
+            Authorization: `key=BEuqb32wN3ejoAhAQ16k-wVzGUDBXifRD3pZ_n0-jhzS-22_Kyncspp2LxvWs-oayDr7neNEhXJN7w58RJti0b0`
           },
           body: JSON.stringify({
             to: userData.fcmToken,
@@ -106,7 +106,7 @@ export default function Chat() {
     }
 
     await addDoc(collection(db, 'chats', user.uid, 'messages'), msg)
-    await sendPushNotification('RECIPIENT_EMAIL', newMessage) // 🔁 Substitui com a lógica do destinatário
+    await sendPushNotification('RECIPIENT_EMAIL', newMessage)
     setNewMessage('')
   }
 
