@@ -1,17 +1,17 @@
-// src/pages/TrainerDashboard.jsx
+// src/pages/ClientDashboard.jsx
 import { useEffect, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { getAuth } from 'firebase/auth'
 
-export default function TrainerDashboard() {
-  const [trainerData, setTrainerData] = useState(null)
+export default function ClientDashboard() {
+  const [clientData, setClientData] = useState(null)
 
   useEffect(() => {
     const fetchData = async () => {
       const auth = getAuth()
       const user = auth.currentUser
       if (user) {
-        setTrainerData({ name: user.displayName || user.email })
+        setClientData({ name: user.displayName || user.email })
       }
     }
     fetchData()
@@ -19,11 +19,11 @@ export default function TrainerDashboard() {
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Dashboard do Personal Trainer</h1>
+      <h1 className="text-2xl font-bold">Dashboard do Cliente</h1>
       <Card>
         <CardContent>
-          <p>Olá, {trainerData?.name || 'trainer'}!</p>
-          <p>Aqui você poderá acompanhar os treinos dos seus clientes e atualizar planos personalizados.</p>
+          <p>Bem-vindo, {clientData?.name || 'cliente'}!</p>
+          <p>Aqui irá visualizar planos de treino, evolução e recomendações personalizadas.</p>
         </CardContent>
       </Card>
     </div>
