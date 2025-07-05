@@ -1,10 +1,10 @@
 // src/router/routes.jsx
-
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useAuthRole } from '../contexts/authRoleContext'
 
-import Dashboard from '../pages/Dashboard'
+import DashboardCliente from '../pages/DashboardCliente'
+import DashboardTrainer from '../pages/DashboardTrainer'
 import Chat from '../pages/Chat'
 import Settings from '../pages/Settings'
 import Profile from '../pages/Profile'
@@ -19,8 +19,19 @@ function RoleRedirect() {
 
   useEffect(() => {
     if (!loading && user) {
-      if (user.role === 'admin') navigate('/admin')
-      else navigate('/')
+      switch (user.role) {
+        case 'admin':
+          navigate('/admin')
+          break
+        case 'cliente':
+          navigate('/cliente')
+          break
+        case 'personal_trainer':
+          navigate('/trainer')
+          break
+        default:
+          navigate('/login')
+      }
     }
   }, [user, loading, navigate])
 
@@ -31,7 +42,8 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/cliente" element={<ProtectedRoute><DashboardCliente /></ProtectedRoute>} />
+      <Route path="/trainer" element={<ProtectedRoute><DashboardTrainer /></ProtectedRoute>} />
       <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
       <Route path="/admin/logs" element={<ProtectedRoute><AdminLogsPage /></ProtectedRoute>} />
       <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
