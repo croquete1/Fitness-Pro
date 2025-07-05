@@ -8,5 +8,19 @@ export default defineConfig({
     alias: {
       '@/': `${path.resolve(__dirname, 'src')}/`
     }
+    export default defineConfig({
+  ...
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom'],
+          recharts: ['recharts'],
+        }
+      }
+    }
+  }
+})
+
   }
 })
