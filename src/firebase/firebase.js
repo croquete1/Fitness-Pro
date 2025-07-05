@@ -1,22 +1,41 @@
 // src/firebase/firebase.js
-import { initializeApp } from 'firebase/app'
-import { getAuth } from 'firebase/auth'
-import { getFirestore } from 'firebase/firestore'
 
-// ⚠️ Substitui estes valores pelos teus do Firebase Console
+import { initializeApp } from 'firebase/app'
+import { getFirestore } from 'firebase/firestore'
+import { getStorage } from 'firebase/storage'
+import { getMessaging, getToken, onMessage } from 'firebase/messaging'
+
 const firebaseConfig = {
-  apiKey: 'AIzaSyAcGGE37ZiTFcz8mo1pSECvDCDOXdzbSHY',
-  authDomain: 'fitness-pro-12345.firebaseapp.com',
-  projectId: 'fitness-pro-12345',
-  storageBucket: 'fitness-pro-12345.appspot.com',
-  messagingSenderId: '123456789012',
-  appId: '1:123456789012:web:abcdefghijklmnopqrstuvwxyz'
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 }
 
 const app = initializeApp(firebaseConfig)
-export const auth = getAuth(app)
-export const db = getFirestore(app)
-export async function requestPermission() {
-  const permission = await Notification.requestPermission()
-  return permission
+const db = getFirestore(app)
+const storage = getStorage(app)
+const messaging = getMessaging(app)
+
+const requestPermission = async () => {
+  try {
+    const permission = await Notification.requestPermission()
+    if (permission === 'granted') {
+      const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY
+      const token = await getToken(messaging, { vapidKey })
+      console.log('Token gerado:', token)
+    } else {
+      console.log('Permissão negada para notificações.')
+    }
+  } catch (err) {
+    console.error('Erro ao solicitar permissão:', err)
+  }
 }
+
+onMessage(messaging, (payload) => {
+  console.log('Mensagem recebida em foreground:', payload)
+})
+
+export { db, storage, requestPermission }
