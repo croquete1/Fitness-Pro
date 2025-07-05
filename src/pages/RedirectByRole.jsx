@@ -2,17 +2,20 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthRole } from "../contexts/authRoleContext";
 
-export default function RedirectByRole() {
-  const { role, loading } = useAuthRole();
-  const navigate = useNavigate();
+function RedirectByRole() {
+  const { user, loading } = useAuth()
 
-  useEffect(() => {
-    if (loading) return;
-    if (role === "admin") navigate("/admin", { replace: true });
-    else if (role === "trainer") navigate("/trainer", { replace: true });
-    else if (role === "cliente") navigate("/cliente", { replace: true });
-    else navigate("/login", { replace: true });
-  }, [role, loading, navigate]);
+  if (loading) return <div style={{ textAlign: 'center', marginTop: '2rem' }}>Loading...</div>
+  if (!user || !user.role) return <Navigate to="/login" replace />
 
-  return <div className="p-4">Redirecionando...</div>;
+  switch (user.role) {
+    case 'admin':
+      return <Navigate to="/admin/dashboard" replace />
+    case 'cliente':
+      return <Navigate to="/cliente/dashboard" replace />
+    case 'trainer':
+      return <Navigate to="/trainer/dashboard" replace />
+    default:
+      return <Navigate to="/login" replace />
+  }
 }
