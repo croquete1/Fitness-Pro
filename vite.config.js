@@ -1,12 +1,12 @@
 // vite.config.js
 
-const { defineConfig } = require('vite')
-const react = require('@vitejs/plugin-react')
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
 
-module.exports = defineConfig({
+export default defineConfig({
   plugins: [react()],
   build: {
-    chunkSizeWarningLimit: 600, // aumenta o limite do warning
+    chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
         manualChunks(id) {
