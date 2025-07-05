@@ -4,6 +4,7 @@ import { initializeApp } from 'firebase/app'
 import { getFirestore } from 'firebase/firestore'
 import { getStorage } from 'firebase/storage'
 import { getMessaging, getToken, onMessage } from 'firebase/messaging'
+import { getAuth } from 'firebase/auth'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -15,6 +16,7 @@ const firebaseConfig = {
 }
 
 const app = initializeApp(firebaseConfig)
+const auth = getAuth(app)
 const db = getFirestore(app)
 const storage = getStorage(app)
 const messaging = getMessaging(app)
@@ -38,4 +40,4 @@ onMessage(messaging, (payload) => {
   console.log('Mensagem recebida em foreground:', payload)
 })
 
-export { db, storage, requestPermission }
+export { auth, db, storage, requestPermission }
