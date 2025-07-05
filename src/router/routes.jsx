@@ -1,19 +1,21 @@
 // src/router/routes.jsx
 
 import { Route, Routes, Navigate } from 'react-router-dom'
-import { useEffect } from 'react'
+import { Suspense, lazy } from 'react'
 import { useAuth } from '../hooks/useAuth'
 
-import Login from '../pages/Login'
-import NotFound from '../pages/NotFound'
+const Login = lazy(() => import('../pages/Login'))
+const NotFound = lazy(() => import('../pages/NotFound'))
+const AdminDashboard = lazy(() => import('../pages/AdminDashboard'))
+const ClientDashboard = lazy(() => import('../pages/ClientDashboard'))
+const TrainerDashboard = lazy(() => import('../pages/TrainerDashboard'))
+const Chat = lazy(() => import('../pages/Chat'))
+const Settings = lazy(() => import('../pages/Settings'))
+const AdminNotificationCreate = lazy(() => import('../pages/AdminNotificationCreate'))
 
-import AdminDashboard from '../pages/AdminDashboard'
-import ClientDashboard from '../pages/ClientDashboard'
-import TrainerDashboard from '../pages/TrainerDashboard'
-
-import AdminOnly from '../pages/ProtectedRoutes/AdminOnly'
-import ClienteOnly from '../pages/ProtectedRoutes/ClienteOnly'
-import TrainerOnly from '../pages/ProtectedRoutes/TrainerOnly'
+const AdminOnly = lazy(() => import('../pages/ProtectedRoutes/AdminOnly'))
+const ClienteOnly = lazy(() => import('../pages/ProtectedRoutes/ClienteOnly'))
+const TrainerOnly = lazy(() => import('../pages/ProtectedRoutes/TrainerOnly'))
 
 function RedirectByRole() {
   const { user, loading } = useAuth()
@@ -35,38 +37,52 @@ function RedirectByRole() {
 
 export function AppRoutes() {
   return (
-    <Routes>
-      <Route path="/" element={<RedirectByRole />} />
-      <Route path="/login" element={<Login />} />
+    <Suspense fallback={<div style={{ textAlign: 'center', marginTop: '2rem' }}>Carregando...</div>}>
+      <Routes>
+        <Route path="/" element={<RedirectByRole />} />
+        <Route path="/login" element={<Login />} />
 
-      <Route
-        path="/admin/dashboard"
-        element={
-          <AdminOnly>
-            <AdminDashboard />
-          </AdminOnly>
-        }
-      />
+        <Route
+          path="/admin/dashboard"
+          element={
+            <AdminOnly>
+              <AdminDashboard />
+            </AdminOnly>
+          }
+        />
 
-      <Route
-        path="/cliente/dashboard"
-        element={
-          <ClienteOnly>
-            <ClientDashboard />
-          </ClienteOnly>
-        }
-      />
+        <Route
+          path="/admin/notificacoes/criar"
+          element={
+            <AdminOnly>
+              <AdminNotificationCreate />
+            </AdminOnly>
+          }
+        />
 
-      <Route
-        path="/trainer/dashboard"
-        element={
-          <TrainerOnly>
-            <TrainerDashboard />
-          </TrainerOnly>
-        }
-      />
+        <Route
+          path="/cliente/dashboard"
+          element={
+            <ClienteOnly>
+              <ClientDashboard />
+            </ClienteOnly>
+          }
+        />
 
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+        <Route
+          path="/trainer/dashboard"
+          element={
+            <TrainerOnly>
+              <TrainerDashboard />
+            </TrainerOnly>
+          }
+        />
+
+        <Route path="/chat" element={<Chat />} />
+        <Route path="/settings" element={<Settings />} />
+
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </Suspense>
   )
 }
