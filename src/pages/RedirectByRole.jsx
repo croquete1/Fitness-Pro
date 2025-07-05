@@ -17,5 +17,8 @@ function RedirectByRole() {
       return <Navigate to="/trainer/dashboard" replace />
     default:
       return <Navigate to="/login" replace />
+      
+  export default RedirectByRole
+
   }
 }
