@@ -1,84 +1,52 @@
 // src/router/routes.jsx
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
-import { useEffect } from 'react'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthRole } from '../contexts/authRoleContext'
-
-import Dashboard from '../pages/Dashboard'
+import LoginForm from '../pages/LoginForm'
+import RegisterForm from '../pages/RegisterForm'
+import AdminDashboard from '../pages/AdminDashboard'
+import DashboardTrainer from '../pages/DashboardTrainer'
+import DashboardCliente from '../pages/DashboardCliente'
+import RoleBasedPages from '../pages/RoleBasedPages'
 import Chat from '../pages/Chat'
 import Settings from '../pages/Settings'
-import Profile from '../pages/Profile'
-import LoginForm from '../pages/LoginForm'
-import ProtectedRoute from './ProtectedRoute'
-import AdminPage from '../pages/AdminPage'
-import AdminLogsPage from '../pages/AdminLogsPage'
-import AdminNotificationCreate from '../pages/AdminNotificationCreate'
+import NotFound from '../pages/NotFound' // opcional, se quiseres uma página 404
 
-function RoleRedirect() {
-  const { user, loading } = useAuthRole()
-  const navigate = useNavigate()
-
-  useEffect(() => {
-    if (!loading && user) {
-      if (user.role === 'admin') {
-        navigate('/admin')
-      } else {
-        navigate('/')
-      }
-    }
-  }, [user, loading, navigate])
-
-  return <p>Redirecionando...</p>
+function ProtectedRoute({ children }) {
+  const { user } = useAuthRole()
+  if (!user) return <Navigate to="/login" />
+  return children
 }
 
 export default function AppRoutes() {
+  const { user } = useAuthRole()
+
+  const renderDashboard = () => {
+    if (!user) return <Navigate to="/login" />
+    if (user.role === 'admin') return <AdminDashboard />
+    if (user.role === 'trainer') return <DashboardTrainer />
+    if (user.role === 'cliente') return <DashboardCliente />
+    return <Navigate to="/login" />
+  }
+
   return (
-    <Routes>
-      <Route path="/login" element={<LoginForm />} />
-
-      <Route path="/" element={
-        <ProtectedRoute>
-          <Dashboard />
-        </ProtectedRoute>
-      } />
-
-      <Route path="/admin" element={
-        <ProtectedRoute>
-          <AdminPage />
-        </ProtectedRoute>
-      } />
-
-      <Route path="/admin/logs" element={
-        <ProtectedRoute>
-          <AdminLogsPage />
-        </ProtectedRoute>
-      } />
-
-      <Route path="/admin/notificacoes" element={
-        <ProtectedRoute>
-          <AdminNotificationCreate />
-        </ProtectedRoute>
-      } />
-
-      <Route path="/chat" element={
-        <ProtectedRoute>
-          <Chat />
-        </ProtectedRoute>
-      } />
-
-      <Route path="/settings" element={
-        <ProtectedRoute>
-          <Settings />
-        </ProtectedRoute>
-      } />
-
-      <Route path="/profile" element={
-        <ProtectedRoute>
-          <Profile />
-        </ProtectedRoute>
-      } />
-
-      <Route path="/redirect" element={<RoleRedirect />} />
-      <Route path="*" element={<Navigate to="/redirect" />} />
-    </Routes>
+    <Router>
+      <Routes>
+        <Route path="/" element={<ProtectedRoute>{renderDashboard()}</ProtectedRoute>} />
+        <Route path="/login" element={<LoginForm />} />
+        <Route path="/register" element={<RegisterForm />} />
+        <Route path="/settings" element={
+          <ProtectedRoute>
+            <Settings />
+          </ProtectedRoute>
+        } />
+        <Route path="/chat" element={
+          <ProtectedRoute>
+            <Chat />
+          </ProtectedRoute>
+        } />
+        <Route path="/painel" element={<ProtectedRoute><RoleBasedPages /></ProtectedRoute>} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </Router>
   )
 }
