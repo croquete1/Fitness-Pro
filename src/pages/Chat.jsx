@@ -15,7 +15,6 @@ import {
   requestPermission,
   listenToForegroundMessages
 } from '../services/firebaseService'
-import { messaging } from '../firebase/firebase'
 import { getMessaging } from 'firebase/messaging'
 
 const Chat = () => {
