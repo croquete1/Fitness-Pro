@@ -16,6 +16,9 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { useAuthRole } from '../contexts/authRoleContext'
 import { format } from 'date-fns'
 import { onMessage } from 'firebase/messaging'
+import { requestPermission, listenToForegroundMessages } from '../services/firebaseService'
+import { messaging } from '../firebase/firebase'
+import { getMessaging } from 'firebase/messaging'
 
 export default function Chat() {
   const { user } = useAuthRole()
