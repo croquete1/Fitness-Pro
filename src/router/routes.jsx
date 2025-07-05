@@ -9,7 +9,7 @@ import DashboardCliente from '../pages/DashboardCliente'
 import RoleBasedPages from '../pages/RoleBasedPages'
 import Chat from '../pages/Chat'
 import Settings from '../pages/Settings'
-import NotFound from '../pages/NotFound' // opcional, se quiseres uma página 404
+import NotFound from '../pages/NotFound'
 
 function ProtectedRoute({ children }) {
   const { user } = useAuthRole()
@@ -22,10 +22,16 @@ export default function AppRoutes() {
 
   const renderDashboard = () => {
     if (!user) return <Navigate to="/login" />
-    if (user.role === 'admin') return <AdminDashboard />
-    if (user.role === 'trainer') return <DashboardTrainer />
-    if (user.role === 'cliente') return <DashboardCliente />
-    return <Navigate to="/login" />
+    switch (user.role) {
+      case 'admin':
+        return <AdminDashboard />
+      case 'trainer':
+        return <DashboardTrainer />
+      case 'cliente':
+        return <DashboardCliente />
+      default:
+        return <Navigate to="/login" />
+    }
   }
 
   return (
