@@ -1,63 +1,116 @@
 // src/pages/AdminDashboard.jsx
+
 import { useEffect, useState } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
-import { getAuth } from 'firebase/auth'
-import { Loader2, Users, ClipboardList, BellRing } from 'lucide-react'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardFooter
+} from '@/components/ui/card'
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer
+} from 'recharts'
+
+const sampleData = [
+  { name: 'Janeiro', users: 30 },
+  { name: 'Fevereiro', users: 45 },
+  { name: 'Março', users: 60 },
+  { name: 'Abril', users: 40 },
+  { name: 'Maio', users: 80 },
+]
 
 export default function AdminDashboard() {
-  const [adminData, setAdminData] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [userCount, setUserCount] = useState(0)
+  const [trainerCount, setTrainerCount] = useState(0)
+  const [pendingRequests, setPendingRequests] = useState(5)
+  const [feedbacks, setFeedbacks] = useState(3)
+  const [notifications, setNotifications] = useState(7)
 
   useEffect(() => {
-    const fetchData = async () => {
-      const auth = getAuth()
-      const user = auth.currentUser
-      if (user) {
-        setAdminData({ name: user.displayName || user.email })
-      }
-      setLoading(false)
-    }
-    fetchData()
+    setUserCount(123)
+    setTrainerCount(12)
   }, [])
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <Loader2 className="animate-spin h-8 w-8 text-gray-500" />
-      </div>
-    )
-  }
-
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-3xl font-bold mb-4">🛠️ Dashboard do Administrador</h1>
+    <div className="min-h-screen bg-gray-50 p-4 md:pl-56">
+      <div className="sticky top-0 z-10 mb-6 bg-white shadow px-4 py-3 font-bold text-xl border-b">
+        Painel de Administração
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="flex items-center space-x-4 py-4">
-            <Users className="w-8 h-8 text-blue-600" />
-            <div>
-              <p className="text-lg font-semibold">Utilizadores</p>
-              <p className="text-sm text-muted">Gerir contas e permissões</p>
-            </div>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <Card className="bg-blue-50">
+          <CardHeader>
+            <CardTitle>Utilizadores</CardTitle>
+            <CardDescription>Total de clientes registados</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">{userCount}</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="flex items-center space-x-4 py-4">
-            <ClipboardList className="w-8 h-8 text-emerald-600" />
-            <div>
-              <p className="text-lg font-semibold">Relatórios</p>
-              <p className="text-sm text-muted">Análises e métricas</p>
-            </div>
+
+        <Card className={trainerCount > 10 ? 'bg-green-50' : 'bg-gray-100'}>
+          <CardHeader>
+            <CardTitle>Personal Trainers</CardTitle>
+            <CardDescription>Total de treinadores registados</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">{trainerCount}</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="flex items-center space-x-4 py-4">
-            <BellRing className="w-8 h-8 text-orange-500" />
-            <div>
-              <p className="text-lg font-semibold">Notificações</p>
-              <p className="text-sm text-muted">Mensagens e alertas</p>
-            </div>
+
+        <Card className={pendingRequests > 5 ? 'bg-red-50' : 'bg-yellow-50'}>
+          <CardHeader>
+            <CardTitle>Pedidos Pendentes</CardTitle>
+            <CardDescription>Solicitações à espera de revisão</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">{pendingRequests}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gray-100">
+          <CardHeader>
+            <CardTitle>Feedback</CardTitle>
+            <CardDescription>Mensagens dos utilizadores</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">{feedbacks}</p>
+          </CardContent>
+        </Card>
+
+        <Card className={notifications > 5 ? 'bg-yellow-100' : 'bg-green-50'}>
+          <CardHeader>
+            <CardTitle>Notificações</CardTitle>
+            <CardDescription>Notificações novas</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">{notifications}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Atividade Mensal</CardTitle>
+            <CardDescription>Novos utilizadores por mês</CardDescription>
+          </CardHeader>
+          <CardContent className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={sampleData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="users" fill="#8884d8" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>
