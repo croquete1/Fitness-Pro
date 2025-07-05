@@ -16,3 +16,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig)
 export const auth = getAuth(app)
 export const db = getFirestore(app)
+export async function requestPermission() {
+  const permission = await Notification.requestPermission()
+  return permission
+}
