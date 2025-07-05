@@ -43,4 +43,4 @@ function AppRoutes() {
   )
 }
 
-export default AppRoutes // ✅ esta linha resolve o erro
+export default AppRoutes
