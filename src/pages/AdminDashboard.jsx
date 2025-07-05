@@ -1,83 +1,65 @@
 // src/pages/AdminDashboard.jsx
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer
-} from 'recharts'
+import { useEffect, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { LogOut, Users, Bell, Settings } from 'lucide-react'
-import { useAuthRole } from '../contexts/authRoleContext'
-import { useNavigate } from 'react-router-dom'
-
-const data = [
-  { name: 'Seg', users: 20 },
-  { name: 'Ter', users: 40 },
-  { name: 'Qua', users: 35 },
-  { name: 'Qui', users: 50 },
-  { name: 'Sex', users: 45 },
-  { name: 'Sáb', users: 25 },
-  { name: 'Dom', users: 30 },
-]
+import { getAuth } from 'firebase/auth'
+import { Loader2, Users, ClipboardList, BellRing } from 'lucide-react'
 
 export default function AdminDashboard() {
-  const { user, logout } = useAuthRole()
-  const navigate = useNavigate()
+  const [adminData, setAdminData] = useState(null)
+  const [loading, setLoading] = useState(true)
 
-  const handleLogout = async () => {
-    await logout()
-    navigate('/login')
+  useEffect(() => {
+    const fetchData = async () => {
+      const auth = getAuth()
+      const user = auth.currentUser
+      if (user) {
+        setAdminData({ name: user.displayName || user.email })
+      }
+      setLoading(false)
+    }
+    fetchData()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="animate-spin h-8 w-8 text-gray-500" />
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Painel do Administrador</h1>
-        <Button onClick={handleLogout} variant="outline" className="flex gap-2">
-          <LogOut className="w-4 h-4" /> Terminar sessão
-        </Button>
-      </div>
+    <div className="p-6 space-y-6">
+      <h1 className="text-3xl font-bold mb-4">🛠️ Dashboard do Administrador</h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
-          <CardContent className="flex items-center justify-between p-4">
+          <CardContent className="flex items-center space-x-4 py-4">
+            <Users className="w-8 h-8 text-blue-600" />
             <div>
-              <p className="text-sm text-muted-foreground">Utilizadores ativos</p>
-              <p className="text-2xl font-bold">125</p>
+              <p className="text-lg font-semibold">Utilizadores</p>
+              <p className="text-sm text-muted">Gerir contas e permissões</p>
             </div>
-            <Users className="w-6 h-6 text-blue-600" />
           </CardContent>
         </Card>
-
         <Card>
-          <CardContent className="flex items-center justify-between p-4">
+          <CardContent className="flex items-center space-x-4 py-4">
+            <ClipboardList className="w-8 h-8 text-emerald-600" />
             <div>
-              <p className="text-sm text-muted-foreground">Notificações</p>
-              <p className="text-2xl font-bold">8</p>
+              <p className="text-lg font-semibold">Relatórios</p>
+              <p className="text-sm text-muted">Análises e métricas</p>
             </div>
-            <Bell className="w-6 h-6 text-yellow-500" />
           </CardContent>
         </Card>
-
         <Card>
-          <CardContent className="flex items-center justify-between p-4">
+          <CardContent className="flex items-center space-x-4 py-4">
+            <BellRing className="w-8 h-8 text-orange-500" />
             <div>
-              <p className="text-sm text-muted-foreground">Configurações</p>
-              <p className="text-2xl font-bold">3</p>
+              <p className="text-lg font-semibold">Notificações</p>
+              <p className="text-sm text-muted">Mensagens e alertas</p>
             </div>
-            <Settings className="w-6 h-6 text-gray-500" />
           </CardContent>
         </Card>
-      </div>
-
-      <div className="bg-white shadow rounded-lg p-6">
-        <h2 className="text-xl font-semibold mb-4">Atividade semanal</h2>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={data}>
-            <XAxis dataKey="name" />
-            <YAxis />
-            <Tooltip />
-            <Bar dataKey="users" fill="#2563eb" radius={[6, 6, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
       </div>
     </div>
   )
