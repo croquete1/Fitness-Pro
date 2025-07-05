@@ -6,8 +6,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
-  CardFooter
+  CardDescription
 } from '@/components/ui/card'
 import {
   BarChart,
