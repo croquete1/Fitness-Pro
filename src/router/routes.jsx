@@ -3,15 +3,15 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useAuthRole } from '../contexts/authRoleContext'
 
-import DashboardCliente from '../pages/DashboardCliente'
-import DashboardTrainer from '../pages/DashboardTrainer'
+import Dashboard from '../pages/Dashboard'
 import Chat from '../pages/Chat'
 import Settings from '../pages/Settings'
 import Profile from '../pages/Profile'
-import Login from '../pages/Login'
+import LoginForm from '../pages/LoginForm'
 import ProtectedRoute from './ProtectedRoute'
 import AdminPage from '../pages/AdminPage'
 import AdminLogsPage from '../pages/AdminLogsPage'
+import AdminNotificationCreate from '../pages/AdminNotificationCreate'
 
 function RoleRedirect() {
   const { user, loading } = useAuthRole()
@@ -19,18 +19,10 @@ function RoleRedirect() {
 
   useEffect(() => {
     if (!loading && user) {
-      switch (user.role) {
-        case 'admin':
-          navigate('/admin')
-          break
-        case 'cliente':
-          navigate('/cliente')
-          break
-        case 'personal_trainer':
-          navigate('/trainer')
-          break
-        default:
-          navigate('/login')
+      if (user.role === 'admin') {
+        navigate('/admin')
+      } else {
+        navigate('/')
       }
     }
   }, [user, loading, navigate])
@@ -38,21 +30,55 @@ function RoleRedirect() {
   return <p>Redirecionando...</p>
 }
 
-function AppRoutes() {
+export default function AppRoutes() {
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/cliente" element={<ProtectedRoute><DashboardCliente /></ProtectedRoute>} />
-      <Route path="/trainer" element={<ProtectedRoute><DashboardTrainer /></ProtectedRoute>} />
-      <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
-      <Route path="/admin/logs" element={<ProtectedRoute><AdminLogsPage /></ProtectedRoute>} />
-      <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
-      <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-      <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+      <Route path="/login" element={<LoginForm />} />
+
+      <Route path="/" element={
+        <ProtectedRoute>
+          <Dashboard />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/admin" element={
+        <ProtectedRoute>
+          <AdminPage />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/admin/logs" element={
+        <ProtectedRoute>
+          <AdminLogsPage />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/admin/notificacoes" element={
+        <ProtectedRoute>
+          <AdminNotificationCreate />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/chat" element={
+        <ProtectedRoute>
+          <Chat />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/settings" element={
+        <ProtectedRoute>
+          <Settings />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/profile" element={
+        <ProtectedRoute>
+          <Profile />
+        </ProtectedRoute>
+      } />
+
       <Route path="/redirect" element={<RoleRedirect />} />
       <Route path="*" element={<Navigate to="/redirect" />} />
     </Routes>
   )
 }
-
-export default AppRoutes
