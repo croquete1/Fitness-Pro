@@ -1,58 +1,26 @@
 // src/router/routes.jsx
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { useAuthRole } from '../contexts/authRoleContext'
-import LoginForm from '../pages/LoginForm'
-import RegisterForm from '../pages/RegisterForm'
+import { Routes, Route, Navigate } from 'react-router-dom'
+import RedirectByRole from '../pages/RedirectByRole'
+import Login from '../pages/Login'
+
 import AdminDashboard from '../pages/AdminDashboard'
-import DashboardTrainer from '../pages/DashboardTrainer'
-import DashboardCliente from '../pages/DashboardCliente'
-import RoleBasedPages from '../pages/RoleBasedPages'
-import Chat from '../pages/Chat'
-import Settings from '../pages/Settings'
+import ClientDashboard from '../pages/ClientDashboard'
+import TrainerDashboard from '../pages/TrainerDashboard'
 import NotFound from '../pages/NotFound'
 
-function ProtectedRoute({ children }) {
-  const { user } = useAuthRole()
-  if (!user) return <Navigate to="/login" />
-  return children
-}
+import AdminOnly from '../pages/ProtectedRoutes/AdminOnly'
+import ClienteOnly from '../pages/ProtectedRoutes/ClienteOnly'
+import TrainerOnly from '../pages/ProtectedRoutes/TrainerOnly'
 
 export default function AppRoutes() {
-  const { user } = useAuthRole()
-
-  const renderDashboard = () => {
-    if (!user) return <Navigate to="/login" />
-    switch (user.role) {
-      case 'admin':
-        return <AdminDashboard />
-      case 'trainer':
-        return <DashboardTrainer />
-      case 'cliente':
-        return <DashboardCliente />
-      default:
-        return <Navigate to="/login" />
-    }
-  }
-
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<ProtectedRoute>{renderDashboard()}</ProtectedRoute>} />
-        <Route path="/login" element={<LoginForm />} />
-        <Route path="/register" element={<RegisterForm />} />
-        <Route path="/settings" element={
-          <ProtectedRoute>
-            <Settings />
-          </ProtectedRoute>
-        } />
-        <Route path="/chat" element={
-          <ProtectedRoute>
-            <Chat />
-          </ProtectedRoute>
-        } />
-        <Route path="/painel" element={<ProtectedRoute><RoleBasedPages /></ProtectedRoute>} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </Router>
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/admin" element={<AdminOnly><AdminDashboard /></AdminOnly>} />
+      <Route path="/cliente" element={<ClienteOnly><ClientDashboard /></ClienteOnly>} />
+      <Route path="/personal-trainer" element={<TrainerOnly><TrainerDashboard /></TrainerOnly>} />
+      <Route path="/redirect" element={<RedirectByRole />} />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
   )
 }
