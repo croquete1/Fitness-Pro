@@ -17,6 +17,10 @@ import {
   Tooltip,
   ResponsiveContainer
 } from 'recharts'
+import {
+  DASHBOARD_LABELS,
+  DASHBOARD_ROUTES
+} from '@/router/routes.config'
 
 const sampleData = [
   { name: 'Janeiro', users: 30 },
@@ -41,14 +45,14 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:pl-56">
       <div className="sticky top-0 z-10 mb-6 bg-white shadow px-4 py-3 font-bold text-xl border-b">
-        Painel de Administração
+        {DASHBOARD_LABELS.title}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card className="bg-blue-50">
           <CardHeader>
-            <CardTitle>Utilizadores</CardTitle>
-            <CardDescription>Total de clientes registados</CardDescription>
+            <CardTitle>{DASHBOARD_LABELS.users}</CardTitle>
+            <CardDescription>{DASHBOARD_LABELS.usersDesc}</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">{userCount}</p>
@@ -57,8 +61,8 @@ export default function AdminDashboard() {
 
         <Card className={trainerCount > 10 ? 'bg-green-50' : 'bg-gray-100'}>
           <CardHeader>
-            <CardTitle>Personal Trainers</CardTitle>
-            <CardDescription>Total de treinadores registados</CardDescription>
+            <CardTitle>{DASHBOARD_LABELS.trainers}</CardTitle>
+            <CardDescription>{DASHBOARD_LABELS.trainersDesc}</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">{trainerCount}</p>
@@ -67,8 +71,8 @@ export default function AdminDashboard() {
 
         <Card className={pendingRequests > 5 ? 'bg-red-50' : 'bg-yellow-50'}>
           <CardHeader>
-            <CardTitle>Pedidos Pendentes</CardTitle>
-            <CardDescription>Solicitações à espera de revisão</CardDescription>
+            <CardTitle>{DASHBOARD_LABELS.pending}</CardTitle>
+            <CardDescription>{DASHBOARD_LABELS.pendingDesc}</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">{pendingRequests}</p>
@@ -77,8 +81,8 @@ export default function AdminDashboard() {
 
         <Card className="bg-gray-100">
           <CardHeader>
-            <CardTitle>Feedback</CardTitle>
-            <CardDescription>Mensagens dos utilizadores</CardDescription>
+            <CardTitle>{DASHBOARD_LABELS.feedback}</CardTitle>
+            <CardDescription>{DASHBOARD_LABELS.feedbackDesc}</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">{feedbacks}</p>
@@ -87,8 +91,8 @@ export default function AdminDashboard() {
 
         <Card className={notifications > 5 ? 'bg-yellow-100' : 'bg-green-50'}>
           <CardHeader>
-            <CardTitle>Notificações</CardTitle>
-            <CardDescription>Notificações novas</CardDescription>
+            <CardTitle>{DASHBOARD_LABELS.notifications}</CardTitle>
+            <CardDescription>{DASHBOARD_LABELS.notificationsDesc}</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">{notifications}</p>
@@ -97,8 +101,8 @@ export default function AdminDashboard() {
 
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Atividade Mensal</CardTitle>
-            <CardDescription>Novos utilizadores por mês</CardDescription>
+            <CardTitle>{DASHBOARD_LABELS.activity}</CardTitle>
+            <CardDescription>{DASHBOARD_LABELS.activityDesc}</CardDescription>
           </CardHeader>
           <CardContent className="h-72">
             <ResponsiveContainer width="100%" height="100%">

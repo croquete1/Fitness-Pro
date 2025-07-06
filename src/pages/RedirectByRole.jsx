@@ -1,6 +1,5 @@
-import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuthRole } from "../contexts/authRoleContext";
+import { Navigate } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
 
 function RedirectByRole() {
   const { user, loading } = useAuth()
@@ -17,8 +16,7 @@ function RedirectByRole() {
       return <Navigate to="/trainer/dashboard" replace />
     default:
       return <Navigate to="/login" replace />
-      
-  export default RedirectByRole
-
   }
 }
+
+export default RedirectByRole
