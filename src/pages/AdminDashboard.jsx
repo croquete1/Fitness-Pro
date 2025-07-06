@@ -17,10 +17,8 @@ import {
   Tooltip,
   ResponsiveContainer
 } from 'recharts'
-import {
-  DASHBOARD_LABELS,
-  DASHBOARD_ROUTES
-} from '@/router/routes.config'
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
+import { Bell, User } from 'lucide-react'
 
 const sampleData = [
   { name: 'Janeiro', users: 30 },
@@ -43,66 +41,58 @@ export default function AdminDashboard() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:pl-56">
-      <div className="sticky top-0 z-10 mb-6 bg-white shadow px-4 py-3 font-bold text-xl border-b">
-        {DASHBOARD_LABELS.title}
+    <div className="min-h-screen bg-[#F4F7FE] p-6">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <div className="text-2xl font-bold">Bem-vindo, Admin 👋</div>
+          <p className="text-sm text-gray-500">Painel geral de estatísticas</p>
+        </div>
+        <div className="flex items-center gap-4">
+          <Bell className="text-gray-500 w-5 h-5 cursor-pointer" />
+          <Avatar className="h-10 w-10">
+            <AvatarImage src="https://github.com/shadcn.png" alt="Admin" />
+            <AvatarFallback>
+              <User className="w-5 h-5" />
+            </AvatarFallback>
+          </Avatar>
+        </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="bg-blue-50">
-          <CardHeader>
-            <CardTitle>{DASHBOARD_LABELS.users}</CardTitle>
-            <CardDescription>{DASHBOARD_LABELS.usersDesc}</CardDescription>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+        <Card className="bg-white shadow rounded-2xl p-4">
+          <CardHeader className="p-0 mb-2">
+            <CardTitle className="text-gray-600 text-sm">Total de Utilizadores</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{userCount}</p>
-          </CardContent>
+          <CardContent className="text-3xl font-semibold text-blue-600">{userCount}</CardContent>
         </Card>
 
-        <Card className={trainerCount > 10 ? 'bg-green-50' : 'bg-gray-100'}>
-          <CardHeader>
-            <CardTitle>{DASHBOARD_LABELS.trainers}</CardTitle>
-            <CardDescription>{DASHBOARD_LABELS.trainersDesc}</CardDescription>
+        <Card className="bg-white shadow rounded-2xl p-4">
+          <CardHeader className="p-0 mb-2">
+            <CardTitle className="text-gray-600 text-sm">Personal Trainers</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{trainerCount}</p>
-          </CardContent>
+          <CardContent className="text-3xl font-semibold text-green-600">{trainerCount}</CardContent>
         </Card>
 
-        <Card className={pendingRequests > 5 ? 'bg-red-50' : 'bg-yellow-50'}>
-          <CardHeader>
-            <CardTitle>{DASHBOARD_LABELS.pending}</CardTitle>
-            <CardDescription>{DASHBOARD_LABELS.pendingDesc}</CardDescription>
+        <Card className="bg-white shadow rounded-2xl p-4">
+          <CardHeader className="p-0 mb-2">
+            <CardTitle className="text-gray-600 text-sm">Pedidos Pendentes</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{pendingRequests}</p>
-          </CardContent>
+          <CardContent className="text-3xl font-semibold text-red-500">{pendingRequests}</CardContent>
         </Card>
 
-        <Card className="bg-gray-100">
-          <CardHeader>
-            <CardTitle>{DASHBOARD_LABELS.feedback}</CardTitle>
-            <CardDescription>{DASHBOARD_LABELS.feedbackDesc}</CardDescription>
+        <Card className="bg-white shadow rounded-2xl p-4">
+          <CardHeader className="p-0 mb-2">
+            <CardTitle className="text-gray-600 text-sm">Notificações</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{feedbacks}</p>
-          </CardContent>
+          <CardContent className="text-3xl font-semibold text-yellow-500">{notifications}</CardContent>
         </Card>
+      </div>
 
-        <Card className={notifications > 5 ? 'bg-yellow-100' : 'bg-green-50'}>
-          <CardHeader>
-            <CardTitle>{DASHBOARD_LABELS.notifications}</CardTitle>
-            <CardDescription>{DASHBOARD_LABELS.notificationsDesc}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{notifications}</p>
-          </CardContent>
-        </Card>
-
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>{DASHBOARD_LABELS.activity}</CardTitle>
-            <CardDescription>{DASHBOARD_LABELS.activityDesc}</CardDescription>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="bg-white shadow rounded-2xl col-span-2 p-6">
+          <CardHeader className="mb-4">
+            <CardTitle className="text-lg font-semibold">Atividade Mensal</CardTitle>
+            <CardDescription className="text-sm text-gray-500">Novos utilizadores por mês</CardDescription>
           </CardHeader>
           <CardContent className="h-72">
             <ResponsiveContainer width="100%" height="100%">
@@ -111,9 +101,19 @@ export default function AdminDashboard() {
                 <XAxis dataKey="name" />
                 <YAxis />
                 <Tooltip />
-                <Bar dataKey="users" fill="#8884d8" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="users" fill="#6366F1" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white shadow rounded-2xl p-6">
+          <CardHeader className="mb-4">
+            <CardTitle className="text-lg font-semibold">Feedback</CardTitle>
+            <CardDescription className="text-sm text-gray-500">Mensagens dos utilizadores</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold text-purple-500">{feedbacks}</p>
           </CardContent>
         </Card>
       </div>
