@@ -1,0 +1,1 @@
+// Full chat service logic
