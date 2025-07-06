@@ -1,5 +1,7 @@
 {
   "projects": {
     "default": "fitnesspro-36d8b"
-  }
+  },
+  "targets": {},
+  "etags": {}
 }
