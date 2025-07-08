@@ -1,17 +1,19 @@
-// src/main.jsx
+// src/firebase/firebase.js
+import { initializeApp } from 'firebase/app'
+import { getFirestore } from 'firebase/firestore'
+import { getMessaging } from 'firebase/messaging'
 
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
-import App from './App'
-import './index.css'
+const firebaseConfig = {
+  apiKey: "AIzaSyAcGGE37ZiTFcz8mo1pSECvDCDOXdzbSHY",
+  authDomain: "fitness-pro-12345.firebaseapp.com",
+  projectId: "fitness-pro-12345",
+  storageBucket: "fitness-pro-12345.appspot.com",
+  messagingSenderId: "1234567890",
+  appId: "1:1234567890:web:abcdef123456",
+  measurementId: "G-1234567890"
+}
 
-const root = document.getElementById('root')
+const app = initializeApp(firebaseConfig)
 
-ReactDOM.createRoot(root).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
-  </React.StrictMode>
-)
+export const db = getFirestore(app)
+export const messaging = getMessaging(app)
