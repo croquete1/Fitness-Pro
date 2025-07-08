@@ -1,0 +1,29 @@
+/* src/index.css */
+
+/* Tailwind base reset */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Fontes modernas */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
+html,
+body {
+  @apply bg-gray-50 text-gray-800 font-sans;
+  font-family: 'Inter', sans-serif;
+  scroll-behavior: smooth;
+  min-height: 100vh;
+}
+
+a {
+  @apply text-blue-600 hover:underline;
+}
+
+button {
+  @apply focus:outline-none focus:ring;
+}
+
+.dark body {
+  @apply bg-gray-900 text-white;
+}
