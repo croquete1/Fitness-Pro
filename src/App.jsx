@@ -1,1 +1,1 @@
-// App root component
+export default function App() { return <div>Hello TailAdmin + Firebase</div>; }

@@ -1,1 +1,1 @@
-// Auth and role context
+// Auth context with role handling
