@@ -17,7 +17,6 @@ function copyRecursiveSync(src, dest) {
   });
 }
 
-// criar dist e copiar tudo de src para dist
 if (!fs.existsSync(distDir)) fs.mkdirSync(distDir);
 copyRecursiveSync(srcDir, distDir);
 console.log('Build concluída com sucesso!');

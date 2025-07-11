@@ -1,8 +1,7 @@
 {
-  "name": "tailadmin-dashboard",
+  "name": "fitness-dashboard",
   "version": "1.0.0",
   "scripts": {
     "build": "node build.js"
-  },
-  "devDependencies": {}
+  }
 }
