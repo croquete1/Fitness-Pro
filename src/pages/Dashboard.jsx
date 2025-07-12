@@ -1,7 +1,7 @@
 function Dashboard() {
   return (
-    <div className="text-3xl font-bold text-green-700">
-      Dashboard Fitness Pro com React 🚀
+    <div className="text-2xl font-semibold text-green-600">
+      Página principal da dashboard 🚀
     </div>
   )
 }
