@@ -1,25 +1,24 @@
 import { Routes, Route } from 'react-router-dom'
 import Sidebar from './components/Sidebar'
 import Header from './components/Header'
-import Footer from './components/Footer'
-import Dashboard from './pages/Dashboard'
-import Users from './pages/Users'
-import Settings from './pages/Settings'
+import DashboardCliente from './pages/DashboardCliente'
+import DashboardTrainer from './pages/DashboardTrainer'
+import DashboardAdmin from './pages/DashboardAdmin'
 
 function App() {
   return (
     <div className="flex">
       <Sidebar />
-      <div className="flex flex-col flex-1 min-h-screen">
+      <div className="flex flex-col flex-1 min-h-screen bg-neutral-50">
         <Header />
-        <main className="flex-1 p-6 bg-neutral-50">
+        <main className="flex-1 p-6">
           <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/users" element={<Users />} />
-            <Route path="/settings" element={<Settings />} />
+            <Route path="/dashboard-cliente" element={<DashboardCliente />} />
+            <Route path="/dashboard-trainer" element={<DashboardTrainer />} />
+            <Route path="/dashboard-admin" element={<DashboardAdmin />} />
+            <Route path="*" element={<div>Bem-vindo à aplicação Fitness Pro</div>} />
           </Routes>
         </main>
-        <Footer />
       </div>
     </div>
   )

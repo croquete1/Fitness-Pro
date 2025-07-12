@@ -2,12 +2,22 @@ import { Link } from 'react-router-dom'
 
 function Sidebar() {
   return (
-    <aside className="w-64 bg-white h-screen shadow-md">
-      <div className="p-4 font-bold text-lg border-b">Fitness Pro</div>
-      <nav className="flex flex-col p-4 space-y-2">
-        <Link to="/" className="hover:text-blue-600">Dashboard</Link>
-        <Link to="/users" className="hover:text-blue-600">Utilizadores</Link>
-        <Link to="/settings" className="hover:text-blue-600">Definições</Link>
+    <aside className="absolute left-0 top-0 z-9999 flex h-screen w-72.5 flex-col overflow-y-hidden bg-black duration-300 ease-linear">
+      <div className="flex items-center justify-between gap-2 px-6 py-5">
+        <Link to="/" className="text-white text-lg font-semibold">FitnessPro</Link>
+      </div>
+      <nav className="flex-1 overflow-y-auto px-4 py-4">
+        <ul className="flex flex-col gap-2">
+          <li>
+            <Link to="/" className="text-white hover:text-gray-300 transition">Dashboard</Link>
+          </li>
+          <li>
+            <Link to="/users" className="text-white hover:text-gray-300 transition">Utilizadores</Link>
+          </li>
+          <li>
+            <Link to="/settings" className="text-white hover:text-gray-300 transition">Definições</Link>
+          </li>
+        </ul>
       </nav>
     </aside>
   )
