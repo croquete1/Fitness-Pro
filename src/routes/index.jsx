@@ -1,6 +1,7 @@
 
 import {
   createBrowserRouter,
+  Navigate,
 } from "react-router-dom";
 import MainLayout from "@/layouts/MainLayout";
 import DashboardCliente from "@/pages/DashboardCliente";
@@ -13,21 +14,19 @@ import ForgotPassword from "@/pages/ForgotPassword";
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <MainLayout />,
-    children: [
-      {
-        path: "/dashboard-cliente",
-        element: <DashboardCliente />,
-      },
-      {
-        path: "/dashboard-trainer",
-        element: <DashboardTrainer />,
-      },
-      {
-        path: "/dashboard-admin",
-        element: <DashboardAdmin />,
-      },
-    ],
+    element: <Navigate to="/login" replace />,
+  },
+  {
+    path: "/dashboard-cliente",
+    element: <MainLayout><DashboardCliente /></MainLayout>,
+  },
+  {
+    path: "/dashboard-trainer",
+    element: <MainLayout><DashboardTrainer /></MainLayout>,
+  },
+  {
+    path: "/dashboard-admin",
+    element: <MainLayout><DashboardAdmin /></MainLayout>,
   },
   {
     path: "/login",
