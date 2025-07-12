@@ -50,7 +50,7 @@
   "bugs": {
     "url": "https://github.com/srobbin01/tailwind-dashboard-template-dashwind/issues"
   },
-  "homepage": "./",
+  "homepage": "",
   "eslintConfig": {
     "extends": [
       "react-app",
