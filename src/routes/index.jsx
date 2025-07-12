@@ -1,15 +1,10 @@
 
-import {
-  createBrowserRouter,
-  Navigate,
-} from "react-router-dom";
+import { createBrowserRouter, Navigate } from "react-router-dom";
 import MainLayout from "@/layouts/MainLayout";
 import DashboardCliente from "@/pages/DashboardCliente";
 import DashboardTrainer from "@/pages/DashboardTrainer";
 import DashboardAdmin from "@/pages/DashboardAdmin";
 import Login from "@/pages/Login";
-import Register from "@/pages/Register";
-import ForgotPassword from "@/pages/ForgotPassword";
 
 const router = createBrowserRouter([
   {
@@ -31,15 +26,7 @@ const router = createBrowserRouter([
   {
     path: "/login",
     element: <Login />,
-  },
-  {
-    path: "/register",
-    element: <Register />,
-  },
-  {
-    path: "/forgot-password",
-    element: <ForgotPassword />,
-  },
+  }
 ]);
 
 export default router;
