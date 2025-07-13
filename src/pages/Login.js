@@ -1,15 +1,14 @@
-import {useState, useRef} from 'react'
-import {Link} from 'react-router-dom'
-import Login from '../features/user/Login'
+// src/pages/Login.js
 
-function ExternalPage(){
+import React from "react";
+import LoginForm from "../features/user/Login"; // supondo que o componente real está aqui
 
-
-    return(
+const Login = () => {
+    return (
         <div className="">
-                <Login />
+            <LoginForm />
         </div>
-    )
-}
+    );
+};
 
-export default ExternalPage
+export default Login;
