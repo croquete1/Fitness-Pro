@@ -1,6 +1,6 @@
 // src/layouts/AdminLayout.jsx
 import React from "react";
-import SidebarAdmin from "../components/SidebarAdmin";
+import SidebarAdmin from "../components/SidebarAdmin.jsx";
 
 export default function AdminLayout({ children }) {
   return (
