@@ -1,0 +1,41 @@
+/* src/index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Fontes personalizadas (exemplo com Satoshi) */
+@layer base {
+  @import url('https://fonts.googleapis.com/css2?family=Satoshi:wght@400;600;700&display=swap');
+
+  html {
+    font-family: 'Satoshi', sans-serif;
+  }
+}
+
+/* Exemplo de variáveis customizadas para tema */
+@layer base {
+  :root {
+    --brand-50: #f0f5ff;
+    --brand-100: #e0e7ff;
+    --brand-200: #c7d2fe;
+    --brand-500: #6366f1;
+    --brand-600: #4f46e5;
+    --brand-700: #4338ca;
+  }
+
+  .dark {
+    --brand-50: #1e1b4b;
+    --brand-100: #2c2a74;
+    --brand-200: #3735a2;
+    --brand-500: #6366f1;
+    --brand-600: #4f46e5;
+    --brand-700: #4338ca;
+  }
+}
+
+/* Ajustes adicionais se necessário */
+@layer components {
+  .btn-brand {
+    @apply px-4 py-2 bg-brand-500 text-white rounded-lg hover:bg-brand-600 transition;
+  }
+}
