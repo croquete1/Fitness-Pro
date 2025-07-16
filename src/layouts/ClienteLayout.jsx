@@ -1,14 +1,12 @@
-import { useAuth } from "../contexts/AuthContext";
-export default function ClienteLayout() {
-  const { logout } = useAuth();
+// src/layouts/ClienteLayout.jsx
+import React from "react";
+import SidebarCliente from "../components/SidebarCliente";
+
+export default function ClienteLayout({ children }) {
   return (
-    <div>
-      <header>
-        <button onClick={logout}>Logout</button>
-      </header>
-      <main>
-        <h1>Dashboard Cliente</h1>
-      </main>
+    <div className="flex min-h-screen">
+      <SidebarCliente />
+      <main className="flex-1 bg-gray-100">{children}</main>
     </div>
   );
 }

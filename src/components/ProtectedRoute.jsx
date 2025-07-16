@@ -1,10 +1,10 @@
+// src/components/ProtectedRoute.jsx
+import React from "react";
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 
-export default function ProtectedRoute({ roleRequired }) {
+export default function ProtectedRoute() {
   const { user, loading } = useAuth();
   if (loading) return <div>Loading...</div>;
-  if (!user) return <Navigate to="/login" replace />;
-  // futuramente verificar user.role
-  return <Outlet />;
+  return user ? <Outlet /> : <Navigate to="/login" replace />;
 }
