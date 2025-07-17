@@ -4,7 +4,7 @@ import {
 } from '@chakra-ui/react';
 import { useState } from 'react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../services/firebase'; // ajusta conforme o teu setup
+import { auth, db } from '../firebase'; // ajusta conforme o teu setup
 
 export default function Login() {
   const [email, setEmail] = useState('');
