@@ -1,25 +1,15 @@
-import React from "react";
-import ProgressChart from "../components/ProgressChart";
+import { Text, Box } from '@chakra-ui/react';
+import LayoutCliente from '../components/LayoutCliente';
 
-export default function DashboardCliente() {
-  // Exemplo com dados reais ou fictícios:
-  const weeklyData = {
-    series: [{ name: "Progresso", data: [5, 7, 3, 8, 6, 9, 4] }]
-  };
-
-  const weeklyOptions = {
-    chart: { height: 300, toolbar: { show: false }, zoom: { enabled: false } },
-    xaxis: { categories: ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"] },
-    stroke: { curve: "smooth" },
-    dataLabels: { enabled: false },
-    legend: { position: "top" },
-  };
-
+export default function DashboardCliente({ user }) {
   return (
-    <div className="p-6">
-      <div className="max-w-4xl mx-auto space-y-6">
-        <ProgressChart data={weeklyData.series} options={weeklyOptions} />
-      </div>
-    </div>
+    <LayoutCliente>
+      <Box>
+        <Text fontSize="xl" mb={4}>
+          Bem-vindo, {user?.email}
+        </Text>
+        <Text>Este é o teu painel de cliente.</Text>
+      </Box>
+    </LayoutCliente>
   );
 }

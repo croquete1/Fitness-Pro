@@ -1,22 +1,20 @@
+import React, { useState } from 'react';
 import {
   Box,
   Button,
   Flex,
-  FormControl,
-  FormLabel,
   Heading,
   Input,
-  RadioGroup,
-  Radio,
   Stack,
   Text,
-  useToast,
 } from '@chakra-ui/react';
-import { useState } from 'react';
+import { FormControl, FormLabel } from '@chakra-ui/form-control';
+import { Radio, RadioGroup } from '@chakra-ui/radio';
+import { useToast } from '@chakra-ui/toast';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
-import { auth, db } from '../firebase'; // ajusta para '../services/firebase' se necessário
+import { auth, db } from '../firebase';
 
 export default function Register() {
   const [name, setName] = useState('');
@@ -29,18 +27,15 @@ export default function Register() {
   const handleRegister = async () => {
     if (!name || !email || !password) {
       toast({
-        title: 'Preenche todos os campos.',
+        title: 'Preenche todos os campos',
         status: 'warning',
-        duration: 3000,
         isClosable: true,
       });
       return;
     }
 
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-
+      const { user } = await createUserWithEmailAndPassword(auth, email, password);
       await setDoc(doc(db, 'users', user.uid), {
         name,
         email,
@@ -49,19 +44,17 @@ export default function Register() {
       });
 
       toast({
-        title: 'Registo concluído!',
+        title: 'Registo efetuado!',
         status: 'success',
-        duration: 3000,
         isClosable: true,
       });
 
       navigate('/dashboard');
     } catch (error) {
       toast({
-        title: 'Erro ao registar',
+        title: 'Erro no registo',
         description: error.message,
         status: 'error',
-        duration: 5000,
         isClosable: true,
       });
     }
@@ -76,7 +69,6 @@ export default function Register() {
         <FormControl mb={4}>
           <FormLabel>Nome</FormLabel>
           <Input
-            type="text"
             placeholder="João Silva"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -113,11 +105,11 @@ export default function Register() {
         <Button colorScheme="blue" w="full" onClick={handleRegister}>
           Registar
         </Button>
-        <Text mt={4} textAlign="center" fontSize="sm" color="gray.600">
+        <Text mt={4} textAlign="center" fontSize="sm">
           Já tens conta?{' '}
-          <a href="/" style={{ color: '#3182ce' }}>
+          <Text as="a" href="/" color="blue.500">
             Faz login
-          </a>
+          </Text>
         </Text>
       </Box>
     </Flex>

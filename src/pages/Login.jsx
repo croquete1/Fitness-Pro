@@ -1,32 +1,52 @@
+import React, { useState } from 'react';
 import {
-  Box, Button, Flex, FormControl, FormLabel,
-  Heading, Input, Text, useToast
+  Box,
+  Button,
+  Flex,
+  Heading,
+  Input,
+  Text,
 } from '@chakra-ui/react';
-import { useState } from 'react';
+import { FormControl, FormLabel } from '@chakra-ui/form-control';
+import { useToast } from '@chakra-ui/toast';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth, db } from '../firebase'; // ajusta conforme o teu setup
+import { useNavigate } from 'react-router-dom';
+import { auth, db } from '../firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const toast = useToast();
+  const navigate = useNavigate();
 
   const handleLogin = async () => {
+    if (!email || !password) {
+      toast({
+        title: 'Preenche email e password',
+        status: 'warning',
+        isClosable: true,
+      });
+      return;
+    }
+
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const { user } = await signInWithEmailAndPassword(auth, email, password);
+      const snap = await getDoc(doc(db, 'users', user.uid));
+      const role = snap.exists() ? snap.data().role : null;
+
       toast({
         title: 'Login bem-sucedido!',
         status: 'success',
-        duration: 3000,
         isClosable: true,
       });
-      window.location.href = '/dashboard'; // ou usa navigate() se estiveres com React Router v6+
+
+      navigate('/dashboard');
     } catch (error) {
       toast({
-        title: 'Erro ao fazer login',
+        title: 'Erro no login',
         description: error.message,
         status: 'error',
-        duration: 5000,
         isClosable: true,
       });
     }
@@ -36,7 +56,7 @@ export default function Login() {
     <Flex minH="100vh" align="center" justify="center" bg="gray.50">
       <Box bg="white" p={8} rounded="md" shadow="lg" w="full" maxW="md">
         <Heading mb={6} textAlign="center" color="brand.500">
-          FitnessPro Login
+          Login FitnessPro
         </Heading>
         <FormControl mb={4}>
           <FormLabel>Email</FormLabel>
@@ -44,7 +64,7 @@ export default function Login() {
             type="email"
             placeholder="exemplo@email.com"
             value={email}
-            onChange={e => setEmail(e.target.value)}
+            onChange={(e) => setEmail(e.target.value)}
           />
         </FormControl>
         <FormControl mb={6}>
@@ -53,14 +73,17 @@ export default function Login() {
             type="password"
             placeholder="••••••••"
             value={password}
-            onChange={e => setPassword(e.target.value)}
+            onChange={(e) => setPassword(e.target.value)}
           />
         </FormControl>
-        <Button colorScheme="brand" w="full" onClick={handleLogin}>
+        <Button colorScheme="blue" w="full" mb={4} onClick={handleLogin}>
           Entrar
         </Button>
-        <Text mt={4} textAlign="center" fontSize="sm" color="gray.600">
-          Ainda não tens conta? <a href="/register" style={{ color: '#3182ce' }}>Regista-te</a>
+        <Text textAlign="center">
+          Não tens conta?{' '}
+          <Text as="a" href="/register" color="blue.500">
+            Regista-te
+          </Text>
         </Text>
       </Box>
     </Flex>

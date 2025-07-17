@@ -1,12 +1,15 @@
-// src/pages/DashboardAdmin.jsx
-import React from "react";
+import { Text, Box } from '@chakra-ui/react';
+import LayoutAdmin from '../components/LayoutAdmin';
 
-export default function DashboardAdmin() {
+export default function DashboardAdmin({ user }) {
   return (
-    <div className="p-6">
-      <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-      <p>Bem-vindo ao painel de administração.</p>
-      {/* Adiciona gráficos, gestão de utilizadores, etc */}
-    </div>
+    <LayoutAdmin>
+      <Box>
+        <Text fontSize="xl" mb={4}>
+          Olá Admin, {user?.email}
+        </Text>
+        <Text>Este é o teu painel de administração.</Text>
+      </Box>
+    </LayoutAdmin>
   );
 }
