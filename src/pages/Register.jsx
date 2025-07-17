@@ -1,34 +1,102 @@
-import { useState } from "react";
-import { useAuth } from "../contexts/AuthContext";
-import { useNavigate, Link } from "react-router-dom";
+import {
+  Box, Button, Flex, FormControl, FormLabel,
+  Heading, Input, RadioGroup, Radio, Stack,
+  Text, useToast
+} from '@chakra-ui/react';
+import { useState } from 'react';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
+import { auth } from '../services/firebase';
+import { db } from '../services/firebase';
 
 export default function Register() {
-  const { signup } = useAuth();
-  const nav = useNavigate();
-  const [email, setEmail] = useState("");
-  const [pass, setPass] = useState("");
-  const [err, setErr] = useState("");
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [role, setRole] = useState('cliente');
+  const toast = useToast();
 
-  const submit = async e => {
-    e.preventDefault();
+  const handleRegister = async () => {
     try {
-      await signup(email, pass);
-      nav("/login");
-    } catch {
-      setErr("Erro ao registar");
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Grava no Firestore
+      await setDoc(doc(db, 'users', user.uid), {
+        name,
+        email,
+        role,
+        createdAt: new Date()
+      });
+
+      toast({
+        title: 'Registo concluído!',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+
+      window.location.href = '/dashboard';
+    } catch (error) {
+      toast({
+        title: 'Erro ao registar',
+        description: error.message,
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-navy-900">
-      <form onSubmit={submit} className="p-8 bg-white dark:bg-navy-800 shadow-lg">
-        <h1>Registar</h1>
-        {err && <p className="text-red-500">{err}</p>}
-        <input placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} />
-        <input type="password" placeholder="Senha" value={pass} onChange={e => setPass(e.target.value)} />
-        <button type="submit">Registar</button>
-        <p>Já tem conta? <Link to="/login">Entrar</Link></p>
-      </form>
-    </div>
+    <Flex minH="100vh" align="center" justify="center" bg="gray.50">
+      <Box bg="white" p={8} rounded="md" shadow="lg" w="full" maxW="md">
+        <Heading mb={6} textAlign="center" color="brand.500">
+          Registo FitnessPro
+        </Heading>
+        <FormControl mb={4}>
+          <FormLabel>Nome</FormLabel>
+          <Input
+            type="text"
+            placeholder="João Silva"
+            value={name}
+            onChange={e => setName(e.target.value)}
+          />
+        </FormControl>
+        <FormControl mb={4}>
+          <FormLabel>Email</FormLabel>
+          <Input
+            type="email"
+            placeholder="exemplo@email.com"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+          />
+        </FormControl>
+        <FormControl mb={4}>
+          <FormLabel>Password</FormLabel>
+          <Input
+            type="password"
+            placeholder="••••••••"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+          />
+        </FormControl>
+        <FormControl mb={6}>
+          <FormLabel>Tipo de Utilizador</FormLabel>
+          <RadioGroup onChange={setRole} value={role}>
+            <Stack direction="row">
+              <Radio value="cliente">Cliente</Radio>
+              <Radio value="trainer">Personal Trainer</Radio>
+            </Stack>
+          </RadioGroup>
+        </FormControl>
+        <Button colorScheme="brand" w="full" onClick={handleRegister}>
+          Registar
+        </Button>
+        <Text mt={4} textAlign="center" fontSize="sm" color="gray.600">
+          Já tens conta? <a href="/" style={{ color: '#3182ce' }}>Faz login</a>
+        </Text>
+      </Box>
+    </Flex>
   );
 }
