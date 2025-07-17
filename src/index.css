@@ -1,6 +1,28 @@
+@import 'horizon-tailwind-react/dist/style.css';
+
+/* Tailwind base styles */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Se usares Horizon UI */
-@import 'horizon-tailwind-react/dist/style.css';
+/* Font customization (opcional) */
+body {
+  font-family: 'Inter', sans-serif;
+}
+
+/* Custom scrollbar (opcional) */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+/* Responsividade extra (opcional) */
+.container {
+  @apply mx-auto px-4;
+}

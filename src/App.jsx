@@ -1,8 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ChakraProvider, ColorModeScript } from '@chakra-ui/react';
 import theme from './Theme'; // ajusta se necessário
-import { auth, db } from './firebase';
-
+S
 import Login from './pages/Login';
 import Register from './pages/Register';
 import DashboardCliente from './pages/DashboardCliente';

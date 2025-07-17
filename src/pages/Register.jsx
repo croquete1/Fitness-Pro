@@ -1,13 +1,22 @@
 import {
-  Box, Button, Flex, FormControl, FormLabel,
-  Heading, Input, RadioGroup, Radio, Stack,
-  Text, useToast
+  Box,
+  Button,
+  Flex,
+  FormControl,
+  FormLabel,
+  Heading,
+  Input,
+  RadioGroup,
+  Radio,
+  Stack,
+  Text,
+  useToast,
 } from '@chakra-ui/react';
 import { useState } from 'react';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
-import { auth } from '../services/firebase';
-import { db } from '../services/firebase';
+import { useNavigate } from 'react-router-dom';
+import { auth, db } from '../firebase'; // ajusta para '../services/firebase' se necessário
 
 export default function Register() {
   const [name, setName] = useState('');
@@ -15,18 +24,28 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('cliente');
   const toast = useToast();
+  const navigate = useNavigate();
 
   const handleRegister = async () => {
+    if (!name || !email || !password) {
+      toast({
+        title: 'Preenche todos os campos.',
+        status: 'warning',
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // Grava no Firestore
       await setDoc(doc(db, 'users', user.uid), {
         name,
         email,
         role,
-        createdAt: new Date()
+        createdAt: new Date(),
       });
 
       toast({
@@ -36,7 +55,7 @@ export default function Register() {
         isClosable: true,
       });
 
-      window.location.href = '/dashboard';
+      navigate('/dashboard');
     } catch (error) {
       toast({
         title: 'Erro ao registar',
@@ -60,7 +79,7 @@ export default function Register() {
             type="text"
             placeholder="João Silva"
             value={name}
-            onChange={e => setName(e.target.value)}
+            onChange={(e) => setName(e.target.value)}
           />
         </FormControl>
         <FormControl mb={4}>
@@ -69,7 +88,7 @@ export default function Register() {
             type="email"
             placeholder="exemplo@email.com"
             value={email}
-            onChange={e => setEmail(e.target.value)}
+            onChange={(e) => setEmail(e.target.value)}
           />
         </FormControl>
         <FormControl mb={4}>
@@ -78,7 +97,7 @@ export default function Register() {
             type="password"
             placeholder="••••••••"
             value={password}
-            onChange={e => setPassword(e.target.value)}
+            onChange={(e) => setPassword(e.target.value)}
           />
         </FormControl>
         <FormControl mb={6}>
@@ -87,14 +106,18 @@ export default function Register() {
             <Stack direction="row">
               <Radio value="cliente">Cliente</Radio>
               <Radio value="trainer">Personal Trainer</Radio>
+              <Radio value="admin">Admin</Radio>
             </Stack>
           </RadioGroup>
         </FormControl>
-        <Button colorScheme="brand" w="full" onClick={handleRegister}>
+        <Button colorScheme="blue" w="full" onClick={handleRegister}>
           Registar
         </Button>
         <Text mt={4} textAlign="center" fontSize="sm" color="gray.600">
-          Já tens conta? <a href="/" style={{ color: '#3182ce' }}>Faz login</a>
+          Já tens conta?{' '}
+          <a href="/" style={{ color: '#3182ce' }}>
+            Faz login
+          </a>
         </Text>
       </Box>
     </Flex>
