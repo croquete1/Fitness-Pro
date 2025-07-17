@@ -1,9 +1,10 @@
 import React from "react";
-import LineChart from "components/charts/LineChart";
+import LineChart from "../components/charts/LineChart";
 import {
   defaultLineChart,
   defaultLineChartOptions,
-} from "variables/charts";
+} from "../variables/charts";
+
 
 export default function ProgressChart({ data, options }) {
   const chartData = data ? { series: data } : defaultLineChart;
