@@ -1,20 +1,18 @@
 import React from "react";
-import Chart from "react-apexcharts";
-import Card from "@horizon-ui/react-tailwind/src/components/card";
+import LineChart from "components/charts/LineChart";
+import {
+  defaultLineChart,
+  defaultLineChartOptions,
+} from "variables/charts";
 
-export default function ProgressChart({ data }) {
-  const categories = data.map(item => item.date);
-  const series = [{ name: "Peso (kg)", data: data.map(item => item.weight) }];
-
-  const options = {
-    chart: { toolbar: { show: false } },
-    xaxis: { categories },
-    theme: { mode: 'light' }
-  };
+export default function ProgressChart({ data, options }) {
+  const chartData = data ? { series: data } : defaultLineChart;
+  const chartOptions = options || defaultLineChartOptions;
 
   return (
-    <Card extra="p-4 w-full bg-white shadow-lg">
-      <Chart options={options} series={series} type="line" height={280} />
-    </Card>
+    <div className="bg-white shadow rounded-lg p-4">
+      <h2 className="text-lg font-semibold mb-3">Progresso Semanal</h2>
+      <LineChart chartData={chartData} chartOptions={chartOptions} />
+    </div>
   );
 }

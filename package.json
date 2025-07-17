@@ -11,9 +11,11 @@
     "@chakra-ui/react": "^3.22.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
+    "apexcharts": "^5.2.0",
     "firebase": "^10.14.1",
     "framer-motion": "^12.23.6",
     "react": "^18.0.0",
+    "react-apexcharts": "^1.7.0",
     "react-dom": "^18.0.0",
     "react-router-dom": "^6.30.1"
   },

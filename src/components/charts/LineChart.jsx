@@ -1,17 +1,13 @@
+import React from "react";
 import Chart from "react-apexcharts";
 
-const LineChart = (props) => {
-  const { series, options } = props;
-
+export default function LineChart({ chartData, chartOptions }) {
   return (
     <Chart
-      options={options}
+      options={chartOptions}
+      series={chartData.series}
       type="line"
-      width="100%"
-      height="100%"
-      series={series}
+      height={chartOptions.chart?.height || 300}
     />
   );
-};
-
-export default LineChart;
+}
