@@ -1,42 +1,23 @@
-// src/App.jsx
+// 📁 src/App.jsx
 import React from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { Routes, Route, Navigate } from "react-router-dom";
+import { useAuth } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
-
 import Login from "./pages/Login";
 import Register from "./pages/Register";
-
 import ClienteLayout from "./layouts/ClienteLayout";
 import TrainerLayout from "./layouts/TrainerLayout";
 import AdminLayout from "./layouts/AdminLayout";
+import TestChartPage from "./pages/TestChartPage";
 
-// Import de um componente de exemplo do Horizon UI
-import Card from "components/card";
-
-function DashboardHome() {
-  return (
-    <div className="p-4">
-      <h2 className="text-2xl font-bold mb-4">Dashboard</h2>
-      <Card extra="p-6 bg-white dark:bg-navy-700 rounded-xl shadow-lg">
-        <h3 className="text-xl font-semibold text-navy-700 dark:text-white">
-          Bem-vindo ao Fitness Pro
-        </h3>
-        <p className="mt-2 text-gray-600 dark:text-gray-300">
-          Este é um exemplo de cartão usando Horizon UI.
-        </p>
-      </Card>
-    </div>
-  );
-}
-
-function AppRoutes() {
+export default function App() {
   const { user, loading } = useAuth();
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <div>Carregando...</div>;
 
   return (
     <Routes>
+      {/* Rota root: redireciona conforme autenticação */}
       <Route
         path="/"
         element={
@@ -48,41 +29,28 @@ function AppRoutes() {
         }
       />
 
+      {/* Login e registo */}
       <Route
         path="/login"
-        element={user ? <Navigate to="/dashboard/cliente" /> : <Login />}
+        element={user ? <Navigate to="/dashboard/cliente" replace /> : <Login />}
       />
       <Route
         path="/register"
-        element={user ? <Navigate to="/dashboard/cliente" /> : <Register />}
+        element={user ? <Navigate to="/dashboard/cliente" replace /> : <Register />}
       />
 
+      {/* Rota de teste para gráfico */}
+      <Route path="/test-chart" element={<TestChartPage />} />
+
+      {/* Rotas protegidas por utilizador autenticado */}
       <Route element={<ProtectedRoute />}>
-        <Route
-          path="/dashboard/cliente/*"
-          element={<ClienteLayout><DashboardHome /></ClienteLayout>}
-        />
-        <Route
-          path="/dashboard/pt/*"
-          element={<TrainerLayout><DashboardHome /></TrainerLayout>}
-        />
-        <Route
-          path="/dashboard/admin/*"
-          element={<AdminLayout><DashboardHome /></AdminLayout>}
-        />
+        <Route path="/dashboard/cliente/*" element={<ClienteLayout />} />
+        <Route path="/dashboard/pt/*" element={<TrainerLayout />} />
+        <Route path="/dashboard/admin/*" element={<AdminLayout />} />
       </Route>
 
+      {/* Redirecionamento para root por defeito */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
-  );
-}
-
-export default function App() {
-  return (
-    <BrowserRouter basename="/">
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
-    </BrowserRouter>
   );
 }
