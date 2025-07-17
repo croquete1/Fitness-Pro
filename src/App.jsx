@@ -8,7 +8,7 @@ import Register from "./pages/Register";
 import ClienteLayout from "./layouts/ClienteLayout";
 import TrainerLayout from "./layouts/TrainerLayout";
 import AdminLayout from "./layouts/AdminLayout";
-import TestChartPage from "./pages/TestChartPage";
+import ProgressChart from "./pages/ProgressChart";
 
 export default function App() {
   const { user, loading } = useAuth();
