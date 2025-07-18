@@ -1,73 +1,34 @@
 // src/App.jsx
-
-import React, { Suspense } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom'
-import {
-  CSidebar,
-  CSidebarNav,
-  CSidebarNavItem,
-  CSidebarNavLink,
-  CContainer,
-  CHeader,
-  CHeaderNav,
-  CNavItem,
-  CNavLink,
-  CSpinner,
-} from '@coreui/react'
-
-// rotas lazy
-const DashboardAdmin   = React.lazy(() => import('./pages/DashboardAdmin'))
-const DashboardCliente = React.lazy(() => import('./pages/DashboardCliente'))
-const Login            = React.lazy(() => import('./pages/Login'))
-const Register         = React.lazy(() => import('./pages/Register'))
+import React from 'react'
+import { Routes, Route, Navigate } from 'react-router-dom'
+import Login             from './pages/Login.jsx'
+import Register          from './pages/Register.jsx'
+import DashboardCliente  from './pages/DashboardCliente.jsx'
+import DashboardAdmin    from './pages/DashboardAdmin.jsx'
+import ProtectedRoute    from './components/ProtectedRoute.jsx'
 
 export default function App() {
   return (
-    <>
-      <CSidebar unfoldable>
-        <CSidebarNav>
-          <CSidebarNavItem>
-            <CSidebarNavLink component={Link} to="/dashboard">
-              Dashboard Cliente
-            </CSidebarNavLink>
-          </CSidebarNavItem>
-          <CSidebarNavItem>
-            <CSidebarNavLink component={Link} to="/admin">
-              Dashboard Admin
-            </CSidebarNavLink>
-          </CSidebarNavItem>
-        </CSidebarNav>
-      </CSidebar>
+    <Routes>
+-     <Route path="/" element={<Navigate to="/login" replace />} />
++     <Route path="/" element={<Login />} />
 
-      <div className="c-wrapper">
-        <CHeader>
-          <CHeaderNav>
-            <CNavItem>
-              <CNavLink component={Link} to="/login">
-                Login
-              </CNavLink>
-            </CNavItem>
-            <CNavItem>
-              <CNavLink component={Link} to="/register">
-                Registar
-              </CNavLink>
-            </CNavItem>
-          </CHeaderNav>
-        </CHeader>
+      {/* ainda mantemos /login caso alguém use esse link */}
+      <Route path="/login"    element={<Login />} />
+      <Route path="/register" element={<Register />} />
 
-        <CContainer lg className="mt-4">
-          <Suspense fallback={<CSpinner color="primary" size="xl" />}>
-            <Routes>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/dashboard" element={<DashboardCliente />} />
-              <Route path="/admin" element={<DashboardAdmin />} />
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
-            </Routes>
-          </Suspense>
-        </CContainer>
-      </div>
-    </>
+      {/* Rotas autenticadas para todos os users */}
+      <Route element={<ProtectedRoute />}>
+        <Route path="/dashboard" element={<DashboardCliente />} />
+      </Route>
+
+      {/* Rotas só para Admin */}
+      <Route element={<ProtectedRoute requiredRole="admin" />}>
+        <Route path="/admin" element={<DashboardAdmin />} />
+      </Route>
+
+      {/* 404 */}
+      <Route path="*" element={<div>Página não encontrada</div>} />
+    </Routes>
   )
 }

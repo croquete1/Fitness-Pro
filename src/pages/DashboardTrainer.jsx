@@ -1,18 +1,20 @@
 // src/pages/DashboardTrainer.jsx
+import React from 'react'
+import Layout from '../components/Layout'
+import WidgetsBrand     from '../coreui/views/WidgetsBrand.jsx'
+import WidgetsDropdown from '../coreui/views/WidgetsDropdown.jsx'
 
-import React from 'react';
-import { Box, Heading, Text } from '@chakra-ui/react';
-import TreinoForm from '../components/TreinoForm';
+const menuTrainer = [
+  { path: '/trainer', label: 'Home Trainer' },
+  { path: '/trainer/feed', label: 'Feedback' },
+]
 
-export default function DashboardTrainer({ user, profile }) {
+export default function DashboardTrainer() {
   return (
-    <Box p={8}>
-      <Heading mb={4}>Dashboard Trainer</Heading>
-      <Text mb={6}>
-        Bem-vindo, {profile.firstName || profile.email}! Crie aqui os teus treinos.
-      </Text>
-
-      <TreinoForm />
-    </Box>
-  );
+    <Layout menu={menuTrainer}>
+      <h2>Trainer Dashboard</h2>
+      <WidgetsBrand />
+      {/* adiciona gráficos e tabelas para trainers */}
+    </Layout>
+  )
 }

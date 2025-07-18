@@ -1,15 +1,18 @@
-// src/main.jsx
-
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
-import App from './App'
-
-// Importa o CSS do CoreUI
+import { Provider as ReduxProvider } from 'react-redux'
+import { AuthProvider } from './contexts/AuthContext'
+import store from './store'
+import App from './App.jsx'
 import '@coreui/coreui/dist/css/coreui.min.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <BrowserRouter>
-    <App />
-  </BrowserRouter>
+  <ReduxProvider store={store}>
+    <AuthProvider>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </AuthProvider>
+  </ReduxProvider>,
 )
