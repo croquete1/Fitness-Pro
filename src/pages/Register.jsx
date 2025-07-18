@@ -1,3 +1,5 @@
+// src/pages/Register.jsx
+
 import React, { useState } from 'react';
 import {
   Box,

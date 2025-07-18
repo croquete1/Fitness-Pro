@@ -1,3 +1,6 @@
+// src/pages/Settings.jsx
+
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Heading,
@@ -5,14 +8,15 @@ import {
   Stack,
   Switch,
   Select,
-  FormControl,
-  FormLabel,
 } from '@chakra-ui/react';
-import { useColorMode } from '@chakra-ui/react';
+
+import { FormControl, FormLabel } from '@chakra-ui/form-control';
+import { useColorMode } from '@chakra-ui/color-mode';
+
 import LayoutAdmin from '../components/LayoutAdmin';
 import LayoutTrainer from '../components/LayoutTrainer';
 import LayoutCliente from '../components/LayoutCliente';
-import { useEffect, useState } from 'react';
+
 import { auth, db } from '../firebase';
 import { doc, getDoc } from 'firebase/firestore';
 

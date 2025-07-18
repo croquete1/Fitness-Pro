@@ -1,13 +1,30 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import path from 'path';
 
 export default defineConfig({
+  base: './',               // <<< Paths relativos
   plugins: [react()],
-  resolve: {
-    alias: {
-      variables: path.resolve(__dirname, './src/variables'),
-      components: path.resolve(__dirname, './src/components'),
+  build: {
+    outDir: 'dist',
+    chunkSizeWarningLimit: 700,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (
+              id.includes('chakra-ui') ||
+              id.includes('@emotion') ||
+              id.includes('framer-motion')
+            ) {
+              return 'vendor_chakra';
+            }
+            if (id.includes('firebase')) {
+              return 'vendor_firebase';
+            }
+            return 'vendor';
+          }
+        },
+      },
     },
   },
 });
