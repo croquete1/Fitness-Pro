@@ -1,27 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { Box, Heading, Text, Spinner } from '@chakra-ui/react';
-import { fetchUserProfile } from '../utils/firebaseHelpers';
+import React from 'react';
+import { Box, Heading, Text } from '@chakra-ui/react';
 
-export default function DashboardCliente({ user }) {
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!user) return;
-    fetchUserProfile(user.uid).then(data => {
-      setProfile(data);
-      setLoading(false);
-    });
-  }, [user]);
-
-  if (loading) {
-    return (
-      <Box textAlign="center" mt="20">
-        <Spinner size="xl" />
-      </Box>
-    );
-  }
-
+export default function DashboardCliente({ profile }) {
   if (!profile) {
     return (
       <Box textAlign="center" mt="20">
@@ -32,11 +12,8 @@ export default function DashboardCliente({ user }) {
 
   return (
     <Box p={8}>
-      <Heading mb={4}>
-        Bem-vindo, {profile.firstName || profile.email}!
-      </Heading>
-      <Text>Aqui está o teu painel de cliente.</Text>
-      {/* … resto do conteúdo específico de cliente … */}
+      <Heading mb={4}>Bem-vindo, {profile.firstName || profile.email}!</Heading>
+      <Text>Painel de Cliente.</Text>
     </Box>
   );
 }

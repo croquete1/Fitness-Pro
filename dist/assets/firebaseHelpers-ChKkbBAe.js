@@ -1,1 +1,0 @@
-import{g as s,d as t,e as o}from"./index-kkmpThPk.js";async function c(e){try{const r=await s(t(o,"users",e));return r.exists()?r.data():null}catch(r){return console.error("fetchUserProfile error:",r),null}}export{c as f};

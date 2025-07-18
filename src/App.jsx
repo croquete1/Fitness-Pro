@@ -1,52 +1,77 @@
-import React, { useEffect, useState, lazy, Suspense } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
-import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from './firebase';
+// src/App.jsx
 
-const Login = lazy(() => import('./pages/Login'));
-const Register = lazy(() => import('./pages/Register'));
+import React, { useEffect, useState, lazy, Suspense } from 'react';
+import { Flex, Spinner } from '@chakra-ui/react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { onAuthStateChanged }     from 'firebase/auth';
+import { doc, getDoc }           from 'firebase/firestore';
+import { auth, db }              from './firebase';
+
+const Login            = lazy(() => import('./pages/Login'));
+const Register         = lazy(() => import('./pages/Register'));
 const DashboardCliente = lazy(() => import('./pages/DashboardCliente'));
 const DashboardTrainer = lazy(() => import('./pages/DashboardTrainer'));
-const DashboardAdmin = lazy(() => import('./pages/DashboardAdmin'));
+const DashboardAdmin   = lazy(() => import('./pages/DashboardAdmin'));
 
 export default function App() {
-  const [user, setUser] = useState(null);
-  const [role, setRole] = useState('');
+  const [user, setUser]       = useState(null);
+  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
+      // Sempre que auth mudar, bloqueia a UI até o perfil ser lido
+      setLoading(true);
+      setUser(u);
+
       if (u) {
-        setUser(u);
-        const snap = await getDoc(doc(db, 'users', u.uid));
-        setRole(snap.exists() ? snap.data().role : '');
+        try {
+          const snap = await getDoc(doc(db, 'users', u.uid));
+          setProfile(snap.exists() ? snap.data() : null);
+        } catch (err) {
+          console.error('❌ Firestore getDoc error:', err);
+          setProfile(null);
+        }
       } else {
-        setUser(null);
-        setRole('');
+        setProfile(null);
       }
+
       setLoading(false);
     });
+
     return () => unsub();
   }, []);
 
-  if (loading) return null;
+  if (loading) {
+    return (
+      <Flex align="center" justify="center" minH="100vh">
+        <Spinner size="xl" />
+      </Flex>
+    );
+  }
 
-  const renderDashboard = () => {
-    if (!user) return <Navigate to="/" />;
-    if (role === 'cliente') return <DashboardCliente user={user} />;
-    if (role === 'trainer') return <DashboardTrainer user={user} />;
-    if (role === 'admin')   return <DashboardAdmin user={user} />;
-    return <Navigate to="/" />;
+  const DashboardRouter = () => {
+    if (!user) return <Navigate to="/" replace />;
+    const role = profile?.role;
+    if (role === 'admin')   return <DashboardAdmin user={user} profile={profile} />;
+    if (role === 'trainer') return <DashboardTrainer user={user} profile={profile} />;
+    if (role === 'cliente') return <DashboardCliente user={user} profile={profile} />;
+    return <Navigate to="/" replace />;
   };
 
   return (
-    <Suspense fallback={<div>Carregando...</div>}>
+    <Suspense
+      fallback={
+        <Flex align="center" justify="center" minH="100vh">
+          <Spinner size="lg" />
+        </Flex>
+      }
+    >
       <Routes>
-        <Route path="/" element={<Login />} />
+        <Route path="/"         element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/dashboard" element={renderDashboard()} />
-        <Route path="*" element={<Navigate to="/" />} />
+        <Route path="/dashboard" element={<DashboardRouter />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>
   );

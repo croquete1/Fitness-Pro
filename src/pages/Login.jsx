@@ -1,3 +1,5 @@
+// src/pages/Login.jsx
+
 import React, { useState } from 'react';
 import {
   Box,
@@ -6,92 +8,89 @@ import {
   Heading,
   Input,
   Stack,
-  Text,
   useToast,
   FormControl,
   FormLabel
 } from '@chakra-ui/react';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase';
 
 export default function Login() {
-  const [email, setEmail] = useState('');
+  const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const toast = useToast();
+  const [busy, setBusy]         = useState(false);
+  const toast    = useToast();
   const navigate = useNavigate();
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    console.log('🔔 handleSubmit', { email });
+
     if (!email || !password) {
       toast({
-        title: 'Preenche email e password',
+        title: 'Preenche todos os campos.',
         status: 'warning',
         isClosable: true,
       });
       return;
     }
 
-    setIsSubmitting(true);
+    setBusy(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      toast({
-        title: 'Sessão iniciada!',
-        status: 'success',
-        isClosable: true,
-      });
+      console.log('🔐 signInWithEmailAndPassword…');
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      console.log('✅ login OK, uid=', cred.user.uid);
       navigate('/dashboard', { replace: true });
-    } catch (error) {
+    } catch (err) {
+      console.error('❌ erro no login', err);
       toast({
-        title: 'Erro ao iniciar sessão',
-        description: error.message,
+        title: 'Erro no login',
+        description: err.message,
         status: 'error',
         isClosable: true,
       });
     } finally {
-      setIsSubmitting(false);
+      setBusy(false);
     }
   };
 
   return (
     <Flex minH="100vh" align="center" justify="center" bg="gray.50">
-      <Box
-        bg="white"
-        p={8}
-        rounded="md"
-        shadow="lg"
-        w="full"
-        maxW="md"
-      >
-        <Heading mb={6} textAlign="center" color="brand.500">
+      <Box bg="white" p={8} rounded="md" shadow="lg" w="full" maxW="md">
+        <Heading mb={6} textAlign="center">
           Iniciar Sessão
         </Heading>
+
         <form onSubmit={handleSubmit}>
           <Stack spacing={4}>
             <FormControl>
               <FormLabel>Email</FormLabel>
               <Input
                 type="email"
-                placeholder="exemplo@email.com"
+                placeholder="email@exemplo.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={e => setEmail(e.target.value)}
                 autoFocus
+                required
               />
             </FormControl>
+
             <FormControl>
               <FormLabel>Password</FormLabel>
               <Input
                 type="password"
                 placeholder="••••••••"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={e => setPassword(e.target.value)}
+                required
               />
             </FormControl>
+
             <Button
               colorScheme="blue"
               type="submit"
-              isLoading={isSubmitting}
+              isLoading={busy}
               loadingText="Entrando…"
               w="full"
             >
@@ -99,16 +98,6 @@ export default function Login() {
             </Button>
           </Stack>
         </form>
-        <Text textAlign="center" fontSize="sm" mt={4}>
-          Não tens conta?{' '}
-          <Text
-            as={RouterLink}
-            to="/register"
-            color="blue.500"
-          >
-            Regista-te
-          </Text>
-        </Text>
       </Box>
     </Flex>
   );

@@ -1,0 +1,1 @@
+import{g as s,f as o,k as t,o as c,j as m,h as r}from"./index-DJ8sexXN.js";const d=s("div");d.displayName="Box";const g=o(function(a,e){const n=t("Heading",a),{className:x,...i}=c(a);return m.jsx(s.h2,{ref:e,className:r("chakra-heading",a.className),...i,__css:n})});g.displayName="Heading";export{d as B,g as H};

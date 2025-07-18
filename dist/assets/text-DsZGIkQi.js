@@ -1,0 +1,1 @@
+import{f as n,k as o,o as i,C as r,j as x,g as m,h as l}from"./index-DJ8sexXN.js";const g=n(function(a,t){const s=o("Text",a),{className:T,align:d,decoration:h,casing:u,...e}=i(a),c=r({textAlign:a.align,textDecoration:a.decoration,textTransform:a.casing});return x.jsx(m.p,{ref:t,className:l("chakra-text",a.className),...c,...e,__css:s})});g.displayName="Text";export{g as T};
