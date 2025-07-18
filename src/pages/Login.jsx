@@ -7,20 +7,23 @@ import {
   Input,
   Stack,
   Text,
+  useToast,
+  FormControl,
+  FormLabel
 } from '@chakra-ui/react';
-import { FormControl, FormLabel } from '@chakra-ui/form-control';
-import { useToast } from '@chakra-ui/toast';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { auth } from '../firebase';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const toast = useToast();
   const navigate = useNavigate();
 
-  const handleLogin = async () => {
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     if (!email || !password) {
       toast({
         title: 'Preenche email e password',
@@ -30,6 +33,7 @@ export default function Login() {
       return;
     }
 
+    setIsSubmitting(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
       toast({
@@ -37,7 +41,7 @@ export default function Login() {
         status: 'success',
         isClosable: true,
       });
-      navigate('/dashboard');
+      navigate('/dashboard', { replace: true });
     } catch (error) {
       toast({
         title: 'Erro ao iniciar sessão',
@@ -45,6 +49,8 @@ export default function Login() {
         status: 'error',
         isClosable: true,
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -61,37 +67,39 @@ export default function Login() {
         <Heading mb={6} textAlign="center" color="brand.500">
           Iniciar Sessão
         </Heading>
-
-        <FormControl mb={4}>
-          <FormLabel>Email</FormLabel>
-          <Input
-            type="email"
-            placeholder="exemplo@email.com"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-          />
-        </FormControl>
-
-        <FormControl mb={6}>
-          <FormLabel>Password</FormLabel>
-          <Input
-            type="password"
-            placeholder="••••••••"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-          />
-        </FormControl>
-
-        <Button
-          colorScheme="blue"
-          w="full"
-          mb={4}
-          onClick={handleLogin}
-        >
-          Entrar
-        </Button>
-
-        <Text textAlign="center" fontSize="sm">
+        <form onSubmit={handleSubmit}>
+          <Stack spacing={4}>
+            <FormControl>
+              <FormLabel>Email</FormLabel>
+              <Input
+                type="email"
+                placeholder="exemplo@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoFocus
+              />
+            </FormControl>
+            <FormControl>
+              <FormLabel>Password</FormLabel>
+              <Input
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </FormControl>
+            <Button
+              colorScheme="blue"
+              type="submit"
+              isLoading={isSubmitting}
+              loadingText="Entrando…"
+              w="full"
+            >
+              Entrar
+            </Button>
+          </Stack>
+        </form>
+        <Text textAlign="center" fontSize="sm" mt={4}>
           Não tens conta?{' '}
           <Text
             as={RouterLink}

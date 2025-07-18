@@ -1,15 +1,42 @@
-import { Text, Box } from '@chakra-ui/react';
-import LayoutTrainer from '../components/LayoutTrainer';
+import React, { useEffect, useState } from 'react';
+import { Box, Heading, Text, Spinner } from '@chakra-ui/react';
+import { fetchUserProfile } from '../utils/firebaseHelpers';
 
 export default function DashboardTrainer({ user }) {
-  return (
-    <LayoutTrainer>
-      <Box>
-        <Text fontSize="xl" mb={4}>
-          Olá PT, {user?.email}
-        </Text>
-        <Text>Este é o teu painel de personal trainer.</Text>
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    fetchUserProfile(user.uid).then(data => {
+      setProfile(data);
+      setLoading(false);
+    });
+  }, [user]);
+
+  if (loading) {
+    return (
+      <Box textAlign="center" mt="20">
+        <Spinner size="xl" />
       </Box>
-    </LayoutTrainer>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <Box textAlign="center" mt="20">
+        <Text>Perfil não encontrado.</Text>
+      </Box>
+    );
+  }
+
+  return (
+    <Box p={8}>
+      <Heading mb={4}>
+        Olá, {profile.firstName || profile.email}!  
+      </Heading>
+      <Text>Bem-vindo ao painel de trainer.</Text>
+      {/* … resto do conteúdo específico de trainer … */}
+    </Box>
   );
 }
