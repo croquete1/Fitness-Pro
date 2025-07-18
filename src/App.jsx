@@ -1,30 +1,34 @@
 // src/App.jsx
+
 import React, { useEffect, useState, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ChakraProvider } from '@chakra-ui/react'; // sem ColorModeScript aqui
-import theme from './Theme';
 import { auth, db } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 
-// lazy-loaded pages
 const Login = lazy(() => import('./pages/Login'));
-// ... resto das pages
+const Register = lazy(() => import('./pages/Register'));
+const Home = lazy(() => import('./pages/Home'));
+const Profile = lazy(() => import('./pages/Profile'));
+const Settings = lazy(() => import('./pages/Settings'));
+const DashboardCliente = lazy(() => import('./pages/DashboardCliente'));
+const DashboardTrainer = lazy(() => import('./pages/DashboardTrainer'));
+const DashboardAdmin = lazy(() => import('./pages/DashboardAdmin'));
 
 export default function App() {
   const [user, setUser] = useState(null);
-  const [role, setRole] = useState(null);
+  const [role, setRole] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (u) => {
-      if (u) {
-        setUser(u);
-        const snap = await getDoc(doc(db, 'users', u.uid));
-        setRole(snap.exists() ? snap.data().role : null);
+    const unsub = onAuthStateChanged(auth, async (cur) => {
+      if (cur) {
+        setUser(cur);
+        const snap = await getDoc(doc(db, 'users', cur.uid));
+        setRole(snap.exists() ? snap.data().role : '');
       } else {
         setUser(null);
-        setRole(null);
+        setRole('');
       }
       setLoading(false);
     });
@@ -37,21 +41,23 @@ export default function App() {
     if (!user) return <Navigate to="/" />;
     if (role === 'cliente') return <DashboardCliente user={user} />;
     if (role === 'trainer') return <DashboardTrainer user={user} />;
-    if (role === 'admin')   return <DashboardAdmin user={user} />;
+    if (role === 'admin') return <DashboardAdmin user={user} />;
     return <Navigate to="/" />;
   };
 
   return (
-    <ChakraProvider theme={theme}>
-      <Router>
-        <Suspense fallback={<div>Carregando…</div>}>
-          <Routes>
-            <Route path="/" element={<Login />} />
-            {/* ... outras rotas */}
-            <Route path="/dashboard" element={user ? renderDashboard() : <Navigate to="/" />} />
-          </Routes>
-        </Suspense>
-      </Router>
-    </ChakraProvider>
+    <Router>
+      <Suspense fallback={<div>Carregando...</div>}>
+        <Routes>
+          <Route path="/" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/home" element={<Home />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/dashboard" element={renderDashboard()} />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </Suspense>
+    </Router>
   );
 }
