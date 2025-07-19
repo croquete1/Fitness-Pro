@@ -1,134 +1,87 @@
-// src/pages/Register.jsx
 import React, { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { auth, db } from '../firebase'
+import { auth, db } from '../firebase.js'
+import { createUserWithEmailAndPassword } from 'firebase/auth'
+import { doc, setDoc } from 'firebase/firestore'
+import { useNavigate } from 'react-router-dom'
 import {
-  createUserWithEmailAndPassword,
-  updateProfile,
-} from 'firebase/auth'
-import {
-  doc,
-  setDoc,
-  serverTimestamp,
-} from 'firebase/firestore'
-import {
-  CContainer,
-  CRow,
-  CCol,
+  CButton,
   CCard,
   CCardBody,
   CForm,
-  CFormLabel,
   CFormInput,
-  CButton,
-  CAlert,
   CSpinner,
 } from '@coreui/react'
 
 export default function Register() {
-  const [email, setEmail]         = useState('')
-  const [password, setPassword]   = useState('')
-  const [displayName, setDisplay] = useState('')
-  const [error, setError]         = useState('')
-  const [loading, setLoading]     = useState(false)
-  const navigate                  = useNavigate()
+  const [email, setEmail]       = useState('')
+  const [password, setPassword] = useState('')
+  const [role, setRole]         = useState('client')
+  const [error, setError]       = useState(null)
+  const [loading, setLoading]   = useState(false)
+  const navigate = useNavigate()
 
-  const handleSubmit = async (e) => {
+  async function handleSubmit(e) {
     e.preventDefault()
-    setError('')
+    setError(null)
     setLoading(true)
-
     try {
-      // 1. Cria o utilizador no Authentication
-      const userCred = await createUserWithEmailAndPassword(
+      const { user } = await createUserWithEmailAndPassword(
         auth,
-        email.trim(),
+        email,
         password
       )
-
-      // 2. Atualiza o profile do Firebase Auth
-      await updateProfile(userCred.user, {
-        displayName: displayName.trim(),
-      })
-
-      // 3. Cria/atualiza o documento no Firestore
-      await setDoc(doc(db, 'users', userCred.user.uid), {
-        uid:         userCred.user.uid,
-        email:       userCred.user.email,
-        displayName: displayName.trim(),
-        role:        'client',            // ou 'trainer'/'admin'
-        createdAt:   serverTimestamp(),
-      })
-
-      // 4. Redireciona para o login
-      navigate('/login', { replace: true })
+      await setDoc(doc(db, 'users', user.uid), { role })
+      navigate('/login')
     } catch (err) {
-      console.error('Register error:', err.code, err.message)
-      setError('Não foi possível registar. ' + err.message)
+      setError(err.message)
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <CContainer className="vh-100 d-flex justify-content-center align-items-center">
-      <CRow className="w-100 justify-content-center">
-        <CCol xs={12} sm={8} md={6} lg={4}>
-          <CCard className="p-4">
-            <CCardBody>
-              <h2 className="text-center mb-4">Registar</h2>
-
-              {error && <CAlert color="danger">{error}</CAlert>}
-
-              <CForm onSubmit={handleSubmit}>
-                <CFormLabel htmlFor="register-name">Nome</CFormLabel>
-                <CFormInput
-                  id="register-name"
-                  type="text"
-                  value={displayName}
-                  onChange={e => setDisplay(e.target.value)}
-                  required
-                />
-
-                <CFormLabel htmlFor="register-email" className="mt-3">
-                  Email
-                </CFormLabel>
-                <CFormInput
-                  id="register-email"
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  required
-                />
-
-                <CFormLabel htmlFor="register-password" className="mt-3">
-                  Password
-                </CFormLabel>
-                <CFormInput
-                  id="register-password"
-                  type="password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  required
-                />
-
-                <CButton
-                  type="submit"
-                  color="primary"
-                  className="w-100 mt-4"
-                  disabled={loading}
-                >
-                  {loading ? <CSpinner size="sm" /> : 'Registar'}
-                </CButton>
-              </CForm>
-
-              <div className="text-center mt-3">
-                <Link to="/login">Já tens conta? Faz login</Link>
-              </div>
-            </CCardBody>
-          </CCard>
-        </CCol>
-      </CRow>
-    </CContainer>
+    <div className="d-flex justify-content-center align-items-center vh-100">
+      <CCard style={{ width: '24rem' }}>
+        <CCardBody>
+          <h3 className="mb-4">Registar</h3>
+          {error && <div className="text-danger mb-3">{error}</div>}
+          <CForm onSubmit={handleSubmit}>
+            <CFormInput
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+              className="mb-3"
+            />
+            <CFormInput
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+              className="mb-3"
+            />
+            <select
+              className="form-select mb-3"
+              value={role}
+              onChange={e => setRole(e.target.value)}
+            >
+              <option value="client">Cliente</option>
+              <option value="trainer">Trainer</option>
+              <option value="admin">Admin</option>
+            </select>
+            <CButton
+              type="submit"
+              color="primary"
+              className="w-100"
+              disabled={loading}
+            >
+              {loading ? <CSpinner size="sm" /> : 'Registar'}
+            </CButton>
+          </CForm>
+        </CCardBody>
+      </CCard>
+    </div>
   )
 }
