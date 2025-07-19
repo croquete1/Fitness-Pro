@@ -15,10 +15,23 @@ import {
   LinearScale,
   PointElement,
   LineElement,
+  Filler,           // ← importa
   Title,
   Tooltip,
   Legend,
 } from 'chart.js'
+
+// regista todos juntos
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Filler,           // ← regista aqui
+  Title,
+  Tooltip,
+  Legend,
+)
 import { useAdminStats } from '../hooks/useAdminStats.js'
 
 // Regista componentes Chart.js
