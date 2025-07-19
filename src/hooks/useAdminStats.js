@@ -1,6 +1,5 @@
-// src/hooks/useAdminStats.js
 import { useState, useEffect } from 'react'
-import { db } from '../firebase'
+import { db } from '../firebase.js'
 import { collection, getDocs } from 'firebase/firestore'
 
 export function useAdminStats() {
@@ -14,23 +13,17 @@ export function useAdminStats() {
       setError(null)
       setLoading(true)
       try {
-        // Obter coleções do Firestore
         const usersSnap    = await getDocs(collection(db, 'users'))
         const sessionsSnap = await getDocs(collection(db, 'sessions'))
         const paymentsSnap = await getDocs(collection(db, 'payments'))
 
-        // Calcular estatísticas básicas
         const usersCount    = usersSnap.size
         const sessionsCount = sessionsSnap.size
-        const trainersCount = usersSnap.docs.filter((d) => d.data().role === 'trainer').length
-        const revenue       = paymentsSnap.docs.reduce(
-          (sum, doc) => sum + (doc.data().amount || 0),
-          0
-        )
+        const trainersCount = usersSnap.docs.filter(d => d.data().role === 'trainer').length
+        const revenue       = paymentsSnap.docs.reduce((sum, d) => sum + (d.data().amount || 0), 0)
 
-        setStats({ usersCount, sessionsCount, revenue, trainersCount })
+        setStats({ usersCount, sessionsCount, trainersCount, revenue })
 
-        // Gerar dados de sessões para os últimos 6 meses
         const now    = new Date()
         const labels = Array.from({ length: 6 }, (_, i) => {
           const d = new Date(now)
@@ -40,7 +33,6 @@ export function useAdminStats() {
         const data = labels.map(() => Math.floor(Math.random() * 50) + 10)
         setMonthly({ labels, data })
       } catch (err) {
-        console.error('Erro ao carregar estatísticas admin:', err)
         setError(err)
       } finally {
         setLoading(false)

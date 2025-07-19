@@ -1,31 +1,15 @@
-/* src/index.css */
+@import '@coreui/coreui/dist/css/coreui.min.css';
 
-/* Tailwind directives */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+:root {
+  --primary:   #0d6efd;
+  --secondary: #6c757d;
+  --bg-light:  #f8f9fa;
+  --text-dark: #212529;
+  --font-base: 'Inter', sans-serif;
+}
 
-/* Global font */
 body {
-  font-family: 'Inter', sans-serif;
-  margin: 0;
-  padding: 0;
-}
-
-/* Links sem sublinhado e herdam cor */
-a {
-  text-decoration: none;
-  color: inherit;
-}
-
-/* Scrollbar customizado (opcional) */
-::-webkit-scrollbar {
-  width: 8px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background-color: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
+  font-family: var(--font-base);
+  background-color: var(--bg-light);
+  color: var(--text-dark);
 }

@@ -1,31 +1,22 @@
-// src/components/ProtectedRoute.jsx
 import React from 'react'
 import { Navigate, Outlet } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/AuthContext.jsx'
 import { CSpinner } from '@coreui/react'
 
 export default function ProtectedRoute({ requiredRole }) {
   const { user, role, loading } = useAuth()
 
-  // Enquanto valida o estado de autenticação
   if (loading) {
     return (
-      <div className="text-center mt-5">
-        <CSpinner color="primary" />
+      <div className="vh-100 d-flex justify-content-center align-items-center">
+        <CSpinner />
       </div>
     )
   }
-
-  // Se não estiver logado, redireciona para /login
-  if (!user) {
-    return <Navigate to="/login" replace />
-  }
-
-  // Se for necessária uma role específica e o user não tiver, redireciona para /
+  if (!user) return <Navigate to="/login" replace />
   if (requiredRole && role !== requiredRole) {
-    return <Navigate to="/" replace />
+    // unauthorized role
+    return <Navigate to="/dashboard" replace />
   }
-
-  // Caso tudo esteja OK, renderiza as rotas filhas
   return <Outlet />
 }

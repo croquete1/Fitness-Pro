@@ -1,11 +1,22 @@
-// src/ProtectedRoute.jsx
+// src/components/ProtectedRoute.jsx
+import React from 'react'
+import { Navigate, Outlet } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext.jsx'
+import { CSpinner } from '@coreui/react'
 
-import React from 'react';
-import { Navigate } from 'react-router-dom';
 
-export default function ProtectedRoute({ user, children }) {
-  if (!user) {
-    return <Navigate to="/" replace />;
+export default function ProtectedRoute({ requiredRole }) {
+  const { user, role, loading } = useAuth()
+  console.log('ProtectedRoute:', { user, role, loading })
+
+  if (loading) {
+    return (
+      <div className="vh-100 d-flex justify-content-center align-items-center">
+        <CSpinner />
+      </div>
+    )
   }
-  return children;
+  if (!user) return <Navigate to="/login" replace />
+  if (requiredRole && role !== requiredRole) return <Navigate to="/" replace />
+  return <Outlet />
 }

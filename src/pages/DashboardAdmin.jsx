@@ -1,71 +1,117 @@
-// src/pages/DashboardAdmin.jsx
 import React from 'react'
+import Layout from '../components/Layout.jsx'
 import {
   CRow,
   CCol,
+  CWidgetStatsA,
+  CSpinner,
   CCard,
   CCardBody,
-  CWidgetStatsA,
 } from '@coreui/react'
-import { CChartLine } from '@coreui/react-chartjs'
-import Layout from '../components/Layout'
-import { useAdminStats } from '../hooks/useAdminStats'
+import { Line } from 'react-chartjs-2'
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js'
+import { useAdminStats } from '../hooks/useAdminStats.js'
+
+// Regista componentes Chart.js
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend
+)
 
 export default function DashboardAdmin() {
   const { stats, monthly, loading, error } = useAdminStats()
 
-  if (loading) return <div>Carregando dados...</div>
-  if (error)   return <div>Erro: {error.message}</div>
+  if (loading || !stats) {
+    return (
+      <Layout>
+        <div className="text-center mt-5">
+          <CSpinner />
+        </div>
+      </Layout>
+    )
+  }
+
+  if (error) {
+    return (
+      <Layout>
+        <div className="text-danger text-center mt-5">
+          Erro: {error.message}
+        </div>
+      </Layout>
+    )
+  }
+
+  const { labels, data } = monthly
 
   return (
-    <Layout menu="admin">
-      <h2 className="mb-4">Admin Dashboard</h2>
+    <Layout>
+      <h2 className="mb-4">Dashboard Admin</h2>
 
       <CRow className="mb-4">
-        <CCol sm={6} md={4}>
+        <CCol sm={6} lg={3}>
           <CWidgetStatsA
-            className="mb-3"
-            color="primary"
+            color="gradient-primary"
             title="Utilizadores"
-            value={stats.usersCount}
+            value={stats.usersCount.toLocaleString()}
           />
         </CCol>
-        <CCol sm={6} md={4}>
+        <CCol sm={6} lg={3}>
           <CWidgetStatsA
-            className="mb-3"
-            color="info"
+            color="gradient-info"
             title="Trainers"
-            value={stats.trainersCount}
+            value={stats.trainersCount.toLocaleString()}
           />
         </CCol>
-        <CCol sm={6} md={4}>
+        <CCol sm={6} lg={3}>
           <CWidgetStatsA
-            className="mb-3"
-            color="warning"
+            color="gradient-success"
+            title="Receita"
+            value={`$${stats.revenue.toLocaleString()}`}
+          />
+        </CCol>
+        <CCol sm={6} lg={3}>
+          <CWidgetStatsA
+            color="gradient-warning"
             title="Sessões"
-            value={stats.sessionsCount}
+            value={stats.sessionsCount.toLocaleString()}
           />
         </CCol>
       </CRow>
 
       <CCard>
         <CCardBody>
-          <h5>Sessões (últimos 6 meses)</h5>
-          <CChartLine
+          <h5 className="mb-3">Sessões (últimos 6 meses)</h5>
+          <Line
             data={{
-              labels: monthly.labels,
-              datasets: [{
-                label:           'Sessões',
-                backgroundColor: 'rgba(13,110,253,0.1)',
-                borderColor:     'rgba(13,110,253,1)',
-                data:            monthly.data,
-                fill:            true,
-                tension:         0.4,
-              }],
+              labels,
+              datasets: [
+                {
+                  label: 'Sessões',
+                  backgroundColor: 'rgba(13,110,253,0.1)',
+                  borderColor: 'rgba(13,110,253,1)',
+                  data,
+                  fill: true,
+                  tension: 0.4,
+                },
+              ],
             }}
             options={{
               plugins: { legend: { display: false } },
-              scales:  { y: { beginAtZero: true, stepSize: 10 } },
+              scales: { y: { beginAtZero: true, stepSize: 10 } },
             }}
           />
         </CCardBody>
