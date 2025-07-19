@@ -1,5 +1,6 @@
+// src/pages/DashboardAdmin.jsx
 import React from 'react'
-import Layout from '../components/Layout.jsx'
+import AppLayout from '../layouts/AppLayout.jsx'
 import {
   CRow,
   CCol,
@@ -15,34 +16,23 @@ import {
   LinearScale,
   PointElement,
   LineElement,
-  Filler,           // ← importa
+  Filler,
   Title,
   Tooltip,
   Legend,
 } from 'chart.js'
+import { useAdminStats } from '../hooks/useAdminStats.js'
 
-// regista todos juntos
+// Regista Chart.js plugins
 ChartJS.register(
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
-  Filler,           // ← regista aqui
+  Filler,
   Title,
   Tooltip,
   Legend,
-)
-import { useAdminStats } from '../hooks/useAdminStats.js'
-
-// Regista componentes Chart.js
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend
 )
 
 export default function DashboardAdmin() {
@@ -50,28 +40,27 @@ export default function DashboardAdmin() {
 
   if (loading || !stats) {
     return (
-      <Layout>
+      <AppLayout>
         <div className="text-center mt-5">
           <CSpinner />
         </div>
-      </Layout>
+      </AppLayout>
     )
   }
-
   if (error) {
     return (
-      <Layout>
+      <AppLayout>
         <div className="text-danger text-center mt-5">
           Erro: {error.message}
         </div>
-      </Layout>
+      </AppLayout>
     )
   }
 
   const { labels, data } = monthly
 
   return (
-    <Layout>
+    <AppLayout>
       <h2 className="mb-4">Dashboard Admin</h2>
 
       <CRow className="mb-4">
@@ -129,6 +118,6 @@ export default function DashboardAdmin() {
           />
         </CCardBody>
       </CCard>
-    </Layout>
+    </AppLayout>
   )
 }

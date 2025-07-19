@@ -1,6 +1,6 @@
 // src/pages/UsersManagement.jsx
 import React, { useState, useEffect } from 'react'
-import Layout from '../layouts/AppLayout'
+import AppLayout from '../layouts/AppLayout.jsx'
 import {
   CTable,
   CTableHead,
@@ -10,7 +10,7 @@ import {
   CTableDataCell,
   CSpinner,
 } from '@coreui/react'
-import { db } from '../firebase'
+import { db } from '../firebase.js'
 import { collection, getDocs } from 'firebase/firestore'
 
 export default function UsersManagement() {
@@ -20,42 +20,47 @@ export default function UsersManagement() {
   useEffect(() => {
     async function load() {
       const snap = await getDocs(collection(db, 'users'))
-      setUsers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })))
+      setUsers(
+        snap.docs.map(doc => ({ id: doc.id, email: doc.data().email, role: doc.data().role }))
+      )
       setLoading(false)
     }
     load()
   }, [])
 
-  if (loading)
+  if (loading) {
     return (
-      <Layout>
+      <AppLayout>
         <div className="text-center mt-5">
           <CSpinner />
         </div>
-      </Layout>
+      </AppLayout>
     )
+  }
 
   return (
-    <Layout>
+    <AppLayout>
       <h2 className="mb-4">Gestão de Utilizadores</h2>
-      <CTable>
-        <CTableHead>
-          <CTableRow>
-            <CTableHeaderCell>ID</CTableHeaderCell>
-            <CTableHeaderCell>Email</CTableHeaderCell>
-            <CTableHeaderCell>Role</CTableHeaderCell>
-          </CTableRow>
-        </CTableHead>
-        <CTableBody>
-          {users.map((u) => (
-            <CTableRow key={u.id}>
-              <CTableDataCell>{u.id}</CTableDataCell>
-              <CTableDataCell>{u.email || '-'}</CTableDataCell>
-              <CTableDataCell>{u.role}</CTableDataCell>
+      <div className="table-responsive">
+        <CTable hover>
+          <CTableHead color="light">
+            <CTableRow>
+              <CTableHeaderCell>ID</CTableHeaderCell>
+              <CTableHeaderCell>Email</CTableHeaderCell>
+              <CTableHeaderCell>Role</CTableHeaderCell>
             </CTableRow>
-          ))}
-        </CTableBody>
-      </CTable>
-    </Layout>
+          </CTableHead>
+          <CTableBody>
+            {users.map(u => (
+              <CTableRow key={u.id}>
+                <CTableDataCell>{u.id}</CTableDataCell>
+                <CTableDataCell>{u.email || '-'}</CTableDataCell>
+                <CTableDataCell>{u.role}</CTableDataCell>
+              </CTableRow>
+            ))}
+          </CTableBody>
+        </CTable>
+      </div>
+    </AppLayout>
   )
 }

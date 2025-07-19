@@ -1,8 +1,11 @@
+/* src/index.css */
 @import '@coreui/coreui/dist/css/coreui.min.css';
 
 :root {
-  --primary:   #0d6efd;
-  --secondary: #6c757d;
+  --primary: #0d6efd;
+  --success: #198754;
+  --warning: #ffc107;
+  --danger:  #dc3545;
   --bg-light:  #f8f9fa;
   --text-dark: #212529;
   --font-base: 'Inter', sans-serif;
@@ -12,4 +15,26 @@ body {
   font-family: var(--font-base);
   background-color: var(--bg-light);
   color: var(--text-dark);
+  margin: 0;
+}
+
+/* Forçar scroll na sidebar e espaçamento entre itens */
+.c-sidebar {
+  width: 220px;
+  min-height: 100vh;
+  overflow-y: auto;
+}
+
+.c-sidebar-nav .nav-item {
+  margin-bottom: 0.5rem;
+}
+
+/* Main padding */
+main {
+  padding: 1rem;
+}
+
+/* Tabela responsiva */
+.c-table-responsive {
+  overflow-x: auto;
 }
