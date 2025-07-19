@@ -1,4 +1,3 @@
-// src/layouts/Sidebar.jsx
 import React from 'react'
 import { CSidebar, CSidebarNav, CNavItem } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
@@ -6,11 +5,15 @@ import { cilSpeedometer, cilUser, cilCalendar } from '@coreui/icons'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { NavLink as RouterLink } from 'react-router-dom'
 
-export default function Sidebar() {
+export default function Sidebar({ visible = true }) {
   const { role } = useAuth()
 
   return (
-    <CSidebar unfoldable className="vh-100">
+    <CSidebar
+      unfoldable
+      visible={visible}
+      className="vh-100"
+    >
       <CSidebarNav className="ps-3">
         {role === 'client' && (
           <CNavItem component={RouterLink} to="/dashboard">
