@@ -23,16 +23,15 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState(null)
+  const { login }               = useAuth()
   const navigate                = useNavigate()
-  const { login, role }         = useAuth()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError(null)
     setLoading(true)
     try {
-      await login(email, password)
-      // Redireciona consoante o role
+      const { role } = await login(email, password)
       if (role === 'admin') {
         navigate('/admin', { replace: true })
       } else if (role === 'trainer') {
@@ -110,22 +109,18 @@ export default function Login() {
                 style={{ width: '44%' }}
               >
                 <CCardBody className="text-center">
-                  <div>
-                    <h2>Registar</h2>
-                    <p>
-                      Crie a sua conta para aceder a todas as funcionalidades.
-                    </p>
-                    <Link to="/register">
-                      <CButton
-                        color="light"
-                        className="mt-3"
-                        active
-                        tabIndex={-1}
-                      >
-                        Registar
-                      </CButton>
-                    </Link>
-                  </div>
+                  <h2>Registar</h2>
+                  <p>Crie a sua conta para aceder a todas as funcionalidades.</p>
+                  <Link to="/register">
+                    <CButton
+                      color="light"
+                      className="mt-3"
+                      active
+                      tabIndex={-1}
+                    >
+                      Registar
+                    </CButton>
+                  </Link>
                 </CCardBody>
               </CCard>
             </CCardGroup>
