@@ -1,45 +1,20 @@
-import React, { useState } from 'react'
+// src/pages/DashboardAdmin.jsx
+import React from 'react'
 import AppLayout from '../layouts/AppLayout.jsx'
+import WidgetsDropdown from '../components/WidgetsDropdown.jsx'
 import {
   CRow,
   CCol,
-  CWidgetStatsA,
-  CSpinner,
   CCard,
+  CCardHeader,
   CCardBody,
-  CAlert,
-  CButton,
-  CIcon,
+  CSpinner,
 } from '@coreui/react'
-import { cilUser, cilDollar, cilCalendar, cilPeople, cilCloudDownload } from '@coreui/icons'
-import { Line } from 'react-chartjs-2'
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Filler,
-  Title,
-  Tooltip,
-  Legend,
-} from 'chart.js'
+import { CChartBar, CChartDoughnut } from '@coreui/react-chartjs'
 import { useAdminStats } from '../hooks/useAdminStats.js'
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Filler,
-  Title,
-  Tooltip,
-  Legend
-)
 
 export default function DashboardAdmin() {
   const { stats, monthly, loading, error } = useAdminStats()
-  const [theme, setTheme] = useState('light')
 
   if (loading) {
     return (
@@ -61,115 +36,57 @@ export default function DashboardAdmin() {
     )
   }
 
-  const { usersCount, sessionsCount, trainersCount, revenue } = stats
+  const { sessionsCount, trainersCount, usersCount } = stats
   const { labels, data } = monthly
 
-  const exportCSV = () => {
-    const csv = `Mês,Sessões\n${labels.map((l, i) => `${l},${data[i]}`).join('\n')}`
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const link = document.createElement('a')
-    link.href = URL.createObjectURL(blob)
-    link.download = 'sessões.csv'
-    link.click()
-  }
-
-  const toggleTheme = () => {
-    const next = theme === 'light' ? 'dark' : 'light'
-    document.documentElement.setAttribute('data-theme', next)
-    setTheme(next)
+  // Dados para doughnut (trainers vs clientes)
+  const doughnutData = {
+    labels: ['Trainers', 'Clientes'],
+    datasets: [
+      {
+        data: [trainersCount, usersCount - trainersCount],
+        backgroundColor: ['#0d6efd', '#198754'],
+      },
+    ],
   }
 
   return (
     <AppLayout>
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h1 className="h4">Painel de Administração</h1>
-        <div>
-          <CButton color="secondary" variant="outline" onClick={toggleTheme} className="me-2">
-            {theme === 'light' ? 'Modo Escuro' : 'Modo Claro'}
-          </CButton>
-          <CButton color="primary" onClick={exportCSV}>
-            <CIcon icon={cilCloudDownload} className="me-2" /> Exportar CSV
-          </CButton>
-        </div>
-      </div>
+      <h2 className="mb-4">Dashboard Admin</h2>
 
-      {(sessionsCount === 0 || revenue === 0) && (
-        <CAlert color="warning" className="mb-4">
-          Atenção: Existem sessões ou receitas a zero. Verifique os dados.
-        </CAlert>
-      )}
+      {/* Widgets principais extraídos do template */}
+      <WidgetsDropdown stats={stats} monthly={monthly} />
 
+      {/* Gráficos secundários */}
       <CRow className="mb-4">
-        <CCol sm={6} lg={3}>
-          <CWidgetStatsA
-            icon={<CIcon icon={cilPeople} height={36} />}
-            color="gradient-primary"
-            title="Utilizadores"
-            value={usersCount ? usersCount.toLocaleString() : '—'}
-          />
+        <CCol md={6}>
+          <CCard className="mb-4">
+            <CCardHeader>Sessões Mensais</CCardHeader>
+            <CCardBody>
+              <CChartBar
+                style={{ height: '250px' }}
+                data={{ labels, datasets: [{ data, backgroundColor: '#0d6efd' }] }}
+                options={{
+                  plugins: { legend: { display: false } },
+                  scales: { y: { beginAtZero: true } },
+                }}
+              />
+            </CCardBody>
+          </CCard>
         </CCol>
-        <CCol sm={6} lg={3}>
-          <CWidgetStatsA
-            icon={<CIcon icon={cilUser} height={36} />}
-            color="gradient-info"
-            title="Trainers"
-            value={trainersCount ? trainersCount.toLocaleString() : '—'}
-          />
-        </CCol>
-        <CCol sm={6} lg={3}>
-          <CWidgetStatsA
-            icon={<CIcon icon={cilDollar} height={36} />}
-            color="gradient-success"
-            title="Receita"
-            value={revenue ? `$${revenue.toLocaleString()}` : '—'}
-          />
-        </CCol>
-        <CCol sm={6} lg={3}>
-          <CWidgetStatsA
-            icon={<CIcon icon={cilCalendar} height={36} />}
-            color="gradient-warning"
-            title="Sessões"
-            value={sessionsCount ? sessionsCount.toLocaleString() : '—'}
-          />
+        <CCol md={6}>
+          <CCard className="mb-4">
+            <CCardHeader>Treinadores vs Clientes</CCardHeader>
+            <CCardBody>
+              <CChartDoughnut
+                style={{ height: '250px' }}
+                data={doughnutData}
+                options={{ plugins: { legend: { position: 'bottom' } } }}
+              />
+            </CCardBody>
+          </CCard>
         </CCol>
       </CRow>
-
-      <CCard>
-        <CCardBody>
-          <h5 className="mb-3">Sessões (últimos 6 meses)</h5>
-          <Line
-            data={{
-              labels,
-              datasets: [
-                {
-                  label: 'Sessões',
-                  backgroundColor: 'rgba(13,110,253,0.1)',
-                  borderColor: 'rgba(13,110,253,1)',
-                  data,
-                  fill: true,
-                  tension: 0.4,
-                },
-              ],
-            }}
-            options={{
-              plugins: {
-                legend: { display: false },
-                tooltip: {
-                  callbacks: {
-                    label: ctx => `${ctx.raw} sessões`,
-                  },
-                },
-              },
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  ticks: { stepSize: 10 },
-                },
-              },
-            }}
-          />
-        </CCardBody>
-      </CCard>
     </AppLayout>
   )
 }

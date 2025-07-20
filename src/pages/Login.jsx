@@ -1,71 +1,137 @@
+// src/pages/Login.jsx
 import React, { useState } from 'react'
-import { useAuth } from '../contexts/AuthContext.jsx'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   CButton,
   CCard,
   CCardBody,
+  CCardGroup,
+  CCol,
+  CContainer,
   CForm,
   CFormInput,
-  CSpinner,
+  CInputGroup,
+  CInputGroupText,
+  CRow,
 } from '@coreui/react'
+import CIcon from '@coreui/icons-react'
+import { cilLockLocked, cilUser } from '@coreui/icons'
+import { useAuth } from '../contexts/AuthContext.jsx'
 
 export default function Login() {
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError]       = useState(null)
   const [loading, setLoading]   = useState(false)
-  const { login } = useAuth()
-  const navigate = useNavigate()
+  const [error, setError]       = useState(null)
+  const navigate                = useNavigate()
+  const { login, role }         = useAuth()
 
-  async function handleSubmit(e) {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setError(null)
     setLoading(true)
     try {
       await login(email, password)
-      navigate('/dashboard')
+      // Redireciona consoante o role
+      if (role === 'admin') {
+        navigate('/admin', { replace: true })
+      } else if (role === 'trainer') {
+        navigate('/trainer', { replace: true })
+      } else {
+        navigate('/dashboard', { replace: true })
+      }
     } catch (err) {
-      setError(err.message)
+      setError('Falha no login: verifique as credenciais')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="d-flex justify-content-center align-items-center vh-100">
-      <CCard style={{ width: '24rem' }}>
-        <CCardBody>
-          <h3 className="mb-4">Login</h3>
-          {error && <div className="text-danger mb-3">{error}</div>}
-          <CForm onSubmit={handleSubmit}>
-            <CFormInput
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-              className="mb-3"
-            />
-            <CFormInput
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-              className="mb-3"
-            />
-            <CButton
-              type="submit"
-              color="primary"
-              className="w-100"
-              disabled={loading}
-            >
-              {loading ? <CSpinner size="sm" /> : 'Entrar'}
-            </CButton>
-          </CForm>
-        </CCardBody>
-      </CCard>
+    <div className="bg-light min-vh-100 d-flex align-items-center">
+      <CContainer>
+        <CRow className="justify-content-center">
+          <CCol md={8}>
+            <CCardGroup>
+              <CCard className="p-4">
+                <CCardBody>
+                  <CForm onSubmit={handleSubmit}>
+                    <h1>Login</h1>
+                    <p className="text-medium-emphasis">Entre na sua conta</p>
+                    {error && (
+                      <div className="text-danger mb-3">{error}</div>
+                    )}
+                    <CInputGroup className="mb-3">
+                      <CInputGroupText>
+                        <CIcon icon={cilUser} />
+                      </CInputGroupText>
+                      <CFormInput
+                        type="email"
+                        placeholder="Email"
+                        autoComplete="username"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                      />
+                    </CInputGroup>
+                    <CInputGroup className="mb-4">
+                      <CInputGroupText>
+                        <CIcon icon={cilLockLocked} />
+                      </CInputGroupText>
+                      <CFormInput
+                        type="password"
+                        placeholder="Password"
+                        autoComplete="current-password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                      />
+                    </CInputGroup>
+                    <CRow>
+                      <CCol xs={6}>
+                        <CButton
+                          color="primary"
+                          className="px-4"
+                          type="submit"
+                          disabled={loading}
+                        >
+                          {loading ? 'A carregar...' : 'Login'}
+                        </CButton>
+                      </CCol>
+                      <CCol xs={6} className="text-end">
+                        <Link to="/register">Registar-se</Link>
+                      </CCol>
+                    </CRow>
+                  </CForm>
+                </CCardBody>
+              </CCard>
+              <CCard
+                className="text-white bg-primary py-5 d-md-down-none"
+                style={{ width: '44%' }}
+              >
+                <CCardBody className="text-center">
+                  <div>
+                    <h2>Registar</h2>
+                    <p>
+                      Crie a sua conta para aceder a todas as funcionalidades.
+                    </p>
+                    <Link to="/register">
+                      <CButton
+                        color="light"
+                        className="mt-3"
+                        active
+                        tabIndex={-1}
+                      >
+                        Registar
+                      </CButton>
+                    </Link>
+                  </div>
+                </CCardBody>
+              </CCard>
+            </CCardGroup>
+          </CCol>
+        </CRow>
+      </CContainer>
     </div>
   )
 }
