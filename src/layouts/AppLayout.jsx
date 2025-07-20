@@ -1,3 +1,4 @@
+// src/layouts/AppLayout.jsx
 import React, { useState, useEffect } from 'react'
 import {
   CSidebar,
@@ -25,15 +26,15 @@ import { NavLink, useNavigate } from 'react-router-dom'
 
 export default function AppLayout({ children }) {
   const { user, logout, role } = useAuth()
-  const { requests } = useAdminNotifications()
-  const navigate = useNavigate()
+  const { requests }           = useAdminNotifications()
+  const navigate               = useNavigate()
 
-  // carregar estado de “pinned” do localStorage
-  const [pinned, setPinned] = useState(() => localStorage.getItem('sidebarPinned') === 'true')
+  // Read initial “pinned” state
+  const [pinned, setPinned]   = useState(() => localStorage.getItem('sidebarPinned') === 'true')
   const [hovered, setHovered] = useState(false)
-  const visible = pinned || hovered
+  const visible               = pinned || hovered
 
-  // sempre que mudar pinned, guarda no localStorage
+  // Persist pinned
   useEffect(() => {
     localStorage.setItem('sidebarPinned', pinned)
   }, [pinned])
@@ -46,9 +47,19 @@ export default function AppLayout({ children }) {
   const handleTogglePin = () => {
     if (pinned) {
       setPinned(false)
-      setHovered(false) // fecha imediatamente
+      setHovered(false)
     } else {
       setPinned(true)
+    }
+  }
+
+  // New hamburger logic: if pinned, unpin & hide; else toggle hover
+  const handleHamburger = () => {
+    if (pinned) {
+      setPinned(false)
+      setHovered(false)
+    } else {
+      setHovered((prev) => !prev)
     }
   }
 
@@ -79,9 +90,10 @@ export default function AppLayout({ children }) {
       <div className={`wrapper ${pinned ? 'sidebar-pinned' : ''}`}>
         <CHeader className="header header-sticky mb-4">
           <CContainer fluid className="d-flex justify-content-between align-items-center">
-            <CHeaderToggler onClick={() => setHovered(prev => !prev)}>
+            <CHeaderToggler onClick={handleHamburger}>
               <CIcon icon={cilMenu} />
             </CHeaderToggler>
+
             <CHeaderNav className="d-flex align-items-center">
               {role === 'admin' && (
                 <NavLink to="/admin/requests">
@@ -112,6 +124,7 @@ export default function AppLayout({ children }) {
             </CHeaderNav>
           </CContainer>
         </CHeader>
+
         <div className="body flex-grow-1 px-3">{children}</div>
       </div>
     </div>

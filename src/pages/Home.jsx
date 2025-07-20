@@ -18,7 +18,7 @@ import {
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilUser, cilPeople, cilChart, cilBell } from '@coreui/icons'
-import { useAdminStats } from '../hooks/useAdminStats.js'
+import { useAdminStats } from '../hooks/useAdminStats.jsx'
 import { useAdminNotifications } from '../hooks/useAdminNotifications.jsx'
 
 export default function Home() {
