@@ -1,79 +1,72 @@
+// src/pages/DashboardTrainer.jsx
 import React from 'react'
-import Layout from '../components/Layout.jsx'
+import AppLayout from '../layouts/AppLayout.jsx'
 import {
+  CContainer,
   CRow,
   CCol,
-  CCard,
-  CCardBody,
   CWidgetStatsA,
   CSpinner,
 } from '@coreui/react'
-import { useState, useEffect } from 'react'
-import { db } from '../firebase.js'
-import { collection, getDocs, query, where } from 'firebase/firestore'
-import { useAuth } from '../contexts/AuthContext.jsx'
+import CIcon from '@coreui/icons-react'
+import { cilPeople, cilCalendar, cilDollar } from '@coreui/icons'
+import { useTrainerDashboard } from '../hooks/useTrainerDashboard.jsx'
 
 export default function DashboardTrainer() {
-  const { user } = useAuth()
-  const [loading, setLoading] = useState(true)
-  const [sessionsCount, setSessionsCount] = useState(0)
-  const [clientsCount, setClientsCount]   = useState(0)
-
-  useEffect(() => {
-    async function load() {
-      if (!user) return
-      setLoading(true)
-      // Conta sessões atribuídas ao trainer
-      const sessionsSnap = await getDocs(
-        query(collection(db, 'sessions'), where('trainerId', '==', user.uid))
-      )
-      setSessionsCount(sessionsSnap.size)
-      // Conta clientes distintos
-      const clients = new Set(
-        sessionsSnap.docs.map(doc => doc.data().clientId)
-      )
-      setClientsCount(clients.size)
-      setLoading(false)
-    }
-    load()
-  }, [user])
+  const { stats, loading, error } = useTrainerDashboard()
 
   if (loading) {
     return (
-      <Layout>
+      <AppLayout>
         <div className="text-center mt-5">
           <CSpinner />
         </div>
-      </Layout>
+      </AppLayout>
+    )
+  }
+  if (error) {
+    return (
+      <AppLayout>
+        <div className="text-danger text-center mt-5">
+          Erro: {error.message}
+        </div>
+      </AppLayout>
     )
   }
 
-  return (
-    <Layout>
-      <h2 className="mb-4">Dashboard Trainer</h2>
-      <CRow className="mb-4">
-        <CCol sm={6} lg={3}>
-          <CWidgetStatsA
-            color="gradient-primary"
-            title="Sessões"
-            value={sessionsCount}
-          />
-        </CCol>
-        <CCol sm={6} lg={3}>
-          <CWidgetStatsA
-            color="gradient-success"
-            title="Clientes"
-            value={clientsCount}
-          />
-        </CCol>
-      </CRow>
+  const { clientsCount, upcomingSessions, revenue } = stats
 
-      <CCard>
-        <CCardBody>
-          <h5 className="mb-3">Visão Geral</h5>
-          <p>Mais funcionalidades de treino virão em breve.</p>
-        </CCardBody>
-      </CCard>
-    </Layout>
+  return (
+    <AppLayout>
+      <CContainer fluid className="mt-4">
+        <h2 className="mb-4">Dashboard Trainer</h2>
+        <CRow className="g-3 mb-4">
+          <CCol sm={6} lg={4}>
+            <CWidgetStatsA
+              color="primary"
+              title="Clientes"
+              value={clientsCount.toLocaleString()}
+              icon={<CIcon icon={cilPeople} size="lg" />}
+            />
+          </CCol>
+          <CCol sm={6} lg={4}>
+            <CWidgetStatsA
+              color="warning"
+              title="Próximas Sessões"
+              value={upcomingSessions.toLocaleString()}
+              icon={<CIcon icon={cilCalendar} size="lg" />}
+            />
+          </CCol>
+          <CCol sm={6} lg={4}>
+            <CWidgetStatsA
+              color="success"
+              title="Receita"
+              value={`$${revenue.toLocaleString()}`}
+              icon={<CIcon icon={cilDollar} size="lg" />}
+            />
+          </CCol>
+        </CRow>
+      </CContainer>
+    </AppLayout>
   )
 }

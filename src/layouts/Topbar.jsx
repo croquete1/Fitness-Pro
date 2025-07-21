@@ -1,6 +1,5 @@
 import React from 'react'
 import {
-  CHeader,
   CHeaderToggler,
   CHeaderBrand,
   CHeaderNav,
@@ -10,19 +9,18 @@ import {
   CDropdownItem,
   CAvatar,
   CButton,
-  CBadge,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilMenu, cilBell } from '@coreui/icons'
 import { useAuth } from '../contexts/AuthContext.jsx'
-import { useNotifications } from '../hooks/useNotifications.js'
-import { useNavigate } from 'react-router-dom'
+import { useAdminNotifications } from '../hooks/useAdminNotifications.jsx'
+import { useNavigate, Link } from 'react-router-dom'
 
 export default function Topbar({ onToggleSidebar }) {
-  const { user, logout } = useAuth()
-  const { notifications } = useNotifications()
+  const { user, logout, role } = useAuth()
+  const { requests } = useAdminNotifications()
+  const unread = requests.length
   const navigate = useNavigate()
-  const unread = notifications.filter(n => !n.read).length
 
   const handleLogout = async () => {
     await logout()
@@ -30,7 +28,7 @@ export default function Topbar({ onToggleSidebar }) {
   }
 
   return (
-    <CHeader className="d-flex justify-content-between align-items-center px-3">
+    <div className="d-flex justify-content-between align-items-center w-100 px-3">
       <div className="d-flex align-items-center">
         <CHeaderToggler onClick={onToggleSidebar} className="me-3">
           <CIcon icon={cilMenu} size="lg" />
@@ -39,18 +37,18 @@ export default function Topbar({ onToggleSidebar }) {
       </div>
 
       <CHeaderNav className="d-flex align-items-center">
-        <CButton color="light" className="position-relative me-3">
-          <CIcon icon={cilBell} size="lg" />
-          {unread > 0 && (
-            <CBadge
-              color="danger"
-              shape="pill"
-              className="position-absolute top-0 start-100 translate-middle"
-            >
-              {unread}
-            </CBadge>
-          )}
-        </CButton>
+        {role === 'admin' && (
+          <Link to="/admin/requests">
+            <CButton color="light" className="position-relative me-3">
+              <CIcon icon={cilBell} size="lg" />
+              {unread > 0 && (
+                <span className="badge bg-danger rounded-pill position-absolute top-0 start-100 translate-middle">
+                  {unread}
+                </span>
+              )}
+            </CButton>
+          </Link>
+        )}
         <CDropdown>
           <CDropdownToggle className="text-decoration-none">
             <CAvatar status="success">
@@ -63,6 +61,6 @@ export default function Topbar({ onToggleSidebar }) {
           </CDropdownMenu>
         </CDropdown>
       </CHeaderNav>
-    </CHeader>
+    </div>
   )
 }
