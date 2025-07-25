@@ -1,5 +1,5 @@
 // src/layouts/Sidebar.jsx
-import React, { useState } from 'react'
+import React from 'react'
 import {
   CSidebarNav,
   CNavItem,
@@ -19,16 +19,12 @@ import {
   cilGraph,
   cilBarChart,
   cilFile,
-  cilPeople,
 } from '@coreui/icons'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext.jsx'
 
 export default function Sidebar() {
   const { role } = useAuth()
-  const [reportsOpen, setReportsOpen] = useState(false)
-
-  const toggleReports = () => setReportsOpen((v) => !v)
 
   return (
     <CSidebarNav>
@@ -49,7 +45,7 @@ export default function Sidebar() {
         </>
       )}
 
-      {/* Personal Trainer */}
+      {/* Trainer */}
       {role === 'trainer' && (
         <>
           <CNavTitle>Personal Trainer</CNavTitle>
@@ -70,11 +66,6 @@ export default function Sidebar() {
             Contas
           </CNavItem>
 
-          <CNavItem component={NavLink} to="/admin/clients">
-            <CIcon icon={cilPeople} className="me-2" />
-            Clientes
-          </CNavItem>
-
           <CNavItem component={NavLink} to="/admin/assign-clients">
             <CIcon icon={cilList} className="me-2" />
             Atribuição
@@ -92,15 +83,11 @@ export default function Sidebar() {
 
           <CNavGroup
             toggler={
-              <span
-                onClick={toggleReports}
-                style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-              >
+              <>
                 <CIcon icon={cilGraph} className="me-2" />
                 Estatísticas e Relatórios Gerais
-              </span>
+              </>
             }
-            visible={reportsOpen}
           >
             <CNavLink component={NavLink} to="/admin/reports/signup-graph">
               <CIcon icon={cilChartPie} className="me-2" />
