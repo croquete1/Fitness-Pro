@@ -1,10 +1,12 @@
 // src/layouts/AppLayout.jsx
 import React, { useState, useEffect } from 'react'
+import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import {
   CSidebar,
   CSidebarBrand,
   CSidebarNav,
   CSidebarFooter,
+  CSidebarToggler,
   CHeader,
   CHeaderToggler,
   CContainer,
@@ -18,23 +20,28 @@ import {
   CBadge,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilMenu, cilBell, cilLockLocked, cilLockUnlocked } from '@coreui/icons'
+import {
+  cilMenu,
+  cilBell,
+  cilLockLocked,
+  cilLockUnlocked,
+} from '@coreui/icons'
 import Sidebar from './Sidebar.jsx'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { useAdminNotifications } from '../hooks/useAdminNotifications.jsx'
-import { NavLink, useNavigate } from 'react-router-dom'
 
-export default function AppLayout({ children }) {
+export default function AppLayout() {
   const { user, logout, role } = useAuth()
-  const { requests }           = useAdminNotifications()
-  const navigate               = useNavigate()
+  const { requests } = useAdminNotifications()
+  const navigate = useNavigate()
 
-  // Read initial “pinned” state
-  const [pinned, setPinned]   = useState(() => localStorage.getItem('sidebarPinned') === 'true')
+  // 👇 Hooks obrigatórios e definição de visible
+  const [pinned, setPinned] = useState(
+    () => localStorage.getItem('sidebarPinned') === 'true',
+  )
   const [hovered, setHovered] = useState(false)
-  const visible               = pinned || hovered
+  const visible = pinned || hovered
 
-  // Persist pinned
   useEffect(() => {
     localStorage.setItem('sidebarPinned', pinned)
   }, [pinned])
@@ -53,13 +60,12 @@ export default function AppLayout({ children }) {
     }
   }
 
-  // New hamburger logic: if pinned, unpin & hide; else toggle hover
   const handleHamburger = () => {
     if (pinned) {
       setPinned(false)
       setHovered(false)
     } else {
-      setHovered((prev) => !prev)
+      setHovered(prev => !prev)
     }
   }
 
@@ -67,27 +73,26 @@ export default function AppLayout({ children }) {
     <div className="c-app c-default-layout">
       <CSidebar
         visible={visible}
-        breakPoint="lg"
-        className={`sidebar sidebar-light sidebar-fixed ${visible ? 'sidebar-show' : ''}`}
+        breakpoint="lg"
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
         <CSidebarBrand className="d-flex justify-content-center border-bottom p-3">
-          Fitness Pro
+          Fitness Pro
         </CSidebarBrand>
 
-        <CSidebarNav>
+        {/* 🔧 Essencial: data-coreui para ativar comportamento */}
+        <CSidebarNav data-coreui="navigation">
           <Sidebar />
         </CSidebarNav>
 
         <CSidebarFooter className="border-top d-flex justify-content-center p-2">
-          <CButton size="sm" variant="outline" onClick={handleTogglePin}>
-            <CIcon icon={pinned ? cilLockLocked : cilLockUnlocked} />
-          </CButton>
+          {/* Uso correto do toggler */}
+          <CSidebarToggler onClick={handleTogglePin} />
         </CSidebarFooter>
       </CSidebar>
 
-      <div className={`wrapper ${pinned ? 'sidebar-pinned' : ''}`}>
+      <div className={`c-wrapper ${pinned ? 'sidebar-show' : ''}`}>
         <CHeader className="header header-sticky mb-4">
           <CContainer fluid className="d-flex justify-content-between align-items-center">
             <CHeaderToggler onClick={handleHamburger}>
@@ -111,8 +116,8 @@ export default function AppLayout({ children }) {
                   </CButton>
                 </NavLink>
               )}
-              <CDropdown variant="nav-item">
-                <CDropdownToggle variant="nav-link">
+              <CDropdown variant="nav-item" alignment="end">
+                <CDropdownToggle color="light">
                   <CAvatar status="success">
                     {user?.email?.[0]?.toUpperCase() || 'U'}
                   </CAvatar>
@@ -125,7 +130,9 @@ export default function AppLayout({ children }) {
           </CContainer>
         </CHeader>
 
-        <div className="body flex-grow-1 px-3">{children}</div>
+        <div className="c-body flex-grow-1 px-3">
+          <Outlet />
+        </div>
       </div>
     </div>
   )
