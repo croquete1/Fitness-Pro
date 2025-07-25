@@ -6,13 +6,17 @@ import {
   CButton,
   CCol,
   CContainer,
+  CRow,
+  CCol,
+  CAlert,
   CForm,
   CFormInput,
   CInputGroup,
   CInputGroupText,
-  CRow,
+  CButton,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
+import { cilUser, cilLockLocked } from '@coreui/icons'
 import { cilUser, cilLockLocked } from '@coreui/icons'
 import { useAuth } from '../contexts/AuthContext.jsx'
 
@@ -30,6 +34,10 @@ export default function Login() {
     setLoading(true)
     try {
       const { role } = await login(email, password)
+      if (role === 'admin') navigate('/admin', { replace: true })
+      else if (role === 'trainer') navigate('/trainer', { replace: true })
+      else navigate('/dashboard', { replace: true })
+    } catch {
       if (role === 'admin') navigate('/admin', { replace: true })
       else if (role === 'trainer') navigate('/trainer', { replace: true })
       else navigate('/dashboard', { replace: true })
