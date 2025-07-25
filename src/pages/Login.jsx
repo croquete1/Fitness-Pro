@@ -2,10 +2,8 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
+  CAlert,
   CButton,
-  CCard,
-  CCardBody,
-  CCardGroup,
   CCol,
   CContainer,
   CForm,
@@ -15,7 +13,7 @@ import {
   CRow,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilLockLocked, cilUser } from '@coreui/icons'
+import { cilUser, cilLockLocked } from '@coreui/icons'
 import { useAuth } from '../contexts/AuthContext.jsx'
 
 export default function Login() {
@@ -32,14 +30,10 @@ export default function Login() {
     setLoading(true)
     try {
       const { role } = await login(email, password)
-      if (role === 'admin') {
-        navigate('/admin', { replace: true })
-      } else if (role === 'trainer') {
-        navigate('/trainer', { replace: true })
-      } else {
-        navigate('/dashboard', { replace: true })
-      }
-    } catch (err) {
+      if (role === 'admin') navigate('/admin', { replace: true })
+      else if (role === 'trainer') navigate('/trainer', { replace: true })
+      else navigate('/dashboard', { replace: true })
+    } catch {
       setError('Falha no login: verifique as credenciais')
     } finally {
       setLoading(false)
@@ -47,19 +41,20 @@ export default function Login() {
   }
 
   return (
-    <div className="bg-light min-vh-100 d-flex align-items-center">
+    <div className="bg-light min-vh-100 d-flex align-items-center justify-content-center">
       <CContainer>
         <CRow className="justify-content-center">
-          <CCol md={8}>
-            <CCardGroup>
-              <CCard className="p-4">
-                <CCardBody>
+          <CCol xs={12} md={10} lg={8}>
+            <CRow className="g-0 shadow rounded overflow-hidden">
+              {/* Form de Login */}
+              <CCol xs={12} md={6} className="bg-white p-5 d-flex">
+                <div className="w-100">
+                  <h1 className="fs-2 mb-3">Login</h1>
+                  <p className="text-medium-emphasis mb-4">
+                    Entre na sua conta
+                  </p>
+                  {error && <CAlert color="danger">{error}</CAlert>}
                   <CForm onSubmit={handleSubmit}>
-                    <h1>Login</h1>
-                    <p className="text-medium-emphasis">Entre na sua conta</p>
-                    {error && (
-                      <div className="text-danger mb-3">{error}</div>
-                    )}
                     <CInputGroup className="mb-3">
                       <CInputGroupText>
                         <CIcon icon={cilUser} />
@@ -71,6 +66,7 @@ export default function Login() {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         required
+                        formControlSize="lg"
                       />
                     </CInputGroup>
                     <CInputGroup className="mb-4">
@@ -84,13 +80,14 @@ export default function Login() {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
+                        formControlSize="lg"
                       />
                     </CInputGroup>
-                    <CRow>
+                    <CRow className="align-items-center">
                       <CCol xs={6}>
                         <CButton
                           color="primary"
-                          className="px-4"
+                          className="w-100 py-2"
                           type="submit"
                           disabled={loading}
                         >
@@ -98,32 +95,39 @@ export default function Login() {
                         </CButton>
                       </CCol>
                       <CCol xs={6} className="text-end">
-                        <Link to="/register">Registar-se</Link>
+                        <Link className="fw-semibold" to="/register">
+                          Registar-se
+                        </Link>
                       </CCol>
                     </CRow>
                   </CForm>
-                </CCardBody>
-              </CCard>
-              <CCard
-                className="text-white bg-primary py-5 d-md-down-none"
-                style={{ width: '44%' }}
+                </div>
+              </CCol>
+
+              {/* CTA / Ilustração */}
+              <CCol
+                xs={0}
+                md={6}
+                className="d-none d-md-flex bg-primary text-white p-5 align-items-center justify-content-center"
+                style={{
+                  backgroundImage: 'url("/login-illustration.png")',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                }}
               >
-                <CCardBody className="text-center">
-                  <h2>Registar</h2>
-                  <p>Crie a sua conta para aceder a todas as funcionalidades.</p>
+                <div className="text-center">
+                  <h2 className="fs-1 mb-3">Bem-vindo!</h2>
+                  <p className="fs-5 mb-4 px-3">
+                    Crie a sua conta para aceder a todas as funcionalidades.
+                  </p>
                   <Link to="/register">
-                    <CButton
-                      color="light"
-                      className="mt-3"
-                      active
-                      tabIndex={-1}
-                    >
+                    <CButton color="light" className="px-4 py-2">
                       Registar
                     </CButton>
                   </Link>
-                </CCardBody>
-              </CCard>
-            </CCardGroup>
+                </div>
+              </CCol>
+            </CRow>
           </CCol>
         </CRow>
       </CContainer>
