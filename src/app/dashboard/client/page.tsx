@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-
+import { supabase } from '../../../lib/supabaseClient'
 export default function ClientDashboard() {
   return (
     <main className="p-6">

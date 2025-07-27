@@ -1,6 +1,7 @@
 // src/app/page.tsx
 'use client';
 import Link from 'next/link';
+import { supabase } from '../lib/supabaseClient'
 
 export default function HomePage() {
   return (

@@ -6,7 +6,8 @@
     "build": "next build"
   },
   "dependencies": {
-    "@auth/prisma-adapter": "^2.10.0",
+    "@next-auth/supabase-adapter": "^2.0.0",
+    "@supabase/supabase-js": "^2.52.1",
     "@tanstack/react-table": "^8.21.3",
     "next": "15.4.4",
     "next-auth": "^4.24.11",
