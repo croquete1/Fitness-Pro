@@ -8,7 +8,12 @@
     "start": "next start"
   },
   "dependencies": {
+    "@auth/prisma-adapter": "^2.10.0",
+    "@prisma/client": "^6.12.0",
+    "@tanstack/react-table": "^8.21.3",
     "next": "15.4.4",
+    "next-auth": "^4.24.11",
+    "prisma": "^6.12.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-table": "^7.8.0",

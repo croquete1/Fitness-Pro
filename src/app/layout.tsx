@@ -1,14 +1,17 @@
-// app/layout.tsx
-import "./globals.css";
-import { ReactNode } from "react";
+// src/app/layout.tsx
+import './globals.css';
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export const metadata = {
+  title: 'Fitness Pro',
+  description: 'Plataforma de treino personalizada',
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt">
-      <head>
-        <title>Fitness Pro</title>
-      </head>
-      <body className="bg-gray-100 text-gray-900">{children}</body>
+      <body>
+        {children}
+      </body>
     </html>
   );
 }

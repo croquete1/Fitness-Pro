@@ -1,6 +1,5 @@
 // src/app/layout.tsx
 import React from 'react';
-import './globals.css';  // importa aqui o teu CSS / Tailwind
 
 export const metadata = {
   title: 'A Minha App',
