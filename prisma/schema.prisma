@@ -10,7 +10,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("https://djesjcakrpxdvbszfqik.supabase.co")
+  url      = env("DATABASE_URL")
 }
 model User {
   id            String   @id @default(cuid())
