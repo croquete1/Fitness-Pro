@@ -1,36 +1,27 @@
-// app/dashboard/layout.tsx
+// src/app/dashboard/layout.tsx
 
-import { ReactNode } from "react";
-import { redirect } from "next/navigation";
-import { getUserRole, isAuthenticated } from "@/lib/auth-server";
+import React from 'react';
+import { redirect } from 'next/navigation';
+import { getAuthSession } from '@/lib/auth-server';
 
 interface DashboardLayoutProps {
-  children: ReactNode;
+  children: React.ReactNode;
 }
 
-export default function DashboardLayout({ children }: DashboardLayoutProps) {
-  // Se não estiver autenticado, redireciona para /login
-  if (!isAuthenticated()) {
-    redirect("/login");
+export default async function DashboardLayout({
+  children,
+}: DashboardLayoutProps) {
+  const session = await getAuthSession();
+
+  if (!session) {
+    // redireciona para a página de login se não estiver autenticado
+    redirect('/login');
   }
 
-  // Lê o role do cookie no server side
-  const role = getUserRole();
-
   return (
-    <html lang="pt">
-      <head>
-        <title>Dashboard</title>
-      </head>
-      <body>
-        <header style={{ padding: "1rem", borderBottom: "1px solid #ccc" }}>
-          <p>Bem-vindo, {role}</p>
-        </header>
-
-        <main style={{ padding: "2rem" }}>
-          {children}
-        </main>
-      </body>
-    </html>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-4">Dashboard</h1>
+      {children}
+    </div>
   );
 }
