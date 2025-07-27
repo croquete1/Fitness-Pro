@@ -1,0 +1,10 @@
+// jsconfig.json
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["*"]
+    }
+  },
+  "exclude": ["node_modules", ".next"]
+}
