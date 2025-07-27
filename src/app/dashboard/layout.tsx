@@ -1,27 +1,18 @@
-// src/app/dashboard/layout.tsx
-
+// src/app/layout.tsx
 import React from 'react';
-import { redirect } from 'next/navigation';
-import { getAuthSession } from '@/lib/auth-server';
+import './globals.css';  // importa aqui o teu CSS / Tailwind
 
-interface DashboardLayoutProps {
-  children: React.ReactNode;
-}
+export const metadata = {
+  title: 'A Minha App',
+  description: 'App com autenticação',
+};
 
-export default async function DashboardLayout({
-  children,
-}: DashboardLayoutProps) {
-  const session = await getAuthSession();
-
-  if (!session) {
-    // redireciona para a página de login se não estiver autenticado
-    redirect('/login');
-  }
-
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Dashboard</h1>
-      {children}
-    </div>
+    <html lang="pt">
+      <body>
+        {children}
+      </body>
+    </html>
   );
 }
