@@ -8,6 +8,9 @@ export default function Sidebar() {
   const { user, logout } = useAuth()
   const path = usePathname()
 
+  // Se não houver utilizador, não mostramos a sidebar
+  if (!user) return null
+
   const commonLinks = [
     { href: '/', label: 'Visão Geral' },
   ]
@@ -21,15 +24,15 @@ export default function Sidebar() {
     { href: '/admin', label: 'Dashboard Admin' },
     { href: '/admin/users', label: 'Contas' },
     { href: '/admin/assign-clients', label: 'Atribuição' },
-    // adicione os restantes...
+    // …
   ]
 
   const links =
-    user?.role === 'admin'
+    user.role === 'admin'
       ? [...commonLinks, ...adminLinks]
-      : user?.role === 'trainer'
+      : user.role === 'trainer'
       ? [...commonLinks, ...trainerLinks]
-      : user?.role === 'client'
+      : user.role === 'client'
       ? [...commonLinks, ...clientLinks]
       : commonLinks
 
@@ -49,14 +52,12 @@ export default function Sidebar() {
           </Link>
         ))}
       </nav>
-      {user && (
-        <button
-          onClick={logout}
-          className="m-4 px-4 py-2 bg-red-500 text-white rounded"
-        >
-          Logout
-        </button>
-      )}
+      <button
+        onClick={logout}
+        className="m-4 px-4 py-2 bg-red-500 text-white rounded"
+      >
+        Logout
+      </button>
     </aside>
   )
 }
