@@ -1,5 +1,6 @@
-import path from 'path';
-import { NextConfig } from 'next';
+// next.config.js
+import path from 'path'
+import { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
   eslint: { ignoreDuringBuilds: true },
@@ -7,9 +8,9 @@ const nextConfig: NextConfig = {
     config.resolve.alias = {
       ...(config.resolve.alias || {}),
       '@': path.resolve(__dirname, 'src'),
-    };
-    return config;
+    }
+    return config
   },
-};
+}
 
-export default nextConfig;
+export default nextConfig
