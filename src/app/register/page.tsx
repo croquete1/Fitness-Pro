@@ -1,56 +1,79 @@
 // src/app/register/page.tsx
-'use client';
-import Link from 'next/link';
-import { useState } from 'react';
+"use client"
+import { useState } from "react"
+import { useRouter } from "next/navigation"
 
 export default function RegisterPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
+  const router = useRouter()
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [role, setRole] = useState<"client"|"trainer">("client")
+  const [error, setError] = useState("")
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError("")
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ email, password, role }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      router.push("/login?registered=1")
+    } catch (err: any) {
+      setError(err.message)
+    }
+  }
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-4">
-      <form className="bg-white shadow-lg rounded-lg p-8 w-full max-w-sm space-y-4">
-        <h2 className="text-2xl font-bold text-center">Criar Conta</h2>
-
-        <input
-          type="email"
-          placeholder="Email"
-          className="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-green-500"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-
-        <input
-          type="password"
-          placeholder="Password"
-          className="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-green-500"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-
-        <input
-          type="password"
-          placeholder="Confirmar Password"
-          className="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-green-500"
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-        />
-
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-md bg-white p-8 rounded shadow space-y-6"
+      >
+        <h2 className="text-2xl font-bold">Registar‑te</h2>
+        {error && (
+          <div className="bg-red-100 text-red-800 p-2 rounded">{error}</div>
+        )}
+        <div>
+          <label className="block text-sm font-medium">Email</label>
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            className="mt-1 block w-full border-gray-300 rounded p-2"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium">Senha</label>
+          <input
+            type="password"
+            required
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            className="mt-1 block w-full border-gray-300 rounded p-2"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium">Tipo de Conta</label>
+          <select
+            value={role}
+            onChange={e => setRole(e.target.value as any)}
+            className="mt-1 block w-full border-gray-300 rounded p-2"
+          >
+            <option value="client">Cliente</option>
+            <option value="trainer">Personal Trainer</option>
+          </select>
+        </div>
         <button
           type="submit"
-          className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 transition"
+          className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700"
         >
-          Registar
+          Criar Conta
         </button>
-
-        <p className="text-sm text-center text-gray-600">
-          Já tens conta?{' '}
-          <Link href="/login" className="text-green-600 underline">
-            Inicia sessão
-          </Link>
-        </p>
       </form>
-    </main>
-  );
+    </div>
+  )
 }
