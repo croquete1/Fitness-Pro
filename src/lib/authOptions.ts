@@ -3,6 +3,7 @@ import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { SupabaseAdapter } from "@next-auth/supabase-adapter"
 import { createClient } from "@supabase/supabase-js"
+import NextAuth, { DefaultSession } from "next-auth"
 
 // Inicializa o cliente Supabase com URL pública e chave service role para uso no servidor
 const supabase = createClient(
@@ -57,4 +58,15 @@ export const authOptions: NextAuthOptions = {
       return session
     },
   },
+}
+
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string;
+    } & DefaultSession["user"];
+  }
+  interface User {
+    id: string;
+  }
 }
