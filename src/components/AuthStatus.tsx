@@ -1,9 +1,20 @@
 // src/components/AuthStatus.tsx
 import { cookies } from 'next/headers'
-import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/app/api/[...nextauth]/route'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/authOptions'
 
-export default async function AuthStatus() {
-  const session = await getServerSession({ cookies }, authOptions)
-  return { status: session ? 'authenticated' : 'unauthenticated' }
+type SessionStatus = 'loading' | 'authenticated' | 'unauthenticated'
+
+export default async function AuthStatus(): Promise<{
+  session: Awaited<ReturnType<typeof getServerSession>> | null
+  status: SessionStatus
+}> {
+  const session = await getServerSession(authOptions)
+  const status =
+    session === undefined
+      ? 'loading'
+      : session
+      ? 'authenticated'
+      : 'unauthenticated'
+  return { session, status }
 }
