@@ -1,13 +1,11 @@
 // src/app/api/[...nextauth]/route.ts
-
 import NextAuth from 'next-auth/next'
 import type { NextAuthOptions } from 'next-auth'
-import type { JWT } from 'next-auth/jwt'
-import type { Session, User } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import { SupabaseAdapter } from '@next-auth/supabase-adapter'
-import { supabase } from '../../../lib/supabaseClient'
 
+// Aqui você não precisa importar o client supabase padrão,
+// pois o adapter vai criar o client internamente usando as credenciais.
 const authOptions: NextAuthOptions = {
   adapter: SupabaseAdapter({
     url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,53 +13,35 @@ const authOptions: NextAuthOptions = {
   }),
   providers: [
     CredentialsProvider({
-      name: 'Email e Senha',
+      name: 'Email',
       credentials: {
-        email:    { label: 'Email',    type: 'email',    placeholder: 'vc@exemplo.com' },
-        password: { label: 'Senha',    type: 'password' },
+        email: { label: 'E-mail', type: 'email' },
+        password: { label: 'Token de Acesso', type: 'text' },
       },
-      async authorize(credentials) {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: credentials?.email!,
-          password: credentials?.password!,
+      authorize: async (credentials) => {
+        // Exemplo usando magic link/token via Supabase
+        const { cookies } = require('next/headers');
+        const { data, error } = await (
+          await import('@supabase/auth-helpers-nextjs')
+        ).createServerComponentClient({ cookies: cookies() }).auth.verifyOtp({
+          email: credentials!.email,
+          token: credentials!.password,
+          type: 'magiclink',
         })
-
-        if (error || !data.user) return null
-
-        return {
-          id:    data.user.id,
-          email: data.user.email!,
-          name:  data.user.user_metadata.name || undefined,
-        }
+        if (error || !data?.user) return null
+        return { id: data.user.id, name: data.user.email }
       },
     }),
   ],
-  session: {
-    strategy: 'jwt',
-  },
+  session: { strategy: 'jwt' },
   pages: {
     signIn: '/login',
-  },
-  callbacks: {
-    async jwt({ token, user }: { token: JWT; user?: User }): Promise<JWT> {
-      if (user) token.user = user
-      return token
-    },
-    async session({
-      session,
-      token,
-    }: {
-      session: Session
-      token: JWT & { user?: User }
-    }): Promise<Session> {
-      session.user = token.user
-      return session
-    },
+    error: '/login?error',
   },
 }
 
-// NOTE: importa NextAuth de 'next-auth/next' e passa apenas o authOptions.
-// Não use dois argumentos — o App Router internamente cuida de req/res.
+// Cria o handler NextAuth
 const handler = NextAuth(authOptions)
 
+// Exporta apenas os métodos HTTP esperados
 export { handler as GET, handler as POST }

@@ -1,20 +1,9 @@
 // src/lib/auth-server.ts
+import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
+import { cookies } from "next/headers";
 
 /**
- * Exemplo de stub para obter sessão de utilizador no servidor.
- * Substitua esta implementação pela lógica de autenticação real.
+ * Supabase client pre-configured for Server Components
+ * (so you can call .auth.getSession() etc. on the server).
  */
-
-export interface AuthSession {
-  user: {
-    id: string;
-    name: string;
-    email: string;
-  };
-}
-
-export async function getAuthSession(): Promise<AuthSession | null> {
-  // TODO: implementar a validação de cookies / tokens
-  // Exemplo de retorno nulo (não autenticado)
-  return null;
-}
+export const supabaseServer = createServerComponentClient({ cookies });
