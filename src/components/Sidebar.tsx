@@ -1,63 +1,44 @@
 // src/components/Sidebar.tsx
 'use client'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { useAuth } from '@/contexts/AuthContext'
+import { useSession, signOut } from 'next-auth/react'
 
-export default function Sidebar() {
-  const { user, logout } = useAuth()
-  const path = usePathname()
+interface SidebarProps {
+  role?: string
+}
 
-  // Se não houver utilizador, não mostramos a sidebar
-  if (!user) return null
+export default function Sidebar({ role }: SidebarProps) {
+  const { data: session, status } = useSession()
 
-  const commonLinks = [
-    { href: '/', label: 'Visão Geral' },
-  ]
-  const clientLinks = [
-    { href: '/dashboard/client', label: 'Meus Treinos' },
-  ]
-  const trainerLinks = [
-    { href: '/dashboard/trainer', label: 'Meus Clientes' },
-  ]
-  const adminLinks = [
-    { href: '/admin', label: 'Dashboard Admin' },
-    { href: '/admin/users', label: 'Contas' },
-    { href: '/admin/assign-clients', label: 'Atribuição' },
-    // …
-  ]
-
-  const links =
-    user.role === 'admin'
-      ? [...commonLinks, ...adminLinks]
-      : user.role === 'trainer'
-      ? [...commonLinks, ...trainerLinks]
-      : user.role === 'client'
-      ? [...commonLinks, ...clientLinks]
-      : commonLinks
+  if (status !== 'authenticated') return null
 
   return (
-    <aside className="w-64 bg-white border-r flex flex-col">
-      <div className="p-4 font-bold text-xl border-b">Fitness Pro</div>
-      <nav className="flex-1 p-4 space-y-2">
-        {links.map(({ href, label }) => (
-          <Link key={href} href={href}>
-            <a
-              className={`block px-3 py-2 rounded ${
-                path === href ? 'bg-blue-500 text-white' : 'hover:bg-gray-100'
-              }`}
-            >
-              {label}
-            </a>
-          </Link>
-        ))}
-      </nav>
-      <button
-        onClick={logout}
-        className="m-4 px-4 py-2 bg-red-500 text-white rounded"
-      >
-        Logout
-      </button>
-    </aside>
+    <nav className="h-full p-4">
+      <h2 className="text-xl font-bold mb-4">Fitness Pro</h2>
+      <ul className="space-y-2">
+        <li><Link href={role === 'admin' ? '/admin' : '/home'}>Visão Geral</Link></li>
+        {role === 'client' && (
+          <li><Link href="/dashboard/workouts">Meus Treinos</Link></li>
+        )}
+        {role === 'trainer' && (
+          <li><Link href="/trainer/clients">Meus Clientes</Link></li>
+        )}
+        {role === 'admin' && (
+          <>
+            <li><Link href="/admin/users">Contas</Link></li>
+            <li><Link href="/admin/assign-clients">Atribuição</Link></li>
+            {/* … outras links … */}
+          </>
+        )}
+        <li>
+          <button
+            onClick={() => signOut({ callbackUrl: '/login' })}
+            className="mt-4 w-full text-left text-red-600"
+          >
+            Logout
+          </button>
+        </li>
+      </ul>
+    </nav>
   )
 }
