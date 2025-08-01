@@ -1,20 +1,18 @@
 // src/lib/authOptions.ts
-import type { NextAuthOptions } from "next-auth"
-import CredentialsProvider from "next-auth/providers/credentials"
-import { SupabaseAdapter } from "@next-auth/supabase-adapter"
-import { createClient } from "@supabase/supabase-js"
-import NextAuth, { DefaultSession } from "next-auth"
+import type { NextAuthOptions } from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
+import { SupabaseAdapter } from "@next-auth/supabase-adapter";
+import { createClient } from "@supabase/supabase-js";
 
-// Inicializa o cliente Supabase com URL pública e chave service role para uso no servidor
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-  process.env.SUPABASE_SERVICE_ROLE_KEY as string
-)
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export const authOptions: NextAuthOptions = {
   adapter: SupabaseAdapter({
-    url: process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-    secret: process.env.SUPABASE_SERVICE_ROLE_KEY as string,
+    url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    secret: process.env.SUPABASE_SERVICE_ROLE_KEY!,
   }),
   providers: [
     CredentialsProvider({
@@ -23,18 +21,19 @@ export const authOptions: NextAuthOptions = {
         email: { label: "E‑mail", type: "email" },
         token: { label: "Token", type: "text" },
       },
-      authorize: async (credentials) => {
+      authorize: async ({ email, token }) => {
         const { data, error } = await supabase.auth.verifyOtp({
-          email: credentials?.email as string,
-          token: credentials?.token as string,
+          email: email!,
+          token: token!,
           type: "magiclink",
-        })
-        if (error || !data?.user) return null
+        });
+        if (error || !data?.user) return null;
         return {
           id: data.user.id,
-          email: data.user.email as string,
-          name: data.user.email as string,
-        }
+          email: data.user.email!,
+          name: data.user.email!,
+          // provider info já vem dentro de `user` => sub
+        };
       },
     }),
   ],
@@ -46,27 +45,19 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     jwt: async ({ token, user }) => {
       if (user) {
-        token.id = user.id as string
+        token.id = user.id;
       }
-      return token
+      return token;
     },
     session: async ({ session, token }) => {
-      session.user = {
-        ...session.user,
-        id: token.id as string,
+      if (session.user) {
+        session.user = {
+          ...session.user,
+          id: token.id as string,
+        };
       }
-      return session
+      return session;
     },
   },
-}
-
-declare module "next-auth" {
-  interface Session {
-    user: {
-      id: string;
-    } & DefaultSession["user"];
-  }
-  interface User {
-    id: string;
-  }
-}
+  secret: process.env.NEXTAUTH_SECRET,
+};
