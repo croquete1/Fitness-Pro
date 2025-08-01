@@ -1,82 +1,82 @@
-// src/app/login/page.tsx
-"use client"
-import Link from "next/link"
-import { useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+'use client';
+import { useState } from 'react';
+import { signIn } from 'next-auth/react';
+import Link from 'next/link';
 
 export default function LoginPage() {
-  const router = useRouter()
-  const params = useSearchParams()
-  const justRegistered = params.get("registered")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [error, setError] = useState("")
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
-    try {
-      // aqui chamas a tua API de login
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ email, password }),
-      })
-      if (!res.ok) throw new Error(await res.text())
-      router.push("/dashboard")
-    } catch (err: any) {
-      setError(err.message)
-    }
-  }
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    const res = await signIn('credentials', {
+      redirect: false,
+      email,
+      password,
+      callbackUrl: '/home'
+    });
+    setLoading(false);
+    if (!res || res.error) setError(res?.error ?? 'Erro desconhecido.');
+    else window.location.href = res.url!;
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-md bg-white p-8 rounded shadow space-y-6"
-      >
-        <h2 className="text-2xl font-bold">Login</h2>
-        {justRegistered && (
-          <div className="bg-green-100 text-green-800 p-2 rounded">
-            Conta criada com sucesso! Faça o login.
-          </div>
-        )}
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6">
+        <h2 className="text-2xl font-semibold mb-6 text-center">Entrar</h2>
         {error && (
-          <div className="bg-red-100 text-red-800 p-2 rounded">{error}</div>
+          <div className="mb-4 text-red-600 text-sm">{error}</div>
         )}
-        <div>
-          <label className="block text-sm font-medium">Email</label>
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            className="mt-1 block w-full border-gray-300 rounded p-2"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium">Senha</label>
-          <input
-            type="password"
-            required
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            className="mt-1 block w-full border-gray-300 rounded p-2"
-          />
-        </div>
-        <button
-          type="submit"
-          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
-        >
-          Entrar
-        </button>
-        <p className="text-sm text-center">
-          Ainda não tens conta?{" "}
-          <Link href="/register" className="text-blue-600 hover:underline">
-            Registar‑te
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              E-mail
+            </label>
+            <input
+              type="email"
+              id="email"
+              className="w-full mt-1 px-3 py-2 border rounded-md focus:outline-none focus:ring focus:ring-blue-300"
+              placeholder="exemplo@vitacoach.com"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="username"
+            />
+          </div>
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              Palavra-passe
+            </label>
+            <input
+              type="password"
+              id="password"
+              className="w-full mt-1 px-3 py-2 border rounded-md focus:outline-none focus:ring focus:ring-blue-300"
+              placeholder="••••••••"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full flex justify-center py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:opacity-50"
+          >
+            {loading ? 'A carregar…' : 'Entrar'}
+          </button>
+        </form>
+        <p className="mt-4 text-center text-sm text-gray-600">
+          Não tens conta?{' '}
+          <Link href="/register" className="font-medium text-blue-600 hover:underline">
+            Registar
           </Link>
         </p>
-      </form>
+      </div>
     </div>
-  )
+  );
 }
