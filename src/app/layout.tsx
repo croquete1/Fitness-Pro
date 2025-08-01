@@ -8,8 +8,7 @@ export const metadata = {
   title: "Fitness Pro",
   description: "Gestão de treinos e administração",
 }
-// Force this layout to be dynamic at _request_ time,
-// so that cookies() will work properly.
+// Ensure this file is executed on every request:
 export const dynamic = "force-dynamic"
 
 export default async function RootLayout({
@@ -17,7 +16,6 @@ export default async function RootLayout({
 }: {
   children: ReactNode
 }) {
-  // This runs on every request, inside the proper scope.
   const session = await getAuthSession()
 
   return (
