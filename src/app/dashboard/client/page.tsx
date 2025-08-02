@@ -1,23 +1,43 @@
-"use client";
+// src/app/dashboard/client/page.tsx
+'use client'
 
-import React from "react";
-import { supabase } from '../../../lib/supabaseClient'
-export default function ClientDashboard() {
+import { supabase } from '@/lib/supabaseClient'
+import React, { useEffect, useState } from 'react'
+
+type Client = {
+  id: string
+  nome: string
+  // acrescenta os campos da tua tabela
+}
+
+export default function ClientDashboardPage() {
+  const [clients, setClients] = useState<Client[]>([])
+  const [error, setError] = useState<string | undefined>(undefined)
+
+  useEffect(() => {
+    if (!supabase) {
+      setError('Supabase não configurado (env vars ausentes?)')
+      return
+    }
+
+    supabase.from('clients')
+      .select('*')
+      .then(({ data, error }) => {
+        if (error) setError(error.message)
+        else if (data) setClients(data)
+      })
+  }, [])
+
   return (
     <main className="p-6">
-      <h1 className="text-3xl font-bold mb-4">Client Dashboard</h1>
-      <section className="space-y-4">
-        <div className="rounded bg-white p-4 shadow">
-          <h2 className="text-xl font-semibold">Upcoming Workouts</h2>
-          {/* Aqui podes mapear as sessões agendadas do cliente */}
-          <p>Nenhuma sessão agendada.</p>
-        </div>
-        <div className="rounded bg-white p-4 shadow">
-          <h2 className="text-xl font-semibold">Progress Tracker</h2>
-          {/* Gráficos, estatísticas ou métricas do progresso do cliente */}
-          <p>Regista as tuas primeiras sessões para começar o tracking.</p>
-        </div>
-      </section>
+      <h1 className="text-2xl font-semibold mb-4">Dashboard Cliente</h1>
+      {error && <p className="text-red-600">{error}</p>}
+      {!error && clients.length === 0 && <p>Nenhum cliente registado.</p>}
+      <ul>
+        {clients.map(c => (
+          <li key={c.id} className="py-1 border-b">{c.nome}</li>
+        ))}
+      </ul>
     </main>
-);
+  )
 }

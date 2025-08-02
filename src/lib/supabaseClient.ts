@@ -1,8 +1,22 @@
-import { createClient } from '@supabase/supabase-js'
+// src/lib/supabaseClient.ts
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
-if (!supabaseUrl || !anonKey) throw new Error('Missing Supabase env vars')
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-export const supabase = createClient(supabaseUrl, anonKey)
+// Evita que o módulo falhe no build quando as env vars não estiverem presentes
+// (ex: Vercel preview antes de re–deploy após as var serem adicionadas)
+let supabase: SupabaseClient<any, "public", any> | undefined = undefined
+
+if (!url || !key) {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Supabase公共环境变量未定义。NEXT_PUBLIC_SUPABASE_URL 和 NEXT_PUBLIC_SUPABASE_ANON_KEY 是必须的。')
+  }
+  console.warn('[supabase] Variáveis ausentes — supabase não está inicializado.')
+} else {
+  supabase = createClient(url, key)
+}
+
+export { supabase }
+export type { SupabaseClient }
