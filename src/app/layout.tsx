@@ -3,18 +3,12 @@ import "./globals.css";
 import { ReactNode } from "react";
 import { SessionProvider } from "next-auth/react";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions"; // Usa o caminho correto!
+import { authOptions } from "@/lib/authOptions"; // Caminho certo!
 import SidebarClient from "@/components/SidebarClient";
 
 export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
-export const preferredRegion = "auto";
 
-export default async function RootLayout({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
   const session = await getServerSession(authOptions);
 
   return (
