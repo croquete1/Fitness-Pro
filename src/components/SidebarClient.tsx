@@ -1,61 +1,33 @@
-'use client'
+"use client";
+import Link from "next/link";
+import { signOut } from "next-auth/react";
+import type { Session } from "next-auth";
 
-import Link from 'next/link'
-import { signOut } from 'next-auth/react'
+interface Props { user: Session["user"] & { role?: string } }
 
-interface SidebarClientProps {
-  user: { id?: string; email?: string; role?: string }
-}
-
-export default function SidebarClient({ user }: SidebarClientProps) {
-  const role = user.role ?? 'client'
-
+export default function SidebarClient({ user }: Props) {
   return (
-    <nav className="h-full p-6 bg-white flex flex-col">
-      <h2 className="text-xl font-bold mb-6">Fitness Pro</h2>
-      <ul className="flex flex-col gap-4">
-        <li>
-          <Link
-            href={role === 'admin' ? '/admin' : '/home'}
-            className="text-gray-700 hover:text-blue-600"
-          >
-            Visão Geral
-          </Link>
-        </li>
-        {role === 'client' && (
-          <li>
-            <Link href="/dashboard/workouts" className="text-gray-700 hover:text-blue-600">
-              Meus Treinos
-            </Link>
-          </li>
-        )}
-        {role === 'trainer' && (
-          <li>
-            <Link href="/trainer/clients" className="text-gray-700 hover:text-blue-600">
-              Meus Clientes
-            </Link>
-          </li>
-        )}
-        {role === 'admin' && (
+    <nav className="h-full p-4">
+      <h2 className="text-lg font-bold mb-3">Fitness Pro</h2>
+      <ul className="space-y-2 text-gray-700">
+        <li><Link href={user.role === "admin" ? "/admin" : "/home"}>Visão Geral</Link></li>
+        {user.role === "client" && <li><Link href="/dashboard/workouts">Meus Treinos</Link></li>}
+        {user.role === "trainer" && <li><Link href="/trainer/clients">Meus Clientes</Link></li>}
+        {user.role === "admin" && (
           <>
-            <li>
-              <Link href="/admin/users" className="text-gray-700 hover:text-blue-600">
-                Contas
-              </Link>
-            </li>
-            <li>
-              <Link href="/admin/assign-clients" className="text-gray-700 hover:text-blue-600">
-                Atribuição
-              </Link>
-            </li>
+            <li><Link href="/admin/users">Contas</Link></li>
+            <li><Link href="/admin/assign-clients">Atribuição</Link></li>
           </>
         )}
-        <li className="mt-auto pt-4">
-          <button onClick={() => signOut({ callbackUrl: '/login' })} className="text-red-600 text-left">
+        <li>
+          <button
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            className="mt-6 text-left text-red-600"
+          >
             Logout
           </button>
         </li>
       </ul>
     </nav>
-  )
+  );
 }

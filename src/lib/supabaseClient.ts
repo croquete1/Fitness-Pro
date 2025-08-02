@@ -1,22 +1,10 @@
-// src/lib/supabaseClient.ts
+// instancia compartilhada do cliente Supabase para o servidor (service role) e cliente (anon)
+import { createClient } from "@supabase/supabase-js";
 
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL) throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL");
+if (!process.env.SUPABASE_SERVICE_ROLE_KEY) throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-// Evita que o módulo falhe no build quando as env vars não estiverem presentes
-// (ex: Vercel preview antes de re–deploy após as var serem adicionadas)
-let supabase: SupabaseClient<any, "public", any> | undefined = undefined
-
-if (!url || !key) {
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('Supabase公共环境变量未定义。NEXT_PUBLIC_SUPABASE_URL 和 NEXT_PUBLIC_SUPABASE_ANON_KEY 是必须的。')
-  }
-  console.warn('[supabase] Variáveis ausentes — supabase não está inicializado.')
-} else {
-  supabase = createClient(url, key)
-}
-
-export { supabase }
-export type { SupabaseClient }
+export const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);

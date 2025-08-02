@@ -1,46 +1,44 @@
-// src/lib/authOptions.ts
-import type { NextAuthOptions } from 'next-auth'
-import CredentialsProvider from 'next-auth/providers/credentials'
-import { SupabaseAdapter } from '@next-auth/supabase-adapter'
+import NextAuth from "next-auth";
+import type { NextAuthOptions } from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
+import { SupabaseAdapter } from "@next-auth/supabase-adapter";
+import { supabase } from "./supabaseClient";
 
 export const authOptions: NextAuthOptions = {
+  // obrigatório em produção
   secret: process.env.NEXTAUTH_SECRET,
   adapter: SupabaseAdapter({
     url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    secret: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    secret: process.env.SUPABASE_SERVICE_ROLE_KEY!
   }),
   providers: [
     CredentialsProvider({
-      name: 'Magic link (email)',
+      name: "Email e senha",
       credentials: {
-        email: { label: 'E‑mail', type: 'email' },
-        token: { label: 'Token', type: 'text' },
+        email: { label: "Email", type: "email" },
+        password: { label: "Senha", type: "password" }
       },
-      async authorize(credentials) {
-        // Import only when needed, avoiding module-level import
-        const { createClient } = await import('@supabase/supabase-js')
-        const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
-        const key = process.env.SUPABASE_SERVICE_ROLE_KEY!
-        const client = createClient(url, key)
-        const { data, error } = await client.auth.verifyOtp({
-          email: credentials?.email!,
-          token: credentials?.token!,
-          type: 'magiclink',
-        })
-        if (error || !data.user) return null
-        return { id: data.user.id, email: data.user.email || '' }
-      },
-    }),
+      authorize: async ({ email, password }) => {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error || !data.user) return null;
+        return {
+          id: data.user.id,
+          name: data.user.email || undefined,
+          email: data.user.email || undefined
+        };
+      }
+    })
   ],
-  session: { strategy: 'jwt' },
+  session: { strategy: "jwt" },
   callbacks: {
-    jwt: async ({ token, user }) => {
-      if (user) token.id = user.id
-      return token
-    },
+    jwt: async ({ token, user }) => { if (user) token.id = user.id; return token; },
     session: async ({ session, token }) => {
-      session.user = {...session.user!, id: token.id as string }
-      return session
-    },
+      (session.user as any).id = token.id;
+      return session;
+    }
   },
-}
+  pages: {
+    signIn: "/login",
+    error: "/login?error"  // mostra alert conforme query param
+  }
+};
