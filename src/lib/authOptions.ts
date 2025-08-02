@@ -1,91 +1,77 @@
-// src/lib/authOptions.ts
+// **src/lib/authOptions.ts**
 
 import type { NextAuthOptions } from "next-auth"
-import NextAuth from "next-auth/next"
 import CredentialsProvider from "next-auth/providers/credentials"
-import { SupabaseAdapter } from "@next-auth/supabase-adapter"
 import { createClient } from "@supabase/supabase-js"
+import { SupabaseAdapter } from "@next-auth/supabase-adapter"
 
-// Cria o cliente Supabase de servidor com service_role
-// — usado apenas dentro do authorize(), que só roda no servidor (NextAuth handler)
-/**
- * Nota importante:
- * - não exportes este cliente diretamente do módulo, pois isso pode falhar no build se
- *   as variáveis env não estiverem definidas em todos os ambientes.
- * - As variáveis obrigatórias são:
- *     NEXT_PUBLIC_SUPABASE_URL
- *     SUPABASE_SERVICE_ROLE_KEY
- *     NEXTAUTH_SECRET
- *   (devem estar configuradas em Development, Preview e Production)
- */
-let serverSupabase: ReturnType<typeof createClient> | undefined
-function getServerSupabase() {
-  if (serverSupabase) return serverSupabase
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) {
-    throw new Error("Supabase URL ou Service Role Key não definidas")
-  }
-  serverSupabase = createClient(url, key)
-  return serverSupabase
+const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+const SUPA_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+const NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET
+
+if (!SUPA_URL || !SUPA_SERVICE_KEY || !NEXTAUTH_SECRET) {
+  throw new Error(
+    "[authOptions] Environment variables missing: SUPA_URL | SERVICE_ROLE_KEY | NEXTAUTH_SECRET"
+  )
 }
+
+const supabaseAdmin = createClient(SUPA_URL, SUPA_SERVICE_KEY)
 
 export const authOptions: NextAuthOptions = {
-  secret: process.env.NEXTAUTH_SECRET,
-  adapter: SupabaseAdapter({
-    // o adapter lê estas env vars durante a execução na API, por isso precisam existir antes do build
-    url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    secret: process.env.SUPABASE_SERVICE_ROLE_KEY!
-  }),
-  providers: [
-    CredentialsProvider({
-      name: "Email e Senha",
-      credentials: {
-        email: { label: "E‑mail", type: "email" },
-        password: { label: "Senha", type: "password" }
-      },
-      authorize: async (credentials) => {
-        if (!credentials?.email || !credentials.password) {
-          throw new Error("Email e senha são obrigatórios")
-        }
-
-        const supabase = getServerSupabase()
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: credentials.email.trim(),
-          password: credentials.password
-        })
-        if (error || !data.user) {
-          throw new Error("Email ou senha inválidos")
-        }
-
-        return {
-          id: data.user.id,
-          email: data.user.email!,
-          name: data.user.email!
-        }
-      }
-    })
-  ],
-  session: { strategy: "jwt" },
-  callbacks: {
-    jwt: async ({ token, user }) => {
-      if (user) token.id = user.id
-      return token
-    },
-    session: async ({ session, token }) => {
-      if (session.user) {
-        ;(session.user as any).id = token.id as string
-      }
-      return session
-    }
-  },
+  secret: NEXTAUTH_SECRET,
+  session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 30 },
+  adapter: SupabaseAdapter({ url: SUPA_URL, secret: SUPA_SERVICE_KEY }),
   pages: {
     signIn: "/login",
-    error: "/login?error=1"
-  }
+    error: "/login?error=1",
+  },
+  providers: [
+    CredentialsProvider({
+      name: "Email / Password",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      // autenticação via supabase.auth.signInWithPassword
+      authorize: async ({ email, password }) => {
+        if (!email || !password) {
+          throw new Error("Email e password são obrigatórios.")
+        }
+        const { data, error } =
+          await supabaseAdmin.auth.signInWithPassword({ email, password })
+        if (error || !data.user) {
+          throw new Error(error?.message || "Falha no login.")
+        }
+        return { id: data.user.id, email: data.user.email!, name: data.user.email! }
+      },
+    }),
+  ],
+  callbacks: {
+    async jwt({ token, user }) {
+      // guarda id no token (chave "id") se for login novo
+      if (user) {
+        token.id = (user as Promise<{ id: string }> & any)?.id!
+      }
+      return token
+    },
+    async session({ session, token }) {
+      if (session.user && token.id) {
+        // atribui o ID (necessário para RBAC ou perfis)
+        session.user.id = token.id as string
+
+        // pega o role da tabela “profiles” (caso exista)
+        const { data: profile, error } = await supabaseAdmin
+          .from("profiles")
+          .select("role")
+          .eq("id", token.id)
+          .single()
+        if (!error && profile && profile.role) {
+          ;(session.user as any).role = profile.role
+        }
+      }
+      return session
+    },
+  },
 }
 
-// Exporta o handler para rota App Router em:
-// src/app/api/auth/[...nextauth]/route.ts:
-//    export { handler as GET, handler as POST } from "@/lib/authOptions.ts"
-export default NextAuth(authOptions)
+export type AuthOptionsType = typeof authOptions
