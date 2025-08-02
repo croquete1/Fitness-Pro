@@ -1,13 +1,7 @@
-// src/lib/authOptions.ts
-import type { NextAuthOptions } from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
-import { SupabaseAdapter } from "@next-auth/supabase-adapter";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import type { NextAuthOptions } from 'next-auth'
+import CredentialsProvider from 'next-auth/providers/credentials'
+import { SupabaseAdapter } from '@next-auth/supabase-adapter'
+import { supabase } from '@/lib/supabaseClient'
 
 export const authOptions: NextAuthOptions = {
   adapter: SupabaseAdapter({
@@ -16,48 +10,33 @@ export const authOptions: NextAuthOptions = {
   }),
   providers: [
     CredentialsProvider({
-      name: "E‑mail (Magic Link)",
+      name: 'E‑mail (Magic link)',
       credentials: {
-        email: { label: "E‑mail", type: "email" },
-        token: { label: "Token", type: "text" },
+        email: { label: 'E‑mail', type: 'email' },
+        token: { label: 'Token', type: 'text' },
       },
-      authorize: async ({ email, token }) => {
+      authorize: async (credentials) => {
         const { data, error } = await supabase.auth.verifyOtp({
-          email: email!,
-          token: token!,
-          type: "magiclink",
-        });
-        if (error || !data?.user) return null;
-        return {
-          id: data.user.id,
-          email: data.user.email!,
-          name: data.user.email!,
-          // provider info já vem dentro de `user` => sub
-        };
+          email: credentials!.email!,
+          token: credentials!.token!,
+          type: 'magiclink',
+        })
+        if (error || !data?.user) return null
+        return { id: data.user.id, email: data.user.email! }
       },
     }),
   ],
-  session: { strategy: "jwt" },
-  pages: {
-    signIn: "/login",
-    error: "/login?error=1",
-  },
+  session: { strategy: 'jwt' },
+  pages: { signIn: '/login', error: '/login?error=1' },
+  secret: process.env.NEXTAUTH_SECRET!,
   callbacks: {
-    jwt: async ({ token, user }) => {
-      if (user) {
-        token.id = user.id;
-      }
-      return token;
+    async jwt({ token, user }) {
+      if (user) token.id = user.id as string
+      return token
     },
-    session: async ({ session, token }) => {
-      if (session.user) {
-        session.user = {
-          ...session.user,
-          id: token.id as string,
-        };
-      }
-      return session;
+    async session({ session, token }) {
+      if (session.user) session.user = { ...session.user, id: token.id as string }
+      return session
     },
   },
-  secret: process.env.NEXTAUTH_SECRET,
-};
+}

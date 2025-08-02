@@ -1,14 +1,15 @@
-import "./globals.css";
-import type { ReactNode } from "react";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/authOptions";
-import SidebarClient from "@/components/SidebarClient";
+import './globals.css'
+import type { ReactNode } from 'react'
+import { getServerSession } from 'next-auth/next'
+import { authOptions } from '@/lib/authOptions'
+import SidebarClient from '@/components/SidebarClient'
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+export const preferredRegion = 'auto'
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions)
 
   return (
     <html lang="pt">
@@ -23,5 +24,5 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         </main>
       </body>
     </html>
-  );
+  )
 }
