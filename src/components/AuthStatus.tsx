@@ -1,20 +1,32 @@
-// src/components/AuthStatus.tsx
-import { cookies } from 'next/headers'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/authOptions'
+"use client";
+import { useSession, signOut } from "next-auth/react";
 
-type SessionStatus = 'loading' | 'authenticated' | 'unauthenticated'
+export default function AuthStatus() {
+  const { data: session, status } = useSession();
 
-export default async function AuthStatus(): Promise<{
-  session: Awaited<ReturnType<typeof getServerSession>> | null
-  status: SessionStatus
-}> {
-  const session = await getServerSession(authOptions)
-  const status =
-    session === undefined
-      ? 'loading'
-      : session
-      ? 'authenticated'
-      : 'unauthenticated'
-  return { session, status }
+  if (status === "loading") {
+    return <div className="text-gray-600">A verificar sessão...</div>;
+  }
+
+  if (status === "unauthenticated" || !session) {
+    return (
+      <div className="text-red-600">
+        Não autenticado. <a href="/login" className="underline">Iniciar sessão</a>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-green-700">
+        Sessão ativa: {session.user?.email || session.user?.name}
+      </span>
+      <button
+        className="ml-2 text-sm px-2 py-1 bg-gray-200 rounded hover:bg-red-200 transition"
+        onClick={() => signOut({ callbackUrl: "/login" })}
+      >
+        Terminar sessão
+      </button>
+    </div>
+  );
 }
