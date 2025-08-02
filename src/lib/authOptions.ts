@@ -1,67 +1,59 @@
-import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import type { NextAuthOptions, SessionStrategy } from "next-auth";
 import { createClient } from "@supabase/supabase-js";
 
-// Configuração Supabase (apenas para queries customizadas em callbacks, não como adapter)
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-  process.env.SUPABASE_SERVICE_ROLE_KEY as string
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
 export const authOptions: NextAuthOptions = {
-  secret: process.env.NEXTAUTH_SECRET,
   providers: [
     CredentialsProvider({
-      name: "Credenciais",
+      name: "Credentials",
       credentials: {
         email: { label: "E-mail", type: "email" },
-        password: { label: "Palavra-passe", type: "password" },
+        password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials) return null;
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: credentials!.email,
+          password: credentials!.password,
+        });
 
-        // Verifica utilizador na tabela "users" do Supabase
-        const { data: user, error } = await supabaseAdmin
-          .from("users")
-          .select("*")
-          .eq("email", credentials.email)
-          .single();
-
-        if (error || !user) return null;
-
-        // Verifica password (deveria estar encriptada! Exemplo para dev/test apenas)
-        // Em produção: usar bcrypt.compareSync(credentials.password, user.password)
-        if (user.password !== credentials.password) return null;
+        if (error || !data?.user) return null;
 
         return {
-          id: user.id,
-          email: user.email,
-          name: user.nome || user.email,
-          role: user.role || "client", // se existir
+          id: data.user.id,
+          email: data.user.email,
+          name: data.user.user_metadata?.name || data.user.email,
         };
       },
     }),
   ],
-  session: { strategy: "jwt" },
+  session: {
+    strategy: "jwt" as SessionStrategy, // ← RESOLVE O TEU ERRO
+  },
   pages: {
     signIn: "/login",
-    error: "/login?error=1",
+    error: "/login",
   },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.role = (user as any).role;
+        token.email = user.email;
+        token.name = user.name;
       }
       return token;
     },
     async session({ session, token }) {
-      // Assegura sempre que user contém id e role!
-      if (session.user) {
-        (session.user as any).id = token.id as string;
-        (session.user as any).role = token.role as string;
-      }
+      session.user = session.user || {};
+      session.user.id = token.id;
+      session.user.email = token.email;
+      session.user.name = token.name;
       return session;
     },
   },
+  secret: process.env.NEXTAUTH_SECRET!,
 };
