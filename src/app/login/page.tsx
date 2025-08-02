@@ -1,30 +1,31 @@
 "use client";
-
-import { useState } from "react";
-import { signIn } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect } from "react";
+import { signIn, useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const { data: session, status } = useSession();
 
-  // Mostra mensagem de erro vinda do NextAuth (se acederes por /login?error=1)
-  const urlError = searchParams.get("error");
-  const hasUrlError = urlError && !error;
+  // Redireciona se já estiver autenticado
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.push("/dashboard");
+    }
+  }, [status, router]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setError("");
+    setError(null);
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
 
-    // Login usando CredentialsProvider do NextAuth
     const res = await signIn("credentials", {
       email,
       password,
@@ -34,10 +35,13 @@ export default function LoginPage() {
     setLoading(false);
 
     if (res?.error) {
-      setError("Email ou palavra-passe inválidos.");
-    } else if (res?.ok) {
-      router.push("/dashboard");
+      setError(
+        res.error === "CredentialsSignin"
+          ? "E-mail ou palavra-passe inválidos."
+          : res.error
+      );
     }
+    // O redirecionamento é tratado pelo useEffect acima
   };
 
   return (
@@ -49,11 +53,6 @@ export default function LoginPage() {
       >
         <h1 className="text-3xl font-bold text-center text-blue-700 mb-2">Fitness Pro</h1>
         <h2 className="text-lg font-semibold text-center text-gray-700 mb-4">Iniciar Sessão</h2>
-        {hasUrlError && (
-          <div className="bg-red-100 border border-red-300 text-red-700 rounded p-2 text-center">
-            Sessão expirada ou acesso não autorizado. Volte a iniciar sessão.
-          </div>
-        )}
         {error && (
           <div className="bg-red-100 border border-red-300 text-red-700 rounded p-2 text-center">
             {error}
@@ -94,10 +93,10 @@ export default function LoginPage() {
           className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded transition-colors"
           disabled={loading}
         >
-          {loading ? "A autenticar..." : "Entrar"}
+          {loading ? "A entrar..." : "Entrar"}
         </button>
         <div className="text-center text-sm mt-2">
-          Não tem conta?{" "}
+          Ainda não tem conta?{" "}
           <Link href="/register" className="text-blue-600 hover:underline">
             Criar conta
           </Link>
