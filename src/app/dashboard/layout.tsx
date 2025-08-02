@@ -1,17 +1,13 @@
-// src/app/layout.tsx
-import React from 'react';
+import { ReactNode } from "react";
+import SidebarWrapper from "@/components/SidebarWrapper";
 
-export const metadata = {
-  title: 'A Minha App',
-  description: 'App com autenticação',
-};
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="pt">
-      <body>
-        {children}
-      </body>
-    </html>
+    <div className="flex min-h-screen">
+      <aside className="w-64 border-r border-gray-200 bg-white">
+        <SidebarWrapper />
+      </aside>
+      <main className="flex-1">{children}</main>
+    </div>
   );
 }
