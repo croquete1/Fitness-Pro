@@ -1,94 +1,137 @@
-// src/app/register/page.tsx
 "use client";
+
 import { useState } from "react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
+import Link from "next/link";
+
+// Importa o cliente Supabase do lado do cliente
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
 export default function RegisterPage() {
-  const supabase = createClientComponentClient();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-
-  async function handleSubmit(e: React.FormEvent) {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
-    setSuccess(null);
+    setLoading(true);
 
-    if (!email || !password || password !== confirm) {
-      setError("Preencha todos os campos corretamente");
+    const formData = new FormData(e.currentTarget);
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+    const name = formData.get("name") as string;
+
+    const supabase = createClientComponentClient();
+
+    // Cria a conta no Supabase Auth
+    const { error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { name }, // Guarda nome no user_metadata (ou na sua tabela de perfis)
+      },
+    });
+
+    if (signUpError) {
+      setError(
+        signUpError.message.includes("already registered")
+          ? "O e-mail já se encontra registado."
+          : "Erro ao registar. Tente novamente."
+      );
+      setLoading(false);
       return;
     }
 
-    const { error: supaError } = await supabase.auth.signUp({ email, password });
+    // Autentica automaticamente após criar a conta
+    const res = await signIn("credentials", {
+      email,
+      password,
+      redirect: false,
+    });
 
-    if (supaError) {
-      setError(supaError.message);
+    setLoading(false);
+
+    if (res?.error) {
+      setError("Registado, mas ocorreu um erro ao autenticar. Por favor, tente aceder.");
     } else {
-      setSuccess("Conta criada com sucesso!");
-      setTimeout(() => router.push("/login"), 3000);
+      router.push("/dashboard");
     }
-  }
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <form onSubmit={handleSubmit} className="max-w-md w-full bg-white p-6 rounded shadow">
-        <h1 className="text-2xl font-semibold mb-4">Criar Conta</h1>
-        {error && <p className="text-red-600 mb-3">{error}</p>}
-        {success && <p className="text-green-700 mb-3">{success}</p>}
-
-        <label className="block mb-2">
-          <span className="text-sm">Email</span>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-tr from-blue-200 via-white to-blue-300">
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 flex flex-col gap-6"
+        autoComplete="off"
+      >
+        <h1 className="text-3xl font-bold text-center text-blue-700 mb-2">Fitness Pro</h1>
+        <h2 className="text-lg font-semibold text-center text-gray-700 mb-4">Criar Conta</h2>
+        {error && (
+          <div className="bg-red-100 border border-red-300 text-red-700 rounded p-2 text-center">
+            {error}
+          </div>
+        )}
+        <div>
+          <label className="block mb-1 text-sm font-medium text-gray-700" htmlFor="name">
+            Nome
+          </label>
           <input
+            id="name"
+            name="name"
+            type="text"
+            required
+            className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+            placeholder="O seu nome"
+            disabled={loading}
+          />
+        </div>
+        <div>
+          <label className="block mb-1 text-sm font-medium text-gray-700" htmlFor="email">
+            E-mail
+          </label>
+          <input
+            id="email"
+            name="email"
             type="email"
             required
-            className="mt-1 block w-full border rounded px-3 py-2"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="username"
+            className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+            placeholder="seu@email.com"
+            disabled={loading}
           />
-        </label>
-
-        <label className="block mb-2">
-          <span className="text-sm">Senha (mín. 6 caracteres)</span>
+        </div>
+        <div>
+          <label className="block mb-1 text-sm font-medium text-gray-700" htmlFor="password">
+            Palavra-passe
+          </label>
           <input
+            id="password"
+            name="password"
             type="password"
             required
             minLength={6}
-            className="mt-1 block w-full border rounded px-3 py-2"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
+            className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+            placeholder="********"
+            disabled={loading}
           />
-        </label>
-
-        <label className="block mb-4">
-          <span className="text-sm">Confirmar Senha</span>
-          <input
-            type="password"
-            required
-            minLength={6}
-            className="mt-1 block w-full border rounded px-3 py-2"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-          />
-        </label>
-
+        </div>
         <button
           type="submit"
-          className="w-full py-2 bg-green-600 text-white rounded hover:bg-green-700"
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded transition-colors"
+          disabled={loading}
         >
-          Registar
+          {loading ? "A registar..." : "Registar"}
         </button>
-
-        <p className="mt-4 text-center text-sm">
-          Já tens conta?{" "}
-          <a href="/login" className="text-blue-600 hover:underline">
-            Entrar
-          </a>
-        </p>
+        <div className="text-center text-sm mt-2">
+          Já tem conta?{" "}
+          <Link href="/login" className="text-blue-600 hover:underline">
+            Iniciar sessão
+          </Link>
+        </div>
       </form>
     </div>
   );
