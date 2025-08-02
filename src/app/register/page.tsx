@@ -1,17 +1,27 @@
 "use client";
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { useSession, signIn } from "next-auth/react";
 import Link from "next/link";
+import { createClient } from "@supabase/supabase-js";
 
-// Importa o cliente Supabase do lado do cliente
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const { data: session, status } = useSession();
+
+  // Se já autenticado, redireciona
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.push("/dashboard");
+    }
+  }, [status, router]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -21,30 +31,28 @@ export default function RegisterPage() {
     const formData = new FormData(e.currentTarget);
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
-    const name = formData.get("name") as string;
+    const nome = formData.get("nome") as string;
 
-    const supabase = createClientComponentClient();
-
-    // Cria a conta no Supabase Auth
+    // Registo no Supabase
     const { error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { name }, // Guarda nome no user_metadata (ou na sua tabela de perfis)
-      },
+        data: { nome }
+      }
     });
 
     if (signUpError) {
       setError(
-        signUpError.message.includes("already registered")
-          ? "O e-mail já se encontra registado."
-          : "Erro ao registar. Tente novamente."
+        signUpError.message === "User already registered"
+          ? "O e-mail já está registado."
+          : signUpError.message
       );
       setLoading(false);
       return;
     }
 
-    // Autentica automaticamente após criar a conta
+    // Login automático após registo
     const res = await signIn("credentials", {
       email,
       password,
@@ -54,10 +62,11 @@ export default function RegisterPage() {
     setLoading(false);
 
     if (res?.error) {
-      setError("Registado, mas ocorreu um erro ao autenticar. Por favor, tente aceder.");
-    } else {
-      router.push("/dashboard");
+      setError("Erro ao iniciar sessão automaticamente: " + res.error);
+      return;
     }
+
+    // O redirecionamento é feito pelo useEffect acima
   };
 
   return (
@@ -75,12 +84,12 @@ export default function RegisterPage() {
           </div>
         )}
         <div>
-          <label className="block mb-1 text-sm font-medium text-gray-700" htmlFor="name">
-            Nome
+          <label className="block mb-1 text-sm font-medium text-gray-700" htmlFor="nome">
+            Nome completo
           </label>
           <input
-            id="name"
-            name="name"
+            id="nome"
+            name="nome"
             type="text"
             required
             className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -112,8 +121,8 @@ export default function RegisterPage() {
             name="password"
             type="password"
             required
-            minLength={6}
             autoComplete="new-password"
+            minLength={6}
             className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
             placeholder="********"
             disabled={loading}
@@ -124,12 +133,12 @@ export default function RegisterPage() {
           className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded transition-colors"
           disabled={loading}
         >
-          {loading ? "A registar..." : "Registar"}
+          {loading ? "A criar conta..." : "Criar conta"}
         </button>
         <div className="text-center text-sm mt-2">
           Já tem conta?{" "}
           <Link href="/login" className="text-blue-600 hover:underline">
-            Iniciar sessão
+            Entrar
           </Link>
         </div>
       </form>
