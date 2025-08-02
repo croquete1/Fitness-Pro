@@ -1,97 +1,88 @@
-// src/lib/authOptions.ts
-
-/**
- * ATENÇÃO: NÃO FAZER NADA QUE DEPENDA DE `process.env...` NO TOPO DO ARQUIVO
- * para evitar falhas durante o static generation de rotas como `_not-found`
- * no Vercel (relacionado ao erro: "supabaseUrl is required").
- */
-
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import type { User } from "next-auth";
+import { createClient } from "@supabase/supabase-js";
 import { SupabaseAdapter } from "@next-auth/supabase-adapter";
 
+// Estas variáveis são obrigatórias e devem existir em todos os ambientes:
+// NEXTAUTH_SECRET, SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
+const NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET!;
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY!;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+// Cliente público do Supabase (não deve ser usado no navegador se você só faz login/consulta)
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Cliente administrador (SERVICE_ROLE_KEY) para leitura de roles e perfil
+const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
 export const authOptions: NextAuthOptions = {
-  /**
-   * → Se `NEXTAUTH_SECRET` estiver definido em .env, NextAuth o usará automaticamente
-   * → gerar sessão JWT (não usaremos database fallback do Supabase)
-   */
+  secret: NEXTAUTH_SECRET,
   session: { strategy: "jwt" },
+  adapter: SupabaseAdapter({
+    url: SUPABASE_URL,
+    secret: SUPABASE_SERVICE_ROLE_KEY,
+  }),
   providers: [
     CredentialsProvider({
-      name: "Email & Senha",
+      name: "E‑mail & Palavra‑passe",
       credentials: {
-        email: { label: "E‑mail", type: "email", placeholder: "teu@exemplo.com" },
-        password: {
-          label: "Senha",
-          type: "password",
-          placeholder: "••••••••",
-        },
+        email: { label: "E‑mail", type: "email", placeholder: "usuario@exemplo.com" },
+        password: { label: "Senha", type: "password" },
       },
       async authorize(credentials) {
-        const { email, password } = credentials ?? {};
-
-        if (!email || !password) {
-          throw new Error("É necessário informar e‑mail e senha.");
+        if (!credentials?.email || !credentials.password) {
+          throw new Error("E‑mail e senha são obrigatórios.");
         }
-
-        const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const SUPA_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-        if (!SUPA_URL || !SUPA_SERVICE_KEY) {
-          // Garante que serve apenas para login em ambiente configurado
-          throw new Error("Autenticação não configurada corretamente.");
-        }
-
-        const { createClient } = await import("@supabase/supabase-js");
-
-        const supabaseAdmin = createClient(SUPA_URL, SUPA_SERVICE_KEY);
-
-        const { data, error } = await supabaseAdmin.auth.signInWithPassword({
-          email: email.trim(),
-          password,
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: credentials.email.trim(),
+          password: credentials.password,
         });
-
         if (error || !data.user) {
-          throw new Error(error?.message ?? "Falha ao efetuar login.");
+          throw new Error("E‑mail ou senha inválidos.");
         }
-
         return {
           id: data.user.id,
-          email: data.user.email!,
-          name: data.user.email!,
+          email: data.user.email ?? undefined,
+          name: (data.user.user_metadata as any)?.full_name ?? undefined,
         };
       },
     }),
   ],
   callbacks: {
     async jwt({ token, user }) {
-      if (user && user.id) {
-        (token as any).id = user.id;
+      // Quando o usuário faz login, estende o token com o id
+      if (user && (user as { id?: string }).id) {
+        (token as any).id = (user as { id: string }).id;
       }
       return token;
     },
     async session({ session, token }) {
-      // Copia o ID para session.user.id — usado no Sidebar e protected routes
-      if (session.user && (token as any).id) {
-        (session.user as any).id = (token as any).id as string;
+      // Na sessão, cria um novo objeto com id + dados principais
+      const uid = (token as any).id as string | undefined;
+      session.user = {
+        id: uid!,
+        name: session.user?.name ?? undefined,
+        email: session.user?.email ?? undefined,
+        image: session.user?.image ?? undefined,
+      };
+
+      // Adiciona a role, se disponível na base (tabela 'profiles')
+      if (uid && supabaseAdmin) {
+        const { data } = await supabaseAdmin
+          .from("profiles")
+          .select("role")
+          .eq("id", uid)
+          .single();
+        if (data?.role) {
+          (session.user as any).role = data.role;
+        }
       }
+
       return session;
     },
   },
   pages: {
     signIn: "/login",
-    error: "/login?error=1",
+    error: "/login?error",
   },
 };
-
-/** Se e só se as env vars estiverem definidas, adiciona o adapter do Supabase */
-if (
-  process.env.SUPABASE_SERVICE_ROLE_KEY &&
-  process.env.NEXT_PUBLIC_SUPABASE_URL
-) {
-  authOptions.adapter = SupabaseAdapter({
-    url: process.env.NEXT_PUBLIC_SUPABASE_URL,
-    secret: process.env.SUPABASE_SERVICE_ROLE_KEY,
-  });
-}
