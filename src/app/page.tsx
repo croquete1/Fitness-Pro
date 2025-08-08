@@ -1,9 +1,10 @@
-// src/app/page.tsx
-export default function HomePage() {
-  return (
-    <main className="p-6">
-      <h1 className="text-3xl font-bold">Olá 👋</h1>
-      <p className="opacity-80">O App Router já tem layout raiz. Tudo a rolar.</p>
-    </main>
-  );
+// src/app/page.tsx (Server Component)
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/authOptions";
+import { redirect } from "next/navigation";
+
+export default async function Root() {
+  const session = await getServerSession(authOptions);
+  if (!session) redirect("/login");
+  redirect("/dashboard"); // ajuste se o seu “home” autenticado for outro
 }
