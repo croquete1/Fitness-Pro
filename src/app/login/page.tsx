@@ -1,107 +1,20 @@
 "use client";
-import { useState, useEffect } from "react";
-import { signIn, useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+
+import { signIn } from "next-auth/react";
 
 export default function LoginPage() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
-  const { data: session, status } = useSession();
-
-  // Redireciona se já estiver autenticado
-  useEffect(() => {
-    if (status === "authenticated") {
-      router.push("/dashboard");
-    }
-  }, [status, router]);
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-
-    const formData = new FormData(e.currentTarget);
-    const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
-
-    const res = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
-
-    setLoading(false);
-
-    if (res?.error) {
-      setError(
-        res.error === "CredentialsSignin"
-          ? "E-mail ou palavra-passe inválidos."
-          : res.error
-      );
-    }
-    // O redirecionamento é tratado pelo useEffect acima
-  };
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-tr from-blue-200 via-white to-blue-300">
-      <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 flex flex-col gap-6"
-        autoComplete="off"
-      >
-        <h1 className="text-3xl font-bold text-center text-blue-700 mb-2">Fitness Pro</h1>
-        <h2 className="text-lg font-semibold text-center text-gray-700 mb-4">Iniciar Sessão</h2>
-        {error && (
-          <div className="bg-red-100 border border-red-300 text-red-700 rounded p-2 text-center">
-            {error}
-          </div>
-        )}
-        <div>
-          <label className="block mb-1 text-sm font-medium text-gray-700" htmlFor="email">
-            E-mail
-          </label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            required
-            autoComplete="username"
-            className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
-            placeholder="seu@email.com"
-            disabled={loading}
-          />
-        </div>
-        <div>
-          <label className="block mb-1 text-sm font-medium text-gray-700" htmlFor="password">
-            Palavra-passe
-          </label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            required
-            autoComplete="current-password"
-            className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
-            placeholder="********"
-            disabled={loading}
-          />
-        </div>
+    <main className="min-h-dvh grid place-items-center p-6">
+      <div className="w-full max-w-sm rounded-xl border p-6 space-y-4">
+        <h1 className="text-xl font-semibold text-center">Entrar</h1>
+        <p className="text-sm opacity-80 text-center">Autenticação via Google</p>
         <button
-          type="submit"
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded transition-colors"
-          disabled={loading}
+          className="w-full rounded-md border px-4 py-2 font-medium hover:bg-card"
+          onClick={() => signIn("google", { callbackUrl: "/" })}
         >
-          {loading ? "A entrar..." : "Entrar"}
+          Continuar com Google
         </button>
-        <div className="text-center text-sm mt-2">
-          Ainda não tem conta?{" "}
-          <Link href="/register" className="text-blue-600 hover:underline">
-            Criar conta
-          </Link>
-        </div>
-      </form>
-    </div>
+      </div>
+    </main>
   );
 }
