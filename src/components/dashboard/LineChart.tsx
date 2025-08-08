@@ -1,44 +1,39 @@
 // src/components/dashboard/LineChart.tsx
-import React from 'react';
+"use client";
+
 import {
-  LineChart as ReLineChart,
+  LineChart as RCLineChart,
   Line,
   XAxis,
   YAxis,
+  CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-} from 'recharts';
+} from "recharts";
 
-interface DataPoint {
-  name: string;
-  value: number;
-}
-
-interface LineChartProps {
-  data: DataPoint[];
-  dataKey?: string;
-  strokeColor?: string;
+export interface DataPoint {
+  name: string;   // rótulo do eixo X (ex.: "Jan", "Semana 1")
+  value: number;  // valor do eixo Y
 }
 
 export default function LineChart({
   data,
-  dataKey = 'value',
-  strokeColor = '#4F46E5',
-}: LineChartProps) {
+  height = 260,
+}: {
+  data: DataPoint[];
+  height?: number;
+}) {
   return (
-    <ResponsiveContainer width="100%" height={250}>
-      <ReLineChart data={data}>
-        <XAxis dataKey="name" />
-        <YAxis />
-        <Tooltip />
-        <Line
-          type="monotone"
-          dataKey={dataKey}
-          stroke={strokeColor}
-          strokeWidth={2}
-          dot={false}
-        />
-      </ReLineChart>
-    </ResponsiveContainer>
+    <div style={{ width: "100%", height }}>
+      <ResponsiveContainer>
+        <RCLineChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="name" />
+          <YAxis />
+          <Tooltip />
+          <Line type="monotone" dataKey="value" dot={false} />
+        </RCLineChart>
+      </ResponsiveContainer>
+    </div>
   );
 }

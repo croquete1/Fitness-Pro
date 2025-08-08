@@ -1,44 +1,51 @@
-// src/contexts/AuthContext.tsx
-'use client'
-import { createContext, useContext, useState, ReactNode } from 'react'
+"use client";
 
-type Role = 'client' | 'trainer' | 'admin' | null
+import { createContext, useContext, useMemo } from "react";
+import { signIn, signOut, useSession } from "next-auth/react";
 
-interface AuthContextType {
-  user: { email: string; role: Role } | null
-  login: (email: string, password: string) => Promise<void>
-  logout: () => void
-}
+type AuthContextValue = {
+  status: "loading" | "authenticated" | "unauthenticated";
+  user: {
+    id: string;
+    email?: string | null;
+    name?: string | null;
+    role: "cliente" | "pt" | "admin";
+  } | null;
+  login: (email: string, password: string) => Promise<boolean>;
+  logout: () => Promise<void>;
+};
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
+const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<{ email: string; role: Role } | null>(null)
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const { status, data } = useSession();
 
-  const login = async (email: string, password: string) => {
-    // TODO: substitua pela sua lógica real de autenticação
-    // por enquanto, simulamos:
-    const simulatedRole: Role = email.includes('admin')
-      ? 'admin'
-      : email.includes('trainer')
-      ? 'trainer'
-      : 'client'
-    setUser({ email, role: simulatedRole })
-  }
+  const value = useMemo<AuthContextValue>(() => {
+    return {
+      status,
+      user: data?.user
+        ? {
+            id: (data.user as { id: string }).id,
+            email: data.user.email ?? null,
+            name: data.user.name ?? null,
+            role: (data.user as { role: "cliente" | "pt" | "admin" }).role ?? "cliente",
+          }
+        : null,
+      async login(email: string, password: string) {
+        const res = await signIn("credentials", { email, password, redirect: false });
+        return !!res?.ok;
+      },
+      async logout() {
+        await signOut({ redirect: false });
+      },
+    };
+  }, [status, data]);
 
-  const logout = () => {
-    setUser(null)
-  }
-
-  return (
-    <AuthContext.Provider value={{ user, login, logout }}>
-      {children}
-    </AuthContext.Provider>
-  )
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
-  const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuth must be inside AuthProvider')
-  return ctx
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth deve ser usado dentro de <AuthProvider>");
+  return ctx;
 }

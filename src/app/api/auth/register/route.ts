@@ -10,6 +10,12 @@ const registerSchema = z.object({
 });
 
 export async function POST(req: Request) {
+  // Permitir desligar registo público quando quiser (por omissão: ligado)
+  const allow = (process.env.ALLOW_PUBLIC_REGISTRATION ?? "true").toLowerCase() !== "false";
+  if (!allow) {
+    return NextResponse.json({ error: "Registo desativado." }, { status: 403 });
+  }
+
   try {
     const body = await req.json();
     const parsed = registerSchema.safeParse(body);
@@ -32,8 +38,8 @@ export async function POST(req: Request) {
         name,
         email: emailNorm,
         passwordHash,
-        role: "cliente",          // apenas cliente por API pública
-        emailVerified: new Date() // se quiser exigir verificação, remova esta linha
+        role: "cliente",          // clientes criam-se aqui; PT/Admin via backoffice
+        emailVerified: new Date() // remova se quiser obrigar verificação posterior
       },
     });
 

@@ -1,9 +1,10 @@
-// src/lib/authOptions.ts
 import type { NextAuthOptions } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { prisma } from "@/lib/db";
 import { compare } from "bcryptjs";
 import { z } from "zod";
+
+type UserRole = "cliente" | "pt" | "admin";
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -27,49 +28,43 @@ export const authOptions: NextAuthOptions = {
         if (!parsed.success) return null;
 
         const { email, password } = parsed.data;
-
-        // Procurar utilizador
         const user = await prisma.user.findUnique({
           where: { email: email.toLowerCase() },
         });
         if (!user) return null;
 
-        // Opcional: exigir email verificado
-        // if (!user.emailVerified) return null;
-
-        // Validar password
         const ok = await compare(password, user.passwordHash);
         if (!ok) return null;
 
-        // Retornar dados mínimos (NextAuth coloca em token)
         return {
           id: user.id,
           name: user.name ?? undefined,
           email: user.email,
-          role: user.role,
-        } as any;
+          role: user.role as UserRole,
+        };
       },
     }),
   ],
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.uid = (user as any).id;
-        token.role = (user as any).role;
+        const u = user as { id?: string; name?: string | null; email?: string | null; role?: UserRole };
+        if (u.id) token.uid = u.id;
+        if (u.role) token.role = u.role;
+        if (u.name) token.name = u.name;
+        if (u.email) token.email = u.email;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).id = token.uid as string;
-        (session.user as any).role = (token.role as string) ?? "cliente";
+        (session.user as { id?: string }).id = (token.uid as string | undefined) ?? "";
+        (session.user as { role?: UserRole }).role = (token.role as UserRole | undefined) ?? "cliente";
       }
       return session;
     },
   },
-  pages: {
-    signIn: "/login",
-  },
+  pages: { signIn: "/login" },
   secret: process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV === "development",
 };

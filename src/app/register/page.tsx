@@ -1,4 +1,3 @@
-// src/app/register/page.tsx
 "use client";
 
 import { useState } from "react";
@@ -23,7 +22,6 @@ export default function RegisterPage() {
       body: JSON.stringify({ name, email, password }),
     });
     setBusy(false);
-
     if (res.ok) router.replace("/login");
     else {
       const data = await res.json().catch(() => ({}));
@@ -35,19 +33,15 @@ export default function RegisterPage() {
     <main className="min-h-dvh grid place-items-center p-6">
       <form onSubmit={onSubmit} className="w-full max-w-sm space-y-3 rounded-xl border p-6">
         <h1 className="text-xl font-semibold text-center">Criar conta</h1>
-        <input className="w-full rounded-md border px-3 py-2" placeholder="Nome" value={name} onChange={e=>setName(e.target.value)} required />
-        <input className="w-full rounded-md border px-3 py-2" type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} required />
-        <input className="w-full rounded-md border px-3 py-2" type="password" placeholder="Palavra-passe (≥8)" value={password} onChange={e=>setPassword(e.target.value)} required />
+        <input className="w-full rounded-md border px-3 py-2" placeholder="Nome" value={name} onChange={(e)=>setName(e.target.value)} required />
+        <input className="w-full rounded-md border px-3 py-2" type="email" placeholder="Email" value={email} onChange={(e)=>setEmail(e.target.value)} required />
+        <input className="w-full rounded-md border px-3 py-2" type="password" placeholder="Palavra-passe (≥8)" value={password} onChange={(e)=>setPassword(e.target.value)} required />
         {error && <p className="text-sm text-red-600">{error}</p>}
-        <button
-          disabled={busy}
-          className="w-full rounded-md border bg-card px-4 py-2 font-medium hover:opacity-90 disabled:opacity-60"
-        >
+        <button disabled={busy} className="w-full rounded-md border bg-card px-4 py-2 font-medium hover:opacity-90 disabled:opacity-60">
           {busy ? "A criar…" : "Criar conta"}
         </button>
         <p className="text-sm text-center">
-          Já tem conta?{" "}
-          <Link className="underline" href="/login">Iniciar sessão</Link>
+          Já tem conta? <Link className="underline" href="/login">Iniciar sessão</Link>
         </p>
       </form>
     </main>

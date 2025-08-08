@@ -1,12 +1,20 @@
 "use client";
+
 import { useSession } from "next-auth/react";
-import SidebarClient from "./SidebarClient"; // O teu sidebar real
+import SidebarClient from "./SidebarClient";
 
 export default function SidebarWrapper() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
 
-  if (status !== "authenticated") return null;
-  // Ou podes mostrar um loading spinner enquanto status é "loading"
+  // Pode mostrar um placeholder enquanto a sessão carrega
+  if (status === "loading") {
+    return (
+      <aside className="w-64 border-r p-4">
+        <div className="text-sm opacity-70">A carregar…</div>
+      </aside>
+    );
+  }
 
-  return <SidebarClient user={session.user} />;
+  // O SidebarClient já lê a sessão internamente (useSession)
+  return <SidebarClient />;
 }
