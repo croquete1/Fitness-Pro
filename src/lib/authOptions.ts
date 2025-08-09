@@ -46,33 +46,16 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.sub = (user as any).id;
-        (token as any).role = (user as any).role as UserRole;
-        token.name = user.name ?? token.name;
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      if (session.user) {
-        (session.user as any).id = token.sub;
-        (session.user as any).role = (token as any).role as UserRole;
-        session.user.name = (token.name as string | null) ?? session.user.name;
-      }
-      return session;
-    },
-    // ← redireção neutra (não transforma /login em /dashboard automaticamente)
-    async redirect({ url, baseUrl }) {
-      try {
-        const target = new URL(url, baseUrl);
-        if (target.origin !== baseUrl) return baseUrl;
-        return target.toString();
-      } catch {
-        return baseUrl;
-      }
-    },
+callbacks: {
+  async jwt({ token, user }) { /* ... */ return token; },
+  async session({ session, token }) { /* ... */ return session; },
+  async redirect({ url, baseUrl }) {
+    try {
+      const target = new URL(url, baseUrl);
+      if (target.origin !== baseUrl) return baseUrl;
+      return target.toString(); // neutro — sem empurrar /login para /dashboard sozinho
+    } catch {
+      return baseUrl;
+    }
   },
-  debug: process.env.NODE_ENV === "development",
-};
+},

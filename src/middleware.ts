@@ -11,11 +11,6 @@ export async function middleware(req: NextRequest) {
   return NextResponse.next();
 }
 
-// Só cobre rotas privadas.
 export const config = {
-  matcher: [
-    "/dashboard/:path*",
-    "/admin/:path*",
-    "/trainer/:path*",
-  ],
+  matcher: ["/dashboard/:path*", "/admin/:path*", "/trainer/:path*"],
 };

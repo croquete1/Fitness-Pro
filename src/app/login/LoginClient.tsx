@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession, signIn } from "next-auth/react";
 import Link from "next/link";
@@ -8,46 +8,41 @@ import Link from "next/link";
 export default function LoginClient() {
   const router = useRouter();
   const { status } = useSession(); // "loading" | "authenticated" | "unauthenticated"
-  const hasRedirected = useRef(false);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Prefetch para a transição pós-login ser mais rápida
+  // Prefetch ajuda na transição pós-login
   useEffect(() => {
     router.prefetch("/dashboard");
   }, [router]);
-
-  // Se já tem sessão, navega para a dashboard (no cliente, sem SSR)
-  useEffect(() => {
-    if (status === "authenticated" && !hasRedirected.current) {
-      hasRedirected.current = true;
-      router.replace("/dashboard");
-    }
-  }, [status, router]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
 
-    const res = await signIn("credentials", {
-      email,
-      password,
-      redirect: false, // controlamos nós a navegação
-    });
+    try {
+      // Usa a navegação do próprio NextAuth
+      const res = await signIn("credentials", {
+        email,
+        password,
+        redirect: true,
+        callbackUrl: "/dashboard",
+      });
 
-    setSubmitting(false);
-
-    if (res?.error) {
-      setError("Credenciais inválidas. Tente novamente.");
-      return;
-    }
-    if (!hasRedirected.current) {
-      hasRedirected.current = true;
-      router.replace("/dashboard");
+      // Nota: com redirect:true, normalmente `res` é `undefined` porque o browser navega.
+      // Se por algum motivo não navegar, mostramos feedback:
+      if (res && (res as any).error) {
+        setError("Credenciais inválidas. Tente novamente.");
+        setSubmitting(false);
+      }
+    } catch (err) {
+      console.error("[login] erro:", err);
+      setError("Ocorreu um erro. Tente novamente.");
+      setSubmitting(false);
     }
   }
 
