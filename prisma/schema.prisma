@@ -1,43 +1,68 @@
-// prisma/schema.prisma
+// -----------------------------------------------------
+// prisma/schema.prisma — atualizado e sincronizado
+// -----------------------------------------------------
 
-// --------------
-// GENERATOR
-// --------------
 generator client {
   provider = "prisma-client-js"
 }
 
-// --------------
-// DATASOURCE
-// --------------
 datasource db {
   provider  = "postgresql"
-  // Em produção (Vercel): aponte para o Pooler UE (6543)
-  // Em desenvolvimento: pode usar Direct (5432) ou Postgres local
   url       = env("DATABASE_URL")
-  // Opcional, útil para "migrate" quando tiver acesso ao 5432
-  directUrl = env("DIRECT_URL")
+  directUrl = env("DIRECT_URL") // opcional (útil para migrate deploy via porta 5432)
 }
 
-// --------------
-// MODELOS
-// --------------
-enum Role {
-  cliente
-  pt
-  admin
+// -----------------------------------------------------
+// Enums
+// -----------------------------------------------------
+
+// Mapeado para o enum Postgres criado via SQL: "SessionStatus"
+enum SessionStatus {
+  pendente
+  aceite
+  recusada
+  cancelada
+  realizada
+
+  @@map("SessionStatus")
 }
+
+// -----------------------------------------------------
+// Modelos
+// -----------------------------------------------------
 
 model User {
-  id           String  @id @default(uuid()) @db.Uuid
-  email        String  @unique @db.Citext // case-insensitive + índice único
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique @db.Citext
   name         String?
-  passwordHash String  @map("password_hash")
+  passwordHash String   @map("password_hash")
+  // Mantemos role como texto para assegurar compatibilidade com a BD atual
+  role         String   @default("cliente")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
-  role Role @default(cliente)
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  // Relações (nomes de relações estáveis)
+  trainerSessions Session[] @relation("TrainerSessions")
+  clientSessions  Session[] @relation("ClientSessions")
 
   @@map("users")
+}
+
+model Session {
+  id          String        @id @default(uuid()) @db.Uuid
+  trainerId   String        @map("trainer_id") @db.Uuid
+  clientId    String        @map("client_id") @db.Uuid
+  scheduledAt DateTime      @map("scheduled_at")
+  status      SessionStatus @default(pendente)
+  notes       String?
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  trainer User @relation("TrainerSessions", fields: [trainerId], references: [id])
+  client  User @relation("ClientSessions", fields: [clientId], references: [id])
+
+  @@index([trainerId], map: "sessions_trainer_idx")
+  @@index([clientId], map: "sessions_client_idx")
+  @@index([scheduledAt], map: "sessions_scheduled_idx")
+  @@map("sessions")
 }
