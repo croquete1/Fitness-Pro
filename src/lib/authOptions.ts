@@ -7,8 +7,13 @@ import { compare } from "bcryptjs";
 type UserRole = "cliente" | "pt" | "admin";
 
 export const authOptions: NextAuthOptions = {
-  session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 7 }, // 7 dias
-  pages: { signIn: "/login" },
+  session: {
+    strategy: "jwt",
+    maxAge: 60 * 60 * 24 * 30, // 30 dias
+  },
+  pages: {
+    signIn: "/login",
+  },
   providers: [
     CredentialsProvider({
       name: "Email e password",
@@ -17,12 +22,11 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        try {
-          const email = credentials?.email?.toLowerCase().trim();
-          const password = credentials?.password ?? "";
-          if (!email || !password) return null;
+        const email = credentials?.email?.toLowerCase().trim();
+        const password = credentials?.password ?? "";
+        if (!email || !password) return null;
 
-          const t0 = Date.now();
+        try {
           const user = await prisma.user.findUnique({
             where: { email },
             select: {
@@ -33,21 +37,11 @@ export const authOptions: NextAuthOptions = {
               passwordHash: true,
             },
           });
-          const t1 = Date.now();
 
-          const ok =
-            !!user?.passwordHash && (await compare(password, user.passwordHash));
-          const t2 = Date.now();
+          if (!user || !user.passwordHash) return null;
 
-          if (process.env.NODE_ENV === "development") {
-            console.log(
-              `[auth] findUnique=${t1 - t0}ms compare=${t2 - t1}ms total=${
-                t2 - t0
-              }ms`,
-            );
-          }
-
-          if (!user || !ok) return null;
+          const ok = await compare(password, user.passwordHash);
+          if (!ok) return null;
 
           return {
             id: user.id,
@@ -56,7 +50,9 @@ export const authOptions: NextAuthOptions = {
             role: user.role as UserRole,
           } as any;
         } catch (err) {
-          console.error("[auth] authorize error:", err);
+          if (process.env.NODE_ENV === "development") {
+            console.error("[auth] authorize error:", err);
+          }
           return null;
         }
       },
@@ -80,13 +76,30 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
     async redirect({ url, baseUrl }) {
+      // Redireção neutra (mantém callbackUrl e evita loops)
       try {
         const target = new URL(url, baseUrl);
         if (target.origin !== baseUrl) return baseUrl;
-        return target.toString(); // neutro: não altera /login sozinho
+        return target.toString();
       } catch {
         return baseUrl;
       }
+
+      // 👉 Se preferir redirecionar por role após login, ative este bloco e remova o return acima:
+      /*
+      try {
+        const target = new URL(url, baseUrl);
+        if (target.pathname === "/" || target.pathname === "/login" || target.pathname === "/") {
+          // Exige o token, pelo que esta lógica normalmente vive melhor no client pós-login.
+          // Se quiser muito fazer aqui, teria de injetar o role via callbackUrl.
+          return new URL("/dashboard", baseUrl).toString();
+        }
+        if (target.origin !== baseUrl) return baseUrl;
+        return target.toString();
+      } catch {
+        return baseUrl;
+      }
+      */
     },
   },
   debug: process.env.NODE_ENV === "development",
