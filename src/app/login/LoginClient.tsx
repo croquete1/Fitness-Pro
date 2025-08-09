@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { useSession, signIn } from "next-auth/react";
 import Link from "next/link";
 
 export default function LoginClient() {
   const router = useRouter();
+  const { status } = useSession(); // "loading" | "authenticated" | "unauthenticated"
   const hasRedirected = useRef(false);
 
   const [email, setEmail] = useState("");
@@ -14,10 +15,18 @@ export default function LoginClient() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Prefetch da dashboard para transição mais rápida
+  // Prefetch para a transição pós-login ser mais rápida
   useEffect(() => {
     router.prefetch("/dashboard");
   }, [router]);
+
+  // Se já tem sessão, navega para a dashboard (no cliente, sem SSR)
+  useEffect(() => {
+    if (status === "authenticated" && !hasRedirected.current) {
+      hasRedirected.current = true;
+      router.replace("/dashboard");
+    }
+  }, [status, router]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -27,7 +36,7 @@ export default function LoginClient() {
     const res = await signIn("credentials", {
       email,
       password,
-      redirect: false, // controlamos a navegação
+      redirect: false, // controlamos nós a navegação
     });
 
     setSubmitting(false);
