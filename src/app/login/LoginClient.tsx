@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
-import Link from "next/link";
 
 export default function LoginClient() {
   const router = useRouter();
@@ -14,10 +13,10 @@ export default function LoginClient() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Prefetch dos 3 destinos prováveis (melhora a transição)
+    // Prefetch destinos prováveis
     router.prefetch("/dashboard");
-    router.prefetch("/admin");
     router.prefetch("/trainer");
+    router.prefetch("/admin");
   }, [router]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -26,17 +25,34 @@ export default function LoginClient() {
     setSubmitting(true);
 
     try {
-      // Sem callbackUrl: o callback signIn do NextAuth decide o destino
       const res = await signIn("credentials", {
         email,
         password,
-        redirect: true,
+        redirect: false, // <- chave: nós controlamos o redirecionamento
       });
 
-      if (res && (res as any).error) {
-        setError("Credenciais inválidas. Tente novamente.");
+      if (!res) {
+        setError("Ocorreu um erro inesperado. Tente novamente.");
         setSubmitting(false);
+        return;
       }
+      if (res.error) {
+        // Tipicamente "CredentialsSignin"
+        setError("Credenciais inválidas. Verifique o email e a palavra-passe.");
+        setSubmitting(false);
+        return;
+      }
+
+      // Obter a sessão para saber o papel
+      const sess = await fetch("/api/auth/session", { cache: "no-store" }).then((r) => r.json());
+      const role = sess?.user?.role;
+
+      const dest =
+        role === "admin" ? "/admin" :
+        role === "pt"    ? "/trainer" :
+                           "/dashboard";
+
+      router.replace(dest);
     } catch (err) {
       console.error("[login] erro:", err);
       setError("Ocorreu um erro. Tente novamente.");
@@ -90,11 +106,6 @@ export default function LoginClient() {
         >
           {submitting ? "A entrar..." : "Entrar"}
         </button>
-
-        <div className="text-center text-sm text-gray-600">
-          Ainda não tem conta?{" "}
-          <Link href="/register" className="underline">Registar</Link>
-        </div>
       </form>
     </main>
   );
