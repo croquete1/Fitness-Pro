@@ -1,12 +1,19 @@
 "use client";
 
+import * as React from "react";
 import { SessionProvider } from "next-auth/react";
 
-export default function Providers({ children }: { children: React.ReactNode }) {
+type ProvidersProps = {
+  children: React.ReactNode;
+};
+
+export default function Providers({ children }: ProvidersProps) {
   return (
     <SessionProvider
-      refetchOnWindowFocus={false}   // evita pedir sessão ao focar a janela
-      refetchInterval={0}            // evita polling periódico
+      // Evita pedir /api/auth/session ao focar a janela
+      refetchOnWindowFocus={false}
+      // Evita polling periódico da sessão (pode voltar a ativar se quiser)
+      refetchInterval={0}
     >
       {children}
     </SessionProvider>
