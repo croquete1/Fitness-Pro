@@ -12,8 +12,9 @@ const credentialsSchema = z.object({
 });
 
 export const authOptions: NextAuthOptions = {
-  trustHost: true,
+  // (removido trustHost: true — ativaremos via variável de ambiente)
   session: { strategy: "jwt" },
+
   providers: [
     Credentials({
       name: "Email e palavra-passe",
@@ -29,6 +30,7 @@ export const authOptions: NextAuthOptions = {
         if (!parsed.success) return null;
 
         const { email, password } = parsed.data;
+
         const user = await prisma.user.findUnique({
           where: { email: email.toLowerCase() },
         });
@@ -46,10 +48,16 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
+
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        const u = user as { id?: string; name?: string | null; email?: string | null; role?: UserRole };
+        const u = user as {
+          id?: string;
+          name?: string | null;
+          email?: string | null;
+          role?: UserRole;
+        };
         if (u.id) token.uid = u.id;
         if (u.role) token.role = u.role;
         if (u.name) token.name = u.name;
@@ -57,15 +65,22 @@ export const authOptions: NextAuthOptions = {
       }
       return token;
     },
+
     async session({ session, token }) {
       if (session.user) {
-        (session.user as { id?: string }).id = (token.uid as string | undefined) ?? "";
-        (session.user as { role?: UserRole }).role = (token.role as UserRole | undefined) ?? "cliente";
+        (session.user as { id?: string }).id =
+          (token.uid as string | undefined) ?? "";
+        (session.user as { role?: UserRole }).role =
+          (token.role as UserRole | undefined) ?? "cliente";
       }
       return session;
     },
   },
+
   pages: { signIn: "/login" },
+
   secret: process.env.NEXTAUTH_SECRET,
+
+  // Em dev deixa mensagens úteis no terminal
   debug: process.env.NODE_ENV === "development",
 };
