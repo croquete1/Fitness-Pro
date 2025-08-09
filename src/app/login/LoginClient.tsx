@@ -2,30 +2,29 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useSession, signIn } from "next-auth/react";
+import { signIn } from "next-auth/react";
 import Link from "next/link";
 
 export default function LoginClient() {
   const router = useRouter();
-  const { status } = useSession(); // "loading" | "authenticated" | "unauthenticated"
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Prefetch ajuda na transição pós-login
+  // Prefetch para a transição pós-login ser mais rápida
   useEffect(() => {
     router.prefetch("/dashboard");
   }, [router]);
 
-  async function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
 
     try {
-      // Usa a navegação do próprio NextAuth
+      // Deixa o NextAuth navegar automaticamente após autenticar
       const res = await signIn("credentials", {
         email,
         password,
@@ -33,8 +32,8 @@ export default function LoginClient() {
         callbackUrl: "/dashboard",
       });
 
-      // Nota: com redirect:true, normalmente `res` é `undefined` porque o browser navega.
-      // Se por algum motivo não navegar, mostramos feedback:
+      // Normalmente com redirect:true não há retorno (o browser navega).
+      // Se algo correr mal e houver retorno com erro:
       if (res && (res as any).error) {
         setError("Credenciais inválidas. Tente novamente.");
         setSubmitting(false);
@@ -87,6 +86,7 @@ export default function LoginClient() {
         <button
           type="submit"
           disabled={submitting}
+          aria-busy={submitting}
           className="w-full rounded-md border px-3 py-2 hover:bg-zinc-100 disabled:opacity-60"
         >
           {submitting ? "A entrar..." : "Entrar"}
