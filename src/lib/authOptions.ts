@@ -6,6 +6,13 @@ import { compare } from "bcryptjs";
 
 type UserRole = "cliente" | "pt" | "admin";
 
+function baseUrl() {
+  // Em produção o NextAuth usa NEXTAUTH_URL; em dev cai para localhost
+  if (process.env.NEXTAUTH_URL) return process.env.NEXTAUTH_URL;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return "http://localhost:3000";
+}
+
 export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
@@ -59,6 +66,21 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
+    // Redireciona imediatamente após login conforme o papel
+    async signIn({ user, account }) {
+      if (account?.provider === "credentials") {
+        const role = (user as any)?.role as UserRole | undefined;
+
+        const dest =
+          role === "admin" ? "/admin" :
+          role === "pt"     ? "/trainer" :
+                              "/dashboard";
+
+        return `${baseUrl()}${dest}`;
+      }
+      return true; // (Se um dia tiver OAuth, mantém o fluxo padrão)
+    },
+
     async jwt({ token, user }) {
       if (user) {
         token.sub = (user as any).id;
@@ -67,6 +89,7 @@ export const authOptions: NextAuthOptions = {
       }
       return token;
     },
+
     async session({ session, token }) {
       if (session.user) {
         (session.user as any).id = token.sub;
@@ -75,31 +98,16 @@ export const authOptions: NextAuthOptions = {
       }
       return session;
     },
-    async redirect({ url, baseUrl }) {
-      // Redireção neutra (mantém callbackUrl e evita loops)
-      try {
-        const target = new URL(url, baseUrl);
-        if (target.origin !== baseUrl) return baseUrl;
-        return target.toString();
-      } catch {
-        return baseUrl;
-      }
 
-      // 👉 Se preferir redirecionar por role após login, ative este bloco e remova o return acima:
-      /*
+    // Mantém redireções dentro do mesmo domínio e evita loops
+    async redirect({ url, baseUrl }) {
       try {
         const target = new URL(url, baseUrl);
-        if (target.pathname === "/" || target.pathname === "/login" || target.pathname === "/") {
-          // Exige o token, pelo que esta lógica normalmente vive melhor no client pós-login.
-          // Se quiser muito fazer aqui, teria de injetar o role via callbackUrl.
-          return new URL("/dashboard", baseUrl).toString();
-        }
         if (target.origin !== baseUrl) return baseUrl;
         return target.toString();
       } catch {
         return baseUrl;
       }
-      */
     },
   },
   debug: process.env.NODE_ENV === "development",

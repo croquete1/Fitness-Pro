@@ -13,9 +13,11 @@ export default function LoginClient() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Prefetch para a transição pós-login ser mais rápida
   useEffect(() => {
+    // Prefetch dos 3 destinos prováveis (melhora a transição)
     router.prefetch("/dashboard");
+    router.prefetch("/admin");
+    router.prefetch("/trainer");
   }, [router]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -24,16 +26,13 @@ export default function LoginClient() {
     setSubmitting(true);
 
     try {
-      // Deixa o NextAuth navegar automaticamente após autenticar
+      // Sem callbackUrl: o callback signIn do NextAuth decide o destino
       const res = await signIn("credentials", {
         email,
         password,
         redirect: true,
-        callbackUrl: "/dashboard",
       });
 
-      // Normalmente com redirect:true não há retorno (o browser navega).
-      // Se algo correr mal e houver retorno com erro:
       if (res && (res as any).error) {
         setError("Credenciais inválidas. Tente novamente.");
         setSubmitting(false);
