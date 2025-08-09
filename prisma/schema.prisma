@@ -1,25 +1,9 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // Pooler (6543)
+  directUrl = env("DIRECT_URL")   // Direta (5432) para migrate/introspect
+}
+
 generator client {
   provider = "prisma-client-js"
-}
-
-datasource db {
-  provider = "postgresql" // Supabase = Postgres (mantenha)
-  url      = env("DATABASE_URL")
-}
-
-enum Role {
-  cliente
-  pt
-  admin
-}
-
-model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
-  name          String?
-  passwordHash  String
-  role          Role     @default(cliente)
-  emailVerified DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
 }
