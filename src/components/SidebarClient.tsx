@@ -1,100 +1,71 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import type { SessionUser, UserRole } from "@/lib/types";
+import { useMemo } from "react";
 
-type UserRole = "cliente" | "pt" | "admin";
+type Props = {
+  user: SessionUser;
+};
 
-type SidebarUser = {
-  id: string;
-  email?: string | null;
-  name?: string | null;
-  role: UserRole;
-} | null;
+export default function SidebarClient({ user }: Props) {
+  const pathname = usePathname();
 
-export default function SidebarClient({ user }: { user: SidebarUser }) {
-  const role: UserRole = user?.role ?? "cliente";
+  const items = useMemo(() => {
+    const base = [
+      { href: "/dashboard", label: "Visão Geral" },
+    ];
+
+    const roleItems: Record<UserRole, { href: string; label: string }[]> = {
+      cliente: [
+        { href: "/dashboard/sessions", label: "Minhas Sessões" },
+      ],
+      pt: [
+        { href: "/trainer/clients", label: "Meus Clientes" },
+        { href: "/trainer/schedule", label: "Agenda" },
+      ],
+      admin: [
+        { href: "/admin", label: "Administração" },
+        { href: "/admin/users", label: "Utilizadores" },
+      ],
+    };
+
+    return [...base, ...(roleItems[user.role] ?? [])];
+  }, [user.role]);
 
   return (
-    <aside className="w-64 border-r p-4 space-y-4">
-      <div className="text-sm opacity-70">
-        {user?.email ? `Sessão: ${user.email}` : "Não autenticado"}
+    <aside className="hidden md:flex md:w-64 md:flex-col border-r min-h-dvh">
+      <div className="p-4 border-b">
+        <div className="font-semibold">Fitness Pro</div>
+        <div className="text-sm text-gray-500">
+          {user.name ? `Olá, ${user.name}` : "Bem-vindo(a)!"}
+        </div>
       </div>
-
-      <nav>
-        <ul className="space-y-2 text-gray-700">
-          <li>
-            <Link
-              href={role === "admin" ? "/admin" : "/dashboard"}
-              className="block rounded-md px-3 py-2 hover:bg-black/5 dark:hover:bg-white/10"
-            >
-              Visão Geral
-            </Link>
-          </li>
-
-          {role === "cliente" && (
-            <>
-              <li>
+      <nav className="flex-1 p-3">
+        <ul className="space-y-1">
+          {items.map((it) => {
+            const active = pathname === it.href || pathname.startsWith(it.href + "/");
+            return (
+              <li key={it.href}>
                 <Link
-                  href="/dashboard/workouts"
-                  className="block rounded-md px-3 py-2 hover:bg-black/5 dark:hover:bg-white/10"
+                  href={it.href}
+                  className={`block rounded-md px-3 py-2 text-sm ${
+                    active
+                      ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                      : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  }`}
                 >
-                  Meus Treinos
+                  {it.label}
                 </Link>
               </li>
-              <li>
-                <Link
-                  href="/dashboard/bookings"
-                  className="block rounded-md px-3 py-2 hover:bg-black/5 dark:hover:bg-white/10"
-                >
-                  Minhas Marcações
-                </Link>
-              </li>
-            </>
-          )}
-
-          {role === "pt" && (
-            <>
-              <li>
-                <Link
-                  href="/trainer/clients"
-                  className="block rounded-md px-3 py-2 hover:bg-black/5 dark:hover:bg-white/10"
-                >
-                  Meus Clientes
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/trainer/schedule"
-                  className="block rounded-md px-3 py-2 hover:bg-black/5 dark:hover:bg-white/10"
-                >
-                  Agenda
-                </Link>
-              </li>
-            </>
-          )}
-
-          {role === "admin" && (
-            <>
-              <li>
-                <Link
-                  href="/admin/users"
-                  className="block rounded-md px-3 py-2 hover:bg-black/5 dark:hover:bg-white/10"
-                >
-                  Utilizadores
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/admin/settings"
-                  className="block rounded-md px-3 py-2 hover:bg-black/5 dark:hover:bg-white/10"
-                >
-                  Definições
-                </Link>
-              </li>
-            </>
-          )}
+            );
+          })}
         </ul>
       </nav>
+      <div className="p-3 border-t text-xs text-gray-500">
+        &copy; {new Date().getFullYear()} Fitness Pro
+      </div>
     </aside>
   );
 }
