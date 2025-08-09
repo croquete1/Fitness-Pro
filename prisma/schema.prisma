@@ -1,17 +1,43 @@
-model User {
-  id           String   @id @default(uuid()) @db.Uuid
-  email        String   @unique @db.Citext   // ← citext
-  name         String? 
-  passwordHash String   @map("password_hash")
-  role         Role     @default(cliente)
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+// prisma/schema.prisma
 
-  @@map("users")
+// --------------
+// GENERATOR
+// --------------
+generator client {
+  provider = "prisma-client-js"
 }
 
+// --------------
+// DATASOURCE
+// --------------
+datasource db {
+  provider  = "postgresql"
+  // Em produção (Vercel): aponte para o Pooler UE (6543)
+  // Em desenvolvimento: pode usar Direct (5432) ou Postgres local
+  url       = env("DATABASE_URL")
+  // Opcional, útil para "migrate" quando tiver acesso ao 5432
+  directUrl = env("DIRECT_URL")
+}
+
+// --------------
+// MODELOS
+// --------------
 enum Role {
   cliente
   pt
   admin
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique @db.Citext     // case-insensitive + índice único
+  name         String?
+  passwordHash String   @map("password_hash")
+
+  role         Role     @default(cliente)
+
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt      @map("updated_at")
+
+  @@map("users")
 }
