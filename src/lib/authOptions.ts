@@ -1,56 +1,32 @@
 // src/lib/authOptions.ts
 import type { NextAuthOptions } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import type { JWT } from "next-auth/jwt";
 import { prisma } from "@/lib/db";
 import { compare } from "bcryptjs";
-import { z } from "zod";
 
 type UserRole = "cliente" | "pt" | "admin";
 
-const credentialsSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8).max(72),
-});
-
-type AppToken = JWT & {
-  uid?: string;
-  role?: UserRole;
-  name?: string;
-  email?: string;
-};
-
 export const authOptions: NextAuthOptions = {
-  // Ativamos JWT para sessões sem Adapter (mais leve)
-  session: { strategy: "jwt" },
-
-  // Página de login dedicada
+  // JWT mantém o handshake leve e evita acessos extra ao DB por sessão
+  session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 7 }, // 7 dias
   pages: { signIn: "/login" },
-
-  // Providers
   providers: [
     Credentials({
-      name: "Email e palavra-passe",
+      name: "Email e password",
       credentials: {
         email: { label: "Email", type: "email" },
-        password: { label: "Palavra-passe", type: "password" },
+        password: { label: "Password", type: "password" },
       },
-      async authorize(raw) {
-        // Validação de entrada
-        const parsed = credentialsSchema.safeParse({
-          email: raw?.email,
-          password: raw?.password,
-        });
-        if (!parsed.success) return null;
+      // Uma única query + compare → nada de joins/campos supérfluos
+      async authorize(credentials) {
+        const email = credentials?.email?.toLowerCase().trim();
+        const password = credentials?.password ?? "";
 
-        const { email, password } = parsed.data;
+        if (!email || !password) return null;
 
-        // Métricas de latência (dev only)
         const t0 = Date.now();
-
-        // Selecionamos apenas o necessário
         const user = await prisma.user.findUnique({
-          where: { email: email.toLowerCase() },
+          where: { email }, // índice/unique no email (ver secção SQL/CITEXT abaixo)
           select: {
             id: true,
             email: true,
@@ -59,89 +35,60 @@ export const authOptions: NextAuthOptions = {
             passwordHash: true,
           },
         });
-
         const t1 = Date.now();
 
-        let ok = false;
-        if (user?.passwordHash) {
-          ok = await compare(password, user.passwordHash);
-        }
-
+        const ok = !!user?.passwordHash && (await compare(password, user.passwordHash));
         const t2 = Date.now();
 
         if (process.env.NODE_ENV === "development") {
-          // Ex.: [auth] findUnique=180ms compare=95ms total=275ms
-          console.log(
-            `[auth] findUnique=${t1 - t0}ms compare=${t2 - t1}ms total=${t2 - t0}ms`
-          );
+          console.log(`[auth] findUnique=${t1 - t0}ms compare=${t2 - t1}ms total=${t2 - t0}ms`);
         }
 
         if (!user || !ok) return null;
 
+        // Devolve apenas o necessário; o resto via token
         return {
           id: user.id,
-          name: user.name ?? undefined,
           email: user.email,
-          role: (user.role as UserRole) ?? "cliente",
+          name: user.name,
+          role: user.role as UserRole,
         };
       },
     }),
   ],
-
-  // Callbacks para propagar dados ao token/sessão
   callbacks: {
+    // Colamos os dados mínimos no token
     async jwt({ token, user }) {
-      const t = token as AppToken;
-
       if (user) {
-        // user vem do authorize() acima
-        const u = user as {
-          id?: string;
-          name?: string | null;
-          email?: string | null;
-          role?: UserRole;
-        };
-
-        if (u.id) t.uid = u.id;
-        if (u.role) t.role = u.role;
-        if (u.name) t.name = u.name ?? undefined;
-        if (u.email) t.email = u.email ?? undefined;
+        token.sub = (user as any).id; // garante id no token
+        (token as any).role = (user as any).role as UserRole;
+        token.name = user.name ?? token.name;
       }
-
-      return t;
+      return token;
     },
-
+    // E refletimos no session.user
     async session({ session, token }) {
-      // Garantimos id e role no session.user
-      const t = token as AppToken;
-
       if (session.user) {
-        (session.user as { id?: string }).id = t.uid ?? "";
-        (session.user as { role?: UserRole }).role = t.role ?? "cliente";
-        // name/email já vêm preenchidos pelo NextAuth, mas alinhamos com o token se existir
-        if (t.name) session.user.name = t.name;
-        if (t.email) session.user.email = t.email;
+        (session.user as any).id = token.sub;
+        (session.user as any).role = (token as any).role as UserRole;
+        session.user.name = (token.name as string | null) ?? session.user.name;
       }
-
       return session;
     },
-
-    // (Opcional) Sanitizar redirects externos
+    // Redireção pós-login simples e consistente
     async redirect({ url, baseUrl }) {
       try {
-        const u = new URL(url, baseUrl);
-        // Permite apenas o mesmo host (evita open redirects)
-        if (u.origin === baseUrl) return u.toString();
-        return baseUrl;
+        const target = new URL(url, baseUrl);
+        // Evita redireções externas
+        if (target.origin !== baseUrl) return baseUrl;
+        // Se veio de /login ou /, manda para dashboard
+        if (target.pathname === "/login" || target.pathname === "/") return `${baseUrl}/dashboard`;
+        return target.toString();
       } catch {
         return baseUrl;
       }
     },
   },
-
-  // Segredo da aplicação (definido em .env/.env.local)
-  secret: process.env.NEXTAUTH_SECRET,
-
-  // Logs úteis em desenvolvimento
+  // Evita chamadas automáticas de debug em produção
   debug: process.env.NODE_ENV === "development",
 };

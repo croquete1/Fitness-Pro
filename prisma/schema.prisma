@@ -1,32 +1,17 @@
-// -------------------------------------------------------------
-// Prisma Schema - Fitness Pro (snake_case na BD, camelCase no código)
-// -------------------------------------------------------------
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique @db.Citext   // ← citext
+  name         String? 
+  passwordHash String   @map("password_hash")
+  role         Role     @default(cliente)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
-datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL") // Pooler (6543)
-  directUrl = env("DIRECT_URL")   // Direta (5432) p/ migrate/introspect (quando disponível)
-}
-
-generator client {
-  provider = "prisma-client-js"
+  @@map("users")
 }
 
 enum Role {
   cliente
   pt
   admin
-}
-
-model User {
-  id           String   @id @default(uuid()) @db.Uuid                      @map("id")
-  email        String   @unique                                              @map("email")
-  passwordHash String                                                     @map("password_hash")
-  name         String?                                                     @map("name")
-  role         Role     @default(cliente)                                  @map("role")
-  createdAt    DateTime @default(now())                                    @map("created_at")
-  updatedAt    DateTime @updatedAt                                         @map("updated_at")
-
-  @@index([role], map: "users_role_idx")
-  @@map("users")
 }
