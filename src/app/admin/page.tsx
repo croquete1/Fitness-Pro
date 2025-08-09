@@ -3,7 +3,10 @@ import KPI from "@/components/dashboard/KPI";
 import { UsersLineChart, RolesBarChart } from "@/components/dashboard/Charts";
 import AdminHeader from "@/components/admin/AdminHeader";
 
-export const dynamic = "force-dynamic"; // renderização no pedido (evita timeouts de SSG)
+export const dynamic = "force-dynamic"; // render no pedido: evita timeouts no build
+
+type SeriesPoint = { name: string; total: number };
+type RolePoint = { role: string; count: number };
 
 function fmtDate(d: Date) {
   try {
@@ -31,17 +34,16 @@ async function getData() {
 
     const total = clientes + pts + admins;
 
-    // Placeholders para gráficos — trocaremos por dados reais quando ligar métricas
-    const series = [
+    const series: SeriesPoint[] = [
       { name: "Jan", total: Math.max(0, total - 6) },
       { name: "Fev", total: Math.max(0, total - 4) },
       { name: "Mar", total: Math.max(0, total - 2) },
       { name: "Abr", total },
-      { name: "Mai", total + 2 },
-      { name: "Jun", total + 3 },
+      { name: "Mai", total: total + 2 },
+      { name: "Jun", total: total + 3 },
     ];
 
-    const roles = [
+    const roles: RolePoint[] = [
       { role: "Clientes", count: clientes },
       { role: "PTs", count: pts },
       { role: "Admins", count: admins },
@@ -54,9 +56,15 @@ async function getData() {
       clientes: 0,
       pts: 0,
       admins: 0,
-      series: [],
-      roles: [],
-      recentUsers: [] as { id: string; email: string | null; name: string | null; role: "cliente" | "pt" | "admin"; createdAt: Date }[],
+      series: [] as SeriesPoint[],
+      roles: [] as RolePoint[],
+      recentUsers: [] as {
+        id: string;
+        email: string | null;
+        name: string | null;
+        role: "cliente" | "pt" | "admin";
+        createdAt: Date;
+      }[],
     };
   }
 }
@@ -87,9 +95,7 @@ export default async function AdminPage() {
         <section className="rounded-xl border">
           <div className="p-4 border-b">
             <h2 className="text-base font-semibold">Utilizadores recentes</h2>
-            <p className="text-sm text-gray-500">
-              Últimos registos na plataforma
-            </p>
+            <p className="text-sm text-gray-500">Últimos registos na plataforma</p>
           </div>
 
           <div className="p-4 overflow-x-auto">

@@ -2,7 +2,10 @@ import { prisma } from "@/lib/db";
 import { UsersLineChart, RolesBarChart } from "@/components/dashboard/Charts";
 import KPI from "@/components/dashboard/KPI";
 
-export const dynamic = "force-dynamic"; // gera no pedido, evita timeouts de SSG
+export const dynamic = "force-dynamic"; // render no pedido: evita timeouts no build
+
+type SeriesPoint = { name: string; total: number };
+type RolePoint = { role: string; count: number };
 
 async function getData() {
   try {
@@ -14,17 +17,16 @@ async function getData() {
 
     const total = clientes + pts + admins;
 
-    // Série fictícia (placeholder) – poderá trocar por dados reais (ex.: por semana)
-    const series = [
+    const series: SeriesPoint[] = [
       { name: "Jan", total: Math.max(0, total - 6) },
       { name: "Fev", total: Math.max(0, total - 4) },
       { name: "Mar", total: Math.max(0, total - 2) },
       { name: "Abr", total },
-      { name: "Mai", total + 2 },
-      { name: "Jun", total + 3 },
+      { name: "Mai", total: total + 2 },
+      { name: "Jun", total: total + 3 },
     ];
 
-    const roles = [
+    const roles: RolePoint[] = [
       { role: "Clientes", count: clientes },
       { role: "PTs", count: pts },
       { role: "Admins", count: admins },
@@ -38,15 +40,14 @@ async function getData() {
 
     return { total, clientes, pts, admins, series, roles, activities };
   } catch {
-    // Em caso de erro na BD, devolvemos defaults
     return {
       total: 0,
       clientes: 0,
       pts: 0,
       admins: 0,
-      series: [],
-      roles: [],
-      activities: [],
+      series: [] as SeriesPoint[],
+      roles: [] as RolePoint[],
+      activities: [] as { id: string; label: string; date: string }[],
     };
   }
 }
