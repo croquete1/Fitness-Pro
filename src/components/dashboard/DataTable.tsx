@@ -37,16 +37,8 @@ export default function DataTable<TData, TValue>({
   const table = useReactTable({
     data,
     columns,
-    state: {
-      sorting,
-      columnFilters,
-      globalFilter,
-      columnVisibility,
-      rowSelection,
-    },
-    initialState: {
-      pagination: { pageSize: initialPageSize },
-    },
+    state: { sorting, columnFilters, globalFilter, columnVisibility, rowSelection },
+    initialState: { pagination: { pageSize: initialPageSize } },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
@@ -60,7 +52,6 @@ export default function DataTable<TData, TValue>({
 
   return (
     <div className="space-y-3">
-      {/* Filtro global */}
       <div className="flex items-center gap-2">
         <input
           value={globalFilter ?? ""}
@@ -70,7 +61,6 @@ export default function DataTable<TData, TValue>({
         />
       </div>
 
-      {/* Tabela */}
       <div className="overflow-x-auto rounded-xl border">
         <table className="w-full border-collapse">
           <thead className="bg-card">
@@ -100,7 +90,6 @@ export default function DataTable<TData, TValue>({
                         flexRender(header.column.columnDef.header, header.getContext())
                       )}
 
-                      {/* Filtro por coluna (opcional) */}
                       {header.column.getCanFilter() && (
                         <div className="mt-1">
                           <ColumnFilter column={header.column} />
@@ -135,10 +124,9 @@ export default function DataTable<TData, TValue>({
         </table>
       </div>
 
-      {/* Paginação */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="text-sm opacity-80">
-          Página {table.getState().pagination.pageIndex + 1} de {table.getPageCount()} &nbsp;•&nbsp;{" "}
+          Página {table.getState().pagination.pageIndex + 1} de {table.getPageCount()} •{" "}
           {table.getFilteredRowModel().rows.length} registo(s)
         </div>
         <div className="flex items-center gap-2">
@@ -187,9 +175,7 @@ export default function DataTable<TData, TValue>({
   );
 }
 
-/** Input simples para filtro por coluna (genérico e bem tipado) */
 function ColumnFilter<TData, TValue>({ column }: { column: Column<TData, TValue> }) {
-  // Primeiro valor faceteado ajuda-nos a inferir se é numérico
   const firstValue = column.getFacetedRowModel()?.flatRows[0]?.getValue(column.id) as unknown;
   const isNumber = typeof firstValue === "number";
   const value = column.getFilterValue();

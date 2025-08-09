@@ -1,4 +1,3 @@
-// src/components/dashboard/LineChart.tsx
 "use client";
 
 import {
@@ -12,8 +11,8 @@ import {
 } from "recharts";
 
 export interface DataPoint {
-  name: string;   // rótulo do eixo X (ex.: "Jan", "Semana 1")
-  value: number;  // valor do eixo Y
+  name: string;
+  value: number;
 }
 
 export default function LineChart({

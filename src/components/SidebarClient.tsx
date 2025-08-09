@@ -1,24 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { useSession } from "next-auth/react";
 
 type UserRole = "cliente" | "pt" | "admin";
 
-export default function SidebarClient() {
-  const { data } = useSession();
-  const role: UserRole =
-    ((data?.user as { role?: UserRole } | undefined)?.role) ?? "cliente";
+type SidebarUser = {
+  id: string;
+  email?: string | null;
+  name?: string | null;
+  role: UserRole;
+} | null;
+
+export default function SidebarClient({ user }: { user: SidebarUser }) {
+  const role: UserRole = user?.role ?? "cliente";
 
   return (
     <aside className="w-64 border-r p-4 space-y-4">
       <div className="text-sm opacity-70">
-        {data?.user?.email ? `Sessão: ${data.user.email}` : "Não autenticado"}
+        {user?.email ? `Sessão: ${user.email}` : "Não autenticado"}
       </div>
 
       <nav>
         <ul className="space-y-2 text-gray-700">
-          {/* Visão Geral: admin vai para /admin, restantes para /dashboard */}
           <li>
             <Link
               href={role === "admin" ? "/admin" : "/dashboard"}
@@ -28,7 +31,6 @@ export default function SidebarClient() {
             </Link>
           </li>
 
-          {/* Links específicos por papel */}
           {role === "cliente" && (
             <>
               <li>

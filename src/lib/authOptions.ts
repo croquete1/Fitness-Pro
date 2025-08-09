@@ -12,6 +12,7 @@ const credentialsSchema = z.object({
 });
 
 export const authOptions: NextAuthOptions = {
+  trustHost: true,
   session: { strategy: "jwt" },
   providers: [
     Credentials({
