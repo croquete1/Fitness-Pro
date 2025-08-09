@@ -24,10 +24,9 @@ export async function POST(req: NextRequest) {
 
     const email = parsed.data.email.toLowerCase().trim();
     const name = parsed.data.name?.trim() || null;
-    const rounds = process.env.NODE_ENV === "development" ? 10 : 12;
+    const rounds = process.env.NODE_ENV === "development" ? 8 : 12; // ← 8 em dev
     const passwordHash = await hash(parsed.data.password, rounds);
 
-    // já existe?
     const existing = await prisma.user.findUnique({
       where: { email },
       select: { id: true },
@@ -37,12 +36,7 @@ export async function POST(req: NextRequest) {
     }
 
     await prisma.user.create({
-      data: {
-        email,
-        passwordHash,
-        name,
-        role: "cliente", // por segurança não permitimos escolher papel no registo
-      },
+      data: { email, passwordHash, name, role: "cliente" },
       select: { id: true },
     });
 
