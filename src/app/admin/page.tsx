@@ -1,9 +1,18 @@
 import { prisma } from "@/lib/db";
 import KPI from "@/components/dashboard/KPI";
-import { UsersLineChart, RolesBarChart } from "@/components/dashboard/Charts";
+import dynamicImport from "next/dynamic";
 import AdminHeader from "@/components/admin/AdminHeader";
 
-export const dynamic = "force-dynamic"; // render no pedido: evita timeouts no build
+const UsersLineChart = dynamicImport(
+  () => import("@/components/dashboard/Charts").then((m) => m.UsersLineChart),
+  { ssr: false }
+);
+const RolesBarChart = dynamicImport(
+  () => import("@/components/dashboard/Charts").then((m) => m.RolesBarChart),
+  { ssr: false }
+);
+
+export const dynamic = "force-dynamic";
 
 type SeriesPoint = { name: string; total: number };
 type RolePoint = { role: string; count: number };
@@ -77,7 +86,6 @@ export default async function AdminPage() {
       <AdminHeader />
 
       <main className="p-4 space-y-6">
-        {/* KPIs */}
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <KPI label="Total utilizadores" value={data.total} />
           <KPI label="Clientes" value={data.clientes} />
@@ -85,13 +93,11 @@ export default async function AdminPage() {
           <KPI label="Admins" value={data.admins} />
         </section>
 
-        {/* Gráficos */}
         <section className="grid gap-4 lg:grid-cols-2">
           <UsersLineChart data={data.series} />
           <RolesBarChart data={data.roles} />
         </section>
 
-        {/* Utilizadores recentes */}
         <section className="rounded-xl border">
           <div className="p-4 border-b">
             <h2 className="text-base font-semibold">Utilizadores recentes</h2>

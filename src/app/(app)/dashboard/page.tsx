@@ -1,8 +1,19 @@
 import { prisma } from "@/lib/db";
-import { UsersLineChart, RolesBarChart } from "@/components/dashboard/Charts";
 import KPI from "@/components/dashboard/KPI";
+import dynamicImport from "next/dynamic";
 
-export const dynamic = "force-dynamic"; // render no pedido: evita timeouts no build
+// Importes dinâmicos (sem SSR) — carregam após a primeira pintura
+const UsersLineChart = dynamicImport(
+  () => import("@/components/dashboard/Charts").then((m) => m.UsersLineChart),
+  { ssr: false }
+);
+const RolesBarChart = dynamicImport(
+  () => import("@/components/dashboard/Charts").then((m) => m.RolesBarChart),
+  { ssr: false }
+);
+
+// Força renderização por pedido (evita SSG e timeouts no build)
+export const dynamic = "force-dynamic";
 
 type SeriesPoint = { name: string; total: number };
 type RolePoint = { role: string; count: number };
