@@ -30,9 +30,9 @@ enum SessionStatus {
 // Enum de papéis de utilizador — usa valores MAIÚSCULOS no Prisma
 // e mapeia para os valores minúsculos existentes na BD.
 enum Role {
-  ADMIN   @map("admin")
-  TRAINER @map("trainer")
-  CLIENT  @map("client")
+  ADMIN   
+  TRAINER
+  CLIENT
 
   @@map("Role")
 }
