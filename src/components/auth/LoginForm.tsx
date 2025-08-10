@@ -30,7 +30,6 @@ export default function LoginForm(props: Props) {
     return "Não foi possível iniciar sessão.";
   };
 
-  // inicializa mensagem vinda da query string
   const initialMsg = mapError(errorParam);
   const [info] = useState(initialMsg);
 
@@ -39,16 +38,15 @@ export default function LoginForm(props: Props) {
     setErr(null);
     setLoading(true);
 
-    const res = await signIn("credentials", {
+    // Sem atribuição, para não violar no-unused-vars
+    await signIn("credentials", {
       email,
       password,
       redirect: true,
       callbackUrl,
     });
 
-    // se redirect=true, NextAuth tratará do redirect
     setLoading(false);
-    // se algo falhar sem redirect, poderias setErr(...)
   }
 
   return (
