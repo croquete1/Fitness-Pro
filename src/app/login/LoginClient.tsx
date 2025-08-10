@@ -1,16 +1,13 @@
-'use client'
+// src/app/login/LoginClient.tsx
+"use client";
 
-import { useSearchParams } from 'next/navigation'
-import LoginForm from '@/components/auth/LoginForm'
+import LoginForm from "@/components/auth/LoginForm";
 
-export default function LoginClient() {
-  const searchParams = useSearchParams()
-  const error = searchParams.get('error') ?? undefined
-  const callbackUrl = searchParams.get('callbackUrl') ?? undefined
+type Props = {
+  error?: string;
+  callbackUrl?: string;
+};
 
-  return (
-    <div className="w-full max-w-md">
-      <LoginForm error={error} callbackUrl={callbackUrl} />
-    </div>
-  )
+export default function LoginClient({ error, callbackUrl }: Props) {
+  return <LoginForm error={error} callbackUrl={callbackUrl} />;
 }
