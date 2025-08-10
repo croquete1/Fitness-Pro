@@ -1,11 +1,16 @@
-# Donos por defeito (tudo o resto)
-*                                   @croquete1
+# Dono global do repo
+* @croquete1
 
-# Áreas críticas de auth (precisam SEMPRE de aprovação dos donos)
-src/app/login/**                    @croquete1 @your-org/admins
-src/app/register/**                 @croquete1 @your-org/admins
-src/components/auth/**              @croquete1 @your-org/admins
-src/app/api/auth/**                 @croquete1 @your-org/admins
-src/lib/auth.ts                     @croquete1 @your-org/admins
-src/lib/authOptions.ts              @croquete1 @your-org/admins
-src/middleware.ts                   @croquete1 @your-org/admins
+# Áreas críticas – exigem aprovação de Code Owners
+/src/app/page.tsx                           @croquete1
+/src/app/login/**                           @croquete1
+/src/app/register/**                        @croquete1
+/src/app/(app)/dashboard/layout.tsx         @croquete1
+/src/app/(app)/dashboard/page.tsx           @croquete1
+
+/src/lib/authOptions.ts                     @croquete1
+/src/lib/auth.ts                            @croquete1
+/src/lib/prisma.ts                          @croquete1
+/src/middleware.ts                          @croquete1
+
+/src/app/api/auth/**                        @croquete1
