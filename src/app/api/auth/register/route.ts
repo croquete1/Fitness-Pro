@@ -1,48 +1,60 @@
 // src/app/api/auth/register/route.ts
-import { NextResponse, type NextRequest } from "next/server";
-import { prisma } from "@/lib/db";
-import { z } from "zod";
-import { hash } from "bcryptjs";
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { Role } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
-const BodySchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8).max(72),
-  name: z.string().min(2).max(80).optional(),
-});
-
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const json = await req.json();
-    const parsed = BodySchema.safeParse(json);
-    if (!parsed.success) {
-      return NextResponse.json({ error: "Dados inválidos." }, { status: 400 });
+    const { name, email, password } = await req.json();
+
+    if (!email || !password) {
+      return NextResponse.json(
+        { error: "Email e password são obrigatórios" },
+        { status: 400 }
+      );
     }
 
-    const email = parsed.data.email.toLowerCase().trim();
-    const name = parsed.data.name?.trim() || null;
-    const rounds = process.env.NODE_ENV === "development" ? 8 : 12; // ← 8 em dev
-    const passwordHash = await hash(parsed.data.password, rounds);
+    const normalizedEmail = String(email).toLowerCase().trim();
 
-    const existing = await prisma.user.findUnique({
-      where: { email },
-      select: { id: true },
-    });
-    if (existing) {
-      return NextResponse.json({ error: "Email já registado." }, { status: 409 });
+    if (password.length < 6) {
+      return NextResponse.json(
+        { error: "Password deve ter pelo menos 6 caracteres" },
+        { status: 400 }
+      );
     }
 
-    await prisma.user.create({
-      data: { email, passwordHash, name, role: "cliente" },
+    const exists = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
       select: { id: true },
     });
+    if (exists) {
+      return NextResponse.json(
+        { error: "Email já registado" },
+        { status: 409 }
+      );
+    }
 
-    return NextResponse.json({ ok: true }, { status: 201 });
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    const user = await prisma.user.create({
+      data: {
+        name: name ?? null,
+        email: normalizedEmail,
+        passwordHash,
+        role: Role.CLIENT, // ← enum, não string
+      },
+      select: { id: true, email: true, name: true, role: true, createdAt: true },
+    });
+
+    return NextResponse.json({ user }, { status: 201 });
   } catch (e) {
-    console.error("[register] erro:", e);
-    return NextResponse.json({ error: "Erro interno." }, { status: 500 });
+    console.error("Register error:", e);
+    return NextResponse.json(
+      { error: "Erro ao registar utilizador" },
+      { status: 500 }
+    );
   }
 }

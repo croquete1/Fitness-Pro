@@ -1,32 +1,25 @@
 // src/app/admin/layout.tsx
-import { type ReactNode } from "react";
+import { ReactNode } from "react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { redirect } from "next/navigation";
-
-export const metadata = {
-  title: "Admin — Fitness Pro",
-  description: "Área de administração da plataforma Fitness Pro",
-};
+import { Role } from "@prisma/client";
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
-  // Obtém a sessão no servidor (seguro e sem piscar no UI)
   const session = await getServerSession(authOptions);
 
-  // Sem sessão → enviar para login
+  // Se não houver sessão → /login
   if (!session?.user) {
     redirect("/login");
   }
 
-  // RBAC: apenas 'admin' pode aceder
-  const role = (session.user as { role?: "cliente" | "pt" | "admin" }).role ?? "cliente";
-  if (role !== "admin") {
+  // O teu callback de session já mete Role (enum) no user
+  const role = (session.user as { id: string; role: Role }).role;
+
+  // RBAC: só ADMIN acede
+  if (role !== Role.ADMIN) {
     redirect("/dashboard");
   }
 
-  return (
-    <div className="min-h-dvh">
-      {children}
-    </div>
-  );
+  return <>{children}</>;
 }

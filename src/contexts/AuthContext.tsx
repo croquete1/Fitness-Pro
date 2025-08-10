@@ -1,51 +1,45 @@
 "use client";
 
-import { createContext, useContext, useMemo } from "react";
-import { signIn, signOut, useSession } from "next-auth/react";
+import { createContext, useContext, useEffect, useState } from "react";
+import type { Role } from "@prisma/client";
 
-type AuthContextValue = {
-  status: "loading" | "authenticated" | "unauthenticated";
-  user: {
-    id: string;
-    email?: string | null;
-    name?: string | null;
-    role: "cliente" | "pt" | "admin";
-  } | null;
-  login: (email: string, password: string) => Promise<boolean>;
-  logout: () => Promise<void>;
+type AuthUser = {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  role: Role;
 };
 
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+const AuthContext = createContext<{ user: AuthUser | null }>({ user: null });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { status, data } = useSession();
+  const [user, setUser] = useState<AuthUser | null>(null);
 
-  const value = useMemo<AuthContextValue>(() => {
-    return {
-      status,
-      user: data?.user
-        ? {
-            id: (data.user as { id: string }).id,
-            email: data.user.email ?? null,
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/session");
+        const data = await res.json();
+
+        if (data?.user?.id) {
+          setUser({
+            id: data.user.id,
             name: data.user.name ?? null,
-            role: (data.user as { role: "cliente" | "pt" | "admin" }).role ?? "cliente",
-          }
-        : null,
-      async login(email: string, password: string) {
-        const res = await signIn("credentials", { email, password, redirect: false });
-        return !!res?.ok;
-      },
-      async logout() {
-        await signOut({ redirect: false });
-      },
-    };
-  }, [status, data]);
+            email: data.user.email ?? null,
+            role: (data.user.role as Role) ?? "CLIENT",
+          });
+        } else {
+          setUser(null);
+        }
+      } catch {
+        setUser(null);
+      }
+    })();
+  }, []);
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth deve ser usado dentro de <AuthProvider>");
-  return ctx;
+  return useContext(AuthContext);
 }
