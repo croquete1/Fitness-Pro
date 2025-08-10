@@ -1,34 +1,23 @@
-// src/components/SidebarWrapper.tsx
-import SidebarClient from "./SidebarClient";
+// Server Component: obtém sessão e injeta no SidebarClient
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
-import type { Role } from "@prisma/client";
+import SidebarClient, { RawUser } from "./SidebarClient";
+import { redirect } from "next/navigation";
 
-export type RawUser = {
-  id: string;
-  name?: string | null;
-  email?: string | null;
-  role: Role; // "ADMIN" | "TRAINER" | "CLIENT"
-};
+export default async function SidebarWrapper() {
+  const session = await getServerSession(authOptions);
+  const sUser = session?.user as any;
 
-export default async function SidebarWrapper({ user }: { user?: RawUser }) {
-  let u = user;
-
-  if (!u) {
-    const session = await getServerSession(authOptions);
-    if (session?.user) {
-      u = {
-        id: (session.user as any).id as string,
-        name: session.user.name ?? null,
-        email: session.user.email ?? null,
-        role: ((session.user as any).role ?? "CLIENT") as Role,
-      };
-    }
+  if (!sUser) {
+    redirect("/login");
   }
 
-  // Em último caso, mostra a sidebar com um utilizador “anónimo” CLIENT
-  const safeUser =
-    u ?? ({ id: "anon", role: "CLIENT" } as unknown as RawUser);
+  const user: RawUser = {
+    id: sUser.id as string,
+    name: sUser.name ?? null,
+    email: sUser.email ?? null,
+    role: (sUser.role as "ADMIN" | "TRAINER" | "CLIENT") ?? "CLIENT",
+  };
 
-  return <SidebarClient user={safeUser} />;
+  return <SidebarClient user={user} />;
 }

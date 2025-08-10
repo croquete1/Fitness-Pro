@@ -1,4 +1,3 @@
-// src/middleware.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
@@ -11,8 +10,9 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
     pathname.startsWith("/api/auth") ||
-    pathname === "/login" ||
-    pathname === "/register"              // 👈 registo é público
+    pathname === "/" ||
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/register")
   ) {
     return NextResponse.next();
   }
@@ -20,6 +20,7 @@ export async function middleware(req: NextRequest) {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
   const isAuth = !!token;
 
+  // Rotas privadas
   const isPrivate =
     pathname === "/dashboard" ||
     pathname.startsWith("/dashboard/") ||
@@ -28,7 +29,6 @@ export async function middleware(req: NextRequest) {
     pathname === "/admin" ||
     pathname.startsWith("/admin/");
 
-  // Anónimo a tentar rota privada → /login
   if (!isAuth && isPrivate) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
@@ -36,7 +36,6 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Autenticado a ir a /login → /dashboard
   if (isAuth && pathname === "/login") {
     const url = req.nextUrl.clone();
     url.pathname = "/dashboard";
@@ -44,15 +43,14 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Guardas por role
   const role = (token as any)?.role as "ADMIN" | "TRAINER" | "CLIENT" | undefined;
 
+  // RBAC
   if (pathname.startsWith("/admin") && role !== "ADMIN") {
     const url = req.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
   }
-
   if (pathname.startsWith("/trainer") && !(role === "ADMIN" || role === "TRAINER")) {
     const url = req.nextUrl.clone();
     url.pathname = "/dashboard";
