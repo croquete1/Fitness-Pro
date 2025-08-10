@@ -1,6 +1,6 @@
 // src/app/admin/page.tsx
 import { prisma } from "@/lib/prisma";
-import { Role, Status } from "@prisma/client";
+import { Role } from "@prisma/client";
 import PendingApprovals from "@/components/admin/PendingApprovals";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +10,8 @@ export default async function AdminPage() {
     prisma.user.count({ where: { role: Role.CLIENT } }),
     prisma.user.count({ where: { role: Role.TRAINER } }),
     prisma.user.count({ where: { role: Role.ADMIN } }),
-    prisma.user.count({ where: { status: Status.PENDING } }),
+    // status é string na BD -> usar literal
+    prisma.user.count({ where: { status: "PENDING" } }),
   ]);
 
   const recentUsers = await prisma.user.findMany({
@@ -52,7 +53,7 @@ export default async function AdminPage() {
         </div>
       </div>
 
-      {/* Aprovações Pendentes (client component) */}
+      {/* Aprovações Pendentes */}
       <PendingApprovals />
 
       {/* Utilizadores recentes */}
