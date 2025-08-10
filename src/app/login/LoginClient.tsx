@@ -6,21 +6,18 @@ import { signIn } from "next-auth/react";
 
 export default function LoginClient() {
   const router = useRouter();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Prefetch destinos prováveis
     router.prefetch("/dashboard");
-    router.prefetch("/trainer");
-    router.prefetch("/admin");
   }, [router]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (submitting) return;
     setError(null);
     setSubmitting(true);
 
@@ -28,7 +25,7 @@ export default function LoginClient() {
       const res = await signIn("credentials", {
         email,
         password,
-        redirect: false, // <- chave: nós controlamos o redirecionamento
+        redirect: false, // controlamos o destino manualmente
       });
 
       if (!res) {
@@ -37,22 +34,13 @@ export default function LoginClient() {
         return;
       }
       if (res.error) {
-        // Tipicamente "CredentialsSignin"
         setError("Credenciais inválidas. Verifique o email e a palavra-passe.");
         setSubmitting(false);
         return;
       }
 
-      // Obter a sessão para saber o papel
-      const sess = await fetch("/api/auth/session", { cache: "no-store" }).then((r) => r.json());
-      const role = sess?.user?.role;
-
-      const dest =
-        role === "admin" ? "/admin" :
-        role === "pt"    ? "/trainer" :
-                           "/dashboard";
-
-      router.replace(dest);
+      // Destino único e estável para todos os perfis
+      router.replace("/dashboard");
     } catch (err) {
       console.error("[login] erro:", err);
       setError("Ocorreu um erro. Tente novamente.");
@@ -97,16 +85,3 @@ export default function LoginClient() {
             {error}
           </div>
         )}
-
-        <button
-          type="submit"
-          disabled={submitting}
-          aria-busy={submitting}
-          className="w-full rounded-md border px-3 py-2 hover:bg-zinc-100 disabled:opacity-60"
-        >
-          {submitting ? "A entrar..." : "Entrar"}
-        </button>
-      </form>
-    </main>
-  );
-}

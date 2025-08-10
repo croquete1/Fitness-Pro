@@ -1,16 +1,24 @@
-// src/middleware.ts
+import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-import { getToken } from "next-auth/jwt";
 
-export async function middleware(req: NextRequest) {
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-  if (!token) {
-    return NextResponse.redirect(new URL("/login", req.nextUrl.origin));
+export default withAuth(
+  function middleware(req) {
+    const { pathname } = req.nextUrl;
+
+    if (pathname === "/") {
+      const url = req.nextUrl.clone();
+      url.pathname = "/dashboard";
+      url.searchParams.set("tab", "overview");
+      return NextResponse.redirect(url);
+    }
+
+    return NextResponse.next();
+  },
+  {
+    callbacks: {
+      authorized: ({ token }) => !!token,
+    },
   }
-  return NextResponse.next();
-}
+);
 
-export const config = {
-  matcher: ["/dashboard/:path*", "/admin/:path*", "/trainer/:path*"],
-};
+export const config = { matcher: ["/", "/dashboard/:path*", "/admin/:path*"] };
