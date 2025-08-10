@@ -9,7 +9,7 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL") // opcional (útil para migrate deploy via porta 5432)
+  directUrl = env("DIRECT_URL")
 }
 
 // -----------------------------------------------------
@@ -27,6 +27,15 @@ enum SessionStatus {
   @@map("SessionStatus")
 }
 
+// Mapeado para o enum Postgres (ajusta o nome caso na BD seja "role", "user_role", etc.)
+enum Role {
+  ADMIN   @map("admin")
+  TRAINER @map("trainer")
+  CLIENT  @map("client")
+
+  @@map("Role")
+}
+
 // -----------------------------------------------------
 // Modelos
 // -----------------------------------------------------
@@ -36,12 +45,11 @@ model User {
   email        String   @unique @db.Citext
   name         String?
   passwordHash String   @map("password_hash")
-  // Mantemos role como texto para assegurar compatibilidade com a BD atual
-  role         String   @default("cliente")
+  role         Role     @default(CLIENT) // <— era String; agora enum alinhado com a BD
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  // Relações (nomes de relações estáveis)
+  // Relações
   trainerSessions Session[] @relation("TrainerSessions")
   clientSessions  Session[] @relation("ClientSessions")
 
