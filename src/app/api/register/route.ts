@@ -1,26 +1,14 @@
-// src/app/api/register/route.ts
+// src/app/api/auth/register/route.ts
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import bcrypt from "bcryptjs";
+import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 export const runtime = "nodejs";
 
-function normalizeRole(input: unknown): Role {
-  if (typeof input !== "string") return Role.CLIENT;
-  const v = input.toLowerCase().trim();
-
-  if (v === "admin") return Role.ADMIN;
-  if (v === "pt" || v === "trainer" || v === "personal_trainer") return Role.TRAINER;
-  if (v === "cliente" || v === "client" || v === "user" || v === "usuario" || v === "utilizador")
-    return Role.CLIENT;
-
-  return Role.CLIENT;
-}
-
 export async function POST(req: Request) {
   try {
-    const { name, email, password, role } = await req.json();
+    const { name, email, password } = await req.json();
 
     if (!email || !password) {
       return NextResponse.json(
@@ -29,12 +17,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const emailNorm = String(email).toLowerCase().trim();
-
-    const exists = await prisma.user.findUnique({ where: { email: emailNorm } });
-    if (exists) {
-      return NextResponse.json({ error: "Email já registado" }, { status: 409 });
-    }
+    const normalizedEmail = String(email).toLowerCase().trim();
 
     if (password.length < 6) {
       return NextResponse.json(
@@ -43,21 +26,32 @@ export async function POST(req: Request) {
       );
     }
 
+    const exists = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: { id: true },
+    });
+    if (exists) {
+      return NextResponse.json(
+        { error: "Email já registado" },
+        { status: 409 }
+      );
+    }
+
     const passwordHash = await bcrypt.hash(password, 10);
 
     const user = await prisma.user.create({
       data: {
-        name: name ? String(name) : null,
-        email: emailNorm,
+        name: name ?? null,
+        email: normalizedEmail,
         passwordHash,
-        role: normalizeRole(role),
+        role: Role.CLIENT, // ← enum, não string
       },
-      select: { id: true, email: true, name: true, role: true },
+      select: { id: true, email: true, name: true, role: true, createdAt: true },
     });
 
     return NextResponse.json({ user }, { status: 201 });
   } catch (e) {
-    console.error("Erro no register:", e);
+    console.error("Register error:", e);
     return NextResponse.json(
       { error: "Erro ao registar utilizador" },
       { status: 500 }

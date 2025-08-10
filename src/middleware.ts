@@ -3,37 +3,35 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 
-// Nota: não importar Role do Prisma no middleware (Edge).
-type TokenRole = "CLIENT" | "TRAINER" | "ADMIN" | undefined;
-
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Públicos / NextAuth
+  // Recursos públicos — deixam passar
   if (
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/favicon") ||
-    pathname.startsWith("/api/auth")
+    pathname.startsWith("/_next") ||         // assets do Next
+    pathname.startsWith("/favicon") ||       // favicon
+    pathname.startsWith("/api/auth") ||      // rotas do NextAuth
+    pathname === "/" ||                      // landing
+    pathname === "/login" ||                 // página de login (trataremos redirecionamento abaixo)
+    pathname === "/register"                 // se tiveres página pública de registo
   ) {
     return NextResponse.next();
   }
 
+  // Token JWT do NextAuth (precisa de NEXTAUTH_SECRET definido)
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
   const isAuth = !!token;
-  const role = (token?.role as TokenRole) ?? undefined;
 
+  // Rotas privadas (exigem sessão)
   const isPrivate =
     pathname === "/dashboard" ||
     pathname.startsWith("/dashboard/") ||
-    pathname === "/admin" ||
-    pathname.startsWith("/admin/") ||
-    pathname === "/trainer" || // caso exista esta rota
+    pathname === "/trainer" ||
     pathname.startsWith("/trainer/") ||
-    pathname.startsWith("/dashboard/admin") ||
-    pathname.startsWith("/dashboard/trainer") || // caso renomes
-    pathname.startsWith("/dashboard/tainer");    // compat. com diretório atual
+    pathname === "/admin" ||
+    pathname.startsWith("/admin/");
 
-  // Anónimo -> privado
+  // 1) Anónimo a tentar rota privada → enviar para /login com callback
   if (!isAuth && isPrivate) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
@@ -41,7 +39,7 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Já autenticado -> /login
+  // 2) Autenticado a ir a /login → enviar para /dashboard
   if (isAuth && pathname === "/login") {
     const url = req.nextUrl.clone();
     url.pathname = "/dashboard";
@@ -49,29 +47,33 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Guardas por role
-  const isAdminArea =
-    pathname.startsWith("/admin") || pathname.startsWith("/dashboard/admin");
-  if (isAdminArea && role !== "ADMIN") {
-    const url = req.nextUrl.clone();
-    url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
+  // 3) Guardas por role apenas nas rotas que exigem
+  //    (o token.role vem das callbacks do NextAuth; aqui usamos strings MAIÚSCULAS)
+  const role = (token as any)?.role as "ADMIN" | "TRAINER" | "CLIENT" | undefined;
+
+  // /admin → só ADMIN
+  if (pathname.startsWith("/admin")) {
+    if (role !== "ADMIN") {
+      const url = req.nextUrl.clone();
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
+    }
   }
 
-  const isTrainerArea =
-    pathname.startsWith("/trainer") ||
-    pathname.startsWith("/dashboard/trainer") ||
-    pathname.startsWith("/dashboard/tainer");
-  if (isTrainerArea && !(role === "TRAINER" || role === "ADMIN")) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
+  // /trainer → ADMIN ou TRAINER
+  if (pathname.startsWith("/trainer")) {
+    if (!(role === "ADMIN" || role === "TRAINER")) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
+    }
   }
 
+  // Caso contrário, segue
   return NextResponse.next();
 }
 
+// Aplica o middleware a “tudo” excepto estáticos/imagens
 export const config = {
-  // Evita passar no middleware as rotas estáticas e do next-auth
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/auth).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

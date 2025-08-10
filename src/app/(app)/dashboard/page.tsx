@@ -1,4 +1,4 @@
-import prisma from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
