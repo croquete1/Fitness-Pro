@@ -1,5 +1,5 @@
 // -----------------------------------------------------
-// prisma/schema.prisma — atualizado e sincronizado
+// prisma/schema.prisma — sincronizado para enum Role
 // -----------------------------------------------------
 
 generator client {
@@ -16,7 +16,7 @@ datasource db {
 // Enums
 // -----------------------------------------------------
 
-// Mapeado para o enum Postgres criado via SQL: "SessionStatus"
+// Enum para as sessões (mapeado ao enum existente na BD)
 enum SessionStatus {
   pendente
   aceite
@@ -27,7 +27,8 @@ enum SessionStatus {
   @@map("SessionStatus")
 }
 
-// Mapeado para o enum Postgres (ajusta o nome caso na BD seja "role", "user_role", etc.)
+// Enum de papéis de utilizador — usa valores MAIÚSCULOS no Prisma
+// e mapeia para os valores minúsculos existentes na BD.
 enum Role {
   ADMIN   @map("admin")
   TRAINER @map("trainer")
@@ -45,7 +46,7 @@ model User {
   email        String   @unique @db.Citext
   name         String?
   passwordHash String   @map("password_hash")
-  role         Role     @default(CLIENT) // <— era String; agora enum alinhado com a BD
+  role         Role     @default(CLIENT)
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 

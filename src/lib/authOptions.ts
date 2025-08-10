@@ -1,79 +1,67 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { prisma } from "@/lib/db";
+import { PrismaAdapter } from "@next-auth/prisma-adapter";
+import prisma from "./prisma";
+import { compare } from "bcryptjs";
+import type { Role } from "@prisma/client";
 
-type UserRole = "cliente" | "pt" | "admin";
+// Aceita valores legacy em minúsculas e devolve o enum do Prisma
+function toRole(value: unknown): Role {
+  const v = String(value ?? "").toUpperCase();
+  if (v === "ADMIN" || v === "PT" || v === "CLIENT") return v as Role;
+  if (v === "CLIENTE") return "CLIENT";
+  // fallback seguro
+  return "CLIENT";
+}
 
 export const authOptions: NextAuthOptions = {
-  pages: {
-    signIn: "/login",
-  },
-  session: {
-    strategy: "jwt",
-    maxAge: 60 * 60 * 24 * 30, // 30 dias
-  },
+  adapter: PrismaAdapter(prisma),
+  session: { strategy: "jwt" },
+  pages: { signIn: "/login" },
+
   providers: [
     CredentialsProvider({
-      name: "Email e password",
+      name: "Credentials",
       credentials: {
-        email: { label: "Email", type: "email" },
+        email: { label: "Email", type: "text" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        const email = credentials?.email?.toLowerCase().trim();
-        const password = credentials?.password ?? "";
-        if (!email || !password) return null;
+        if (!credentials?.email || !credentials?.password) return null;
 
-        try {
-          // 1) Validação determinística NO POSTGRES (evita diferenças do bcrypt em JS)
-          //    O campo email é CITEXT, logo = é case-insensitive.
-          const rows: Array<{ id: string; email: string; name: string | null; role: UserRole }> =
-            await prisma.$queryRaw`
-              select id, email, name, role
-              from public.users
-              where email = ${email}
-                and password_hash = crypt(${password}, password_hash)
-              limit 1
-            `;
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email.toLowerCase() },
+          select: { id: true, email: true, name: true, passwordHash: true, role: true },
+        });
+        if (!user) return null;
 
-          const row = rows[0];
-          if (!row) return null;
+        const ok = await compare(credentials.password, user.passwordHash);
+        if (!ok) return null;
 
-          // 2) Retorna o utilizador mínimo para o token
-          return {
-            id: row.id,
-            email: row.email,
-            name: row.name ?? undefined,
-            role: row.role,
-          } as any;
-        } catch (err) {
-          if (process.env.NODE_ENV === "development") {
-            console.error("[auth] authorize(db-crypt) error:", err);
-          }
-          // Em erro interno, devolvemos null para não expor detalhes ao cliente
-          return null;
-        }
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name ?? "",
+          role: toRole(user.role), // <- garante enum
+        };
       },
     }),
   ],
+
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.sub = (user as any).id;
-        (token as any).role = (user as any).role as UserRole;
-        token.name = (user as any).name ?? token.name;
+        token.id = (user as any).id;
+        token.role = toRole((user as any).role);
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).id = token.sub;
-        (session.user as any).role = (token as any).role as UserRole;
-        session.user.name = (token.name as string | null) ?? session.user.name;
+        (session.user as any).id = token.id as string;
+        (session.user as any).role = toRole(token.role);
       }
       return session;
     },
   },
-  // Mantemos debug só em dev; em produção fica silencioso
-  debug: process.env.NODE_ENV === "development",
 };
