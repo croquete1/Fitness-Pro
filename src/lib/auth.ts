@@ -1,26 +1,34 @@
-// src/lib/auth.ts — exporta `authOptions` para uso em /api/auth/[...nextauth]/route.ts
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
 export const authOptions: NextAuthOptions = {
+  secret: process.env.NEXTAUTH_SECRET,
+  debug: process.env.NEXTAUTH_DEBUG === "true",
   providers: [
     CredentialsProvider({
-      name: "Email e Password",
+      id: "credentials",
+      name: "Credenciais",
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials.password) return null;
+        const email = credentials?.email?.trim().toLowerCase();
+        const password = credentials?.password ?? "";
+        if (!email || !password) throw new Error("missing_credentials");
+
+        // Email é CITEXT -> comparação insensitive
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
+          where: { email },
           select: { id: true, name: true, email: true, passwordHash: true, role: true },
         });
-        if (!user) return null;
-        const ok = await bcrypt.compare(credentials.password, user.passwordHash);
-        if (!ok) return null;
+        if (!user) throw new Error("invalid_credentials");
+
+        const ok = await bcrypt.compare(password, user.passwordHash);
+        if (!ok) throw new Error("invalid_credentials");
+
         return { id: user.id, name: user.name ?? user.email, email: user.email, role: user.role ?? "cliente" } as any;
       },
     }),
@@ -30,7 +38,7 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        // @ts-ignore — propagamos role para o token
+        // @ts-ignore — propagar role
         token.role = (user as any).role ?? token.role ?? "cliente";
       }
       return token;
@@ -45,7 +53,6 @@ export const authOptions: NextAuthOptions = {
       const isSameOrigin = url.startsWith(baseUrl);
       const nextUrl = isRelative ? new URL(url, baseUrl) : isSameOrigin ? new URL(url) : new URL(baseUrl);
 
-      // Evitar cair em /admin por omissão e normalizar pós-login
       if (
         nextUrl.pathname === "/" ||
         nextUrl.pathname === "/login" ||

@@ -16,23 +16,29 @@ export default function LoginClient() {
     setLoading(true);
     setError(null);
 
-    try {
-      const res = await signIn("credentials", {
-        redirect: false,
-        email,
-        password,
-        callbackUrl: "/dashboard?tab=overview",
-      });
+    const res = await signIn("credentials", {
+      redirect: false,
+      email,
+      password,
+      callbackUrl: "/dashboard?tab=overview",
+    });
 
-      if (!res) throw new Error("Erro inesperado na autenticação");
-      if (res.error) throw new Error(res.error);
+    setLoading(false);
 
-      router.push("/dashboard?tab=overview");
-    } catch (err: any) {
-      setError(err.message || "Falha no login");
-    } finally {
-      setLoading(false);
+    if (!res) return setError("Erro inesperado.");
+
+    if (res.error) {
+      // NextAuth devolve normalmente "CredentialsSignin" em erros de credenciais
+      if (res.error === "CredentialsSignin" || res.error === "invalid_credentials") {
+        return setError("Email ou password incorretos.");
+      }
+      if (res.error === "missing_credentials") {
+        return setError("Preencha email e password.");
+      }
+      return setError("Falha ao iniciar sessão.");
     }
+
+    router.push("/dashboard?tab=overview");
   }
 
   return (
