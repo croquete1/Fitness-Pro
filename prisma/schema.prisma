@@ -1,5 +1,5 @@
 // -----------------------------------------------------
-// prisma/schema.prisma
+// prisma/schema.prisma — consistente e validado
 // -----------------------------------------------------
 
 generator client {
@@ -16,26 +16,28 @@ datasource db {
 // Enums
 // -----------------------------------------------------
 
+// Perfis de utilizador (já usados no app)
 enum Role {
   ADMIN
   TRAINER
   CLIENT
 }
 
-enum AccountStatus {
+// Estado do utilizador (aprovado pelo admin, etc.)
+enum Status {
   PENDING
   APPROVED
-  SUSPENDED
+  REJECTED
+  BLOCKED
 }
 
+// Estado das sessões/treinos
 enum SessionStatus {
-  pendente
-  aceite
-  recusada
-  cancelada
-  realizada
-
-  @@map("SessionStatus")
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+  COMPLETED
 }
 
 // -----------------------------------------------------
@@ -43,17 +45,16 @@ enum SessionStatus {
 // -----------------------------------------------------
 
 model User {
-  id           String        @id @default(uuid()) @db.Uuid
-  email        String        @unique @db.Citext
-  name         String?
-  passwordHash String        @map("password_hash")
-  role         Role          @default(CLIENT)
-  status       AccountStatus @default(PENDING)
+  id             String   @id @default(uuid()) @db.Uuid
+  email          String   @unique @db.Citext
+  name           String?
+  passwordHash   String   @map("password_hash")
+  role           Role     @default(CLIENT)
+  status         Status   @default(PENDING)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
-
-  // Relações (se usares sessões)
+  // Relações (para componentes de Trainer/Admin)
   trainerSessions Session[] @relation("TrainerSessions")
   clientSessions  Session[] @relation("ClientSessions")
 
@@ -63,9 +64,9 @@ model User {
 model Session {
   id          String        @id @default(uuid()) @db.Uuid
   trainerId   String        @map("trainer_id") @db.Uuid
-  clientId    String        @map("client_id") @db.Uuid
+  clientId    String        @map("client_id")  @db.Uuid
   scheduledAt DateTime      @map("scheduled_at")
-  status      SessionStatus @default(pendente)
+  status      SessionStatus @default(PENDING)
   notes       String?
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
@@ -73,8 +74,8 @@ model Session {
   trainer User @relation("TrainerSessions", fields: [trainerId], references: [id])
   client  User @relation("ClientSessions", fields: [clientId], references: [id])
 
-  @@index([trainerId], map: "sessions_trainer_idx")
-  @@index([clientId], map: "sessions_client_idx")
-  @@index([scheduledAt], map: "sessions_scheduled_idx")
+  @@index([trainerId])
+  @@index([clientId])
+  @@index([scheduledAt])
   @@map("sessions")
 }

@@ -1,65 +1,53 @@
 // src/app/api/admin/approvals/route.ts
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
 import { prisma } from "@/lib/prisma";
 import { Status } from "@prisma/client";
 
 export const runtime = "nodejs";
 
-// Apenas ADMIN
-async function ensureAdmin() {
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as any)?.role as "ADMIN" | "TRAINER" | "CLIENT" | undefined;
-  if (!session || role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-  return null;
-}
-
-// GET: listar utilizadores pendentes
+// Lista contas pendentes (para o painel de aprovações)
 export async function GET() {
-  const forbidden = await ensureAdmin();
-  if (forbidden) return forbidden;
-
-  const users = await prisma.user.findMany({
-    where: { status: Status.PENDING },
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      createdAt: true,
-    },
-  });
-
-  return NextResponse.json({ users });
+  try {
+    const users = await prisma.user.findMany({
+      where: { status: Status.PENDING },
+      select: { id: true, name: true, email: true, role: true, status: true, createdAt: true },
+      orderBy: { createdAt: "asc" },
+    });
+    return NextResponse.json({ users });
+  } catch (e) {
+    return NextResponse.json({ error: "Erro ao carregar pendentes" }, { status: 500 });
+  }
 }
 
-// POST: aprovar/suspender
-// body: { id: string, action: "approve" | "suspend" }
+// Aprovar / Rejeitar / Bloquear
 export async function POST(req: Request) {
-  const forbidden = await ensureAdmin();
-  if (forbidden) return forbidden;
-
   try {
-    const { id, action } = await req.json();
-
-    if (!id || (action !== "approve" && action !== "suspend")) {
-      return NextResponse.json({ error: "Pedido inválido" }, { status: 400 });
+    const { id, action } = (await req.json()) as { id?: string; action?: string };
+    if (!id || !action) {
+      return NextResponse.json({ error: "Parâmetros inválidos" }, { status: 400 });
     }
 
-    const newStatus = action === "approve" ? Status.APPROVED : Status.SUSPENDED;
+    const newStatus =
+      action === "approve"
+        ? Status.APPROVED
+        : action === "reject"
+        ? Status.REJECTED
+        : action === "block"
+        ? Status.BLOCKED
+        : null;
+
+    if (!newStatus) {
+      return NextResponse.json({ error: "Ação inválida" }, { status: 400 });
+    }
 
     const user = await prisma.user.update({
       where: { id },
       data: { status: newStatus },
-      select: { id: true, status: true },
+      select: { id: true, email: true, name: true, role: true, status: true },
     });
 
-    return NextResponse.json({ ok: true, user });
-  } catch {
-    return NextResponse.json({ error: "Erro ao atualizar utilizador" }, { status: 500 });
+    return NextResponse.json({ user });
+  } catch (e) {
+    return NextResponse.json({ error: "Erro ao atualizar estado" }, { status: 500 });
   }
 }
