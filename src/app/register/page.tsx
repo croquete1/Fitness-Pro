@@ -1,57 +1,118 @@
+// src/app/register/page.tsx
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const sp = useSearchParams();
+  const callback = sp.get("callbackUrl") ?? "/login";
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [ok, setOk] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
+    setSubmitting(true);
     setError(null);
+
     try {
       const res = await fetch("/api/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({ name, email, password }),
       });
+
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Falha no registo");
-      router.push("/login");
-    } catch (err: any) {
-      setError(err.message);
+      if (!res.ok) {
+        setError(data?.error ?? "Erro no registo");
+        return;
+      }
+
+      setOk(true);
+      // Redireciona para login com info de pendente
+      setTimeout(() => {
+        router.push(`/login?msg=pending&callbackUrl=${encodeURIComponent(callback)}`);
+      }, 1200);
+    } catch {
+      setError("Erro de rede. Tenta novamente.");
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   }
 
   return (
-    <main className="min-h-screen grid place-items-center p-6">
-      <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4 rounded-2xl border p-6 shadow">
+    <div className="min-h-dvh grid place-items-center p-6">
+      <div className="w-full max-w-md rounded-xl border p-6 space-y-4">
         <h1 className="text-2xl font-semibold">Criar conta</h1>
-        <label className="block">
-          <span className="mb-1 block text-sm">Nome</span>
-          <input className="w-full rounded-lg border px-3 py-2" value={name} onChange={(e) => setName(e.target.value)} />
-        </label>
-        <label className="block">
-          <span className="mb-1 block text-sm">Email</span>
-          <input className="w-full rounded-lg border px-3 py-2" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-        </label>
-        <label className="block">
-          <span className="mb-1 block text-sm">Password</span>
-          <input className="w-full rounded-lg border px-3 py-2" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-        </label>
-        {error && <p className="rounded-lg bg-red-50 p-2 text-sm text-red-700">{error}</p>}
-        <button type="submit" disabled={loading} className="w-full rounded-xl bg-black px-4 py-2 font-medium text-white disabled:opacity-60">
-          {loading ? "A registar…" : "Registar"}
-        </button>
-      </form>
-    </main>
+
+        {ok ? (
+          <div className="rounded-lg border p-3 text-sm">
+            Conta criada! Aguarda aprovação do administrador antes de iniciar sessão.
+          </div>
+        ) : (
+          <form onSubmit={onSubmit} className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-sm">Nome</label>
+              <input
+                className="w-full rounded border px-3 py-2"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Opcional"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-sm">Email</label>
+              <input
+                className="w-full rounded border px-3 py-2"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                placeholder="o.teu@email.com"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-sm">Password</label>
+              <input
+                className="w-full rounded border px-3 py-2"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
+                placeholder="mín. 6 caracteres"
+              />
+            </div>
+
+            {!!error && (
+              <div className="rounded border p-2 text-sm">{error}</div>
+            )}
+
+            <button
+              className="w-full rounded-lg border px-4 py-2 font-medium disabled:opacity-60"
+              disabled={submitting}
+            >
+              {submitting ? "A criar..." : "Criar conta"}
+            </button>
+          </form>
+        )}
+
+        <div className="text-sm">
+          Já tens conta?{" "}
+          <Link className="underline" href={`/login?callbackUrl=${encodeURIComponent(callback)}`}>
+            Inicia sessão
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 }

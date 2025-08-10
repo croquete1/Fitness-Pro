@@ -1,9 +1,10 @@
+// src/lib/authOptions.ts
 import type { NextAuthOptions } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "./prisma";
 import { compare } from "bcryptjs";
-import { Role } from "@prisma/client";
+import { Role, AccountStatus } from "@prisma/client";
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as any,
@@ -19,19 +20,26 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        const email = credentials.email.toLowerCase();
-        const user = await prisma.user.findUnique({ where: { email } });
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email.toLowerCase() },
+        });
         if (!user) return null;
 
         const ok = await compare(credentials.password, user.passwordHash);
         if (!ok) return null;
+
+        // Bloquear login se ainda não aprovado
+        if (user.status !== AccountStatus.APPROVED) {
+          // Isto aparece como ?error=PENDING_APPROVAL na rota /api/auth/error
+          throw new Error("PENDING_APPROVAL");
+        }
 
         return {
           id: user.id,
           email: user.email,
           name: user.name ?? "",
           role: user.role as Role,
-        } as any;
+        };
       },
     }),
   ],

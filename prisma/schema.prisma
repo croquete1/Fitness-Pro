@@ -1,5 +1,5 @@
 // -----------------------------------------------------
-// prisma/schema.prisma — sincronizado para enum Role
+// prisma/schema.prisma
 // -----------------------------------------------------
 
 generator client {
@@ -16,7 +16,18 @@ datasource db {
 // Enums
 // -----------------------------------------------------
 
-// Enum para as sessões (mapeado ao enum existente na BD)
+enum Role {
+  ADMIN
+  TRAINER
+  CLIENT
+}
+
+enum AccountStatus {
+  PENDING
+  APPROVED
+  SUSPENDED
+}
+
 enum SessionStatus {
   pendente
   aceite
@@ -27,30 +38,22 @@ enum SessionStatus {
   @@map("SessionStatus")
 }
 
-// Enum de papéis de utilizador — usa valores MAIÚSCULOS no Prisma
-// e mapeia para os valores minúsculos existentes na BD.
-enum Role {
-  ADMIN   
-  TRAINER
-  CLIENT
-
-  @@map("Role")
-}
-
 // -----------------------------------------------------
 // Modelos
 // -----------------------------------------------------
 
 model User {
-  id           String   @id @default(uuid()) @db.Uuid
-  email        String   @unique @db.Citext
+  id           String        @id @default(uuid()) @db.Uuid
+  email        String        @unique @db.Citext
   name         String?
-  passwordHash String   @map("password_hash")
-  role         Role     @default(CLIENT)
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  passwordHash String        @map("password_hash")
+  role         Role          @default(CLIENT)
+  status       AccountStatus @default(PENDING)
 
-  // Relações
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  // Relações (se usares sessões)
   trainerSessions Session[] @relation("TrainerSessions")
   clientSessions  Session[] @relation("ClientSessions")
 

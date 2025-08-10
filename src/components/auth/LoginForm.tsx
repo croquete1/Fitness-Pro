@@ -1,78 +1,97 @@
-'use client'
+// src/components/auth/LoginForm.tsx
+"use client";
 
-import { useState } from 'react'
-import { signIn } from 'next-auth/react'
+import { useState } from "react";
+import { signIn } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 
-type LoginFormProps = {
-  error?: string | null
-  callbackUrl?: string | null
-}
+type Props = {
+  error?: string;
+  callbackUrl?: string;
+};
 
-export default function LoginForm({ error: initialError, callbackUrl }: LoginFormProps) {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(initialError ?? null)
+export default function LoginForm(props: Props) {
+  const sp = useSearchParams();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setSubmitting(true)
-    setError(null)
+  const errorParam = props.error ?? sp.get("error") ?? sp.get("msg") ?? "";
+  const callbackUrl = props.callbackUrl ?? sp.get("callbackUrl") ?? "/dashboard";
 
-    // Usa o callbackUrl se vier da query, senão cai no /dashboard
-    await signIn('credentials', {
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const mapError = (e: string | null) => {
+    if (!e) return null;
+    if (e === "CredentialsSignin") return "Credenciais inválidas.";
+    if (e === "PENDING_APPROVAL" || e === "pending")
+      return "A tua conta foi criada e aguarda aprovação do administrador.";
+    return "Não foi possível iniciar sessão.";
+  };
+
+  // inicializa mensagem vinda da query string
+  const initialMsg = mapError(errorParam);
+  const [info] = useState(initialMsg);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setErr(null);
+    setLoading(true);
+
+    const res = await signIn("credentials", {
       email,
       password,
       redirect: true,
-      callbackUrl: callbackUrl ?? '/dashboard',
-    })
+      callbackUrl,
+    });
 
-    setSubmitting(false)
+    // se redirect=true, NextAuth tratará do redirect
+    setLoading(false);
+    // se algo falhar sem redirect, poderias setErr(...)
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
-      {error ? (
-        <p className="text-sm text-red-600 border border-red-200 bg-red-50 rounded p-2">
-          {error}
-        </p>
-      ) : null}
+    <form onSubmit={onSubmit} className="space-y-3">
+      {info && <div className="rounded border p-2 text-sm">{info}</div>}
+      {err && <div className="rounded border p-2 text-sm">{err}</div>}
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="email" className="text-sm font-medium">Email</label>
+      <div className="space-y-1">
+        <label className="text-sm">Email</label>
         <input
-          id="email"
+          className="w-full rounded border px-3 py-2"
           type="email"
-          required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="border rounded px-3 py-2"
-          placeholder="you@example.com"
-          autoComplete="email"
+          required
+          placeholder="o.teu@email.com"
         />
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="password" className="text-sm font-medium">Password</label>
+      <div className="space-y-1">
+        <label className="text-sm">Password</label>
         <input
-          id="password"
+          className="w-full rounded border px-3 py-2"
           type="password"
-          required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="border rounded px-3 py-2"
-          placeholder="••••••••"
-          autoComplete="current-password"
+          required
         />
       </div>
 
       <button
-        type="submit"
-        disabled={submitting}
-        className="w-full rounded px-4 py-2 border bg-black text-white disabled:opacity-60"
+        className="w-full rounded-lg border px-4 py-2 font-medium disabled:opacity-60"
+        disabled={loading}
       >
-        {submitting ? 'A entrar…' : 'Entrar'}
+        {loading ? "A entrar..." : "Entrar"}
       </button>
+
+      <div className="text-sm text-center">
+        Ainda não tens conta?{" "}
+        <Link className="underline" href="/register">
+          Registar
+        </Link>
+      </div>
     </form>
-  )
+  );
 }
