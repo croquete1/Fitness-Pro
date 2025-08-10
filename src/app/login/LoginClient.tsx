@@ -1,87 +1,84 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 export default function LoginClient() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    router.prefetch("/dashboard");
-  }, [router]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (submitting) return;
+    setLoading(true);
     setError(null);
-    setSubmitting(true);
 
     try {
       const res = await signIn("credentials", {
+        redirect: false,
         email,
         password,
-        redirect: false, // controlamos o destino manualmente
+        callbackUrl: "/dashboard?tab=overview",
       });
 
-      if (!res) {
-        setError("Ocorreu um erro inesperado. Tente novamente.");
-        setSubmitting(false);
-        return;
-      }
-      if (res.error) {
-        setError("Credenciais inválidas. Verifique o email e a palavra-passe.");
-        setSubmitting(false);
-        return;
-      }
+      if (!res) throw new Error("Erro inesperado na autenticação");
+      if (res.error) throw new Error(res.error);
 
-      // Destino único e estável para todos os perfis
-      router.replace("/dashboard");
-    } catch (err) {
-      console.error("[login] erro:", err);
-      setError("Ocorreu um erro. Tente novamente.");
-      setSubmitting(false);
+      router.push("/dashboard?tab=overview");
+    } catch (err: any) {
+      setError(err.message || "Falha no login");
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
     <main className="min-h-dvh grid place-items-center p-6">
-      <form onSubmit={onSubmit} className="w-full max-w-sm space-y-4 rounded-xl border p-6">
+      <form onSubmit={onSubmit} className="w-full max-w-sm space-y-4 rounded-xl border p-6 shadow">
         <h1 className="text-xl font-semibold text-center">Iniciar sessão</h1>
 
-        <div className="space-y-1">
-          <label htmlFor="email" className="text-sm">Email</label>
+        <label className="block">
+          <span className="mb-1 block text-sm">Email</span>
           <input
-            id="email"
+            className="w-full rounded-lg border px-3 py-2"
             type="email"
-            autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-md border px-3 py-2"
+            autoComplete="email"
             required
           />
-        </div>
+        </label>
 
-        <div className="space-y-1">
-          <label htmlFor="password" className="text-sm">Palavra-passe</label>
+        <label className="block">
+          <span className="mb-1 block text-sm">Password</span>
           <input
-            id="password"
+            className="w-full rounded-lg border px-3 py-2"
             type="password"
-            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-md border px-3 py-2"
+            autoComplete="current-password"
             required
-            minLength={8}
           />
-        </div>
+        </label>
 
         {error && (
-          <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+          <p className="rounded-lg bg-red-50 p-2 text-sm text-red-700" role="alert">
             {error}
-          </div>
+          </p>
         )}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full rounded-xl bg-black px-4 py-2 font-medium text-white disabled:opacity-60"
+          aria-busy={loading}
+        >
+          {loading ? "A entrar…" : "Entrar"}
+        </button>
+      </form>
+    </main>
+  );
+}

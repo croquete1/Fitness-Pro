@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "next dev -p 3000",
-    "build": "next build",
+    "build": "npm run prebuild && next build",
+    "prebuild": "node scripts/check-duplicate-routes.cjs",
     "start": "next start",
-    "postinstall": "prisma generate"
+    "postinstall": "node scripts/check-duplicate-routes.cjs && prisma generate"
   },
   "dependencies": {
     "@prisma/client": "^6.13.0",
