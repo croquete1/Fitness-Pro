@@ -1,87 +1,78 @@
-"use client";
+'use client'
 
-import { useState } from "react";
-import { signIn } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState } from 'react'
+import { signIn } from 'next-auth/react'
 
-export default function LoginForm() {
-  const router = useRouter();
-  const params = useSearchParams();
-  const callbackUrl = params.get("callbackUrl") || "/dashboard";
+type LoginFormProps = {
+  error?: string | null
+  callbackUrl?: string | null
+}
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export default function LoginForm({ error: initialError, callbackUrl }: LoginFormProps) {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(initialError ?? null)
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setSubmitting(true);
-    setError(null);
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setSubmitting(true)
+    setError(null)
 
-    const res = await signIn("credentials", {
+    // Usa o callbackUrl se vier da query, senão cai no /dashboard
+    await signIn('credentials', {
       email,
       password,
-      redirect: false,
-      callbackUrl,
-    });
+      redirect: true,
+      callbackUrl: callbackUrl ?? '/dashboard',
+    })
 
-    setSubmitting(false);
-
-    if (!res) {
-      setError("Ocorreu um erro inesperado. Tente novamente.");
-      return;
-    }
-
-    if (res.ok) {
-      router.push(callbackUrl);
-    } else {
-      // NextAuth retorna "CredentialsSignin" geralmente para credenciais inválidas
-      setError("Credenciais inválidas. Verifique o email e a palavra-passe.");
-    }
+    setSubmitting(false)
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-3">
-      <label className="block">
-        <span className="mb-1 block text-sm">Email</span>
+    <form onSubmit={onSubmit} className="space-y-4">
+      {error ? (
+        <p className="text-sm text-red-600 border border-red-200 bg-red-50 rounded p-2">
+          {error}
+        </p>
+      ) : null}
+
+      <div className="flex flex-col gap-1">
+        <label htmlFor="email" className="text-sm font-medium">Email</label>
         <input
+          id="email"
           type="email"
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded-md border px-3 py-2"
-          placeholder="exemplo@dominio.com"
+          className="border rounded px-3 py-2"
+          placeholder="you@example.com"
           autoComplete="email"
         />
-      </label>
+      </div>
 
-      <label className="block">
-        <span className="mb-1 block text-sm">Palavra-passe</span>
+      <div className="flex flex-col gap-1">
+        <label htmlFor="password" className="text-sm font-medium">Password</label>
         <input
+          id="password"
           type="password"
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded-md border px-3 py-2"
+          className="border rounded px-3 py-2"
           placeholder="••••••••"
           autoComplete="current-password"
         />
-      </label>
-
-      {error && (
-        <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {error}
-        </div>
-      )}
+      </div>
 
       <button
         type="submit"
         disabled={submitting}
-        className="w-full rounded-md border px-3 py-2 font-medium disabled:opacity-60"
+        className="w-full rounded px-4 py-2 border bg-black text-white disabled:opacity-60"
       >
-        {submitting ? "A entrar…" : "Entrar"}
+        {submitting ? 'A entrar…' : 'Entrar'}
       </button>
     </form>
-  );
+  )
 }
