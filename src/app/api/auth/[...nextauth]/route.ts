@@ -1,11 +1,10 @@
 // src/app/api/auth/[...nextauth]/route.ts — App Router
-// Mantém apenas exports permitidos: GET/POST e opções suportadas
-// Requer: src/lib/auth.ts a exportar `authOptions`
+// Mantém apenas exports permitidos: GET/POST + opções suportadas
+// Usa import DEFAULT de src/lib/auth para evitar qualquer re‑export acidental
 
 import NextAuth from "next-auth";
-import { authOptions } from "@/lib/auth";
+import authOptions from "@/lib/auth"; // <- default import
 
-// Garantir ambiente Node (bcryptjs) e evitar cache/otimização estática
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 

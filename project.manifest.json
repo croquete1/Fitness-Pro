@@ -1,0 +1,27 @@
+{
+  "required": [
+    "package.json",
+    "scripts/check-duplicate-routes.cjs",
+    "src/lib/prisma.ts",
+    "src/lib/auth.ts",
+    "src/types/next-auth.d.ts",
+    "src/middleware.ts",
+    "src/app/api/auth/[...nextauth]/route.ts",
+    "src/app/api/register/route.ts",
+    "src/app/api/dashboard/stats/route.ts",
+    "src/app/login/page.tsx",
+    "src/app/login/LoginClient.tsx",
+    "src/app/(app)/dashboard/page.tsx",
+    "src/components/dashboard/Tabs.tsx",
+    "src/components/dashboard/AdminCountCard.tsx",
+    "prisma/schema.prisma"
+  ],
+  "optional": [
+    "src/app/api/admin/reset-password/route.ts",
+    "src/app/api/admin/roles/normalize/route.ts",
+    "src/app/register/page.tsx"
+  ],
+  "forbiddenDuplicates": [
+    ["src/app/(app)/dashboard/page.tsx", "src/app/dashboard/page.tsx"]
+  ]
+}

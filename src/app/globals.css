@@ -2,18 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-/* (Opcional) Tokens de tema claro/escuro — pode ajustar depois */
+/* Opcional: suprimir warning do Firefox sobre -webkit-text-size-adjust */
 :root {
-  --bg: 0 0% 100%;
-  --fg: 222 25% 12%;
-  --card: 222 20% 98%;
-  --border: 222 14% 88%;
-  --primary: 222 84% 56%;
-}
-.dark {
-  --bg: 222 15% 12%;
-  --fg: 0 0% 98%;
-  --card: 222 17% 16%;
-  --border: 222 12% 24%;
-  --primary: 222 80% 66%;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }

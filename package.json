@@ -8,7 +8,10 @@
     "build": "npm run prebuild && next build",
     "prebuild": "node scripts/check-duplicate-routes.cjs",
     "start": "next start",
-    "postinstall": "node scripts/check-duplicate-routes.cjs && prisma generate"
+    "postinstall": "node scripts/check-duplicate-routes.cjs && prisma generate",
+    "verify": "node scripts/verify-manifest.cjs",
+    "prebuild": "node scripts/check-duplicate-routes.cjs && node scripts/verify-manifest.cjs"
+
   },
   "dependencies": {
     "@prisma/client": "^6.13.0",
