@@ -1,0 +1,11 @@
+# Donos por defeito (tudo o resto)
+*                                   @croquete1
+
+# Áreas críticas de auth (precisam SEMPRE de aprovação dos donos)
+src/app/login/**                    @croquete1 @your-org/admins
+src/app/register/**                 @croquete1 @your-org/admins
+src/components/auth/**              @croquete1 @your-org/admins
+src/app/api/auth/**                 @croquete1 @your-org/admins
+src/lib/auth.ts                     @croquete1 @your-org/admins
+src/lib/authOptions.ts              @croquete1 @your-org/admins
+src/middleware.ts                   @croquete1 @your-org/admins
