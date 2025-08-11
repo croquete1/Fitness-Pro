@@ -1,25 +1,34 @@
-"use client";
+// src/app/(app)/dashboard/trainer/page.tsx
+export const dynamic = "force-dynamic";
+export const revalidate = false;
+export const fetchCache = "force-no-store";
+export const runtime = "nodejs";
 
-import React from "react";
+import SessionScheduler from "@/components/trainer/SessionScheduler";
+import ClientListTable from "@/components/trainer/ClientListTable";
+import WorkoutApprovalList from "@/components/trainer/WorkoutApprovalList";
 
-export default function TrainerDashboard() {
+export default function TrainerPage() {
   return (
-    <main className="p-6">
-      <h1 className="text-3xl font-bold mb-4">Trainer Dashboard</h1>
-      <section className="space-y-4">
-        <div className="rounded bg-white p-4 shadow">
-          <h2 className="text-xl font-semibold">Client Requests</h2>
-          {/* Lista de pedidos de clientes a aceitar ou recusar */}
-          <p>Sem pedidos novos.</p>
+    <div className="space-y-6 p-4 md:p-6">
+      <h1 className="text-2xl font-semibold">Área do PT</h1>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="rounded-xl border p-4">
+          <h2 className="mb-3 text-lg font-medium">Criar / Agendar Sessão</h2>
+          <SessionScheduler />
         </div>
-        <div className="rounded bg-white p-4 shadow">
-          <h2 className="text-xl font-semibold">Create Workout Plan</h2>
-          {/* Botão ou link para criar novos planos de treino */}
-          <button className="mt-2 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
-            Novo Plano
-          </button>
+
+        <div className="rounded-xl border p-4">
+          <h2 className="mb-3 text-lg font-medium">Clientes</h2>
+          <ClientListTable />
         </div>
-      </section>
-    </main>
+      </div>
+
+      <div className="rounded-xl border p-4">
+        <h2 className="mb-3 text-lg font-medium">Aprovação de Treinos</h2>
+        <WorkoutApprovalList />
+      </div>
+    </div>
   );
 }

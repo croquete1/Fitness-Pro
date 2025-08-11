@@ -4,7 +4,7 @@ import { Role } from "@prisma/client";
 import SessionScheduler from "@/components/trainer/SessionScheduler";
 
 export const dynamic = "force-dynamic";
-
+export const revalidate = 0;
 export default async function DashboardPage() {
   const [clientes, pts, admins] = await Promise.all([
     prisma.user.count({ where: { role: Role.CLIENT } }),
