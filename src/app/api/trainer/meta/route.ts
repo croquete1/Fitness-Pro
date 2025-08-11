@@ -3,48 +3,50 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { prisma } from "@/lib/prisma";
-import { canAccessTrainer, isAdmin } from "@/lib/rbac";
+import { Role } from "@prisma/client";
 
 export const runtime = "nodejs";
-// 🔧 Diz explicitamente ao Next que isto é dinâmico (não SSG)
 export const dynamic = "force-dynamic";
-// 🔧 Sem cache em edge/node e sem revalidate
-export const fetchCache = "force-no-store";
-export const revalidate = 0;
 
-export async function GET(_req: Request) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const me = session.user as any;
-    const role = me.role as "ADMIN" | "TRAINER" | "CLIENT";
-    if (!canAccessTrainer(role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const meId = (session.user as any).id as string;
+    const role = (session.user as any).role as "ADMIN" | "TRAINER" | "CLIENT";
 
-    const trainersWhere = isAdmin(role)
-      ? { role: "TRAINER" as const }
-      : { id: me.id as string };
-
-    const [trainers, clients] = await Promise.all([
-      prisma.user.findMany({
-        where: trainersWhere,
+    const [me, clients, trainers] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: meId },
         select: { id: true, name: true, email: true },
-        orderBy: [{ name: "asc" }, { email: "asc" }],
       }),
       prisma.user.findMany({
-        where: { role: "CLIENT", status: "APPROVED" },
-        select: { id: true, name: true, email: true },
+        where: { role: Role.CLIENT },
         orderBy: [{ name: "asc" }, { email: "asc" }],
+        select: { id: true, name: true, email: true },
       }),
+      role === "ADMIN"
+        ? prisma.user.findMany({
+            where: { role: Role.TRAINER },
+            orderBy: [{ name: "asc" }, { email: "asc" }],
+            select: { id: true, name: true, email: true },
+          })
+        : prisma.user.findMany({
+            where: { id: meId },
+            select: { id: true, name: true, email: true },
+          }),
     ]);
 
-    return NextResponse.json({ trainers, clients }, { status: 200 });
-  } catch (err) {
-    console.error("GET /api/trainer/meta error:", err);
-    return NextResponse.json({ error: "Internal error" }, { status: 500 });
+    return NextResponse.json({
+      role,
+      me,
+      clients,
+      trainers,
+    });
+  } catch {
+    return NextResponse.json({ error: "Erro ao carregar meta" }, { status: 500 });
   }
 }

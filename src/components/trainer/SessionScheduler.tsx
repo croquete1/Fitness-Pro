@@ -1,155 +1,166 @@
+// src/components/trainer/SessionScheduler.tsx
 "use client";
 
-import * as React from "react";
-import { toast } from "sonner";
+import { useEffect, useMemo, useState } from "react";
+import useSWR from "swr";
 
-type UserLite = { id: string; name: string | null; email: string };
-type Meta = {
-  me: { id: string; role: "ADMIN" | "TRAINER" | "CLIENT" };
-  trainers: UserLite[];
-  clients: UserLite[];
+type MetaResp = {
+  role: "ADMIN" | "TRAINER" | "CLIENT";
+  me: { id: string; name: string | null; email: string };
+  trainers: Array<{ id: string; name: string | null; email: string }>;
+  clients: Array<{ id: string; name: string | null; email: string }>;
 };
 
-export default function SessionScheduler({ mode = "full" }: { mode?: "full" | "compact" }) {
-  const [meta, setMeta] = React.useState<Meta | null>(null);
-  const [loading, setLoading] = React.useState(true);
-  const [submitting, setSubmitting] = React.useState(false);
-  const [trainerId, setTrainerId] = React.useState<string>("");
-  const [clientId, setClientId] = React.useState<string>("");
-  const [datetime, setDatetime] = React.useState<string>("");
-  const [notes, setNotes] = React.useState<string>("");
+const fetcher = (url: string) =>
+  fetch(url, { cache: "no-store" }).then((r) => {
+    if (!r.ok) throw new Error("Falha a carregar metadata");
+    return r.json();
+  });
 
-  React.useEffect(() => {
-    let mounted = true;
-    (async () => {
-      setLoading(true);
-      try {
-        const res = await fetch("/api/trainer/meta", { cache: "no-store" });
-        if (!res.ok) throw new Error("Falha a carregar dados");
-        const data: Meta = await res.json();
-        if (!mounted) return;
-        setMeta(data);
-        if (data.trainers.length > 0) setTrainerId(data.trainers[0].id);
-        if (data.clients.length > 0) setClientId(data.clients[0].id);
-      } catch (e: any) {
-        toast.error(e?.message ?? "Erro a obter dados");
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => { mounted = false; };
-  }, []);
+export default function SessionScheduler({
+  variant = "full",
+}: {
+  variant?: "compact" | "full";
+}) {
+  const { data, error, isLoading, mutate } = useSWR<MetaResp>(
+    "/api/trainer/meta",
+    fetcher
+  );
 
-  async function onSubmit(e: React.FormEvent) {
+  const [trainerId, setTrainerId] = useState<string>("");
+  const [clientId, setClientId] = useState<string>("");
+  const [when, setWhen] = useState<string>("");
+  const [notes, setNotes] = useState<string>("");
+
+  const isAdmin = data?.role === "ADMIN";
+
+  // Pré-selecionar trainer quando não for admin
+  useEffect(() => {
+    if (data && !isAdmin) setTrainerId(data.me.id);
+  }, [data, isAdmin]);
+
+  const canSubmit = useMemo(
+    () => !!clientId && !!when && (!!trainerId || !isAdmin),
+    [clientId, when, trainerId, isAdmin]
+  );
+
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!meta) return;
-    if (!clientId || !datetime) {
-      toast.warning("Preenche cliente e data/hora");
+    if (!canSubmit) return;
+
+    const body: any = {
+      clientId,
+      scheduledAt: new Date(when).toISOString(),
+      notes: notes || null,
+    };
+    if (isAdmin) body.trainerId = trainerId;
+
+    const res = await fetch("/api/trainer/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const msg = await res.json().catch(() => ({}));
+      alert(msg?.error ?? "Falha ao criar sessão");
       return;
     }
 
-    setSubmitting(true);
-    const t = toast.loading("A criar sessão…");
-    try {
-      const res = await fetch("/api/trainer/sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          trainerId: meta.me.role === "ADMIN" ? trainerId : undefined,
-          clientId,
-          scheduledAt: datetime,
-          notes: notes || null,
-        }),
-      });
+    setNotes("");
+    setWhen("");
+    if (isAdmin) setTrainerId("");
+    setClientId("");
+    // se houver SWR em outras listas, poderíamos revalidar aqui
+    mutate();
+    alert("Sessão criada com sucesso ✅");
+  };
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err?.error ?? "Erro ao criar sessão");
-      }
-
-      setDatetime("");
-      setNotes("");
-      toast.success("Sessão criada com sucesso!", { id: t });
-    } catch (e: any) {
-      toast.error(e?.message ?? "Erro ao criar sessão", { id: t });
-    } finally {
-      setSubmitting(false);
-    }
+  if (isLoading) {
+    return <div className="text-sm text-muted-foreground">A carregar…</div>;
+  }
+  if (error || !data) {
+    return (
+      <div className="text-sm text-red-600">
+        Falha a carregar dados. Tente recarregar a página.
+      </div>
+    );
   }
 
-  const isAdmin = meta?.me.role === "ADMIN";
-  const cardClass =
-    "rounded-2xl border p-4 md:p-5 shadow-sm bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800";
-
-  if (loading) return <div className={cardClass}>A carregar…</div>;
-  if (!meta || meta.me.role === "CLIENT") return null;
-
   return (
-    <div className={cardClass}>
-      <h3 className="mb-3 text-base font-semibold">Agendar sessão</h3>
-      <form onSubmit={onSubmit} className={mode === "compact" ? "grid gap-3 md:grid-cols-4" : "grid gap-4 md:grid-cols-2"}>
+    <form onSubmit={onSubmit} className={variant === "compact" ? "space-y-3" : "space-y-4"}>
+      <div className="grid gap-3 sm:grid-cols-2">
         {isAdmin && (
-          <label className="grid gap-1">
-            <span className="text-xs opacity-70">Treinador</span>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs opacity-70">Treinador</label>
             <select
-              className="rounded-xl border px-3 py-2 text-sm dark:bg-neutral-900 dark:border-neutral-700"
+              className="rounded-md border px-3 py-2 bg-background"
               value={trainerId}
               onChange={(e) => setTrainerId(e.target.value)}
               required
             >
-              {meta.trainers.map((t) => (
-                <option key={t.id} value={t.id}>{t.name ?? t.email}</option>
+              <option value="">— Selecionar —</option>
+              {data.trainers.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name ?? t.email}
+                </option>
               ))}
             </select>
-          </label>
+          </div>
         )}
 
-        <label className="grid gap-1">
-          <span className="text-xs opacity-70">Cliente</span>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs opacity-70">Cliente</label>
           <select
-            className="rounded-xl border px-3 py-2 text-sm dark:bg-neutral-900 dark:border-neutral-700"
+            className="rounded-md border px-3 py-2 bg-background"
             value={clientId}
             onChange={(e) => setClientId(e.target.value)}
             required
           >
-            {meta.clients.map((c) => (
-              <option key={c.id} value={c.id}>{c.name ?? c.email}</option>
+            <option value="">— Selecionar —</option>
+            {data.clients.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name ?? c.email}
+              </option>
             ))}
           </select>
-        </label>
+        </div>
 
-        <label className="grid gap-1">
-          <span className="text-xs opacity-70">Data & hora</span>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs opacity-70">Data & hora</label>
           <input
             type="datetime-local"
-            className="rounded-xl border px-3 py-2 text-sm dark:bg-neutral-900 dark:border-neutral-700"
-            value={datetime}
-            onChange={(e) => setDatetime(e.target.value)}
+            className="rounded-md border px-3 py-2 bg-background"
+            value={when}
+            onChange={(e) => setWhen(e.target.value)}
             required
           />
-        </label>
+        </div>
 
-        <label className="md:col-span-2 grid gap-1">
-          <span className="text-xs opacity-70">Notas (opcional)</span>
-          <input
-            type="text"
-            className="rounded-xl border px-3 py-2 text-sm dark:bg-neutral-900 dark:border-neutral-700"
-            placeholder="Ex.: foco em perna, 45min"
+        <div className="flex flex-col gap-1 sm:col-span-2">
+          <label className="text-xs opacity-70">Notas (opcional)</label>
+          <textarea
+            className="rounded-md border px-3 py-2 bg-background min-h-20"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
+            placeholder="Ex.: foco em hipertrofia / avaliação inicial"
           />
-        </label>
-
-        <div className={mode === "compact" ? "md:col-span-4" : ""}>
-          <button
-            type="submit"
-            disabled={submitting}
-            className="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-60"
-          >
-            {submitting ? "A gravar…" : "Criar sessão"}
-          </button>
         </div>
-      </form>
-    </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <button
+          type="submit"
+          disabled={!canSubmit}
+          className="inline-flex items-center rounded-lg border px-4 py-2 font-medium shadow-sm hover:shadow transition disabled:opacity-50"
+        >
+          Agendar sessão
+        </button>
+        <span className="text-xs text-muted-foreground">
+          As sessões aparecem automaticamente na aba PT.
+        </span>
+      </div>
+    </form>
   );
 }

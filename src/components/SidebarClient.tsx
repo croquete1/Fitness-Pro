@@ -1,46 +1,50 @@
+// src/components/SidebarClient.tsx
 "use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 export type RawUser = {
   id: string;
-  name?: string | null;
-  email?: string | null;
+  email?: string;
+  name?: string;
   role: "ADMIN" | "TRAINER" | "CLIENT";
 };
 
-type Props = { user: RawUser };
+export default function SidebarClient({ user }: { user: RawUser }) {
+  const pathname = usePathname();
 
-const navItems = (user: RawUser) => [
-  { href: "/dashboard", label: "Dashboard", show: true },
-  { href: "/trainer", label: "PT", show: user.role === "TRAINER" || user.role === "ADMIN" },
-  { href: "/admin", label: "Administração", show: user.role === "ADMIN" },
-];
-
-export default function SidebarClient({ user }: Props) {
-  const items = navItems(user).filter((i) => i.show);
+  const items = [
+    { href: "/dashboard", label: "Dashboard", show: true },
+    { href: "/dashboard/sessions", label: "Sessões", show: user.role === "ADMIN" || user.role === "TRAINER" },
+    { href: "/dashboard/trainer", label: "PT", show: user.role === "ADMIN" || user.role === "TRAINER" },
+    { href: "/admin", label: "Administração", show: user.role === "ADMIN" },
+  ].filter((i) => i.show);
 
   return (
-    <aside className="w-64 shrink-0 border-r bg-white">
-      <div className="p-4">
-        <div className="mb-4">
-          <div className="text-xs uppercase opacity-60">Utilizador</div>
-          <div className="text-sm font-medium truncate">{user.name || user.email}</div>
-          <div className="text-xs rounded bg-black/5 inline-block px-2 py-0.5 mt-1">
-            {user.role}
-          </div>
-        </div>
-
-        <nav className="grid gap-1">
-          {items.map((item) => (
-            <a
-              key={item.href}
-              href={item.href}
-              className="rounded-lg px-3 py-2 text-sm hover:bg-black/5"
-            >
-              {item.label}
-            </a>
-          ))}
-        </nav>
+    <aside className="w-64 border-r min-h-dvh p-4 hidden md:block">
+      <div className="text-sm mb-4 opacity-70">
+        {user.name ?? user.email}
+        <span className="ml-1 text-xs px-2 py-0.5 border rounded-full">
+          {user.role}
+        </span>
       </div>
+      <nav className="space-y-1">
+        {items.map((i) => {
+          const active = pathname === i.href || pathname?.startsWith(i.href + "/");
+          return (
+            <Link
+              key={i.href}
+              href={i.href}
+              className={`block rounded-md px-3 py-2 text-sm ${
+                active ? "bg-muted font-medium" : "hover:bg-muted/60"
+              }`}
+            >
+              {i.label}
+            </Link>
+          );
+        })}
+      </nav>
     </aside>
   );
 }
