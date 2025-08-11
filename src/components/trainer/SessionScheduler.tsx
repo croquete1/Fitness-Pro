@@ -1,166 +1,203 @@
-// src/components/trainer/SessionScheduler.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import useSWR from "swr";
+import * as React from "react";
+import Reveal from "@/components/anim/Reveal";
+import { dateLabel } from "@/lib/dateLabels";
 
-type MetaResp = {
-  role: "ADMIN" | "TRAINER" | "CLIENT";
-  me: { id: string; name: string | null; email: string };
-  trainers: Array<{ id: string; name: string | null; email: string }>;
-  clients: Array<{ id: string; name: string | null; email: string }>;
+type ApiSession = {
+  id: string;
+  scheduledAt: string; // ISO
+  status?: string | null;
+  notes?: string | null;
+  trainer: { id: string; name: string | null; email: string };
+  client: { id: string; name: string | null; email: string };
 };
 
-const fetcher = (url: string) =>
-  fetch(url, { cache: "no-store" }).then((r) => {
-    if (!r.ok) throw new Error("Falha a carregar metadata");
-    return r.json();
-  });
+type Group = {
+  key: string; // YYYY-MM-DD
+  date: Date;
+  label: string; // Hoje / Amanhã / Ontem / data formatada
+  items: ApiSession[];
+};
 
-export default function SessionScheduler({
-  variant = "full",
-}: {
-  variant?: "compact" | "full";
-}) {
-  const { data, error, isLoading, mutate } = useSWR<MetaResp>(
-    "/api/trainer/meta",
-    fetcher
-  );
+export default function SessionScheduler() {
+  const [sessions, setSessions] = React.useState<ApiSession[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+  const [range, setRange] = React.useState<"today" | "7d" | "30d">("7d");
 
-  const [trainerId, setTrainerId] = useState<string>("");
-  const [clientId, setClientId] = useState<string>("");
-  const [when, setWhen] = useState<string>("");
-  const [notes, setNotes] = useState<string>("");
-
-  const isAdmin = data?.role === "ADMIN";
-
-  // Pré-selecionar trainer quando não for admin
-  useEffect(() => {
-    if (data && !isAdmin) setTrainerId(data.me.id);
-  }, [data, isAdmin]);
-
-  const canSubmit = useMemo(
-    () => !!clientId && !!when && (!!trainerId || !isAdmin),
-    [clientId, when, trainerId, isAdmin]
-  );
-
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!canSubmit) return;
-
-    const body: any = {
-      clientId,
-      scheduledAt: new Date(when).toISOString(),
-      notes: notes || null,
+  React.useEffect(() => {
+    let aborted = false;
+    async function load() {
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await fetch(`/api/trainer/sessions?range=${range}`, {
+          cache: "no-store",
+        });
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          throw new Error(j?.error || `HTTP ${res.status}`);
+        }
+        const data = (await res.json()) as { sessions: ApiSession[] };
+        if (!aborted) setSessions(data.sessions ?? []);
+      } catch (e: any) {
+        if (!aborted) setError(e?.message || "Falha a carregar sessões");
+      } finally {
+        if (!aborted) setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      aborted = true;
     };
-    if (isAdmin) body.trainerId = trainerId;
+  }, [range]);
 
-    const res = await fetch("/api/trainer/sessions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      cache: "no-store",
-      body: JSON.stringify(body),
-    });
+  const groups = React.useMemo<Group[]>(() => {
+    const toYMD = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+        d.getDate()
+      ).padStart(2, "0")}`;
 
-    if (!res.ok) {
-      const msg = await res.json().catch(() => ({}));
-      alert(msg?.error ?? "Falha ao criar sessão");
-      return;
+    const map = new Map<string, Group>();
+    const now = new Date();
+
+    for (const s of sessions) {
+      const d = new Date(s.scheduledAt);
+      const key = toYMD(d);
+      if (!map.has(key)) {
+        map.set(key, { key, date: new Date(d.getFullYear(), d.getMonth(), d.getDate()), label: dateLabel(d, now), items: [] });
+      }
+      map.get(key)!.items.push(s);
     }
 
-    setNotes("");
-    setWhen("");
-    if (isAdmin) setTrainerId("");
-    setClientId("");
-    // se houver SWR em outras listas, poderíamos revalidar aqui
-    mutate();
-    alert("Sessão criada com sucesso ✅");
-  };
-
-  if (isLoading) {
-    return <div className="text-sm text-muted-foreground">A carregar…</div>;
-  }
-  if (error || !data) {
-    return (
-      <div className="text-sm text-red-600">
-        Falha a carregar dados. Tente recarregar a página.
-      </div>
-    );
-  }
+    const arr = Array.from(map.values());
+    arr.sort((a, b) => a.date.getTime() - b.date.getTime());
+    // ordenar itens por hora
+    for (const g of arr) {
+      g.items.sort(
+        (a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()
+      );
+    }
+    return arr;
+  }, [sessions]);
 
   return (
-    <form onSubmit={onSubmit} className={variant === "compact" ? "space-y-3" : "space-y-4"}>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {isAdmin && (
-          <div className="flex flex-col gap-1">
-            <label className="text-xs opacity-70">Treinador</label>
-            <select
-              className="rounded-md border px-3 py-2 bg-background"
-              value={trainerId}
-              onChange={(e) => setTrainerId(e.target.value)}
-              required
-            >
-              <option value="">— Selecionar —</option>
-              {data.trainers.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name ?? t.email}
-                </option>
-              ))}
-            </select>
+    <div className="space-y-4">
+      {/* Toolbar */}
+      <Reveal variant="fade">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold">Sessões agendadas</h2>
+          <div className="flex items-center gap-2">
+            <RangeButton value="today" current={range} onChange={setRange}>
+              Hoje
+            </RangeButton>
+            <RangeButton value="7d" current={range} onChange={setRange}>
+              7 dias
+            </RangeButton>
+            <RangeButton value="30d" current={range} onChange={setRange}>
+              30 dias
+            </RangeButton>
           </div>
-        )}
-
-        <div className="flex flex-col gap-1">
-          <label className="text-xs opacity-70">Cliente</label>
-          <select
-            className="rounded-md border px-3 py-2 bg-background"
-            value={clientId}
-            onChange={(e) => setClientId(e.target.value)}
-            required
-          >
-            <option value="">— Selecionar —</option>
-            {data.clients.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name ?? c.email}
-              </option>
-            ))}
-          </select>
         </div>
+      </Reveal>
 
-        <div className="flex flex-col gap-1">
-          <label className="text-xs opacity-70">Data & hora</label>
-          <input
-            type="datetime-local"
-            className="rounded-md border px-3 py-2 bg-background"
-            value={when}
-            onChange={(e) => setWhen(e.target.value)}
-            required
-          />
+      {/* Estados */}
+      {loading && (
+        <Reveal>
+          <div className="rounded-xl border p-6 text-sm text-muted-foreground">
+            A carregar sessões…
+          </div>
+        </Reveal>
+      )}
+      {error && !loading && (
+        <Reveal>
+          <div className="rounded-xl border p-6 text-sm text-red-600 dark:text-red-400">
+            {error}
+          </div>
+        </Reveal>
+      )}
+      {!loading && !error && groups.length === 0 && (
+        <Reveal>
+          <div className="rounded-xl border p-6 text-sm text-muted-foreground">
+            Sem sessões no período selecionado.
+          </div>
+        </Reveal>
+      )}
+
+      {/* Lista agrupada por dia com cabeçalhos "Hoje / Amanhã / Ontem" */}
+      {!loading && !error && groups.length > 0 && (
+        <div className="space-y-6">
+          {groups.map((g, i) => (
+            <Reveal key={g.key} delay={i * 40}>
+              <div className="space-y-3">
+                <div className="sticky top-0 z-10 -mx-2 px-2 py-1 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+                  <h3 className="text-sm font-medium opacity-70">{g.label}</h3>
+                </div>
+                <ul className="space-y-2">
+                  {g.items.map((s) => {
+                    const at = new Date(s.scheduledAt);
+                    const time = new Intl.DateTimeFormat("pt-PT", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }).format(at);
+
+                    return (
+                      <li
+                        key={s.id}
+                        className="rounded-xl border p-4 transition-all hover:-translate-y-0.5 hover:shadow-md dark:hover:shadow-black/30"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <div className="text-sm">
+                              <span className="font-medium">{time}</span>{" "}
+                              • {s.client.name || s.client.email}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              PT: {s.trainer.name || s.trainer.email}
+                              {s.status ? ` • ${s.status}` : null}
+                              {s.notes ? ` • ${s.notes}` : null}
+                            </div>
+                          </div>
+                          {/* (futuro) ações rápidas */}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            </Reveal>
+          ))}
         </div>
+      )}
+    </div>
+  );
+}
 
-        <div className="flex flex-col gap-1 sm:col-span-2">
-          <label className="text-xs opacity-70">Notas (opcional)</label>
-          <textarea
-            className="rounded-md border px-3 py-2 bg-background min-h-20"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Ex.: foco em hipertrofia / avaliação inicial"
-          />
-        </div>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <button
-          type="submit"
-          disabled={!canSubmit}
-          className="inline-flex items-center rounded-lg border px-4 py-2 font-medium shadow-sm hover:shadow transition disabled:opacity-50"
-        >
-          Agendar sessão
-        </button>
-        <span className="text-xs text-muted-foreground">
-          As sessões aparecem automaticamente na aba PT.
-        </span>
-      </div>
-    </form>
+function RangeButton({
+  value,
+  current,
+  onChange,
+  children,
+}: {
+  value: "today" | "7d" | "30d";
+  current: string;
+  onChange: (v: "today" | "7d" | "30d") => void;
+  children: React.ReactNode;
+}) {
+  const active = current === value;
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(value)}
+      className={[
+        "rounded-full border px-3 py-1 text-sm transition-colors",
+        active
+          ? "bg-primary text-primary-foreground border-primary"
+          : "hover:bg-muted",
+      ].join(" ")}
+    >
+      {children}
+    </button>
   );
 }
