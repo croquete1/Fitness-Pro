@@ -1,110 +1,71 @@
-// src/app/(app)/dashboard/page.tsx
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
-import SessionScheduler from "@/components/trainer/SessionScheduler";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
-import Link from "next/link";
+import MiniAgenda from "@/components/dashboard/MiniAgenda";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
-  const meId = (session?.user as any)?.id as string | undefined;
   const role = (session?.user as any)?.role as "ADMIN" | "TRAINER" | "CLIENT" | undefined;
+  const displayName = (session?.user as any)?.name || (session?.user as any)?.email || "Utilizador";
 
-  const [clientes, trainers, admins] = await Promise.all([
+  const [clientes, pts, admins] = await Promise.all([
     prisma.user.count({ where: { role: Role.CLIENT } }),
     prisma.user.count({ where: { role: Role.TRAINER } }),
     prisma.user.count({ where: { role: Role.ADMIN } }),
   ]);
 
-  // Agenda (próximas 6)
-  const agendaWhere =
+  const greet =
     role === "ADMIN"
-      ? { scheduledAt: { gte: new Date() } }
+      ? `Olá, ${displayName} (ADMIN)`
       : role === "TRAINER"
-      ? { trainerId: meId, scheduledAt: { gte: new Date() } }
-      : meId
-      ? { clientId: meId, scheduledAt: { gte: new Date() } }
-      : { scheduledAt: { gte: new Date() } };
-
-  const upcoming = await prisma.session.findMany({
-    where: agendaWhere,
-    include: {
-      trainer: { select: { id: true, name: true, email: true } },
-      client: { select: { id: true, name: true, email: true } },
-    },
-    orderBy: { scheduledAt: "asc" },
-    take: 6,
-  });
+      ? `Olá, ${displayName} (Personal Trainer)`
+      : `Olá, ${displayName}`;
 
   return (
-    <main className="p-6 space-y-8">
-      {/* Hero */}
-      <section className="relative overflow-hidden rounded-2xl border bg-gradient-to-br from-indigo-50 to-white dark:from-zinc-900 dark:to-black">
-        <div className="absolute -top-20 -right-20 h-64 w-64 rounded-full blur-3xl opacity-30 bg-indigo-400/40" />
-        <div className="absolute -bottom-16 -left-16 h-56 w-56 rounded-full blur-3xl opacity-30 bg-blue-400/40" />
-        <div className="relative p-7 md:p-10">
-          <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
-            Olá! 👋 Bem-vindo ao painel
-          </h1>
-          <p className="mt-2 text-sm md:text-base text-muted-foreground">
-            Visão geral rápida e agendamento em segundos.
-          </p>
-          <div className="mt-6 grid gap-4 sm:grid-cols-3">
-            <CardStat label="Clientes" value={clientes} />
-            <CardStat label="Treinadores" value={trainers} />
-            <CardStat label="Admins" value={admins} />
-          </div>
-        </div>
+    <main className="space-y-8">
+      {/* saudação */}
+      <div className="rounded-2xl border p-5 bg-glass-gradient dark:bg-glass-gradient-dark shadow-glow-soft">
+        <h1 className="text-xl font-semibold">{greet}</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Bem-vindo à tua área — aqui tens um resumo e as próximas sessões.
+        </p>
+      </div>
+
+      {/* KPIs */}
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <GlassCard title="Clientes" value={clientes} hint="+ últimos 30 dias" />
+        <GlassCard title="Treinadores" value={pts} hint="equipa ativa" />
+        <GlassCard title="Admins" value={admins} hint="supervisores" />
       </section>
 
-      {/* Linha: Quick Scheduler + Agenda */}
-      <section className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-2xl border p-5">
-          <h2 className="text-lg font-medium mb-3">Agendar sessão</h2>
-          <SessionScheduler variant="compact" />
-        </div>
-
-        <div className="rounded-2xl border p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-medium">Agenda (próximas)</h2>
-            {(role === "ADMIN" || role === "TRAINER") && (
-              <Link href="/dashboard/sessions" className="text-sm underline underline-offset-4">
-                Ver todas
-              </Link>
-            )}
-          </div>
-          <ul className="space-y-3">
-            {upcoming.length === 0 && (
-              <li className="text-sm text-muted-foreground">Sem sessões futuras.</li>
-            )}
-            {upcoming.map((s) => (
-              <li key={s.id} className="rounded-lg border p-3">
-                <div className="text-sm font-medium">
-                  {new Date(s.scheduledAt).toLocaleString()}
-                </div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  Treinador: {s.trainer.name ?? s.trainer.email} · Cliente:{" "}
-                  {s.client.name ?? s.client.email}
-                </div>
-                {s.notes && <div className="text-xs mt-1">{s.notes}</div>}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
+      {/* Mini agenda com filtro e quick actions */}
+      <MiniAgenda role={role} />
     </main>
   );
 }
 
-function CardStat({ label, value }: { label: string; value: number }) {
+function GlassCard({ title, value, hint }: { title: string; value: number; hint?: string }) {
   return (
-    <div className="rounded-xl border bg-white/60 dark:bg-zinc-900/60 backdrop-blur p-4">
-      <div className="text-sm opacity-70">{label}</div>
-      <div className="mt-1 text-3xl font-semibold tabular-nums">{value}</div>
+    <div
+      className="group relative overflow-hidden rounded-2xl border p-5 shadow-glow-soft 
+                 bg-glass-gradient dark:bg-glass-gradient-dark"
+    >
+      <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition">
+        <div className="absolute inset-0 -translate-x-1/2 w-1/2 bg-white/10 blur-3xl" />
+      </div>
+      <div className="flex items-start justify-between">
+        <div>
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">{title}</div>
+          <div className="mt-2 text-3xl font-semibold">{value}</div>
+        </div>
+        <div className="h-10 w-10 rounded-xl border flex items-center justify-center bg-background/70">
+          <span className="text-sm opacity-70">★</span>
+        </div>
+      </div>
+      {hint && <div className="mt-3 text-xs text-muted-foreground">{hint}</div>}
     </div>
   );
 }

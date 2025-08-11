@@ -1,18 +1,20 @@
-// src/app/providers.tsx
 "use client";
 
 import { ThemeProvider } from "next-themes";
-import type { ReactNode } from "react";
+import { SessionProvider } from "next-auth/react";
+import type { PropsWithChildren } from "react";
 
-export default function Providers({ children }: { children: ReactNode }) {
+export default function Providers({ children }: PropsWithChildren) {
   return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="system"
-      enableSystem
-      disableTransitionOnChange
-    >
-      {children}
-    </ThemeProvider>
+    <SessionProvider>
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="system"
+        enableSystem
+        disableTransitionOnChange
+      >
+        {children}
+      </ThemeProvider>
+    </SessionProvider>
   );
 }
