@@ -1,187 +1,116 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import * as React from "react";
+import { CalendarDays, Clock } from "lucide-react";
 
-type Role = "ADMIN" | "TRAINER" | "CLIENT";
-
-type UserLite = { id: string; name: string | null; email: string };
-type SessionItem = {
+type ApiSession = {
   id: string;
   scheduledAt: string;
-  status: string | null;
-  trainer: UserLite;
-  client: UserLite;
+  status?: string | null;
+  notes?: string | null;
+  trainer: { id: string; name: string | null; email: string };
+  client: { id: string; name: string | null; email: string };
 };
 
-type RangeKey = "today" | "7d" | "30d";
+function dateLabel(date: Date, base: Date = new Date(), locale = "pt-PT") {
+  const toYMD = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+      d.getDate()
+    ).padStart(2, "0")}`;
+  const d = toYMD(date);
+  const today = toYMD(base);
+  const tmr = toYMD(new Date(base.getFullYear(), base.getMonth(), base.getDate() + 1));
+  const yst = toYMD(new Date(base.getFullYear(), base.getMonth(), base.getDate() - 1));
+  if (d === today) return "Hoje";
+  if (d === tmr) return "Amanhã";
+  if (d === yst) return "Ontem";
+  const fmt = new Intl.DateTimeFormat(locale, { weekday: "long", day: "2-digit", month: "short" });
+  const s = fmt.format(date);
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
-export default function MiniAgenda({ role }: { role: Role | undefined }) {
-  const [range, setRange] = useState<RangeKey>("7d");
-  const [loading, setLoading] = useState(true);
-  const [items, setItems] = useState<SessionItem[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [pendingDate, setPendingDate] = useState<string>("");
+export default function MiniAgenda() {
+  const [items, setItems] = React.useState<ApiSession[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [err, setErr] = React.useState<string | null>(null);
 
-  useEffect(() => {
-    let ignore = false;
-    setLoading(true);
-    setError(null);
-
-    fetch(`/api/trainer/sessions?range=${range}`, { cache: "no-store" })
-      .then(async (r) => {
-        if (!r.ok) throw new Error("Falha a carregar sessões");
-        const data = await r.json();
-        if (!ignore) setItems(data.sessions ?? []);
-      })
-      .catch((e) => !ignore && setError(e.message))
-      .finally(() => !ignore && setLoading(false));
-
+  React.useEffect(() => {
+    let abort = false;
+    (async () => {
+      try {
+        setErr(null);
+        setLoading(true);
+        const res = await fetch("/api/trainer/sessions?range=7d", { cache: "no-store" });
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          throw new Error(j?.error || `HTTP ${res.status}`);
+        }
+        const data = (await res.json()) as { sessions: ApiSession[] };
+        if (!abort) {
+          const arr = [...(data.sessions || [])]
+            .sort((a, b) => +new Date(a.scheduledAt) - +new Date(b.scheduledAt))
+            .slice(0, 5);
+          setItems(arr);
+        }
+      } catch (e: any) {
+        if (!abort) setErr(e?.message || "Falha a carregar");
+      } finally {
+        if (!abort) setLoading(false);
+      }
+    })();
     return () => {
-      ignore = true;
+      abort = true;
     };
-  }, [range]);
-
-  const title = useMemo(() => {
-    if (role === "ADMIN") return "A ver: todas as sessões";
-    if (role === "TRAINER") return "A ver: as minhas sessões";
-    return "A ver: as minhas sessões";
-  }, [role]);
-
-  const onCancel = async (id: string) => {
-    if (!confirm("Cancelar esta sessão?")) return;
-    const res = await fetch("/api/trainer/sessions", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, status: "cancelada" }),
-    });
-    if (res.ok) {
-      setItems((prev) => prev.map((i) => (i.id === id ? { ...i, status: "cancelada" } : i)));
-    } else {
-      alert("Falha ao cancelar sessão");
-    }
-  };
-
-  const openReschedule = (it: SessionItem) => {
-    setEditingId(it.id);
-    // ISO 8601 local (yyyy-MM-ddThh:mm) esperado por input[type=datetime-local]
-    const dt = new Date(it.scheduledAt);
-    const local = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000)
-      .toISOString()
-      .slice(0, 16);
-    setPendingDate(local);
-  };
-
-  const confirmReschedule = async () => {
-    if (!editingId || !pendingDate) return;
-    const res = await fetch("/api/trainer/sessions", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: editingId, scheduledAt: pendingDate }),
-    });
-    if (res.ok) {
-      setItems((prev) =>
-        prev.map((i) => (i.id === editingId ? { ...i, scheduledAt: new Date(pendingDate).toISOString() } : i))
-      );
-      setEditingId(null);
-    } else {
-      alert("Falha ao remarcar sessão");
-    }
-  };
+  }, []);
 
   return (
-    <section className="rounded-2xl border bg-card/60 backdrop-blur py-4">
-      <div className="px-4 pb-3 flex items-center justify-between gap-3 flex-wrap">
-        <h2 className="text-lg font-semibold tracking-tight">Próximas sessões</h2>
-        <div className="flex items-center gap-2">
-          <RangeButton label="Hoje" active={range === "today"} onClick={() => setRange("today")} />
-          <RangeButton label="7 dias" active={range === "7d"} onClick={() => setRange("7d")} />
-          <RangeButton label="30 dias" active={range === "30d"} onClick={() => setRange("30d")} />
-        </div>
+    <div className="relative overflow-hidden rounded-2xl border bg-gradient-to-br from-primary/10 via-background to-transparent p-4 shadow-sm">
+      <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-primary/20 blur-3xl" />
+      <div className="flex items-center gap-2">
+        <CalendarDays className="h-5 w-5" />
+        <h3 className="text-sm font-semibold">Próximas sessões (7 dias)</h3>
       </div>
-      <div className="px-4 pb-2 text-xs text-muted-foreground">{title}</div>
 
-      {loading ? (
-        <AgendaSkeleton />
-      ) : error ? (
-        <div className="px-4 py-6 text-sm text-red-500">{error}</div>
-      ) : items.length === 0 ? (
-        <div className="px-4 py-6 text-sm text-muted-foreground">Sem sessões agendadas.</div>
-      ) : (
-        <ul className="divide-y">
+      {loading && (
+        <div className="mt-3 text-sm text-muted-foreground">A carregar…</div>
+      )}
+      {err && !loading && (
+        <div className="mt-3 text-sm text-red-600 dark:text-red-400">{err}</div>
+      )}
+      {!loading && !err && items.length === 0 && (
+        <div className="mt-3 text-sm text-muted-foreground">Sem sessões.</div>
+      )}
+
+      {!loading && !err && items.length > 0 && (
+        <ul className="mt-3 space-y-2">
           {items.map((s) => {
-            const dt = new Date(s.scheduledAt);
-            const date = dt.toLocaleDateString("pt-PT", {
-              weekday: "short",
-              day: "2-digit",
-              month: "short",
-            });
-            const time = dt.toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" });
-
-            const withWho =
-              role === "TRAINER"
-                ? s.client.name ?? s.client.email
-                : role === "CLIENT"
-                ? s.trainer.name ?? s.trainer.email
-                : `${s.trainer.name ?? s.trainer.email} → ${s.client.name ?? s.client.email}`;
-
-            const editing = editingId === s.id;
-
+            const d = new Date(s.scheduledAt);
+            const day = dateLabel(d);
+            const time = new Intl.DateTimeFormat("pt-PT", {
+              hour: "2-digit",
+              minute: "2-digit",
+            }).format(d);
             return (
-              <li key={s.id} className="px-4 py-3">
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl border flex flex-col items-center justify-center bg-background">
-                      <span className="text-[10px] uppercase text-muted-foreground">{date.split(",")[0]}</span>
-                      <span className="text-base font-semibold">{date.split(" ")[1]}</span>
+              <li
+                key={s.id}
+                className="group rounded-xl border bg-card/60 p-3 transition-all hover:-translate-y-0.5 hover:bg-card hover:shadow-md"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium">
+                      {s.client.name || s.client.email}
                     </div>
-                    <div>
-                      <div className="text-sm font-medium leading-none">{withWho}</div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {time} • {s.status ?? "pendente"}
-                      </div>
+                    <div className="truncate text-xs text-muted-foreground">
+                      PT: {s.trainer.name || s.trainer.email}
+                      {s.status ? ` • ${s.status}` : ""}
                     </div>
                   </div>
-
-                  {/* Quick actions */}
-                  <div className="flex items-center gap-2">
-                    {!editing ? (
-                      <>
-                        <button
-                          onClick={() => openReschedule(s)}
-                          className="rounded-lg border px-2.5 py-1.5 text-xs hover:bg-muted transition"
-                        >
-                          Remarcar
-                        </button>
-                        <button
-                          onClick={() => onCancel(s.id)}
-                          className="rounded-lg border px-2.5 py-1.5 text-xs hover:bg-muted transition"
-                        >
-                          Cancelar
-                        </button>
-                      </>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="datetime-local"
-                          value={pendingDate}
-                          onChange={(e) => setPendingDate(e.target.value)}
-                          className="text-xs rounded-md border px-2 py-1 bg-background"
-                        />
-                        <button
-                          onClick={confirmReschedule}
-                          className="rounded-lg border px-2.5 py-1.5 text-xs hover:bg-muted transition"
-                        >
-                          Guardar
-                        </button>
-                        <button
-                          onClick={() => setEditingId(null)}
-                          className="rounded-lg border px-2.5 py-1.5 text-xs hover:bg-muted transition"
-                        >
-                          Cancelar
-                        </button>
-                      </div>
-                    )}
+                  <div className="shrink-0 text-right">
+                    <div className="flex items-center justify-end gap-1 text-sm">
+                      <Clock className="h-4 w-4 opacity-70" />
+                      <span className="font-medium">{time}</span>
+                    </div>
+                    <div className="text-xs opacity-70">{day}</div>
                   </div>
                 </div>
               </li>
@@ -189,52 +118,6 @@ export default function MiniAgenda({ role }: { role: Role | undefined }) {
           })}
         </ul>
       )}
-    </section>
-  );
-}
-
-function RangeButton({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={[
-        "rounded-xl border px-3 py-1.5 text-xs transition",
-        active ? "bg-primary text-primary-foreground shadow-glow" : "hover:bg-muted",
-      ].join(" ")}
-    >
-      {label}
-    </button>
-  );
-}
-
-function AgendaSkeleton() {
-  return (
-    <ul className="divide-y">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <li key={i} className="px-4 py-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl border bg-muted animate-pulse" />
-              <div>
-                <div className="h-3 w-40 rounded bg-muted animate-pulse" />
-                <div className="h-2.5 w-24 rounded bg-muted mt-2 animate-pulse" />
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="h-7 w-20 rounded bg-muted animate-pulse" />
-              <div className="h-7 w-20 rounded bg-muted animate-pulse" />
-            </div>
-          </div>
-        </li>
-      ))}
-    </ul>
+    </div>
   );
 }
