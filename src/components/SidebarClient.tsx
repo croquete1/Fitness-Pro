@@ -1,45 +1,46 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-
-export type RoleType = "ADMIN" | "TRAINER" | "CLIENT";
 export type RawUser = {
   id: string;
   name?: string | null;
   email?: string | null;
-  role: RoleType;
+  role: "ADMIN" | "TRAINER" | "CLIENT";
 };
 
-export default function SidebarClient({ user }: { user: RawUser }) {
-  const pathname = usePathname();
+type Props = { user: RawUser };
 
-  const items = [
-    { href: "/dashboard", label: "Dashboard", show: true },
-    { href: "/trainer", label: "PT", show: user.role === "TRAINER" || user.role === "ADMIN" },
-    { href: "/admin", label: "Administração", show: user.role === "ADMIN" },
-  ].filter((i) => i.show);
+const navItems = (user: RawUser) => [
+  { href: "/dashboard", label: "Dashboard", show: true },
+  { href: "/trainer", label: "PT", show: user.role === "TRAINER" || user.role === "ADMIN" },
+  { href: "/admin", label: "Administração", show: user.role === "ADMIN" },
+];
+
+export default function SidebarClient({ user }: Props) {
+  const items = navItems(user).filter((i) => i.show);
 
   return (
-    <aside className="w-56 shrink-0 border-r bg-white/50 backdrop-blur">
-      <div className="p-4 text-sm opacity-70">Olá{user.name ? `, ${user.name}` : ""}</div>
-      <nav className="flex flex-col gap-1 p-2">
-        {items.map((item) => {
-          const active = pathname === item.href || pathname.startsWith(item.href + "/");
-          return (
-            <Link
+    <aside className="w-64 shrink-0 border-r bg-white">
+      <div className="p-4">
+        <div className="mb-4">
+          <div className="text-xs uppercase opacity-60">Utilizador</div>
+          <div className="text-sm font-medium truncate">{user.name || user.email}</div>
+          <div className="text-xs rounded bg-black/5 inline-block px-2 py-0.5 mt-1">
+            {user.role}
+          </div>
+        </div>
+
+        <nav className="grid gap-1">
+          {items.map((item) => (
+            <a
               key={item.href}
               href={item.href}
-              className={[
-                "rounded-lg px-3 py-2 text-sm transition",
-                active ? "bg-gray-900 text-white" : "hover:bg-gray-100",
-              ].join(" ")}
+              className="rounded-lg px-3 py-2 text-sm hover:bg-black/5"
             >
               {item.label}
-            </Link>
-          );
-        })}
-      </nav>
+            </a>
+          ))}
+        </nav>
+      </div>
     </aside>
   );
 }
