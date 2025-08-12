@@ -1,142 +1,148 @@
+// src/components/admin/PendingApprovals.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+
+type Role = "ADMIN" | "TRAINER" | "CLIENT";
 
 type PendingUser = {
   id: string;
   name: string | null;
   email: string;
-  role: "ADMIN" | "TRAINER" | "CLIENT";
-  createdAt: string;
+  role: Role;
+  createdAt: string; // ISO
 };
+
+function fmtWhen(d: string) {
+  const date = new Date(d);
+  return date.toLocaleString();
+}
 
 export default function PendingApprovals() {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<PendingUser[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
 
-  async function load() {
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
       const res = await fetch("/api/admin/approvals", { cache: "no-store" });
+      if (!res.ok) throw new Error("Falha a carregar pendentes");
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Falha ao carregar");
-      setItems(data.users as PendingUser[]);
+      setItems(
+        (data.users ?? []).map((u: any) => ({
+          ...u,
+          createdAt: typeof u.createdAt === "string" ? u.createdAt : new Date(u.createdAt).toISOString(),
+        }))
+      );
     } catch (e: any) {
-      setError(e.message ?? "Erro");
+      setError(e?.message || "Erro ao carregar");
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
-  async function act(id: string, action: "approve" | "suspend") {
+  async function act(id: string, action: "approve" | "reject") {
+    // otimista
+    const prev = items;
+    setItems((s) => s.filter((x) => x.id !== id));
     try {
-      setBusyId(id);
       const res = await fetch("/api/admin/approvals", {
-        method: "POST",
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, action }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Falha ao atualizar");
-      // Optimistic remove
-      setItems((prev) => prev.filter((u) => u.id !== id));
-    } catch (e: any) {
-      alert(e.message ?? "Erro ao atualizar");
-    } finally {
-      setBusyId(null);
+      if (!res.ok) throw new Error("Falha a atualizar estado");
+    } catch (e) {
+      // reverte em caso de erro
+      setItems(prev);
+      alert("Não foi possível concluir a ação. Tenta novamente.");
     }
   }
 
-  if (loading) {
-    return (
-      <div className="rounded-xl border p-4">
-        <div className="animate-pulse h-6 w-40 bg-gray-200 rounded mb-4" />
-        <div className="space-y-2">
-          <div className="h-4 bg-gray-100 rounded" />
-          <div className="h-4 bg-gray-100 rounded" />
-          <div className="h-4 bg-gray-100 rounded" />
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="rounded-xl border p-4">
-        <h3 className="text-lg font-semibold mb-2">Aprovações pendentes</h3>
-        <p className="text-sm text-red-600">{error}</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="rounded-xl border p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-lg font-semibold">Aprovações pendentes</h3>
+    <div className="space-y-4">
+      <header className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold">Aprovações de conta</h2>
+          <p className="text-sm text-muted-foreground">
+            Gerir pedidos de registo pendentes.
+          </p>
+        </div>
         <button
           onClick={load}
-          className="text-sm px-3 py-1 rounded border hover:bg-gray-50"
+          className="rounded-lg border px-3 py-1.5 text-sm hover:bg-accent"
         >
-          Atualizar
+          Recarregar
         </button>
-      </div>
+      </header>
 
-      {items.length === 0 ? (
-        <p className="text-sm opacity-70">Sem pedidos pendentes. 🎉</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-left">
-              <tr className="border-b">
-                <th className="py-2 pr-4">Nome</th>
-                <th className="py-2 pr-4">Email</th>
-                <th className="py-2 pr-4">Role</th>
-                <th className="py-2 pr-4">Criado</th>
-                <th className="py-2 text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((u) => (
-                <tr key={u.id} className="border-b last:border-0">
-                  <td className="py-2 pr-4">{u.name ?? "-"}</td>
-                  <td className="py-2 pr-4">{u.email}</td>
-                  <td className="py-2 pr-4">
-                    <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs">
-                      {u.role}
-                    </span>
-                  </td>
-                  <td className="py-2 pr-4">
-                    {new Date(u.createdAt).toLocaleString()}
-                  </td>
-                  <td className="py-2">
-                    <div className="flex gap-2 justify-end">
-                      <button
-                        onClick={() => act(u.id, "approve")}
-                        disabled={busyId === u.id}
-                        className="px-3 py-1 rounded bg-green-600 text-white hover:opacity-90 disabled:opacity-60"
-                      >
-                        Aprovar
-                      </button>
-                      <button
-                        onClick={() => act(u.id, "suspend")}
-                        disabled={busyId === u.id}
-                        className="px-3 py-1 rounded bg-red-600 text-white hover:opacity-90 disabled:opacity-60"
-                      >
-                        Suspender
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {loading && (
+        <div className="grid gap-3">
+          {[...Array(3)].map((_, i) => (
+            <div
+              key={i}
+              className="animate-pulse rounded-xl border p-4 bg-muted/30 h-20"
+            />
+          ))}
         </div>
+      )}
+
+      {error && (
+        <div className="rounded-xl border p-4 text-sm text-red-500 bg-red-50 dark:bg-red-950/30">
+          {error}
+        </div>
+      )}
+
+      {!loading && !error && items.length === 0 && (
+        <div className="rounded-xl border p-6 text-sm text-muted-foreground">
+          Não há contas pendentes no momento.
+        </div>
+      )}
+
+      {!loading && !error && items.length > 0 && (
+        <ul className="grid gap-3">
+          {items.map((u) => (
+            <li
+              key={u.id}
+              className="rounded-xl border p-4 flex items-center justify-between gap-3 bg-background/60 backdrop-blur supports-[backdrop-filter]:bg-background/40"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="size-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 grid place-items-center font-medium">
+                  {(u.name || u.email).slice(0, 1).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <div className="font-medium truncate">
+                    {u.name || u.email}
+                  </div>
+                  <div className="text-xs text-muted-foreground truncate">
+                    {u.email} · {u.role} · criado {fmtWhen(u.createdAt)}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => act(u.id, "reject")}
+                  className="rounded-lg border px-3 py-1.5 text-sm hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
+                >
+                  Rejeitar
+                </button>
+                <button
+                  onClick={() => act(u.id, "approve")}
+                  className="rounded-lg border px-3 py-1.5 text-sm bg-primary text-primary-foreground hover:opacity-90"
+                >
+                  Aprovar
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
