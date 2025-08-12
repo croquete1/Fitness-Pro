@@ -1,16 +1,19 @@
+// src/components/SidebarClient.tsx
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard,
+  Home,
   CalendarDays,
   Dumbbell,
+  Users,
   Shield,
-  BarChart3,
-  User,
+  FileText,
   Settings,
-  SlidersHorizontal,
+  HardDriveDownload,
+  UserCircle2,
+  ClipboardCheck,
 } from "lucide-react";
 
 export type RawUser = {
@@ -24,59 +27,63 @@ type Item = {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  show: boolean;
+  show?: boolean;
 };
 
-function cx(...cls: Array<string | false | undefined>) {
-  return cls.filter(Boolean).join(" ");
+function NavItem({ href, label, icon: Icon, active }: { href: string; label: string; icon: any; active: boolean }) {
+  return (
+    <Link
+      href={href}
+      className={`flex items-center gap-2 rounded-xl border transition-all px-3 py-2 text-sm
+        ${active ? "border-neutral-300 bg-neutral-100 dark:bg-neutral-800 dark:border-neutral-700" : "border-transparent hover:border-neutral-300 dark:hover:border-neutral-700"}
+      `}
+    >
+      <Icon className="h-4 w-4 opacity-80" />
+      <span>{label}</span>
+    </Link>
+  );
 }
 
 export default function SidebarClient({ user }: { user: RawUser }) {
   const pathname = usePathname();
 
-  const items: Item[] = [
-    { href: "/dashboard",            label: "Início",        icon: LayoutDashboard,  show: true },
-    { href: "/dashboard/sessions",   label: "Sessões",       icon: CalendarDays,     show: true },
-    { href: "/dashboard/trainer",    label: "PT",            icon: Dumbbell,         show: user.role === "ADMIN" || user.role === "TRAINER" },
-    { href: "/dashboard/reports",    label: "Relatórios",    icon: BarChart3,        show: user.role === "ADMIN" },
-    { href: "/dashboard/admin",      label: "Administração", icon: Shield,           show: user.role === "ADMIN" },
-    { href: "/dashboard/system",     label: "Sistema",       icon: Settings,         show: user.role === "ADMIN" },
-    { href: "/dashboard/profile",    label: "Perfil",        icon: User,             show: true },
-    { href: "/dashboard/settings",   label: "Definições",    icon: SlidersHorizontal,show: true },
+  const common: Item[] = [
+    { href: "/dashboard", label: "Início", icon: Home, show: true },
+    { href: "/dashboard/sessions", label: "Sessões", icon: CalendarDays, show: true },
+    { href: "/dashboard/profile", label: "Perfil", icon: UserCircle2, show: true },
+    { href: "/dashboard/settings", label: "Definições", icon: Settings, show: true },
   ];
 
-  return (
-    <aside className="w-64 shrink-0 border-r bg-background/60 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="p-4">
-        <div className="text-sm opacity-70">Olá,</div>
-        <div className="font-semibold truncate">
-          {user.name || user.email || "Utilizador"}
-        </div>
-        <div className="text-xs mt-0.5 opacity-60">
-          {user.role === "ADMIN" ? "Admin" : user.role === "TRAINER" ? "Personal Trainer" : "Cliente"}
-        </div>
-      </div>
+  const trainer: Item[] = [
+    { href: "/dashboard/trainer", label: "PT", icon: Dumbbell, show: user.role === "TRAINER" || user.role === "ADMIN" },
+    { href: "/dashboard/trainer/approvals", label: "Aprovações (PT)", icon: ClipboardCheck, show: user.role === "TRAINER" || user.role === "ADMIN" },
+  ];
 
-      <nav className="px-2 py-2 space-y-1">
-        {items.filter(i => i.show).map(({ href, label, icon: Icon }) => {
-          const active = pathname === href || pathname.startsWith(href + "/");
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={cx(
-                "group flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition",
-                active
-                  ? "bg-primary/10 text-primary ring-1 ring-primary/20"
-                  : "hover:bg-muted hover:text-foreground/90"
-              )}
-            >
-              <Icon className={cx("h-4 w-4", active && "text-primary")} />
-              <span>{label}</span>
-            </Link>
-          );
-        })}
-      </nav>
+  const admin: Item[] = [
+    { href: "/dashboard/admin", label: "Administração", icon: Shield, show: user.role === "ADMIN" },
+    { href: "/dashboard/admin/approvals", label: "Aprovações de conta", icon: ClipboardCheck, show: user.role === "ADMIN" },
+    { href: "/dashboard/reports", label: "Relatórios", icon: FileText, show: user.role === "ADMIN" },
+    { href: "/dashboard/system", label: "Sistema", icon: HardDriveDownload, show: user.role === "ADMIN" },
+    { href: "/dashboard/pt", label: "PT / Clientes", icon: Users, show: user.role === "ADMIN" },
+  ];
+
+  const items = [...common, ...trainer, ...admin].filter(i => i.show);
+
+  return (
+    <aside className="hidden md:block w-64 shrink-0 border-r bg-white/70 backdrop-blur dark:bg-neutral-900/60">
+      <div className="sticky top-0 h-[calc(100dvh-0px)] overflow-y-auto p-3">
+        <div className="mb-3">
+          <div className="text-sm opacity-70">Olá,</div>
+          <div className="text-lg font-semibold">{user.name || user.email || "Utilizador"}</div>
+          <div className="text-xs opacity-60">{user.role === "ADMIN" ? "Admin" : user.role === "TRAINER" ? "Personal Trainer" : "Cliente"}</div>
+        </div>
+
+        <nav className="space-y-2">
+          {items.map((i) => (
+            <NavItem key={i.href} href={i.href} label={i.label} icon={i.icon} active={pathname === i.href} />
+          ))}
+        </nav>
+      </div>
     </aside>
   );
 }

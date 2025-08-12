@@ -1,50 +1,38 @@
-"use client";
-
-import Link from "next/link";
-import { useSession } from "next-auth/react";
-import ThemeToggle from "./ThemeToggle";
+// src/components/Header.tsx
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/authOptions";
+import ThemeToggle from "@/components/ThemeToggle";
 import SignOutButton from "@/components/auth/SignOutButton";
 
-export default function Header() {
-  const { data: session, status } = useSession();
+function roleLabel(role?: "ADMIN" | "TRAINER" | "CLIENT") {
+  if (role === "ADMIN") return "Admin";
+  if (role === "TRAINER") return "Personal Trainer";
+  return undefined;
+}
 
-  const name =
-    (session?.user?.name && session.user.name.trim()) ||
-    session?.user?.email?.split("@")[0] ||
-    "Utilizador";
+export default async function Header() {
+  const session = await getServerSession(authOptions);
+  const user = session?.user as
+    | { id: string; name?: string | null; email?: string | null; role?: "ADMIN" | "TRAINER" | "CLIENT" }
+    | undefined;
 
-  const role =
-    ((session?.user as any)?.role as "ADMIN" | "TRAINER" | "CLIENT" | undefined) ??
-    undefined;
-
-  let roleLabel = "";
-  if (role === "ADMIN") roleLabel = " (Admin)";
-  else if (role === "TRAINER") roleLabel = " (Personal Trainer)";
+  const label = roleLabel(user?.role);
+  const greet =
+    user?.name
+      ? `Olá, ${user.name}${label ? ` (${label})` : ""}`
+      : user?.email
+        ? `Olá, ${user.email}${label ? ` (${label})` : ""}`
+        : "Olá";
 
   return (
-    <header className="sticky top-0 z-30 w-full border-b bg-background/60 backdrop-blur supports-[backdrop-filter]:bg-background/40">
-      <div className="mx-auto flex h-14 max-w-screen-2xl items-center justify-between px-4">
-        <div className="flex items-center gap-3">
-          <Link href="/dashboard" className="font-semibold">
-            Fitness Pro
-          </Link>
-          <span className="text-sm text-muted-foreground hidden sm:inline">
-            {status === "loading" ? "A carregar..." : `Olá, ${name}${roleLabel}`}
-          </span>
+    <header className="sticky top-0 z-30 border-b bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/50 dark:bg-neutral-900/60">
+      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
+        <div className="text-sm md:text-base font-medium opacity-80">
+          <span className="font-semibold">Fitness Pro</span> <span className="mx-2">•</span> {greet}
         </div>
-
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          {session?.user ? (
-            <SignOutButton />
-          ) : (
-            <Link
-              href="/login"
-              className="rounded-lg border px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-            >
-              Iniciar sessão
-            </Link>
-          )}
+          <SignOutButton />
         </div>
       </div>
     </header>
