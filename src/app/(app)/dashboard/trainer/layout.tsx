@@ -1,11 +1,11 @@
-// src/app/(app)/dashboard/layout.tsx
+// src/app/(app)/dashboard/trainer/layout.tsx
 import { ReactNode } from "react";
 import SidebarWrapper from "@/components/SidebarWrapper";
 import Header from "@/components/Header";
 
 export const dynamic = "force-dynamic";
 
-export default function DashboardLayout({ children }: { children: ReactNode }) {
+export default function TrainerLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-dvh w-full">
       <div className="flex">

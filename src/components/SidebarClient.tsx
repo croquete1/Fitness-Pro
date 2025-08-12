@@ -1,10 +1,17 @@
-// src/components/SidebarClient.tsx
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, CalendarCheck, ShieldCheck } from "lucide-react";
-import useSWR from "swr";
+import {
+  LayoutDashboard,
+  CalendarDays,
+  Dumbbell,
+  Shield,
+  BarChart3,
+  User,
+  Settings,
+  SlidersHorizontal,
+} from "lucide-react";
 
 export type RawUser = {
   id: string;
@@ -13,111 +20,63 @@ export type RawUser = {
   role: "ADMIN" | "TRAINER" | "CLIENT";
 };
 
-type Props = { user: RawUser };
-
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
-
-function NavItem({
-  href,
-  label,
-  icon: Icon,
-  active,
-  badge,
-}: {
+type Item = {
   href: string;
   label: string;
-  icon: React.ComponentType<any>;
-  active: boolean;
-  badge?: number;
-}) {
-  return (
-    <Link
-      href={href}
-      className={[
-        "flex items-center justify-between rounded-xl px-3 py-2 text-sm transition",
-        active
-          ? "bg-primary/10 text-primary dark:bg-primary/15"
-          : "hover:bg-muted text-foreground/90",
-      ].join(" ")}
-    >
-      <span className="flex items-center gap-2">
-        <Icon className="h-4 w-4" />
-        <span>{label}</span>
-      </span>
-      {typeof badge === "number" && badge > 0 && (
-        <span className="ml-2 inline-flex min-w-[1.5rem] items-center justify-center rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-primary-foreground">
-          {badge > 99 ? "99+" : badge}
-        </span>
-      )}
-    </Link>
-  );
+  icon: React.ComponentType<{ className?: string }>;
+  show: boolean;
+};
+
+function cx(...cls: Array<string | false | undefined>) {
+  return cls.filter(Boolean).join(" ");
 }
 
-export default function SidebarClient({ user }: Props) {
+export default function SidebarClient({ user }: { user: RawUser }) {
   const pathname = usePathname();
 
-  const showApprovals = user.role === "ADMIN";
-  const { data } = useSWR<{ pending: number }>(
-    showApprovals ? "/api/admin/approvals/count" : null,
-    fetcher,
-    { refreshInterval: 15_000 } // atualiza de 15 em 15s
-  );
-
-  const items = [
-    {
-      href: "/dashboard",
-      label: "Dashboard",
-      icon: Home,
-      show: true,
-      active: pathname === "/dashboard" || pathname === "/",
-    },
-    {
-      href: "/dashboard/trainer",
-      label: "Sessões",
-      icon: CalendarCheck,
-      show: user.role === "TRAINER" || user.role === "ADMIN",
-      active: pathname.startsWith("/dashboard/trainer"),
-    },
-    {
-      href: "/dashboard/admin/approvals",
-      label: "Aprovações",
-      icon: ShieldCheck,
-      show: showApprovals,
-      active: pathname.startsWith("/dashboard/admin/approvals"),
-      badge: data?.pending ?? 0,
-    },
+  const items: Item[] = [
+    { href: "/dashboard",            label: "Início",        icon: LayoutDashboard,  show: true },
+    { href: "/dashboard/sessions",   label: "Sessões",       icon: CalendarDays,     show: true },
+    { href: "/dashboard/trainer",    label: "PT",            icon: Dumbbell,         show: user.role === "ADMIN" || user.role === "TRAINER" },
+    { href: "/dashboard/reports",    label: "Relatórios",    icon: BarChart3,        show: user.role === "ADMIN" },
+    { href: "/dashboard/admin",      label: "Administração", icon: Shield,           show: user.role === "ADMIN" },
+    { href: "/dashboard/system",     label: "Sistema",       icon: Settings,         show: user.role === "ADMIN" },
+    { href: "/dashboard/profile",    label: "Perfil",        icon: User,             show: true },
+    { href: "/dashboard/settings",   label: "Definições",    icon: SlidersHorizontal,show: true },
   ];
 
   return (
-    <aside className="w-64 shrink-0 border-r bg-background/60 backdrop-blur supports-[backdrop-filter]:bg-background/40">
+    <aside className="w-64 shrink-0 border-r bg-background/60 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="p-4">
-        <div className="mb-4">
-          <div className="text-xs text-muted-foreground">Sessão</div>
-          <div className="font-medium truncate">{user.name || user.email || "Utilizador"}</div>
-          <div className="text-xs text-muted-foreground">
-            {user.role === "ADMIN"
-              ? "Admin"
-              : user.role === "TRAINER"
-              ? "Personal Trainer"
-              : "Cliente"}
-          </div>
+        <div className="text-sm opacity-70">Olá,</div>
+        <div className="font-semibold truncate">
+          {user.name || user.email || "Utilizador"}
         </div>
-
-        <nav className="flex flex-col gap-1">
-          {items
-            .filter((i) => i.show)
-            .map((i) => (
-              <NavItem
-                key={i.href}
-                href={i.href}
-                label={i.label}
-                icon={i.icon}
-                active={i.active}
-                badge={i.badge}
-              />
-            ))}
-        </nav>
+        <div className="text-xs mt-0.5 opacity-60">
+          {user.role === "ADMIN" ? "Admin" : user.role === "TRAINER" ? "Personal Trainer" : "Cliente"}
+        </div>
       </div>
+
+      <nav className="px-2 py-2 space-y-1">
+        {items.filter(i => i.show).map(({ href, label, icon: Icon }) => {
+          const active = pathname === href || pathname.startsWith(href + "/");
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={cx(
+                "group flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition",
+                active
+                  ? "bg-primary/10 text-primary ring-1 ring-primary/20"
+                  : "hover:bg-muted hover:text-foreground/90"
+              )}
+            >
+              <Icon className={cx("h-4 w-4", active && "text-primary")} />
+              <span>{label}</span>
+            </Link>
+          );
+        })}
+      </nav>
     </aside>
   );
 }

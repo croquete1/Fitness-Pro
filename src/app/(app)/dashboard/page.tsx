@@ -1,107 +1,124 @@
-import { prisma } from "@/lib/prisma";
-import { Role } from "@prisma/client";
+// Server Component
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
-import MiniAgenda from "@/components/dashboard/MiniAgenda";
-import { Users, Dumbbell, Shield, Activity } from "lucide-react";
+import { prisma } from "@/lib/prisma";
+import { Role } from "@prisma/client";
+import { CalendarDays, Users, UserCog, Shield } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
+function roleLabel(role: Role | string | undefined) {
+  switch (role) {
+    case "ADMIN": return "Admin";
+    case "TRAINER": return "Personal Trainer";
+    case "CLIENT": return "Cliente";
+    default: return "";
+  }
+}
+
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
-  const name = session?.user?.name || session?.user?.email || "Utilizador";
-  const role = (session?.user as any)?.role as "ADMIN" | "TRAINER" | "CLIENT" | undefined;
 
-  const [clientes, pts, admins] = await Promise.all([
-    prisma.user.count({ where: { role: Role.CLIENT } }),
-    prisma.user.count({ where: { role: Role.TRAINER } }),
-    prisma.user.count({ where: { role: Role.ADMIN } }),
+  const name = session?.user?.name || session?.user?.email || "Utilizador";
+  const role = (session?.user as any)?.role as Role | undefined;
+
+  // KPIs (seguro para qualquer role)
+  const [clients, trainers, admins] = await Promise.all([
+    prisma.user.count({ where: { role: "CLIENT" } }),
+    prisma.user.count({ where: { role: "TRAINER" } }),
+    prisma.user.count({ where: { role: "ADMIN" } }),
   ]);
 
-  const roleLabel =
-    role === "ADMIN" ? "Admin" : role === "TRAINER" ? "Personal Trainer" : "";
+  // Próximas sessões (até 7 dias), adaptadas ao role
+  const now = new Date();
+  const in7 = new Date(now);
+  in7.setDate(in7.getDate() + 7);
+
+  const where: any = { scheduledAt: { gte: now, lte: in7 } };
+  if (role === "TRAINER") where.trainerId = (session?.user as any)?.id;
+  if (role === "CLIENT") where.clientId = (session?.user as any)?.id;
+
+  const nextSessions = await prisma.session.findMany({
+    where,
+    include: {
+      trainer: { select: { id: true, name: true } },
+      client: { select: { id: true, name: true } },
+    },
+    orderBy: { scheduledAt: "asc" },
+    take: 6,
+  });
 
   return (
     <main className="p-6 space-y-6">
-      {/* Hero / Greeting */}
-      <div className="relative overflow-hidden rounded-3xl border bg-gradient-to-br from-indigo-500/10 via-background to-transparent p-6">
-        <div className="absolute -left-10 -top-10 h-40 w-40 rounded-full bg-indigo-500/20 blur-3xl" />
-        <div className="absolute -bottom-12 -right-10 h-44 w-44 rounded-full bg-fuchsia-500/20 blur-3xl" />
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Olá, {name}
-          {roleLabel ? (
-            <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
-              {roleLabel}
-            </span>
-          ) : null}
+      {/* Saudação */}
+      <div className="rounded-2xl border bg-gradient-to-br from-primary/5 via-transparent to-transparent p-6">
+        <h1 className="text-2xl font-semibold">
+          Olá, {name}{role ? ` (${roleLabel(role)})` : ""}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Bem-vindo à sua área — aqui tem um resumo rápido e a sua agenda.
+        <p className="text-sm opacity-70 mt-1">
+          Aqui tens um resumo do teu dia e atalhos rápidos.
         </p>
       </div>
 
-      {/* KPIs coloridos */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <KpiCard
-          icon={<Users className="h-5 w-5" />}
-          label="Clientes"
-          value={clientes}
-          gradient="from-emerald-500/15 to-emerald-500/0"
-        />
-        <KpiCard
-          icon={<Dumbbell className="h-5 w-5" />}
-          label="Treinadores"
-          value={pts}
-          gradient="from-blue-500/15 to-blue-500/0"
-        />
-        <KpiCard
-          icon={<Shield className="h-5 w-5" />}
-          label="Admins"
-          value={admins}
-          gradient="from-amber-500/15 to-amber-500/0"
-        />
-      </div>
+      {/* KPIs */}
+      <section className="grid gap-4 md:grid-cols-3">
+        <KpiCard title="Clientes" value={clients} icon={<Users className="h-5 w-5" />} />
+        <KpiCard title="Treinadores" value={trainers} icon={<UserCog className="h-5 w-5" />} />
+        <KpiCard title="Admins" value={admins} icon={<Shield className="h-5 w-5" />} />
+      </section>
 
-      {/* Linha com Mini Agenda + placeholder de atividade */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <MiniAgenda />
+      {/* Mini Agenda */}
+      <section className="rounded-2xl border p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <CalendarDays className="h-5 w-5" />
+          <h2 className="text-lg font-medium">Próximas sessões (7 dias)</h2>
         </div>
-        <div className="rounded-2xl border p-4">
-          <div className="mb-2 flex items-center gap-2">
-            <Activity className="h-5 w-5" />
-            <h3 className="text-sm font-semibold">Atividade recente</h3>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            (Em breve) Logs de sistema e aprovações recentes…
-          </p>
-        </div>
-      </div>
+
+        {nextSessions.length === 0 ? (
+          <div className="text-sm opacity-70">Sem sessões marcadas para este período.</div>
+        ) : (
+          <ul className="divide-y">
+            {nextSessions.map(s => (
+              <li key={s.id} className="py-3 flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <div className="font-medium">
+                    {new Date(s.scheduledAt).toLocaleString()}
+                  </div>
+                  <div className="text-sm opacity-70">
+                    PT: {s.trainer?.name ?? "—"} · Cliente: {s.client?.name ?? "—"}
+                  </div>
+                </div>
+                <a
+                  href="/dashboard/sessions"
+                  className="text-sm underline opacity-90 hover:opacity-100"
+                >
+                  Ver sessão
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </main>
   );
 }
 
 function KpiCard({
-  icon,
-  label,
+  title,
   value,
-  gradient,
+  icon,
 }: {
-  icon: React.ReactNode;
-  label: string;
+  title: string;
   value: number;
-  gradient: string;
+  icon: React.ReactNode;
 }) {
   return (
-    <div className={`relative overflow-hidden rounded-2xl border p-4 shadow-sm`}>
-      <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${gradient}`} />
-      <div className="relative z-10">
-        <div className="mb-3 flex items-center gap-2 text-sm opacity-80">
-          {icon}
-          <span>{label}</span>
-        </div>
-        <div className="text-3xl font-bold">{value}</div>
+    <div className="rounded-2xl border p-4 bg-background/60 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="flex items-center justify-between">
+        <div className="text-sm opacity-70">{title}</div>
+        <div className="opacity-80">{icon}</div>
       </div>
+      <div className="text-3xl font-semibold mt-2">{value}</div>
     </div>
   );
 }
