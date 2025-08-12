@@ -1,22 +1,18 @@
 // src/app/(app)/dashboard/admin/approvals/page.tsx
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
-import { redirect } from "next/navigation";
-import PendingApprovals from "@/components/admin/PendingApprovals";
+import ApprovalsClient from "@/components/admin/ApprovalsClient";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminApprovalsPage() {
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as any)?.role as "ADMIN" | "TRAINER" | "CLIENT" | undefined;
-  if (!session?.user || role !== "ADMIN") {
-    redirect("/dashboard");
-  }
-
+export default function ApprovalsPage() {
   return (
-    <main className="p-6 space-y-6">
-      <h1 className="text-2xl font-semibold">Admin · Aprovações</h1>
-      <PendingApprovals />
-    </main>
+    <div className="space-y-6 p-2 md:p-4">
+      <div>
+        <h1 className="text-2xl font-semibold">Aprovações de conta</h1>
+        <p className="text-sm text-muted-foreground">
+          Revê pedidos de registo pendentes e aprova/rejeita.
+        </p>
+      </div>
+      <ApprovalsClient />
+    </div>
   );
 }
