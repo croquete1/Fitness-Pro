@@ -8,16 +8,23 @@ export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const name = typeof body?.name === "string" ? body.name.trim() : null;
-    const emailRaw = typeof body?.email === "string" ? body.email.trim() : "";
-    const password = typeof body?.password === "string" ? body.password : "";
+    const { name, email, password } = (await req.json()) as {
+      name?: string;
+      email?: string;
+      password?: string;
+    };
 
-    if (!emailRaw || !password) {
+    if (!email || !password) {
       return NextResponse.json(
         { error: "Email e password são obrigatórios" },
         { status: 400 }
       );
+    }
+
+    const emailNorm = email.trim().toLowerCase();
+    const exists = await prisma.user.findUnique({ where: { email: emailNorm } });
+    if (exists) {
+      return NextResponse.json({ error: "Email já registado" }, { status: 409 });
     }
 
     if (password.length < 6) {
@@ -27,35 +34,21 @@ export async function POST(req: Request) {
       );
     }
 
-    const email = emailRaw.toLowerCase();
-
-    const exists = await prisma.user.findUnique({ where: { email } });
-    if (exists) {
-      return NextResponse.json(
-        { error: "Email já registado" },
-        { status: 409 }
-      );
-    }
-
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Forçar novos utilizadores a CLIENT + PENDING
     const user = await prisma.user.create({
       data: {
-        name,
-        email,
+        name: name?.trim() || null,
+        email: emailNorm,
         passwordHash,
-        role: Role.CLIENT,
-        status: Status.PENDING,
+        role: Role.CLIENT,          // todos criados como CLIENT
+        status: Status.PENDING,     // pendente de aprovação pelo admin
       },
       select: { id: true, email: true, name: true, role: true, status: true },
     });
 
     return NextResponse.json({ user }, { status: 201 });
   } catch (e) {
-    return NextResponse.json(
-      { error: "Erro ao registar utilizador" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Erro ao registar utilizador" }, { status: 500 });
   }
 }

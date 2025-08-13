@@ -3,38 +3,32 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import ThemeToggle from "@/components/ThemeToggle";
 import SignOutButton from "@/components/auth/SignOutButton";
+import Link from "next/link";
 
-const roleLabel: Record<"ADMIN" | "TRAINER" | "CLIENT", string> = {
-  ADMIN: "Admin",
-  TRAINER: "Personal Trainer",
-  CLIENT: "Cliente",
-};
+function roleLabel(r?: "ADMIN" | "TRAINER" | "CLIENT") {
+  if (r === "ADMIN") return "Admin";
+  if (r === "TRAINER") return "Personal Trainer";
+  return undefined;
+}
 
 export default async function Header() {
   const session = await getServerSession(authOptions);
-  const user = session?.user as
-    | { id: string; name?: string | null; email?: string | null; role?: "ADMIN" | "TRAINER" | "CLIENT" }
-    | undefined;
+  const user = session?.user as { id: string; name?: string | null; email?: string | null; role?: "ADMIN"|"TRAINER"|"CLIENT" } | undefined;
 
-  const name =
-    (user?.name && user.name.trim()) ||
-    (user?.email ? user.email.split("@")[0] : "Utilizador");
-  const role = user?.role ?? "CLIENT";
-  const greet = `Olá, ${name}${role !== "CLIENT" ? ` (${roleLabel[role]})` : ""}`;
+  const greetingName = user?.name || user?.email || "Utilizador";
+  const label = roleLabel(user?.role);
 
   return (
-    <header className="sticky top-0 z-40 border-b bg-gradient-to-r from-background/60 to-background/40 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="mx-auto flex h-14 w-full max-w-7xl items-center justify-between px-4">
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 ring-1 ring-primary/20" />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium">{greet}</p>
-            <p className="truncate text-xs text-muted-foreground">
-              Bem-vindo à sua área de trabalho
-            </p>
-          </div>
+    <header className="sticky top-0 z-30 border-b bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:bg-neutral-900/70 dark:supports-[backdrop-filter]:bg-neutral-900/60">
+      <div className="mx-auto flex max-w-screen-2xl items-center justify-between px-4 py-3">
+        <div className="flex items-center gap-3">
+          <Link href="/dashboard" className="font-semibold tracking-tight hover:opacity-80">
+            Fitness Pro
+          </Link>
+          <span className="hidden text-sm text-neutral-500 dark:text-neutral-400 md:inline">
+            {`Olá, ${greetingName}${label ? ` (${label})` : ""}`}
+          </span>
         </div>
-
         <div className="flex items-center gap-2">
           <ThemeToggle />
           <SignOutButton />

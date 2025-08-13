@@ -1,3 +1,4 @@
+// src/middleware.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
@@ -5,53 +6,40 @@ import { getToken } from "next-auth/jwt";
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Recursos públicos
-  if (
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/favicon") ||
-    pathname.startsWith("/api/auth") ||
-    pathname === "/" ||
-    pathname.startsWith("/login") ||
-    pathname.startsWith("/register")
-  ) {
-    return NextResponse.next();
-  }
+  // Páginas públicas
+  const publicPaths = ["/", "/login", "/register"];
+  const isPublic = publicPaths.some((p) => pathname === p || pathname.startsWith(p + "/"));
 
+  // Token NextAuth
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
   const isAuth = !!token;
 
-  // Rotas privadas
-  const isPrivate =
-    pathname === "/dashboard" ||
-    pathname.startsWith("/dashboard/") ||
-    pathname === "/trainer" ||
-    pathname.startsWith("/trainer/") ||
-    pathname === "/admin" ||
-    pathname.startsWith("/admin/");
-
-  if (!isAuth && isPrivate) {
+  // Se não autenticado e a tentar /dashboard → /login
+  if (!isAuth && pathname.startsWith("/dashboard")) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("callbackUrl", req.nextUrl.href);
     return NextResponse.redirect(url);
   }
 
-  if (isAuth && pathname === "/login") {
+  // Se autenticado e a tentar / ou /login /register → /dashboard
+  if (isAuth && isPublic) {
     const url = req.nextUrl.clone();
     url.pathname = "/dashboard";
     url.searchParams.delete("callbackUrl");
     return NextResponse.redirect(url);
   }
 
+  // RBAC
   const role = (token as any)?.role as "ADMIN" | "TRAINER" | "CLIENT" | undefined;
 
-  // RBAC
-  if (pathname.startsWith("/admin") && role !== "ADMIN") {
+  if (pathname.startsWith("/dashboard/admin") && role !== "ADMIN") {
     const url = req.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
   }
-  if (pathname.startsWith("/trainer") && !(role === "ADMIN" || role === "TRAINER")) {
+
+  if (pathname.startsWith("/dashboard/trainer") && !(role === "ADMIN" || role === "TRAINER")) {
     const url = req.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
@@ -60,6 +48,7 @@ export async function middleware(req: NextRequest) {
   return NextResponse.next();
 }
 
+// Executa em tudo EXCEPTO _next static/image, favicon e API
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 };

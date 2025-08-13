@@ -1,7 +1,6 @@
 // src/app/(app)/dashboard/layout.tsx
-import "@/app/globals.css";
-import SidebarWrapper from "@/components/SidebarWrapper";
 import Header from "@/components/Header";
+import SidebarWrapper from "@/components/SidebarWrapper";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (

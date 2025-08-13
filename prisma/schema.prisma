@@ -1,3 +1,10 @@
+// prisma/schema.prisma
+// -----------------------------------------------------
+// Prisma + Postgres (Supabase) — Fitness Pro
+// Inclui: users, sessions, trainer_clients, audit_logs
+// Enums: Role, Status, SessionStatus
+// -----------------------------------------------------
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -5,24 +12,66 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  directUrl = env("DIRECT_URL") // opcional
 }
 
+// -----------------------------------------------------
+// Enums
+// -----------------------------------------------------
+
+enum Role {
+  ADMIN
+  TRAINER
+  CLIENT
+
+  @@map("Role") // mapeia para o enum Postgres "Role"
+}
+
+enum Status {
+  PENDING
+  APPROVED
+  REJECTED
+  BLOCKED
+
+  @@map("Status") // mapeia para o enum Postgres "Status"
+}
+
+// Mantemos os valores em PT pois já são usados no código.
+// Se preferires em EN, muda aqui e atualiza a normalização no código.
+enum SessionStatus {
+  pendente
+  aceite
+  recusada
+  cancelada
+  realizada
+
+  @@map("SessionStatus") // mapeia para o enum Postgres "SessionStatus"
+}
+
+// -----------------------------------------------------
+// Modelos
+// -----------------------------------------------------
+
 model User {
-  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email            String          @unique @db.Citext
-  passwordHash     String          @map("password_hash")
-  name             String?
-  role             Role            @default(CLIENT)
-  createdAt        DateTime        @default(now()) @map("created_at")
-  updatedAt        DateTime        @default(now()) @updatedAt @map("updated_at")
-  status           UserStatus      @default(PENDING)
-  status_new       Status          @default(PENDING)
-  auditLogs        AuditLog[]
-  clientSessions   Session[]       @relation("ClientSessions")
-  trainerSessions  Session[]       @relation("TrainerSessions")
-  assignedTrainers TrainerClient[] @relation("TrainerClients_client")
-  managedClients   TrainerClient[] @relation("TrainerClients_trainer")
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique @db.Citext
+  name         String?
+  passwordHash String   @map("password_hash")
+  role         Role     @default(CLIENT)
+  status       Status   @default(PENDING)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relações
+  trainerSessions Session[] @relation("TrainerSessions")
+  clientSessions  Session[] @relation("ClientSessions")
+
+  // Atribuições PT<->Cliente
+  trainerClientsAsTrainer TrainerClient[] @relation("TrainerClients_trainer")
+  trainerClientsAsClient  TrainerClient[] @relation("TrainerClients_client")
+
+  // Logs de auditoria
+  auditLogs AuditLog[]
 
   @@index([role])
   @@index([status])
@@ -30,16 +79,17 @@ model User {
 }
 
 model Session {
-  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id          String        @id @default(uuid()) @db.Uuid
   trainerId   String        @map("trainer_id") @db.Uuid
   clientId    String        @map("client_id") @db.Uuid
-  scheduledAt DateTime      @map("scheduled_at") @db.Timestamptz(6)
+  scheduledAt DateTime      @map("scheduled_at")
   status      SessionStatus @default(pendente)
   notes       String?
-  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  client      User          @relation("ClientSessions", fields: [clientId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  trainer     User          @relation("TrainerSessions", fields: [trainerId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  trainer User @relation("TrainerSessions", fields: [trainerId], references: [id])
+  client  User @relation("ClientSessions", fields: [clientId], references: [id])
 
   @@index([trainerId], map: "sessions_trainer_idx")
   @@index([clientId], map: "sessions_client_idx")
@@ -48,56 +98,30 @@ model Session {
 }
 
 model TrainerClient {
+  id        String   @id @default(uuid()) @db.Uuid
   trainerId String   @db.Uuid
   clientId  String   @db.Uuid
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  client    User     @relation("TrainerClients_client", fields: [clientId], references: [id], onDelete: Cascade, map: "trainer_clients_client_fkey")
-  trainer   User     @relation("TrainerClients_trainer", fields: [trainerId], references: [id], onDelete: Cascade, map: "trainer_clients_trainer_fkey")
+  createdAt DateTime @default(now())
 
-  @@id([trainerId, clientId])
-  @@index([clientId], map: "trainer_clients_client_idx")
+  trainer User @relation("TrainerClients_trainer", fields: [trainerId], references: [id])
+  client  User @relation("TrainerClients_client",  fields: [clientId],  references: [id])
+
+  @@unique([trainerId, clientId])
+  @@index([trainerId])
+  @@index([clientId])
   @@map("trainer_clients")
 }
 
 model AuditLog {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  actorId    String?  @db.Uuid
-  action     String
-  targetType String
-  targetId   String?
-  metadata   Json?
-  createdAt  DateTime @default(now()) @db.Timestamptz(6)
-  actor      User?    @relation(fields: [actorId], references: [id], map: "audit_logs_actor_fkey")
+  id        String   @id @default(uuid()) @db.Uuid
+  actorId   String?  @db.Uuid
+  action    String
+  target    String?
+  meta      Json?
+  createdAt DateTime @default(now())
 
-  @@index([createdAt], map: "audit_logs_created_idx")
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@index([actorId])
   @@map("audit_logs")
-}
-
-enum SessionStatus {
-  pendente
-  aceite
-  recusada
-  cancelada
-  realizada
-
-  @@map("SessionStatus")
-}
-
-enum Role {
-  CLIENT
-  TRAINER
-  ADMIN
-}
-
-enum Status {
-  PENDING
-  APPROVED
-  REJECTED
-  BLOCKED
-}
-
-enum UserStatus {
-  PENDING
-  APPROVED
-  REJECTED
 }
