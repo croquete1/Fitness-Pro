@@ -1,7 +1,3 @@
-// -----------------------------------------------------
-// prisma/schema.prisma — consistente e validado
-// -----------------------------------------------------
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -12,18 +8,87 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// -----------------------------------------------------
-// Enums
-// -----------------------------------------------------
+model User {
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email            String          @unique @db.Citext
+  passwordHash     String          @map("password_hash")
+  name             String?
+  role             Role            @default(CLIENT)
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @default(now()) @updatedAt @map("updated_at")
+  status           UserStatus      @default(PENDING)
+  status_new       Status          @default(PENDING)
+  auditLogs        AuditLog[]
+  clientSessions   Session[]       @relation("ClientSessions")
+  trainerSessions  Session[]       @relation("TrainerSessions")
+  assignedTrainers TrainerClient[] @relation("TrainerClients_client")
+  managedClients   TrainerClient[] @relation("TrainerClients_trainer")
 
-// Perfis de utilizador (já usados no app)
-enum Role {
-  ADMIN
-  TRAINER
-  CLIENT
+  @@index([role])
+  @@index([status])
+  @@map("users")
 }
 
-// Estado do utilizador (aprovado pelo admin, etc.)
+model Session {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  trainerId   String        @map("trainer_id") @db.Uuid
+  clientId    String        @map("client_id") @db.Uuid
+  scheduledAt DateTime      @map("scheduled_at") @db.Timestamptz(6)
+  status      SessionStatus @default(pendente)
+  notes       String?
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  client      User          @relation("ClientSessions", fields: [clientId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  trainer     User          @relation("TrainerSessions", fields: [trainerId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([trainerId], map: "sessions_trainer_idx")
+  @@index([clientId], map: "sessions_client_idx")
+  @@index([scheduledAt], map: "sessions_scheduled_idx")
+  @@map("sessions")
+}
+
+model TrainerClient {
+  trainerId String   @db.Uuid
+  clientId  String   @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  client    User     @relation("TrainerClients_client", fields: [clientId], references: [id], onDelete: Cascade, map: "trainer_clients_client_fkey")
+  trainer   User     @relation("TrainerClients_trainer", fields: [trainerId], references: [id], onDelete: Cascade, map: "trainer_clients_trainer_fkey")
+
+  @@id([trainerId, clientId])
+  @@index([clientId], map: "trainer_clients_client_idx")
+  @@map("trainer_clients")
+}
+
+model AuditLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorId    String?  @db.Uuid
+  action     String
+  targetType String
+  targetId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+  actor      User?    @relation(fields: [actorId], references: [id], map: "audit_logs_actor_fkey")
+
+  @@index([createdAt], map: "audit_logs_created_idx")
+  @@map("audit_logs")
+}
+
+enum SessionStatus {
+  pendente
+  aceite
+  recusada
+  cancelada
+  realizada
+
+  @@map("SessionStatus")
+}
+
+enum Role {
+  CLIENT
+  TRAINER
+  ADMIN
+}
+
 enum Status {
   PENDING
   APPROVED
@@ -31,51 +96,8 @@ enum Status {
   BLOCKED
 }
 
-// Estado das sessões/treinos
-enum SessionStatus {
+enum UserStatus {
   PENDING
-  ACCEPTED
+  APPROVED
   REJECTED
-  CANCELLED
-  COMPLETED
-}
-
-// -----------------------------------------------------
-// Modelos
-// -----------------------------------------------------
-
-model User {
-  id             String   @id @default(uuid()) @db.Uuid
-  email          String   @unique @db.Citext
-  name           String?
-  passwordHash   String   @map("password_hash")
-  role           Role     @default(CLIENT)
-  status         Status   @default(PENDING)
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
-
-  // Relações (para componentes de Trainer/Admin)
-  trainerSessions Session[] @relation("TrainerSessions")
-  clientSessions  Session[] @relation("ClientSessions")
-
-  @@map("users")
-}
-
-model Session {
-  id          String        @id @default(uuid()) @db.Uuid
-  trainerId   String        @map("trainer_id") @db.Uuid
-  clientId    String        @map("client_id")  @db.Uuid
-  scheduledAt DateTime      @map("scheduled_at")
-  status      SessionStatus @default(PENDING)
-  notes       String?
-  createdAt   DateTime      @default(now()) @map("created_at")
-  updatedAt   DateTime      @updatedAt @map("updated_at")
-
-  trainer User @relation("TrainerSessions", fields: [trainerId], references: [id])
-  client  User @relation("ClientSessions", fields: [clientId], references: [id])
-
-  @@index([trainerId])
-  @@index([clientId])
-  @@index([scheduledAt])
-  @@map("sessions")
 }
