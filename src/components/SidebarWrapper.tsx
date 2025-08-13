@@ -1,25 +1,18 @@
-// src/components/SidebarWrapper.tsx
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
-import SidebarClient, { RawUser } from "./SidebarClient";
 import { redirect } from "next/navigation";
+import SidebarClient, { RawUser } from "./SidebarClient";
 
 export default async function SidebarWrapper() {
   const session = await getServerSession(authOptions);
-  const user = session?.user as
-    | { id: string; name?: string | null; email?: string | null; role?: "ADMIN" | "TRAINER" | "CLIENT" }
-    | undefined;
+  if (!session?.user) redirect("/login");
 
-  if (!user?.id || !user.role) {
-    redirect("/login");
-  }
+  const user = {
+    id: (session.user as any).id as string,
+    name: session.user.name ?? null,
+    email: session.user.email!,
+    role: (session.user as any).role as RawUser["role"],
+  } satisfies RawUser;
 
-  const raw: RawUser = {
-    id: user.id,
-    name: user.name ?? null,
-    email: user.email ?? null,
-    role: user.role!,
-  };
-
-  return <SidebarClient user={raw} />;
+  return <SidebarClient user={user} />;
 }

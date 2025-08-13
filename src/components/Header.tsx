@@ -1,37 +1,35 @@
-// src/components/Header.tsx
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
-import ThemeToggle from "@/components/ThemeToggle";
-import SignOutButton from "@/components/auth/SignOutButton";
-import Link from "next/link";
+"use client";
 
-function roleLabel(r?: "ADMIN" | "TRAINER" | "CLIENT") {
-  if (r === "ADMIN") return "Admin";
-  if (r === "TRAINER") return "Personal Trainer";
-  return undefined;
-}
+import { useSession, signOut } from "next-auth/react";
+import ThemeToggle from "./ThemeToggle";
 
-export default async function Header() {
-  const session = await getServerSession(authOptions);
-  const user = session?.user as { id: string; name?: string | null; email?: string | null; role?: "ADMIN"|"TRAINER"|"CLIENT" } | undefined;
+export default function Header() {
+  const { data } = useSession();
+  const role = (data?.user as any)?.role as "ADMIN" | "TRAINER" | "CLIENT" | undefined;
 
-  const greetingName = user?.name || user?.email || "Utilizador";
-  const label = roleLabel(user?.role);
+  const greetingRole =
+    role === "ADMIN" ? " (Admin)" :
+    role === "TRAINER" ? " (Personal Trainer)" : "";
+
+  const name = data?.user?.name || data?.user?.email || "Utilizador";
 
   return (
-    <header className="sticky top-0 z-30 border-b bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:bg-neutral-900/70 dark:supports-[backdrop-filter]:bg-neutral-900/60">
-      <div className="mx-auto flex max-w-screen-2xl items-center justify-between px-4 py-3">
-        <div className="flex items-center gap-3">
-          <Link href="/dashboard" className="font-semibold tracking-tight hover:opacity-80">
-            Fitness Pro
-          </Link>
-          <span className="hidden text-sm text-neutral-500 dark:text-neutral-400 md:inline">
-            {`Olá, ${greetingName}${label ? ` (${label})` : ""}`}
-          </span>
+    <header className="sticky top-0 z-30 border-b bg-white/60 dark:bg-black/30 backdrop-blur">
+      <div className="mx-auto flex h-14 max-w-screen-2xl items-center justify-between px-4">
+        <div className="font-medium">
+          <span className="opacity-70">Fitness Pro</span>{" "}
+          <span className="opacity-60">|</span>{" "}
+          <span className="opacity-80">Olá, {name}{greetingRole}</span>
         </div>
+
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <SignOutButton />
+          <button
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            className="rounded-lg border px-3 py-1.5 text-sm hover:bg-muted/60"
+          >
+            Sair
+          </button>
         </div>
       </div>
     </header>
