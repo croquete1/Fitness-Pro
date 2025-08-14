@@ -1,35 +1,26 @@
 "use client";
 
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import ThemeToggle from "./ThemeToggle";
+import SignOutButton from "@/components/auth/SignOutButton";
 
 export default function Header() {
   const { data } = useSession();
   const role = (data?.user as any)?.role as "ADMIN" | "TRAINER" | "CLIENT" | undefined;
+  const name = data?.user?.name ?? data?.user?.email ?? "Utilizador";
 
-  const greetingRole =
-    role === "ADMIN" ? " (Admin)" :
-    role === "TRAINER" ? " (Personal Trainer)" : "";
-
-  const name = data?.user?.name || data?.user?.email || "Utilizador";
+  let suffix = "";
+  if (role === "ADMIN") suffix = " (Admin)";
+  else if (role === "TRAINER") suffix = " (Personal Trainer)";
 
   return (
     <header className="sticky top-0 z-30 border-b bg-white/60 dark:bg-black/30 backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-screen-2xl items-center justify-between px-4">
-        <div className="font-medium">
-          <span className="opacity-70">Fitness Pro</span>{" "}
-          <span className="opacity-60">|</span>{" "}
-          <span className="opacity-80">Olá, {name}{greetingRole}</span>
-        </div>
-
-        <div className="flex items-center gap-2">
+      <div className="mx-auto max-w-screen-2xl flex items-center justify-between gap-4 px-4 py-3">
+        <div className="font-semibold">Fitness Pro</div>
+        <div className="flex items-center gap-3">
+          <div className="text-sm opacity-80">Olá, {name}{suffix}</div>
           <ThemeToggle />
-          <button
-            onClick={() => signOut({ callbackUrl: "/login" })}
-            className="rounded-lg border px-3 py-1.5 text-sm hover:bg-muted/60"
-          >
-            Sair
-          </button>
+          <SignOutButton />
         </div>
       </div>
     </header>

@@ -1,4 +1,4 @@
-// src/app/(app)/dashboard/layout.tsx
+// src/app/(app)/dashboard/layout.tsx  (apenas referência)
 import SidebarWrapper from "@/components/SidebarWrapper";
 import Header from "@/components/Header";
 
