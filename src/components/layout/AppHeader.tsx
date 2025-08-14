@@ -1,4 +1,3 @@
-// src/components/layout/AppHeader.tsx
 "use client";
 
 import React, { useMemo } from "react";
@@ -24,6 +23,16 @@ export default function AppHeader() {
 
   const salutation = useMemo(() => greet(new Date()), []);
 
+  const toggleSidebar = () => {
+    const html = document.documentElement;
+    const isOpen = html.getAttribute("data-sidebar") === "open";
+    if (isOpen) {
+      html.removeAttribute("data-sidebar");
+    } else {
+      html.setAttribute("data-sidebar", "open");
+    }
+  };
+
   return (
     <header
       style={{
@@ -44,10 +53,23 @@ export default function AppHeader() {
           padding: ".8rem 1rem",
           maxWidth: 1280,
           margin: "0 auto",
+          minHeight: "var(--header-h)",
         }}
       >
-        {/* Marca / título */}
+        {/* Marca / título + Hambúrguer em mobile */}
         <div style={{ display: "flex", alignItems: "center", gap: ".6rem" }}>
+          <button
+            className="fp-hamburger"
+            type="button"
+            aria-label="Abrir menu"
+            onClick={toggleSidebar}
+          >
+            {/* ícone hambúrguer simples */}
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
+              <path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" />
+            </svg>
+          </button>
+
           <div
             aria-hidden
             style={{
@@ -96,7 +118,6 @@ export default function AppHeader() {
         <div style={{ display: "flex", justifyContent: "flex-end", gap: ".6rem", alignItems: "center" }}>
           <ThemeToggle />
           {data?.user ? <SignOutButton /> : null}
-          {/* Avatar simples com inicial */}
           <div
             title={data?.user?.email || "Utilizador"}
             style={{
