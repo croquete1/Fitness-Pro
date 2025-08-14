@@ -21,7 +21,7 @@ export default function SidebarClient({ initialRole }: { initialRole?: UserRole 
     <aside
       className="fp-sidebar"
       style={{
-        width: "100%",                 // será ignorado em desktop pela classe .fp-sidebar
+        width: "100%",
         borderRight: "1px solid var(--border)",
         padding: "0.75rem",
         position: "sticky",
@@ -30,7 +30,7 @@ export default function SidebarClient({ initialRole }: { initialRole?: UserRole 
         background: "var(--bg)",
         display: "flex",
         flexDirection: "column",
-        resize: "none" as any,         // salvaguarda contra eventuais estilos externos
+        resize: "none" as any,
       }}
     >
       {/* Links */}
@@ -52,6 +52,8 @@ export default function SidebarClient({ initialRole }: { initialRole?: UserRole 
             <Link
               key={item.key}
               href={item.href}
+              prefetch={false}
+              aria-current={active ? "page" : undefined}
               style={{
                 display: "flex",
                 alignItems: "center",

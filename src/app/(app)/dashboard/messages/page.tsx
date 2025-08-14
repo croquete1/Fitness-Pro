@@ -2,17 +2,11 @@
 export const metadata = { title: "Mensagens · Dashboard" };
 
 async function getMessages() {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL ?? ""}/api/dashboard/messages`, {
+  const res = await fetch("/api/dashboard/messages", {
     cache: "no-store",
-    headers: { "Content-Type": "application/json" },
+    // next: { revalidate: 0 } // opcional, redundante com no-store
   });
-
-  // Fallback para dev/preview onde NEXT_PUBLIC_APP_URL pode não estar definido
-  if (!res.ok) {
-    const res2 = await fetch("/api/dashboard/messages", { cache: "no-store" });
-    if (!res2.ok) throw new Error("Não foi possível obter as mensagens");
-    return res2.json();
-  }
+  if (!res.ok) throw new Error("Não foi possível obter as mensagens");
   return res.json();
 }
 
