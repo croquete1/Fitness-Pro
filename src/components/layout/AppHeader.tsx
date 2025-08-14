@@ -2,7 +2,9 @@
 
 import { useMemo } from "react";
 import { useSession } from "next-auth/react";
+import { usePathname } from "next/navigation";
 import ThemeToggle from "./ThemeToggle";
+import SignOutButton from "@/components/auth/SignOutButton";
 
 function greet(now = new Date()) {
   const h = now.getHours();
@@ -14,10 +16,15 @@ function greet(now = new Date()) {
 
 export default function AppHeader() {
   const { data } = useSession();
+  const pathname = usePathname();
+
   const displayName =
     (data?.user?.name && data.user.name.split(" ")[0]) ||
     data?.user?.email?.split("@")[0] ||
     "Utilizador";
+
+  const role = (data?.user as any)?.role as "ADMIN" | "PT" | "CLIENT" | undefined;
+  const isAdminRoute = pathname?.startsWith("/dashboard/admin") === true;
 
   const salutation = useMemo(() => greet(new Date()), []);
 
@@ -32,14 +39,14 @@ export default function AppHeader() {
         background: "var(--bg-header)",
       }}
     >
-      {/* Variáveis de tema (apenas para o header e áreas simples) */}
+      {/* Variáveis de tema globais para o header/área principal */}
       <style jsx global>{`
         :root {
-          --bg: #f8fafc; /* slate-50 */
-          --fg: #0f172a; /* slate-900 */
-          --muted: #475569; /* slate-600 */
-          --border: #e2e8f0; /* slate-200 */
-          --accent: #3b82f6; /* blue-500 */
+          --bg: #f8fafc;
+          --fg: #0f172a;
+          --muted: #475569;
+          --border: #e2e8f0;
+          --accent: #3b82f6;
           --bg-header: rgba(248, 250, 252, 0.85);
           --chip: #e8f0fe;
         }
@@ -115,9 +122,15 @@ export default function AppHeader() {
           </div>
         </div>
 
-        {/* Ações */}
+        {/* Ações (direita) */}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: ".6rem", alignItems: "center" }}>
           <ThemeToggle />
+
+          {/* Botão de sair apenas na rota de administração e para role ADMIN */}
+          {role === "ADMIN" && isAdminRoute ? (
+            <SignOutButton />
+          ) : null}
+
           {/* Avatar simples com inicial */}
           <div
             title={data?.user?.email || "Utilizador"}
