@@ -6,4 +6,55 @@
 :root {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  /* ===== Fitness Pro — Tema global & layout ===== */
+:root {
+  --bg: #f8fafc;         /* slate-50 */
+  --fg: #0f172a;         /* slate-900 */
+  --muted: #475569;      /* slate-600 */
+  --border: #e2e8f0;     /* slate-200 */
+  --accent: #3b82f6;     /* blue-500 */
+  --bg-header: rgba(248, 250, 252, 0.85);
+  --chip: #e8f0fe;
+
+  /* Largura fixa da sidebar (desktop) */
+  --sidebar-w: 260px;
+}
+
+[data-theme="dark"] {
+  --bg: #0b1220;
+  --fg: #e5e7eb;
+  --muted: #94a3b8;
+  --border: #1f2937;
+  --accent: #60a5fa;
+  --bg-header: rgba(11, 18, 32, 0.6);
+  --chip: #1f2937;
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+/* Layout com sidebar fixa no desktop */
+@media (min-width: 1024px) {
+  .fp-shell {
+    display: grid;
+    grid-template-columns: var(--sidebar-w) 1fr !important;
+  }
+  .fp-sidebar {
+    width: var(--sidebar-w) !important;
+    min-width: var(--sidebar-w) !important;
+    max-width: var(--sidebar-w) !important;
+    flex: 0 0 var(--sidebar-w) !important;
+  }
+}
+
+/* Layout fluido em mobile/tablet */
+@media (max-width: 1023.98px) {
+  .fp-shell {
+    display: grid;
+    grid-template-columns: 1fr !important;
+  }
+}
+
 }

@@ -1,12 +1,12 @@
 // src/components/layout/AppHeader.tsx
 "use client";
 
-import { useMemo } from "react";
+import React, { useMemo } from "react";
 import { useSession } from "next-auth/react";
 import ThemeToggle from "./ThemeToggle";
 import SignOutButton from "@/components/auth/SignOutButton";
 
-function greet(now = new Date()) {
+function greet(now: Date) {
   const h = now.getHours();
   if (h < 6) return "Boa madrugada";
   if (h < 12) return "Bom dia";
@@ -35,55 +35,6 @@ export default function AppHeader() {
         background: "var(--bg-header)",
       }}
     >
-      {/* Variáveis e regras globais (inclui lock da sidebar em desktop) */}
-      <style jsx global>{`
-        :root {
-          --bg: #f8fafc;
-          --fg: #0f172a;
-          --muted: #475569;
-          --border: #e2e8f0;
-          --accent: #3b82f6;
-          --bg-header: rgba(248, 250, 252, 0.85);
-          --chip: #e8f0fe;
-
-          /* largura fixa da sidebar no desktop */
-          --sidebar-w: 260px;
-        }
-        [data-theme="dark"] {
-          --bg: #0b1220;
-          --fg: #e5e7eb;
-          --muted: #94a3b8;
-          --border: #1f2937;
-          --accent: #60a5fa;
-          --bg-header: rgba(11, 18, 32, 0.6);
-          --chip: #1f2937;
-        }
-        body {
-          background: var(--bg);
-          color: var(--fg);
-        }
-        /* Desktop (PC): sidebar fixa */
-        @media (min-width: 1024px) {
-          .fp-shell {
-            display: grid;
-            grid-template-columns: var(--sidebar-w) 1fr !important;
-          }
-          .fp-sidebar {
-            width: var(--sidebar-w) !important;
-            min-width: var(--sidebar-w) !important;
-            max-width: var(--sidebar-w) !important;
-            flex: 0 0 var(--sidebar-w) !important;
-          }
-        }
-        /* Mobile/Tablet: layout fluido */
-        @media (max-width: 1023.98px) {
-          .fp-shell {
-            display: grid;
-            grid-template-columns: 1fr !important;
-          }
-        }
-      `}</style>
-
       <div
         style={{
           display: "grid",
@@ -145,6 +96,7 @@ export default function AppHeader() {
         <div style={{ display: "flex", justifyContent: "flex-end", gap: ".6rem", alignItems: "center" }}>
           <ThemeToggle />
           {data?.user ? <SignOutButton /> : null}
+          {/* Avatar simples com inicial */}
           <div
             title={data?.user?.email || "Utilizador"}
             style={{
