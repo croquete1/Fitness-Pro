@@ -1,12 +1,9 @@
+// src/components/ClientProviders.tsx
 "use client";
 
-import { ReactNode } from "react";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { SessionProvider } from "next-auth/react";
+import type { ReactNode } from "react";
 
-export default function ClientProviders({
-  children,
-}: {
-  children: ReactNode;
-}) {
-  return <AuthProvider>{children}</AuthProvider>;
+export default function ClientProviders({ children }: { children: ReactNode }) {
+  return <SessionProvider>{children}</SessionProvider>;
 }

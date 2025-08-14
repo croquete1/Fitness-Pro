@@ -10,24 +10,26 @@ export default function SidebarClient() {
   const { data } = useSession();
   const pathname = usePathname();
 
-  // role vem do NextAuth (tipado no teu src/types/next-auth.d.ts)
   const role = (data?.user as any)?.role as UserRole | undefined;
   const items = navFor(role);
 
   return (
     <aside
       style={{
-        width: 250,
+        width: "100%",
         borderRight: "1px solid var(--border)",
         padding: "0.75rem",
         position: "sticky",
         top: 0,
-        height: "100dvh",
+        height: "calc(100dvh - 64px)", // acompanha o header
+        overflowY: "auto",
+        background: "var(--bg)",
       }}
     >
       <nav aria-label="Navegação lateral" style={{ display: "grid", gap: 6 }}>
         {items.map((item) => {
-          const active = pathname === item.href || pathname?.startsWith(item.href + "/");
+          const active =
+            pathname === item.href || (pathname?.startsWith(item.href + "/") && item.href !== "/dashboard");
           return (
             <Link
               key={item.key}
@@ -36,7 +38,7 @@ export default function SidebarClient() {
                 display: "flex",
                 alignItems: "center",
                 gap: 10,
-                padding: "8px 10px",
+                padding: "10px 12px",
                 borderRadius: 10,
                 textDecoration: "none",
                 background: active ? "var(--chip)" : "transparent",
@@ -45,10 +47,7 @@ export default function SidebarClient() {
                 fontWeight: active ? 600 : 500,
               }}
             >
-              {/* Ícone simples inline (podes trocar pelos teus de components/icons.tsx) */}
-              <span aria-hidden style={{ fontSize: 14 }}>
-                {iconFor(item.icon)}
-              </span>
+              <span aria-hidden style={{ fontSize: 14 }}>{iconFor(item.icon)}</span>
               <span>{item.label}</span>
             </Link>
           );

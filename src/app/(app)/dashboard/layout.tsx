@@ -1,5 +1,7 @@
+// src/app/(app)/dashboard/layout.tsx
 import React from "react";
 import AppHeader from "@/components/layout/AppHeader";
+import SidebarWrapper from "@/components/SidebarWrapper";
 import ClientProviders from "@/components/ClientProviders";
 
 export const metadata = {
@@ -9,10 +11,8 @@ export const metadata = {
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <ClientProviders>
-      <div>
-        <AppHeader />
-        <main style={{ maxWidth: 1280, margin: "0 auto", padding: "1rem" }}>{children}</main>
-      </div>
+      <AppHeader />
+      <SidebarWrapper>{children}</SidebarWrapper>
     </ClientProviders>
   );
 }
