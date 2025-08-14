@@ -56,6 +56,9 @@ html[data-sidebar="open"] { overflow: hidden; }
   height: calc(100dvh - var(--header-h));
   background: var(--bg);
   border-right: 1px solid var(--border);
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Overlay para mobile (controlado via componente) */
@@ -94,6 +97,70 @@ html[data-sidebar="open"] { overflow: hidden; }
   align-items: center;
   gap: .75rem;
 }
+
+/* ===== Navegação da sidebar ===== */
+.fp-nav {
+  display: grid;
+  gap: 8px;
+  align-content: start;           /* não esticar linhas */
+  grid-auto-rows: max-content;
+  flex: 1;
+  min-height: 0;
+}
+.fp-nav-item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px 8px 18px;    /* espaço para a ink bar */
+  border-radius: 10px;
+  text-decoration: none;
+  color: inherit;
+  border: 1px solid transparent;
+  line-height: 1.2;
+  min-height: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: border-color .18s ease, background-color .18s ease, transform .18s ease;
+}
+.fp-nav-item .fp-ink {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  width: 4px;
+  height: 60%;
+  border-radius: 999px;
+  background: var(--accent);
+  transform: translateY(-50%) scaleY(0);
+  transform-origin: center;
+  transition: transform .18s ease;
+}
+.fp-nav-item:hover {
+  background: var(--chip);
+  border-color: var(--border);
+  transform: translateX(2px);
+}
+.fp-nav-item:hover .fp-ink { transform: translateY(-50%) scaleY(1); }
+
+.fp-nav-item.active {
+  border-color: var(--border);    /* outline subtil */
+  background: transparent;        /* sem “tile” gigante */
+  font-weight: 700;               /* negrito */
+}
+.fp-nav-item.active .fp-ink { transform: translateY(-50%) scaleY(1); }
+
+/* Footer da sidebar */
+.fp-nav-footer {
+  margin-top: auto;
+  padding-top: .75rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: .5rem;
+}
+.fp-nav-session { font-size: .8rem; color: var(--muted); }
 
 /* ===== Desktop ===== */
 @media (min-width: 1024px) {
@@ -157,9 +224,4 @@ html[data-sidebar="open"] { overflow: hidden; }
   width: 1px; height: 1px;
   padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0);
   white-space: nowrap; border: 0;
-
-  /* Reforço: impedir que as linhas da sidebar estiquem */
-.fp-sidebar nav { align-content: start; grid-auto-rows: max-content; }
-.fp-sidebar nav a { min-height: 0; line-height: 1.2; }
-
 }
