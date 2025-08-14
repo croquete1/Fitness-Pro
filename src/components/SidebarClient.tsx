@@ -19,8 +19,9 @@ export default function SidebarClient({ initialRole }: { initialRole?: UserRole 
 
   return (
     <aside
+      className="fp-sidebar"
       style={{
-        width: "100%",
+        width: "100%",                 // será ignorado em desktop pela classe .fp-sidebar
         borderRight: "1px solid var(--border)",
         padding: "0.75rem",
         position: "sticky",
@@ -29,6 +30,7 @@ export default function SidebarClient({ initialRole }: { initialRole?: UserRole 
         background: "var(--bg)",
         display: "flex",
         flexDirection: "column",
+        resize: "none" as any,         // salvaguarda contra eventuais estilos externos
       }}
     >
       {/* Links */}
@@ -36,15 +38,16 @@ export default function SidebarClient({ initialRole }: { initialRole?: UserRole 
         aria-label="Navegação lateral"
         style={{
           display: "grid",
-          gap: 8,                    // espaçamento compacto
-          alignContent: "start",     // <— impede o esticar vertical das linhas
+          gap: 8,
+          alignContent: "start",
           gridAutoRows: "min-content",
-          flex: 1,                   // empurra o rodapé para baixo sem esticar as linhas
+          flex: 1,
         }}
       >
         {items.map((item) => {
           const active =
-            pathname === item.href || (pathname?.startsWith(item.href + "/") && item.href !== "/dashboard");
+            pathname === item.href ||
+            (pathname?.startsWith(item.href + "/") && item.href !== "/dashboard");
           return (
             <Link
               key={item.key}
@@ -53,14 +56,14 @@ export default function SidebarClient({ initialRole }: { initialRole?: UserRole 
                 display: "flex",
                 alignItems: "center",
                 gap: 10,
-                padding: "8px 10px", // menos alto
+                padding: "8px 10px",
                 borderRadius: 10,
                 textDecoration: "none",
                 background: active ? "var(--chip)" : "transparent",
                 color: "inherit",
                 border: active ? "1px solid var(--border)" : "1px solid transparent",
                 fontWeight: active ? 600 : 500,
-                lineHeight: 1.2,     // garante altura controlada
+                lineHeight: 1.2,
               }}
             >
               <span aria-hidden style={{ fontSize: 14 }}>{iconFor(item.icon)}</span>

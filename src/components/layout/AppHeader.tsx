@@ -35,7 +35,7 @@ export default function AppHeader() {
         background: "var(--bg-header)",
       }}
     >
-      {/* Variáveis de tema globais */}
+      {/* Variáveis e regras globais (inclui lock da sidebar em desktop) */}
       <style jsx global>{`
         :root {
           --bg: #f8fafc;
@@ -45,6 +45,9 @@ export default function AppHeader() {
           --accent: #3b82f6;
           --bg-header: rgba(248, 250, 252, 0.85);
           --chip: #e8f0fe;
+
+          /* largura fixa da sidebar no desktop */
+          --sidebar-w: 260px;
         }
         [data-theme="dark"] {
           --bg: #0b1220;
@@ -58,6 +61,26 @@ export default function AppHeader() {
         body {
           background: var(--bg);
           color: var(--fg);
+        }
+        /* Desktop (PC): sidebar fixa */
+        @media (min-width: 1024px) {
+          .fp-shell {
+            display: grid;
+            grid-template-columns: var(--sidebar-w) 1fr !important;
+          }
+          .fp-sidebar {
+            width: var(--sidebar-w) !important;
+            min-width: var(--sidebar-w) !important;
+            max-width: var(--sidebar-w) !important;
+            flex: 0 0 var(--sidebar-w) !important;
+          }
+        }
+        /* Mobile/Tablet: layout fluido */
+        @media (max-width: 1023.98px) {
+          .fp-shell {
+            display: grid;
+            grid-template-columns: 1fr !important;
+          }
         }
       `}</style>
 
@@ -121,11 +144,7 @@ export default function AppHeader() {
         {/* Ações (direita) */}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: ".6rem", alignItems: "center" }}>
           <ThemeToggle />
-
-          {/* Mostrar o botão de terminar sessão para QUALQUER utilizador autenticado */}
           {data?.user ? <SignOutButton /> : null}
-
-          {/* Avatar simples com inicial */}
           <div
             title={data?.user?.email || "Utilizador"}
             style={{
