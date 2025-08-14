@@ -11,7 +11,7 @@
   --chip: #e8f0fe;
 
   /* Layout */
-  --sidebar-w: 260px;    /* largura fixa da sidebar (desktop) */
+  --sidebar-w: 260px;    /* largura fixa da sidebar (muda aqui se quiseres outro valor) */
   --header-h: 64px;      /* altura do header */
 }
 
@@ -45,12 +45,10 @@ html[data-sidebar="open"] { overflow: hidden; }
   min-height: calc(100dvh - var(--header-h));
 }
 
-/* Sidebar base (desktop) */
+/* Sidebar (ajustada: largura exata da coluna, sem “sobrar” padding/borda) */
 .fp-sidebar {
-  width: var(--sidebar-w);
-  min-width: var(--sidebar-w);
-  max-width: var(--sidebar-w);
-  flex: 0 0 var(--sidebar-w);
+  box-sizing: border-box;        /* <— chave para largura exata */
+  width: 100%;                   /* preenche a coluna da grid (var(--sidebar-w)) */
   position: sticky;
   top: 0;
   height: calc(100dvh - var(--header-h));
@@ -167,17 +165,7 @@ html[data-sidebar="open"] { overflow: hidden; }
 /* ===== Desktop ===== */
 @media (min-width: 1024px) {
   .fp-shell { grid-template-columns: var(--sidebar-w) 1fr !important; }
-  .fp-sidebar {
-    width: var(--sidebar-w) !important;
-    min-width: var(--sidebar-w) !important;
-    max-width: var(--sidebar-w) !important;
-    flex: 0 0 var(--sidebar-w) !important;
-    position: sticky !important;
-    top: 0 !important;
-    height: calc(100dvh - var(--header-h)) !important;
-    transform: none !important;
-    box-shadow: none !important;
-  }
+  /* nada de width/min/max aqui — a .fp-sidebar já ocupa 100% da coluna */
   .fp-overlay { display: none !important; }
 }
 
@@ -199,7 +187,7 @@ html[data-sidebar="open"] { overflow: hidden; }
     top: var(--header-h);
     height: calc(100dvh - var(--header-h)) !important;
     max-width: 85vw;
-    width: 85vw;
+    width: 85vw;                 /* largura em mobile */
     transform: translateX(-100%);
     transition: transform .2s ease, box-shadow .2s ease;
     box-shadow: 0 10px 30px rgba(0,0,0,.18);
