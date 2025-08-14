@@ -5,13 +5,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { navFor, type UserRole } from "@/lib/nav";
 import { useSession } from "next-auth/react";
+import { useMemo } from "react";
 
-export default function SidebarClient() {
+export default function SidebarClient({ initialRole }: { initialRole?: UserRole }) {
   const { data } = useSession();
   const pathname = usePathname();
 
-  const role = (data?.user as any)?.role as UserRole | undefined;
-  const items = navFor(role);
+  // role da sessão (cliente) sobrescreve o initialRole quando estiver disponível
+  const sessionRole = (data?.user as any)?.role as UserRole | undefined;
+  const role = sessionRole ?? initialRole ?? "ALL";
+
+  const items = useMemo(() => navFor(role), [role]);
 
   return (
     <aside
@@ -21,7 +25,7 @@ export default function SidebarClient() {
         padding: "0.75rem",
         position: "sticky",
         top: 0,
-        height: "calc(100dvh - 64px)", // acompanha o header
+        height: "calc(100dvh - 64px)",
         overflowY: "auto",
         background: "var(--bg)",
       }}
