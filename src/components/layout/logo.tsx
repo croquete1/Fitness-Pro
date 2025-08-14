@@ -1,14 +1,19 @@
+// src/components/layout/Logo.tsx
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import { brand } from "@/lib/brand";
 
 export default function Logo({
   size = brand.size ?? 30,
   title = brand.name,
+  priority = false,
 }: {
   size?: number;
   title?: string;
+  /** Define como prioridade para otimizar LCP (podes usar `true` no Header) */
+  priority?: boolean;
 }) {
   const [lightErr, setLightErr] = React.useState(false);
   const [darkErr, setDarkErr] = React.useState(false);
@@ -39,36 +44,29 @@ export default function Logo({
 
   return (
     <div style={{ position: "relative", width: size, height: size }}>
-      {brand.logoLight ? (
-        <img
+      {brand.logoLight && !lightErr ? (
+        <Image
           src={brand.logoLight}
+          alt={title}
           width={size}
           height={size}
-          alt={title}
           className="brand-logo-light"
           onError={() => setLightErr(true)}
-          style={{
-            position: "absolute",
-            inset: 0,
-            objectFit: "contain",
-            display: "block",
-          }}
+          priority={priority}
+          style={{ position: "absolute", inset: 0, objectFit: "contain" }}
         />
       ) : null}
-      {brand.logoDark ? (
-        <img
+
+      {brand.logoDark && !darkErr ? (
+        <Image
           src={brand.logoDark}
+          alt={title}
           width={size}
           height={size}
-          alt={title}
           className="brand-logo-dark"
           onError={() => setDarkErr(true)}
-          style={{
-            position: "absolute",
-            inset: 0,
-            objectFit: "contain",
-            display: "block",
-          }}
+          priority={priority}
+          style={{ position: "absolute", inset: 0, objectFit: "contain" }}
         />
       ) : null}
     </div>

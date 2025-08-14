@@ -5,7 +5,7 @@ import React, { useMemo } from "react";
 import { useSession } from "next-auth/react";
 import ThemeToggle from "./ThemeToggle";
 import SignOutButton from "@/components/auth/SignOutButton";
-import Logo from "./Logo";
+import Logo from "@/components/layout/Logo";
 import { brand } from "@/lib/brand";
 
 function greet(now: Date) {
