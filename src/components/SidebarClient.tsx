@@ -1,3 +1,4 @@
+// src/components/SidebarClient.tsx
 "use client";
 
 import Link from "next/link";
@@ -31,7 +32,16 @@ export default function SidebarClient({ initialRole }: { initialRole?: UserRole 
       }}
     >
       {/* Links */}
-      <nav aria-label="Navegação lateral" style={{ display: "grid", gap: 6, flex: 1 }}>
+      <nav
+        aria-label="Navegação lateral"
+        style={{
+          display: "grid",
+          gap: 8,                    // espaçamento compacto
+          alignContent: "start",     // <— impede o esticar vertical das linhas
+          gridAutoRows: "min-content",
+          flex: 1,                   // empurra o rodapé para baixo sem esticar as linhas
+        }}
+      >
         {items.map((item) => {
           const active =
             pathname === item.href || (pathname?.startsWith(item.href + "/") && item.href !== "/dashboard");
@@ -43,13 +53,14 @@ export default function SidebarClient({ initialRole }: { initialRole?: UserRole 
                 display: "flex",
                 alignItems: "center",
                 gap: 10,
-                padding: "10px 12px",
+                padding: "8px 10px", // menos alto
                 borderRadius: 10,
                 textDecoration: "none",
                 background: active ? "var(--chip)" : "transparent",
                 color: "inherit",
                 border: active ? "1px solid var(--border)" : "1px solid transparent",
                 fontWeight: active ? 600 : 500,
+                lineHeight: 1.2,     // garante altura controlada
               }}
             >
               <span aria-hidden style={{ fontSize: 14 }}>{iconFor(item.icon)}</span>
@@ -72,9 +83,7 @@ export default function SidebarClient({ initialRole }: { initialRole?: UserRole 
             gap: ".5rem",
           }}
         >
-          <span style={{ fontSize: ".8rem", color: "var(--muted)" }}>
-            Sessão iniciada
-          </span>
+          <span style={{ fontSize: ".8rem", color: "var(--muted)" }}>Sessão iniciada</span>
           <SignOutButton variant="link" />
         </div>
       ) : null}
