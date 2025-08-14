@@ -2,11 +2,10 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import ThemeToggle from "./ThemeToggle";
 import Logo from "@/components/layout/Logo";
 import { brand } from "@/lib/brand";
-import { signOut } from "next-auth/react";
 
 function greet(now: Date) {
   const h = now.getHours();
@@ -19,12 +18,12 @@ function greet(now: Date) {
 export default function AppHeader() {
   const { data } = useSession();
 
-  // Estado para mobile (off-canvas)
+  // Mobile: abre/fecha off-canvas
   const [open, setOpen] = useState(false);
-  // Estado para desktop (colapsar largura)
+  // Desktop: colapsa/expande largura
   const [collapsed, setCollapsed] = useState(false);
 
-  // Sincroniza attrs no <html>
+  // Atributos no <html> para o CSS
   useEffect(() => {
     const html = document.documentElement;
     if (open) html.setAttribute("data-sidebar", "open");
@@ -37,7 +36,7 @@ export default function AppHeader() {
     else html.removeAttribute("data-sidebar-collapsed");
   }, [collapsed]);
 
-  // Ajustes ao mudar viewport
+  // Sincroniza ao mudar viewport
   useEffect(() => {
     const onResize = () => {
       if (window.innerWidth < 1024) setCollapsed(false);
@@ -56,9 +55,9 @@ export default function AppHeader() {
 
   const handleHamburger = () => {
     if (typeof window !== "undefined" && window.innerWidth >= 1024) {
-      setCollapsed((v) => !v); // desktop: colapsar/expandir
+      setCollapsed((v) => !v); // desktop
     } else {
-      setOpen((v) => !v); // mobile: abrir/fechar off-canvas
+      setOpen((v) => !v); // mobile
     }
   };
 
@@ -67,14 +66,14 @@ export default function AppHeader() {
       style={{
         position: "sticky",
         top: 0,
-        zIndex: 90, // acima do overlay e sidebar
+        zIndex: 90,
         borderBottom: "1px solid var(--border)",
         backdropFilter: "saturate(180%) blur(8px)",
         background: "var(--bg-header)",
       }}
     >
       <div className="fp-header">
-        {/* Coluna 1: Marca + botão (fica por cima da coluna da sidebar) */}
+        {/* Coluna 1: Marca por cima da coluna da sidebar */}
         <div className="fp-brand">
           <button
             className="fp-hamburger"
@@ -94,35 +93,19 @@ export default function AppHeader() {
 
           <Logo size={30} priority />
 
-          <div>
-            <div style={{ fontWeight: 700, lineHeight: 1 }}>{brand.name}</div>
-            <div style={{ fontSize: ".78rem", color: "var(--muted)" }}>Dashboard</div>
+          <div className="fp-brand-text">
+            <div className="fp-brand-name">{brand.name}</div>
+            <div className="fp-brand-sub">Dashboard</div>
           </div>
         </div>
 
         {/* Coluna 2: Greeting à esquerda + ações à direita */}
         <div className="fp-header-inner">
           <div className="fp-greeting">
-            <div style={{ fontWeight: 600 }}>
+            <div className="fp-greeting-title">
               {salutation}, {displayName} 👋
             </div>
-            <div
-              style={{
-                marginTop: 4,
-                fontSize: ".8rem",
-                color: "var(--muted)",
-                display: "inline-flex",
-                gap: ".5rem",
-                alignItems: "center",
-                padding: ".2rem .6rem",
-                border: "1px solid var(--border)",
-                borderRadius: "999px",
-                background: "var(--chip)",
-              }}
-            >
-              <span aria-hidden>•</span>
-              <span style={{ letterSpacing: ".2px" }}>bem-vindo(a) de volta</span>
-            </div>
+            <div className="fp-chip">• bem-vindo(a) de volta</div>
           </div>
 
           <div className="fp-actions">
@@ -131,30 +114,12 @@ export default function AppHeader() {
               <button
                 onClick={() => signOut({ callbackUrl: "/login" })}
                 title="Terminar sessão"
-                style={{
-                  border: "1px solid var(--border)",
-                  background: "transparent",
-                  borderRadius: 999,
-                  padding: ".35rem .65rem",
-                  cursor: "pointer",
-                }}
+                className="fp-btn-ghost"
               >
                 Terminar sessão
               </button>
             ) : null}
-            <div
-              title={data?.user?.email || "Utilizador"}
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: "50%",
-                border: "1px solid var(--border)",
-                display: "grid",
-                placeItems: "center",
-                fontWeight: 700,
-                userSelect: "none",
-              }}
-            >
+            <div className="fp-avatar" title={data?.user?.email || "Utilizador"}>
               {displayName?.slice(0, 1).toUpperCase()}
             </div>
           </div>
