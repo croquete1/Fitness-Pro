@@ -1,4 +1,3 @@
-// src/components/SidebarClient.tsx
 "use client";
 
 import Link from "next/link";
@@ -6,12 +5,12 @@ import { usePathname } from "next/navigation";
 import { navFor, type UserRole } from "@/lib/nav";
 import { useSession } from "next-auth/react";
 import { useMemo } from "react";
+import SignOutButton from "@/components/auth/SignOutButton";
 
 export default function SidebarClient({ initialRole }: { initialRole?: UserRole }) {
   const { data } = useSession();
   const pathname = usePathname();
 
-  // role da sessão (cliente) sobrescreve o initialRole quando estiver disponível
   const sessionRole = (data?.user as any)?.role as UserRole | undefined;
   const role = sessionRole ?? initialRole ?? "ALL";
 
@@ -26,11 +25,13 @@ export default function SidebarClient({ initialRole }: { initialRole?: UserRole 
         position: "sticky",
         top: 0,
         height: "calc(100dvh - 64px)",
-        overflowY: "auto",
         background: "var(--bg)",
+        display: "flex",
+        flexDirection: "column",
       }}
     >
-      <nav aria-label="Navegação lateral" style={{ display: "grid", gap: 6 }}>
+      {/* Links */}
+      <nav aria-label="Navegação lateral" style={{ display: "grid", gap: 6, flex: 1 }}>
         {items.map((item) => {
           const active =
             pathname === item.href || (pathname?.startsWith(item.href + "/") && item.href !== "/dashboard");
@@ -57,6 +58,26 @@ export default function SidebarClient({ initialRole }: { initialRole?: UserRole 
           );
         })}
       </nav>
+
+      {/* Rodapé */}
+      {data?.user ? (
+        <div
+          style={{
+            marginTop: "auto",
+            paddingTop: ".75rem",
+            borderTop: "1px solid var(--border)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: ".5rem",
+          }}
+        >
+          <span style={{ fontSize: ".8rem", color: "var(--muted)" }}>
+            Sessão iniciada
+          </span>
+          <SignOutButton variant="link" />
+        </div>
+      ) : null}
     </aside>
   );
 }
