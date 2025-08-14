@@ -9,57 +9,147 @@
   --bg:#0b1220; --fg:#e5e7eb; --muted:#94a3b8; --border:#1f2937; --accent:#60a5fa;
   --bg-header:rgba(11,18,32,.6); --chip:#1f2937;
 }
-html,body{background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans","Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol",sans-serif}
+
+html,body{
+  background:var(--bg);
+  color:var(--fg);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans","Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol",sans-serif;
+}
 input,button,select,textarea{font:inherit}
 html[data-sidebar="open"]{overflow:hidden}
 
 /* ===== Grid principal ===== */
-.fp-shell{display:grid;grid-template-columns:var(--sidebar-w) 1fr;align-items:start;min-height:calc(100dvh - var(--header-h))}
-html[data-sidebar-collapsed="1"] .fp-shell{grid-template-columns:var(--sidebar-w-collapsed) 1fr!important}
+.fp-shell{
+  display:grid;
+  grid-template-columns:var(--sidebar-w) 1fr;
+  align-items:start;
+  min-height:calc(100vh - var(--header-h));
+}
+html[data-sidebar-collapsed="1"] .fp-shell{
+  grid-template-columns:var(--sidebar-w-collapsed) 1fr !important;
+}
 
 /* ===== Sidebar ===== */
-.fp-sidebar{box-sizing:border-box;width:100%;position:sticky;top:0;height:calc(100dvh - var(--header-h));background:var(--bg);border-right:1px solid var(--border);padding:.75rem;display:flex;flex-direction:column;z-index:60}
+.fp-sidebar{
+  box-sizing:border-box;
+  width:100%;
+  position:sticky;
+  top:0;
+  /* cobrir SEMPRE o viewport (corrige “falta” no fundo) */
+  height:calc(100vh - var(--header-h));
+  height:calc(100svh - var(--header-h)); /* melhor suporte mobile/desktop */
+  background:var(--bg);
+  border-right:1px solid var(--border);
+  padding:.75rem;
+  display:flex;
+  flex-direction:column;
+  z-index:60;
+  overflow:hidden; /* o scroll fica no .fp-nav */
+}
 html[data-sidebar-collapsed="1"] .fp-sidebar{padding:.5rem}
 
 /* ===== Overlay (mobile) ===== */
-.fp-overlay{position:fixed;inset:0;background:rgba(0,0,0,.42);backdrop-filter:blur(1px);opacity:0;pointer-events:none;transition:opacity .2s ease;z-index:50}
+.fp-overlay{
+  position:fixed; inset:0;
+  background:rgba(0,0,0,.42); backdrop-filter:blur(1px);
+  opacity:0; pointer-events:none; transition:opacity .2s ease;
+  z-index:50;
+}
 
 /* ===== Header ===== */
-.fp-header{min-height:var(--header-h);display:grid;grid-template-columns:var(--sidebar-w) 1fr;align-items:center;padding:0}
-html[data-sidebar-collapsed="1"] .fp-header{grid-template-columns:var(--sidebar-w-collapsed) 1fr}
-.fp-brand{grid-column:1;display:flex;align-items:center;gap:.6rem;padding:.8rem 1rem;min-width:0;overflow:hidden}
-.fp-brand-text{display:flex;flex-direction:column}
-.fp-brand-name{font-weight:700;line-height:1}
-.fp-brand-sub{font-size:.78rem;color:var(--muted)}
+.fp-header{
+  min-height:var(--header-h);
+  display:grid;
+  grid-template-columns:var(--sidebar-w) 1fr;
+  align-items:center;
+  padding:0;
+}
+html[data-sidebar-collapsed="1"] .fp-header{
+  grid-template-columns:var(--sidebar-w-collapsed) 1fr;
+}
+
+/* — Marca (coluna da sidebar) — */
+.fp-brand{
+  grid-column:1;
+  display:flex; align-items:center; gap:.6rem;
+  padding:.8rem 1rem;
+  min-width:0;
+  overflow:visible;             /* <— não recorta o logo */
+}
+
+/* texto da marca */
+.fp-brand-text{display:flex; flex-direction:column}
+.fp-brand-name{font-weight:700; line-height:1}
+.fp-brand-sub{font-size:.78rem; color:var(--muted)}
 html[data-sidebar-collapsed="1"] .fp-brand-text{display:none}
 
-.fp-header-inner{grid-column:2;display:grid;grid-template-columns:1fr auto;align-items:center;gap:.75rem;padding:.8rem 1rem}
+/* — Greeting + ações (coluna de conteúdo) — */
+.fp-header-inner{
+  grid-column:2;
+  display:grid; grid-template-columns:1fr auto;
+  align-items:center; gap:.75rem;
+  padding:.8rem 1rem;
+}
 .fp-greeting{min-width:0}
 .fp-greeting-title{font-weight:600}
 
-.fp-chip{margin-top:4px;font-size:.8rem;color:var(--muted);display:inline-flex;gap:.5rem;align-items:center;padding:.2rem .6rem;border:1px solid var(--border);border-radius:999px;background:var(--chip)}
-.fp-btn-ghost{border:1px solid var(--border);background:transparent;border-radius:999px;padding:.35rem .65rem;cursor:pointer}
-.fp-avatar{width:34px;height:34px;border-radius:50%;border:1px solid var(--border);display:grid;place-items:center;font-weight:700;user-select:none}
+.fp-chip{
+  margin-top:4px; font-size:.8rem; color:var(--muted);
+  display:inline-flex; gap:.5rem; align-items:center;
+  padding:.2rem .6rem; border:1px solid var(--border);
+  border-radius:999px; background:var(--chip);
+}
+.fp-btn-ghost{
+  border:1px solid var(--border); background:transparent;
+  border-radius:999px; padding:.35rem .65rem; cursor:pointer;
+}
+.fp-avatar{
+  width:34px; height:34px; border-radius:50%;
+  border:1px solid var(--border); display:grid; place-items:center;
+  font-weight:700; user-select:none;
+}
 
 /* ===== Hambúrguer (animações) ===== */
-.fp-hamburger{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;border:1px solid var(--border);background:transparent;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease,background-color .18s ease}
-.fp-hamburger:hover{transform:translateY(-1px) scale(1.03);box-shadow:0 6px 16px rgba(0,0,0,.08)}
+.fp-hamburger{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:36px; height:36px; border-radius:10px;
+  border:1px solid var(--border); background:transparent; cursor:pointer;
+  transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease, background-color .18s ease;
+}
+.fp-hamburger:hover{transform:translateY(-1px) scale(1.03); box-shadow:0 6px 16px rgba(0,0,0,.08)}
 .fp-hamburger.is-pressed{animation:fp-bump .18s ease}
 .fp-hamburger svg{transition:transform .25s ease}
 .fp-hamburger[aria-expanded="true"] svg{transform:rotate(90deg)}
 @keyframes fp-bump{0%{transform:scale(1)}50%{transform:scale(.9)}100%{transform:scale(1)}}
 
 /* ===== Navegação da sidebar ===== */
-.fp-nav{display:grid;gap:8px;align-content:start;grid-auto-rows:max-content;flex:1;min-height:0;overflow:auto;padding-right:2px}
-.fp-nav-item{position:relative;display:inline-flex;align-items:center;gap:10px;padding:8px 12px 8px 18px;border-radius:10px;text-decoration:none;color:inherit;border:1px solid transparent;line-height:1.2;min-height:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:border-color .18s ease,background-color .18s ease,transform .18s ease}
-.fp-nav-item .fp-ink{position:absolute;left:8px;top:50%;width:4px;height:60%;border-radius:999px;background:var(--accent);transform:translateY(-50%) scaleY(0);transform-origin:center;transition:transform .18s ease}
-.fp-nav-item:hover{background:var(--chip);border-color:var(--border);transform:translateX(2px)}
+.fp-nav{
+  display:grid; gap:8px; align-content:start; grid-auto-rows:max-content;
+  flex:1; min-height:0;
+  overflow:auto;                     /* scroll só aqui */
+  scrollbar-gutter:stable;           /* evita saltos quando aparece a barra */
+  padding-right:2px;                 /* não cortar sombra/tooltip */
+  padding-bottom:.5rem;              /* dá “respiro” antes do footer */
+}
+.fp-nav-item{
+  position:relative; display:inline-flex; align-items:center; gap:10px;
+  padding:8px 12px 8px 18px; border-radius:10px; text-decoration:none; color:inherit;
+  border:1px solid transparent; line-height:1.2; min-height:0; white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis;
+  transition:border-color .18s ease, background-color .18s ease, transform .18s ease;
+}
+.fp-nav-item .fp-ink{
+  position:absolute; left:8px; top:50%;
+  width:4px; height:60%; border-radius:999px; background:var(--accent);
+  transform:translateY(-50%) scaleY(0); transform-origin:center; transition:transform .18s ease;
+}
+.fp-nav-item:hover{background:var(--chip); border-color:var(--border); transform:translateX(2px)}
 .fp-nav-item:hover .fp-ink{transform:translateY(-50%) scaleY(1)}
-.fp-nav-item.active{border-color:var(--border);background:transparent;font-weight:700}
+.fp-nav-item.active{border-color:var(--border); background:transparent; font-weight:700}
 .fp-nav-item.active .fp-ink{transform:translateY(-50%) scaleY(1)}
 
 /* Tooltips (apenas quando colapsado) */
-html[data-sidebar-collapsed="1"] .fp-nav{overflow:visible} /* permite tooltip sair do nav */
+html[data-sidebar-collapsed="1"] .fp-nav{overflow:visible} /* permite tooltip sair */
 html[data-sidebar-collapsed="1"] .fp-nav-item:hover::after,
 html[data-sidebar-collapsed="1"] .fp-nav-item:focus-visible::after{
   content:attr(data-tooltip);
@@ -75,15 +165,22 @@ html[data-sidebar-collapsed="1"] .fp-nav-item:focus-visible::before{
 }
 
 /* Colapso (desktop): esconder labels e centrar ícones */
-html[data-sidebar-collapsed="1"] .fp-nav-item{padding:8px;justify-content:center}
+html[data-sidebar-collapsed="1"] .fp-nav-item{padding:8px; justify-content:center}
 html[data-sidebar-collapsed="1"] .fp-nav-item .fp-ink{left:2px}
 html[data-sidebar-collapsed="1"] .fp-nav-label,
 html[data-sidebar-collapsed="1"] .fp-nav-footer .fp-label{display:none}
 
-/* Footer da sidebar — sempre visível, com tooltip no botão */
-.fp-nav-footer{margin-top:auto;padding-top:.75rem;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:.5rem}
-.fp-nav-session{font-size:.8rem;color:var(--muted)}
-.fp-signout{display:inline-flex;align-items:center;gap:.5rem;padding:6px 10px;border:1px solid var(--border);background:transparent;border-radius:10px;cursor:pointer}
+/* ===== Footer da sidebar — sempre visível ===== */
+.fp-nav-footer{
+  margin-top:auto; padding-top:.75rem; border-top:1px solid var(--border);
+  display:flex; justify-content:space-between; align-items:center; gap:.5rem;
+}
+.fp-nav-session{font-size:.8rem; color:var(--muted)}
+.fp-signout{
+  display:inline-flex; align-items:center; gap:.5rem;
+  padding:6px 10px; border:1px solid var(--border); background:transparent;
+  border-radius:10px; cursor:pointer; position:relative;
+}
 .fp-signout .icon{font-size:14px}
 html[data-sidebar-collapsed="1"] .fp-signout{padding:6px} /* ícone only */
 html[data-sidebar-collapsed="1"] .fp-signout:hover::after,
@@ -96,17 +193,31 @@ html[data-sidebar-collapsed="1"] .fp-signout:focus-visible::after{
 
 /* ===== Desktop ===== */
 @media (min-width:1024px){
-  .fp-shell{grid-template-columns:var(--sidebar-w) 1fr!important}
-  html[data-sidebar-collapsed="1"] .fp-shell{grid-template-columns:var(--sidebar-w-collapsed) 1fr!important}
-  .fp-overlay{display:none!important}
+  .fp-shell{grid-template-columns:var(--sidebar-w) 1fr !important}
+  html[data-sidebar-collapsed="1"] .fp-shell{
+    grid-template-columns:var(--sidebar-w-collapsed) 1fr !important;
+  }
+  .fp-overlay{display:none !important}
 }
+
 /* ===== Mobile/Tablet ===== */
 @media (max-width:1023.98px){
-  .fp-shell{grid-template-columns:1fr!important}
+  .fp-shell{grid-template-columns:1fr !important}
+
   .fp-header{grid-template-columns:1fr}
-  .fp-brand{grid-column:1;padding:.8rem 1rem}
-  .fp-header-inner{grid-column:1;grid-template-columns:1fr auto;padding:.8rem 1rem}
-  .fp-sidebar{position:fixed!important;left:0;top:var(--header-h);height:calc(100dvh - var(--header-h))!important;max-width:85vw;width:85vw;transform:translateX(-100%);transition:transform .2s ease,box-shadow .2s ease;box-shadow:0 10px 30px rgba(0,0,0,.18)}
+  .fp-brand{grid-column:1; padding:.8rem 1rem}
+  .fp-header-inner{grid-column:1; grid-template-columns:1fr auto; padding:.8rem 1rem}
+
+  .fp-sidebar{
+    position:fixed !important;
+    left:0; top:var(--header-h);
+    height:calc(100vh - var(--header-h)) !important;
+    height:calc(100svh - var(--header-h)) !important;
+    max-width:85vw; width:85vw;
+    transform:translateX(-100%);
+    transition:transform .2s ease, box-shadow .2s ease;
+    box-shadow:0 10px 30px rgba(0,0,0,.18);
+  }
   html[data-sidebar="open"] .fp-sidebar{transform:translateX(0)}
-  html[data-sidebar="open"] .fp-overlay{opacity:1;pointer-events:auto}
+  html[data-sidebar="open"] .fp-overlay{opacity:1; pointer-events:auto}
 }
