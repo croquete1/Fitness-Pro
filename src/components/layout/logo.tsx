@@ -12,7 +12,6 @@ export default function Logo({
 }: {
   size?: number;
   title?: string;
-  /** Define como prioridade para otimizar LCP (podes usar `true` no Header) */
   priority?: boolean;
 }) {
   const [lightErr, setLightErr] = React.useState(false);
