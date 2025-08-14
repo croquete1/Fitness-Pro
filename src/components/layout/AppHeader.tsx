@@ -1,7 +1,7 @@
 // src/components/layout/AppHeader.tsx
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import ThemeToggle from "./ThemeToggle";
 import SignOutButton from "@/components/auth/SignOutButton";
@@ -18,6 +18,23 @@ function greet(now: Date) {
 
 export default function AppHeader() {
   const { data } = useSession();
+  const [open, setOpen] = useState(false);
+
+  // sincroniza o atributo no <html> (usado pelo CSS)
+  useEffect(() => {
+    const html = document.documentElement;
+    if (open) html.setAttribute("data-sidebar", "open");
+    else html.removeAttribute("data-sidebar");
+  }, [open]);
+
+  // fecha se o viewport ficar >= 1024px
+  useEffect(() => {
+    const onResize = () => {
+      if (window.innerWidth >= 1024) setOpen(false);
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   const displayName =
     (data?.user?.name && data.user.name.split(" ")[0]) ||
@@ -26,25 +43,17 @@ export default function AppHeader() {
 
   const salutation = useMemo(() => greet(new Date()), []);
 
-  const toggleSidebar = () => {
-    const html = document.documentElement;
-    const isOpen = html.getAttribute("data-sidebar") === "open";
-    if (isOpen) html.removeAttribute("data-sidebar");
-    else html.setAttribute("data-sidebar", "open");
-  };
-
   return (
     <header
       style={{
         position: "sticky",
         top: 0,
-        zIndex: 30,
+        zIndex: 90,                    // acima do overlay
         borderBottom: "1px solid var(--border)",
         backdropFilter: "saturate(180%) blur(8px)",
         background: "var(--bg-header)",
       }}
     >
-      {/* Alinha ao grid da app:  [sidebar | conteúdo] */}
       <div className="fp-header">
         <div className="fp-header-inner">
           {/* Marca / título + Hambúrguer em mobile */}
@@ -52,8 +61,9 @@ export default function AppHeader() {
             <button
               className="fp-hamburger"
               type="button"
-              aria-label="Abrir menu"
-              onClick={toggleSidebar}
+              aria-label={open ? "Fechar menu" : "Abrir menu"}
+              aria-expanded={open}
+              onClick={() => setOpen((v) => !v)}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
                 <path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" />
