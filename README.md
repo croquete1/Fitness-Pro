@@ -27,3 +27,27 @@ API Routes no App Router (/app/api/**) com validação de dados.
 Prisma ORM com migrações e seed inicial.
 
 Pronto para CI/CD e previews no Vercel.
+
+🏗️ Stack Técnica
+
+Next.js 14+ (App Router)
+
+TypeScript
+
+Prisma + PostgreSQL (compatível com MySQL/SQLite)
+
+NextAuth (Credentials + opcional OAuth)
+
+UI: CSS Modules/SCSS (com suporte opcional para Tailwind, se ativado)
+
+Hospedagem: Vercel
+
+Nota: O projeto funciona sem Tailwind. Se quiseres Tailwind + shadcn/ui, ativa conforme indicado abaixo.
+
+✅ Requisitos
+
+Node.js ≥ 18
+
+Base de dados (PostgreSQL recomendado)
+
+Conta Vercel (opcional, para deploy)
