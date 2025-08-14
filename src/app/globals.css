@@ -4,7 +4,7 @@
   --bg:#f8fafc; --fg:#0f172a; --muted:#475569; --border:#e2e8f0; --accent:#3b82f6;
   --bg-header:rgba(248,250,252,.85); --chip:#e8f0fe;
   --sidebar-w:260px; --sidebar-w-collapsed:76px; --header-h:64px;
-  --sidebar-footer-h:64px; /* altura fixa do footer da sidebar */
+  --sidebar-footer-h:64px;
 }
 [data-theme="dark"]{
   --bg:#0b1220; --fg:#e5e7eb; --muted:#94a3b8; --border:#1f2937; --accent:#60a5fa;
@@ -25,6 +25,7 @@ html[data-sidebar="open"]{overflow:hidden}
   grid-template-columns:var(--sidebar-w) 1fr;
   align-items:start;
   min-height:calc(100vh - var(--header-h));
+  min-height:calc(100svh - var(--header-h)); /* evita cortes em ambientes com barras dinâmicas */
 }
 html[data-sidebar-collapsed="1"] .fp-shell{
   grid-template-columns:var(--sidebar-w-collapsed) 1fr !important;
@@ -34,18 +35,16 @@ html[data-sidebar-collapsed="1"] .fp-shell{
 .fp-sidebar{
   box-sizing:border-box;
   width:100%;
-  position:sticky; /* container para o footer absoluto */
-  top:0;
+  position:sticky; top:0;
   height:calc(100vh - var(--header-h));
   height:calc(100svh - var(--header-h));
   background:var(--bg);
   border-right:1px solid var(--border);
   padding:.75rem;
-  padding-bottom:0;              /* o footer ocupa o fundo */
-  display:flex;
-  flex-direction:column;
+  padding-bottom:0;     /* o footer sticky ocupa o fundo */
+  display:flex; flex-direction:column;
   z-index:60;
-  overflow:hidden;               /* o scroll fica só no .fp-nav */
+  overflow:hidden;      /* o scroll fica na .fp-nav */
 }
 html[data-sidebar-collapsed="1"] .fp-sidebar{padding:.5rem; padding-bottom:0}
 
@@ -65,9 +64,7 @@ html[data-sidebar-collapsed="1"] .fp-sidebar{padding:.5rem; padding-bottom:0}
   align-items:center;
   padding:0;
 }
-html[data-sidebar-collapsed="1"] .fp-header{
-  grid-template-columns:var(--sidebar-w-collapsed) 1fr;
-}
+html[data-sidebar-collapsed="1"] .fp-header{ grid-template-columns:var(--sidebar-w-collapsed) 1fr; }
 
 /* — Marca (coluna da sidebar) — */
 .fp-brand{
@@ -75,7 +72,7 @@ html[data-sidebar-collapsed="1"] .fp-header{
   display:flex; align-items:center; gap:.6rem;
   padding:.8rem 1rem;
   min-width:0;
-  overflow:visible;             /* não recorta o logo */
+  overflow:visible;              /* evita cortar o logo */
 }
 .fp-brand-text{display:flex; flex-direction:column}
 .fp-brand-name{font-weight:700; line-height:1}
@@ -125,11 +122,10 @@ html[data-sidebar-collapsed="1"] .fp-brand-text{display:none}
 .fp-nav{
   display:grid; gap:8px; align-content:start; grid-auto-rows:max-content;
   flex:1; min-height:0;
-  overflow:auto;                     /* scroll só aqui */
-  scrollbar-gutter:stable;
+  overflow:auto; scrollbar-gutter:stable;
   padding-right:2px;
-  /* reserva espaço para o footer fixo (sem precisar de scroll extra) */
-  padding-bottom:calc(var(--sidebar-footer-h) + .75rem);
+  /* apenas um respiro para o sticky footer, sem precisar de scroll extra */
+  padding-bottom:.75rem;
 }
 .fp-nav-item{
   position:relative; display:inline-flex; align-items:center; gap:10px;
@@ -170,16 +166,16 @@ html[data-sidebar-collapsed="1"] .fp-nav-item .fp-ink{left:2px}
 html[data-sidebar-collapsed="1"] .fp-nav-label,
 html[data-sidebar-collapsed="1"] .fp-nav-footer .fp-label{display:none}
 
-/* ===== Footer da sidebar — FIXO ao fundo ===== */
+/* ===== Footer da sidebar — STICKY (sempre visível) ===== */
 .fp-nav-footer{
-  position:absolute;               /* fica sempre visível */
-  left:0; right:0; bottom:0;
+  position:sticky; bottom:0;        /* <- muda de absolute para sticky */
   height:var(--sidebar-footer-h);
   padding:.75rem;
+  padding-bottom:calc(.75rem + env(safe-area-inset-bottom, 0px));
   border-top:1px solid var(--border);
   background:var(--bg);
   display:flex; justify-content:space-between; align-items:center; gap:.5rem;
-  z-index:65;                      /* acima do conteúdo rolável */
+  z-index:65;
 }
 .fp-nav-session{font-size:.8rem; color:var(--muted)}
 .fp-signout{
