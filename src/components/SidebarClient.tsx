@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { navFor, type UserRole } from "@/lib/nav";
 import { useSession } from "next-auth/react";
 import { useMemo } from "react";
-import SignOutButton from "@/components/auth/SignOutButton";
+import { signOut } from "next-auth/react";
 
 export default function SidebarClient({ initialRole }: { initialRole?: UserRole }) {
   const { data } = useSession();
@@ -43,13 +43,19 @@ export default function SidebarClient({ initialRole }: { initialRole?: UserRole 
         })}
       </nav>
 
-      {/* Rodapé */}
-      {data?.user ? (
-        <div className="fp-nav-footer">
-          <span className="fp-nav-session">Sessão iniciada</span>
-          <SignOutButton variant="link" />
-        </div>
-      ) : null}
+      {/* Rodapé — mantém visível; em colapso mostra ícone-only */}
+      <div className="fp-nav-footer">
+        <span className="fp-nav-session fp-label">Sessão iniciada</span>
+        <button
+          type="button"
+          className="fp-signout"
+          onClick={() => signOut({ callbackUrl: "/login" })}
+          title="Terminar sessão"
+        >
+          <span className="icon" aria-hidden>⎋</span>
+          <span className="fp-label">Terminar sessão</span>
+        </button>
+      </div>
     </aside>
   );
 }

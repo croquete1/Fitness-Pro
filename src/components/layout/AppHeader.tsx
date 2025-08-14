@@ -4,9 +4,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import ThemeToggle from "./ThemeToggle";
-import SignOutButton from "@/components/auth/SignOutButton";
 import Logo from "@/components/layout/Logo";
 import { brand } from "@/lib/brand";
+import { signOut } from "next-auth/react";
 
 function greet(now: Date) {
   const h = now.getHours();
@@ -40,13 +40,8 @@ export default function AppHeader() {
   // Ajustes ao mudar viewport
   useEffect(() => {
     const onResize = () => {
-      if (window.innerWidth < 1024) {
-        // Em mobile não faz sentido “colapsado”
-        setCollapsed(false);
-      } else {
-        // Em desktop não usamos overlay de mobile
-        setOpen(false);
-      }
+      if (window.innerWidth < 1024) setCollapsed(false);
+      else setOpen(false);
     };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
@@ -59,12 +54,11 @@ export default function AppHeader() {
 
   const salutation = useMemo(() => greet(new Date()), []);
 
-  // Um botão que funciona para ambos os modos
   const handleHamburger = () => {
     if (typeof window !== "undefined" && window.innerWidth >= 1024) {
-      setCollapsed((v) => !v);
+      setCollapsed((v) => !v); // desktop: colapsar/expandir
     } else {
-      setOpen((v) => !v);
+      setOpen((v) => !v); // mobile: abrir/fechar off-canvas
     }
   };
 
@@ -73,27 +67,26 @@ export default function AppHeader() {
       style={{
         position: "sticky",
         top: 0,
-        zIndex: 90 as any, // 90 (texto não aceita números com underscore)
+        zIndex: 90, // acima do overlay e sidebar
         borderBottom: "1px solid var(--border)",
         backdropFilter: "saturate(180%) blur(8px)",
         background: "var(--bg-header)",
-      } as React.CSSProperties}
+      }}
     >
       <div className="fp-header">
-        {/* Coluna 1: marca (acima da sidebar) */}
+        {/* Coluna 1: Marca + botão (fica por cima da coluna da sidebar) */}
         <div className="fp-brand">
           <button
             className="fp-hamburger"
             type="button"
-            aria-label={
+            aria-label="Alternar menu"
+            aria-expanded={
               typeof window !== "undefined" && window.innerWidth >= 1024
-                ? collapsed ? "Expandir sidebar" : "Encolher sidebar"
-                : open ? "Fechar menu" : "Abrir menu"
+                ? collapsed
+                : open
             }
-            aria-expanded={typeof window !== "undefined" && window.innerWidth >= 1024 ? collapsed : open}
             onClick={handleHamburger}
           >
-            {/* Ícone hambúrguer/menus */}
             <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
               <path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" />
             </svg>
@@ -107,9 +100,8 @@ export default function AppHeader() {
           </div>
         </div>
 
-        {/* Coluna 2: saudação (à esquerda) + ações (à direita) */}
+        {/* Coluna 2: Greeting à esquerda + ações à direita */}
         <div className="fp-header-inner">
-          {/* Saudação alinhada à esquerda do conteúdo */}
           <div className="fp-greeting">
             <div style={{ fontWeight: 600 }}>
               {salutation}, {displayName} 👋
@@ -133,10 +125,23 @@ export default function AppHeader() {
             </div>
           </div>
 
-          {/* Ações (direita) */}
           <div className="fp-actions">
             <ThemeToggle />
-            {data?.user ? <SignOutButton /> : null}
+            {data?.user ? (
+              <button
+                onClick={() => signOut({ callbackUrl: "/login" })}
+                title="Terminar sessão"
+                style={{
+                  border: "1px solid var(--border)",
+                  background: "transparent",
+                  borderRadius: 999,
+                  padding: ".35rem .65rem",
+                  cursor: "pointer",
+                }}
+              >
+                Terminar sessão
+              </button>
+            ) : null}
             <div
               title={data?.user?.email || "Utilizador"}
               style={{

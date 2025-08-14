@@ -9,9 +9,8 @@
   --bg-header: rgba(248, 250, 252, 0.85);
   --chip: #e8f0fe;
 
-  /* Layout */
-  --sidebar-w: 260px;           /* largura expandida */
-  --sidebar-w-collapsed: 76px;  /* largura colapsada (desktop) */
+  --sidebar-w: 260px;          /* largura expandida */
+  --sidebar-w-collapsed: 76px; /* largura colapsada (desktop) */
   --header-h: 64px;
 }
 
@@ -25,7 +24,6 @@
   --chip: #1f2937;
 }
 
-/* Tipografia base */
 html, body {
   background: var(--bg);
   color: var(--fg);
@@ -33,8 +31,6 @@ html, body {
     "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
 }
 input, button, select, textarea { font: inherit; }
-
-/* Lock scroll quando a sidebar está aberta (mobile) */
 html[data-sidebar="open"] { overflow: hidden; }
 
 /* ===== Grid principal ===== */
@@ -62,9 +58,7 @@ html[data-sidebar-collapsed="1"] .fp-shell {
   flex-direction: column;
   z-index: 60;
 }
-html[data-sidebar-collapsed="1"] .fp-sidebar {
-  padding: 0.5rem;
-}
+html[data-sidebar-collapsed="1"] .fp-sidebar { padding: 0.5rem; }
 
 /* ===== Overlay (mobile) ===== */
 .fp-overlay {
@@ -78,7 +72,7 @@ html[data-sidebar-collapsed="1"] .fp-sidebar {
   z-index: 50;
 }
 
-/* ===== Logótipos light/dark ===== */
+/* ===== Logo light/dark ===== */
 .brand-logo-light { display: inline-block; }
 .brand-logo-dark  { display: none; }
 [data-theme="dark"] .brand-logo-light { display: none; }
@@ -88,15 +82,13 @@ html[data-sidebar-collapsed="1"] .fp-sidebar {
 .fp-header {
   min-height: var(--header-h);
   display: grid;
-  grid-template-columns: var(--sidebar-w) 1fr; /* reserva a coluna da sidebar */
+  grid-template-columns: var(--sidebar-w) 1fr;
   align-items: center;
   padding: 0;
 }
 html[data-sidebar-collapsed="1"] .fp-header {
   grid-template-columns: var(--sidebar-w-collapsed) 1fr;
 }
-
-/* Coluna 1 (acima da sidebar): marca + botão */
 .fp-brand {
   grid-column: 1;
   display: flex;
@@ -104,8 +96,6 @@ html[data-sidebar-collapsed="1"] .fp-header {
   gap: .6rem;
   padding: .8rem 1rem;
 }
-
-/* Coluna 2 (conteúdo): greeting à esquerda + ações à direita */
 .fp-header-inner {
   grid-column: 2;
   display: grid;
@@ -117,7 +107,7 @@ html[data-sidebar-collapsed="1"] .fp-header {
 .fp-greeting { min-width: 0; }
 .fp-actions  { display: inline-flex; align-items: center; gap: .6rem; }
 
-/* Botão hambúrguer – visível em todos os tamanhos */
+/* ===== Botão hambúrguer (sempre visível) ===== */
 .fp-hamburger {
   display: inline-flex;
   align-items: center;
@@ -138,6 +128,8 @@ html[data-sidebar-collapsed="1"] .fp-header {
   grid-auto-rows: max-content;
   flex: 1;
   min-height: 0;
+  overflow: auto;                 /* <— garante que o footer é sempre visível */
+  padding-right: 2px;             /* evita esconder pela barra de scroll */
 }
 .fp-nav-item {
   position: relative;
@@ -168,29 +160,18 @@ html[data-sidebar-collapsed="1"] .fp-header {
   transform-origin: center;
   transition: transform .18s ease;
 }
-.fp-nav-item:hover {
-  background: var(--chip);
-  border-color: var(--border);
-  transform: translateX(2px);
-}
+.fp-nav-item:hover { background: var(--chip); border-color: var(--border); transform: translateX(2px); }
 .fp-nav-item:hover .fp-ink { transform: translateY(-50%) scaleY(1); }
-
-.fp-nav-item.active {
-  border-color: var(--border);
-  background: transparent;
-  font-weight: 700;
-}
+.fp-nav-item.active { border-color: var(--border); background: transparent; font-weight: 700; }
 .fp-nav-item.active .fp-ink { transform: translateY(-50%) scaleY(1); }
 
-/* Colapso em desktop: esconder rótulos e centrar ícones */
-html[data-sidebar-collapsed="1"] .fp-nav-item {
-  padding: 8px;
-  justify-content: center;
-}
+/* Colapso (desktop): esconder labels e centrar ícones */
+html[data-sidebar-collapsed="1"] .fp-nav-item { padding: 8px; justify-content: center; }
 html[data-sidebar-collapsed="1"] .fp-nav-item .fp-ink { left: 2px; }
-html[data-sidebar-collapsed="1"] .fp-nav-label { display: none; }
+html[data-sidebar-collapsed="1"] .fp-nav-label,
+html[data-sidebar-collapsed="1"] .fp-nav-footer .fp-label { display: none; }
 
-/* Footer da sidebar */
+/* Footer da sidebar — sempre visível */
 .fp-nav-footer {
   margin-top: auto;
   padding-top: .75rem;
@@ -201,6 +182,17 @@ html[data-sidebar-collapsed="1"] .fp-nav-label { display: none; }
   gap: .5rem;
 }
 .fp-nav-session { font-size: .8rem; color: var(--muted); }
+.fp-signout {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.fp-signout .icon { font-size: 14px; }
 
 /* ===== Desktop ===== */
 @media (min-width: 1024px) {
@@ -214,30 +206,19 @@ html[data-sidebar-collapsed="1"] .fp-nav-label { display: none; }
 /* ===== Mobile/Tablet ===== */
 @media (max-width: 1023.98px) {
   .fp-shell { grid-template-columns: 1fr !important; }
-
   .fp-header { grid-template-columns: 1fr; }
-  .fp-brand   { grid-column: 1; padding: .8rem 1rem; }
+  .fp-brand { grid-column: 1; padding: .8rem 1rem; }
   .fp-header-inner { grid-column: 1; grid-template-columns: 1fr auto; padding: .8rem 1rem; }
 
   .fp-sidebar {
     position: fixed !important;
-    left: 0;
-    top: var(--header-h);
+    left: 0; top: var(--header-h);
     height: calc(100dvh - var(--header-h)) !important;
-    max-width: 85vw;
-    width: 85vw;
+    max-width: 85vw; width: 85vw;
     transform: translateX(-100%);
     transition: transform .2s ease, box-shadow .2s ease;
     box-shadow: 0 10px 30px rgba(0,0,0,.18);
   }
   html[data-sidebar="open"] .fp-sidebar { transform: translateX(0); }
   html[data-sidebar="open"] .fp-overlay { opacity: 1; pointer-events: auto; }
-}
-
-/* Utilitários */
-.sr-only {
-  position: absolute !important;
-  width: 1px; height: 1px;
-  padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0);
-  white-space: nowrap; border: 0;
 }
