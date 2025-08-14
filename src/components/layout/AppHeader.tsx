@@ -1,9 +1,12 @@
+// src/components/layout/AppHeader.tsx
 "use client";
 
 import React, { useMemo } from "react";
 import { useSession } from "next-auth/react";
 import ThemeToggle from "./ThemeToggle";
 import SignOutButton from "@/components/auth/SignOutButton";
+import Logo from "./Logo";
+import { brand } from "@/lib/brand";
 
 function greet(now: Date) {
   const h = now.getHours();
@@ -26,11 +29,8 @@ export default function AppHeader() {
   const toggleSidebar = () => {
     const html = document.documentElement;
     const isOpen = html.getAttribute("data-sidebar") === "open";
-    if (isOpen) {
-      html.removeAttribute("data-sidebar");
-    } else {
-      html.setAttribute("data-sidebar", "open");
-    }
+    if (isOpen) html.removeAttribute("data-sidebar");
+    else html.setAttribute("data-sidebar", "open");
   };
 
   return (
@@ -64,28 +64,15 @@ export default function AppHeader() {
             aria-label="Abrir menu"
             onClick={toggleSidebar}
           >
-            {/* ícone hambúrguer simples */}
             <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
               <path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" />
             </svg>
           </button>
 
-          <div
-            aria-hidden
-            style={{
-              width: 30,
-              height: 30,
-              borderRadius: 8,
-              border: "1px solid var(--border)",
-              display: "grid",
-              placeItems: "center",
-              fontWeight: 700,
-            }}
-          >
-            FP
-          </div>
+          <Logo size={30} />
+
           <div>
-            <div style={{ fontWeight: 700, lineHeight: 1 }}>Fitness Pro</div>
+            <div style={{ fontWeight: 700, lineHeight: 1 }}>{brand.name}</div>
             <div style={{ fontSize: ".78rem", color: "var(--muted)" }}>Dashboard</div>
           </div>
         </div>

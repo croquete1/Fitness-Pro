@@ -12,7 +12,7 @@
 
   /* Layout */
   --sidebar-w: 260px;    /* largura fixa da sidebar (desktop) */
-  --header-h: 64px;      /* altura virtual do header para cálculos em mobile */
+  --header-h: 64px;      /* altura virtual do header */
 }
 
 [data-theme="dark"] {
@@ -26,16 +26,15 @@
 }
 
 html, body {
+  background: var(--bg);
+  color: var(--fg);
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
     Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
 }
-input, button, select, textarea {
-  font: inherit;
-}
+input, button, select, textarea { font: inherit; }
+
 /* Lock scroll quando sidebar está aberta em mobile */
-html[data-sidebar="open"] {
-  overflow: hidden;
-}
+html[data-sidebar="open"] { overflow: hidden; }
 
 /* ===== Layout com sidebar ===== */
 .fp-shell {
@@ -58,7 +57,7 @@ html[data-sidebar="open"] {
   border-right: 1px solid var(--border);
 }
 
-/* Overlay para mobile (inserido via componente) */
+/* Overlay para mobile */
 .fp-overlay {
   position: fixed;
   inset: 0;
@@ -71,15 +70,17 @@ html[data-sidebar="open"] {
 }
 
 /* Hamburger (esconde no desktop) */
-.fp-hamburger {
-  display: none;
-}
+.fp-hamburger { display: none; }
 
-/* ===== Desktop (reforço) ===== */
+/* ===== Alternância de logótipo ===== */
+.brand-logo-light { display: inline-block; }
+.brand-logo-dark { display: none; }
+[data-theme="dark"] .brand-logo-light { display: none; }
+[data-theme="dark"] .brand-logo-dark { display: inline-block; }
+
+/* ===== Desktop ===== */
 @media (min-width: 1024px) {
-  .fp-shell {
-    grid-template-columns: var(--sidebar-w) 1fr !important;
-  }
+  .fp-shell { grid-template-columns: var(--sidebar-w) 1fr !important; }
   .fp-sidebar {
     width: var(--sidebar-w) !important;
     min-width: var(--sidebar-w) !important;
@@ -91,17 +92,12 @@ html[data-sidebar="open"] {
     transform: none !important;
     box-shadow: none !important;
   }
-  .fp-overlay {
-    display: none !important;
-  }
+  .fp-overlay { display: none !important; }
 }
 
 /* ===== Mobile/Tablet ===== */
 @media (max-width: 1023.98px) {
-  /* Coluna única; sidebar vira off-canvas */
-  .fp-shell {
-    grid-template-columns: 1fr !important;
-  }
+  .fp-shell { grid-template-columns: 1fr !important; }
 
   .fp-sidebar {
     position: fixed !important;
@@ -109,37 +105,26 @@ html[data-sidebar="open"] {
     top: var(--header-h);
     height: calc(100dvh - var(--header-h)) !important;
     max-width: 85vw;
-    width: 85vw; /* proporcional ao ecrã */
+    width: 85vw;
     transform: translateX(-100%);
     transition: transform .2s ease, box-shadow .2s ease;
     z-index: 60;
     box-shadow: 0 10px 30px rgba(0,0,0,.18);
   }
+  html[data-sidebar="open"] .fp-sidebar { transform: translateX(0); }
+  html[data-sidebar="open"] .fp-overlay { opacity: 1; pointer-events: auto; }
 
-  /* Estado aberto (toggled via data-attr no <html>) */
-  html[data-sidebar="open"] .fp-sidebar {
-    transform: translateX(0);
-  }
-  html[data-sidebar="open"] .fp-overlay {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  /* Mostrar botão hambúrguer no header */
   .fp-hamburger {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 36px; height: 36px;
     border-radius: 10px;
     border: 1px solid var(--border);
     background: transparent;
     cursor: pointer;
   }
-  .fp-hamburger:active {
-    transform: translateY(1px);
-  }
+  .fp-hamburger:active { transform: translateY(1px); }
 }
 
 /* Utilitários */

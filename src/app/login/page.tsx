@@ -1,9 +1,11 @@
 // src/app/login/page.tsx
 import LoginClient from "./LoginClient";
+import Logo from "@/components/layout/Logo";
+import { brand } from "@/lib/brand";
 
 export const metadata = {
-  title: "Iniciar sessão · Fitness Pro",
-  description: "Aceda à sua conta Fitness Pro.",
+  title: "Iniciar sessão · " + brand.name,
+  description: "Aceda à sua conta " + brand.name + ".",
 };
 
 export default function LoginPage({
@@ -38,22 +40,9 @@ export default function LoginPage({
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-          <div
-            aria-hidden
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 10,
-              border: "1px solid var(--border)",
-              display: "grid",
-              placeItems: "center",
-              fontWeight: 800,
-            }}
-          >
-            FP
-          </div>
+          <Logo size={36} />
           <div>
-            <div style={{ fontWeight: 800, lineHeight: 1 }}>Fitness Pro</div>
+            <div style={{ fontWeight: 800, lineHeight: 1 }}>{brand.name}</div>
             <div style={{ fontSize: ".85rem", color: "var(--muted)" }}>Iniciar sessão</div>
           </div>
         </div>

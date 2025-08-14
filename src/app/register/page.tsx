@@ -1,9 +1,11 @@
 // src/app/register/page.tsx
 import RegisterClient from "./RegisterClient";
+import Logo from "@/components/layout/Logo";
+import { brand } from "@/lib/brand";
 
 export const metadata = {
-  title: "Registar · Fitness Pro",
-  description: "Crie a sua conta Fitness Pro.",
+  title: "Registar · " + brand.name,
+  description: "Crie a sua conta " + brand.name + ".",
 };
 
 export default function RegisterPage() {
@@ -30,22 +32,9 @@ export default function RegisterPage() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-          <div
-            aria-hidden
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 10,
-              border: "1px solid var(--border)",
-              display: "grid",
-              placeItems: "center",
-              fontWeight: 800,
-            }}
-          >
-            FP
-          </div>
+          <Logo size={36} />
           <div>
-            <div style={{ fontWeight: 800, lineHeight: 1 }}>Fitness Pro</div>
+            <div style={{ fontWeight: 800, lineHeight: 1 }}>{brand.name}</div>
             <div style={{ fontSize: ".85rem", color: "var(--muted)" }}>Criar conta</div>
           </div>
         </div>
