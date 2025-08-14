@@ -1,36 +1,53 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+Fitness-Pro Dashboard (PT)
 
-## Getting Started
+Dashboard moderna para gestão de clientes, treinos e administração (RBAC), construída com Next.js (App Router), TypeScript, Prisma e NextAuth. Otimizada para deploy em Vercel e preparada para tema claro/escuro.
 
-First, run the development server:
+🎯 Objetivo: fornecer uma base sólida, estável e extensível para a tua aplicação de personal training/gestão de ginásio.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+✨ Principais Funcionalidades
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Autenticação segura (NextAuth) com credenciais (e opcionalmente provedores OAuth).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+RBAC (perfis: admin, trainer, client) e guardas de rota.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Módulos de Dashboard:
 
-## Learn More
+PT – Clientes (listagem, pesquisa, detalhes)
 
-To learn more about Next.js, take a look at the following resources:
+Administração (aprovações, gestão de utilizadores)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Sistema (logs, auditoria, definições)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Audit Log de ações críticas (criação/edição/aprovação).
 
-## Deploy on Vercel
+Dark/Light mode (toggle persistente por utilizador).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+API Routes no App Router (/app/api/**) com validação de dados.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Prisma ORM com migrações e seed inicial.
+
+Pronto para CI/CD e previews no Vercel.
+
+🏗️ Stack Técnica
+
+Next.js 14+ (App Router)
+
+TypeScript
+
+Prisma + PostgreSQL (compatível com MySQL/SQLite)
+
+NextAuth (Credentials + opcional OAuth)
+
+UI: CSS Modules/SCSS (com suporte opcional para Tailwind, se ativado)
+
+Hospedagem: Vercel
+
+Nota: O projeto funciona sem Tailwind. Se quiseres Tailwind + shadcn/ui, ativa conforme indicado abaixo.
+
+✅ Requisitos
+
+Node.js ≥ 18
+
+Base de dados (PostgreSQL recomendado)
+
+Conta Vercel (opcional, para deploy)
