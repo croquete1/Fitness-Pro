@@ -4,6 +4,7 @@
   --bg:#f8fafc; --fg:#0f172a; --muted:#475569; --border:#e2e8f0; --accent:#3b82f6;
   --bg-header:rgba(248,250,252,.85); --chip:#e8f0fe;
   --sidebar-w:260px; --sidebar-w-collapsed:76px; --header-h:64px;
+  --sidebar-footer-h:64px; /* altura fixa do footer da sidebar */
 }
 [data-theme="dark"]{
   --bg:#0b1220; --fg:#e5e7eb; --muted:#94a3b8; --border:#1f2937; --accent:#60a5fa;
@@ -33,20 +34,20 @@ html[data-sidebar-collapsed="1"] .fp-shell{
 .fp-sidebar{
   box-sizing:border-box;
   width:100%;
-  position:sticky;
+  position:sticky; /* container para o footer absoluto */
   top:0;
-  /* cobrir SEMPRE o viewport (corrige “falta” no fundo) */
   height:calc(100vh - var(--header-h));
-  height:calc(100svh - var(--header-h)); /* melhor suporte mobile/desktop */
+  height:calc(100svh - var(--header-h));
   background:var(--bg);
   border-right:1px solid var(--border);
   padding:.75rem;
+  padding-bottom:0;              /* o footer ocupa o fundo */
   display:flex;
   flex-direction:column;
   z-index:60;
-  overflow:hidden; /* o scroll fica no .fp-nav */
+  overflow:hidden;               /* o scroll fica só no .fp-nav */
 }
-html[data-sidebar-collapsed="1"] .fp-sidebar{padding:.5rem}
+html[data-sidebar-collapsed="1"] .fp-sidebar{padding:.5rem; padding-bottom:0}
 
 /* ===== Overlay (mobile) ===== */
 .fp-overlay{
@@ -74,10 +75,8 @@ html[data-sidebar-collapsed="1"] .fp-header{
   display:flex; align-items:center; gap:.6rem;
   padding:.8rem 1rem;
   min-width:0;
-  overflow:visible;             /* <— não recorta o logo */
+  overflow:visible;             /* não recorta o logo */
 }
-
-/* texto da marca */
 .fp-brand-text{display:flex; flex-direction:column}
 .fp-brand-name{font-weight:700; line-height:1}
 .fp-brand-sub{font-size:.78rem; color:var(--muted)}
@@ -127,9 +126,10 @@ html[data-sidebar-collapsed="1"] .fp-brand-text{display:none}
   display:grid; gap:8px; align-content:start; grid-auto-rows:max-content;
   flex:1; min-height:0;
   overflow:auto;                     /* scroll só aqui */
-  scrollbar-gutter:stable;           /* evita saltos quando aparece a barra */
-  padding-right:2px;                 /* não cortar sombra/tooltip */
-  padding-bottom:.5rem;              /* dá “respiro” antes do footer */
+  scrollbar-gutter:stable;
+  padding-right:2px;
+  /* reserva espaço para o footer fixo (sem precisar de scroll extra) */
+  padding-bottom:calc(var(--sidebar-footer-h) + .75rem);
 }
 .fp-nav-item{
   position:relative; display:inline-flex; align-items:center; gap:10px;
@@ -149,7 +149,7 @@ html[data-sidebar-collapsed="1"] .fp-brand-text{display:none}
 .fp-nav-item.active .fp-ink{transform:translateY(-50%) scaleY(1)}
 
 /* Tooltips (apenas quando colapsado) */
-html[data-sidebar-collapsed="1"] .fp-nav{overflow:visible} /* permite tooltip sair */
+html[data-sidebar-collapsed="1"] .fp-nav{overflow:visible}
 html[data-sidebar-collapsed="1"] .fp-nav-item:hover::after,
 html[data-sidebar-collapsed="1"] .fp-nav-item:focus-visible::after{
   content:attr(data-tooltip);
@@ -170,10 +170,16 @@ html[data-sidebar-collapsed="1"] .fp-nav-item .fp-ink{left:2px}
 html[data-sidebar-collapsed="1"] .fp-nav-label,
 html[data-sidebar-collapsed="1"] .fp-nav-footer .fp-label{display:none}
 
-/* ===== Footer da sidebar — sempre visível ===== */
+/* ===== Footer da sidebar — FIXO ao fundo ===== */
 .fp-nav-footer{
-  margin-top:auto; padding-top:.75rem; border-top:1px solid var(--border);
+  position:absolute;               /* fica sempre visível */
+  left:0; right:0; bottom:0;
+  height:var(--sidebar-footer-h);
+  padding:.75rem;
+  border-top:1px solid var(--border);
+  background:var(--bg);
   display:flex; justify-content:space-between; align-items:center; gap:.5rem;
+  z-index:65;                      /* acima do conteúdo rolável */
 }
 .fp-nav-session{font-size:.8rem; color:var(--muted)}
 .fp-signout{
@@ -182,7 +188,7 @@ html[data-sidebar-collapsed="1"] .fp-nav-footer .fp-label{display:none}
   border-radius:10px; cursor:pointer; position:relative;
 }
 .fp-signout .icon{font-size:14px}
-html[data-sidebar-collapsed="1"] .fp-signout{padding:6px} /* ícone only */
+html[data-sidebar-collapsed="1"] .fp-signout{padding:6px}
 html[data-sidebar-collapsed="1"] .fp-signout:hover::after,
 html[data-sidebar-collapsed="1"] .fp-signout:focus-visible::after{
   content:attr(data-tooltip);
@@ -221,3 +227,6 @@ html[data-sidebar-collapsed="1"] .fp-signout:focus-visible::after{
   html[data-sidebar="open"] .fp-sidebar{transform:translateX(0)}
   html[data-sidebar="open"] .fp-overlay{opacity:1; pointer-events:auto}
 }
+
+/* ===== Util ===== */
+@keyframes fp-bump{0%{transform:scale(1)}50%{transform:scale(.9)}100%{transform:scale(1)}}
