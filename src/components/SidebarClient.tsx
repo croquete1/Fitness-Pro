@@ -34,6 +34,7 @@ export default function SidebarClient({ initialRole }: { initialRole?: UserRole 
               aria-current={active ? "page" : undefined}
               className={`fp-nav-item${active ? " active" : ""}`}
               title={item.label}
+              data-tooltip={item.label}   /* tooltip custom quando colapsado */
             >
               <span aria-hidden className="fp-ink" />
               <span aria-hidden className="fp-nav-icon">{iconFor(item.icon)}</span>
@@ -43,7 +44,7 @@ export default function SidebarClient({ initialRole }: { initialRole?: UserRole 
         })}
       </nav>
 
-      {/* Rodapé — mantém visível; em colapso mostra ícone-only */}
+      {/* Rodapé — visível; em colapso mostra ícone-only + tooltip */}
       <div className="fp-nav-footer">
         <span className="fp-nav-session fp-label">Sessão iniciada</span>
         <button
@@ -51,6 +52,7 @@ export default function SidebarClient({ initialRole }: { initialRole?: UserRole 
           className="fp-signout"
           onClick={() => signOut({ callbackUrl: "/login" })}
           title="Terminar sessão"
+          data-tooltip="Terminar sessão"
         >
           <span className="icon" aria-hidden>⎋</span>
           <span className="fp-label">Terminar sessão</span>

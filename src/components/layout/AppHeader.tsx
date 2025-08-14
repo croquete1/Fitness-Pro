@@ -20,8 +20,10 @@ export default function AppHeader() {
 
   // Mobile: abre/fecha off-canvas
   const [open, setOpen] = useState(false);
-  // Desktop: colapsa/expande largura
+  // Desktop: colapsa/expande a largura
   const [collapsed, setCollapsed] = useState(false);
+  // Animação do clique do hambúrguer
+  const [pressed, setPressed] = useState(false);
 
   // Atributos no <html> para o CSS
   useEffect(() => {
@@ -54,12 +56,19 @@ export default function AppHeader() {
   const salutation = useMemo(() => greet(new Date()), []);
 
   const handleHamburger = () => {
+    // animação “bump”
+    setPressed(true);
+    setTimeout(() => setPressed(false), 180);
+
     if (typeof window !== "undefined" && window.innerWidth >= 1024) {
       setCollapsed((v) => !v); // desktop
     } else {
       setOpen((v) => !v); // mobile
     }
   };
+
+  const expanded =
+    typeof window !== "undefined" && window.innerWidth >= 1024 ? collapsed : open;
 
   return (
     <header
@@ -76,14 +85,10 @@ export default function AppHeader() {
         {/* Coluna 1: Marca por cima da coluna da sidebar */}
         <div className="fp-brand">
           <button
-            className="fp-hamburger"
+            className={`fp-hamburger ${pressed ? "is-pressed" : ""}`}
             type="button"
             aria-label="Alternar menu"
-            aria-expanded={
-              typeof window !== "undefined" && window.innerWidth >= 1024
-                ? collapsed
-                : open
-            }
+            aria-expanded={expanded}
             onClick={handleHamburger}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
