@@ -26,10 +26,12 @@
 }
 
 html, body {
-  background: var(--bg);
-  color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
 }
-
+input, button, select, textarea {
+  font: inherit;
+}
 /* Lock scroll quando sidebar está aberta em mobile */
 html[data-sidebar="open"] {
   overflow: hidden;

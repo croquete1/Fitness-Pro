@@ -1,80 +1,144 @@
 // src/app/register/RegisterClient.tsx
 "use client";
 
-import { useState } from "react";
+import * as React from "react";
+import { useRouter } from "next/navigation";
+
+/* --- Estilos reutilizáveis --- */
+const inputStyle: React.CSSProperties = {
+  border: "1px solid var(--border)",
+  background: "var(--bg)",
+  color: "var(--fg)",
+  borderRadius: 12,
+  padding: ".65rem .8rem",
+  outline: "none",
+};
+
+const primaryBtnStyle: React.CSSProperties = {
+  border: "1px solid var(--border)",
+  background: "var(--accent)",
+  color: "#fff",
+  borderRadius: 12,
+  padding: ".65rem .9rem",
+  fontWeight: 700,
+  cursor: "pointer",
+};
 
 export default function RegisterClient() {
-  const [loading, setLoading] = useState(false);
-  const [ok, setOk] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const router = useRouter();
+  const [name, setName] = React.useState("");
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [err, setErr] = React.useState<string | null>(null);
+  const [ok, setOk] = React.useState(false);
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErr(null);
+    setOk(false);
     setLoading(true);
-
     try {
-      const data = new FormData(e.currentTarget);
-      const body = {
-        name: (data.get("name") as string) ?? "",
-        email: (data.get("email") as string) ?? "",
-        password: (data.get("password") as string) ?? "",
-      };
-
-      const r = await fetch("/api/auth/register", {
+      const res = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ name, email, password }),
       });
-      const json = await r.json();
-      if (!r.ok) throw new Error(json?.error || "Falha no registo");
+
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j?.error ?? "Falha no registo");
+      }
 
       setOk(true);
+      // redireciona para login com flag
+      setTimeout(() => router.replace("/login?registered=1"), 600);
     } catch (e: any) {
-      setErr(e?.message ?? "Falha no registo");
+      setErr(e?.message ?? "Não foi possível concluir o registo.");
     } finally {
       setLoading(false);
     }
-  }
-
-  if (ok) {
-    return (
-      <div className="space-y-2">
-        <h2 className="text-xl font-semibold">Pedido enviado</h2>
-        <p>
-          A sua conta foi criada com estado <b>PENDENTE</b>. Um administrador irá
-          aprovar e receberá notificação por email.
-        </p>
-      </div>
-    );
-  }
+  };
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
-      <div className="space-y-1">
-        <label className="block text-sm">Nome</label>
-        <input name="name" className="w-full rounded border p-2" />
-      </div>
+    <form onSubmit={onSubmit} style={{ display: "grid", gap: 12 }}>
+      {ok ? (
+        <div
+          role="status"
+          style={{
+            border: "1px solid var(--border)",
+            background: "var(--chip)",
+            color: "var(--fg)",
+            padding: ".6rem .75rem",
+            borderRadius: 12,
+            fontSize: ".9rem",
+          }}
+        >
+          Conta criada. A aguardar aprovação do administrador…
+        </div>
+      ) : null}
 
-      <div className="space-y-1">
-        <label className="block text-sm">Email</label>
-        <input name="email" type="email" required className="w-full rounded border p-2" />
-      </div>
+      {err ? (
+        <div
+          role="alert"
+          style={{
+            border: "1px solid #ef4444",
+            background: "rgba(239,68,68,.08)",
+            color: "#ef4444",
+            padding: ".6rem .75rem",
+            borderRadius: 12,
+            fontSize: ".9rem",
+          }}
+        >
+          {err}
+        </div>
+      ) : null}
 
-      <div className="space-y-1">
-        <label className="block text-sm">Password</label>
-        <input name="password" type="password" required className="w-full rounded border p-2" />
-      </div>
+      <label style={{ display: "grid", gap: 6 }}>
+        <span style={{ fontWeight: 600 }}>Nome</span>
+        <input
+          type="text"
+          required
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          style={inputStyle}
+        />
+      </label>
 
-      {err && <p className="text-sm text-red-600">{err}</p>}
+      <label style={{ display: "grid", gap: 6 }}>
+        <span style={{ fontWeight: 600 }}>Email</span>
+        <input
+          type="email"
+          required
+          autoComplete="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          style={inputStyle}
+        />
+      </label>
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full rounded bg-black px-4 py-2 text-white disabled:opacity-60"
-      >
-        {loading ? "A registar..." : "Criar conta"}
+      <label style={{ display: "grid", gap: 6 }}>
+        <span style={{ fontWeight: 600 }}>Palavra-passe</span>
+        <input
+          type="password"
+          required
+          autoComplete="new-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          style={inputStyle}
+        />
+      </label>
+
+      <button type="submit" disabled={loading} style={primaryBtnStyle}>
+        {loading ? "A registar..." : "Registar"}
       </button>
+
+      <div style={{ textAlign: "right", fontSize: ".92rem" }}>
+        Já tem conta?{" "}
+        <a href="/login" style={{ color: "var(--accent)", textDecoration: "underline" }}>
+          Iniciar sessão
+        </a>
+      </div>
     </form>
   );
 }
