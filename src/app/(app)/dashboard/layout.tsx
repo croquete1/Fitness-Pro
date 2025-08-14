@@ -1,17 +1,18 @@
-// src/app/(app)/dashboard/layout.tsx  (apenas referência)
-import SidebarWrapper from "@/components/SidebarWrapper";
-import Header from "@/components/Header";
+import React from "react";
+import AppHeader from "@/components/layout/AppHeader";
+import ClientProviders from "@/components/ClientProviders";
+
+export const metadata = {
+  title: "Dashboard · Fitness Pro",
+};
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-dvh w-full">
-      <div className="flex">
-        <SidebarWrapper />
-        <div className="flex-1">
-          <Header />
-          <main className="p-4">{children}</main>
-        </div>
+    <ClientProviders>
+      <div>
+        <AppHeader />
+        <main style={{ maxWidth: 1280, margin: "0 auto", padding: "1rem" }}>{children}</main>
       </div>
-    </div>
+    </ClientProviders>
   );
 }

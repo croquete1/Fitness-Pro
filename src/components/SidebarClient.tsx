@@ -1,78 +1,62 @@
+// src/components/SidebarClient.tsx
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Home, CalendarDays, Dumbbell, Users, Shield, Server, BarChart3, Settings, CreditCard
-} from "lucide-react";
+import { AppIcon } from "@/components/icons";
+import { getSidebarItems } from "@/lib/nav";
 
 export type RawUser = {
   id: string;
-  name?: string | null;
-  email?: string | null;
+  name: string | null;
+  email: string;
   role: "ADMIN" | "TRAINER" | "CLIENT";
-};
-
-type Item = {
-  href: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  show: boolean;
 };
 
 export default function SidebarClient({ user }: { user: RawUser }) {
   const pathname = usePathname();
-
-  const items: Item[] = [
-    { href: "/dashboard", label: "Início", icon: Home, show: true },
-    { href: "/dashboard/sessions", label: "Sessões", icon: CalendarDays, show: true },
-
-    // Área PT
-    { href: "/dashboard/trainer", label: "PT", icon: Dumbbell, show: user.role !== "CLIENT" },
-    { href: "/dashboard/pt/clients", label: "PT · Clientes", icon: Users, show: user.role !== "CLIENT" },
-
-    // Área Admin
-    { href: "/dashboard/admin", label: "Administração", icon: Shield, show: user.role === "ADMIN" },
-    { href: "/dashboard/reports", label: "Relatórios", icon: BarChart3, show: user.role === "ADMIN" },
-    { href: "/dashboard/system", label: "Sistema", icon: Server, show: user.role === "ADMIN" },
-
-    // Conta
-    { href: "/dashboard/billing", label: "Faturação", icon: CreditCard, show: true },
-    { href: "/dashboard/profile", label: "Perfil", icon: Settings, show: true },
-  ];
+  const items = getSidebarItems(user.role);
 
   return (
-    <aside className="w-64 shrink-0 border-r bg-white/60 dark:bg-black/30 backdrop-blur">
+    <aside
+      className="sticky top-0 h-dvh w-[270px] shrink-0 border-r bg-white/70 dark:bg-zinc-900/50
+                 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-zinc-900/40
+                 shadow-[inset_0_1px_0_0_rgba(255,255,255,.6)]
+                 dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,.06)]"
+    >
       <div className="p-4">
-        <div className="text-xs uppercase opacity-60 mb-1">Olá,</div>
-        <div className="font-semibold leading-tight truncate">
-          {user.name ?? user.email ?? "Utilizador"}
+        <div className="mb-4 rounded-xl bg-gradient-to-br from-indigo-500/10 via-purple-500/10 to-pink-500/10
+                        dark:from-indigo-500/15 dark:via-purple-500/15 dark:to-pink-500/15
+                        border border-zinc-200/60 dark:border-zinc-800/60 p-4">
+          <div className="text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+            Olá
+          </div>
+          <div className="text-sm font-medium">
+            {user.name ?? user.email}
+            {user.role === "ADMIN" && <span className="ml-2 rounded bg-indigo-600 px-2 py-0.5 text-[10px] font-semibold text-white">Admin</span>}
+            {user.role === "TRAINER" && <span className="ml-2 rounded bg-emerald-600 px-2 py-0.5 text-[10px] font-semibold text-white">Personal Trainer</span>}
+          </div>
         </div>
-        <div className="text-xs opacity-60">
-          {user.role === "ADMIN" ? "Admin" : user.role === "TRAINER" ? "Personal Trainer" : "Cliente"}
-        </div>
-      </div>
 
-      <nav className="px-2 pb-4 space-y-1">
-        {items.filter(i => i.show).map(({ href, label, icon: Icon }) => {
-          const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href + "/"));
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={[
-                "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition",
-                active
-                  ? "bg-black/[0.06] dark:bg-white/10 font-medium"
-                  : "hover:bg-black/[0.05] dark:hover:bg-white/[0.08]"
-              ].join(" ")}
-            >
-              <Icon className="h-4 w-4 opacity-80" />
-              <span>{label}</span>
-            </Link>
-          );
-        })}
-      </nav>
+        <nav className="space-y-1">
+          {items.map((item) => {
+            const active = pathname === item.href || pathname.startsWith(item.href + "/");
+            return (
+              <Link
+                key={item.key}
+                href={item.href}
+                className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 transition
+                  ${active
+                    ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                    : "hover:bg-zinc-100 dark:hover:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300"}`}
+              >
+                <AppIcon name={item.icon} className={`h-5 w-5 ${active ? "opacity-100" : "opacity-80 group-hover:opacity-100"}`} />
+                <span className="text-sm font-medium">{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
     </aside>
   );
 }

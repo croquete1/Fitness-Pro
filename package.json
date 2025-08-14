@@ -9,7 +9,7 @@
         "start": "next start",
         "postinstall": "node scripts/check-duplicate-routes.cjs && prisma generate",
         "verify": "node scripts/verify-manifest.cjs",
-        "prebuild": "node scripts/check-duplicate-routes.cjs && node scripts/verify-manifest.cjs"
+        "prebuild": "node scripts/check-duplicate-routes.cjs && node scripts/verify-manifest.cjs && node scripts/verify-sidebar.cjs"
     },
     "dependencies": {
         "@auth/prisma-adapter": "^2.10.0",
