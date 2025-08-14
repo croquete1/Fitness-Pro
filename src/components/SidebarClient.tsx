@@ -24,13 +24,9 @@ export default function SidebarClient({ initialRole }: { initialRole?: UserRole 
         width: "100%",
         borderRight: "1px solid var(--border)",
         padding: "0.75rem",
-        position: "sticky",
-        top: 0,
-        height: "calc(100dvh - 64px)",
         background: "var(--bg)",
         display: "flex",
         flexDirection: "column",
-        resize: "none" as any,
       }}
     >
       {/* Links */}
@@ -39,9 +35,12 @@ export default function SidebarClient({ initialRole }: { initialRole?: UserRole 
         style={{
           display: "grid",
           gap: 8,
-          alignContent: "start",
-          gridAutoRows: "min-content",
+          alignContent: "start",                 // NÃO esticar linhas
+          justifyContent: "start",
+          gridAutoRows: "max-content",           // cada linha só ocupa o conteúdo
+          // Não usar height fixa; deixar o flex empurrar o rodapé
           flex: 1,
+          minHeight: 0,
         }}
       >
         {items.map((item) => {
@@ -66,6 +65,10 @@ export default function SidebarClient({ initialRole }: { initialRole?: UserRole 
                 border: active ? "1px solid var(--border)" : "1px solid transparent",
                 fontWeight: active ? 600 : 500,
                 lineHeight: 1.2,
+                minHeight: 0,              // evita esticar
+                whiteSpace: "nowrap",      // evita quebra de linha
+                overflow: "hidden",
+                textOverflow: "ellipsis",
               }}
             >
               <span aria-hidden style={{ fontSize: 14 }}>{iconFor(item.icon)}</span>

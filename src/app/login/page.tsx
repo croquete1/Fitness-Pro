@@ -23,7 +23,7 @@ export default function LoginPage({
         minHeight: "100dvh",
         display: "grid",
         placeItems: "center",
-        padding: "2rem 1rem",
+        padding: "calc(var(--header-h) + 1.25rem) 1rem 2rem",
         background: "var(--bg)",
         color: "var(--fg)",
       }}
