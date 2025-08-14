@@ -82,13 +82,13 @@ html[data-sidebar="open"] { overflow: hidden; }
 [data-theme="dark"] .brand-logo-light { display: none; }
 [data-theme="dark"] .brand-logo-dark { display: inline-block; }
 
-/* ===== Header alinhado ao layout com sidebar ===== */
+/* ===== Header alinhado ao layout com sidebar (corrigido) ===== */
 .fp-header {
-  padding: .8rem 1rem;
   min-height: var(--header-h);
   display: grid;
   grid-template-columns: var(--sidebar-w) 1fr; /* reserva a coluna da sidebar */
   align-items: center;
+  padding: 0; /* sem padding aqui para alinhar com o grid base */
 }
 .fp-header-inner {
   grid-column: 2; /* conteúdo do header alinha com a coluna de conteúdo */
@@ -96,6 +96,7 @@ html[data-sidebar="open"] { overflow: hidden; }
   grid-template-columns: 1fr auto 1fr; /* esquerda | centro | direita */
   align-items: center;
   gap: .75rem;
+  padding: .8rem 1rem; /* padding passa para o inner para bater certo com o conteúdo */
 }
 
 /* ===== Navegação da sidebar ===== */
@@ -179,16 +180,15 @@ html[data-sidebar="open"] { overflow: hidden; }
   .fp-overlay { display: none !important; }
 }
 
-/* ===== Mobile/Tablet ===== */
+/* Mobile/Tablet */
 @media (max-width: 1023.98px) {
-  /* Coluna única; sidebar vira off-canvas */
-  .fp-shell { grid-template-columns: 1fr !important; }
-
   .fp-header { grid-template-columns: 1fr; }
   .fp-header-inner {
     grid-column: 1;
     grid-template-columns: 1fr auto 1fr;
+    padding: .8rem 1rem; /* mantém o mesmo ritmo em mobile */
   }
+}
 
   .fp-sidebar {
     position: fixed !important;
@@ -216,7 +216,7 @@ html[data-sidebar="open"] { overflow: hidden; }
     cursor: pointer;
   }
   .fp-hamburger:active { transform: translateY(1px); }
-}
+
 
 /* Utilitários */
 .sr-only {
