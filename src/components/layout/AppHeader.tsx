@@ -18,19 +18,35 @@ function greet(now: Date) {
 
 export default function AppHeader() {
   const { data } = useSession();
-  const [open, setOpen] = useState(false);
 
-  // sincroniza o atributo no <html> (usado pelo CSS)
+  // Estado para mobile (off-canvas)
+  const [open, setOpen] = useState(false);
+  // Estado para desktop (colapsar largura)
+  const [collapsed, setCollapsed] = useState(false);
+
+  // Sincroniza attrs no <html>
   useEffect(() => {
     const html = document.documentElement;
     if (open) html.setAttribute("data-sidebar", "open");
     else html.removeAttribute("data-sidebar");
   }, [open]);
 
-  // fecha se o viewport ficar >= 1024px
+  useEffect(() => {
+    const html = document.documentElement;
+    if (collapsed) html.setAttribute("data-sidebar-collapsed", "1");
+    else html.removeAttribute("data-sidebar-collapsed");
+  }, [collapsed]);
+
+  // Ajustes ao mudar viewport
   useEffect(() => {
     const onResize = () => {
-      if (window.innerWidth >= 1024) setOpen(false);
+      if (window.innerWidth < 1024) {
+        // Em mobile não faz sentido “colapsado”
+        setCollapsed(false);
+      } else {
+        // Em desktop não usamos overlay de mobile
+        setOpen(false);
+      }
     };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
@@ -43,43 +59,58 @@ export default function AppHeader() {
 
   const salutation = useMemo(() => greet(new Date()), []);
 
+  // Um botão que funciona para ambos os modos
+  const handleHamburger = () => {
+    if (typeof window !== "undefined" && window.innerWidth >= 1024) {
+      setCollapsed((v) => !v);
+    } else {
+      setOpen((v) => !v);
+    }
+  };
+
   return (
     <header
       style={{
         position: "sticky",
         top: 0,
-        zIndex: 90,                    // acima do overlay
+        zIndex: 90 as any, // 90 (texto não aceita números com underscore)
         borderBottom: "1px solid var(--border)",
         backdropFilter: "saturate(180%) blur(8px)",
         background: "var(--bg-header)",
-      }}
+      } as React.CSSProperties}
     >
       <div className="fp-header">
-        <div className="fp-header-inner">
-          {/* Marca / título + Hambúrguer em mobile */}
-          <div style={{ display: "flex", alignItems: "center", gap: ".6rem" }}>
-            <button
-              className="fp-hamburger"
-              type="button"
-              aria-label={open ? "Fechar menu" : "Abrir menu"}
-              aria-expanded={open}
-              onClick={() => setOpen((v) => !v)}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
-                <path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" />
-              </svg>
-            </button>
+        {/* Coluna 1: marca (acima da sidebar) */}
+        <div className="fp-brand">
+          <button
+            className="fp-hamburger"
+            type="button"
+            aria-label={
+              typeof window !== "undefined" && window.innerWidth >= 1024
+                ? collapsed ? "Expandir sidebar" : "Encolher sidebar"
+                : open ? "Fechar menu" : "Abrir menu"
+            }
+            aria-expanded={typeof window !== "undefined" && window.innerWidth >= 1024 ? collapsed : open}
+            onClick={handleHamburger}
+          >
+            {/* Ícone hambúrguer/menus */}
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
+              <path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" />
+            </svg>
+          </button>
 
-            <Logo size={30} priority />
+          <Logo size={30} priority />
 
-            <div>
-              <div style={{ fontWeight: 700, lineHeight: 1 }}>{brand.name}</div>
-              <div style={{ fontSize: ".78rem", color: "var(--muted)" }}>Dashboard</div>
-            </div>
+          <div>
+            <div style={{ fontWeight: 700, lineHeight: 1 }}>{brand.name}</div>
+            <div style={{ fontSize: ".78rem", color: "var(--muted)" }}>Dashboard</div>
           </div>
+        </div>
 
-          {/* Saudação (centrada sobre a área de conteúdo) */}
-          <div style={{ textAlign: "center" }}>
+        {/* Coluna 2: saudação (à esquerda) + ações (à direita) */}
+        <div className="fp-header-inner">
+          {/* Saudação alinhada à esquerda do conteúdo */}
+          <div className="fp-greeting">
             <div style={{ fontWeight: 600 }}>
               {salutation}, {displayName} 👋
             </div>
@@ -103,7 +134,7 @@ export default function AppHeader() {
           </div>
 
           {/* Ações (direita) */}
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: ".6rem", alignItems: "center" }}>
+          <div className="fp-actions">
             <ThemeToggle />
             {data?.user ? <SignOutButton /> : null}
             <div

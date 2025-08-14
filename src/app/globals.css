@@ -1,18 +1,18 @@
 /* ========== HMS Personal Trainer — Tema global & Layout base ========== */
 
-/* Paleta & tokens */
 :root {
-  --bg: #f8fafc;         /* slate-50 */
-  --fg: #0f172a;         /* slate-900 */
-  --muted: #475569;      /* slate-600 */
-  --border: #e2e8f0;     /* slate-200 */
-  --accent: #3b82f6;     /* blue-500 */
+  --bg: #f8fafc;
+  --fg: #0f172a;
+  --muted: #475569;
+  --border: #e2e8f0;
+  --accent: #3b82f6;
   --bg-header: rgba(248, 250, 252, 0.85);
   --chip: #e8f0fe;
 
   /* Layout */
-  --sidebar-w: 260px;    /* largura fixa da sidebar (muda aqui se quiseres outro valor) */
-  --header-h: 64px;      /* altura do header */
+  --sidebar-w: 260px;           /* largura expandida */
+  --sidebar-w-collapsed: 76px;  /* largura colapsada (desktop) */
+  --header-h: 64px;
 }
 
 [data-theme="dark"] {
@@ -29,26 +29,29 @@
 html, body {
   background: var(--bg);
   color: var(--fg);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
-    Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
 }
 input, button, select, textarea { font: inherit; }
 
-/* Bloquear scroll quando a sidebar está aberta (mobile) */
+/* Lock scroll quando a sidebar está aberta (mobile) */
 html[data-sidebar="open"] { overflow: hidden; }
 
-/* ===== Layout com sidebar ===== */
+/* ===== Grid principal ===== */
 .fp-shell {
   display: grid;
-  grid-template-columns: var(--sidebar-w) 1fr; /* desktop por defeito */
+  grid-template-columns: var(--sidebar-w) 1fr;
   align-items: start;
   min-height: calc(100dvh - var(--header-h));
 }
+html[data-sidebar-collapsed="1"] .fp-shell {
+  grid-template-columns: var(--sidebar-w-collapsed) 1fr !important;
+}
 
-/* Sidebar (ajustada: largura exata da coluna, sem “sobrar” padding/borda) */
+/* ===== Sidebar ===== */
 .fp-sidebar {
-  box-sizing: border-box;        /* <— chave para largura exata */
-  width: 100%;                   /* preenche a coluna da grid (var(--sidebar-w)) */
+  box-sizing: border-box;
+  width: 100%;
   position: sticky;
   top: 0;
   height: calc(100dvh - var(--header-h));
@@ -57,10 +60,13 @@ html[data-sidebar="open"] { overflow: hidden; }
   padding: 0.75rem;
   display: flex;
   flex-direction: column;
-  z-index: 60; /* acima do overlay */
+  z-index: 60;
+}
+html[data-sidebar-collapsed="1"] .fp-sidebar {
+  padding: 0.5rem;
 }
 
-/* Overlay para mobile (controlado via componente) */
+/* ===== Overlay (mobile) ===== */
 .fp-overlay {
   position: fixed;
   inset: 0;
@@ -69,40 +75,66 @@ html[data-sidebar="open"] { overflow: hidden; }
   opacity: 0;
   pointer-events: none;
   transition: opacity .2s ease;
-  z-index: 50; /* abaixo do header e da sidebar */
+  z-index: 50;
 }
 
-/* Hamburger (esconde no desktop; mostra no mobile) */
-.fp-hamburger { display: none; }
-
-/* ===== Alternância de logótipo (light/dark) ===== */
+/* ===== Logótipos light/dark ===== */
 .brand-logo-light { display: inline-block; }
 .brand-logo-dark  { display: none; }
 [data-theme="dark"] .brand-logo-light { display: none; }
 [data-theme="dark"] .brand-logo-dark  { display: inline-block; }
 
-/* ===== Header alinhado ao layout com sidebar (corrigido) ===== */
+/* ===== Header ===== */
 .fp-header {
   min-height: var(--header-h);
   display: grid;
   grid-template-columns: var(--sidebar-w) 1fr; /* reserva a coluna da sidebar */
   align-items: center;
-  padding: 0; /* sem padding aqui para alinhar com o grid base */
+  padding: 0;
 }
+html[data-sidebar-collapsed="1"] .fp-header {
+  grid-template-columns: var(--sidebar-w-collapsed) 1fr;
+}
+
+/* Coluna 1 (acima da sidebar): marca + botão */
+.fp-brand {
+  grid-column: 1;
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .8rem 1rem;
+}
+
+/* Coluna 2 (conteúdo): greeting à esquerda + ações à direita */
 .fp-header-inner {
-  grid-column: 2; /* conteúdo do header alinha com a coluna de conteúdo */
+  grid-column: 2;
   display: grid;
-  grid-template-columns: 1fr auto 1fr; /* esquerda | centro | direita */
+  grid-template-columns: 1fr auto; /* greeting | actions */
   align-items: center;
   gap: .75rem;
-  padding: .8rem 1rem; /* padding aqui para bater certo com o conteúdo */
+  padding: .8rem 1rem;
 }
+.fp-greeting { min-width: 0; }
+.fp-actions  { display: inline-flex; align-items: center; gap: .6rem; }
+
+/* Botão hambúrguer – visível em todos os tamanhos */
+.fp-hamburger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+}
+.fp-hamburger:active { transform: translateY(1px); }
 
 /* ===== Navegação da sidebar ===== */
 .fp-nav {
   display: grid;
   gap: 8px;
-  align-content: start;           /* não esticar linhas */
+  align-content: start;
   grid-auto-rows: max-content;
   flex: 1;
   min-height: 0;
@@ -112,7 +144,7 @@ html[data-sidebar="open"] { overflow: hidden; }
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px 8px 18px;    /* espaço para a ink bar */
+  padding: 8px 12px 8px 18px;
   border-radius: 10px;
   text-decoration: none;
   color: inherit;
@@ -144,11 +176,19 @@ html[data-sidebar="open"] { overflow: hidden; }
 .fp-nav-item:hover .fp-ink { transform: translateY(-50%) scaleY(1); }
 
 .fp-nav-item.active {
-  border-color: var(--border);    /* outline subtil */
-  background: transparent;        /* sem “tile” gigante */
-  font-weight: 700;               /* negrito */
+  border-color: var(--border);
+  background: transparent;
+  font-weight: 700;
 }
 .fp-nav-item.active .fp-ink { transform: translateY(-50%) scaleY(1); }
+
+/* Colapso em desktop: esconder rótulos e centrar ícones */
+html[data-sidebar-collapsed="1"] .fp-nav-item {
+  padding: 8px;
+  justify-content: center;
+}
+html[data-sidebar-collapsed="1"] .fp-nav-item .fp-ink { left: 2px; }
+html[data-sidebar-collapsed="1"] .fp-nav-label { display: none; }
 
 /* Footer da sidebar */
 .fp-nav-footer {
@@ -165,21 +205,19 @@ html[data-sidebar="open"] { overflow: hidden; }
 /* ===== Desktop ===== */
 @media (min-width: 1024px) {
   .fp-shell { grid-template-columns: var(--sidebar-w) 1fr !important; }
-  /* nada de width/min/max aqui — a .fp-sidebar já ocupa 100% da coluna */
+  html[data-sidebar-collapsed="1"] .fp-shell {
+    grid-template-columns: var(--sidebar-w-collapsed) 1fr !important;
+  }
   .fp-overlay { display: none !important; }
 }
 
 /* ===== Mobile/Tablet ===== */
 @media (max-width: 1023.98px) {
-  /* Coluna única; sidebar vira off-canvas */
   .fp-shell { grid-template-columns: 1fr !important; }
 
   .fp-header { grid-template-columns: 1fr; }
-  .fp-header-inner {
-    grid-column: 1;
-    grid-template-columns: 1fr auto 1fr;
-    padding: .8rem 1rem;
-  }
+  .fp-brand   { grid-column: 1; padding: .8rem 1rem; }
+  .fp-header-inner { grid-column: 1; grid-template-columns: 1fr auto; padding: .8rem 1rem; }
 
   .fp-sidebar {
     position: fixed !important;
@@ -187,25 +225,13 @@ html[data-sidebar="open"] { overflow: hidden; }
     top: var(--header-h);
     height: calc(100dvh - var(--header-h)) !important;
     max-width: 85vw;
-    width: 85vw;                 /* largura em mobile */
+    width: 85vw;
     transform: translateX(-100%);
     transition: transform .2s ease, box-shadow .2s ease;
     box-shadow: 0 10px 30px rgba(0,0,0,.18);
   }
   html[data-sidebar="open"] .fp-sidebar { transform: translateX(0); }
   html[data-sidebar="open"] .fp-overlay { opacity: 1; pointer-events: auto; }
-
-  .fp-hamburger {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px; height: 36px;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: transparent;
-    cursor: pointer;
-  }
-  .fp-hamburger:active { transform: translateY(1px); }
 }
 
 /* Utilitários */
