@@ -1,51 +1,53 @@
-// src/app/(app)/api/admin/roster/route.ts
+// src/app/api/admin/roster/route.ts
 import { NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
-import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
+import { Role } from "@prisma/client";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/**
+ * GET /api/admin/roster?trainerId=...&clientId=...&limit=25
+ * - Lista atribuições Trainer<->Cliente (admin-only).
+ * - Filtros opcionais por trainerId e/ou clientId.
+ * - Ordenado por createdAt desc.
+ */
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as any)?.role;
-  if (!session?.user || role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  try {
+    const session = await getServerSession(authOptions);
+    const me = session?.user as any;
+    if (!me || me.role !== Role.ADMIN) {
+      return NextResponse.json({ ok: false, error: "FORBIDDEN" }, { status: 403 });
+    }
 
-  // filtros opcionais
-  const { searchParams } = new URL(req.url);
-  const q = (searchParams.get("q") || "").trim();
+    const url = new URL(req.url);
+    const trainerId = url.searchParams.get("trainerId") || undefined;
+    const clientId = url.searchParams.get("clientId") || undefined;
+    const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit") || 25)));
 
-  const whereTrainer: Prisma.UserWhereInput = {
-    role: "TRAINER",
-    ...(q ? { OR: [{ email: { contains: q, mode: "insensitive" } }, { name: { contains: q, mode: "insensitive" } }] } : {}),
-  };
+    const where: any = {};
+    if (trainerId) where.trainerId = trainerId;
+    if (clientId) where.clientId = clientId;
 
-  const trainers = await prisma.user.findMany({
-    where: whereTrainer,
-    orderBy: { name: "asc" },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      trainerClientsAsTrainer: {
-        include: {
-          client: { select: { id: true, name: true, email: true } },
-        },
+    const rows = await prisma.trainerClient.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      select: {
+        id: true,
+        trainerId: true,
+        clientId: true,
+        createdAt: true,
+        trainer: { select: { id: true, email: true, name: true, role: true } },
+        client: { select: { id: true, email: true, name: true, role: true } },
       },
-    },
-  });
+    });
 
-  const data = trainers.map(t => ({
-    id: t.id,
-    name: t.name,
-    email: t.email,
-    clients: t.trainerClientsAsTrainer.map(tc => tc.client),
-  }));
-
-  return NextResponse.json({ trainers: data });
+    return NextResponse.json({ ok: true, data: rows });
+  } catch (e: any) {
+    console.error("[admin/roster][GET]", e?.message ?? e);
+    return NextResponse.json({ ok: false, error: "INTERNAL_ERROR" }, { status: 500 });
+  }
 }

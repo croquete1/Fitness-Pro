@@ -1,60 +1,77 @@
-// src/app/(app)/api/admin/roster/assign/route.ts
+// src/app/api/admin/roster/assign/route.ts
 import { NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
-import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as any)?.role;
-  if (!session?.user || role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+type Body = { trainerId?: string; clientId?: string };
 
-  const body = await req.json().catch(() => null);
-  if (!body?.trainerId || !body?.clientId) {
-    return NextResponse.json({ error: "trainerId e clientId são obrigatórios" }, { status: 400 });
-    }
-
-  const { trainerId, clientId } = body as { trainerId: string; clientId: string };
-
-  // valida existências básicas
-  await Promise.all([
-    prisma.user.findUniqueOrThrow({ where: { id: trainerId } }),
-    prisma.user.findUniqueOrThrow({ where: { id: clientId } }),
-  ]);
-
-  // cria se não existir (unique composite em [trainerId, clientId] no modelo)
-  const link = await prisma.trainerClient.upsert({
-    where: { trainerId_clientId: { trainerId, clientId } },
-    update: {},
-    create: { trainerId, clientId },
-    select: { trainerId: true, clientId: true },
-  });
-
-  return NextResponse.json({ link, status: "ok" }, { status: 201 });
+async function readBody(req: Request): Promise<Body> {
+  try {
+    const json = await req.json();
+    if (json && typeof json === "object") return json as Body;
+  } catch {}
+  try {
+    const fd = await req.formData();
+    return {
+      trainerId: (fd.get("trainerId") as string) ?? undefined,
+      clientId: (fd.get("clientId") as string) ?? undefined,
+    };
+  } catch {}
+  return {};
 }
 
-export async function DELETE(req: Request) {
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as any)?.role;
-  if (!session?.user || role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+export async function POST(req: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    const actorId = (session?.user as any)?.id ?? null;
+
+    const { trainerId, clientId } = await readBody(req);
+    if (!trainerId || !clientId) {
+      return NextResponse.json({ ok: false, error: "MISSING_PARAMS" }, { status: 400 });
+    }
+
+    // Validar existência de utilizadores
+    const [trainer, client] = await Promise.all([
+      prisma.user.findUnique({ where: { id: trainerId }, select: { id: true, email: true, name: true, role: true } }),
+      prisma.user.findUnique({ where: { id: clientId }, select: { id: true, email: true, name: true, role: true } }),
+    ]);
+    if (!trainer || !client) {
+      return NextResponse.json({ ok: false, error: "USER_NOT_FOUND" }, { status: 404 });
+    }
+
+    // Atribuição idempotente (chave única composta)
+    const assigned = await prisma.trainerClient.upsert({
+      where: { trainerId_clientId: { trainerId, clientId } },
+      update: {},
+      create: { trainerId, clientId },
+      select: { id: true, trainerId: true, clientId: true, createdAt: true },
+    });
+
+    // Audit log para notificações do treinador
+    await prisma.auditLog.create({
+      data: {
+        actorId,
+        action: "CLIENT_ASSIGNED_TO_TRAINER",
+        target: trainerId, // <- o "destinatário" da notificação é o trainer
+        meta: {
+          assignedId: assigned.id,
+          trainerId,
+          trainerEmail: trainer.email,
+          trainerName: trainer.name,
+          clientId,
+          clientEmail: client.email,
+          clientName: client.name,
+        },
+      },
+    });
+
+    return NextResponse.json({ ok: true, data: assigned });
+  } catch (e: any) {
+    console.error("[admin/roster/assign][POST]", e?.message ?? e);
+    return NextResponse.json({ ok: false, error: "INTERNAL_ERROR" }, { status: 500 });
   }
-
-  const body = await req.json().catch(() => null);
-  if (!body?.trainerId || !body?.clientId) {
-    return NextResponse.json({ error: "trainerId e clientId são obrigatórios" }, { status: 400 });
-  }
-
-  const { trainerId, clientId } = body as { trainerId: string; clientId: string };
-
-  await prisma.trainerClient.delete({
-    where: { trainerId_clientId: { trainerId, clientId } },
-  });
-
-  return NextResponse.json({ status: "ok" });
 }

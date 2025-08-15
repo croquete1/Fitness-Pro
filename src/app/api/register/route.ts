@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
 
-// Garantir ambiente Node.js (Prisma não corre em Edge)
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -12,17 +11,13 @@ async function readBody(req: Request): Promise<Record<string, any>> {
   try {
     const json = await req.json();
     if (json && typeof json === "object") return json as Record<string, any>;
-  } catch {
-    // not json
-  }
+  } catch {}
   try {
     const fd = await req.formData();
     const obj: Record<string, any> = {};
     fd.forEach((v, k) => (obj[k] = typeof v === "string" ? v : ""));
     return obj;
-  } catch {
-    // ignore
-  }
+  } catch {}
   return {};
 }
 
@@ -39,11 +34,11 @@ export async function POST(req: Request) {
     const email = (body.email ?? "").toString().trim().toLowerCase();
     const password = (body.password ?? body.pass ?? "").toString();
 
-    // Derivar intenção de PT pelo referer (ex.: /register/trainer); não gravamos role aqui.
+    // Heurística simples para intenção PT
     const referer = (req.headers.get("referer") || "").toLowerCase();
     const wantsTrainer = /\/register\/trainer/.test(referer) || `${body.role}`.toUpperCase() === "TRAINER";
 
-    // Validação básica
+    // Validação
     if (!isEmail(email)) {
       return NextResponse.json({ ok: false, error: "EMAIL_INVALID" }, { status: 400 });
     }
@@ -59,60 +54,50 @@ export async function POST(req: Request) {
 
     const hash = await bcrypt.hash(password, 10);
 
-    // Tenta criar com diferentes nomes de coluna para a password (compatível com schemas)
+    // tenta colunas de hash compatíveis
     const base = {
       email,
       name: name || email.split("@")[0],
-      // NÃO definir role aqui. Se for /register/trainer, o fluxo de aprovação/admin tratará disso.
-      // Ex.: podes ter um cron/endpoint que muda role para TRAINER quando aprovado.
     } as any;
 
-    const variants = [
-      { password: hash },
-      { passwordHash: hash },
-      { hashedPassword: hash },
-    ];
+    const variants = [{ passwordHash: hash }, { password: hash }, { hashedPassword: hash }];
 
     let created: any = null;
     let lastErr: any = null;
     for (const v of variants) {
       try {
-        // @ts-ignore — permitimos "data" flexível
         created = await prisma.user.create({ data: { ...base, ...v } });
         break;
       } catch (e: any) {
         lastErr = e;
-        // Continua a tentar com o próximo nome de coluna
       }
     }
-
     if (!created) {
-      console.error("[register] Falha a criar utilizador (todas variantes):", {
-        email,
-        referer,
-        wantsTrainer,
-        err: String(lastErr),
-      });
+      console.error("[register] prisma.create falhou:", String(lastErr));
       return NextResponse.json({ ok: false, error: "CREATE_FAILED" }, { status: 500 });
     }
 
-    // (Opcional) marcação de intenção PT para aprovação (se tiveres tabela/flag própria)
-    // try {
-    //   if (wantsTrainer) {
-    //     await prisma.trainerIntent.create({ data: { userId: created.id, createdAt: new Date() } });
-    //   }
-    // } catch (e) { console.warn("[register] trainerIntent opcional falhou:", e); }
+    // 🚩 Audit log: novo registo (usado para notificações no Admin)
+    try {
+      await prisma.auditLog.create({
+        data: {
+          actorId: null,
+          action: "USER_REGISTERED",
+          target: created.id,
+          meta: {
+            email,
+            name: created.name ?? null,
+            wantsTrainer,
+            referer,
+          },
+        },
+      });
+    } catch (e) {
+      console.warn("[register] auditLog falhou:", e);
+    }
 
     return NextResponse.json(
-      {
-        ok: true,
-        data: {
-          id: created.id,
-          email: created.email,
-          name: created.name,
-          // Não expor hash
-        },
-      },
+      { ok: true, data: { id: created.id, email: created.email, name: created.name } },
       { status: 201 }
     );
   } catch (err: any) {
@@ -124,7 +109,6 @@ export async function POST(req: Request) {
   }
 }
 
-// Health-check rápido (útil em Vercel)
 export async function GET() {
   try {
     await prisma.$queryRaw`SELECT 1`;

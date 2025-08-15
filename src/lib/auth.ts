@@ -1,80 +1,36 @@
 // src/lib/auth.ts
-import type { NextAuthOptions } from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
-import prisma from "@/lib/prisma";
-import { compare } from "bcryptjs";
+// Re-export do authOptions + helpers de sessão (compatível com importações antigas)
+import { getServerSession } from "next-auth";
+import { authOptions } from "./authOptions";
+import type { Role, Status } from "@prisma/client";
 
-export const authOptions: NextAuthOptions = {
-  secret: process.env.NEXTAUTH_SECRET, // garante consistência em prod
-  session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 7 }, // 7 dias
-  providers: [
-    CredentialsProvider({
-      name: "Credenciais",
-      credentials: {
-        email: { label: "Email", type: "text" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(credentials) {
-        const email = String(credentials?.email ?? "").trim();
-        const password = String(credentials?.password ?? "");
-        if (!email || !password) return null;
+export { authOptions };
 
-        // email é CITEXT na BD → comparação case-insensitive no Postgres
-        const user = await prisma.user.findFirst({
-          where: { email },
-          select: {
-            id: true,
-            email: true,
-            name: true,
-            passwordHash: true,
-            role: true,
-            status: true,
-          },
-        });
-        if (!user) return null;
-
-        // bcrypt compatível com hashes do pgcrypto ($2a/$2b/$2y)
-        const rawHash = user.passwordHash || "";
-        // 🔧 normaliza $2y -> $2b para máxima compatibilidade com bcryptjs
-        const hash = rawHash.startsWith("$2y$")
-          ? "$2b$" + rawHash.slice(4)
-          : rawHash;
-
-        const passOk = hash ? await compare(password, hash) : false;
-        if (!passOk) return null;
-
-        // tolerante a dados legados (ex.: 'active' minúsculo)
-        if (String(user.status).toUpperCase() !== "ACTIVE") return null;
-
-        // devolve user mínimo; id tem de ser string
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name ?? undefined,
-          role: user.role,
-          status: user.status,
-        } as any;
-      },
-    }),
-  ],
-  pages: {
-    signIn: "/login",
-    error: "/login",
-  },
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.role = (user as any).role;
-        token.status = (user as any).status;
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      (session as any).user.role = token.role;
-      (session as any).user.status = token.status;
-      return session;
-    },
-  },
+/** Shape normalizado do utilizador da sessão */
+export type SessionUser = {
+  id: string;
+  name: string;
+  email?: string;
+  role: Role;
+  status?: Status;
 };
 
-export default authOptions;
+/** Devolve o utilizador da sessão ou null (server-side) */
+export async function getSessionUser(): Promise<SessionUser | null> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return null;
+
+  const u = session.user as any;
+  return {
+    id: (u.id as string) ?? "",
+    name: session.user.name ?? session.user.email ?? "",
+    email: session.user.email ?? undefined,
+    role: (u.role as Role) ?? "CLIENT",
+    status: u.status as Status | undefined,
+  };
+}
+
+/** Acesso direto à sessão NextAuth (server-side) */
+export function getServerAuthSession() {
+  return getServerSession(authOptions);
+}
