@@ -28,10 +28,10 @@ enum Role {
 
 /** Enum Prisma "Status" mapeado para o tipo Postgres "UserStatus" */
 enum Status {
-  PENDING
-  ACTIVE
-  SUSPENDED
-  @@map("UserStatus") // enum Postgres "UserStatus"
+  PENDING   @map("PENDING")
+  ACTIVE    @map("APPROVED")
+  SUSPENDED @map("REJECTED")
+  @@map("UserStatus")
 }
 
 /** Mantemos os valores em PT. */
