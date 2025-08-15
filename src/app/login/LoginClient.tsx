@@ -26,7 +26,14 @@ export default function LoginClient({ registered = false }: { registered?: boole
       });
 
       if (!res || res.error) {
-        setErr("Email ou palavra-passe inválidos.");
+        const code = (res?.error || "").toString().toUpperCase();
+        if (code.includes("PENDING")) {
+          setErr("A tua conta ainda não foi aprovada pelo administrador.");
+        } else if (code.includes("SUSPENDED")) {
+          setErr("A tua conta está suspensa. Contacta o suporte.");
+        } else {
+          setErr("Email ou palavra-passe inválidos.");
+        }
         return;
       }
 
@@ -46,8 +53,7 @@ export default function LoginClient({ registered = false }: { registered?: boole
           role="status"
           style={{
             border: "1px solid var(--border)",
-            background: "var(--chip)",
-            color: "var(--fg)",
+            background: "var(--panel)",
             padding: ".6rem .75rem",
             borderRadius: 12,
             fontSize: ".9rem",
@@ -77,11 +83,10 @@ export default function LoginClient({ registered = false }: { registered?: boole
         <span style={{ fontWeight: 600 }}>Email</span>
         <input
           type="email"
-          required
-          autoComplete="email"
-          placeholder="o.teu@email.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          autoComplete="email"
+          required
           style={inputStyle}
         />
       </label>
@@ -91,62 +96,52 @@ export default function LoginClient({ registered = false }: { registered?: boole
         <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
           <input
             type={show ? "text" : "password"}
-            required
-            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+            required
             style={inputStyle}
           />
           <button
             type="button"
             onClick={() => setShow((v) => !v)}
-            aria-label={show ? "Ocultar palavra-passe" : "Mostrar palavra-passe"}
             style={secondaryBtnStyle}
+            aria-label={show ? "Esconder password" : "Mostrar password"}
           >
-            {show ? "Ocultar" : "Mostrar"}
+            {show ? "Esconder" : "Mostrar"}
           </button>
         </div>
       </label>
 
-      <button type="submit" disabled={loading} style={primaryBtnStyle}>
-        {loading ? "A entrar..." : "Entrar"}
-      </button>
-
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: ".92rem", marginTop: 2 }}>
-        <a href="#" style={{ color: "var(--accent)", textDecoration: "underline" }}>
-          Esqueceste-te da palavra-passe?
-        </a>
-        <a href="/register" style={{ color: "var(--accent)", textDecoration: "underline" }}>
-          Registar
+      <div style={{ display: "flex", gap: 8 }}>
+        <button type="submit" disabled={loading} style={{ ...primaryBtnStyle, opacity: loading ? 0.7 : 1 }}>
+          {loading ? "A entrar…" : "Entrar"}
+        </button>
+        <a href="/register" style={{ ...secondaryBtnStyle, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+          Criar conta
         </a>
       </div>
-
-      <p style={{ color: "var(--muted)", fontSize: ".9rem", marginTop: 8 }}>
-        Após o registo, a tua conta ficará pendente até aprovação por um administrador.
-      </p>
     </form>
   );
 }
 
+/* estilos inline mínimos */
 const inputStyle: React.CSSProperties = {
   border: "1px solid var(--border)",
-  background: "var(--bg)",
-  color: "var(--fg)",
-  borderRadius: 12,
-  padding: ".65rem .8rem",
-  outline: "none",
+  padding: ".65rem .75rem",
+  borderRadius: 10,
+  background: "transparent",
+  color: "inherit",
 };
-
 const primaryBtnStyle: React.CSSProperties = {
-  border: "1px solid var(--border)",
-  background: "var(--accent)",
-  color: "#fff",
+  border: "1px solid var(--fg)",
+  background: "var(--fg)",
+  color: "var(--bg)",
   borderRadius: 12,
   padding: ".65rem .9rem",
   fontWeight: 700,
   cursor: "pointer",
 };
-
 const secondaryBtnStyle: React.CSSProperties = {
   border: "1px solid var(--border)",
   background: "transparent",
