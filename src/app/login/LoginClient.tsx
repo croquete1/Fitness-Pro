@@ -1,163 +1,157 @@
 // src/app/login/LoginClient.tsx
 "use client";
 
-import React from "react";
+import * as React from "react";
 import { signIn } from "next-auth/react";
-import { useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
-export default function LoginClient() {
-  const params = useSearchParams();
+export default function LoginClient({ registered = false }: { registered?: boolean }) {
+  const router = useRouter();
+
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [show, setShow] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
+  const [err, setErr] = React.useState<string | null>(null);
 
-  // NextAuth envia ?callbackUrl=... quando és redirecionado de páginas protegidas
-  const callbackUrl = params.get("callbackUrl") || "/dashboard";
-  // Mensagens simples para erros comuns do NextAuth (?error=CredentialsSignin, etc.)
-  const authError = toHumanError(params.get("error"));
-
-  async function onSubmit(e: React.FormEvent) {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErr(null);
     setLoading(true);
     try {
-      // Usa redirect true (default) para deixar o NextAuth redirecionar para callbackUrl
-      await signIn("credentials", {
+      const res = await signIn("credentials", {
+        redirect: false,
         email,
         password,
-        callbackUrl,
       });
+
+      if (!res || res.error) {
+        setErr("Email ou palavra-passe inválidos.");
+        return;
+      }
+
+      router.replace("/dashboard");
+      router.refresh();
+    } catch {
+      setErr("Não foi possível iniciar sessão. Tenta novamente.");
     } finally {
-      // Nota: com redirect, este estado pode não ser visto se a navegação for imediata
       setLoading(false);
     }
-  }
+  };
 
   return (
-    <div style={wrap}>
-      <form onSubmit={onSubmit} style={card} aria-labelledby="login-title">
-        <h1 id="login-title" style={h1}>Iniciar sessão</h1>
+    <form onSubmit={onSubmit} style={{ display: "grid", gap: 12 }}>
+      {registered ? (
+        <div
+          role="status"
+          style={{
+            border: "1px solid var(--border)",
+            background: "var(--chip)",
+            color: "var(--fg)",
+            padding: ".6rem .75rem",
+            borderRadius: 12,
+            fontSize: ".9rem",
+          }}
+        >
+          Registo concluído. A tua conta aguarda aprovação do administrador.
+        </div>
+      ) : null}
 
-        {authError && (
-          <div role="alert" style={alert}>
-            {authError}
-          </div>
-        )}
+      {err ? (
+        <div
+          role="alert"
+          style={{
+            border: "1px solid #ef4444",
+            background: "rgba(239,68,68,.08)",
+            color: "#ef4444",
+            padding: ".6rem .75rem",
+            borderRadius: 12,
+            fontSize: ".9rem",
+          }}
+        >
+          {err}
+        </div>
+      ) : null}
 
-        <label htmlFor="email" style={label}>Email</label>
+      <label style={{ display: "grid", gap: 6 }}>
+        <span style={{ fontWeight: 600 }}>Email</span>
         <input
-          id="email"
-          name="email"
           type="email"
+          required
           autoComplete="email"
+          placeholder="o.teu@email.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          required
-          style={input}
-          placeholder="admin@example.com"
+          style={inputStyle}
         />
+      </label>
 
-        <label htmlFor="password" style={label}>Password</label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          style={input}
-          placeholder="••••••••"
-        />
+      <label style={{ display: "grid", gap: 6 }}>
+        <span style={{ fontWeight: 600 }}>Palavra-passe</span>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+          <input
+            type={show ? "text" : "password"}
+            required
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            style={inputStyle}
+          />
+          <button
+            type="button"
+            onClick={() => setShow((v) => !v)}
+            aria-label={show ? "Ocultar palavra-passe" : "Mostrar palavra-passe"}
+            style={secondaryBtnStyle}
+          >
+            {show ? "Ocultar" : "Mostrar"}
+          </button>
+        </div>
+      </label>
 
-        <button type="submit" disabled={loading} style={{ ...btnPrimary, opacity: loading ? 0.7 : 1 }}>
-          {loading ? "A entrar…" : "Entrar"}
-        </button>
+      <button type="submit" disabled={loading} style={primaryBtnStyle}>
+        {loading ? "A entrar..." : "Entrar"}
+      </button>
 
-        <p style={hint}>
-          Para testes locais, define as credenciais no <code>.env</code>:
-          <br />
-          <code>SEED_ADMIN_EMAIL</code> e <code>SEED_ADMIN_PASSWORD</code>
-        </p>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: ".92rem", marginTop: 2 }}>
+        <a href="#" style={{ color: "var(--accent)", textDecoration: "underline" }}>
+          Esqueceste-te da palavra-passe?
+        </a>
+        <a href="/register" style={{ color: "var(--accent)", textDecoration: "underline" }}>
+          Registar
+        </a>
+      </div>
 
-        <p style={hintSmall}>
-          Serás redirecionado para: <code>{callbackUrl}</code>
-        </p>
-      </form>
-    </div>
+      <p style={{ color: "var(--muted)", fontSize: ".9rem", marginTop: 8 }}>
+        Após o registo, a tua conta ficará pendente até aprovação por um administrador.
+      </p>
+    </form>
   );
 }
 
-/* ---------- Helpers ---------- */
-function toHumanError(code: string | null): string | null {
-  if (!code) return null;
-  switch (code) {
-    case "CredentialsSignin":
-      return "Credenciais inválidas. Verifica o email e a password.";
-    case "AccessDenied":
-      return "Acesso negado.";
-    case "OAuthSignin":
-    case "OAuthCallback":
-    case "OAuthAccountNotLinked":
-      return "Erro de autenticação OAuth.";
-    case "SessionRequired":
-      return "Sessão necessária para aceder à página.";
-    default:
-      return "Ocorreu um erro ao autenticar.";
-  }
-}
-
-/* ---------- Styles (inline, sem dependências) ---------- */
-const wrap: React.CSSProperties = {
-  display: "grid",
-  placeItems: "center",
-  minHeight: "100vh",
-  padding: 24,
-  background: "var(--bg, #fff)",
-  color: "var(--fg, #111827)",
-};
-
-const card: React.CSSProperties = {
-  width: 360,
-  border: "1px solid var(--border, #e5e7eb)",
+const inputStyle: React.CSSProperties = {
+  border: "1px solid var(--border)",
+  background: "var(--bg)",
+  color: "var(--fg)",
   borderRadius: 12,
-  padding: 16,
-  background: "var(--panel, #fff)",
-  boxShadow: "0 10px 24px rgba(0,0,0,.06)",
+  padding: ".65rem .8rem",
+  outline: "none",
 };
 
-const h1: React.CSSProperties = { fontSize: 22, fontWeight: 700, marginTop: 0, marginBottom: 8 };
-
-const label: React.CSSProperties = { display: "block", marginTop: 8, fontSize: 14, fontWeight: 600 };
-
-const input: React.CSSProperties = {
-  width: "100%",
-  padding: "10px 12px",
-  border: "1px solid var(--border, #e5e7eb)",
-  borderRadius: 8,
-  marginTop: 4,
-  background: "transparent",
-  color: "inherit",
-};
-
-const btnPrimary: React.CSSProperties = {
-  width: "100%",
-  marginTop: 12,
-  padding: "10px 12px",
-  borderRadius: 8,
-  border: "1px solid #111827",
-  background: "#111827",
+const primaryBtnStyle: React.CSSProperties = {
+  border: "1px solid var(--border)",
+  background: "var(--accent)",
   color: "#fff",
+  borderRadius: 12,
+  padding: ".65rem .9rem",
+  fontWeight: 700,
   cursor: "pointer",
-  fontWeight: 600,
 };
 
-const hint: React.CSSProperties = { fontSize: 12, color: "#6b7280", marginTop: 12, lineHeight: 1.5 };
-const hintSmall: React.CSSProperties = { fontSize: 11, color: "#9ca3af", marginTop: 6 };
-const alert: React.CSSProperties = {
-  border: "1px solid #fca5a5",
-  background: "#fef2f2",
-  color: "#991b1b",
-  padding: "8px 10px",
-  borderRadius: 8,
-  marginBottom: 8,
+const secondaryBtnStyle: React.CSSProperties = {
+  border: "1px solid var(--border)",
+  background: "transparent",
+  color: "var(--fg)",
+  borderRadius: 12,
+  padding: ".65rem .8rem",
+  cursor: "pointer",
 };

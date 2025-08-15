@@ -1,72 +1,64 @@
 // src/app/api/admin/approvals/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { logUserApproved, logUserRejected } from "@/lib/logger";
-import { Role, Status } from "@prisma/client";
+import { Status } from "@prisma/client";
 
-type ApprovalsPayload = {
-  userId: string;
-  newRole?: string;            // pode vir "trainer", "TRAINER", "pt", etc.
-  action: "approve" | "reject";
-  reason?: string;
-  adminId?: string;
-};
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-function normalizeRole(input?: string | null): Role | null {
-  if (!input) return null;
-  const key = String(input).trim().toUpperCase().replace(/\s+/g, "_");
-  // Aliases úteis
-  const map: Record<string, Role> = {
-    ADMIN: "ADMIN",
-    TRAINER: "TRAINER",
-    PT: "TRAINER",
-    PERSONAL_TRAINER: "TRAINER",
-    CLIENT: "CLIENT",
-    CLIENTE: "CLIENT",
-  } as any;
+type Action = "approve" | "reject";
 
-  const candidate = (map[key] ?? key) as Role;
-  return Object.values(Role).includes(candidate) ? candidate : null;
+export async function GET() {
+  try {
+    const users = await prisma.user.findMany({
+      where: { status: Status.PENDING },
+      select: { id: true, email: true, name: true, role: true, status: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+    return NextResponse.json({ ok: true, data: users });
+  } catch (e: any) {
+    console.error("[approvals][GET]", e?.message ?? e);
+    return NextResponse.json({ ok: false, error: "INTERNAL_ERROR" }, { status: 500 });
+  }
 }
 
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as ApprovalsPayload;
-    const { userId, newRole, action, reason, adminId } = body;
+    const body = await readBody(req);
+    const id = String(body.id ?? "").trim();
+    const action = String(body.action ?? "").toLowerCase() as Action;
 
-    if (!userId || !action) {
-      return NextResponse.json({ ok: false, error: "Campos obrigatórios: 'userId' e 'action'." }, { status: 400 });
+    if (!id) return NextResponse.json({ ok: false, error: "MISSING_ID" }, { status: 400 });
+    if (action !== "approve" && action !== "reject") {
+      return NextResponse.json({ ok: false, error: "INVALID_ACTION" }, { status: 400 });
     }
 
-    if (action === "approve") {
-      const role = normalizeRole(newRole);
-      if (!role) {
-        return NextResponse.json({ ok: false, error: "newRole inválido para enum Role." }, { status: 400 });
-      }
+    const newStatus = action === "approve" ? Status.ACTIVE : Status.SUSPENDED;
 
-      const user = await prisma.user.update({
-        where: { id: userId },
-        data: {
-          role: { set: role },
-          status: { set: Status.ACTIVE },
-        },
-      });
-
-      await logUserApproved({ adminId: adminId ?? null, userId: user.id, toRole: user.role });
-
-      return NextResponse.json({ ok: true, user });
-    }
-
-    // reject
-    const user = await prisma.user.update({
-      where: { id: userId },
-      data: { status: { set: Status.SUSPENDED } },
+    const updated = await prisma.user.update({
+      where: { id },
+      data: { status: newStatus },
+      select: { id: true, email: true, name: true, role: true, status: true, updatedAt: true },
     });
 
-    await logUserRejected({ adminId: adminId ?? null, userId: user.id, reason });
-
-    return NextResponse.json({ ok: true, user });
+    return NextResponse.json({ ok: true, data: updated });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Erro inesperado" }, { status: 500 });
+    console.error("[approvals][POST]", e?.message ?? e);
+    return NextResponse.json({ ok: false, error: "INTERNAL_ERROR" }, { status: 500 });
   }
+}
+
+async function readBody(req: Request): Promise<Record<string, any>> {
+  try {
+    const json = await req.json();
+    if (json && typeof json === "object") return json as Record<string, any>;
+  } catch {}
+  try {
+    const fd = await req.formData();
+    const obj: Record<string, any> = {};
+    fd.forEach((v, k) => (obj[k] = typeof v === "string" ? v : ""));
+    return obj;
+  } catch {}
+  return {};
 }

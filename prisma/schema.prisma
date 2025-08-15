@@ -1,6 +1,8 @@
 // prisma/schema.prisma
 // -----------------------------------------------------
 // Prisma + Postgres (Supabase) — Fitness Pro
+// Inclui: users, sessions, trainer_clients, audit_logs
+// Enums: Role, Status (↔ "UserStatus"), SessionStatus
 // -----------------------------------------------------
 
 generator client {
@@ -21,23 +23,25 @@ enum Role {
   ADMIN
   TRAINER
   CLIENT
-  @@map("Role")
+  @@map("Role") // enum Postgres "Role"
 }
 
+/** Enum Prisma "Status" mapeado para o tipo Postgres "UserStatus" */
 enum Status {
-  PENDING
-  ACTIVE
-  SUSPENDED
+  PENDING   @map("PENDING")
+  ACTIVE    @map("APPROVED")
+  SUSPENDED @map("REJECTED")
   @@map("UserStatus")
 }
 
+/** Mantemos os valores em PT. */
 enum SessionStatus {
   pendente
   aceite
   recusada
   cancelada
   realizada
-  @@map("SessionStatus")
+  @@map("SessionStatus") // enum Postgres "SessionStatus"
 }
 
 // -----------------------------------------------------
@@ -50,48 +54,52 @@ model User {
   name         String?
   passwordHash String   @map("password_hash")
   role         Role     @default(CLIENT)
-  status       Status   @default(PENDING)
+  status       Status   @default(PENDING)   // <— usa o enum Prisma "Status" (mapeado p/ "UserStatus")
+
   createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  updatedAt    DateTime @updatedAt      @map("updated_at")
 
   // Relações
   trainerSessions Session[] @relation("TrainerSessions")
   clientSessions  Session[] @relation("ClientSessions")
 
+  // Atribuições PT<->Cliente
   trainerClientsAsTrainer TrainerClient[] @relation("TrainerClients_trainer")
   trainerClientsAsClient  TrainerClient[] @relation("TrainerClients_client")
 
+  // Logs de auditoria
   auditLogs AuditLog[]
 
   @@index([role])
   @@index([status])
-  @@map("users")
+  @@map("users") // tabela real em Postgres
 }
 
 model Session {
   id          String        @id @default(uuid()) @db.Uuid
   trainerId   String        @map("trainer_id") @db.Uuid
-  clientId    String        @map("client_id") @db.Uuid
+  clientId    String        @map("client_id")  @db.Uuid
   scheduledAt DateTime      @map("scheduled_at")
   status      SessionStatus @default(pendente)
   notes       String?
-  createdAt   DateTime      @default(now()) @map("created_at")
-  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt      @map("updated_at")
 
   trainer User @relation("TrainerSessions", fields: [trainerId], references: [id])
-  client  User @relation("ClientSessions", fields: [clientId], references: [id])
+  client  User @relation("ClientSessions",  fields: [clientId],  references: [id])
 
-  @@index([trainerId], map: "sessions_trainer_idx")
-  @@index([clientId], map: "sessions_client_idx")
+  @@index([trainerId],  map: "sessions_trainer_idx")
+  @@index([clientId],   map: "sessions_client_idx")
   @@index([scheduledAt], map: "sessions_scheduled_idx")
   @@map("sessions")
 }
 
 model TrainerClient {
   id        String   @id @default(uuid()) @db.Uuid
-  trainerId String   @db.Uuid @map("trainer_id")
-  clientId  String   @db.Uuid @map("client_id")
-  createdAt DateTime @default(now()) @map("created_at")
+  trainerId String   @map("trainer_id") @db.Uuid
+  clientId  String   @map("client_id")  @db.Uuid
+  createdAt DateTime @default(now())    @map("created_at")
 
   trainer User @relation("TrainerClients_trainer", fields: [trainerId], references: [id])
   client  User @relation("TrainerClients_client",  fields: [clientId],  references: [id])
@@ -104,30 +112,15 @@ model TrainerClient {
 
 model AuditLog {
   id        String   @id @default(uuid()) @db.Uuid
-  actorId   String?  @db.Uuid @map("actor_id")
+  actorId   String?  @map("actor_id") @db.Uuid
   action    String
   target    String?
   meta      Json?
+
   createdAt DateTime @default(now()) @map("created_at")
 
   actor User? @relation(fields: [actorId], references: [id])
 
   @@index([actorId])
   @@map("audit_logs")
-}
-
-/// Notificações para toasts (broadcast por role e/ou por utilizador).
-model Notification {
-  id           String   @id @default(uuid()) @db.Uuid
-  title        String
-  body         String?
-  href         String?
-  targetUserId String?  @db.Uuid @map("target_user_id")
-  targetRole   Role?
-  createdAt    DateTime @default(now()) @map("created_at")
-
-  @@index([createdAt])
-  @@index([targetUserId])
-  @@index([targetRole])
-  @@map("notifications")
 }

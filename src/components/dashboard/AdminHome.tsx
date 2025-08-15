@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import KpiCard from "./KpiCard";
 import TrendAreaChart, { SeriesPoint } from "./TrendAreaChart";
@@ -18,18 +18,18 @@ type ApiResult<T> = { ok?: boolean; data?: T } | T;
 
 type SessionItem = {
   id?: string | number;
-  start?: string;
-  date?: string;
-  when?: string;
+  start?: string;     // ISO
+  date?: string;      // ISO
+  when?: string;      // ISO
   title?: string;
   name?: string;
   clientName?: string;
   trainerName?: string;
 };
 
-async function getJSON<T>(url: string, signal?: AbortSignal): Promise<T | null> {
+async function getJSON<T>(url: string): Promise<T | null> {
   try {
-    const res = await fetch(url, { cache: "no-store", credentials: "same-origin", signal });
+    const res = await fetch(url, { cache: "no-store", credentials: "same-origin" });
     if (!res.ok) return null;
     const j = (await res.json()) as ApiResult<T>;
     // @ts-expect-error — tolera {data:…} ou payload direto
@@ -63,79 +63,19 @@ export default function AdminHome() {
   const [series, setSeries] = useState<SeriesPoint[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [pendingCount, setPendingCount] = useState<number>(0);
-  const [notifications, setNotifications] = useState<
-    Array<{ id: string; action: string; createdAt: string; user?: any; meta?: any }>
-  >([]);
-
-  const fullTimer = useRef<any>(null);
-  const liteTimer = useRef<any>(null);
-  const ctrlRef = useRef<AbortController | null>(null);
-
   useEffect(() => {
-    // carregar já
-    void fullRefresh();
+    (async () => {
+      setLoading(true);
 
-    // refresh “pesado” (stats/agenda/atividade/gráfico) a cada 60s quando a aba está visível
-    fullTimer.current = setInterval(() => {
-      if (document.visibilityState === "visible") void fullRefresh();
-    }, 60_000);
-
-    // refresh “leve” (pendentes + notificações) a cada 12s
-    liteTimer.current = setInterval(() => {
-      if (document.visibilityState === "visible") void liteRefresh();
-    }, 12_000);
-
-    // ao focar a aba, refresca na hora
-    const onFocus = () => {
-      void liteRefresh();
-      void fullRefresh();
-    };
-    window.addEventListener("focus", onFocus);
-
-    return () => {
-      window.removeEventListener("focus", onFocus);
-      if (fullTimer.current) clearInterval(fullTimer.current);
-      if (liteTimer.current) clearInterval(liteTimer.current);
-      ctrlRef.current?.abort();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  async function liteRefresh() {
-    try {
-      ctrlRef.current?.abort();
-      const ctrl = new AbortController();
-      ctrlRef.current = ctrl;
-
-      const [notif, count] = await Promise.all([
-        getJSON<any[]>("/api/admin/notifications?limit=8", ctrl.signal),
-        getJSON<{ pending: number }>(
-          "/api/admin/approvals/count",
-          ctrl.signal
-        ),
-      ]);
-      if (Array.isArray(notif)) setNotifications(notif);
-      if (count && typeof count.pending === "number") setPendingCount(count.pending);
-    } catch {}
-  }
-
-  async function fullRefresh() {
-    setLoading(true);
-    try {
-      ctrlRef.current?.abort();
-      const ctrl = new AbortController();
-      ctrlRef.current = ctrl;
-
+      // Janela única: últimos 6 dias até hoje + próximos 7 dias
       const from = startOfDay(addDays(new Date(), -6)).toISOString();
       const to = addDays(new Date(), 7).toISOString();
 
       const [s, acts, sess] = await Promise.all([
-        getJSON<Stats>("/api/dashboard/stats", ctrl.signal),
-        getJSON<ActivityItem[]>("/api/dashboard/activities?limit=8", ctrl.signal),
+        getJSON<Stats>("/api/dashboard/stats"),
+        getJSON<ActivityItem[]>("/api/dashboard/activities?limit=8"),
         getJSON<SessionItem[]>(
-          `/api/trainer/sessions?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
-          ctrl.signal
+          `/api/trainer/sessions?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
         ),
       ]);
 
@@ -144,7 +84,7 @@ export default function AdminHome() {
 
       const list = Array.isArray(sess) ? sess : [];
 
-      // Agenda (próx 7)
+      // ---------- Mini-agenda (próximos 7 dias) ----------
       const upcoming: AgendaItem[] = list
         .filter((x) => +new Date(x.start ?? x.date ?? x.when ?? 0) >= Date.now())
         .map((x) => {
@@ -162,9 +102,10 @@ export default function AdminHome() {
         })
         .sort((a, b) => +new Date(a.when) - +new Date(b.when))
         .slice(0, 6);
+
       setAgenda(upcoming);
 
-      // Série (últimos 7)
+      // ---------- Série (últimos 7 dias) ----------
       const base: SeriesPoint[] = [];
       const start = startOfDay(addDays(new Date(), -6));
       for (let i = 0; i < 7; i++) {
@@ -177,17 +118,15 @@ export default function AdminHome() {
         if (idx >= 0 && idx < base.length) base[idx].value += 1;
       });
       setSeries(base);
-    } finally {
+
       setLoading(false);
-    }
+    })();
+  }, []);
 
-    // leve junto (para não ficar desfasado)
-    await liteRefresh();
-  }
-
-  // KPI: próximos 7 dias
+  // KPI: conta próximos 7 dias (usando stats se disponível; fallback para agenda/lista)
   const sessionsNext7 = useMemo(() => {
     if (typeof stats?.sessionsNext7 === "number") return stats.sessionsNext7;
+    // fallback: usa os itens mostrados (até 6) + restantes se precisares
     return agenda.length;
   }, [stats?.sessionsNext7, agenda.length]);
 
@@ -210,31 +149,6 @@ export default function AdminHome() {
         <p style={{ color: "var(--muted)", marginTop: ".4rem" }}>
           Aqui tens um resumo do teu dia e atalhos rápidos.
         </p>
-
-        {/* Badge de pendentes + atalho para aprovações */}
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
-          <a href="/dashboard/admin/approvals" className="fp-pill" title="Ver aprovações pendentes">
-            <span aria-hidden>🔔</span>
-            <span className="label">Novos registos</span>
-            <span
-              aria-live="polite"
-              style={{
-                marginLeft: 6,
-                minWidth: 22,
-                height: 22,
-                border: "1px solid var(--border)",
-                borderRadius: 999,
-                display: "inline-grid",
-                placeItems: "center",
-                padding: "0 6px",
-                fontWeight: 700,
-                background: "var(--chip)",
-              }}
-            >
-              {pendingCount}
-            </span>
-          </a>
-        </div>
       </div>
 
       {/* KPIs */}
@@ -251,7 +165,7 @@ export default function AdminHome() {
         ))}
       </section>
 
-      {/* Chart + Agenda + Notificações */}
+      {/* Chart + Agenda */}
       <section
         style={{
           display: "grid",
@@ -276,84 +190,16 @@ export default function AdminHome() {
           <TrendAreaChart data={series} height={160} />
         </div>
 
-        <div style={{ display: "grid", gap: 12 }}>
-          <div
-            style={{
-              border: "1px solid var(--border)",
-              borderRadius: 12,
-              padding: 14,
-              background: "var(--bg)",
-            }}
-          >
-            <h2 style={{ margin: 0, fontSize: "1.05rem" }}>Próximas sessões</h2>
-            <MiniAgenda items={agenda} emptyText="Sem sessões marcadas para os próximos dias." />
-          </div>
-
-          <div
-            style={{
-              border: "1px solid var(--border)",
-              borderRadius: 12,
-              padding: 14,
-              background: "var(--bg)",
-            }}
-          >
-            <h2 style={{ margin: 0, fontSize: "1.05rem" }}>Notificações</h2>
-            {notifications.length === 0 ? (
-              <p style={{ color: "var(--muted)", margin: "8px 0 0" }}>
-                Sem novas notificações.
-              </p>
-            ) : (
-              <ul style={{ listStyle: "none", padding: 0, margin: "8px 0 0", display: "grid", gap: 8 }}>
-                {notifications.map((n) => {
-                  const created = new Date(n.createdAt);
-                  const u = n.user;
-                  const label =
-                    n.action === "USER_REGISTERED"
-                      ? `Novo registo${u?.email ? ` · ${u.email}` : ""}`
-                      : n.action;
-                  const meta =
-                    u?.role && u?.status
-                      ? `${u.role} · ${u.status}`
-                      : (n.meta as any)?.wantsTrainer
-                      ? "Pretende ser PT"
-                      : "";
-
-                  return (
-                    <li
-                      key={n.id}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "auto 1fr auto",
-                        gap: 8,
-                        alignItems: "center",
-                        border: "1px solid var(--border)",
-                        borderRadius: 10,
-                        padding: "8px 10px",
-                        background: "transparent",
-                      }}
-                    >
-                      <span aria-hidden>🆕</span>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {label}
-                        </div>
-                        {meta && (
-                          <div style={{ color: "var(--muted)", fontSize: ".85rem" }}>{meta}</div>
-                        )}
-                      </div>
-                      <time
-                        dateTime={created.toISOString()}
-                        title={created.toLocaleString("pt-PT")}
-                        style={{ color: "var(--muted)", fontSize: ".85rem", whiteSpace: "nowrap" }}
-                      >
-                        {created.toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit" })} {created.toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}
-                      </time>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
+        <div
+          style={{
+            border: "1px solid var(--border)",
+            borderRadius: 12,
+            padding: 14,
+            background: "var(--bg)",
+          }}
+        >
+          <h2 style={{ margin: 0, fontSize: "1.05rem" }}>Próximas sessões</h2>
+          <MiniAgenda items={agenda} emptyText="Sem sessões marcadas para os próximos dias." />
         </div>
       </section>
 

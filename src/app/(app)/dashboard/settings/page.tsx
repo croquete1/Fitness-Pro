@@ -1,13 +1,20 @@
-// src/app/(app)/dashboard/settings/page.tsx
-"use client";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/authOptions";
+import { redirect } from "next/navigation";
 
-export default function SettingsPage() {
+export const dynamic = "force-dynamic";
+
+export default async function SettingsPage() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) redirect("/login");
+  const role = (session.user as any).role as "ADMIN" | "TRAINER" | "CLIENT";
+  if (role !== "ADMIN") redirect("/dashboard");
+
   return (
-    <main className="fp-page" style={{ padding: "1rem" }}>
-      <h1 style={{ fontSize: "1.6rem", fontWeight: 800, marginBottom: 6 }}>Definições</h1>
-      <p style={{ color: "var(--muted)" }}>Configurações gerais do sistema. (placeholder)</p>
-      <div style={{ border: "1px solid var(--border)", borderRadius: 12, background: "var(--bg)", padding: 12 }}>
-        Em breve: branding, emails, segurança e backups.
+    <main className="p-6 space-y-6">
+      <h1 className="text-2xl font-semibold">Definições</h1>
+      <div className="rounded-2xl border p-6 text-sm opacity-70">
+        Sem definições configuráveis neste momento.
       </div>
     </main>
   );
