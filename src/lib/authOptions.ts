@@ -1,95 +1,79 @@
 // src/lib/authOptions.ts
 import type { NextAuthOptions } from "next-auth";
-import Credentials from "next-auth/providers/credentials";
+import CredentialsProvider from "next-auth/providers/credentials";
 import prisma from "@/lib/prisma";
 import { compare } from "bcryptjs";
-import { Role, Status } from "@prisma/client";
+import { Status, Role } from "@prisma/client";
 
-/**
- * NextAuth Options
- * - Login por credenciais (email + password)
- * - Apenas utilizadores com status ACTIVE podem entrar
- * - Sessão JWT com id e role do utilizador
- */
 export const authOptions: NextAuthOptions = {
+  session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 7 }, // 7 dias
   providers: [
-    Credentials({
-      name: "Email e password",
+    CredentialsProvider({
+      name: "Credenciais",
       credentials: {
-        email: { label: "Email", type: "email" },
+        email: { label: "Email", type: "text" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        const email = (credentials?.email ?? "").toString().trim().toLowerCase();
-        const password = (credentials?.password ?? "").toString();
+        const email = String(credentials?.email ?? "").trim();
+        const password = String(credentials?.password ?? "");
 
         if (!email || !password) return null;
 
-        const user = await prisma.user.findUnique({
+        // email é CITEXT no schema -> comparação case-insensitive
+        const user = await prisma.user.findFirst({
           where: { email },
           select: {
             id: true,
             email: true,
             name: true,
+            passwordHash: true,
             role: true,
             status: true,
-            passwordHash: true, // mapeado para password_hash na BD
           },
         });
+        if (!user) return null;
 
-        if (!user || !user.passwordHash) return null;
-
-        const ok = await compare(password, user.passwordHash);
+        // password
+        const hash = user.passwordHash || "";
+        const ok = hash ? await compare(password, hash) : false;
         if (!ok) return null;
 
-        // Só entram contas ATIVAS
+        // status tem de ser ACTIVE
         if (user.status !== Status.ACTIVE) {
-          // Isto será apanhado pela UI (ex.: página de erro do NextAuth)
-          throw new Error(user.status); // "PENDING" | "SUSPENDED"
+          // não atirar erro -> devolvemos null para 401 controlado
+          return null;
         }
 
-        // Devolve shape mínimo; restante vai no token/callbacks
+        // devolve “user” mínimo para JWT
         return {
           id: user.id,
           email: user.email,
-          name: user.name ?? user.email,
-          role: user.role,
-          status: user.status,
+          name: user.name ?? undefined,
+          role: user.role as Role,
+          status: user.status as Status,
         } as any;
       },
     }),
   ],
-
   pages: {
     signIn: "/login",
-    // error: "/login" // se quiseres forçar redirecionamento de erro
+    error: "/login", // em caso de erro, volta ao login
   },
-
-  session: {
-    strategy: "jwt",
-  },
-
   callbacks: {
     async jwt({ token, user }) {
-      // No login inicial, propaga campos para o token
+      // mete role/status no token após login
       if (user) {
-        token.id = (user as any).id;
-        token.role = (user as any).role as Role;
-        token.status = (user as any).status as Status;
+        token.role = (user as any).role;
+        token.status = (user as any).status;
       }
       return token;
     },
-
     async session({ session, token }) {
-      // Injeta no session.user aquilo que a app usa
-      if (session.user) {
-        (session.user as any).id = token.id as string | undefined;
-        (session.user as any).role = (token.role as Role) ?? "CLIENT";
-        (session.user as any).status = (token.status as Status) ?? "ACTIVE";
-      }
+      // expõe role/status na sessão do cliente
+      (session as any).user.role = token.role;
+      (session as any).user.status = token.status;
       return session;
     },
   },
-
-  secret: process.env.NEXTAUTH_SECRET,
 };
