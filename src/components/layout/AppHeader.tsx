@@ -1,7 +1,7 @@
 // src/components/layout/AppHeader.tsx
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import ThemeToggle from "./ThemeToggle";
 import Logo from "@/components/layout/Logo";
@@ -25,7 +25,28 @@ export default function AppHeader() {
   // Animação do clique do hambúrguer
   const [pressed, setPressed] = useState(false);
 
-  // Atributos no <html> para o CSS
+  // Menu do avatar
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Fecha menu ao clicar fora / ESC
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (!menuRef.current) return;
+      if (!menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, []);
+
+  // Atributos no <html> para a sidebar
   useEffect(() => {
     const html = document.documentElement;
     if (open) html.setAttribute("data-sidebar", "open");
@@ -56,10 +77,8 @@ export default function AppHeader() {
   const salutation = useMemo(() => greet(new Date()), []);
 
   const handleHamburger = () => {
-    // animação “bump”
     setPressed(true);
     setTimeout(() => setPressed(false), 180);
-
     if (typeof window !== "undefined" && window.innerWidth >= 1024) {
       setCollapsed((v) => !v); // desktop
     } else {
@@ -104,7 +123,7 @@ export default function AppHeader() {
           </div>
         </div>
 
-        {/* Coluna 2: Greeting à esquerda + ações à direita */}
+        {/* Coluna 2: Greeting à esquerda + ações agrupadas à direita */}
         <div className="fp-header-inner">
           <div className="fp-greeting">
             <div className="fp-greeting-title">
@@ -114,18 +133,98 @@ export default function AppHeader() {
           </div>
 
           <div className="fp-actions">
-            <ThemeToggle />
-            {data?.user ? (
+            {/* Grupo compacto de ações (pills) */}
+            <div className="fp-pill-group" role="group" aria-label="Ações rápidas">
+              <ThemeToggle />
+
               <button
                 onClick={() => signOut({ callbackUrl: "/login" })}
                 title="Terminar sessão"
-                className="fp-btn-ghost"
+                className="fp-pill"
+                type="button"
               >
-                Terminar sessão
+                <span className="icon" aria-hidden>⎋</span>
+                <span className="label">Terminar sessão</span>
               </button>
-            ) : null}
-            <div className="fp-avatar" title={data?.user?.email || "Utilizador"}>
-              {displayName?.slice(0, 1).toUpperCase()}
+            </div>
+
+            {/* Avatar + menu */}
+            <div className="fp-menu" ref={menuRef}>
+              <button
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                className="fp-avatar"
+                onClick={() => setMenuOpen((v) => !v)}
+                title={data?.user?.email || "Conta"}
+                style={{ cursor: "pointer" }}
+              >
+                {displayName?.slice(0, 1).toUpperCase()}
+              </button>
+
+              {menuOpen && (
+                <div
+                  role="menu"
+                  aria-label="Menu do utilizador"
+                  style={{
+                    position: "absolute",
+                    right: 0,
+                    marginTop: 8,
+                    minWidth: 220,
+                    border: "1px solid var(--border)",
+                    borderRadius: 12,
+                    background: "var(--bg)",
+                    boxShadow: "0 12px 32px rgba(0,0,0,.14)",
+                    zIndex: 100,
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: "10px 12px",
+                      borderBottom: "1px solid var(--border)",
+                      display: "grid",
+                      gridTemplateColumns: "36px 1fr",
+                      alignItems: "center",
+                      gap: 10,
+                    }}
+                  >
+                    <div
+                      aria-hidden
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: "50%",
+                        border: "1px solid var(--border)",
+                        display: "grid",
+                        placeItems: "center",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {displayName?.slice(0, 1).toUpperCase()}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {data?.user?.name ?? displayName}
+                      </div>
+                      <div style={{ color: "var(--muted)", fontSize: ".82rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {data?.user?.email}
+                      </div>
+                    </div>
+                  </div>
+
+                  <MenuItem href="/dashboard/profile" label="Perfil" icon="👤" onClick={() => setMenuOpen(false)} />
+                  <MenuItem href="/dashboard/settings" label="Definições" icon="⚙️" onClick={() => setMenuOpen(false)} />
+                  <div style={{ borderTop: "1px solid var(--border)" }} />
+                  <button
+                    role="menuitem"
+                    onClick={() => signOut({ callbackUrl: "/login" })}
+                    style={menuButtonStyle}
+                  >
+                    <span aria-hidden>⎋</span> Terminar sessão
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -133,3 +232,39 @@ export default function AppHeader() {
     </header>
   );
 }
+
+function MenuItem({
+  href,
+  label,
+  icon,
+  onClick,
+}: {
+  href: string;
+  label: string;
+  icon: string;
+  onClick?: () => void;
+}) {
+  return (
+    <a
+      role="menuitem"
+      href={href}
+      onClick={onClick}
+      style={menuButtonStyle as React.CSSProperties}
+    >
+      <span aria-hidden>{icon}</span> {label}
+    </a>
+  );
+}
+
+const menuButtonStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  width: "100%",
+  padding: "10px 12px",
+  border: "0",
+  background: "transparent",
+  textDecoration: "none",
+  color: "inherit",
+  cursor: "pointer",
+};

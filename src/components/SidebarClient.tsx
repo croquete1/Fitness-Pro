@@ -3,12 +3,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { navFor, type UserRole, type NavIcon } from "@/lib/nav";
+import { navFor, type UserRole, type NavIcon, type NavEntry, type NavItem } from "@/lib/nav";
 import { useSession } from "next-auth/react";
 import { useMemo } from "react";
 import { signOut } from "next-auth/react";
 
-/** Mapeamento de ícones por chave (sincronizado com src/lib/nav.ts) */
+/** Ícones sincronizados com lib/nav.ts */
 const ICONS: Record<NavIcon, string> = {
   dashboard: "📊",
   sessions:  "⏱️",
@@ -29,50 +29,39 @@ const ICONS: Record<NavIcon, string> = {
   admin:     "🛠️",
   system:    "🖥️",
   logs:      "🧾",
-  metrics:   "📊", // podes trocar por outro se quiseres diferenciar
+  metrics:   "📊",
 };
+const iconFor = (name: NavIcon) => ICONS[name] ?? "•";
 
-function iconFor(name: NavIcon): string {
-  return ICONS[name] ?? "•";
-}
+const normalize = (p?: string | null) => {
+  if (!p) return "/";
+  return p.length > 1 && p.endsWith("/") ? p.slice(0, -1) : p;
+};
 
 export default function SidebarClient({ initialRole }: { initialRole?: UserRole }) {
   const { data } = useSession();
-  const pathname = usePathname();
+  const pathname = normalize(usePathname());
 
   const sessionRole = (data?.user as any)?.role as UserRole | undefined;
-  const role = sessionRole ?? initialRole ?? "CLIENT"; // fallback inofensivo
+  const role = sessionRole ?? initialRole ?? "CLIENT";
 
-  const items = useMemo(() => navFor(role), [role]);
+  const entries: NavEntry[] = useMemo(() => navFor(role), [role]);
 
   return (
     <aside className="fp-sidebar">
-      {/* Navegação */}
       <nav aria-label="Navegação lateral" className="fp-nav">
-        {items.map((item) => {
-          const active =
-            pathname === item.href ||
-            (pathname?.startsWith(item.href + "/") && item.href !== "/dashboard");
-
-          return (
-            <Link
-              key={item.key}
-              href={item.href}
-              prefetch={false}
-              aria-current={active ? "page" : undefined}
-              className={`fp-nav-item${active ? " active" : ""}`}
-              title={item.label}
-              data-tooltip={item.label}   /* tooltip quando colapsada */
-            >
-              <span aria-hidden className="fp-ink" />
-              <span aria-hidden className="fp-nav-icon">{iconFor(item.icon)}</span>
-              <span className="fp-nav-label">{item.label}</span>
-            </Link>
-          );
-        })}
+        {entries.map((entry) =>
+          entry.kind === "group" ? (
+            <div key={entry.key} className="fp-nav-group" aria-label={entry.label}>
+              <span className="bar" aria-hidden />
+              <span className="title">{entry.label}</span>
+            </div>
+          ) : (
+            <SidebarLink key={entry.key} item={entry} pathname={pathname} />
+          )
+        )}
       </nav>
 
-      {/* Footer fixo (sessão / terminar) */}
       <div className="fp-nav-footer">
         <span className="fp-nav-session fp-label">Sessão iniciada</span>
         <button
@@ -87,5 +76,24 @@ export default function SidebarClient({ initialRole }: { initialRole?: UserRole 
         </button>
       </div>
     </aside>
+  );
+}
+
+function SidebarLink({ item, pathname }: { item: NavItem; pathname: string | undefined }) {
+  const isActive = normalize(item.href) === pathname; // seleção EXATA (categorias nunca ficam ativas)
+
+  return (
+    <Link
+      href={item.href}
+      prefetch={false}
+      aria-current={isActive ? "page" : undefined}
+      className={`fp-nav-item${isActive ? " active" : ""}`}
+      title={item.label}
+      data-tooltip={item.label}
+    >
+      <span aria-hidden className="fp-ink" />
+      <span aria-hidden className="fp-nav-icon">{iconFor(item.icon)}</span>
+      <span className="fp-nav-label">{item.label}</span>
+    </Link>
   );
 }

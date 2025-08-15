@@ -1,7 +1,5 @@
 // src/lib/nav.ts
-// Navegação partilhada por Admin, Personal Trainer e Cliente.
-// O layout/comportamento da sidebar NÃO foi alterado — apenas a lista de páginas.
-// Cada item indica para que audiência (role) é visível via `showFor`.
+// Navegação partilhada (Admin / Trainer / Client) com grupos não-clicáveis.
 
 export type UserRole = "ADMIN" | "TRAINER" | "CLIENT";
 export type Audience = "ALL" | UserRole;
@@ -28,67 +26,77 @@ export type NavIcon =
   | "logs"
   | "metrics";
 
+/** Link normal da sidebar */
 export interface NavItem {
+  kind: "link";
   key: string;
   label: string;
-  href: `/${string}`;            // força prefixo "/"
+  href: `/${string}`;
   icon: NavIcon;
-  showFor: readonly Audience[];  // "ALL" ou role específico
+  showFor: readonly Audience[];
 }
 
+/** Separador/Heading não-clicável */
+export interface NavGroup {
+  kind: "group";
+  key: string;
+  label: string;
+  showFor: readonly Audience[];
+}
+
+export type NavEntry = NavItem | NavGroup;
+
 /**
- * Fonte única de navegação (readonly). Inclui TODAS as rotas existentes:
- * - Base (ALL): dashboard, sessões, mensagens, perfil, relatórios, definições
- * - Client: billing
- * - Trainer: /dashboard/pt/* e /dashboard/trainer/*
- * - Admin: /dashboard/admin/* e /dashboard/system/*
+ * Fonte única (readonly) — inclui todas as rotas existentes.
+ * Mantém a mesma sidebar para todos os perfis, variando apenas `showFor`.
  */
 const NAV_SOURCE = [
   // ===== Base (visível para TODOS) =====
-  { key: "home",       label: "Início",        href: "/dashboard",               icon: "dashboard", showFor: ["ALL"] },
-  { key: "sessions",   label: "Sessões",       href: "/dashboard/sessions",      icon: "sessions",  showFor: ["ALL"] },
-  { key: "messages",   label: "Mensagens",     href: "/dashboard/messages",      icon: "messages",  showFor: ["ALL"] },
-  { key: "profile",    label: "Perfil",        href: "/dashboard/profile",       icon: "profile",   showFor: ["ALL"] },
-  { key: "reports",    label: "Relatórios",    href: "/dashboard/reports",       icon: "reports",   showFor: ["ALL"] },
-  { key: "settings",   label: "Definições",    href: "/dashboard/settings",      icon: "settings",  showFor: ["ALL"] },
+  { kind: "link",  key: "home",       label: "Início",        href: "/dashboard",               icon: "dashboard", showFor: ["ALL"] },
+  { kind: "link",  key: "sessions",   label: "Sessões",       href: "/dashboard/sessions",      icon: "sessions",  showFor: ["ALL"] },
+  { kind: "link",  key: "messages",   label: "Mensagens",     href: "/dashboard/messages",      icon: "messages",  showFor: ["ALL"] },
+  { kind: "link",  key: "profile",    label: "Perfil",        href: "/dashboard/profile",       icon: "profile",   showFor: ["ALL"] },
+  { kind: "link",  key: "reports",    label: "Relatórios",    href: "/dashboard/reports",       icon: "reports",   showFor: ["ALL"] },
+  { kind: "link",  key: "settings",   label: "Definições",    href: "/dashboard/settings",      icon: "settings",  showFor: ["ALL"] },
 
   // ===== Client =====
-  { key: "billing",    label: "Faturação",     href: "/dashboard/billing",       icon: "billing",   showFor: ["CLIENT"] },
+  { kind: "link",  key: "billing",    label: "Faturação",     href: "/dashboard/billing",       icon: "billing",   showFor: ["CLIENT"] },
 
-  // ===== Trainer (segmento PT) =====
-  { key: "pt-root",       label: "Área PT",         href: "/dashboard/pt",            icon: "trainer",    showFor: ["TRAINER"] },
-  { key: "pt-clients",    label: "Clientes (PT)",   href: "/dashboard/pt/clients",    icon: "clients",    showFor: ["TRAINER"] },
-  { key: "pt-plans",      label: "Planos (PT)",     href: "/dashboard/pt/plans",      icon: "plans",      showFor: ["TRAINER"] },
-  { key: "pt-library",    label: "Biblioteca (PT)", href: "/dashboard/pt/library",    icon: "library",    showFor: ["TRAINER"] },
+  // ===== Trainer (PT) =====
+  { kind: "link",  key: "pt-root",    label: "Área PT",       href: "/dashboard/pt",            icon: "trainer",   showFor: ["TRAINER"] },
+  { kind: "link",  key: "pt-clients", label: "Clientes (PT)", href: "/dashboard/pt/clients",    icon: "clients",   showFor: ["TRAINER"] },
+  { kind: "link",  key: "pt-plans",   label: "Planos (PT)",   href: "/dashboard/pt/plans",      icon: "plans",     showFor: ["TRAINER"] },
+  { kind: "link",  key: "pt-library", label: "Biblioteca",    href: "/dashboard/pt/library",    icon: "library",   showFor: ["TRAINER"] },
 
-  // ===== Trainer (segmento trainer) =====
-  { key: "trainer-root",      label: "Trainer",              href: "/dashboard/trainer",             icon: "trainer",   showFor: ["TRAINER"] },
-  { key: "trainer-approvals", label: "Aprovações (Trainer)", href: "/dashboard/trainer/approvals",   icon: "approvals", showFor: ["TRAINER"] },
-  { key: "trainer-workouts",  label: "Treinos",               href: "/dashboard/trainer/workouts",    icon: "workouts",  showFor: ["TRAINER"] },
+  // ===== Admin — Grupo + links =====
+  { kind: "group", key: "g-admin",    label: "Administração",                                 showFor: ["ADMIN"] },
+  { kind: "link",  key: "admin",      label: "Administração", href: "/dashboard/admin",        icon: "admin",     showFor: ["ADMIN"] },
+  { kind: "link",  key: "a-approv",   label: "Aprovações",    href: "/dashboard/admin/approvals", icon: "approvals", showFor: ["ADMIN"] },
+  { kind: "link",  key: "a-exerc",    label: "Exercícios",    href: "/dashboard/admin/exercises", icon: "exercises", showFor: ["ADMIN"] },
+  { kind: "link",  key: "a-plans",    label: "Planos (Admin)",href: "/dashboard/admin/plans",     icon: "plans",     showFor: ["ADMIN"] },
+  { kind: "link",  key: "a-roster",   label: "Escala/Equipa", href: "/dashboard/admin/roster",    icon: "roster",    showFor: ["ADMIN"] },
+  { kind: "link",  key: "a-users",    label: "Utilizadores",  href: "/dashboard/admin/users",     icon: "users",     showFor: ["ADMIN"] },
 
-  // ===== Admin =====
-  { key: "admin",          label: "Administração",  href: "/dashboard/admin",           icon: "admin",     showFor: ["ADMIN"] },
-  { key: "admin-approvals",label: "Aprovações",     href: "/dashboard/admin/approvals", icon: "approvals", showFor: ["ADMIN"] },
-  { key: "admin-exercises",label: "Exercícios",     href: "/dashboard/admin/exercises", icon: "exercises", showFor: ["ADMIN"] },
-  { key: "admin-plans",    label: "Planos (Admin)", href: "/dashboard/admin/plans",     icon: "plans",     showFor: ["ADMIN"] },
-  { key: "admin-roster",   label: "Escala/Equipa",  href: "/dashboard/admin/roster",    icon: "roster",    showFor: ["ADMIN"] },
-  { key: "admin-users",    label: "Utilizadores",   href: "/dashboard/admin/users",     icon: "users",     showFor: ["ADMIN"] },
+  // ===== Sistema — Grupo + links =====
+  { kind: "group", key: "g-system",   label: "Sistema",                                      showFor: ["ADMIN"] },
+  { kind: "link",  key: "sys-root",   label: "Sistema",       href: "/dashboard/system",         icon: "system",    showFor: ["ADMIN"] },
+  { kind: "link",  key: "sys-logs",   label: "Logs",          href: "/dashboard/system/logs",    icon: "logs",      showFor: ["ADMIN"] },
+  { kind: "link",  key: "sys-metrics",label: "Métricas",      href: "/dashboard/system/metrics", icon: "metrics",   showFor: ["ADMIN"] },
+] as const satisfies ReadonlyArray<NavEntry>;
 
-  // ===== System (Admin) =====
-  { key: "system",         label: "Sistema",        href: "/dashboard/system",          icon: "system",    showFor: ["ADMIN"] },
-  { key: "system-logs",    label: "Logs",           href: "/dashboard/system/logs",     icon: "logs",      showFor: ["ADMIN"] },
-  { key: "system-metrics", label: "Métricas",       href: "/dashboard/system/metrics",  icon: "metrics",   showFor: ["ADMIN"] },
-] as const satisfies ReadonlyArray<NavItem>;
+export const NAV_ITEMS: ReadonlyArray<NavEntry> = NAV_SOURCE;
 
-// Export imutável (evita erro “readonly assigned to mutable”)
-export const NAV_ITEMS: ReadonlyArray<NavItem> = NAV_SOURCE;
-
-/** Itens visíveis para o `role` indicado */
-export function navFor(role: Audience): NavItem[] {
+/** Filtra itens (inclui grupos e links) conforme o role. */
+export function navFor(role: Audience): NavEntry[] {
   return NAV_ITEMS.filter(i => i.showFor.includes("ALL") || i.showFor.includes(role));
 }
 
-/** Helper extra: visibilidade de um item para determinado role */
-export function isVisibleFor(item: NavItem, role: Audience): boolean {
-  return item.showFor.includes("ALL") || item.showFor.includes(role);
+/** Só para links: devolve os visíveis para o role. */
+export function navLinksFor(role: Audience): NavItem[] {
+  return navFor(role).filter((e): e is NavItem => e.kind === "link");
+}
+
+/** Helper: visibilidade de qualquer entrada para o role. */
+export function isVisibleFor(entry: NavEntry, role: Audience): boolean {
+  return entry.showFor.includes("ALL") || entry.showFor.includes(role);
 }
