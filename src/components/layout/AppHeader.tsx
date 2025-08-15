@@ -33,6 +33,66 @@ function inQuietHours(now: Date, startHour: number, endHour: number) {
 }
 function clampHour(n: number) { return Math.max(0, Math.min(23, Math.round(n))); }
 
+// ---------- Tooltip simples (acessível) ----------
+function Tip({
+  label,
+  children,
+  side = "top",
+  delay = 350,
+}: {
+  label: string;
+  children: React.ReactNode;
+  side?: "top" | "bottom";
+  delay?: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const timer = useRef<number | null>(null);
+
+  function onEnter() {
+    if (timer.current) window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => setOpen(true), delay) as unknown as number;
+  }
+  function onLeave() {
+    if (timer.current) window.clearTimeout(timer.current);
+    setOpen(false);
+  }
+
+  return (
+    <span
+      onMouseEnter={onEnter}
+      onMouseLeave={onLeave}
+      onFocus={onEnter}
+      onBlur={onLeave}
+      style={{ position: "relative", display: "inline-flex" }}
+    >
+      {children}
+      {open && (
+        <span
+          role="tooltip"
+          style={{
+            position: "absolute",
+            [side === "top" ? "bottom" : "top"]: "110%",
+            left: "50%",
+            transform: "translateX(-50%)",
+            whiteSpace: "nowrap",
+            fontSize: ".9rem",
+            border: "1px solid var(--border)",
+            background: "var(--bg)",
+            padding: "6px 8px",
+            color: "inherit",
+            borderRadius: 8,
+            pointerEvents: "none",
+            boxShadow: "0 8px 16px rgba(0,0,0,.12)",
+            zIndex: 80,
+          }}
+        >
+          {label}
+        </span>
+      )}
+    </span>
+  );
+}
+
 // ---------- Component ----------
 export default function AppHeader() {
   const { data: session } = useSession();
@@ -51,7 +111,7 @@ export default function AppHeader() {
   const [autoEnd, setAE]      = useState(8);  // 08:00
   const [showPicker, setPick] = useState(false);
 
-  // novo: popover ao passar o rato
+  // menu hover para Auto DND
   const [showAutoMenu, setShowAutoMenu] = useState(false);
   const hoverTimer = useRef<number | null>(null);
 
@@ -70,7 +130,7 @@ export default function AppHeader() {
     setAE(clampHour(Number(localStorage.getItem(LS_AUTO_E) || "8")));
   }, []);
 
-  // tique por minuto para refletores de horário
+  // tique por minuto para refletir janelas de horário
   useEffect(() => {
     tickRef.current = setInterval(() => setPick((v) => v), 60_000);
     return () => tickRef.current && clearInterval(tickRef.current);
@@ -196,7 +256,7 @@ export default function AppHeader() {
     }
   }
 
-  // abrir picker (sem Shift)
+  // abrir picker
   function openPicker() {
     setShowAutoMenu(false);
     setPick(true);
@@ -258,60 +318,61 @@ export default function AppHeader() {
 
           {/* Direita */}
           <div style={{ display: "flex", alignItems: "center", gap: 8, position: "relative" }}>
-            {/* DND manual */}
-            <button
-              type="button"
-              className="fp-pill"
-              title={dndManual ? "Do Not Disturb (manual) — desativar" : "Ativar DND manual"}
-              onClick={toggleManualDnd}
-              style={{
-                height: 34,
-                borderColor: effectiveDnd ? "var(--accent)" : "var(--border)",
-                background: dndManual ? "var(--chip)" : "transparent",
-              }}
-            >
-              <span aria-hidden>🌙</span>
-              <span className="label" style={{ marginLeft: 6 }}>DND</span>
-              {unread > 0 && (
-                <span
-                  aria-live="polite"
-                  style={{
-                    marginLeft: 6,
-                    minWidth: 22,
-                    height: 22,
-                    border: "1px solid var(--border)",
-                    borderRadius: 999,
-                    display: "inline-grid",
-                    placeItems: "center",
-                    padding: "0 6px",
-                    fontWeight: 700,
-                    background: "var(--chip)",
-                  }}
-                >
-                  {unread}
-                </span>
-              )}
-            </button>
+            {/* DND manual + tooltip */}
+            <Tip label={dndManual ? "DND manual ativo — clicar para desativar" : "Ativar DND manual"}>
+              <button
+                type="button"
+                className="fp-pill"
+                onClick={toggleManualDnd}
+                style={{
+                  height: 34,
+                  borderColor: effectiveDnd ? "var(--accent)" : "var(--border)",
+                  background: dndManual ? "var(--chip)" : "transparent",
+                }}
+              >
+                <span aria-hidden>🌙</span>
+                <span className="label" style={{ marginLeft: 6 }}>DND</span>
+                {unread > 0 && (
+                  <span
+                    aria-live="polite"
+                    style={{
+                      marginLeft: 6,
+                      minWidth: 22,
+                      height: 22,
+                      border: "1px solid var(--border)",
+                      borderRadius: 999,
+                      display: "inline-grid",
+                      placeItems: "center",
+                      padding: "0 6px",
+                      fontWeight: 700,
+                      background: "var(--chip)",
+                    }}
+                  >
+                    {unread}
+                  </span>
+                )}
+              </button>
+            </Tip>
 
-            {/* Marcar como lidas */}
-            <button
-              type="button"
-              className="fp-pill"
-              onClick={markAllRead}
-              title="Marcar todas as notificações como lidas"
-              style={{ height: 34 }}
-            >
-              <span aria-hidden>✅</span>
-              <span className="label" style={{ marginLeft: 6 }}>Lidas</span>
-            </button>
+            {/* Marcar como lidas + tooltip */}
+            <Tip label="Marcar todas as notificações como lidas">
+              <button
+                type="button"
+                className="fp-pill"
+                onClick={markAllRead}
+                style={{ height: 34 }}
+              >
+                <span aria-hidden>✅</span>
+                <span className="label" style={{ marginLeft: 6 }}>Lidas</span>
+              </button>
+            </Tip>
 
-            {/* Auto DND + menu ao passar o rato */}
+            {/* Auto DND + menu ao passar o rato (tooltip não necessário aqui para não conflitar) */}
             <div style={{ position: "relative" }} onMouseEnter={onAutoEnter} onMouseLeave={onAutoLeave}>
               <button
                 type="button"
                 className="fp-pill"
                 onClick={toggleAutoDnd}
-                title={`DND automático ${autoOn ? "ativo" : "inativo"}`}
                 style={{
                   height: 34,
                   borderColor: autoOn ? "var(--accent)" : "var(--border)",
@@ -361,7 +422,6 @@ export default function AppHeader() {
                     className="fp-pill"
                     style={{ justifyContent: "space-between", height: 34 }}
                     onClick={toggleAutoDnd}
-                    title="Ligar/Desligar DND automático"
                   >
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                       {autoOn ? "🟢" : "⚪"} <span>{autoOn ? "Ativo" : "Inativo"}</span>
@@ -373,7 +433,6 @@ export default function AppHeader() {
                     className="fp-pill"
                     style={{ justifyContent: "space-between", height: 34 }}
                     onClick={openPicker}
-                    title="Definir outro horário"
                   >
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                       🕒 <span>Definir horário…</span>
@@ -436,17 +495,18 @@ export default function AppHeader() {
               )}
             </div>
 
-            {/* Som */}
-            <button
-              type="button"
-              className="fp-pill"
-              title={soundOn ? "Som ativo — clicar para silenciar" : "Som desligado — clicar para ativar"}
-              onClick={toggleSound}
-              style={{ height: 34 }}
-            >
-              <span aria-hidden>{soundOn ? "🔔" : "🔕"}</span>
-              <span className="label" style={{ marginLeft: 6 }}>{soundOn ? "Som" : "Silêncio"}</span>
-            </button>
+            {/* Som + tooltip */}
+            <Tip label={soundOn ? "Silenciar notificações sonoras" : "Ativar som das notificações"}>
+              <button
+                type="button"
+                className="fp-pill"
+                onClick={toggleSound}
+                style={{ height: 34 }}
+              >
+                <span aria-hidden>{soundOn ? "🔔" : "🔕"}</span>
+                <span className="label" style={{ marginLeft: 6 }}>{soundOn ? "Som" : "Silêncio"}</span>
+              </button>
+            </Tip>
 
             <ThemeToggle />
             <button
