@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import KpiCard from "./KpiCard";
 import TrendAreaChart, { SeriesPoint } from "./TrendAreaChart";
@@ -15,6 +15,7 @@ type Stats = {
 };
 
 type ApiResult<T> = { ok?: boolean; data?: T } | T;
+
 type SessionItem = {
   id?: string | number;
   start?: string;
@@ -26,28 +27,12 @@ type SessionItem = {
   trainerName?: string;
 };
 
-// Notificação proveniente de audit_logs
-type AdminNotification = {
-  id: string;
-  action: string; // "USER_REGISTERED"
-  target: string | null;
-  meta?: any;
-  createdAt: string;
-  user?: {
-    id: string;
-    email: string | null;
-    name: string | null;
-    role: string | null;
-    status: string | null;
-  } | null;
-};
-
-async function getJSON<T>(url: string): Promise<T | null> {
+async function getJSON<T>(url: string, signal?: AbortSignal): Promise<T | null> {
   try {
-    const res = await fetch(url, { cache: "no-store", credentials: "same-origin" });
+    const res = await fetch(url, { cache: "no-store", credentials: "same-origin", signal });
     if (!res.ok) return null;
     const j = (await res.json()) as ApiResult<T>;
-    // @ts-expect-error — tolerância a {data:…} ou payload direto
+    // @ts-expect-error — tolera {data:…} ou payload direto
     return (j?.data ?? j) as T;
   } catch {
     return null;
@@ -79,92 +64,125 @@ export default function AdminHome() {
   const [loading, setLoading] = useState(true);
 
   const [pendingCount, setPendingCount] = useState<number>(0);
-  const [notifications, setNotifications] = useState<AdminNotification[]>([]);
+  const [notifications, setNotifications] = useState<
+    Array<{ id: string; action: string; createdAt: string; user?: any; meta?: any }>
+  >([]);
+
+  const fullTimer = useRef<any>(null);
+  const liteTimer = useRef<any>(null);
+  const ctrlRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    let timer: any;
-    (async () => {
-      await loadAll(); // carga inicial
-      // poll leve a cada 30s
-      timer = setInterval(loadLight, 30_000);
-    })();
-    return () => timer && clearInterval(timer);
+    // carregar já
+    void fullRefresh();
+
+    // refresh “pesado” (stats/agenda/atividade/gráfico) a cada 60s quando a aba está visível
+    fullTimer.current = setInterval(() => {
+      if (document.visibilityState === "visible") void fullRefresh();
+    }, 60_000);
+
+    // refresh “leve” (pendentes + notificações) a cada 12s
+    liteTimer.current = setInterval(() => {
+      if (document.visibilityState === "visible") void liteRefresh();
+    }, 12_000);
+
+    // ao focar a aba, refresca na hora
+    const onFocus = () => {
+      void liteRefresh();
+      void fullRefresh();
+    };
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      if (fullTimer.current) clearInterval(fullTimer.current);
+      if (liteTimer.current) clearInterval(liteTimer.current);
+      ctrlRef.current?.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function loadAll() {
-    setLoading(true);
+  async function liteRefresh() {
+    try {
+      ctrlRef.current?.abort();
+      const ctrl = new AbortController();
+      ctrlRef.current = ctrl;
 
-    // janela sessões: últimos 6 dias até hoje + próximos 7
-    const from = startOfDay(addDays(new Date(), -6)).toISOString();
-    const to = addDays(new Date(), 7).toISOString();
-
-    const [s, acts, sess, notif, count] = await Promise.all([
-      getJSON<Stats>("/api/dashboard/stats"),
-      getJSON<ActivityItem[]>("/api/dashboard/activities?limit=8"),
-      getJSON<SessionItem[]>(
-        `/api/trainer/sessions?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
-      ),
-      getJSON<AdminNotification[]>("/api/admin/notifications?limit=8"),
-      getJSON<{ pending: number; active: number; suspended: number; total: number }>(
-        "/api/admin/approvals/count"
-      ),
-    ]);
-
-    setStats(s ?? { clients: 0, trainers: 0, admins: 0, sessionsNext7: 0 });
-    setActivities(Array.isArray(acts) ? acts : []);
-
-    const list = Array.isArray(sess) ? sess : [];
-
-    // Agenda (próx 7)
-    const upcoming: AgendaItem[] = list
-      .filter((x) => +new Date(x.start ?? x.date ?? x.when ?? 0) >= Date.now())
-      .map((x) => {
-        const when = new Date(x.start ?? x.date ?? x.when ?? Date.now());
-        return {
-          id: String(x.id ?? `${when.getTime()}-${Math.random()}`),
-          when: when.toISOString(),
-          title: x.title ?? x.name ?? `Sessão${x.clientName ? ` · ${x.clientName}` : ""}`,
-          meta:
-            x.trainerName && x.clientName
-              ? `${x.trainerName} → ${x.clientName}`
-              : x.trainerName ?? x.clientName ?? "",
-          href: "/dashboard/sessions",
-        };
-      })
-      .sort((a, b) => +new Date(a.when) - +new Date(b.when))
-      .slice(0, 6);
-    setAgenda(upcoming);
-
-    // Série (últimos 7)
-    const base: SeriesPoint[] = [];
-    const start = startOfDay(addDays(new Date(), -6));
-    for (let i = 0; i < 7; i++) {
-      const d = addDays(start, i);
-      base.push({ label: d.toLocaleDateString("pt-PT", { weekday: "short" }), value: 0 });
-    }
-    list.forEach((x) => {
-      const d = startOfDay(new Date(x.start ?? x.date ?? x.when ?? Date.now()));
-      const idx = Math.round((+d - +start) / 86400000);
-      if (idx >= 0 && idx < base.length) base[idx].value += 1;
-    });
-    setSeries(base);
-
-    setNotifications(Array.isArray(notif) ? notif : []);
-    setPendingCount(Number(count?.pending ?? 0));
-
-    setLoading(false);
+      const [notif, count] = await Promise.all([
+        getJSON<any[]>("/api/admin/notifications?limit=8", ctrl.signal),
+        getJSON<{ pending: number }>(
+          "/api/admin/approvals/count",
+          ctrl.signal
+        ),
+      ]);
+      if (Array.isArray(notif)) setNotifications(notif);
+      if (count && typeof count.pending === "number") setPendingCount(count.pending);
+    } catch {}
   }
 
-  // carga "leve" só para notificações e pendentes
-  async function loadLight() {
-    const [notif, count] = await Promise.all([
-      getJSON<AdminNotification[]>("/api/admin/notifications?limit=8"),
-      getJSON<{ pending: number }>(
-        "/api/admin/approvals/count"
-      ),
-    ]);
-    if (Array.isArray(notif)) setNotifications(notif);
-    if (count && typeof count.pending === "number") setPendingCount(count.pending);
+  async function fullRefresh() {
+    setLoading(true);
+    try {
+      ctrlRef.current?.abort();
+      const ctrl = new AbortController();
+      ctrlRef.current = ctrl;
+
+      const from = startOfDay(addDays(new Date(), -6)).toISOString();
+      const to = addDays(new Date(), 7).toISOString();
+
+      const [s, acts, sess] = await Promise.all([
+        getJSON<Stats>("/api/dashboard/stats", ctrl.signal),
+        getJSON<ActivityItem[]>("/api/dashboard/activities?limit=8", ctrl.signal),
+        getJSON<SessionItem[]>(
+          `/api/trainer/sessions?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+          ctrl.signal
+        ),
+      ]);
+
+      setStats(s ?? { clients: 0, trainers: 0, admins: 0, sessionsNext7: 0 });
+      setActivities(Array.isArray(acts) ? acts : []);
+
+      const list = Array.isArray(sess) ? sess : [];
+
+      // Agenda (próx 7)
+      const upcoming: AgendaItem[] = list
+        .filter((x) => +new Date(x.start ?? x.date ?? x.when ?? 0) >= Date.now())
+        .map((x) => {
+          const when = new Date(x.start ?? x.date ?? x.when ?? Date.now());
+          return {
+            id: String(x.id ?? `${when.getTime()}-${Math.random()}`),
+            when: when.toISOString(),
+            title: x.title ?? x.name ?? `Sessão${x.clientName ? ` · ${x.clientName}` : ""}`,
+            meta:
+              x.trainerName && x.clientName
+                ? `${x.trainerName} → ${x.clientName}`
+                : x.trainerName ?? x.clientName ?? "",
+            href: "/dashboard/sessions",
+          };
+        })
+        .sort((a, b) => +new Date(a.when) - +new Date(b.when))
+        .slice(0, 6);
+      setAgenda(upcoming);
+
+      // Série (últimos 7)
+      const base: SeriesPoint[] = [];
+      const start = startOfDay(addDays(new Date(), -6));
+      for (let i = 0; i < 7; i++) {
+        const d = addDays(start, i);
+        base.push({ label: d.toLocaleDateString("pt-PT", { weekday: "short" }), value: 0 });
+      }
+      list.forEach((x) => {
+        const d = startOfDay(new Date(x.start ?? x.date ?? x.when ?? Date.now()));
+        const idx = Math.round((+d - +start) / 86400000);
+        if (idx >= 0 && idx < base.length) base[idx].value += 1;
+      });
+      setSeries(base);
+    } finally {
+      setLoading(false);
+    }
+
+    // leve junto (para não ficar desfasado)
+    await liteRefresh();
   }
 
   // KPI: próximos 7 dias
@@ -258,12 +276,7 @@ export default function AdminHome() {
           <TrendAreaChart data={series} height={160} />
         </div>
 
-        <div
-          style={{
-            display: "grid",
-            gap: 12,
-          }}
-        >
+        <div style={{ display: "grid", gap: 12 }}>
           <div
             style={{
               border: "1px solid var(--border)",
@@ -276,7 +289,6 @@ export default function AdminHome() {
             <MiniAgenda items={agenda} emptyText="Sem sessões marcadas para os próximos dias." />
           </div>
 
-          {/* Notificações (novos registos) */}
           <div
             style={{
               border: "1px solid var(--border)",
@@ -302,7 +314,7 @@ export default function AdminHome() {
                   const meta =
                     u?.role && u?.status
                       ? `${u.role} · ${u.status}`
-                      : n.meta?.wantsTrainer
+                      : (n.meta as any)?.wantsTrainer
                       ? "Pretende ser PT"
                       : "";
 
@@ -345,7 +357,7 @@ export default function AdminHome() {
         </div>
       </section>
 
-      {/* Atividade (mantém, caso uses outras entradas) */}
+      {/* Atividade */}
       <section style={{ padding: "0 1rem 1rem" }}>
         <div
           style={{

@@ -1,10 +1,11 @@
+// src/components/layout/AppHeader.tsx
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
+import Link from "next/link";
 import Logo from "./Logo";
 import ThemeToggle from "./ThemeToggle";
-import Link from "next/link";
 
 type Toast = {
   id: string;
@@ -14,9 +15,25 @@ type Toast = {
   createdAt: string | Date;
 };
 
-const POLL_MS = 20000;
-const LS_KEY = "fp:lastSeenNotifAt";
+const POLL_MS = 10_000;
+const LS_LASTSEEN = "fp:lastSeenNotifAt";
+const LS_SOUND    = "fp:toastSound";      // "on" | "off"
+const LS_DND      = "fp:toastDnd";        // "on" | "off" (manual)
+const LS_UNREAD   = "fp:toastUnread";     // number (badge)
+const LS_AUTO     = "fp:autoDnd";         // "on" | "off"
+const LS_AUTO_S   = "fp:autoDndStart";    // "22"
+const LS_AUTO_E   = "fp:autoDndEnd";      // "8"
 
+// ---------- Utils ----------
+function inQuietHours(now: Date, startHour: number, endHour: number) {
+  const h = now.getHours();
+  if (startHour === endHour) return false;
+  if (startHour < endHour) return h >= startHour && h < endHour;
+  return h >= startHour || h < endHour;
+}
+function clampHour(n: number) { return Math.max(0, Math.min(23, Math.round(n))); }
+
+// ---------- Component ----------
 export default function AppHeader() {
   const { data: session } = useSession();
   const firstName =
@@ -24,107 +41,190 @@ export default function AppHeader() {
     session?.user?.email?.split("@")[0] ??
     "Utilizador";
 
-  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [toasts, setToasts]   = useState<Toast[]>([]);
+  const [soundOn, setSound]   = useState(true);
+  const [dndManual, setDnd]   = useState(false);
+  const [unread, setUnread]   = useState(0);
+
+  const [autoOn, setAutoOn]   = useState(true);
+  const [autoStart, setAS]    = useState(22); // 22:00
+  const [autoEnd, setAE]      = useState(8);  // 08:00
+  const [showPicker, setPick] = useState(false);
+
+  // novo: popover ao passar o rato
+  const [showAutoMenu, setShowAutoMenu] = useState(false);
+  const hoverTimer = useRef<number | null>(null);
+
   const timerRef = useRef<any>(null);
   const lastSoundAtRef = useRef<number>(0);
+  const tickRef  = useRef<any>(null);
 
+  // Boot prefs
   useEffect(() => {
-    (async () => {
-      await checkNew();
-      timerRef.current = setInterval(checkNew, POLL_MS);
-    })();
+    if (typeof window === "undefined") return;
+    setSound((localStorage.getItem(LS_SOUND) || "on") === "on");
+    setDnd((localStorage.getItem(LS_DND) || "off") === "on");
+    setUnread(Number(localStorage.getItem(LS_UNREAD) || "0"));
+    setAutoOn((localStorage.getItem(LS_AUTO) || "on") === "on");
+    setAS(clampHour(Number(localStorage.getItem(LS_AUTO_S) || "22")));
+    setAE(clampHour(Number(localStorage.getItem(LS_AUTO_E) || "8")));
+  }, []);
 
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
+  // tique por minuto para refletores de horário
+  useEffect(() => {
+    tickRef.current = setInterval(() => setPick((v) => v), 60_000);
+    return () => tickRef.current && clearInterval(tickRef.current);
+  }, []);
 
-    async function checkNew() {
+  // poll + onFocus
+  useEffect(() => {
+    const check = async () => {
       try {
-        const since = typeof window !== "undefined" ? window.localStorage.getItem(LS_KEY) : null;
+        const since = typeof window !== "undefined" ? window.localStorage.getItem(LS_LASTSEEN) : null;
         const qs = new URLSearchParams({ limit: "5" });
         if (since) qs.set("since", since);
 
-        const res = await fetch(`/api/notifications?${qs}`, {
-          cache: "no-store",
-          credentials: "same-origin",
-        });
+        const res = await fetch(`/api/notifications?${qs}`, { cache: "no-store", credentials: "same-origin" });
         if (!res.ok) return;
 
         const j = (await res.json()) as { ok?: boolean; data?: any[] };
         const list = Array.isArray(j?.data) ? j!.data : [];
         if (list.length === 0) return;
 
-        // Ordena do mais antigo p/ reproduzir de forma sequencial
         list.sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt));
 
-        let sounded = false;
-        list.forEach((n) => {
-          addToast({
-            id: n.id,
-            title: n.title || "Notificação",
-            body: n.body || "",
-            href: n.href || "/dashboard",
-            createdAt: n.createdAt,
+        if (effectiveDnd) {
+          setUnread((prev) => {
+            const next = prev + list.length;
+            localStorage.setItem(LS_UNREAD, String(next));
+            return next;
           });
-          if (!sounded) {
-            playChime();
-            sounded = true;
-          }
-        });
+        } else {
+          let played = false;
+          list.forEach((n) => {
+            addToast({
+              id: n.id,
+              title: n.title || "Notificação",
+              body: n.body || "",
+              href: n.href || "/dashboard",
+              createdAt: n.createdAt,
+            });
+            if (!played && soundOn) {
+              playChime();
+              played = true;
+            }
+          });
+        }
 
         const newest = list[list.length - 1];
         if (typeof window !== "undefined") {
-          window.localStorage.setItem(LS_KEY, new Date(newest.createdAt).toISOString());
+          window.localStorage.setItem(LS_LASTSEEN, new Date(newest.createdAt).toISOString());
         }
-      } catch {
-        // silencioso
-      }
-    }
-  }, []);
+      } catch {}
+    };
+
+    void check();
+    timerRef.current = setInterval(() => {
+      if (document.visibilityState === "visible") void check();
+    }, POLL_MS);
+    const onFocus = () => void check();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [soundOn, dndManual, autoOn, autoStart, autoEnd]);
+
+  const effectiveDnd = useMemo(
+    () => dndManual || (autoOn && inQuietHours(new Date(), autoStart, autoEnd)),
+    [dndManual, autoOn, autoStart, autoEnd, showPicker]
+  );
 
   function addToast(t: Toast) {
     setToasts((curr) => [...curr, t]);
-    // remover toast após 6s
-    setTimeout(() => {
-      setToasts((curr) => curr.filter((x) => x.id !== t.id));
-    }, 6000);
+    setTimeout(() => setToasts((curr) => curr.filter((x) => x.id !== t.id)), 6000);
   }
 
-  /** Som discreto (Web Audio) com rate limit e só quando a aba está visível */
   function playChime() {
     if (typeof document === "undefined" || document.visibilityState !== "visible") return;
     const now = Date.now();
-    if (now - lastSoundAtRef.current < 1500) return; // rate limit
+    if (now - lastSoundAtRef.current < 1500) return;
     lastSoundAtRef.current = now;
 
     try {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+      const ctx = new Ctx();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = "sine";
-      osc.frequency.value = 880; // tom discreto
-      gain.gain.value = 0.03; // volume baixo
+      osc.frequency.value = 880;
+      gain.gain.value = 0.03;
 
       osc.connect(gain);
       gain.connect(ctx.destination);
 
       const t0 = ctx.currentTime;
       osc.start(t0);
-      // envelope curto
       gain.gain.setValueAtTime(0.0, t0);
       gain.gain.linearRampToValueAtTime(0.03, t0 + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.002, t0 + 0.25);
       osc.stop(t0 + 0.28);
-
       osc.onended = () => ctx.close?.();
-    } catch {
-      // se falhar (autoplay policies), ignora
+    } catch {}
+  }
+
+  function toggleSound() {
+    const next = !soundOn;
+    setSound(next);
+    if (typeof window !== "undefined") localStorage.setItem(LS_SOUND, next ? "on" : "off");
+  }
+  function toggleManualDnd() {
+    const next = !dndManual;
+    setDnd(next);
+    if (typeof window !== "undefined") localStorage.setItem(LS_DND, next ? "on" : "off");
+  }
+  function toggleAutoDnd() {
+    const next = !autoOn;
+    setAutoOn(next);
+    if (typeof window !== "undefined") localStorage.setItem(LS_AUTO, next ? "on" : "off");
+  }
+  function markAllRead() {
+    setUnread(0);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(LS_UNREAD, "0");
+      localStorage.setItem(LS_LASTSEEN, new Date().toISOString());
     }
+  }
+
+  // abrir picker (sem Shift)
+  function openPicker() {
+    setShowAutoMenu(false);
+    setPick(true);
+  }
+  function saveWindow(s: number, e: number) {
+    const ns = clampHour(s);
+    const ne = clampHour(e);
+    setAS(ns);
+    setAE(ne);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(LS_AUTO_S, String(ns));
+      localStorage.setItem(LS_AUTO_E, String(ne));
+    }
+    setPick(false);
+  }
+
+  // hover handlers para o menu
+  function onAutoEnter() {
+    if (hoverTimer.current) window.clearTimeout(hoverTimer.current);
+    hoverTimer.current = window.setTimeout(() => setShowAutoMenu(true), 180);
+  }
+  function onAutoLeave() {
+    if (hoverTimer.current) window.clearTimeout(hoverTimer.current);
+    setShowAutoMenu(false);
   }
 
   return (
     <>
-      {/* HEADER */}
       <header
         style={{
           position: "sticky",
@@ -145,21 +245,209 @@ export default function AppHeader() {
             padding: "0 12px",
           }}
         >
-          {/* Esquerda: Logo */}
+          {/* Esquerda */}
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <Link href="/dashboard" aria-label="Ir para início">
-              <Logo size={32} />
-            </Link>
+            <Link href="/dashboard" aria-label="Ir para início"><Logo size={32} /></Link>
           </div>
 
-          {/* Centro: Saudação */}
+          {/* Centro */}
           <div style={{ display: "flex", alignItems: "center", gap: 8, justifySelf: "start" }}>
             <span style={{ fontWeight: 700 }}>Olá, {firstName}</span>
             <span style={{ color: "var(--muted)" }}>· sessão iniciada</span>
           </div>
 
-          {/* Direita: Ações */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {/* Direita */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, position: "relative" }}>
+            {/* DND manual */}
+            <button
+              type="button"
+              className="fp-pill"
+              title={dndManual ? "Do Not Disturb (manual) — desativar" : "Ativar DND manual"}
+              onClick={toggleManualDnd}
+              style={{
+                height: 34,
+                borderColor: effectiveDnd ? "var(--accent)" : "var(--border)",
+                background: dndManual ? "var(--chip)" : "transparent",
+              }}
+            >
+              <span aria-hidden>🌙</span>
+              <span className="label" style={{ marginLeft: 6 }}>DND</span>
+              {unread > 0 && (
+                <span
+                  aria-live="polite"
+                  style={{
+                    marginLeft: 6,
+                    minWidth: 22,
+                    height: 22,
+                    border: "1px solid var(--border)",
+                    borderRadius: 999,
+                    display: "inline-grid",
+                    placeItems: "center",
+                    padding: "0 6px",
+                    fontWeight: 700,
+                    background: "var(--chip)",
+                  }}
+                >
+                  {unread}
+                </span>
+              )}
+            </button>
+
+            {/* Marcar como lidas */}
+            <button
+              type="button"
+              className="fp-pill"
+              onClick={markAllRead}
+              title="Marcar todas as notificações como lidas"
+              style={{ height: 34 }}
+            >
+              <span aria-hidden>✅</span>
+              <span className="label" style={{ marginLeft: 6 }}>Lidas</span>
+            </button>
+
+            {/* Auto DND + menu ao passar o rato */}
+            <div style={{ position: "relative" }} onMouseEnter={onAutoEnter} onMouseLeave={onAutoLeave}>
+              <button
+                type="button"
+                className="fp-pill"
+                onClick={toggleAutoDnd}
+                title={`DND automático ${autoOn ? "ativo" : "inativo"}`}
+                style={{
+                  height: 34,
+                  borderColor: autoOn ? "var(--accent)" : "var(--border)",
+                  background: autoOn ? "var(--chip)" : "transparent",
+                }}
+                aria-haspopup="true"
+                aria-expanded={showAutoMenu || showPicker}
+              >
+                <span aria-hidden>⏰</span>
+                <span className="label" style={{ marginLeft: 6 }}>
+                  Auto {String(autoStart).padStart(2, "0")}–{String(autoEnd).padStart(2, "0")}
+                </span>
+                {autoOn && !dndManual && inQuietHours(new Date(), autoStart, autoEnd) && (
+                  <span
+                    aria-hidden
+                    style={{
+                      width: 8, height: 8, borderRadius: 999, marginLeft: 6,
+                      background: "var(--accent)", boxShadow: "0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent)"
+                    }}
+                  />
+                )}
+              </button>
+
+              {/* Popover hover */}
+              {showAutoMenu && (
+                <div
+                  role="menu"
+                  aria-label="Opções de DND automático"
+                  style={{
+                    position: "absolute",
+                    top: "110%", right: 0,
+                    zIndex: 60,
+                    border: "1px solid var(--border)",
+                    background: "var(--bg)",
+                    borderRadius: 12,
+                    padding: 8,
+                    display: "grid",
+                    gap: 6,
+                    width: 260,
+                    boxShadow: "0 10px 24px rgba(0,0,0,.18)",
+                    animation: "fp-toast-in 140ms ease-out",
+                  }}
+                >
+                  <div style={{ fontWeight: 700, margin: "2px 6px 6px" }}>DND automático</div>
+                  <button
+                    role="menuitem"
+                    className="fp-pill"
+                    style={{ justifyContent: "space-between", height: 34 }}
+                    onClick={toggleAutoDnd}
+                    title="Ligar/Desligar DND automático"
+                  >
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      {autoOn ? "🟢" : "⚪"} <span>{autoOn ? "Ativo" : "Inativo"}</span>
+                    </span>
+                    <span className="label" />
+                  </button>
+                  <button
+                    role="menuitem"
+                    className="fp-pill"
+                    style={{ justifyContent: "space-between", height: 34 }}
+                    onClick={openPicker}
+                    title="Definir outro horário"
+                  >
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      🕒 <span>Definir horário…</span>
+                    </span>
+                    <span className="label">{String(autoStart).padStart(2, "0")}–{String(autoEnd).padStart(2, "0")}</span>
+                  </button>
+                  <small style={{ color: "var(--muted)", padding: "2px 6px 0" }}>
+                    Sugestão: {autoStart}–{autoEnd} (atravessa a meia-noite).
+                  </small>
+                </div>
+              )}
+
+              {/* Mini Picker */}
+              {showPicker && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "110%", right: 0,
+                    zIndex: 70,
+                    border: "1px solid var(--border)",
+                    background: "var(--bg)",
+                    borderRadius: 12,
+                    padding: 10,
+                    display: "grid",
+                    gap: 8,
+                    width: 260,
+                    boxShadow: "0 10px 24px rgba(0,0,0,.18)",
+                  }}
+                >
+                  <div style={{ fontWeight: 700, marginBottom: 2 }}>Janela de silêncio</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    <label style={{ display: "grid", gap: 4 }}>
+                      <span style={{ fontSize: ".9rem", color: "var(--muted)" }}>Início</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={23}
+                        value={autoStart}
+                        onChange={(e) => setAS(clampHour(Number(e.target.value)))}
+                        style={{ border: "1px solid var(--border)", borderRadius: 8, padding: "6px 8px", background: "transparent" }}
+                      />
+                    </label>
+                    <label style={{ display: "grid", gap: 4 }}>
+                      <span style={{ fontSize: ".9rem", color: "var(--muted)" }}>Fim</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={23}
+                        value={autoEnd}
+                        onChange={(e) => setAE(clampHour(Number(e.target.value)))}
+                        style={{ border: "1px solid var(--border)", borderRadius: 8, padding: "6px 8px", background: "transparent" }}
+                      />
+                    </label>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                    <button className="fp-pill" style={{ height: 32 }} onClick={() => setPick(false)}>Cancelar</button>
+                    <button className="fp-pill" style={{ height: 32 }} onClick={() => saveWindow(autoStart, autoEnd)}>Guardar</button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Som */}
+            <button
+              type="button"
+              className="fp-pill"
+              title={soundOn ? "Som ativo — clicar para silenciar" : "Som desligado — clicar para ativar"}
+              onClick={toggleSound}
+              style={{ height: 34 }}
+            >
+              <span aria-hidden>{soundOn ? "🔔" : "🔕"}</span>
+              <span className="label" style={{ marginLeft: 6 }}>{soundOn ? "Som" : "Silêncio"}</span>
+            </button>
+
             <ThemeToggle />
             <button
               onClick={() => signOut({ callbackUrl: "/login" })}
@@ -173,7 +461,7 @@ export default function AppHeader() {
         </div>
       </header>
 
-      {/* TOASTER (top-right) */}
+      {/* TOASTER */}
       <div
         aria-live="polite"
         style={{
@@ -182,41 +470,119 @@ export default function AppHeader() {
           right: 12,
           zIndex: 50,
           display: "grid",
-          gap: 8,
+          gap: 10,
           pointerEvents: "none",
         }}
       >
         {toasts.map((t) => (
-          <a
+          <ToastCard
             key={t.id}
-            href={t.href}
-            style={{
-              pointerEvents: "auto",
-              minWidth: 280,
-              maxWidth: 360,
-              border: "1px solid var(--border)",
-              borderRadius: 12,
-              background: "var(--bg)",
-              boxShadow: "0 10px 20px rgba(0,0,0,.18)",
-              padding: "10px 12px",
-              transform: "translateY(0)",
-              opacity: 1,
-              animation: "fp-toast-in 220ms ease-out",
-            }}
-          >
-            <div style={{ fontWeight: 700, marginBottom: 4 }}>{t.title}</div>
-            {t.body && <div style={{ color: "var(--muted)", fontSize: ".95rem" }}>{t.body}</div>}
-          </a>
+            toast={t}
+            onClose={() => setToasts((curr) => curr.filter((x) => x.id !== t.id))}
+          />
         ))}
       </div>
 
-      {/* Animação inline */}
+      {/* CSS inline */}
       <style jsx global>{`
         @keyframes fp-toast-in {
-          0% { transform: translateY(-8px); opacity: 0; }
-          100% { transform: translateY(0); opacity: 1; }
+          0% { transform: translateY(-8px) scale(0.98); opacity: 0; }
+          100% { transform: translateY(0) scale(1); opacity: 1; }
         }
+        @keyframes fp-toast-progress {
+          from { width: 100%; }
+          to { width: 0%; }
+        }
+        .fp-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          border: 1px solid var(--border);
+          border-radius: 999px;
+          padding: 6px 10px;
+          background: transparent;
+          cursor: pointer;
+          transition: transform .12s ease, background .12s ease, border-color .12s ease;
+        }
+        .fp-pill:hover { transform: translateY(-1px); }
+        .fp-pill:active { transform: translateY(0); }
       `}</style>
     </>
+  );
+}
+
+// ------------- Toast UI -------------
+function ToastCard({ toast, onClose }: { toast: Toast; onClose: () => void }) {
+  return (
+    <a
+      href={toast.href || "/dashboard"}
+      onClick={onClose}
+      style={{
+        pointerEvents: "auto",
+        minWidth: 300,
+        maxWidth: 420,
+        border: "1px solid var(--border)",
+        borderRadius: 14,
+        background:
+          "linear-gradient(180deg, color-mix(in srgb, var(--bg) 96%, transparent), color-mix(in srgb, var(--bg) 90%, transparent))",
+        boxShadow: "0 10px 24px rgba(0,0,0,.18)",
+        padding: 12,
+        display: "grid",
+        gridTemplateColumns: "1fr auto",
+        gap: 8,
+        animation: "fp-toast-in 220ms ease-out",
+        textDecoration: "none",
+        color: "inherit",
+      }}
+    >
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontWeight: 800, marginBottom: 2, fontSize: ".98rem" }}>
+          {toast.title}
+        </div>
+        {toast.body && (
+          <div style={{ color: "var(--muted)", fontSize: ".95rem", lineHeight: 1.3 }}>
+            {toast.body}
+          </div>
+        )}
+        <div
+          aria-hidden
+          style={{
+            height: 3,
+            borderRadius: 999,
+            background: "color-mix(in srgb, var(--accent, #22c55e) 50%, transparent)",
+            overflow: "hidden",
+            marginTop: 8,
+          }}
+        >
+          <div
+            style={{
+              height: "100%",
+              background: "var(--accent, #22c55e)",
+              animation: "fp-toast-progress 6s linear forwards",
+            }}
+          />
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={(e) => { e.preventDefault(); onClose(); }}
+        aria-label="Fechar notificação"
+        title="Fechar"
+        style={{
+          alignSelf: "start",
+          border: "1px solid var(--border)",
+          background: "transparent",
+          borderRadius: 8,
+          width: 28,
+          height: 28,
+          display: "grid",
+          placeItems: "center",
+          cursor: "pointer",
+        }}
+      >
+        ×
+      </button>
+    </a>
   );
 }
