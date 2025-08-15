@@ -2,11 +2,12 @@
 
 import * as React from "react";
 
+type RoleOpt = "TRAINER" | "CLIENT";
 type Row = {
   id: string;
   email: string;
   name: string | null;
-  role: "TRAINER" | "CLIENT";
+  role: RoleOpt;
   status: "PENDING" | "ACTIVE" | "SUSPENDED";
   createdAt: string;
 };
@@ -14,32 +15,52 @@ type Row = {
 export default function ApprovalsPage() {
   const [rows, setRows] = React.useState<Row[] | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [savingId, setSavingId] = React.useState<string | null>(null);
+  // mapa de edições de role por id
+  const [roleEdits, setRoleEdits] = React.useState<Record<string, RoleOpt>>({});
 
   async function load() {
     setLoading(true);
     const res = await fetch("/api/admin/approvals", { cache: "no-store" });
     const j = await res.json();
-    setRows(Array.isArray(j?.data) ? j.data : []);
+    const list: Row[] = Array.isArray(j?.data) ? j.data : [];
+    setRows(list);
+    // inicializa mapa de roles
+    const m: Record<string, RoleOpt> = {};
+    for (const r of list) m[r.id] = r.role;
+    setRoleEdits(m);
     setLoading(false);
   }
 
   React.useEffect(() => { void load(); }, []);
 
+  function updateLocalRole(id: string, r: RoleOpt) {
+    setRoleEdits((m) => ({ ...m, [id]: r }));
+  }
+
   async function act(id: string, action: "approve" | "reject") {
-    // otimista
-    const prev = rows ?? [];
-    setRows((r) => (r ?? []).filter((x) => x.id !== id));
+    const current = (rows ?? []).find((x) => x.id === id);
+    if (!current) return;
+
+    const newRole = roleEdits[id] ?? current.role;
+
+    // otimista: remove linha
+    const prevRows = rows ?? [];
+    setRows(prevRows.filter((x) => x.id !== id));
+    setSavingId(id);
     try {
       const res = await fetch("/api/admin/approvals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, action }),
+        body: JSON.stringify({ id, action, newRole }),
       });
       if (!res.ok) throw new Error(await res.text());
-    } catch {
+    } catch (err) {
       // rollback
-      setRows(prev);
+      setRows(prevRows);
       alert("Não foi possível executar a ação. Tenta novamente.");
+    } finally {
+      setSavingId(null);
     }
   }
 
@@ -49,7 +70,7 @@ export default function ApprovalsPage() {
         Aprovações de Conta
       </h1>
       <p style={{ color: "var(--muted)", marginBottom: 16 }}>
-        Lista em tempo real de contas pendentes (dados via API).
+        Lista em tempo real de contas pendentes (dados via API). Podes alterar a função antes de aprovar ou rejeitar.
       </p>
 
       <div
@@ -72,7 +93,7 @@ export default function ApprovalsPage() {
             <tr>
               <th style={th}>Nome</th>
               <th style={th}>Email</th>
-              <th style={th}>Função</th>
+              <th style={th}>Função (editar)</th>
               <th style={th}>Criado em</th>
               <th style={{ ...th, textAlign: "right" }}>Ações</th>
             </tr>
@@ -80,9 +101,7 @@ export default function ApprovalsPage() {
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={5} style={td}>
-                  A carregar…
-                </td>
+                <td colSpan={5} style={td}>A carregar…</td>
               </tr>
             )}
 
@@ -96,26 +115,55 @@ export default function ApprovalsPage() {
               </tr>
             )}
 
-            {(rows ?? []).map((u) => (
-              <tr key={u.id} style={{ borderTop: "1px solid var(--border)" }}>
-                <td style={td}>{u.name ?? "—"}</td>
-                <td style={td}>{u.email}</td>
-                <td style={td}>{u.role === "TRAINER" ? "Personal Trainer" : "Cliente"}</td>
-                <td style={td}>
-                  {new Date(u.createdAt).toLocaleString("pt-PT")}
-                </td>
-                <td style={{ ...td, textAlign: "right" }}>
-                  <div style={{ display: "inline-flex", gap: 8 }}>
-                    <button className="fp-pill" onClick={() => act(u.id, "approve")} title="Aprovar">
-                      ✅ <span className="label" style={{ marginLeft: 6 }}>Aprovar</span>
-                    </button>
-                    <button className="fp-pill" onClick={() => act(u.id, "reject")} title="Rejeitar">
-                      ✖️ <span className="label" style={{ marginLeft: 6 }}>Rejeitar</span>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {(rows ?? []).map((u) => {
+              const value = roleEdits[u.id] ?? u.role;
+              const disabled = savingId === u.id;
+              return (
+                <tr key={u.id} style={{ borderTop: "1px solid var(--border)" }}>
+                  <td style={td}>{u.name ?? "—"}</td>
+                  <td style={td}>{u.email}</td>
+                  <td style={td}>
+                    <select
+                      value={value}
+                      onChange={(e) => updateLocalRole(u.id, e.target.value as RoleOpt)}
+                      disabled={disabled}
+                      aria-label="Alterar função"
+                      style={{
+                        border: "1px solid var(--border)",
+                        background: "transparent",
+                        borderRadius: 8,
+                        padding: "6px 8px",
+                        color: "inherit",
+                      }}
+                    >
+                      <option value="CLIENT">Cliente</option>
+                      <option value="TRAINER">Personal Trainer</option>
+                    </select>
+                  </td>
+                  <td style={td}>{new Date(u.createdAt).toLocaleString("pt-PT")}</td>
+                  <td style={{ ...td, textAlign: "right" }}>
+                    <div style={{ display: "inline-flex", gap: 8 }}>
+                      <button
+                        className="fp-pill"
+                        onClick={() => act(u.id, "approve")}
+                        disabled={disabled}
+                        title="Aprovar"
+                      >
+                        ✅ <span className="label" style={{ marginLeft: 6 }}>Aprovar</span>
+                      </button>
+                      <button
+                        className="fp-pill"
+                        onClick={() => act(u.id, "reject")}
+                        disabled={disabled}
+                        title="Rejeitar"
+                      >
+                        ✖️ <span className="label" style={{ marginLeft: 6 }}>Rejeitar</span>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
