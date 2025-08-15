@@ -1,3 +1,4 @@
+// src/app/(app)/dashboard/admin/approvals/page.tsx
 "use client";
 
 import * as React from "react";
@@ -12,12 +13,20 @@ type Row = {
   createdAt: string;
 };
 
+type SortKey = "name" | "email" | "role" | "createdAt";
+type SortDir = "asc" | "desc";
+
 export default function ApprovalsPage() {
   const [rows, setRows] = React.useState<Row[] | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [savingId, setSavingId] = React.useState<string | null>(null);
-  // mapa de edições de role por id
   const [roleEdits, setRoleEdits] = React.useState<Record<string, RoleOpt>>({});
+
+  // filtros/ordenação
+  const [query, setQuery] = React.useState("");
+  const [roleFilter, setRoleFilter] = React.useState<"" | RoleOpt>("");
+  const [sortKey, setSortKey] = React.useState<SortKey>("createdAt");
+  const [sortDir, setSortDir] = React.useState<SortDir>("desc");
 
   async function load() {
     setLoading(true);
@@ -25,13 +34,11 @@ export default function ApprovalsPage() {
     const j = await res.json();
     const list: Row[] = Array.isArray(j?.data) ? j.data : [];
     setRows(list);
-    // inicializa mapa de roles
     const m: Record<string, RoleOpt> = {};
     for (const r of list) m[r.id] = r.role;
     setRoleEdits(m);
     setLoading(false);
   }
-
   React.useEffect(() => { void load(); }, []);
 
   function updateLocalRole(id: string, r: RoleOpt) {
@@ -41,10 +48,8 @@ export default function ApprovalsPage() {
   async function act(id: string, action: "approve" | "reject") {
     const current = (rows ?? []).find((x) => x.id === id);
     if (!current) return;
-
     const newRole = roleEdits[id] ?? current.role;
 
-    // otimista: remove linha
     const prevRows = rows ?? [];
     setRows(prevRows.filter((x) => x.id !== id));
     setSavingId(id);
@@ -55,8 +60,7 @@ export default function ApprovalsPage() {
         body: JSON.stringify({ id, action, newRole }),
       });
       if (!res.ok) throw new Error(await res.text());
-    } catch (err) {
-      // rollback
+    } catch {
       setRows(prevRows);
       alert("Não foi possível executar a ação. Tenta novamente.");
     } finally {
@@ -64,15 +68,84 @@ export default function ApprovalsPage() {
     }
   }
 
+  // ---------- filtrar + ordenar ----------
+  const filtered = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    let arr = (rows ?? []).filter((r) => {
+      const passRole = roleFilter ? r.role === roleFilter : true;
+      const passQuery =
+        !q ||
+        r.email.toLowerCase().includes(q) ||
+        (r.name ?? "").toLowerCase().includes(q);
+      return passRole && passQuery;
+    });
+
+    const cmp = (a: Row, b: Row) => {
+      let va: string | number = "";
+      let vb: string | number = "";
+      switch (sortKey) {
+        case "name": va = (a.name ?? "").toLowerCase(); vb = (b.name ?? "").toLowerCase(); break;
+        case "email": va = a.email.toLowerCase(); vb = b.email.toLowerCase(); break;
+        case "role": va = a.role; vb = b.role; break;
+        case "createdAt": va = +new Date(a.createdAt); vb = +new Date(b.createdAt); break;
+      }
+      if (va < vb) return sortDir === "asc" ? -1 : 1;
+      if (va > vb) return sortDir === "asc" ? 1 : -1;
+      return 0;
+    };
+    return arr.sort(cmp);
+  }, [rows, query, roleFilter, sortKey, sortDir]);
+
+  function toggleSort(key: SortKey) {
+    if (key === sortKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir(key === "createdAt" ? "desc" : "asc"); }
+  }
+
+  const sortIcon = (key: SortKey) =>
+    key !== sortKey ? "↕" : sortDir === "asc" ? "↑" : "↓";
+
   return (
     <main className="fp-page" style={{ padding: "1rem" }}>
       <h1 style={{ fontSize: "1.8rem", fontWeight: 800, marginBottom: 6 }}>
         Aprovações de Conta
       </h1>
       <p style={{ color: "var(--muted)", marginBottom: 16 }}>
-        Lista em tempo real de contas pendentes (dados via API). Podes alterar a função antes de aprovar ou rejeitar.
+        Pesquisa, filtra e define a função antes de aprovar/rejeitar.
       </p>
 
+      {/* Filtros */}
+      <div style={{
+        display: "flex", gap: 8, alignItems: "center",
+        marginBottom: 12, flexWrap: "wrap"
+      }}>
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Pesquisar por nome ou email…"
+          style={{
+            border: "1px solid var(--border)", borderRadius: 8,
+            padding: "8px 10px", minWidth: 260, background: "transparent", color: "inherit"
+          }}
+        />
+        <select
+          value={roleFilter}
+          onChange={(e) => setRoleFilter(e.target.value as "" | RoleOpt)}
+          style={{
+            border: "1px solid var(--border)", borderRadius: 8,
+            padding: "8px 10px", background: "transparent", color: "inherit"
+          }}
+          aria-label="Filtrar por função"
+        >
+          <option value="">Todas as funções</option>
+          <option value="CLIENT">Cliente</option>
+          <option value="TRAINER">Personal Trainer</option>
+        </select>
+        <div style={{ marginLeft: "auto", color: "var(--muted)" }}>
+          {filtered.length} resultado(s)
+        </div>
+      </div>
+
+      {/* Tabela */}
       <div
         style={{
           border: "1px solid var(--border)",
@@ -91,31 +164,30 @@ export default function ApprovalsPage() {
         >
           <thead style={{ background: "var(--panel, var(--bg))" }}>
             <tr>
-              <th style={th}>Nome</th>
-              <th style={th}>Email</th>
-              <th style={th}>Função (editar)</th>
-              <th style={th}>Criado em</th>
-              <th style={{ ...th, textAlign: "right" }}>Ações</th>
+              <Th onClick={() => toggleSort("name")} icon={sortIcon("name")}>Nome</Th>
+              <Th onClick={() => toggleSort("email")} icon={sortIcon("email")}>Email</Th>
+              <Th onClick={() => toggleSort("role")} icon={sortIcon("role")}>Função (editar)</Th>
+              <Th onClick={() => toggleSort("createdAt")} icon={sortIcon("createdAt")}>Criado em</Th>
+              <th style={{ ...th, textAlign: "right", cursor: "default" }}>Ações</th>
             </tr>
           </thead>
+
           <tbody>
             {loading && (
-              <tr>
-                <td colSpan={5} style={td}>A carregar…</td>
-              </tr>
+              <tr><td colSpan={5} style={td}>A carregar…</td></tr>
             )}
 
-            {!loading && rows && rows.length === 0 && (
+            {!loading && filtered.length === 0 && (
               <tr>
                 <td colSpan={5} style={td}>
                   <div style={{ padding: "18px 0", color: "var(--muted)" }}>
-                    Sem contas pendentes neste momento.
+                    Sem resultados.
                   </div>
                 </td>
               </tr>
             )}
 
-            {(rows ?? []).map((u) => {
+            {filtered.map((u) => {
               const value = roleEdits[u.id] ?? u.role;
               const disabled = savingId === u.id;
               return (
@@ -174,6 +246,16 @@ export default function ApprovalsPage() {
         </button>
       </div>
     </main>
+  );
+}
+
+function Th({ children, onClick, icon }: { children: React.ReactNode; onClick: () => void; icon: string; }) {
+  return (
+    <th onClick={onClick} style={{ ...th, cursor: "pointer", userSelect: "none" }}>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+        {children} <span aria-hidden style={{ color: "var(--muted)" }}>{icon}</span>
+      </span>
+    </th>
   );
 }
 
