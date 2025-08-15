@@ -62,11 +62,14 @@ const NAV_SOURCE = [
   // ===== Client =====
   { kind: "link",  key: "billing",    label: "Faturação",     href: "/dashboard/billing",       icon: "billing",   showFor: ["CLIENT"] },
 
-  // ===== Trainer (PT) =====
-  { kind: "link",  key: "pt-root",    label: "Área PT",       href: "/dashboard/pt",            icon: "trainer",   showFor: ["TRAINER"] },
-  { kind: "link",  key: "pt-clients", label: "Clientes (PT)", href: "/dashboard/pt/clients",    icon: "clients",   showFor: ["TRAINER"] },
-  { kind: "link",  key: "pt-plans",   label: "Planos (PT)",   href: "/dashboard/pt/plans",      icon: "plans",     showFor: ["TRAINER"] },
-  { kind: "link",  key: "pt-library", label: "Biblioteca",    href: "/dashboard/pt/library",    icon: "library",   showFor: ["TRAINER"] },
+  // ===== PT — Grupo + links (segmento /dashboard/pt/*) =====
+  { kind: "group", key: "g-pt",       label: "Área PT",                                      showFor: ["TRAINER"] },
+  { kind: "link",  key: "pt-root",    label: "Painel PT",     href: "/dashboard/trainer",      icon: "trainer",   showFor: ["TRAINER"] },
+  { kind: "link",  key: "pt-clients", label: "Clientes (PT)", href: "/dashboard/pt/clients",   icon: "clients",   showFor: ["TRAINER"] },
+  { kind: "link",  key: "pt-plans",   label: "Planos (PT)",   href: "/dashboard/pt/plans",     icon: "plans",     showFor: ["TRAINER"] },
+  { kind: "link",  key: "pt-library", label: "Biblioteca",    href: "/dashboard/pt/library",   icon: "library",   showFor: ["TRAINER"] },
+  { kind: "link",  key: "pt-approv",  label: "Aprovações",    href: "/dashboard/trainer/approvals", icon: "approvals", showFor: ["TRAINER"] },
+  { kind: "link",  key: "pt-work",    label: "Treinos",       href: "/dashboard/trainer/workouts",  icon: "workouts",  showFor: ["TRAINER"] },
 
   // ===== Admin — Grupo + links =====
   { kind: "group", key: "g-admin",    label: "Administração",                                 showFor: ["ADMIN"] },

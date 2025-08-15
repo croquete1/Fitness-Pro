@@ -47,3 +47,5 @@ next-env.d.ts
 
 /generated/prisma
 src/app/(app)/dashboard/layout.tsx
+
+.vercel
