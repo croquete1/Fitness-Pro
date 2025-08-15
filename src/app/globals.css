@@ -11,7 +11,7 @@
 
   /* Footer fixo da sidebar */
   --sidebar-footer-h:64px;        /* altura do footer */
-  --sidebar-footer-offset:30px;   /* sobe o footer (evita overlap com dock/taskbar) */
+  --sidebar-footer-offset:14px;   /* “sobe” o footer acima do dock/taskbar */
 }
 
 [data-theme="dark"]{
@@ -117,15 +117,26 @@ html[data-sidebar-collapsed="1"] .fp-brand-text{display:none}
   padding:.2rem .6rem; border:1px solid var(--border);
   border-radius:999px; background:var(--chip);
 }
-.fp-btn-ghost{
-  border:1px solid var(--border); background:transparent;
-  border-radius:999px; padding:.35rem .65rem; cursor:pointer;
+.fp-actions{
+  display:flex; align-items:center; gap:12px; flex-wrap:nowrap;
 }
+.fp-pill-group{
+  display:flex; align-items:center; gap:8px; flex-wrap:nowrap;
+}
+.fp-pill{
+  height:36px; display:inline-flex; align-items:center; gap:.55rem;
+  padding:0 .8rem; border:1px solid var(--border); border-radius:999px;
+  background:transparent; cursor:pointer;
+  transition:transform .18s ease, box-shadow .18s ease, background-color .18s ease, border-color .18s ease;
+  white-space:nowrap;
+}
+.fp-pill:hover{ transform:translateY(-1px); box-shadow:0 6px 16px rgba(0,0,0,.08) }
 .fp-avatar{
-  width:34px; height:34px; border-radius:50%;
+  width:36px; height:36px; border-radius:50%;
   border:1px solid var(--border); display:grid; place-items:center;
   font-weight:700; user-select:none;
 }
+@media (max-width:640px){ .fp-pill .label{display:none} }
 
 /* ===== Botão Hambúrguer (animações) ===== */
 .fp-hamburger{
@@ -153,6 +164,27 @@ html[data-sidebar-collapsed="1"] .fp-brand-text{display:none}
     + env(safe-area-inset-bottom, 0px)
   );
 }
+
+/* Separadores/headers de grupo (não-clicáveis) */
+.fp-nav-group{
+  margin: 6px 0 6px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  border-radius: 12px;
+  display: flex; align-items: center; gap: 10px;
+  font-weight: 800;
+}
+.fp-nav-group .bar{
+  width: 4px; height: 16px; border-radius: 999px; background: var(--accent);
+}
+.fp-nav-group .title{
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+html[data-sidebar-collapsed="1"] .fp-nav-group .title{ display:none; }
+html[data-sidebar-collapsed="1"] .fp-nav-group{ justify-content:center; padding:8px; }
+
+/* Links da nav */
 .fp-nav-item{
   position:relative; display:inline-flex; align-items:center; gap:10px;
   padding:8px 12px 8px 18px; border-radius:10px; text-decoration:none; color:inherit;
@@ -163,13 +195,17 @@ html[data-sidebar-collapsed="1"] .fp-brand-text{display:none}
 .fp-nav-item .fp-ink{
   position:absolute; left:8px; top:50%;
   width:4px; height:60%; border-radius:999px; background:var(--accent);
-  transform:translateY(-50%) scaleY(0); transform-origin:center;
-  transition:transform .18s ease;
+  transform:translateY(-50%) scaleY(0); transform-origin:center; transition:transform .18s ease;
 }
 .fp-nav-item:hover{background:var(--chip); border-color:var(--border); transform:translateX(2px)}
 .fp-nav-item:hover .fp-ink{transform:translateY(-50%) scaleY(1)}
 .fp-nav-item.active{border-color:var(--border); background:transparent; font-weight:700}
 .fp-nav-item.active .fp-ink{transform:translateY(-50%) scaleY(1)}
+
+html[data-sidebar-collapsed="1"] .fp-nav-item{padding:8px; justify-content:center}
+html[data-sidebar-collapsed="1"] .fp-nav-item .fp-ink{left:2px}
+html[data-sidebar-collapsed="1"] .fp-nav-label,
+html[data-sidebar-collapsed="1"] .fp-nav-footer .fp-label{display:none}
 
 /* Tooltips (apenas quando colapsado) */
 html[data-sidebar-collapsed="1"] .fp-nav{overflow:visible} /* permite tooltip sair */
@@ -184,15 +220,8 @@ html[data-sidebar-collapsed="1"] .fp-nav-item:focus-visible::after{
 html[data-sidebar-collapsed="1"] .fp-nav-item:hover::before,
 html[data-sidebar-collapsed="1"] .fp-nav-item:focus-visible::before{
   content:""; position:absolute; left:100%; top:50%; transform:translate(4px,-50%) rotate(45deg);
-  width:8px; height:8px; background:var(--bg);
-  border-left:1px solid var(--border); border-top:1px solid var(--border); z-index:81;
+  width:8px; height:8px; background:var(--bg); border-left:1px solid var(--border); border-top:1px solid var(--border); z-index:81;
 }
-
-/* Colapso (desktop): esconder labels e centrar ícones */
-html[data-sidebar-collapsed="1"] .fp-nav-item{padding:8px; justify-content:center}
-html[data-sidebar-collapsed="1"] .fp-nav-item .fp-ink{left:2px}
-html[data-sidebar-collapsed="1"] .fp-nav-label,
-html[data-sidebar-collapsed="1"] .fp-nav-footer .fp-label{display:none}
 
 /* ===== Footer da sidebar — FIXO, ELEVADO e SEMPRE VISÍVEL ===== */
 .fp-nav-footer{
@@ -254,6 +283,14 @@ html[data-sidebar-collapsed="1"] .fp-signout:focus-visible::after{
   }
   html[data-sidebar="open"] .fp-sidebar{transform:translateX(0)}
   html[data-sidebar="open"] .fp-overlay{opacity:1; pointer-events:auto}
+}
+
+/* ===== Conteúdo do dashboard — evita scroll fantasma na página ===== */
+.fp-page{
+  min-height: calc(100dvh - var(--header-h));
+  height: calc(100dvh - var(--header-h));
+  overflow: auto;            /* scroll só aqui quando o conteúdo precisar */
+  overscroll-behavior: contain;
 }
 
 /* ===== Utilitários ===== */
