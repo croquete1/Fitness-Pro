@@ -29,7 +29,7 @@ function inQuietHours(now: Date, startHour: number, endHour: number) {
   const h = now.getHours();
   if (startHour === endHour) return false;
   if (startHour < endHour) return h >= startHour && h < endHour;
-  return h >= startHour || h < endHour;
+  return h >= startHour || h < endHour; // janela atravessa a meia-noite
 }
 function clampHour(n: number) { return Math.max(0, Math.min(23, Math.round(n))); }
 
@@ -77,12 +77,12 @@ function Tip({
             whiteSpace: "nowrap",
             fontSize: ".9rem",
             border: "1px solid var(--border)",
-            background: "var(--bg)",
+            background: "var(--panel, var(--bg))",
             padding: "6px 8px",
             color: "inherit",
             borderRadius: 8,
             pointerEvents: "none",
-            boxShadow: "0 8px 16px rgba(0,0,0,.12)",
+            boxShadow: "0 8px 16px rgba(0,0,0,.18)",
             zIndex: 80,
           }}
         >
@@ -154,8 +154,9 @@ export default function AppHeader() {
         list.sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt));
 
         if (effectiveDnd) {
+          // acumula badge persistente
           setUnread((prev) => {
-            const next = prev + list.length;
+            const next = Math.min(prev + list.length, 99); // cap 99+
             localStorage.setItem(LS_UNREAD, String(next));
             return next;
           });
@@ -248,13 +249,6 @@ export default function AppHeader() {
     setAutoOn(next);
     if (typeof window !== "undefined") localStorage.setItem(LS_AUTO, next ? "on" : "off");
   }
-  function markAllRead() {
-    setUnread(0);
-    if (typeof window !== "undefined") {
-      localStorage.setItem(LS_UNREAD, "0");
-      localStorage.setItem(LS_LASTSEEN, new Date().toISOString());
-    }
-  }
 
   // abrir picker
   function openPicker() {
@@ -292,7 +286,7 @@ export default function AppHeader() {
           zIndex: 40,
           backdropFilter: "saturate(180%) blur(8px)",
           borderBottom: "1px solid var(--border)",
-          background: "color-mix(in srgb, var(--bg) 92%, transparent)",
+          background: "var(--panel, var(--bg))", // mais estável no dark-mode
         }}
       >
         <div
@@ -318,7 +312,7 @@ export default function AppHeader() {
 
           {/* Direita */}
           <div style={{ display: "flex", alignItems: "center", gap: 8, position: "relative" }}>
-            {/* DND manual + tooltip */}
+            {/* DND manual */}
             <Tip label={dndManual ? "DND manual ativo — clicar para desativar" : "Ativar DND manual"}>
               <button
                 type="button"
@@ -354,20 +348,7 @@ export default function AppHeader() {
               </button>
             </Tip>
 
-            {/* Marcar como lidas + tooltip */}
-            <Tip label="Marcar todas as notificações como lidas">
-              <button
-                type="button"
-                className="fp-pill"
-                onClick={markAllRead}
-                style={{ height: 34 }}
-              >
-                <span aria-hidden>✅</span>
-                <span className="label" style={{ marginLeft: 6 }}>Lidas</span>
-              </button>
-            </Tip>
-
-            {/* Auto DND + menu ao passar o rato (tooltip não necessário aqui para não conflitar) */}
+            {/* Auto DND + menu ao passar o rato */}
             <div style={{ position: "relative" }} onMouseEnter={onAutoEnter} onMouseLeave={onAutoLeave}>
               <button
                 type="button"
@@ -380,6 +361,7 @@ export default function AppHeader() {
                 }}
                 aria-haspopup="true"
                 aria-expanded={showAutoMenu || showPicker}
+                title={`DND automático ${autoOn ? "ativo" : "inativo"}`}
               >
                 <span aria-hidden>⏰</span>
                 <span className="label" style={{ marginLeft: 6 }}>
@@ -406,7 +388,7 @@ export default function AppHeader() {
                     top: "110%", right: 0,
                     zIndex: 60,
                     border: "1px solid var(--border)",
-                    background: "var(--bg)",
+                    background: "var(--panel, var(--bg))",
                     borderRadius: 12,
                     padding: 8,
                     display: "grid",
@@ -453,7 +435,7 @@ export default function AppHeader() {
                     top: "110%", right: 0,
                     zIndex: 70,
                     border: "1px solid var(--border)",
-                    background: "var(--bg)",
+                    background: "var(--panel, var(--bg))",
                     borderRadius: 12,
                     padding: 10,
                     display: "grid",
@@ -472,7 +454,7 @@ export default function AppHeader() {
                         max={23}
                         value={autoStart}
                         onChange={(e) => setAS(clampHour(Number(e.target.value)))}
-                        style={{ border: "1px solid var(--border)", borderRadius: 8, padding: "6px 8px", background: "transparent" }}
+                        style={{ border: "1px solid var(--border)", borderRadius: 8, padding: "6px 8px", background: "transparent", color: "inherit" }}
                       />
                     </label>
                     <label style={{ display: "grid", gap: 4 }}>
@@ -483,7 +465,7 @@ export default function AppHeader() {
                         max={23}
                         value={autoEnd}
                         onChange={(e) => setAE(clampHour(Number(e.target.value)))}
-                        style={{ border: "1px solid var(--border)", borderRadius: 8, padding: "6px 8px", background: "transparent" }}
+                        style={{ border: "1px solid var(--border)", borderRadius: 8, padding: "6px 8px", background: "transparent", color: "inherit" }}
                       />
                     </label>
                   </div>
@@ -495,7 +477,7 @@ export default function AppHeader() {
               )}
             </div>
 
-            {/* Som + tooltip */}
+            {/* Som */}
             <Tip label={soundOn ? "Silenciar notificações sonoras" : "Ativar som das notificações"}>
               <button
                 type="button"
@@ -583,8 +565,7 @@ function ToastCard({ toast, onClose }: { toast: Toast; onClose: () => void }) {
         maxWidth: 420,
         border: "1px solid var(--border)",
         borderRadius: 14,
-        background:
-          "linear-gradient(180deg, color-mix(in srgb, var(--bg) 96%, transparent), color-mix(in srgb, var(--bg) 90%, transparent))",
+        background: "var(--panel, var(--bg))",
         boxShadow: "0 10px 24px rgba(0,0,0,.18)",
         padding: 12,
         display: "grid",
@@ -609,7 +590,7 @@ function ToastCard({ toast, onClose }: { toast: Toast; onClose: () => void }) {
           style={{
             height: 3,
             borderRadius: 999,
-            background: "color-mix(in srgb, var(--accent, #22c55e) 50%, transparent)",
+            background: "color-mix(in srgb, var(--accent, #22c55e) 40%, transparent)",
             overflow: "hidden",
             marginTop: 8,
           }}
@@ -639,6 +620,7 @@ function ToastCard({ toast, onClose }: { toast: Toast; onClose: () => void }) {
           display: "grid",
           placeItems: "center",
           cursor: "pointer",
+          color: "inherit",
         }}
       >
         ×
