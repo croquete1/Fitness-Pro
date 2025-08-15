@@ -1,120 +1,39 @@
 // src/app/api/register/route.ts
 import { NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
-
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-
-// Util: ler body como JSON ou FormData
-async function readBody(req: Request): Promise<Record<string, any>> {
-  try {
-    const json = await req.json();
-    if (json && typeof json === "object") return json as Record<string, any>;
-  } catch {}
-  try {
-    const fd = await req.formData();
-    const obj: Record<string, any> = {};
-    fd.forEach((v, k) => (obj[k] = typeof v === "string" ? v : ""));
-    return obj;
-  } catch {}
-  return {};
-}
-
-function isEmail(v: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
-}
+import { logUserSignedUp } from "@/lib/logger";
+import { Role, Status } from "@prisma/client";
+import { hash } from "bcryptjs";
 
 export async function POST(req: Request) {
-  const t0 = Date.now();
   try {
-    const body = await readBody(req);
+    const body = await req.json();
+    const { email, name, password, role } = body as { email: string; name?: string; password: string; role?: string };
 
-    const name = (body.name ?? body.fullname ?? body.displayName ?? "").toString().trim();
-    const email = (body.email ?? "").toString().trim().toLowerCase();
-    const password = (body.password ?? body.pass ?? "").toString();
-
-    // Heurística simples para intenção PT
-    const referer = (req.headers.get("referer") || "").toLowerCase();
-    const wantsTrainer = /\/register\/trainer/.test(referer) || `${body.role}`.toUpperCase() === "TRAINER";
-
-    // Validação
-    if (!isEmail(email)) {
-      return NextResponse.json({ ok: false, error: "EMAIL_INVALID" }, { status: 400 });
-    }
-    if (!password || password.length < 6) {
-      return NextResponse.json({ ok: false, error: "PASSWORD_TOO_SHORT" }, { status: 400 });
+    if (!email || !password) {
+      return NextResponse.json({ ok: false, error: "Email e password são obrigatórios." }, { status: 400 });
     }
 
-    // Duplicado?
-    const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) {
-      return NextResponse.json({ ok: false, error: "EMAIL_ALREADY_IN_USE" }, { status: 409 });
-    }
+    const passwordHash = await hash(password, 10);
+    const normRole = ((): Role => {
+      const key = String(role ?? "CLIENT").trim().toUpperCase();
+      return (["ADMIN", "TRAINER", "CLIENT"] as const).includes(key as any) ? (key as Role) : Role.CLIENT;
+    })();
 
-    const hash = await bcrypt.hash(password, 10);
+    const user = await prisma.user.create({
+      data: {
+        email,
+        name: name ?? null,
+        passwordHash,
+        role: normRole,
+        status: Status.PENDING,
+      },
+    });
 
-    // tenta colunas de hash compatíveis
-    const base = {
-      email,
-      name: name || email.split("@")[0],
-    } as any;
+    await logUserSignedUp({ userId: user.id, role: user.role, email: user.email });
 
-    const variants = [{ passwordHash: hash }, { password: hash }, { hashedPassword: hash }];
-
-    let created: any = null;
-    let lastErr: any = null;
-    for (const v of variants) {
-      try {
-        created = await prisma.user.create({ data: { ...base, ...v } });
-        break;
-      } catch (e: any) {
-        lastErr = e;
-      }
-    }
-    if (!created) {
-      console.error("[register] prisma.create falhou:", String(lastErr));
-      return NextResponse.json({ ok: false, error: "CREATE_FAILED" }, { status: 500 });
-    }
-
-    // 🚩 Audit log: novo registo (usado para notificações no Admin)
-    try {
-      await prisma.auditLog.create({
-        data: {
-          actorId: null,
-          action: "USER_REGISTERED",
-          target: created.id,
-          meta: {
-            email,
-            name: created.name ?? null,
-            wantsTrainer,
-            referer,
-          },
-        },
-      });
-    } catch (e) {
-      console.warn("[register] auditLog falhou:", e);
-    }
-
-    return NextResponse.json(
-      { ok: true, data: { id: created.id, email: created.email, name: created.name } },
-      { status: 201 }
-    );
-  } catch (err: any) {
-    console.error("[register] 500:", err?.message ?? err);
-    return NextResponse.json({ ok: false, error: "INTERNAL_ERROR" }, { status: 500 });
-  } finally {
-    const ms = Date.now() - t0;
-    if (ms > 1000) console.warn(`[register] lento: ${ms}ms`);
-  }
-}
-
-export async function GET() {
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    return NextResponse.json({ ok: true, db: "up" });
-  } catch (e) {
-    console.error("[register] GET health fail", e);
-    return NextResponse.json({ ok: false, db: "down" }, { status: 500 });
+    return NextResponse.json({ ok: true, user }, { status: 201 });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Erro inesperado" }, { status: 500 });
   }
 }

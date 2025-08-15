@@ -1,53 +1,72 @@
 // src/app/api/admin/approvals/route.ts
 import { NextResponse } from "next/server";
-// import { prisma } from "@/lib/prisma"; // ativa quando Prisma estiver disponível
+import prisma from "@/lib/prisma";
+import { logUserApproved, logUserRejected } from "@/lib/logger";
+import { Role, Status } from "@prisma/client";
 
 type ApprovalsPayload = {
   userId: string;
-  newRole: "user" | "trainer" | "admin";
+  newRole?: string;            // pode vir "trainer", "TRAINER", "pt", etc.
   action: "approve" | "reject";
+  reason?: string;
+  adminId?: string;
 };
+
+function normalizeRole(input?: string | null): Role | null {
+  if (!input) return null;
+  const key = String(input).trim().toUpperCase().replace(/\s+/g, "_");
+  // Aliases úteis
+  const map: Record<string, Role> = {
+    ADMIN: "ADMIN",
+    TRAINER: "TRAINER",
+    PT: "TRAINER",
+    PERSONAL_TRAINER: "TRAINER",
+    CLIENT: "CLIENT",
+    CLIENTE: "CLIENT",
+  } as any;
+
+  const candidate = (map[key] ?? key) as Role;
+  return Object.values(Role).includes(candidate) ? candidate : null;
+}
 
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as Partial<ApprovalsPayload>;
+    const body = (await req.json()) as ApprovalsPayload;
+    const { userId, newRole, action, reason, adminId } = body;
 
-    // Renomear com "_" para cumprir a regra de unused-vars (e também vamos usá-las abaixo)
-    const _userId = body.userId;
-    const _newRole = body.newRole;
-    const _action = body.action;
-
-    // Validação simples (passa a 400 se faltar algo)
-    if (!_userId || !_newRole || !_action) {
-      return NextResponse.json(
-        { ok: false, error: "Parâmetros inválidos: 'userId', 'newRole' e 'action' são obrigatórios." },
-        { status: 400 }
-      );
+    if (!userId || !action) {
+      return NextResponse.json({ ok: false, error: "Campos obrigatórios: 'userId' e 'action'." }, { status: 400 });
     }
 
-    // MOCK: quando ligares o Prisma, substitui pelo update real
-    // await prisma.user.update({
-    //   where: { id: _userId },
-    //   data: { role: _action === "approve" ? _newRole : "pending" },
-    // });
-    // await prisma.auditLog.create({
-    //   data: {
-    //     action: _action === "approve" ? "USER_APPROVED" : "USER_REJECTED",
-    //     actor: "admin",
-    //     target: _userId, // ✅ FIX: usar 'target' (não 'targetId')
-    //     metadata: { newRole: _newRole },
-    //   },
-    // });
+    if (action === "approve") {
+      const role = normalizeRole(newRole);
+      if (!role) {
+        return NextResponse.json({ ok: false, error: "newRole inválido para enum Role." }, { status: 400 });
+      }
 
-    // Devolve o resultado efetivo do que seria aplicado
-    const appliedRole = _action === "approve" ? _newRole : "pending";
-    return NextResponse.json({
-      ok: true,
-      userId: _userId,
-      action: _action,
-      assignedRole: appliedRole,
+      const user = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          role: { set: role },
+          status: { set: Status.ACTIVE },
+        },
+      });
+
+      await logUserApproved({ adminId: adminId ?? null, userId: user.id, toRole: user.role });
+
+      return NextResponse.json({ ok: true, user });
+    }
+
+    // reject
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { status: { set: Status.SUSPENDED } },
     });
+
+    await logUserRejected({ adminId: adminId ?? null, userId: user.id, reason });
+
+    return NextResponse.json({ ok: true, user });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Unexpected error" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: e?.message || "Erro inesperado" }, { status: 500 });
   }
 }

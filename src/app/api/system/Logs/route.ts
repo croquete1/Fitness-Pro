@@ -1,79 +1,52 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+// src/app/api/system/Logs/route.ts
+import { NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
+import type { NextRequest } from "next/server";
 
-// Converte "YYYY-MM-DD" para início/fim do dia em UTC, ou respeita ISO completo.
-function parseDateParam(s: string | null, end = false): Date | null {
-  if (!s) return null;
-  const hasTime = /T\d{2}:\d{2}/.test(s);
-  if (hasTime) {
-    const d = new Date(s);
-    return Number.isNaN(+d) ? null : d;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const runtime = "nodejs";
+
+function deriveMessage(log: any): string {
+  const m = (log?.meta as any) || {};
+  if (typeof m.message === "string" && m.message.trim().length > 0) return m.message;
+
+  switch (log?.action) {
+    case "USER_SIGNED_UP":
+      return `Utilizador inscrito${m.role ? ` (${m.role})` : ""}${m.email ? ` — ${m.email}` : ""}`;
+    case "USER_APPROVED":
+      return `Utilizador aprovado${m.toRole ? ` — novo role: ${m.toRole}` : ""}`;
+    case "USER_REJECTED":
+      return `Utilizador rejeitado${m.reason ? ` — motivo: ${m.reason}` : ""}`;
+    default:
+      return String(log?.action ?? "Log");
   }
-  // Sem hora -> usa limites do dia (UTC)
-  const d = new Date(end ? `${s}T23:59:59.999Z` : `${s}T00:00:00.000Z`);
-  return Number.isNaN(+d) ? null : d;
 }
 
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    const q = (searchParams.get("q") || "").trim();
-    const from = parseDateParam(searchParams.get("from"), false);
-    const to = parseDateParam(searchParams.get("to"), true);
-    const limitParam = Number(searchParams.get("limit") || "100");
-    const limit = Math.max(1, Math.min(200, Number.isFinite(limitParam) ? limitParam : 100));
+    const url = new URL(req.url);
+    const limit = Math.min(Math.max(parseInt(url.searchParams.get("limit") || "100", 10), 1), 200);
+    const action = url.searchParams.get("action") || undefined;
+    const target = url.searchParams.get("target") || undefined;
 
-    // Construção do filtro base
     const where: any = {};
-    if (from || to) {
-      where.createdAt = {};
-      if (from) where.createdAt.gte = from;
-      if (to) where.createdAt.lte = to;
-    }
-
-    // Pesquisa por texto: em action/target e por email do ator
-    let actorIdsByEmail: string[] = [];
-    if (q) {
-      const users = await prisma.user.findMany({
-        where: { email: { contains: q, mode: "insensitive" } },
-        select: { id: true },
-      });
-      actorIdsByEmail = users.map((u) => u.id);
-
-      where.OR = [
-        { action: { contains: q, mode: "insensitive" } },
-        { target: { contains: q, mode: "insensitive" } },
-        ...(actorIdsByEmail.length ? [{ actorId: { in: actorIdsByEmail } }] : []),
-      ];
-    }
+    if (action) where.action = action;
+    if (target) where.target = target;
 
     const logs = await prisma.auditLog.findMany({
       where,
       orderBy: { createdAt: "desc" },
       take: limit,
-      select: { id: true, action: true, target: true, createdAt: true, actorId: true },
     });
 
-    const actorIds = Array.from(new Set(logs.map((l) => l.actorId).filter(Boolean))) as string[];
-    const actors = actorIds.length
-      ? await prisma.user.findMany({
-          where: { id: { in: actorIds } },
-          select: { id: true, email: true },
-        })
-      : [];
-    const map = new Map(actors.map((a) => [a.id, a.email]));
-
     const data = logs.map((l) => ({
-      id: l.id,
-      action: l.action,
-      target: l.target,
-      createdAt: l.createdAt,
-      actorEmail: l.actorId ? map.get(l.actorId) ?? null : null,
+      ...l,
+      message: deriveMessage(l), // <- UI recebe sempre 'message'
     }));
 
     return NextResponse.json({ ok: true, data });
-  } catch (err) {
-    console.error("[api/system/logs] error:", err);
-    return NextResponse.json({ ok: false, data: [], error: "INTERNAL_ERROR" }, { status: 200 });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Erro inesperado" }, { status: 500 });
   }
 }
