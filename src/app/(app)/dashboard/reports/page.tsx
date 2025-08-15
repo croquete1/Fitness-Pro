@@ -1,12 +1,14 @@
-export const dynamic = "force-dynamic";
+// src/app/(app)/dashboard/reports/page.tsx
+"use client";
 
 export default function ReportsPage() {
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-semibold">Relatórios</h1>
-      <div className="rounded-2xl border bg-white/70 dark:bg-zinc-900/50 backdrop-blur p-5">
-        <p className="text-sm text-zinc-600 dark:text-zinc-300">KPIs e exportações.</p>
+    <main className="fp-page" style={{ padding: "1rem" }}>
+      <h1 style={{ fontSize: "1.6rem", fontWeight: 800, marginBottom: 6 }}>Relatórios</h1>
+      <p style={{ color: "var(--muted)" }}>Exportação de dados e relatórios. (placeholder)</p>
+      <div style={{ border: "1px solid var(--border)", borderRadius: 12, background: "var(--bg)", padding: 12 }}>
+        Em breve: exportação CSV/PDF de utilizadores, sessões e métricas.
       </div>
-    </div>
+    </main>
   );
 }
