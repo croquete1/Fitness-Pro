@@ -17,7 +17,6 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         const email = String(credentials?.email ?? "").trim();
         const password = String(credentials?.password ?? "");
-
         if (!email || !password) return null;
 
         // email é CITEXT na BD → comparação case-insensitive no Postgres
@@ -35,21 +34,25 @@ export const authOptions: NextAuthOptions = {
         if (!user) return null;
 
         // bcrypt compatível com hashes do pgcrypto ($2a/$2b/$2y)
-        const hash = user.passwordHash || "";
+        const rawHash = user.passwordHash || "";
+        // 🔧 normaliza $2y -> $2b para máxima compatibilidade com bcryptjs
+        const hash = rawHash.startsWith("$2y$")
+          ? "$2b$" + rawHash.slice(4)
+          : rawHash;
+
         const passOk = hash ? await compare(password, hash) : false;
         if (!passOk) return null;
 
-        // 👇 Tolerante a dados legados (ex.: 'active' minúsculo)
-        const statusOk = String(user.status).toUpperCase() === "ACTIVE";
-        if (!statusOk) return null;
+        // tolerante a dados legados (ex.: 'active' minúsculo)
+        if (String(user.status).toUpperCase() !== "ACTIVE") return null;
 
-        // devolve um objeto user mínimo; id tem de ser string
+        // devolve user mínimo; id tem de ser string
         return {
           id: user.id,
           email: user.email,
           name: user.name ?? undefined,
-          role: user.role,     // mantemos no token/sessão
-          status: user.status, // idem
+          role: user.role,
+          status: user.status,
         } as any;
       },
     }),
