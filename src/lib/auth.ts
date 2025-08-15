@@ -1,36 +1,54 @@
 // src/lib/auth.ts
-// Re-export do authOptions + helpers de sessão (compatível com importações antigas)
-import { getServerSession } from "next-auth";
-import { authOptions } from "./authOptions";
-import type { Role, Status } from "@prisma/client";
+import type { NextAuthOptions } from "next-auth";
+import Credentials from "next-auth/providers/credentials";
 
-export { authOptions };
-
-/** Shape normalizado do utilizador da sessão */
-export type SessionUser = {
+export type AppUser = {
   id: string;
-  name: string;
-  email?: string;
-  role: Role;
-  status?: Status;
+  email: string;
+  role: "admin" | "trainer" | "user" | "pending";
 };
 
-/** Devolve o utilizador da sessão ou null (server-side) */
-export async function getSessionUser(): Promise<SessionUser | null> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) return null;
-
-  const u = session.user as any;
-  return {
-    id: (u.id as string) ?? "",
-    name: session.user.name ?? session.user.email ?? "",
-    email: session.user.email ?? undefined,
-    role: (u.role as Role) ?? "CLIENT",
-    status: u.status as Status | undefined,
-  };
+// ⚠️ Placeholder de verificação — substitui por validação real (DB/Prisma)
+async function verifyUser(username: string, password: string): Promise<AppUser | null> {
+  if (username === process.env.SEED_ADMIN_EMAIL && password === (process.env.SEED_ADMIN_PASSWORD || "")) {
+    return { id: "admin-1", email: username, role: "admin" };
+  }
+  return null;
 }
 
-/** Acesso direto à sessão NextAuth (server-side) */
-export function getServerAuthSession() {
-  return getServerSession(authOptions);
-}
+export const authOptions: NextAuthOptions = {
+  providers: [
+    Credentials({
+      name: "Credentials",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) return null;
+        const user = await verifyUser(credentials.email, credentials.password);
+        return user as any;
+      },
+    }),
+  ],
+  session: { strategy: "jwt" },
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) token.role = (user as any).role || "user";
+      return token;
+    },
+    async session({ session, token }) {
+      (session as any).role = token.role || "user";
+      return session;
+    },
+    async redirect({ url, baseUrl }) {
+      // manter same-origin
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      if (new URL(url).origin === baseUrl) return url;
+      return baseUrl;
+    },
+  },
+  pages: {
+    signIn: "/login", // fornecemos esta página abaixo
+  },
+};

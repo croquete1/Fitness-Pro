@@ -1,54 +1,83 @@
 // src/app/login/page.tsx
-import LoginClient from "./LoginClient";
-import Logo from "@/components/layout/Logo";
-import { brand } from "@/lib/brand";
+"use client";
 
-export const metadata = {
-  title: "Iniciar sessão · " + brand.name,
-  description: "Aceda à sua conta " + brand.name + ".",
-};
+import React from "react";
+import { signIn } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 
-export default function LoginPage({
-  searchParams,
-}: {
-  searchParams?: { [key: string]: string | string[] | undefined };
-}) {
-  const registered =
-    (typeof searchParams?.registered === "string" && searchParams?.registered === "1") ||
-    (Array.isArray(searchParams?.registered) && searchParams?.registered?.[0] === "1");
+export default function LoginPage() {
+  const params = useSearchParams();
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const callbackUrl = params.get("callbackUrl") || "/dashboard";
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await signIn("credentials", { email, password, callbackUrl });
+  };
 
   return (
-    <div
-      style={{
-        minHeight: "100dvh",
-        display: "grid",
-        placeItems: "center",
-        padding: "calc(var(--header-h) + 1.25rem) 1rem 2rem",
-        background: "var(--bg)",
-        color: "var(--fg)",
-      }}
-    >
-      <div
+    <div style={{ display: "grid", placeItems: "center", minHeight: "100vh", padding: 24 }}>
+      <form
+        onSubmit={onSubmit}
         style={{
-          width: "100%",
-          maxWidth: 440,
-          border: "1px solid var(--border)",
-          borderRadius: 16,
-          padding: "1.25rem",
-          background: "var(--bg)",
-          boxShadow: "0 6px 24px rgba(0,0,0,.06)",
+          width: 360,
+          border: "1px solid #e5e7eb",
+          borderRadius: 12,
+          padding: 16,
+          background: "#fff",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-          <Logo size={36} />
-          <div>
-            <div style={{ fontWeight: 800, lineHeight: 1 }}>{brand.name}</div>
-            <div style={{ fontSize: ".85rem", color: "var(--muted)" }}>Iniciar sessão</div>
-          </div>
-        </div>
+        <h1 style={{ fontSize: 22, fontWeight: 700, marginTop: 0 }}>Iniciar sessão</h1>
 
-        <LoginClient registered={registered} />
-      </div>
+        <label style={{ display: "block", marginTop: 8 }}>Email</label>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          style={input}
+          placeholder="admin@example.com"
+          required
+        />
+
+        <label style={{ display: "block", marginTop: 8 }}>Password</label>
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          style={input}
+          placeholder="••••••••"
+          required
+        />
+
+        <button type="submit" style={btnPrimary}>
+          Entrar
+        </button>
+
+        <p style={{ fontSize: 12, color: "#6b7280", marginTop: 12 }}>
+          Usa as credenciais definidas no <code>.env</code> para testes.
+        </p>
+      </form>
     </div>
   );
 }
+
+const input: React.CSSProperties = {
+  width: "100%",
+  padding: "10px 12px",
+  border: "1px solid #e5e7eb",
+  borderRadius: 8,
+  marginTop: 4,
+};
+
+const btnPrimary: React.CSSProperties = {
+  width: "100%",
+  marginTop: 12,
+  padding: "10px 12px",
+  borderRadius: 8,
+  border: "1px solid #111827",
+  background: "#111827",
+  color: "#fff",
+  cursor: "pointer",
+  fontWeight: 600,
+};

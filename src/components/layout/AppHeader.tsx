@@ -136,6 +136,13 @@ export default function AppHeader() {
     return () => tickRef.current && clearInterval(tickRef.current);
   }, []);
 
+  // DND efetivo (memo)
+  const effectiveDnd = useMemo(
+    () => dndManual || (autoOn && inQuietHours(new Date(), autoStart, autoEnd)),
+    // ❗ remover showPicker das deps (não é usado no cálculo)
+    [dndManual, autoOn, autoStart, autoEnd]
+  );
+
   // poll + onFocus
   useEffect(() => {
     const check = async () => {
@@ -194,12 +201,14 @@ export default function AppHeader() {
       if (timerRef.current) clearInterval(timerRef.current);
       window.removeEventListener("focus", onFocus);
     };
-  }, [soundOn, dndManual, autoOn, autoStart, autoEnd]);
-
-  const effectiveDnd = useMemo(
-    () => dndManual || (autoOn && inQuietHours(new Date(), autoStart, autoEnd)),
-    [dndManual, autoOn, autoStart, autoEnd, showPicker]
-  );
+  }, [
+    soundOn,
+    dndManual,
+    autoOn,
+    autoStart,
+    autoEnd,
+    effectiveDnd, // ✅ incluir dependência usada no efeito
+  ]);
 
   function addToast(t: Toast) {
     setToasts((curr) => [...curr, t]);
