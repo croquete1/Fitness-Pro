@@ -11,7 +11,7 @@
 
   /* Footer fixo da sidebar */
   --sidebar-footer-h:64px;        /* altura do footer */
-  --sidebar-footer-offset:14px;   /* sobe o footer (evita overlap com dock/taskbar) */
+  --sidebar-footer-offset:24px;   /* sobe o footer (evita overlap com dock/taskbar) */
 }
 
 [data-theme="dark"]{
