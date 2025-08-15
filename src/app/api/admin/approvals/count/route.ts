@@ -1,20 +1,25 @@
-// src/app/(app)/api/admin/approvals/count/route.ts
+// src/app/api/admin/approvals/count/route.ts
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
-import { prisma } from "@/lib/prisma";
+import prisma from "@/lib/prisma";
 import { Status } from "@prisma/client";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as any)?.role;
-  if (!session?.user || role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  try {
+    const [pending, active, suspended] = await Promise.all([
+      prisma.user.count({ where: { status: Status.PENDING } }),
+      prisma.user.count({ where: { status: Status.ACTIVE } }),
+      prisma.user.count({ where: { status: Status.SUSPENDED } }),
+    ]);
 
-  const count = await prisma.user.count({ where: { status: Status.PENDING } });
-  return NextResponse.json({ count });
+    return NextResponse.json({
+      ok: true,
+      data: { pending, active, suspended, total: pending + active + suspended },
+    });
+  } catch (e: any) {
+    console.error("[approvals/count][GET]", e?.message ?? e);
+    return NextResponse.json({ ok: false, error: "INTERNAL_ERROR" }, { status: 500 });
+  }
 }

@@ -1,37 +1,36 @@
 // src/lib/auth.ts
+// Re-export do authOptions + helpers de sessão (compatível com importações antigas)
 import { getServerSession } from "next-auth";
-import type { Role } from "@prisma/client";
-// Mantém a tua configuração real no ficheiro abaixo:
-import { authOptions as _authOptions } from "./authOptions";
+import { authOptions } from "./authOptions";
+import type { Role, Status } from "@prisma/client";
 
-// Re-exporta para consumo pelas rotas e restante código
-export const authOptions = _authOptions;
+export { authOptions };
 
+/** Shape normalizado do utilizador da sessão */
 export type SessionUser = {
   id: string;
   name: string;
-  email?: string | null;
+  email?: string;
   role: Role;
+  status?: Status;
 };
 
-// Helper opcional (podes usar em server actions)
-export async function getServerAuthSession() {
-  return getServerSession(authOptions);
-}
-
+/** Devolve o utilizador da sessão ou null (server-side) */
 export async function getSessionUser(): Promise<SessionUser | null> {
   const session = await getServerSession(authOptions);
+  if (!session?.user) return null;
 
-  // Se tiveres augmentation em src/types/next-auth.d.ts, isto já deverá estar tipado.
-  // Mantemos defensivo para não quebrar a build.
-  const user = session?.user as Partial<SessionUser> | undefined;
-
-  if (!user?.id) return null;
-
+  const u = session.user as any;
   return {
-    id: user.id,
-    name: (user.name ?? user.email ?? "") as string,
-    email: user.email ?? undefined,
-    role: (user.role ?? "CLIENT") as Role,
+    id: (u.id as string) ?? "",
+    name: session.user.name ?? session.user.email ?? "",
+    email: session.user.email ?? undefined,
+    role: (u.role as Role) ?? "CLIENT",
+    status: u.status as Status | undefined,
   };
+}
+
+/** Acesso direto à sessão NextAuth (server-side) */
+export function getServerAuthSession() {
+  return getServerSession(authOptions);
 }

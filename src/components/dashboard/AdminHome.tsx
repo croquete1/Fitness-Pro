@@ -11,18 +11,28 @@ type Stats = {
   clients?: number;
   trainers?: number;
   admins?: number;
-  sessionsNext7?: number;
+  sessionsNext7?: number; // próximos 7 dias
 };
 
 type ApiResult<T> = { ok?: boolean; data?: T } | T;
+
+type SessionItem = {
+  id?: string | number;
+  start?: string;     // ISO
+  date?: string;      // ISO
+  when?: string;      // ISO
+  title?: string;
+  name?: string;
+  clientName?: string;
+  trainerName?: string;
+};
 
 async function getJSON<T>(url: string): Promise<T | null> {
   try {
     const res = await fetch(url, { cache: "no-store", credentials: "same-origin" });
     if (!res.ok) return null;
     const j = (await res.json()) as ApiResult<T>;
-    // Normaliza {data:…} ou o payload direto
-    // @ts-expect-error - tolerância a formatos diversos
+    // @ts-expect-error — tolera {data:…} ou payload direto
     return (j?.data ?? j) as T;
   } catch {
     return null;
@@ -57,72 +67,77 @@ export default function AdminHome() {
     (async () => {
       setLoading(true);
 
-      const [s, acts, sessions] = await Promise.all([
+      // Janela única: últimos 6 dias até hoje + próximos 7 dias
+      const from = startOfDay(addDays(new Date(), -6)).toISOString();
+      const to = addDays(new Date(), 7).toISOString();
+
+      const [s, acts, sess] = await Promise.all([
         getJSON<Stats>("/api/dashboard/stats"),
         getJSON<ActivityItem[]>("/api/dashboard/activities?limit=8"),
-        // Próximos 7 dias
-        getJSON<any[]>(
-          `/api/trainer/sessions?from=${encodeURIComponent(
-            new Date().toISOString()
-          )}&to=${encodeURIComponent(addDays(new Date(), 7).toISOString())}`
+        getJSON<SessionItem[]>(
+          `/api/trainer/sessions?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
         ),
       ]);
 
       setStats(s ?? { clients: 0, trainers: 0, admins: 0, sessionsNext7: 0 });
       setActivities(Array.isArray(acts) ? acts : []);
 
-      // Mini-agenda: normaliza
-      const agendaItems: AgendaItem[] = Array.isArray(sessions)
-        ? sessions
-            .map((x) => {
-              const when = new Date(x.start ?? x.date ?? x.when ?? Date.now());
-              return {
-                id: String(x.id ?? `${when.getTime()}-${Math.random()}`),
-                when: when.toISOString(),
-                title:
-                  x.title ??
-                  x.name ??
-                  `Sessão${x.clientName ? ` · ${x.clientName}` : ""}`,
-                meta:
-                  x.trainerName && x.clientName
-                    ? `${x.trainerName} → ${x.clientName}`
-                    : x.trainerName ?? x.clientName ?? "",
-                href: "/dashboard/sessions",
-              };
-            })
-            .sort((a, b) => +new Date(a.when) - +new Date(b.when))
-            .slice(0, 6)
-        : [];
-      setAgenda(agendaItems);
+      const list = Array.isArray(sess) ? sess : [];
 
-      // Série (7 dias): agrega sessões por dia
+      // ---------- Mini-agenda (próximos 7 dias) ----------
+      const upcoming: AgendaItem[] = list
+        .filter((x) => +new Date(x.start ?? x.date ?? x.when ?? 0) >= Date.now())
+        .map((x) => {
+          const when = new Date(x.start ?? x.date ?? x.when ?? Date.now());
+          return {
+            id: String(x.id ?? `${when.getTime()}-${Math.random()}`),
+            when: when.toISOString(),
+            title: x.title ?? x.name ?? `Sessão${x.clientName ? ` · ${x.clientName}` : ""}`,
+            meta:
+              x.trainerName && x.clientName
+                ? `${x.trainerName} → ${x.clientName}`
+                : x.trainerName ?? x.clientName ?? "",
+            href: "/dashboard/sessions",
+          };
+        })
+        .sort((a, b) => +new Date(a.when) - +new Date(b.when))
+        .slice(0, 6);
+
+      setAgenda(upcoming);
+
+      // ---------- Série (últimos 7 dias) ----------
       const base: SeriesPoint[] = [];
       const start = startOfDay(addDays(new Date(), -6));
       for (let i = 0; i < 7; i++) {
         const d = addDays(start, i);
         base.push({ label: d.toLocaleDateString("pt-PT", { weekday: "short" }), value: 0 });
       }
-      if (Array.isArray(sessions)) {
-        sessions.forEach((x) => {
-          const d = startOfDay(new Date(x.start ?? x.date ?? x.when ?? Date.now()));
-          const idx = Math.round((+d - +start) / 86400000);
-          if (idx >= 0 && idx < base.length) base[idx].value += 1;
-        });
-      }
+      list.forEach((x) => {
+        const d = startOfDay(new Date(x.start ?? x.date ?? x.when ?? Date.now()));
+        const idx = Math.round((+d - +start) / 86400000);
+        if (idx >= 0 && idx < base.length) base[idx].value += 1;
+      });
       setSeries(base);
 
       setLoading(false);
     })();
   }, []);
 
+  // KPI: conta próximos 7 dias (usando stats se disponível; fallback para agenda/lista)
+  const sessionsNext7 = useMemo(() => {
+    if (typeof stats?.sessionsNext7 === "number") return stats.sessionsNext7;
+    // fallback: usa os itens mostrados (até 6) + restantes se precisares
+    return agenda.length;
+  }, [stats?.sessionsNext7, agenda.length]);
+
   const kpis = useMemo(
     () => [
       { label: "Clientes", value: stats?.clients ?? 0, icon: "👥" },
       { label: "Treinadores", value: stats?.trainers ?? 0, icon: "🏋️" },
       { label: "Admins", value: stats?.admins ?? 0, icon: "🛡️" },
-      { label: "Sessões (7d)", value: stats?.sessionsNext7 ?? agenda.length, icon: "🗓️" },
+      { label: "Sessões (próx. 7d)", value: sessionsNext7, icon: "🗓️" },
     ],
-    [stats, agenda.length]
+    [stats, sessionsNext7]
   );
 
   return (
@@ -150,7 +165,7 @@ export default function AdminHome() {
         ))}
       </section>
 
-      {/* Chart + Agenda + Activity */}
+      {/* Chart + Agenda */}
       <section
         style={{
           display: "grid",
@@ -188,6 +203,7 @@ export default function AdminHome() {
         </div>
       </section>
 
+      {/* Atividade */}
       <section style={{ padding: "0 1rem 1rem" }}>
         <div
           style={{
@@ -198,10 +214,7 @@ export default function AdminHome() {
           }}
         >
           <h2 style={{ margin: 0, fontSize: "1.05rem" }}>Atividade recente</h2>
-          <ActivityFeed
-            items={activities}
-            emptyText="Sem atividade recente."
-          />
+          <ActivityFeed items={activities} emptyText="Sem atividade recente." />
         </div>
       </section>
     </main>
