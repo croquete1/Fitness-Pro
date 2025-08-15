@@ -4,7 +4,10 @@
   --bg:#f8fafc; --fg:#0f172a; --muted:#475569; --border:#e2e8f0; --accent:#3b82f6;
   --bg-header:rgba(248,250,252,.85); --chip:#e8f0fe;
   --sidebar-w:260px; --sidebar-w-collapsed:76px; --header-h:64px;
+
+  /* Footer fixo da sidebar */
   --sidebar-footer-h:64px;
+  --sidebar-footer-offset:14px; /* <— sobe o footer (ajusta aqui) */
 }
 [data-theme="dark"]{
   --bg:#0b1220; --fg:#e5e7eb; --muted:#94a3b8; --border:#1f2937; --accent:#60a5fa;
@@ -25,7 +28,7 @@ html[data-sidebar="open"]{overflow:hidden}
   grid-template-columns:var(--sidebar-w) 1fr;
   align-items:start;
   min-height:calc(100vh - var(--header-h));
-  min-height:calc(100svh - var(--header-h)); /* evita cortes em ambientes com barras dinâmicas */
+  min-height:calc(100svh - var(--header-h));
 }
 html[data-sidebar-collapsed="1"] .fp-shell{
   grid-template-columns:var(--sidebar-w-collapsed) 1fr !important;
@@ -35,16 +38,16 @@ html[data-sidebar-collapsed="1"] .fp-shell{
 .fp-sidebar{
   box-sizing:border-box;
   width:100%;
-  position:sticky; top:0;
+  position:sticky; top:0;         /* contém o footer absoluto */
   height:calc(100vh - var(--header-h));
   height:calc(100svh - var(--header-h));
   background:var(--bg);
   border-right:1px solid var(--border);
   padding:.75rem;
-  padding-bottom:0;     /* o footer sticky ocupa o fundo */
+  padding-bottom:0;               /* footer ocupa o fundo */
   display:flex; flex-direction:column;
   z-index:60;
-  overflow:hidden;      /* o scroll fica na .fp-nav */
+  overflow:hidden;                /* o scroll fica no .fp-nav */
 }
 html[data-sidebar-collapsed="1"] .fp-sidebar{padding:.5rem; padding-bottom:0}
 
@@ -61,18 +64,14 @@ html[data-sidebar-collapsed="1"] .fp-sidebar{padding:.5rem; padding-bottom:0}
   min-height:var(--header-h);
   display:grid;
   grid-template-columns:var(--sidebar-w) 1fr;
-  align-items:center;
-  padding:0;
+  align-items:center; padding:0;
 }
 html[data-sidebar-collapsed="1"] .fp-header{ grid-template-columns:var(--sidebar-w-collapsed) 1fr; }
 
 /* — Marca (coluna da sidebar) — */
 .fp-brand{
-  grid-column:1;
-  display:flex; align-items:center; gap:.6rem;
-  padding:.8rem 1rem;
-  min-width:0;
-  overflow:visible;              /* evita cortar o logo */
+  grid-column:1; display:flex; align-items:center; gap:.6rem;
+  padding:.8rem 1rem; min-width:0; overflow:visible; /* não corta o logo */
 }
 .fp-brand-text{display:flex; flex-direction:column}
 .fp-brand-name{font-weight:700; line-height:1}
@@ -81,29 +80,19 @@ html[data-sidebar-collapsed="1"] .fp-brand-text{display:none}
 
 /* — Greeting + ações (coluna de conteúdo) — */
 .fp-header-inner{
-  grid-column:2;
-  display:grid; grid-template-columns:1fr auto;
-  align-items:center; gap:.75rem;
-  padding:.8rem 1rem;
+  grid-column:2; display:grid; grid-template-columns:1fr auto;
+  align-items:center; gap:.75rem; padding:.8rem 1rem;
 }
 .fp-greeting{min-width:0}
 .fp-greeting-title{font-weight:600}
-
 .fp-chip{
   margin-top:4px; font-size:.8rem; color:var(--muted);
   display:inline-flex; gap:.5rem; align-items:center;
   padding:.2rem .6rem; border:1px solid var(--border);
   border-radius:999px; background:var(--chip);
 }
-.fp-btn-ghost{
-  border:1px solid var(--border); background:transparent;
-  border-radius:999px; padding:.35rem .65rem; cursor:pointer;
-}
-.fp-avatar{
-  width:34px; height:34px; border-radius:50%;
-  border:1px solid var(--border); display:grid; place-items:center;
-  font-weight:700; user-select:none;
-}
+.fp-btn-ghost{border:1px solid var(--border); background:transparent; border-radius:999px; padding:.35rem .65rem; cursor:pointer}
+.fp-avatar{width:34px; height:34px; border-radius:50%; border:1px solid var(--border); display:grid; place-items:center; font-weight:700; user-select:none}
 
 /* ===== Hambúrguer (animações) ===== */
 .fp-hamburger{
@@ -124,19 +113,17 @@ html[data-sidebar-collapsed="1"] .fp-brand-text{display:none}
   flex:1; min-height:0;
   overflow:auto; scrollbar-gutter:stable;
   padding-right:2px;
-  /* apenas um respiro para o sticky footer, sem precisar de scroll extra */
-  padding-bottom:.75rem;
+  /* reserva espaço p/ footer elevado (offset + safe-area) */
+  padding-bottom:calc(var(--sidebar-footer-h) + var(--sidebar-footer-offset) + env(safe-area-inset-bottom, 0px));
 }
 .fp-nav-item{
   position:relative; display:inline-flex; align-items:center; gap:10px;
   padding:8px 12px 8px 18px; border-radius:10px; text-decoration:none; color:inherit;
-  border:1px solid transparent; line-height:1.2; min-height:0; white-space:nowrap;
-  overflow:hidden; text-overflow:ellipsis;
+  border:1px solid transparent; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   transition:border-color .18s ease, background-color .18s ease, transform .18s ease;
 }
 .fp-nav-item .fp-ink{
-  position:absolute; left:8px; top:50%;
-  width:4px; height:60%; border-radius:999px; background:var(--accent);
+  position:absolute; left:8px; top:50%; width:4px; height:60%; border-radius:999px; background:var(--accent);
   transform:translateY(-50%) scaleY(0); transform-origin:center; transition:transform .18s ease;
 }
 .fp-nav-item:hover{background:var(--chip); border-color:var(--border); transform:translateX(2px)}
@@ -166,12 +153,13 @@ html[data-sidebar-collapsed="1"] .fp-nav-item .fp-ink{left:2px}
 html[data-sidebar-collapsed="1"] .fp-nav-label,
 html[data-sidebar-collapsed="1"] .fp-nav-footer .fp-label{display:none}
 
-/* ===== Footer da sidebar — STICKY (sempre visível) ===== */
+/* ===== Footer da sidebar — FIXO e ELEVADO ===== */
 .fp-nav-footer{
-  position:sticky; bottom:0;        /* <- muda de absolute para sticky */
+  position:absolute;                 /* mantém visível SEM depender do scroll */
+  left:0; right:0;
+  bottom:calc(var(--sidebar-footer-offset) + env(safe-area-inset-bottom, 0px)); /* <— sobe o footer */
   height:var(--sidebar-footer-h);
   padding:.75rem;
-  padding-bottom:calc(.75rem + env(safe-area-inset-bottom, 0px));
   border-top:1px solid var(--border);
   background:var(--bg);
   display:flex; justify-content:space-between; align-items:center; gap:.5rem;
@@ -205,7 +193,6 @@ html[data-sidebar-collapsed="1"] .fp-signout:focus-visible::after{
 /* ===== Mobile/Tablet ===== */
 @media (max-width:1023.98px){
   .fp-shell{grid-template-columns:1fr !important}
-
   .fp-header{grid-template-columns:1fr}
   .fp-brand{grid-column:1; padding:.8rem 1rem}
   .fp-header-inner{grid-column:1; grid-template-columns:1fr auto; padding:.8rem 1rem}
