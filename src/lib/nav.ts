@@ -1,31 +1,52 @@
 // src/lib/nav.ts
-export type UserRole = "ADMIN" | "PT" | "CLIENT" | "ALL";
-export type IconName = "dashboard" | "sessions" | "messages" | "plans" | "library" | "admin";
+// Navegação partilhada por Admin, Personal Trainer e Cliente.
+// Apenas os itens (links) variam por role via `showFor`.
 
-export type NavItem = {
+export type UserRole = "ADMIN" | "TRAINER" | "CLIENT";
+export type Audience = "ALL" | UserRole;
+
+export type NavIcon =
+  | "dashboard"
+  | "sessions"
+  | "messages"
+  | "plans"
+  | "library"
+  | "admin";
+
+export interface NavItem {
   key: string;
   label: string;
-  href: string;
-  icon: IconName;
-  showFor: UserRole[];
-  children?: NavItem[];
-};
+  href: `/${string}`;     // força prefixo "/"
+  icon: NavIcon;
+  showFor: readonly Audience[];
+}
 
-export const NAV_ITEMS: ReadonlyArray<NavItem> = Object.freeze([
-  { key: "home",      label: "Início",        href: "/dashboard",            icon: "dashboard", showFor: ["ALL"] },
-  { key: "sessions",  label: "Sessões",       href: "/dashboard/sessions",   icon: "sessions",  showFor: ["ALL"] },
-  { key: "messages",  label: "Mensagens",     href: "/dashboard/messages",   icon: "messages",  showFor: ["ALL"] },
+// Fonte única (readonly) com validação de tipo em tempo de compilação.
+const NAV_SOURCE = [
+  // Base (todos)
+  { key: "home",      label: "Início",        href: "/dashboard",              icon: "dashboard", showFor: ["ALL"] },
+  { key: "sessions",  label: "Sessões",       href: "/dashboard/sessions",     icon: "sessions",  showFor: ["ALL"] },
+  { key: "messages",  label: "Mensagens",     href: "/dashboard/messages",     icon: "messages",  showFor: ["ALL"] },
 
-  { key: "pt-plans",  label: "Planos (PT)",   href: "/dashboard/pt/plans",   icon: "plans",     showFor: ["PT", "ADMIN"] },
-  { key: "pt-lib",    label: "Biblioteca",    href: "/dashboard/pt/library", icon: "library",   showFor: ["PT", "ADMIN"] },
+  // Personal Trainer
+  { key: "pt-plans",  label: "Planos (PT)",   href: "/dashboard/pt/plans",     icon: "plans",     showFor: ["TRAINER"] },
+  { key: "library",   label: "Biblioteca",    href: "/dashboard/pt/library",   icon: "library",   showFor: ["TRAINER"] },
 
-  { key: "admin",     label: "Administração", href: "/dashboard/admin",      icon: "admin",     showFor: ["ADMIN"] },
-]);
+  // Admin
+  { key: "admin",     label: "Administração", href: "/dashboard/admin",        icon: "admin",     showFor: ["ADMIN"] },
+] satisfies ReadonlyArray<NavItem>;
 
-export function navFor(role?: UserRole): NavItem[] {
-  const r: UserRole = role ?? "ALL";
-  const includeByRole = (item: NavItem) => item.showFor.includes("ALL") || item.showFor.includes(r);
-  const deepCopy = (items: ReadonlyArray<NavItem>): NavItem[] =>
-    items.filter(includeByRole).map((i) => ({ ...i, children: i.children ? deepCopy(i.children) : undefined }));
-  return deepCopy(NAV_ITEMS);
+// Array exportado, imutável por contrato
+export const NAV_ITEMS: ReadonlyArray<NavItem> = NAV_SOURCE;
+
+/** Devolve os itens de navegação visíveis para o `role` indicado. */
+export function navFor(role: Audience): NavItem[] {
+  return NAV_ITEMS.filter(
+    (i) => i.showFor.includes("ALL") || i.showFor.includes(role)
+  );
+}
+
+/** Helper opcional para verificar visibilidade de um item para um role. */
+export function isVisibleFor(item: NavItem, role: Audience): boolean {
+  return item.showFor.includes("ALL") || item.showFor.includes(role);
 }
