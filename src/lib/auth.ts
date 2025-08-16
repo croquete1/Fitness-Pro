@@ -1,77 +1,18 @@
-// src/lib/auth.ts
-import type { NextAuthOptions } from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
-import prisma from "@/lib/prisma";
-import { compare } from "bcryptjs";
+import { getServerSession } from "next-auth";
+import { authOptions } from "./authOptions";
+import type { Role, Status } from "@prisma/client";
 
-export const authOptions: NextAuthOptions = {
-  secret: process.env.NEXTAUTH_SECRET,
-  session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 7 }, // 7 dias
-  providers: [
-    CredentialsProvider({
-      name: "Credenciais",
-      credentials: {
-        email: { label: "Email", type: "text" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(credentials) {
-        const email = String(credentials?.email ?? "").trim();
-        const password = String(credentials?.password ?? "");
-        if (!email || !password) return null;
+export { authOptions }; // permite importar de "@/lib/auth" ou "@/lib/authOptions"
 
-        const user = await prisma.user.findFirst({
-          where: { email }, // CITEXT na BD
-          select: {
-            id: true,
-            email: true,
-            name: true,
-            passwordHash: true,
-            role: true,
-            status: true,
-          },
-        });
-        if (!user) return null;
+export async function getSessionUser() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return null;
 
-        // Compat bcrypt: normaliza $2y -> $2b (pgcrypto por vezes gera $2y)
-        const rawHash = user.passwordHash || "";
-        const hash = rawHash.startsWith("$2y$")
-          ? "$2b$" + rawHash.slice(4)
-          : rawHash;
-
-        const passOk = hash ? await compare(password, hash) : false;
-        if (!passOk) return null;
-
-        // Status case-insensitive
-        if (String(user.status).toUpperCase() !== "ACTIVE") return null;
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name ?? undefined,
-          role: user.role,
-          status: user.status,
-        } as any;
-      },
-    }),
-  ],
-  pages: {
-    signIn: "/login",
-    error: "/login",
-  },
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.role = (user as any).role;
-        token.status = (user as any).status;
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      (session as any).user.role = token.role;
-      (session as any).user.status = token.status;
-      return session;
-    },
-  },
-};
-
-export default authOptions;
+  return {
+    id: (session.user as any).id as string,
+    name: session.user.name ?? session.user.email ?? "",
+    email: session.user.email ?? undefined,
+    role: ((session.user as any).role as Role) ?? "CLIENT",
+    status: ((session.user as any).status as Status) ?? "ACTIVE",
+  };
+}
