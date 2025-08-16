@@ -1,4 +1,3 @@
-// src/components/layout/DashboardFrame.tsx
 "use client";
 
 import React from "react";
@@ -17,10 +16,7 @@ export default function DashboardFrame({ children }: { children: React.ReactNode
           background: "var(--app-bg, var(--bg))",
         }}
       >
-        {/* Sidebar fixa/colapsável (o próprio componente trata do width) */}
         <Sidebar />
-
-        {/* Coluna principal */}
         <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
           <AppHeader />
           <main style={{ padding: 12, minWidth: 0 }}>{children}</main>

@@ -30,7 +30,6 @@ export default function AppHeader() {
           padding: "0 12px",
         }}
       >
-        {/* Hambúrguer */}
         <button
           onClick={isMobile ? openMobile : toggleCollapsed}
           aria-label="Alternar menu"
@@ -47,7 +46,6 @@ export default function AppHeader() {
           <NavIcon name="menu" size={18} />
         </button>
 
-        {/* Marca */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
           <div className="hidden md:flex" style={{ alignItems: "center" }}>
             <Logo size={22} />
@@ -67,7 +65,6 @@ export default function AppHeader() {
           </div>
         </div>
 
-        {/* Ações à direita */}
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
           <ThemeToggle />
         </div>

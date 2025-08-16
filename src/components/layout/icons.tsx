@@ -1,7 +1,5 @@
-// src/components/layout/icons.tsx
 "use client";
 
-import React from "react";
 import {
   LayoutDashboard,
   CalendarClock,
@@ -20,10 +18,9 @@ import {
   Hammer,
   LogOut,
   Menu,
-  type LucideIcon, // <- tipo correto dos ícones
+  type LucideIcon,
 } from "lucide-react";
 
-// Mapa de ícones (usa o tipo LucideIcon para evitar erros de typing)
 const map: Record<string, LucideIcon> = {
   dashboard: LayoutDashboard,
   sessions: CalendarClock,
@@ -54,8 +51,6 @@ export function NavIcon({
   className?: string;
 }) {
   const C = name ? map[name] : undefined;
-  if (!C) {
-    return <span style={{ fontSize: Number(size) || 16 }}>•</span>;
-  }
+  if (!C) return <span style={{ fontSize: Number(size) || 16 }}>•</span>;
   return <C size={size} className={className} />;
 }

@@ -51,7 +51,6 @@ export default function Sidebar() {
   const { data: session } = useSession();
   const { collapsed, mobileOpen, closeMobile, isMobile } = useSidebar();
   const { notificationsUnread } = useUnreadCounters();
-
   const role = (session?.user as any)?.role ?? "CLIENT";
 
   const filtered = React.useMemo(() => {
@@ -62,9 +61,7 @@ export default function Sidebar() {
           if (children.length === 0) return null;
           return { ...it, children };
         }
-        if (isEntry(it)) {
-          return isAllowed((it as any).showFor, role) ? it : null;
-        }
+        if (isEntry(it)) return isAllowed((it as any).showFor, role) ? it : null;
         return null;
       })
       .filter(Boolean) as any[];
@@ -73,9 +70,8 @@ export default function Sidebar() {
   const flatEntries = React.useMemo(() => {
     const out: Array<{ key: string; href: string }> = [];
     for (const it of filtered) {
-      if (isGroup(it)) {
-        for (const c of it.children) if (isEntry(c)) out.push({ key: c.key, href: c.href });
-      } else if (isEntry(it)) out.push({ key: it.key, href: it.href });
+      if (isGroup(it)) for (const c of it.children) if (isEntry(c)) out.push({ key: c.key, href: c.href });
+      else if (isEntry(it)) out.push({ key: it.key, href: it.href });
     }
     return out;
   }, [filtered]);
@@ -96,6 +92,21 @@ export default function Sidebar() {
 
   const itemBadge = (key: string) => (key === "messages" ? notificationsUnread : 0);
 
+  // Tooltip quando colapsada
+  const asideRef = React.useRef<HTMLElement | null>(null);
+  const [tip, setTip] = React.useState<{ text: string; top: number; show: boolean }>({
+    text: "",
+    top: 0,
+    show: false,
+  });
+  const showTip = (label: string, anchor: HTMLElement | null) => {
+    if (!collapsed || !asideRef.current || !anchor) return;
+    const rect = anchor.getBoundingClientRect();
+    const base = asideRef.current.getBoundingClientRect();
+    setTip({ text: label, top: rect.top - base.top + rect.height / 2, show: true });
+  };
+  const hideTip = () => setTip((t) => ({ ...t, show: false }));
+
   const EntryLink: React.FC<{ it: any }> = ({ it }) => {
     const isActive = activeKey === it.key;
     const badge = itemBadge(it.key);
@@ -107,6 +118,8 @@ export default function Sidebar() {
       ref.current.style.borderColor = on ? "var(--border-strong, var(--border))" : "var(--border)";
       if (on && !isActive) ref.current.style.background = "var(--panel, rgba(0,0,0,0.04))";
       if (!on && !isActive) ref.current.style.background = "transparent";
+      if (on) showTip(it.label, ref.current);
+      else hideTip();
     };
     const setFocus = (on: boolean) => {
       if (!ref.current) return;
@@ -214,6 +227,7 @@ export default function Sidebar() {
         </div>
       );
     }
+
     return (
       <div key={it.key} style={{ display: "grid", gap: 6 }}>
         <div
@@ -239,7 +253,8 @@ export default function Sidebar() {
   };
 
   const body = (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", position: "relative" }}>
+      {/* lista */}
       <div style={{ overflowY: "auto", padding: 10, paddingTop: 12 }}>
         <nav style={{ display: "grid", gap: 6 }}>
           {filtered.map((it, idx) => {
@@ -250,6 +265,7 @@ export default function Sidebar() {
         </nav>
       </div>
 
+      {/* footer */}
       <div
         style={{
           marginTop: "auto",
@@ -264,6 +280,29 @@ export default function Sidebar() {
           <SignOutButton label={collapsed ? "Sair" : "Terminar sessão"} />
         </div>
       </div>
+
+      {/* tooltip (só quando colapsada) */}
+      {collapsed && tip.show && (
+        <div
+          role="tooltip"
+          style={{
+            position: "absolute",
+            top: tip.top,
+            left: W_MIN - 6,
+            transform: "translateY(-50%)",
+            background: "var(--bg)",
+            border: "1px solid var(--border)",
+            boxShadow: "0 8px 24px rgba(0,0,0,.12)",
+            padding: "6px 8px",
+            borderRadius: 8,
+            fontSize: 12,
+            whiteSpace: "nowrap",
+            zIndex: 5,
+          }}
+        >
+          {tip.text}
+        </div>
+      )}
     </div>
   );
 
@@ -290,6 +329,7 @@ export default function Sidebar() {
           }}
         />
         <aside
+          ref={asideRef}
           style={{
             position: "absolute",
             top: 0,
@@ -341,6 +381,7 @@ export default function Sidebar() {
 
   return (
     <aside
+      ref={asideRef}
       style={{
         width: collapsed ? W_MIN : W,
         borderRight: "1px solid var(--border)",
