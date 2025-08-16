@@ -7,7 +7,7 @@
         "dev": "next dev -p 3000",
         "build": "next build",
         "start": "next start",
-        "postinstall": "node scripts/check-duplicate-routes.cjs && prisma generate",
+        "postinstall": "node scripts/check-duplicate-routes.cjs && node scripts/verify-prisma-enum.cjs && prisma generate",
         "verify": "node scripts/verify-manifest.cjs",
         "prebuild": "node scripts/check-duplicate-routes.cjs && node scripts/verify-manifest.cjs && node scripts/verify-sidebar.cjs && node scripts/find-invalid-catchall.cjs",
         "build": "next build"
