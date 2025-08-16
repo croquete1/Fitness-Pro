@@ -1,4 +1,3 @@
-// src/components/layout/Sidebar.tsx
 "use client";
 
 import React from "react";
@@ -9,16 +8,11 @@ import { useSession } from "next-auth/react";
 import { X } from "lucide-react";
 import SignOutButton from "@/components/auth/SignOutButton";
 import { NAV_ITEMS } from "@/lib/nav";
-
-// Placeholder: mantém o teu sistema de ícones (substitui se tiveres um mapping real)
-function ItemIcon({ name: _name }: { name: string }) {
-  return <span style={{ fontSize: 16 }}>•</span>;
-}
+import { NavIcon } from "./icons";
 
 const W = 272;
 const W_MIN = 76;
 
-// --- Type guards ---
 function isGroup(it: any): it is { key: string; label: string; children: any[]; showFor?: string[] } {
   return Array.isArray((it as any)?.children);
 }
@@ -30,33 +24,25 @@ function isAllowed(showFor: string[] | undefined, role: string) {
   return showFor.includes("ALL") || showFor.includes(role);
 }
 
-// --- Counters / badge ---
 function useUnreadCounters() {
   const [notificationsUnread, setNoti] = React.useState(0);
-
   const fetcher = React.useCallback(async () => {
     try {
       const r = await fetch("/api/dashboard/counters", { cache: "no-store" });
       const j = await r.json();
       setNoti(Number(j?.data?.notificationsUnread ?? 0));
-    } catch {
-      // ignore
-    }
+    } catch {}
   }, []);
-
   React.useEffect(() => {
     fetcher();
     const iv = setInterval(fetcher, 20_000);
-    const onVis = () => {
-      if (document.visibilityState === "visible") fetcher();
-    };
-    document.addEventListener("visibilitychange", onVis);
+    const vis = () => document.visibilityState === "visible" && fetcher();
+    document.addEventListener("visibilitychange", vis);
     return () => {
       clearInterval(iv);
-      document.removeEventListener("visibilitychange", onVis);
+      document.removeEventListener("visibilitychange", vis);
     };
   }, [fetcher]);
-
   return { notificationsUnread };
 }
 
@@ -68,7 +54,6 @@ export default function Sidebar() {
 
   const role = (session?.user as any)?.role ?? "CLIENT";
 
-  // 1) Filtra por role (preserva grupos com filhos permitidos)
   const filtered = React.useMemo(() => {
     return NAV_ITEMS
       .map((it) => {
@@ -85,17 +70,12 @@ export default function Sidebar() {
       .filter(Boolean) as any[];
   }, [role]);
 
-  // 2) Flatten de entradas para calcular item ativo
   const flatEntries = React.useMemo(() => {
     const out: Array<{ key: string; href: string }> = [];
     for (const it of filtered) {
       if (isGroup(it)) {
-        for (const c of it.children) {
-          if (isEntry(c)) out.push({ key: c.key, href: c.href });
-        }
-      } else if (isEntry(it)) {
-        out.push({ key: it.key, href: it.href });
-      }
+        for (const c of it.children) if (isEntry(c)) out.push({ key: c.key, href: c.href });
+      } else if (isEntry(it)) out.push({ key: it.key, href: it.href });
     }
     return out;
   }, [filtered]);
@@ -116,7 +96,6 @@ export default function Sidebar() {
 
   const itemBadge = (key: string) => (key === "messages" ? notificationsUnread : 0);
 
-  // ---------- UI helpers ----------
   const EntryLink: React.FC<{ it: any }> = ({ it }) => {
     const isActive = activeKey === it.key;
     const badge = itemBadge(it.key);
@@ -129,7 +108,6 @@ export default function Sidebar() {
       if (on && !isActive) ref.current.style.background = "var(--panel, rgba(0,0,0,0.04))";
       if (!on && !isActive) ref.current.style.background = "transparent";
     };
-
     const setFocus = (on: boolean) => {
       if (!ref.current) return;
       ref.current.style.boxShadow = on ? "0 0 0 2px rgba(59,130,246,.45)" : "none";
@@ -161,7 +139,7 @@ export default function Sidebar() {
         onFocus={() => setFocus(true)}
         onBlur={() => setFocus(false)}
       >
-        <ItemIcon name={it.icon} />
+        <NavIcon name={it.icon} />
         {!collapsed && (
           <span
             style={{
@@ -213,7 +191,6 @@ export default function Sidebar() {
   };
 
   const GroupBlock: React.FC<{ it: any; idx: number }> = ({ it, idx }) => {
-    // Quando colapsada: esconder o header e pôr um divisor discreto entre grupos
     if (collapsed) {
       return (
         <div key={it.key} style={{ display: "grid", gap: 6 }}>
@@ -237,8 +214,6 @@ export default function Sidebar() {
         </div>
       );
     }
-
-    // Expandida: mostra o cabeçalho do grupo + entradas
     return (
       <div key={it.key} style={{ display: "grid", gap: 6 }}>
         <div
@@ -265,7 +240,6 @@ export default function Sidebar() {
 
   const body = (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      {/* Conteúdo scrollável */}
       <div style={{ overflowY: "auto", padding: 10, paddingTop: 12 }}>
         <nav style={{ display: "grid", gap: 6 }}>
           {filtered.map((it, idx) => {
@@ -276,7 +250,6 @@ export default function Sidebar() {
         </nav>
       </div>
 
-      {/* Footer fixo (sem scroll) */}
       <div
         style={{
           marginTop: "auto",
@@ -287,7 +260,6 @@ export default function Sidebar() {
           bottom: 0,
         }}
       >
-        {/* SignOutButton agora usa apenas props suportadas */}
         <div style={{ width: "100%" }}>
           <SignOutButton label={collapsed ? "Sair" : "Terminar sessão"} />
         </div>
@@ -295,7 +267,6 @@ export default function Sidebar() {
     </div>
   );
 
-  // --- Mobile drawer ---
   if (isMobile) {
     return (
       <div
@@ -308,7 +279,6 @@ export default function Sidebar() {
           pointerEvents: mobileOpen ? "auto" : "none",
         }}
       >
-        {/* Scrim */}
         <div
           onClick={closeMobile}
           style={{
@@ -319,7 +289,6 @@ export default function Sidebar() {
             transition: "opacity .2s ease",
           }}
         />
-        {/* Drawer */}
         <aside
           style={{
             position: "absolute",
@@ -370,7 +339,6 @@ export default function Sidebar() {
     );
   }
 
-  // --- Desktop ---
   return (
     <aside
       style={{
@@ -383,6 +351,7 @@ export default function Sidebar() {
         left: 0,
         display: "flex",
         flexDirection: "column",
+        transition: "width .18s ease",
       }}
     >
       {body}
