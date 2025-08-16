@@ -25,8 +25,8 @@ export async function GET(req: NextRequest) {
         email: u.email,
         role: u.role,
         status: u.status,
-        hashPrefix: u.passwordHash?.slice(0, 4), // e.g. $2a$, $2b$, $2y$
-        hashLen: u.passwordHash?.length ?? 0,    // esperado ~60
+        hashPrefix: u.passwordHash?.slice(0, 4),
+        hashLen: u.passwordHash?.length ?? 0,
         createdAt: u.createdAt,
         updatedAt: u.updatedAt,
       },

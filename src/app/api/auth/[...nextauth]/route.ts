@@ -2,7 +2,6 @@
 import NextAuth from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 
-// Garante runtime Node (não Edge)
 export const runtime = "nodejs";
 
 const handler = NextAuth(authOptions);
