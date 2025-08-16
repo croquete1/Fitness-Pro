@@ -6,7 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSidebar } from "./SidebarProvider";
 import { useSession } from "next-auth/react";
-import { LogOut, X } from "lucide-react";
+import { X } from "lucide-react";
 import SignOutButton from "@/components/auth/SignOutButton";
 import { NAV_ITEMS } from "@/lib/nav";
 
@@ -287,10 +287,10 @@ export default function Sidebar() {
           bottom: 0,
         }}
       >
-        <SignOutButton style={{ width: "100%" }}>
-          <LogOut size={16} />
-          {!collapsed && <span style={{ marginLeft: 8 }}>Terminar sessão</span>}
-        </SignOutButton>
+        {/* SignOutButton agora usa apenas props suportadas */}
+        <div style={{ width: "100%" }}>
+          <SignOutButton label={collapsed ? "Sair" : "Terminar sessão"} />
+        </div>
       </div>
     </div>
   );
