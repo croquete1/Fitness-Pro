@@ -11,7 +11,7 @@ import SignOutButton from "@/components/auth/SignOutButton";
 import { NAV_ITEMS } from "@/lib/nav";
 
 // Placeholder: mantém o teu sistema de ícones (substitui se tiveres um mapping real)
-function ItemIcon({ name }: { name: string }) {
+function ItemIcon({ name: _name }: { name: string }) {
   return <span style={{ fontSize: 16 }}>•</span>;
 }
 
