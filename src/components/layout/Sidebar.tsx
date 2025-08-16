@@ -5,37 +5,64 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSidebar } from "./SidebarProvider";
 import { useSession } from "next-auth/react";
-import { X } from "lucide-react";
-import SignOutButton from "@/components/auth/SignOutButton";
+import { X, ChevronRight, ChevronDown } from "lucide-react";
 import { NAV_ITEMS } from "@/lib/nav";
+import SignOutButton from "@/components/auth/SignOutButton";
 import { NavIcon } from "./icons";
 
+// Larguras
 const W = 272;
 const W_MIN = 76;
 
-function isGroup(it: any): it is { key: string; label: string; children: any[]; showFor?: string[] } {
+// Helpers de tipo
+function isGroup(
+  it: any
+): it is { key: string; label: string; children: any[]; showFor?: string[] } {
   return Array.isArray((it as any)?.children);
 }
-function isEntry(it: any): it is { key: string; label: string; href: string; icon?: string; showFor?: string[] } {
+function isEntry(
+  it: any
+): it is { key: string; label: string; href: string; icon?: string; showFor?: string[] } {
   return typeof (it as any)?.href === "string";
 }
 function isAllowed(showFor: string[] | undefined, role: string) {
-  if (!Array.isArray(showFor) || showFor.length === 0) return true;
+  if (!showFor || showFor.length === 0) return true;
   return showFor.includes("ALL") || showFor.includes(role);
 }
 
+// Cores de ícones por chave (suaves, tema-agnósticas)
+const iconColor: Record<string, string> = {
+  dashboard: "#4f46e5",
+  sessions: "#0ea5e9",
+  messages: "#a855f7",
+  plans: "#22c55e",
+  library: "#3b82f6",
+  admins: "#f59e0b",
+  users: "#f97316",
+  reports: "#06b6d4",
+  exercises: "#ef4444",
+  metrics: "#84cc16",
+  profile: "#14b8a6",
+  settings: "#64748b",
+  system: "#94a3b8",
+  tools: "#eab308",
+  notifications: "#f43f5e",
+  logout: "#64748b",
+};
+
+// Badge por item (ex.: mensagens não lidas)
 function useUnreadCounters() {
-  const [notificationsUnread, setNoti] = React.useState(0);
+  const [msg, setMsg] = React.useState(0);
   const fetcher = React.useCallback(async () => {
     try {
       const r = await fetch("/api/dashboard/counters", { cache: "no-store" });
       const j = await r.json();
-      setNoti(Number(j?.data?.notificationsUnread ?? 0));
+      setMsg(Number(j?.data?.notificationsUnread ?? 0));
     } catch {}
   }, []);
   React.useEffect(() => {
     fetcher();
-    const iv = setInterval(fetcher, 20_000);
+    const iv = setInterval(fetcher, 20000);
     const vis = () => document.visibilityState === "visible" && fetcher();
     document.addEventListener("visibilitychange", vis);
     return () => {
@@ -43,16 +70,19 @@ function useUnreadCounters() {
       document.removeEventListener("visibilitychange", vis);
     };
   }, [fetcher]);
-  return { notificationsUnread };
+  return { notificationsUnread: msg };
 }
 
+// --- Sidebar ---
 export default function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
-  const { collapsed, mobileOpen, closeMobile, isMobile } = useSidebar();
-  const { notificationsUnread } = useUnreadCounters();
   const role = (session?.user as any)?.role ?? "CLIENT";
 
+  const { collapsed, mobileOpen, closeMobile, isMobile } = useSidebar();
+  const { notificationsUnread } = useUnreadCounters();
+
+  // Filtra NAV_ITEMS por role
   const filtered = React.useMemo(() => {
     return NAV_ITEMS
       .map((it) => {
@@ -67,15 +97,18 @@ export default function Sidebar() {
       .filter(Boolean) as any[];
   }, [role]);
 
+  // Lista plana para “active match”
   const flatEntries = React.useMemo(() => {
     const out: Array<{ key: string; href: string }> = [];
     for (const it of filtered) {
-      if (isGroup(it)) for (const c of it.children) if (isEntry(c)) out.push({ key: c.key, href: c.href });
-      else if (isEntry(it)) out.push({ key: it.key, href: it.href });
+      if (isGroup(it)) {
+        for (const c of it.children) if (isEntry(c)) out.push({ key: c.key, href: c.href });
+      } else if (isEntry(it)) out.push({ key: it.key, href: it.href });
     }
     return out;
   }, [filtered]);
 
+  // Active key = longest prefix match do pathname
   const activeKey = React.useMemo(() => {
     let best: string | null = null;
     let bestLen = -1;
@@ -90,7 +123,23 @@ export default function Sidebar() {
     return best;
   }, [flatEntries, pathname]);
 
-  const itemBadge = (key: string) => (key === "messages" ? notificationsUnread : 0);
+  // Estado de grupos (expandido/colapsado), persiste em localStorage
+  const [openGroups, setOpenGroups] = React.useState<Record<string, boolean>>({});
+  React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem("fp:sidebar:groups");
+      if (raw) setOpenGroups(JSON.parse(raw));
+    } catch {}
+  }, []);
+  const setGroupOpen = React.useCallback((key: string, open: boolean) => {
+    setOpenGroups((prev) => {
+      const next = { ...prev, [key]: open };
+      try {
+        localStorage.setItem("fp:sidebar:groups", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, []);
 
   // Tooltip quando colapsada
   const asideRef = React.useRef<HTMLElement | null>(null);
@@ -99,37 +148,36 @@ export default function Sidebar() {
     top: 0,
     show: false,
   });
-  const showTip = (label: string, anchor: HTMLElement | null) => {
-    if (!collapsed || !asideRef.current || !anchor) return;
-    const rect = anchor.getBoundingClientRect();
-    const base = asideRef.current.getBoundingClientRect();
-    setTip({ text: label, top: rect.top - base.top + rect.height / 2, show: true });
+  const showTip = (label: string, el: HTMLElement | null) => {
+    if (!collapsed || !asideRef.current || !el) return;
+    const r = el.getBoundingClientRect();
+    const b = asideRef.current.getBoundingClientRect();
+    setTip({ text: label, top: r.top - b.top + r.height / 2, show: true });
   };
   const hideTip = () => setTip((t) => ({ ...t, show: false }));
 
-  const EntryLink: React.FC<{ it: any }> = ({ it }) => {
+  const badgeFor = (key: string) => (key === "messages" ? notificationsUnread : 0);
+
+  // Item individual
+  const EntryLink: React.FC<{ it: any; depth?: number }> = ({ it, depth = 0 }) => {
     const isActive = activeKey === it.key;
-    const badge = itemBadge(it.key);
+    const badge = badgeFor(it.key);
     const ref = React.useRef<HTMLAnchorElement>(null);
+    const color = iconColor[it.icon ?? it.key] || "#64748b";
 
     const setHover = (on: boolean) => {
       if (!ref.current) return;
       ref.current.style.transform = on ? "translateY(-1px)" : "translateY(0)";
       ref.current.style.borderColor = on ? "var(--border-strong, var(--border))" : "var(--border)";
-      if (on && !isActive) ref.current.style.background = "var(--panel, rgba(0,0,0,0.04))";
+      if (on && !isActive) ref.current.style.background = "var(--panel, rgba(0,0,0,.045))";
       if (!on && !isActive) ref.current.style.background = "transparent";
       if (on) showTip(it.label, ref.current);
       else hideTip();
-    };
-    const setFocus = (on: boolean) => {
-      if (!ref.current) return;
-      ref.current.style.boxShadow = on ? "0 0 0 2px rgba(59,130,246,.45)" : "none";
     };
 
     return (
       <Link
         ref={ref}
-        key={it.key}
         href={it.href}
         title={it.label}
         aria-current={isActive ? "page" : undefined}
@@ -138,21 +186,53 @@ export default function Sidebar() {
           display: "flex",
           alignItems: "center",
           gap: 10,
-          height: 40,
-          borderRadius: 10,
+          height: 42,
+          borderRadius: 12,
           padding: collapsed ? "0 10px" : "0 12px",
           border: "1px solid var(--border)",
-          background: isActive ? "var(--panel, rgba(0,0,0,0.06))" : "transparent",
-          transition: "background .15s ease, transform .15s ease, border-color .15s ease, box-shadow .15s ease",
+          background: isActive
+            ? "linear-gradient(180deg, rgba(99,102,241,0.14), rgba(99,102,241,0.10))"
+            : "transparent",
+          transition:
+            "background .15s ease, transform .15s ease, border-color .15s ease, box-shadow .15s ease",
           position: "relative",
           outline: "none",
+          marginLeft: collapsed ? 0 : depth * 10,
         }}
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
-        onFocus={() => setFocus(true)}
-        onBlur={() => setFocus(false)}
       >
-        <NavIcon name={it.icon} />
+        {/* faixa de acento quando ativo */}
+        {isActive && (
+          <span
+            aria-hidden
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 6,
+              bottom: 6,
+              width: 4,
+              borderRadius: 4,
+              background: color,
+            }}
+          />
+        )}
+
+        {/* ícone dentro de “pill” suave */}
+        <span
+          aria-hidden
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 10,
+            display: "grid",
+            placeItems: "center",
+            background: `${color}1A`, // ~10% opacity
+          }}
+        >
+          <NavIcon name={it.icon} color={color} />
+        </span>
+
         {!collapsed && (
           <span
             style={{
@@ -160,50 +240,41 @@ export default function Sidebar() {
               overflow: "hidden",
               textOverflow: "ellipsis",
               fontWeight: isActive ? 700 : 500,
+              color: isActive ? "var(--fg)" : "inherit",
             }}
           >
             {it.label}
           </span>
         )}
-        {badge > 0 &&
-          (collapsed ? (
-            <span
-              aria-label={`${badge} por ler`}
-              title={`${badge} por ler`}
-              style={{
-                position: "absolute",
-                top: 6,
-                right: 6,
-                width: 8,
-                height: 8,
-                borderRadius: 999,
-                background: "var(--badge-fg, #ef4444)",
-              }}
-            />
-          ) : (
-            <span
-              aria-label={`${badge} por ler`}
-              title={`${badge} por ler`}
-              style={{
-                marginLeft: "auto",
-                borderRadius: 999,
-                fontSize: 11,
-                lineHeight: 1,
-                padding: "3px 6px",
-                border: "1px solid var(--border)",
-                background: "var(--badge-bg, rgba(239,68,68,.12))",
-                color: "var(--badge-fg, #ef4444)",
-                fontWeight: 700,
-              }}
-            >
-              {badge > 99 ? "99+" : badge}
-            </span>
-          ))}
+
+        {/* Badge */}
+        {!collapsed && badge > 0 && (
+          <span
+            title={`${badge} por ler`}
+            style={{
+              marginLeft: "auto",
+              borderRadius: 999,
+              fontSize: 11,
+              lineHeight: 1,
+              padding: "4px 7px",
+              border: "1px solid var(--border)",
+              background: "var(--badge-bg, rgba(239,68,68,.12))",
+              color: "var(--badge-fg, #ef4444)",
+              fontWeight: 700,
+            }}
+          >
+            {badge > 99 ? "99+" : badge}
+          </span>
+        )}
       </Link>
     );
   };
 
+  // Bloco de grupo (accordion)
   const GroupBlock: React.FC<{ it: any; idx: number }> = ({ it, idx }) => {
+    const open = !!openGroups[it.key];
+
+    // quando colapsada, mostramos só os filhos (ícones) sem o header
     if (collapsed) {
       return (
         <div key={it.key} style={{ display: "grid", gap: 6 }}>
@@ -214,7 +285,7 @@ export default function Sidebar() {
                 height: 1,
                 background: "var(--border)",
                 opacity: 0.7,
-                margin: "4px 6px",
+                margin: "6px 6px",
                 borderRadius: 1,
               }}
             />
@@ -229,34 +300,84 @@ export default function Sidebar() {
     }
 
     return (
-      <div key={it.key} style={{ display: "grid", gap: 6 }}>
-        <div
-          aria-hidden
+      <div key={it.key} style={{ display: "grid", gap: 8 }}>
+        {/* cabeçalho do grupo */}
+        <button
+          onClick={() => setGroupOpen(it.key, !open)}
+          aria-expanded={open}
+          aria-controls={`grp-${it.key}`}
           style={{
-            margin: "8px 4px 2px",
-            fontSize: 11,
-            letterSpacing: 0.3,
-            textTransform: "uppercase",
-            color: "var(--muted)",
-            fontWeight: 700,
+            display: "flex",
+            alignItems: "center",
+            width: "100%",
+            border: "1px solid var(--border)",
+            background: "var(--bg)",
+            height: 38,
+            borderRadius: 10,
+            padding: "0 10px",
+            textAlign: "left",
+            gap: 8,
+          }}
+          onMouseEnter={(e) => showTip(it.label, e.currentTarget)}
+          onMouseLeave={hideTip}
+          title={it.label}
+        >
+          <span
+            aria-hidden
+            style={{
+              width: 26,
+              height: 26,
+              borderRadius: 8,
+              display: "grid",
+              placeItems: "center",
+              background: "var(--panel, rgba(0,0,0,.045))",
+            }}
+          >
+            <ChevronRight
+              size={16}
+              style={{ transform: open ? "rotate(90deg)" : "rotate(0)", transition: "transform .15s" }}
+            />
+          </span>
+          <span
+            style={{
+              fontSize: 12,
+              letterSpacing: 0.3,
+              textTransform: "uppercase",
+              color: "var(--muted)",
+              fontWeight: 800,
+            }}
+          >
+            {it.label}
+          </span>
+        </button>
+
+        {/* filhos */}
+        <div
+          id={`grp-${it.key}`}
+          style={{
+            display: "grid",
+            gap: 6,
+            maxHeight: open ? 800 : 0,
+            overflow: "hidden",
+            transition: "max-height .18s ease",
           }}
         >
-          {it.label}
+          {(it.children || [])
+            .filter((c: any) => isEntry(c))
+            .map((c: any) => (
+              <EntryLink key={c.key} it={c} depth={1} />
+            ))}
         </div>
-        {(it.children || [])
-          .filter((c: any) => isEntry(c))
-          .map((c: any) => (
-            <EntryLink key={c.key} it={c} />
-          ))}
       </div>
     );
   };
 
+  // Corpo da sidebar
   const body = (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", position: "relative" }}>
       {/* lista */}
       <div style={{ overflowY: "auto", padding: 10, paddingTop: 12 }}>
-        <nav style={{ display: "grid", gap: 6 }}>
+        <nav style={{ display: "grid", gap: 8 }}>
           {filtered.map((it, idx) => {
             if (isGroup(it)) return <GroupBlock key={it.key} it={it} idx={idx} />;
             if (isEntry(it)) return <EntryLink key={it.key} it={it} />;
@@ -265,7 +386,7 @@ export default function Sidebar() {
         </nav>
       </div>
 
-      {/* footer */}
+      {/* footer fixo */}
       <div
         style={{
           marginTop: "auto",
@@ -276,12 +397,10 @@ export default function Sidebar() {
           bottom: 0,
         }}
       >
-        <div style={{ width: "100%" }}>
-          <SignOutButton label={collapsed ? "Sair" : "Terminar sessão"} />
-        </div>
+        <SignOutButton label={collapsed ? "Sair" : "Terminar sessão"} />
       </div>
 
-      {/* tooltip (só quando colapsada) */}
+      {/* tooltip (apenas quando colapsada) */}
       {collapsed && tip.show && (
         <div
           role="tooltip"
@@ -306,17 +425,13 @@ export default function Sidebar() {
     </div>
   );
 
+  // Drawer mobile
   if (isMobile) {
     return (
       <div
         role="dialog"
         aria-label="Menu"
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 50,
-          pointerEvents: mobileOpen ? "auto" : "none",
-        }}
+        style={{ position: "fixed", inset: 0, zIndex: 50, pointerEvents: mobileOpen ? "auto" : "none" }}
       >
         <div
           onClick={closeMobile}
@@ -379,6 +494,7 @@ export default function Sidebar() {
     );
   }
 
+  // Sidebar desktop
   return (
     <aside
       ref={asideRef}

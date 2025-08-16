@@ -44,13 +44,15 @@ const map: Record<string, LucideIcon> = {
 export function NavIcon({
   name,
   size = 16,
+  color,
   className,
 }: {
   name?: string;
   size?: number | string;
+  color?: string;
   className?: string;
 }) {
   const C = name ? map[name] : undefined;
   if (!C) return <span style={{ fontSize: Number(size) || 16 }}>•</span>;
-  return <C size={size} className={className} />;
+  return <C size={size} color={color} className={className} />;
 }
