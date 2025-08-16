@@ -6,7 +6,7 @@ import { compare } from "bcryptjs";
 
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
-  session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 7 },
+  session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 7 }, // 7 dias
   providers: [
     CredentialsProvider({
       name: "Credenciais",
@@ -19,16 +19,21 @@ export const authOptions: NextAuthOptions = {
         const password = String(credentials?.password ?? "");
         if (!email || !password) return null;
 
+        // CITEXT → comparação case-insensitive
         const user = await prisma.user.findFirst({
-          where: { email }, // CITEXT no Postgres → case-insensitive
+          where: { email },
           select: {
-            id: true, email: true, name: true,
-            passwordHash: true, role: true, status: true,
+            id: true,
+            email: true,
+            name: true,
+            passwordHash: true,
+            role: true,
+            status: true,
           },
         });
         if (!user) return null;
 
-        // 🔧 bcrypt compat: normaliza $2y → $2b (pgcrypto às vezes gera $2y)
+        // Compat bcrypt: normaliza $2y → $2b (pgcrypto por vezes gera $2y)
         const rawHash = user.passwordHash || "";
         const hash = rawHash.startsWith("$2y$")
           ? "$2b$" + rawHash.slice(4)
@@ -37,7 +42,7 @@ export const authOptions: NextAuthOptions = {
         const passOk = hash ? await compare(password, hash) : false;
         if (!passOk) return null;
 
-        // tolerante a dados legados (ACTIVE / active)
+        // Tolerante a maiúsculas/minúsculas no status
         if (String(user.status).toUpperCase() !== "ACTIVE") return null;
 
         return {
@@ -50,7 +55,10 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
-  pages: { signIn: "/login", error: "/login" },
+  pages: {
+    signIn: "/login",
+    error: "/login",
+  },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
