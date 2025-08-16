@@ -4,9 +4,6 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import prisma from "@/lib/prisma";
 import { compare } from "bcryptjs";
 
-const DEBUG = process.env.AUTH_DEBUG === "1";
-const dlog = (...args: any[]) => { if (DEBUG) console.log("[auth]", ...args); };
-
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 7 }, // 7 dias
@@ -20,54 +17,33 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         const email = String(credentials?.email ?? "").trim();
         const password = String(credentials?.password ?? "");
-        if (!email || !password) {
-          dlog("reject: missing email/password");
-          return null;
-        }
+        if (!email || !password) return null;
 
-        // 1) lookup por CITEXT (case-insensitive por natureza)
-        let user = await prisma.user.findFirst({
-          where: { email },
+        const user = await prisma.user.findFirst({
+          where: { email }, // CITEXT na BD
           select: {
-            id: true, email: true, name: true,
-            passwordHash: true, role: true, status: true,
+            id: true,
+            email: true,
+            name: true,
+            passwordHash: true,
+            role: true,
+            status: true,
           },
         });
+        if (!user) return null;
 
-        // 1b) fallback explícito insensitive (caso a ligação/driver não respeite citext)
-        if (!user) {
-          user = await prisma.user.findFirst({
-            where: { email: { equals: email, mode: "insensitive" } as any },
-            select: {
-              id: true, email: true, name: true,
-              passwordHash: true, role: true, status: true,
-            },
-          });
-        }
-
-        if (!user) {
-          dlog("reject: user not found for", email);
-          return null;
-        }
-        dlog("user found:", { id: user.id, role: String(user.role), status: String(user.status) });
-
-        // 2) compat bcrypt: normaliza $2y → $2b
+        // Compat bcrypt: normaliza $2y -> $2b (pgcrypto por vezes gera $2y)
         const rawHash = user.passwordHash || "";
-        const hash = rawHash.startsWith("$2y$") ? ("$2b$" + rawHash.slice(4)) : rawHash;
+        const hash = rawHash.startsWith("$2y$")
+          ? "$2b$" + rawHash.slice(4)
+          : rawHash;
 
         const passOk = hash ? await compare(password, hash) : false;
-        if (!passOk) {
-          dlog("reject: password mismatch for", email);
-          return null;
-        }
+        if (!passOk) return null;
 
-        // 3) status tem de ser ACTIVE (tolerante a maiúsculas/minúsculas)
-        if (String(user.status).toUpperCase() !== "ACTIVE") {
-          dlog("reject: status not ACTIVE:", String(user.status));
-          return null;
-        }
+        // Status case-insensitive
+        if (String(user.status).toUpperCase() !== "ACTIVE") return null;
 
-        dlog("login OK:", user.id);
         return {
           id: user.id,
           email: user.email,
@@ -78,7 +54,10 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
-  pages: { signIn: "/login", error: "/login" },
+  pages: {
+    signIn: "/login",
+    error: "/login",
+  },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
