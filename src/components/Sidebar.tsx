@@ -4,12 +4,12 @@ import React, { useMemo, useRef, useEffect, useState } from "react";
 import Menu from "./sidebar/Menu";
 import useSidebarState from "./SidebarWrapper";
 
-/** Larguras consistentes com o layout */
-const RAIL_W = 64;      // rail fixo (só ícones)
-const PANEL_W = 260;    // painel expandido
-const ANIM_MS = 420;    // animação mais lenta
+/** Dimensões e animação */
+const RAIL_W = 64;
+const PANEL_W = 260;
+const ANIM_MS = 520; // animação mais lenta/suave
+const EASE = "cubic-bezier(.22,.8,.2,1)";
 
-// Ícones (mantidos)
 const ICON = {
   dashboard: "📊",
   clients: "🧑‍🤝‍🧑",
@@ -76,6 +76,13 @@ function buildMenu(): Entry[] {
   ];
 }
 
+/** Ícone hambúrguer em SVG (alinhamento/espessura perfeitos) */
+const IconBurger = ({ size = 18 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
+    <path d="M3 7h18M3 12h18M3 17h18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+  </svg>
+);
+
 export default function Sidebar() {
   const {
     pinned,
@@ -90,10 +97,7 @@ export default function Sidebar() {
   const data = useMemo(() => buildMenu(), []);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // rail sempre presente
   const railWidth = pinned ? (collapsed ? RAIL_W : PANEL_W) : RAIL_W;
-
-  // “mini” quando desafixada OU recolhida
   const isMini = !pinned || (pinned && collapsed);
 
   const onMouseEnterRail = () => {
@@ -109,19 +113,14 @@ export default function Sidebar() {
     }
   };
 
-  useEffect(() => {
-    return () => {
-      if (hoverTimer.current) clearTimeout(hoverTimer.current);
-    };
-  }, []);
+  useEffect(() => () => hoverTimer.current && clearTimeout(hoverTimer.current), []);
 
-  // injecção CSS (SSR safe)
   const [injectCss, setInjectCss] = useState(false);
   useEffect(() => setInjectCss(true), []);
 
   return (
     <>
-      {/* RAIL */}
+      {/* RAIL / PAINEL */}
       <aside
         className="fp-sidebar"
         data-pinned={pinned ? "true" : "false"}
@@ -135,18 +134,17 @@ export default function Sidebar() {
           borderRight: "1px solid var(--border)",
           background: "var(--sidebar-bg)",
           width: railWidth,
-          transition: `width ${ANIM_MS}ms cubic-bezier(.22,.61,.36,1)`,
+          transition: `width ${ANIM_MS}ms ${EASE}`,
           display: "grid",
           gridTemplateRows: "auto 1fr",
           zIndex: 30,
-          // corta quaisquer “balões”/pseudo-elements que saiam do rail
           overflow: "hidden",
         }}
         aria-label="Sidebar"
         onMouseEnter={onMouseEnterRail}
         onMouseLeave={onMouseLeaveRail}
       >
-        {/* cabeçalho */}
+        {/* Cabeçalho */}
         <div
           className="fp-sb-head"
           style={{
@@ -167,8 +165,7 @@ export default function Sidebar() {
                 width: 28,
                 height: 28,
                 borderRadius: 10,
-                background:
-                  "linear-gradient(180deg, rgba(79,70,229,.25), rgba(79,70,229,.06))",
+                background: "linear-gradient(180deg, rgba(79,70,229,.25), rgba(79,70,229,.06))",
                 border: "1px solid color-mix(in oklab, var(--primary) 35%, var(--border))",
                 display: "inline-flex",
                 alignItems: "center",
@@ -184,9 +181,9 @@ export default function Sidebar() {
           </div>
 
           <div className="fp-sb-actions" style={{ display: "inline-flex", gap: 6 }}>
-            {/* recolher/expandir */}
+            {/* Recolher/expandir */}
             <button
-              className="btn icon"
+              className="btn icon sb-icon"
               aria-label={collapsed ? "Expandir sidebar" : "Recolher sidebar"}
               title={collapsed ? "Expandir" : "Recolher"}
               onClick={() => {
@@ -197,11 +194,11 @@ export default function Sidebar() {
                 toggleCollapsed();
               }}
             >
-              <span aria-hidden>≡</span>
+              <IconBurger />
             </button>
-            {/* afixar/desafixar */}
+            {/* Afixar/desafixar */}
             <button
-              className="btn icon"
+              className="btn icon sb-icon"
               aria-label={pinned ? "Desafixar sidebar" : "Afixar sidebar"}
               title={pinned ? "Desafixar" : "Afixar"}
               onClick={togglePinned}
@@ -211,17 +208,35 @@ export default function Sidebar() {
           </div>
         </div>
 
-        {/* CSS para modo MINI */}
+        {/* Transições suaves para labels/itens; esconder headings no modo mini */}
         {injectCss && (
           <style jsx global>{`
-            /* no modo mini escondemos labels e headings de grupo */
-            .fp-sidebar[data-mini="true"] .nav-label { display: none !important; }
+            .fp-sidebar .nav-item,
+            .fp-sidebar .nav-label {
+              transition: opacity ${ANIM_MS}ms ${EASE}, transform ${ANIM_MS}ms ${EASE};
+            }
+            .fp-sidebar[data-mini="true"] .nav-label {
+              opacity: 0;
+              transform: translateX(-6px);
+              pointer-events: none;
+            }
             .fp-sidebar[data-mini="true"] .nav-item { grid-template-columns: 24px !important; }
             .fp-sidebar[data-mini="true"] .nav-section { display: none !important; }
+
+            /* Botão/ícone bem centrado e consistente */
+            .fp-sidebar .sb-icon {
+              width: 36px;
+              height: 36px;
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              border-radius: 10px;
+            }
+            .fp-sidebar .sb-icon:hover { background: var(--sidebar-hover); }
           `}</style>
         )}
 
-        {/* navegação */}
+        {/* Navegação */}
         <div style={{ overflow: "auto", padding: 8 }}>
           <Menu data={data as any} />
         </div>
@@ -238,12 +253,11 @@ export default function Sidebar() {
               background: "rgba(2,6,23,.35)",
               backdropFilter: "blur(1px)",
               zIndex: 59,
+              animation: `fp-fade-in ${ANIM_MS}ms ${EASE}`,
             }}
           />
           <div
-            onMouseEnter={() => {
-              if (hoverTimer.current) clearTimeout(hoverTimer.current);
-            }}
+            onMouseEnter={() => hoverTimer.current && clearTimeout(hoverTimer.current)}
             onMouseLeave={() => {
               if (hoverTimer.current) clearTimeout(hoverTimer.current);
               hoverTimer.current = setTimeout(() => setOverlayOpen(false), 180);
@@ -261,7 +275,7 @@ export default function Sidebar() {
               display: "grid",
               gridTemplateRows: "auto 1fr",
               zIndex: 60,
-              animation: `fp-slide-in ${ANIM_MS}ms cubic-bezier(.22,.61,.36,1)`,
+              animation: `fp-slide-in ${ANIM_MS}ms ${EASE}`,
             }}
           >
             <div
@@ -284,8 +298,7 @@ export default function Sidebar() {
                     width: 28,
                     height: 28,
                     borderRadius: 10,
-                    background:
-                      "linear-gradient(180deg, rgba(79,70,229,.25), rgba(79,70,229,.06))",
+                    background: "linear-gradient(180deg, rgba(79,70,229,.25), rgba(79,70,229,.06))",
                     border: "1px solid color-mix(in oklab, var(--primary) 35%, var(--border))",
                     display: "inline-flex",
                     alignItems: "center",
@@ -299,10 +312,10 @@ export default function Sidebar() {
               </div>
 
               <div className="fp-sb-actions" style={{ display: "inline-flex", gap: 6 }}>
-                <button className="btn icon" aria-label="Fechar menu" title="Fechar" onClick={closeOverlay}>
+                <button className="btn icon sb-icon" aria-label="Fechar menu" title="Fechar" onClick={closeOverlay}>
                   ✕
                 </button>
-                <button className="btn icon" aria-label="Afixar sidebar" title="Afixar" onClick={togglePinned}>
+                <button className="btn icon sb-icon" aria-label="Afixar sidebar" title="Afixar" onClick={togglePinned}>
                   📌
                 </button>
               </div>
@@ -315,8 +328,12 @@ export default function Sidebar() {
 
           <style jsx global>{`
             @keyframes fp-slide-in {
-              from { transform: translateX(-14px); opacity: .0; }
+              from { transform: translateX(-16px); opacity: .0; }
               to   { transform: translateX(0);      opacity: 1;  }
+            }
+            @keyframes fp-fade-in {
+              from { opacity: 0; }
+              to   { opacity: 1; }
             }
           `}</style>
         </>
