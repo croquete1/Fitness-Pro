@@ -8,25 +8,22 @@ export default function ThemeToggle() {
   const [theme, setTheme] = useState<Theme>("light");
 
   useEffect(() => {
-    // tentar ler do localStorage ou do atributo existente
     try {
       const stored = (localStorage.getItem("theme") as Theme | null) ?? null;
       const attr = document.documentElement.getAttribute("data-theme") as Theme | null;
       const initial: Theme = stored ?? attr ?? "light";
       setTheme(initial);
       document.documentElement.setAttribute("data-theme", initial);
-    } catch {
-      /* no-op */
-    }
+    } catch {}
   }, []);
 
   const toggle = () => {
-    setTheme((prev) => {
+    setTheme(prev => {
       const next: Theme = prev === "dark" ? "light" : "dark";
       try {
         localStorage.setItem("theme", next);
         document.documentElement.setAttribute("data-theme", next);
-      } catch { /* no-op */ }
+      } catch {}
       return next;
     });
   };

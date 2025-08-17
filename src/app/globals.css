@@ -22,7 +22,7 @@
   --shadow-md: 0 8px 30px rgba(2, 6, 23, .08);
 
   /* Layout */
-  --sidebar-w: 260px;    /* largura fixa da sidebar (desktop) */
+  --sidebar-w: 280px;    /* largura fixa da sidebar (desktop) */
   --header-h: 64px;      /* altura do header */
 
   /* Raio */
@@ -188,6 +188,13 @@ button:focus-visible,
   background: var(--bg);
   border-right: 1px solid var(--border);
   padding: 12px;
+}
+
+/* NOVO: estado colapsado controlado por classe */
+.fp-sidebar.is-collapsed {
+  width: 76px !important;
+  min-width: 76px !important;
+  max-width: 76px !important;
 }
 
 /* Overlay para mobile (controlado via componente) */

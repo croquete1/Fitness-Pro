@@ -3,16 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 
 type Options<T> = {
-  intervalMs?: number;            // default: 30000
-  immediate?: boolean;            // default: true
-  enabled?: boolean;              // default: true
-  parse?: (r: Response) => Promise<T>; // default: r.json()
+  intervalMs?: number;
+  immediate?: boolean;
+  enabled?: boolean;
+  parse?: (r: Response) => Promise<T>;
 };
 
-export function usePoll<T = any>(
-  url: string,
-  opts: Options<T> = {}
-) {
+export function usePoll<T = any>(url: string, opts: Options<T> = {}) {
   const { intervalMs = 30000, immediate = true, enabled = true, parse } = opts;
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<unknown>(null);
