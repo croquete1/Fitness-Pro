@@ -5,7 +5,12 @@ import { signIn } from "next-auth/react";
 import Link from "next/link";
 import Logo from "@/components/layout/Logo";
 
-export default function LoginClient() {
+type LoginClientProps = {
+  /** Indica se o utilizador acabou de se registar (ex.: ?registered=1) */
+  registered?: boolean;
+};
+
+export default function LoginClient({ registered = false }: LoginClientProps) {
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [show, setShow] = useState(false);
@@ -16,35 +21,70 @@ export default function LoginClient() {
     e.preventDefault();
     setErr(null);
     setLoading(true);
-    const res = await signIn("credentials", {
-      redirect: true,
-      callbackUrl: "/dashboard",
-      email,
-      password: pw,
-    });
-    // next-auth gere o redirect; se falhar mantém-se na página
-    setLoading(false);
-    if ((res as any)?.error) setErr("Credenciais inválidas.");
+    try {
+      const res = await signIn("credentials", {
+        redirect: true,
+        callbackUrl: "/dashboard",
+        email,
+        password: pw,
+      });
+      // Em sucesso com redirect=true, o next-auth redireciona e res pode ser undefined.
+      if ((res as any)?.error) setErr("Credenciais inválidas.");
+    } catch {
+      setErr("Ocorreu um erro ao iniciar sessão.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
-    <div style={{ display: "grid", placeItems: "center", minHeight: "100dvh", padding: 16, background: "var(--app-bg)" }}>
+    <div
+      style={{
+        display: "grid",
+        placeItems: "center",
+        minHeight: "100dvh",
+        padding: 16,
+        background: "var(--app-bg)",
+      }}
+    >
       <form
         onSubmit={onSubmit}
         className="card"
-        style={{ width: "min(720px, 94vw)", padding: 22, borderRadius: 16, boxShadow: "var(--shadow-md)" }}
+        style={{
+          width: "min(720px, 94vw)",
+          padding: 22,
+          borderRadius: 16,
+          boxShadow: "var(--shadow-md)",
+        }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
           <Logo size={32} />
           <div>
             <div style={{ fontWeight: 800, fontSize: 20 }}>Fitness Pro</div>
-            <div className="text-muted" style={{ fontSize: 14 }}>Iniciar sessão</div>
+            <div className="text-muted" style={{ fontSize: 14 }}>
+              Iniciar sessão
+            </div>
           </div>
         </div>
 
+        {/* Aviso de sucesso pós-registo */}
+        {registered && (
+          <div
+            className="badge-success"
+            style={{ padding: 8, borderRadius: 10, marginBottom: 10 }}
+            role="status"
+            aria-live="polite"
+          >
+            Registo concluído. A conta ficará pendente até aprovação por um administrador.
+          </div>
+        )}
+
         <div style={{ display: "grid", gap: 12 }}>
-          <label style={{ fontWeight: 700 }}>Email</label>
+          <label htmlFor="email" style={{ fontWeight: 700 }}>
+            Email
+          </label>
           <input
+            id="email"
             type="email"
             placeholder="o.teu@email.com"
             value={email}
@@ -60,9 +100,12 @@ export default function LoginClient() {
             }}
           />
 
-          <label style={{ fontWeight: 700 }}>Palavra-passe</label>
+          <label htmlFor="password" style={{ fontWeight: 700 }}>
+            Palavra-passe
+          </label>
           <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
             <input
+              id="password"
               type={show ? "text" : "password"}
               value={pw}
               onChange={(e) => setPw(e.target.value)}
@@ -103,7 +146,11 @@ export default function LoginClient() {
             {loading ? "A entrar..." : "Entrar"}
           </button>
 
-          {err && <div className="badge-danger" style={{ padding: 8, borderRadius: 10 }}>{err}</div>}
+          {err && (
+            <div className="badge-danger" style={{ padding: 8, borderRadius: 10 }}>
+              {err}
+            </div>
+          )}
 
           <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
             <Link href="/login/forgot" className="pill" style={{ padding: "6px 10px" }}>
