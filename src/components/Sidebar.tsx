@@ -2,9 +2,9 @@
 
 import React, { useMemo } from "react";
 import Menu from "./sidebar/Menu";
-import useSidebarState from "./SidebarWrapper";
+// 👇 usa o named import do hook (NÃO o default)
+import { useSidebarState } from "./SidebarWrapper";
 
-// Tipagens mínimas (compatíveis com o teu Menu.tsx)
 type Role = any;
 type Item = {
   kind: "item";
@@ -23,20 +23,21 @@ type Group = {
 };
 type Entry = Item | Group;
 
-// Mantém os teus ícones/labels (podes trocar por SVGs se quiseres)
 const ICON = {
   dashboard: "📊",
   clients: "🧑‍🤝‍🧑",
+  workouts: "💪",
   plans: "📘",
   library: "📚",
   approvals: "✅",
   users: "👥",
   reports: "📈",
   settings: "⚙️",
+  system: "🖥️",
   health: "🛟",
 };
 
-function buildMenu(): Entry[] {
+function buildMenu(_role?: Role): Entry[] {
   return [
     {
       kind: "group",
@@ -44,7 +45,7 @@ function buildMenu(): Entry[] {
       items: [
         { kind: "item", href: "/dashboard", label: "Dashboard", icon: ICON.dashboard, activeExact: true },
         { kind: "item", href: "/dashboard/reports", label: "Relatórios", icon: ICON.reports },
-        { kind: "item", href: "/dashboard/settings", label: "Definições", icon: ICON.settings, activeExact: true },
+        { kind: "item", href: "/dashboard/settings", label: "Definições", icon: ICON.settings },
       ],
     },
     {
@@ -73,117 +74,122 @@ function buildMenu(): Entry[] {
 }
 
 export default function Sidebar() {
-  const { pinned, collapsed, togglePinned, toggleCollapsed, overlayOpen, closeOverlay } = useSidebarState();
+  const {
+    pinned,
+    collapsed,
+    togglePinned,
+    toggleCollapsed,
+    overlayOpen,
+    closeOverlay,
+  } = useSidebarState();
 
-  // Dados do menu – estável
-  const data = useMemo(() => buildMenu(), []);
+  // menu estável (sem deps desnecessárias)
+  const data = useMemo(() => buildMenu(undefined), []);
 
   return (
-    <>
-      {/* Backdrop do overlay em mobile */}
-      {overlayOpen && (
+    <aside
+      className="fp-sidebar"
+      data-pinned={pinned ? "true" : "false"}
+      data-collapsed={collapsed ? "true" : "false"}
+      style={{
+        position: "sticky",
+        top: 0,
+        alignSelf: "start",
+        height: "100dvh",
+        borderRight: "1px solid var(--border)",
+        background: "var(--sidebar-bg)",
+        width: collapsed ? 72 : 260,
+        transition: "width 200ms ease",
+        display: "grid",
+        gridTemplateRows: "auto 1fr",
+        zIndex: 30,
+      }}
+      aria-label="Sidebar de navegação"
+    >
+      {/* Cabeçalho da sidebar */}
+      <div
+        className="fp-sb-head"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr auto",
+          alignItems: "center",
+          padding: 10,
+          gap: 8,
+          borderBottom: "1px solid var(--border)",
+          minHeight: 56,
+        }}
+      >
+        <div className="fp-sb-brand" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span
+            aria-hidden
+            className="logo"
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 10,
+              background:
+                "linear-gradient(180deg, rgba(79,70,229,.25), rgba(79,70,229,.06))",
+              border: "1px solid color-mix(in oklab, var(--primary) 35%, var(--border))",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 16,
+            }}
+          >
+            💪
+          </span>
+          {!collapsed && (
+            <div style={{ lineHeight: 1.1 }}>
+              <div style={{ fontWeight: 800, fontSize: 14 }}>Fitness Pro</div>
+              <div className="text-muted" style={{ fontSize: 12 }}>
+                Navegação
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Botões: fixar e encolher/expandir */}
+        <div className="fp-sb-actions" style={{ display: "inline-flex", gap: 6 }}>
+          <button
+            type="button"
+            className="btn icon"
+            onClick={togglePinned}
+            title={pinned ? "Desafixar" : "Fixar"}
+            aria-pressed={pinned}
+          >
+            📌
+          </button>
+          <button
+            type="button"
+            className="btn icon"
+            onClick={toggleCollapsed}
+            title={collapsed ? "Expandir" : "Encolher"}
+            aria-pressed={collapsed}
+          >
+            {collapsed ? "⟩" : "⟨"}
+          </button>
+        </div>
+      </div>
+
+      {/* Navegação */}
+      <div style={{ overflow: "auto", padding: 8 }}>
+        <Menu data={data} />
+      </div>
+
+      {/* Overlay para modo “drawer” em mobile quando não fixo */}
+      {overlayOpen && !pinned && (
         <div
-          aria-hidden
+          onClick={closeOverlay}
+          aria-hidden="true"
           style={{
             position: "fixed",
             inset: 0,
-            background: "color-mix(in oklab, var(--muted) 30%, transparent)",
+            background: "rgba(2,6,23,.45)",
             backdropFilter: "blur(2px)",
-            zIndex: 49,
+            zIndex: 20,
           }}
-          onClick={closeOverlay}
         />
       )}
-
-      <aside
-        id="app-sidebar"
-        className="fp-sidebar"
-        data-pinned={pinned ? "true" : "false"}
-        data-collapsed={collapsed ? "true" : "false"}
-        style={{
-          position: "sticky",
-          top: 0,
-          alignSelf: "start",
-          height: "100dvh",
-          borderRight: "1px solid var(--border)",
-          background: "var(--bg)",
-          width: collapsed ? 72 : 256,
-          transition: "width 200ms ease",
-          display: "grid",
-          gridTemplateRows: "auto 1fr",
-          zIndex: 50,
-        }}
-        aria-label="Sidebar de navegação"
-      >
-        {/* Cabeçalho da sidebar */}
-        <div
-          style={{
-            padding: "10px 10px 8px 10px",
-            borderBottom: "1px solid var(--border)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 8,
-            minHeight: 56,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span
-              aria-hidden
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 10,
-                background:
-                  "linear-gradient(180deg, rgba(79,70,229,.25), rgba(79,70,229,.05))",
-                border: "1px solid color-mix(in oklab, var(--primary) 35%, var(--border))",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 16,
-              }}
-            >
-              💪
-            </span>
-            {!collapsed && (
-              <div style={{ lineHeight: 1.1 }}>
-                <div style={{ fontWeight: 800, fontSize: 14 }}>Fitness Pro</div>
-                <div className="text-muted" style={{ fontSize: 12 }}>
-                  Navegação
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Botões: encolher/expandir + fixar/desafixar */}
-          <div style={{ display: "flex", gap: 6 }}>
-            <button
-              type="button"
-              className="btn ghost"
-              onClick={toggleCollapsed}
-              title={collapsed ? "Expandir sidebar" : "Encolher sidebar"}
-              aria-label={collapsed ? "Expandir sidebar" : "Encolher sidebar"}
-            >
-              {collapsed ? "»" : "«"}
-            </button>
-            <button
-              type="button"
-              className="btn ghost"
-              onClick={togglePinned}
-              title={pinned ? "Desafixar" : "Afixar"}
-              aria-pressed={pinned}
-              aria-label={pinned ? "Desafixar sidebar" : "Afixar sidebar"}
-            >
-              📌
-            </button>
-          </div>
-        </div>
-
-        {/* Lista de navegação (os teus ícones e labels) */}
-        <div style={{ overflow: "auto", padding: 8 }}>
-          <Menu data={data} />
-        </div>
-      </aside>
-    </>
+    </aside>
   );
 }
