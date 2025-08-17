@@ -1,15 +1,23 @@
-import "@/app/globals.css";
+import type { ReactNode } from "react";
+import { SidebarStateProvider } from "@/components/sidebar/SidebarState";
 import SidebarWrapper from "@/components/SidebarWrapper";
 import HeaderBridge from "@/components/HeaderBridge";
 
-export const metadata = { title: "Dashboard • Fitness Pro" };
-
-export default function Layout({ children }: { children: React.ReactNode }) {
+export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="pt">
       <body>
-        <HeaderBridge />
-        <SidebarWrapper>{children}</SidebarWrapper>
+        <SidebarStateProvider>
+          {/* O teu header pode incluir o HeaderBridge (opcional): */}
+          <div className="fp-header">
+            <HeaderBridge />
+            {/* ... resto do teu header (search, logout, etc.) ... */}
+          </div>
+
+          <SidebarWrapper>
+            {children}
+          </SidebarWrapper>
+        </SidebarStateProvider>
       </body>
     </html>
   );

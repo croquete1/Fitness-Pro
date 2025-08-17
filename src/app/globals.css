@@ -1,123 +1,301 @@
-/* ====== Tema & tokens ====== */
-:root{
-  --bg:#f7f9fc;
-  --fg:#0f172a;
-  --muted:#64748b;
-  --border:#e5e9f2;
-  --brand:#6366f1;
+/* ========== HMS Personal Trainer — Tema global & Layout base ========== */
 
-  /* sidebar */
-  --sidebar-w:260px;
-  --sidebar-collapsed-w:68px;
+/* Paleta & tokens */
+:root {
+  --bg: #f8fafc;         /* slate-50 */
+  --surface: #ffffff;
+  --fg: #0f172a;         /* slate-900 */
+  --muted: #475569;      /* slate-600 */
+  --muted-2: #64748b;    /* slate-500 */
+  --border: #e2e8f0;     /* slate-200 */
+  --accent: #3b82f6;     /* blue-500 */
+  --accent-2: #2563eb;   /* blue-600 */
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
 
-  /* layout */
-  --header-h:64px;
-  --space:18px;
+  --bg-header: rgba(248, 250, 252, 0.85);
+  --chip: #e8f0fe;
+
+  /* Layout */
+  --sidebar-w: 260px;          /* largura fixa da sidebar aberta */
+  --sidebar-collapsed: 72px;   /* largura quando recolhida/pinada */
+  --header-h: 64px;            /* altura do header */
+
+  --radius: 14px;
+  --radius-sm: 10px;
+
+  --shadow-1: 0 1px 2px rgba(2,6,23,.06);
+  --shadow-2: 0 8px 30px rgba(2,6,23,.08);
+  --shadow-3: 0 18px 60px rgba(2,6,23,.10);
+
+  --transition-quick: 180ms cubic-bezier(.2,.6,.2,1);
+  --transition-smooth: 300ms cubic-bezier(.2,.6,.2,1);   /* mais suave para colapsar/expandir */
 }
 
-html,body{background:var(--bg);color:var(--fg);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;}
-*{box-sizing:border-box}
-
-/* ====== Shell ====== */
-.fp-shell{
-  --sidebar-col: var(--sidebar-w);
-  display:grid;
-  grid-template-columns: var(--sidebar-col) 1fr;
-  min-height:100dvh;
+[data-theme="dark"] {
+  --bg: #0b1220;
+  --surface: #0e1729;
+  --fg: #e5e7eb;
+  --muted: #94a3b8;
+  --muted-2: #9aa7bd;
+  --border: #1f2937;
+  --accent: #60a5fa;
+  --accent-2: #3b82f6;
+  --bg-header: rgba(11, 18, 32, 0.6);
+  --chip: #1f2937;
 }
 
-.fp-shell[data-collapsed="true"]{ --sidebar-col: var(--sidebar-collapsed-w); }
-
-/* overlay só em mobile/overlay mode */
-.fp-overlay{
-  position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.35);backdrop-filter:blur(2px);
-  opacity:0;pointer-events:none;transition:opacity .25s ease;
+/* ===== Base ===== */
+*, *::before, *::after { box-sizing: border-box; }
+html, body, #__next { height: 100%; }
+html, body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
-.fp-shell[data-overlay="true"] .fp-overlay{ opacity:1; pointer-events:auto; }
+a { color: inherit; text-decoration: none; }
+img { display:block; max-width:100%; height:auto; }
+input, button, select, textarea { font: inherit; color: inherit; }
 
-/* ====== Sidebar ====== */
-.fp-sidebar{
-  position:sticky; top:0; height:100dvh;
-  border-right:1px solid var(--border);
-  background:var(--bg);
-  overflow:auto;
-  transition: width .28s ease; /* mais suave */
-  width: var(--sidebar-col);
+/* ===== Utilitários ===== */
+.text-muted { color: var(--muted-2); }
+.small { font-size: .875rem; }
+.sr-only {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0);
+  white-space: nowrap; border: 0;
 }
 
-/* Expansão temporária por hover quando colapsada e afixada */
-.fp-sidebar[data-expanded="true"]{
+/* ===== Botões (modernos) ===== */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+  padding: .625rem 1rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  transition: transform var(--transition-quick), box-shadow var(--transition-quick), filter var(--transition-quick);
+  cursor: pointer;
+}
+.btn:hover { filter: brightness(1.02); box-shadow: var(--shadow-2); }
+.btn:active { transform: translateY(1px); }
+.btn[disabled], .btn[aria-disabled="true"] { opacity: .6; cursor: not-allowed; box-shadow: none; }
+
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  box-shadow: var(--shadow-1), 0 10px 26px rgba(59,130,246,.20);
+}
+.btn.primary:hover { background: var(--accent-2); border-color: var(--accent-2); }
+.btn.ghost { background: transparent; }
+.btn.link { background: transparent; border-color: transparent; text-decoration: underline; padding: .25rem .5rem; }
+
+/* Chips / Badges */
+.badge { display:inline-flex; align-items:center; gap:.35rem; padding: .25rem .5rem; border-radius: 999px; font-weight: 700; font-size: .75rem; }
+.badge.success { background: #dcfce7; color:#166534; border:1px solid #bbf7d0; }
+.badge.warn    { background: #fef9c3; color:#854d0e; border:1px solid #fde68a; }
+.badge.danger  { background: #fee2e2; color:#991b1b; border:1px solid #fecaca; }
+
+/* ===== Layout com sidebar ===== */
+
+/* Shell controla o estado com data-attrs:
+   data-pinned="true|false"   -> sidebar fixa ou overlay
+   data-collapsed="true|false"-> largura reduzida quando pinada
+   data-open="true|false"     -> (apenas overlay) visível
+   data-overlay="true|false"  -> se a sidebar está como overlay
+*/
+.fp-shell {
+  position: relative;
+}
+
+/* Header (sempre no topo, alinhado com a coluna do conteúdo) */
+.fp-header {
+  position: sticky; top: 0; z-index: 40;
+  height: var(--header-h);
+  display: flex; align-items: center; gap: .75rem;
+  padding: .5rem 1rem;
+  background: var(--bg-header);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Conteúdo principal ajusta margem conforme estado da sidebar pinada */
+.fp-content { padding: 1.25rem; transition: margin var(--transition-smooth); }
+
+/* Sidebar base */
+.fp-sidebar {
+  position: fixed; top: var(--header-h); left: 0; z-index: 50;
+  height: calc(100dvh - var(--header-h));
   width: var(--sidebar-w);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  box-shadow: var(--shadow-2);
+  display: grid; grid-template-rows: auto 1fr auto;
+  transform: translateX(-100%);          /* por defeito, oculta (modo overlay) */
+  transition: transform var(--transition-smooth), width var(--transition-smooth), box-shadow var(--transition-quick);
 }
 
-/* ====== Main ====== */
-.fp-main{
-  min-height:100dvh;
-  display:flex;flex-direction:column;
-}
-.fp-header{
-  position:sticky; top:0; z-index:10; background:rgba(255,255,255,.85);
-  backdrop-filter:saturate(120%) blur(6px);
-  border-bottom:1px solid var(--border);
-}
-.fp-header-inner{
-  max-width:1280px; margin:0 auto; padding:10px var(--space);
-  display:grid; grid-template-columns:1fr minmax(200px,720px) auto; gap:10px; align-items:center;
+/* Conteúdo da sidebar (lista) rola independentemente */
+.fp-sidebar .fp-nav { overflow-y: auto; overscroll-behavior: contain; }
+
+/* Quando pinada (fixa no desktop) fica sempre visível */
+.fp-shell[data-pinned="true"] .fp-sidebar {
+  position: fixed; transform: none; box-shadow: none;
 }
 
-.fp-main .search{
-  width:100%; border:1px solid var(--border); border-radius:12px; padding:10px 12px;
-  outline:none; background:#fff;
+/* Quando pinada e recolhida: encolhe largura */
+.fp-shell[data-pinned="true"][data-collapsed="true"] .fp-sidebar { width: var(--sidebar-collapsed); }
+
+/* Quando overlay e aberta (mobile / não pinada) */
+.fp-shell[data-overlay="true"][data-open="true"] .fp-sidebar { transform: translateX(0); }
+
+/* Overlay de fundo */
+.fp-overlay {
+  position: fixed; inset: 0; z-index: 40;
+  background: rgba(2,6,23,.42);
+  backdrop-filter: blur(1.5px);
+  opacity: 0; pointer-events: none;
+  transition: opacity var(--transition-smooth);
 }
-.btn{border:1px solid var(--border); background:#fff; border-radius:12px; padding:.55rem .8rem; cursor:pointer;}
-.btn.ghost{background:transparent}
-.btn.danger{background:#ef4444;color:#fff;border-color:transparent}
-.btn.block{width:100%}
+.fp-shell[data-overlay="true"][data-open="true"] .fp-overlay { opacity: 1; pointer-events: auto; }
 
-/* Conteúdo */
-.fp-content{ max-width:1280px; margin:0 auto; padding:18px var(--space); }
+/* Ajuste de header + content quando sidebar está pinada */
+.fp-shell[data-pinned="true"][data-collapsed="false"] .fp-header,
+.fp-shell[data-pinned="true"][data-collapsed="false"] .fp-content { margin-left: var(--sidebar-w); }
+.fp-shell[data-pinned="true"][data-collapsed="true"]  .fp-header,
+.fp-shell[data-pinned="true"][data-collapsed="true"]  .fp-content { margin-left: var(--sidebar-collapsed); }
 
-/* ====== Navegação ====== */
-.nav{ display:flex; flex-direction:column; height:100%; }
-.nav-actions{ display:flex; gap:8px; padding:10px var(--space) 6px; position:sticky; top:0; background:var(--bg); z-index:5; }
-.nav-scroll{ padding:6px var(--space) 12px; display:flex; flex-direction:column; gap:6px; }
-.nav-bottom{ margin-top:auto; padding:12px var(--space) 16px; }
+/* No modo overlay (mobile ou não pinado), header e content sem margem */
+.fp-shell[data-overlay="true"] .fp-header,
+.fp-shell[data-overlay="true"] .fp-content { margin-left: 0; }
 
-.nav-item{
-  display:grid; grid-template-columns:28px 1fr; align-items:center;
-  gap:12px; padding:10px 12px; border-radius:14px; border:1px solid transparent;
-  text-decoration:none; color:inherit;
+/* ===== Navegação (sidebar) ===== */
+.nav-section { padding: .75rem .75rem .25rem; color: var(--muted-2); font-weight: 700; font-size: .8rem; }
+.nav-list { display: grid; gap: .25rem; padding: .25rem .5rem .75rem; }
+
+.nav-item, .nav-group-trigger {
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  align-items: center;
+  gap: .75rem;
+  padding: .55rem .65rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  color: var(--fg);
+  transition: background var(--transition-quick), border-color var(--transition-quick), color var(--transition-quick);
 }
-.nav-item:hover{ background:#eef2ff; }
-.nav-item.active{ background:#eef2ff; border-color:#dfe3fb; }
+.nav-item:hover, .nav-group-trigger:hover { background: rgba(2,6,23,.04); }
 
-.nav-ico{ width:28px; height:28px; display:grid; place-items:center; border-radius:10px; background:#f1f5ff; }
-.nav-txt{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.nav-ico {
+  display:flex; align-items:center; justify-content:center;
+  width: 34px; height: 34px; border-radius: 10px;
+  background: #eef2ff;          /* base clara */
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-1);
+  font-size: 18px;
+}
+[data-theme="dark"] .nav-ico { background: #0f1a31; }
 
-/* Quando colapsada e não expandida: esconder textos mas manter ícones alinhados */
-.fp-shell[data-collapsed="true"] .fp-sidebar:not([data-expanded="true"]) .nav-txt{ display:none; }
-.fp-shell[data-collapsed="true"] .fp-sidebar:not([data-expanded="true"]) .nav-item{
-  grid-template-columns:28px;
-  justify-content:center;
+/* etiqueta do item */
+.nav-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* estado ativo (apenas no item real, não no pai) */
+.nav-item[aria-current="page"],
+.nav-item[data-active="true"] {
+  background: rgba(59,130,246,.12);
+  border-color: #bfdbfe;
 }
 
-/* Grupos */
-.nav-group{ display:flex; flex-direction:column; gap:6px; }
-.nav-group-trigger{
-  display:grid; grid-template-columns:28px 1fr; align-items:center; gap:12px;
-  padding:10px 12px; border-radius:12px; color:var(--muted);
+/* o botão do grupo abre/fecha sem receber “ativo” por seleção de filho */
+.nav-group-trigger[aria-expanded="true"] {
+  background: rgba(2,6,23,.03);
+  border-color: var(--border);
 }
-.nav-group-trigger.open{ color:inherit; background:#f6f7ff; }
-.nav-sub{ display:none; padding-left:8px; }
-.nav-sub.show{ display:flex; flex-direction:column; gap:6px; }
 
-/* ====== Mobile (overlay) ====== */
-@media (max-width:1023.98px){
-  .fp-shell{ grid-template-columns: 1fr; }
-  .fp-sidebar{
-    position:fixed; left:0; top:0; height:100dvh; width:min(86vw, var(--sidebar-w));
-    transform:translateX(-100%); transition: transform .28s ease;
-    box-shadow:0 20px 40px rgba(0,0,0,.18); z-index:50;
+/* sublista */
+.nav-sublist { display: grid; gap: .2rem; padding-left: 46px; margin-top: .25rem; }
+
+/* ===== Colapso (pinned + collapsed) — mostrar só ícones ===== */
+.fp-shell[data-pinned="true"][data-collapsed="true"] .nav-item,
+.fp-shell[data-pinned="true"][data-collapsed="true"] .nav-group-trigger {
+  grid-template-columns: 40px 0 auto;
+  padding: .55rem .55rem;
+}
+.fp-shell[data-pinned="true"][data-collapsed="true"] .nav-label,
+.fp-shell[data-pinned="true"][data-collapsed="true"] .nav-caret {
+  opacity: 0; width: 0; pointer-events: none;
+}
+.fp-shell[data-pinned="true"][data-collapsed="true"] .nav-sublist { display: none; }
+
+/* ===== Cartões / painéis (look consistente no dashboard) ===== */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-1);
+  padding: 1rem;
+}
+
+/* ===== Login (garante que o submit não vira um input) ===== */
+.auth-card{
+  width: min(740px, 94vw);
+  padding: 22px;
+  border-radius: 16px;
+  box-shadow: var(--shadow-3);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.auth-header{ display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+.auth-title{ font-weight:800; font-size:20px; }
+.auth-fields{ display:grid; gap:12px; }
+.auth-label{ font-weight:700; }
+.auth-input{
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--fg);
+  outline: none;
+}
+.auth-password{ display:grid; grid-template-columns: 1fr auto; gap:8px; }
+.badge-danger{
+  padding: 8px;
+  border-radius: 10px;
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+/* ===== Responsivo ===== */
+@media (max-width: 1023.98px) {
+  /* Em tablets/telemóveis, usamos overlay por padrão (controlado no TS),
+     mas o CSS aqui assegura layout confortável */
+  .fp-content { padding: 1rem .75rem 1.25rem; }
+}
+
+/* ===== Extras de qualidade de vida ===== */
+/* Impede que as linhas da sidebar estiquem */
+.fp-sidebar .fp-nav { align-content: start; grid-auto-rows: max-content; }
+.nav-item, .nav-group-trigger { min-height: 44px; line-height: 1.2; }
+
+/* Hover consistente */
+.nav-item:hover, .nav-subitem:hover, .nav-group-trigger:hover {
+  background: rgba(2,6,23,.06);
+
+  /* Hotspot para hover-peek quando pinada e colapsada */
+.fp-hover-hotspot{
+  position: fixed;
+  top: var(--header-h);
+  left: 0;
+  width: 10px;
+  height: calc(100dvh - var(--header-h));
+  z-index: 45;
   }
-  .fp-shell[data-overlay="true"] .fp-sidebar{ transform:translateX(0); }
 }
