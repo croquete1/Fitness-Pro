@@ -1,98 +1,157 @@
+// src/app/login/LoginClient.tsx
 "use client";
 
-import React, { useState } from "react";
+import * as React from "react";
 import { signIn } from "next-auth/react";
-import Link from "next/link";
-import Logo from "@/components/layout/Logo";
+import { useRouter } from "next/navigation";
 
-type LoginClientProps = { registered?: boolean };
+export default function LoginClient({ registered = false }: { registered?: boolean }) {
+  const router = useRouter();
 
-export default function LoginClient({ registered = false }: LoginClientProps) {
-  const [email, setEmail] = useState("");
-  const [pw, setPw] = useState("");
-  const [show, setShow] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [show, setShow] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
+  const [err, setErr] = React.useState<string | null>(null);
 
-  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setErr(null);
     setLoading(true);
     try {
       const res = await signIn("credentials", {
-        redirect: true,
-        callbackUrl: "/dashboard",
+        redirect: false,
         email,
-        password: pw,
+        password,
       });
-      if ((res as any)?.error) setErr("Credenciais inválidas.");
+
+      if (!res || res.error) {
+        setErr("Email ou palavra-passe inválidos.");
+        return;
+      }
+
+      router.replace("/dashboard");
+      router.refresh();
     } catch {
-      setErr("Ocorreu um erro ao iniciar sessão.");
+      setErr("Não foi possível iniciar sessão. Tenta novamente.");
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className="card"
-      style={{
-        width: "min(720px, 94vw)",
-        padding: 22,
-        borderRadius: 16,
-        boxShadow: "var(--shadow-md)",
-        background: "var(--bg, #fff)",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
-        <Logo size={32} />
-        <div>
-          <div style={{ fontWeight: 800, fontSize: 20 }}>Fitness Pro</div>
-          <div className="text-muted" style={{ fontSize: 14 }}>Iniciar sessão</div>
+    <form onSubmit={onSubmit} style={{ display: "grid", gap: 12 }}>
+      {registered ? (
+        <div
+          role="status"
+          style={{
+            border: "1px solid var(--border)",
+            background: "var(--chip)",
+            color: "var(--fg)",
+            padding: ".6rem .75rem",
+            borderRadius: 12,
+            fontSize: ".9rem",
+          }}
+        >
+          Registo concluído. A tua conta aguarda aprovação do administrador.
         </div>
-      </div>
+      ) : null}
 
-      {registered && (
-        <div className="badge-success" style={{ padding: 8, borderRadius: 10, marginBottom: 10 }} role="status" aria-live="polite">
-          Registo concluído. A conta ficará pendente até aprovação por um administrador.
+      {err ? (
+        <div
+          role="alert"
+          style={{
+            border: "1px solid #ef4444",
+            background: "rgba(239,68,68,.08)",
+            color: "#ef4444",
+            padding: ".6rem .75rem",
+            borderRadius: 12,
+            fontSize: ".9rem",
+          }}
+        >
+          {err}
         </div>
-      )}
+      ) : null}
 
-      <div style={{ display: "grid", gap: 12 }}>
-        <label htmlFor="email" style={{ fontWeight: 700 }}>Email</label>
-        <input id="email" type="email" placeholder="o.teu@email.com"
-          value={email} onChange={(ev) => setEmail(ev.target.value)} required
-          style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--fg)", outline: "none" }}
+      <label style={{ display: "grid", gap: 6 }}>
+        <span style={{ fontWeight: 600 }}>Email</span>
+        <input
+          type="email"
+          required
+          autoComplete="email"
+          placeholder="o.teu@email.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          style={inputStyle}
         />
+      </label>
 
-        <label htmlFor="password" style={{ fontWeight: 700 }}>Palavra-passe</label>
+      <label style={{ display: "grid", gap: 6 }}>
+        <span style={{ fontWeight: 600 }}>Palavra-passe</span>
         <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
-          <input id="password" type={show ? "text" : "password"} value={pw} onChange={(ev) => setPw(ev.target.value)} required
-            style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--fg)", outline: "none" }}
+          <input
+            type={show ? "text" : "password"}
+            required
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            style={inputStyle}
           />
-          <button type="button" className="pill" onClick={() => setShow(v => !v)} aria-pressed={show}
-            aria-label={show ? "Esconder palavra-passe" : "Mostrar palavra-passe"}>
-            {show ? "Esconder" : "Mostrar"}
+          <button
+            type="button"
+            onClick={() => setShow((v) => !v)}
+            aria-label={show ? "Ocultar palavra-passe" : "Mostrar palavra-passe"}
+            style={secondaryBtnStyle}
+          >
+            {show ? "Ocultar" : "Mostrar"}
           </button>
         </div>
+      </label>
 
-        <button type="submit" className="pill" disabled={loading}
-          style={{ justifySelf: "start", background: "var(--brand)", color: "white", borderColor: "transparent", padding: ".6rem 1rem" }}>
-          {loading ? "A entrar..." : "Entrar"}
-        </button>
+      <button type="submit" disabled={loading} style={primaryBtnStyle}>
+        {loading ? "A entrar..." : "Entrar"}
+      </button>
 
-        {err && <div className="badge-danger" style={{ padding: 8, borderRadius: 10 }}>{err}</div>}
-
-        <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-          <Link href="/login/forgot" className="pill" style={{ padding: "6px 10px" }}>Esqueceste-te da palavra-passe?</Link>
-          <Link href="/register" className="pill" style={{ padding: "6px 10px" }}>Registar</Link>
-        </div>
-
-        <p className="text-muted" style={{ marginTop: 6 }}>
-          Após o registo, a tua conta ficará pendente até aprovação por um administrador.
-        </p>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: ".92rem", marginTop: 2 }}>
+        <a href="#" style={{ color: "var(--accent)", textDecoration: "underline" }}>
+          Esqueceste-te da palavra-passe?
+        </a>
+        <a href="/register" style={{ color: "var(--accent)", textDecoration: "underline" }}>
+          Registar
+        </a>
       </div>
+
+      <p style={{ color: "var(--muted)", fontSize: ".9rem", marginTop: 8 }}>
+        Após o registo, a tua conta ficará pendente até aprovação por um administrador.
+      </p>
     </form>
   );
 }
+
+const inputStyle: React.CSSProperties = {
+  border: "1px solid var(--border)",
+  background: "var(--bg)",
+  color: "var(--fg)",
+  borderRadius: 12,
+  padding: ".65rem .8rem",
+  outline: "none",
+};
+
+const primaryBtnStyle: React.CSSProperties = {
+  border: "1px solid var(--border)",
+  background: "var(--accent)",
+  color: "#fff",
+  borderRadius: 12,
+  padding: ".65rem .9rem",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
+const secondaryBtnStyle: React.CSSProperties = {
+  border: "1px solid var(--border)",
+  background: "transparent",
+  color: "var(--fg)",
+  borderRadius: 12,
+  padding: ".65rem .8rem",
+  cursor: "pointer",
+};
