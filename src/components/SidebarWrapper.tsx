@@ -6,7 +6,7 @@ import MobileSidebarController from "./MobileSidebarController";
 export default function SidebarWrapper({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const closeSidebar = useCallback(() => setOpen(false), []);
-  const toggleSidebar = useCallback(() => setOpen(v => !v), []);
+  const toggleSidebar = useCallback(() => setOpen((v) => !v), []);
 
   return (
     <div className="app-shell" style={{ display: "grid", gridTemplateColumns: "auto 1fr", minHeight: "100dvh" }}>
