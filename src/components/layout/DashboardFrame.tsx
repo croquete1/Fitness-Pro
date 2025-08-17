@@ -1,25 +1,17 @@
-"use client";
-
+// src/components/layout/DashboardFrame.tsx (excerto)
 import React from "react";
-import { SidebarProvider } from "./SidebarProvider";
+import SidebarProvider from "./SidebarProvider"; // default OK (também podes usar { SidebarProvider })
 import Sidebar from "./Sidebar";
 import AppHeader from "./AppHeader";
 
 export default function DashboardFrame({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "auto 1fr",
-          minHeight: "100vh",
-          background: "var(--app-bg, var(--bg))",
-        }}
-      >
+      <div className="app-shell">
         <Sidebar />
-        <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+        <div className="app-main">
           <AppHeader />
-          <main style={{ padding: 12, minWidth: 0 }}>{children}</main>
+          <main>{children}</main>
         </div>
       </div>
     </SidebarProvider>

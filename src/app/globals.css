@@ -1,262 +1,395 @@
-/* ====== RESET SUAVE / BASE ====== */
-* { box-sizing: border-box; }
-html, body { height: 100%; }
-body {
-  margin: 0;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
-  background: var(--bg);
-  color: var(--tx);
+/* src/app/global.css */
+/* ------------------- RESET & BASE ------------------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  /* Cores (Light) */
+  --bg: #0a0b0d;             /* fundo base (ajustado para o look dark elegante) */
+  --surface: #111318;        /* cards/elementos */
+  --fg: #eef0f5;             /* texto principal */
+  --muted: #98a2b3;          /* texto secundário */
+  --muted-2: #6b7280;
+  --border: #1f2430;         /* linhas / divisores */
+  --primary: #4f46e5;        /* roxo elegante */
+  --primary-contrast: #ffffff;
+  --accent: #22d3ee;         /* ciano subtil para detalhes */
+  --ok: #16a34a;
+  --warn: #f59e0b;
+  --danger: #ef4444;
+
+  /* Layout */
+  --radius: 12px;
+  --radius-sm: 10px;
+  --shadow-1: 0 6px 22px rgba(0,0,0,.22);
+  --shadow-2: 0 10px 30px rgba(0,0,0,.28);
+
+  /* Header */
+  --header-h: 64px;
+
+  /* Transições */
+  --t-fast: 120ms;
+  --t-med: 200ms;
+  --t-slow: 320ms;
+}
+
+html, body {
+  height: 100%;
+}
+
+html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ====== TOKENS LIGHT ====== */
-:root{
-  --bg: #f5f7fb;
-  --surface: #ffffff;
-  --surface-2: #f8fafc;
-  --border: #e5e7eb;
-  --tx: #0f172a;
-  --tx-muted: #6b7280;
-  --primary: #3b82f6;
-
-  /* Sidebar */
-  --sb-bg: #ffffff;
-  --sb-border: #e5e7eb;
-  --sb-width: 260px;
-  --sb-rail: 76px;
-
-  --item-bg: #ffffff;
-  --item-bg-hover: #f1f5f9;
-  --item-bg-active: #e0ecff;
-  --item-border: #e5e7eb;
-  --item-ring: rgba(59,130,246,.35);
-
-  --shadow-sm: 0 1px 2px rgba(0,0,0,.06);
-  --shadow-md: 0 6px 24px rgba(15,23,42,.06);
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  color: var(--fg);
+  background: radial-gradient(1200px 800px at 20% -10%, rgba(79,70,229,.12), transparent 60%),
+              radial-gradient(1000px 900px at 120% 0%, rgba(34,211,238,.10), transparent 50%),
+              var(--bg);
+  accent-color: var(--primary);
 }
 
-/* ====== TOKENS DARK ====== */
-html[data-theme="dark"]{
-  --bg: #0b1220;
-  --surface: #0f172a;
-  --surface-2: #0b1220;
-  --border: #1f2a44;
-  --tx: #e5e7eb;
-  --tx-muted: #9aa4b2;
+/* Tema claro opcional (se desejares forçar): */
+/* html[data-theme="light"] { ... } */
 
-  --sb-bg: #0f172a;
-  --sb-border: #1f2a44;
+/* Dark por defeito; se quiseres seguir o SO, descomenta:
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #0a0b0d;
+    --surface: #111318;
+    --fg: #eef0f5;
+    --muted: #98a2b3;
+    --muted-2: #6b7280;
+    --border: #1f2430;
+    --primary: #4f46e5;
+    --primary-contrast: #ffffff;
+  }
+}
+*/
 
-  --item-bg: #0f172a;
-  --item-bg-hover: #15223a;
-  --item-bg-active: #1a2b49;
-  --item-border: #233255;
-  --item-ring: rgba(59,130,246,.45);
+a {
+  color: inherit;
 }
 
-/* ====== UTILIDADES ====== */
-.text-muted { color: var(--tx-muted); }
-.small { font-size: 0.875rem; }
-.badge-danger {
-  margin-top: 8px;
-  font-size: 0.875rem;
-  color: #b91c1c;
+/* ------------------- UTILITÁRIOS ------------------- */
+.text-muted { color: var(--muted); }
+.small { font-size: 12px; }
+.hr {
+  height: 1px;
+  background: var(--border);
+  margin: 12px 0;
+  border: 0;
 }
 
-/* ====== BOTÕES / INPUTS ====== */
-.btn{
-  appearance: none;
-  border: 1px solid var(--border);
+/* ------------------- BOTÕES ------------------- */
+.btn {
+  --h: 40px;
+  height: var(--h);
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
   background: var(--surface);
-  color: var(--tx);
+  color: var(--fg);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: background var(--t-med) ease, border-color var(--t-med) ease, transform var(--t-fast) ease, box-shadow var(--t-med) ease, color var(--t-med) ease;
+  text-decoration: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:hover {
+  background: #151823;
+}
+.btn:active {
+  transform: translateY(1px);
+}
+.btn[disabled],
+.btn[aria-disabled="true"] {
+  opacity: .6;
+  pointer-events: none;
+}
+
+.btn.primary {
+  background: linear-gradient(180deg, #5b54ee, #4f46e5);
+  color: var(--primary-contrast);
+  box-shadow: 0 8px 18px rgba(79,70,229,.28);
+}
+.btn.primary:hover {
+  box-shadow: 0 10px 22px rgba(79,70,229,.36);
+  filter: brightness(1.02);
+}
+.btn.primary:active { transform: translateY(1px); }
+
+.btn.ghost {
+  background: transparent;
+  border-color: var(--border);
+}
+.btn.ghost:hover {
+  background: #141823;
+  border-color: #2a3141;
+}
+
+.btn.link {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  height: auto;
+  color: var(--accent);
+}
+.btn.link:hover { text-decoration: underline; }
+
+/* Badges / feedback */
+.badge-danger {
+  background: rgba(239,68,68,.12);
+  color: #fecaca;
+  border: 1px solid rgba(239,68,68,.24);
   padding: 8px 12px;
   border-radius: 10px;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: var(--shadow-sm);
-}
-.btn:hover{ background: var(--item-bg-hover); }
-.btn:disabled, .btn[aria-disabled="true"]{
-  opacity: .5; cursor: not-allowed;
-}
-.btn.primary{
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #fff;
-}
-.btn.primary:hover{ filter: brightness(0.95); }
-.btn.ghost{
-  background: transparent;
-  border-color: transparent;
-  box-shadow: none;
-}
-.btn.link{
-  background: transparent;
-  border: 0;
-  box-shadow: none;
-  color: var(--primary);
-  padding: 0;
 }
 
-/* Inputs genéricos */
-input, select, textarea{
-  outline: none;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--tx);
-  border-radius: 12px;
-  padding: 10px 12px;
+/* Focus visível */
+:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--accent) 60%, white);
+  outline-offset: 2px;
+  border-radius: 10px;
 }
-input::placeholder{ color: var(--tx-muted); }
 
-/* ====== LAYOUT APP ====== */
-.fp-shell{
-  display: grid;
-  grid-template-columns: var(--sb-width) 1fr;
+/* ------------------- LOGIN (auth-*) ------------------- */
+.auth-wrap {
   min-height: 100dvh;
-  transition: grid-template-columns .2s ease;
-}
-.fp-main{
-  position: relative;
-  min-width: 0;
-}
-.fp-content{
-  padding: 16px 20px 28px;
+  padding: 16px;
+  display: grid;
+  place-items: center;
 }
 
-/* ====== HEADER ====== */
-.fp-header{
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.00)),
+              var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-1);
+  padding: 22px;
+}
+
+.auth-header {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.auth-title {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: .2px;
+}
+
+.auth-fields {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.auth-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.auth-input {
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: #0f1219;
+  color: var(--fg);
+  padding: 0 12px;
+  transition: border-color var(--t-med) ease, box-shadow var(--t-med) ease, background var(--t-med) ease;
+}
+.auth-input::placeholder { color: #7f8da3; }
+.auth-input:focus {
+  border-color: color-mix(in oklab, var(--accent) 70%, var(--border));
+  box-shadow: 0 0 0 4px rgba(34,211,238,.12);
+}
+
+.auth-password {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.auth-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+/* ------------------- SIDEBAR ------------------- */
+/* Container da sidebar é o próprio <aside.fp-sidebar> que já vem com estilos inline
+   para largura/posicionamento. Aqui tratamos da estética dos itens e estados. */
+
+.fp-sidebar {
+  color: var(--fg);
+  background: var(--bg);
+}
+
+/* Título/grupo */
+.nav-group-heading {
+  color: var(--muted);
+}
+
+/* Itens */
+.nav-item,
+.nav-subitem {
+  position: relative;
+  border: 1px solid transparent;
+  background: transparent;
+  transition: background var(--t-med) ease, border-color var(--t-med) ease, color var(--t-med) ease, box-shadow var(--t-med) ease;
+}
+.nav-item:hover,
+.nav-subitem:hover {
+  background: #121520;
+  border-color: #1d2330;
+}
+
+/* Ativo */
+.nav-item[data-active="true"],
+.nav-subitem[data-active="true"] {
+  background: linear-gradient(180deg, rgba(79,70,229,.18), rgba(79,70,229,.10));
+  border-color: color-mix(in oklab, var(--primary) 45%, var(--border));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--primary) 35%, transparent);
+}
+.nav-item[data-active="true"]::before,
+.nav-subitem[data-active="true"]::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  translate: 0 -50%;
+  width: 3px;
+  height: 18px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+
+/* Quando a sidebar está encolhida e fixada, escondemos labels por CSS também
+   (o TS/inline já trata de opacidades, isto só reforça). */
+.fp-sidebar[data-pinned="true"][data-collapsed="true"] .nav-label {
+  display: none;
+}
+
+/* Scrollbar só na sidebar/nav */
+.fp-sidebar nav {
+  scrollbar-width: thin;
+  scrollbar-color: #2b3344 transparent;
+}
+.fp-sidebar nav::-webkit-scrollbar {
+  width: 10px;
+}
+.fp-sidebar nav::-webkit-scrollbar-thumb {
+  background: #2b3344;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.fp-sidebar nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ------------------- HEADER APP (opcional, caso uses) ------------------- */
+.app-header {
   position: sticky;
   top: 0;
+  height: var(--header-h);
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in oklab, var(--bg) 96%, white);
+  backdrop-filter: blur(6px);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  padding: 0 12px;
   z-index: 40;
-  background: rgba(255,255,255,.6);
-  backdrop-filter: saturate(180%) blur(8px);
+}
+
+/* ------------------- CARDS / PAINÉIS ------------------- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-1);
+}
+
+/* ------------------- TABELAS BÁSICAS ------------------- */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.table th,
+.table td {
+  padding: 12px 14px;
   border-bottom: 1px solid var(--border);
 }
-html[data-theme="dark"] .fp-header{
-  background: rgba(15,23,42,.6);
-}
-.fp-header-inner{
-  display:flex; align-items:center; justify-content:space-between;
-  gap: 12px; padding: 10px 16px;
-}
-.fp-header-left{ display:flex; align-items:center; gap:8px; }
-.fp-header-right{ display:flex; align-items:center; gap:8px; }
-.fp-search{
-  width: clamp(220px, 32vw, 560px);
-}
-
-/* ====== SIDEBAR ====== */
-.fp-sidebar{
-  position: sticky;
-  top: 0;
-  align-self: start;
-  height: 100dvh;
-  width: var(--sb-width);
-  background: var(--sb-bg);
-  border-right: 1px solid var(--sb-border);
-  transition: width .2s ease, transform .2s ease;
-  box-shadow: none;
-  z-index: 45;
-  display: grid;
-  grid-template-rows: 1fr auto;
-}
-.fp-sidebar[data-collapsed="true"]{
-  width: var(--sb-rail);
-}
-.fp-sidebar[data-overlay="true"]{
-  position: fixed;
-  left: 0; top: 0;
-  transform: translateX(-100%);
-  box-shadow: var(--shadow-md);
-}
-.fp-sidebar-inner{
-  padding: 12px 10px;
-  overflow-y: auto;
-}
-.fp-sidebar-footer{
-  border-top: 1px solid var(--sb-border);
-  padding: 10px;
-}
-
-/* Backdrop do overlay */
-.fp-sidebar-backdrop{
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,.45);
-  border: 0;
-  z-index: 40;
-}
-
-/* ====== NAVEGAÇÃO ====== */
-.fp-nav{ display: grid; gap: 12px; }
-.fp-nav-group{ display: grid; gap: 6px; }
-.fp-nav-group-title{
-  padding: 6px 8px;
+.table thead th {
   font-size: 12px;
-  letter-spacing: .06em;
+  color: var(--muted);
   text-transform: uppercase;
-  color: var(--tx-muted);
-  font-weight: 700;
+  letter-spacing: .04em;
+  background: #0f1219;
 }
-.fp-sidebar[data-collapsed="true"] .fp-nav-group-title{ display:none; }
 
-.fp-nav-item{
-  display: grid;
-  grid-template-columns: 28px 1fr;
-  align-items: center;
-  gap: 10px;
-  border: 1px solid var(--item-border);
-  background: var(--item-bg);
-  color: var(--tx);
-  text-decoration: none;
+/* ------------------- MODAIS GENÉRICOS ------------------- */
+/* Caso uses <dialog> ou um container próprio, já fica o estilo base. */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.42);
+  backdrop-filter: blur(1.5px);
+}
+.modal {
+  background: var(--surface);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-2);
+  padding: 18px;
+  width: min(680px, 92vw);
+}
+
+/* ------------------- FORMS ------------------- */
+.input,
+.select,
+.textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: #0f1219;
+  color: var(--fg);
   border-radius: 12px;
   padding: 10px 12px;
-  box-shadow: var(--shadow-sm);
-  transition: background .15s ease, transform .15s ease, border-color .15s ease;
+  transition: border-color var(--t-med) ease, box-shadow var(--t-med) ease, background var(--t-med) ease;
 }
-.fp-nav-item:hover{
-  background: var(--item-bg-hover);
-  transform: translateY(-1px);
-}
-.fp-nav-item[data-active="true"]{
-  background: var(--item-bg-active);
-  border-color: var(--primary);
-  box-shadow: 0 0 0 4px var(--item-ring);
-}
-.fp-nav-icon{
-  width: 28px; height: 28px; display: grid; place-items: center;
-  font-size: 18px;
-}
-.fp-nav-label{
-  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
-}
-.fp-sidebar[data-collapsed="true"] .fp-nav-label{ display:none; }
-
-/* ====== CARDS (dashboard) ====== */
-.card{
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  box-shadow: var(--shadow-md);
+.input:focus,
+.select:focus,
+.textarea:focus {
+  border-color: color-mix(in oklab, var(--accent) 70%, var(--border));
+  box-shadow: 0 0 0 4px rgba(34,211,238,.12);
 }
 
-/* ====== LOGIN (mantém o teu visual) ====== */
-.auth-wrap{
-  display:grid; place-items:center; min-height:100dvh; padding:16px; background: var(--bg);
+/* ------------------- MISC ------------------- */
+code, pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 }
-.auth-card{
-  width: min(680px, 96vw);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  box-shadow: var(--shadow-md);
-  padding: 20px;
-}
-.auth-header{ display:flex; gap:14px; align-items:center; margin-bottom: 10px; }
-.auth-title{ font-size: 22px; font-weight: 800; }
-.auth-fields{ display:grid; gap:10px; }
-.auth-label{ font-weight:700; }
-.auth-input{ width:100%; }
-.auth-password{ display:grid; grid-template-columns: 1fr auto; gap:10px; align-items:center; }
-.auth-actions{ display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:6px; }
