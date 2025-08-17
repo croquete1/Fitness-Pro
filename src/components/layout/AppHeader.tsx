@@ -2,73 +2,59 @@
 
 import React from "react";
 import { signOut } from "next-auth/react";
-import { useSidebar } from "./SidebarContext";
+
+function applyTheme(t: "dark" | "light") {
+  if (typeof document !== "undefined") {
+    document.documentElement.setAttribute("data-theme", t);
+  }
+}
 
 export default function AppHeader() {
-  const { isMobile, pinned, toggleSidebar, toggleCollapse, collapsed, togglePin } = useSidebar();
+  const [theme, setTheme] = React.useState<"dark" | "light">("dark");
+
+  React.useEffect(() => {
+    const saved = (typeof window !== "undefined" && localStorage.getItem("fp-theme")) as
+      | "dark"
+      | "light"
+      | null;
+    const initial = saved ?? "dark";
+    setTheme(initial);
+    applyTheme(initial);
+  }, []);
+
+  function toggleTheme() {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    if (typeof window !== "undefined") localStorage.setItem("fp-theme", next);
+    applyTheme(next);
+  }
 
   return (
-    <header className="fp-header" role="banner">
-      <div className="fp-header-inner">
-        <div className="fp-header-left">
-          {/* Botão Menu: aparece quando overlay (mobile ou unpinned) */}
-          {(!pinned || isMobile) && (
-            <button className="btn ghost" onClick={toggleSidebar} aria-label="Menu">
-              ☰
-            </button>
-          )}
+    <header className="app-header">
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <strong>Dashboard</strong>
+      </div>
 
-          {/* Colapsar/Expandir (válido quando pinada) */}
-          <button
-            className="btn ghost"
-            onClick={toggleCollapse}
-            aria-label={collapsed ? "Expandir sidebar" : "Recolher sidebar"}
-            title={collapsed ? "Expandir sidebar" : "Recolher sidebar"}
-          >
-            {collapsed ? "➡️" : "⬅️"}
-          </button>
-
-          {/* Fixar/Desafixar */}
-          <button
-            className="btn ghost"
-            onClick={togglePin}
-            aria-label={pinned ? "Desafixar sidebar" : "Fixar sidebar"}
-            title={pinned ? "Desafixar sidebar" : "Fixar sidebar"}
-          >
-            📌
-          </button>
-
-          {/* Campo de pesquisa simples (mantém visual leve) */}
-          <input
-            className="fp-search"
-            placeholder="Pesquisar cliente por nome ou email…"
-            aria-label="Pesquisar"
-          />
-        </div>
-
-        <div className="fp-header-right">
-          {/* Alternar tema: muito simples e à prova de bala */}
-          <button
-            className="btn ghost"
-            onClick={() => {
-              try {
-                const html = document.documentElement;
-                const cur = html.getAttribute("data-theme") === "dark" ? "dark" : "light";
-                const next = cur === "dark" ? "light" : "dark";
-                html.setAttribute("data-theme", next);
-                localStorage.setItem("fp-theme", next);
-              } catch {}
-            }}
-            aria-label="Alternar tema"
-            title="Alternar tema"
-          >
-            🌓
-          </button>
-
-          <button className="btn" onClick={() => signOut({ callbackUrl: "/login" })}>
-            Terminar sessão
-          </button>
-        </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <button className="btn ghost" type="button" aria-label="Notificações">
+          🔔
+        </button>
+        <button
+          className="btn ghost"
+          type="button"
+          onClick={toggleTheme}
+          aria-label="Alternar tema"
+          title={theme === "dark" ? "Mudar para claro" : "Mudar para escuro"}
+        >
+          {theme === "dark" ? "🌙" : "☀️"}
+        </button>
+        <button
+          className="btn"
+          type="button"
+          onClick={() => signOut({ callbackUrl: "/login" })}
+        >
+          Terminar sessão
+        </button>
       </div>
     </header>
   );
