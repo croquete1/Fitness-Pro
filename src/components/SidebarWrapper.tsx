@@ -10,9 +10,9 @@ import React, {
 } from "react";
 
 export type SidebarCtx = {
-  pinned: boolean;           // sidebar “fixa” (rail = false, expanded = true)
-  collapsed: boolean;        // rail compacto quando pinned = true
-  overlayOpen: boolean;      // aberto por hover quando NÃO está pinned
+  pinned: boolean;
+  collapsed: boolean;
+  overlayOpen: boolean;
   setPinned: (v: boolean) => void;
   setCollapsed: (v: boolean) => void;
   togglePinned: () => void;
@@ -36,19 +36,19 @@ function readBool(key: string, fallback: boolean): boolean {
 }
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
-  // defaults: o normal é iniciar rail compacto (pinned=false ⇒ overlay só por hover)
+  // defaults: inicia em rail compacto (pinned=false, collapsed=true)
   const [pinned, setPinned] = useState(false);
   const [collapsed, setCollapsed] = useState(true);
   const [overlayOpen, setOverlayOpen] = useState(false);
 
-  // hidratar do localStorage
+  // hidratar preferências
   useEffect(() => {
     if (typeof window === "undefined") return;
     setPinned(readBool(STORAGE_PINNED, false));
     setCollapsed(readBool(STORAGE_COLLAPSED, true));
   }, []);
 
-  // persistir as preferências
+  // persistir
   useEffect(() => {
     if (typeof window === "undefined") return;
     localStorage.setItem(STORAGE_PINNED, pinned ? "1" : "0");
@@ -64,6 +64,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const togglePinned = useCallback(() => setPinned((p) => !p), []);
   const toggleCollapsed = useCallback(() => setCollapsed((c) => !c), []);
 
+  // ✅ incluir todas as deps para satisfazer o eslint
   const value = useMemo(
     () => ({
       pinned,
@@ -76,7 +77,17 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
       openOverlay,
       closeOverlay,
     }),
-    [pinned, collapsed, overlayOpen]
+    [
+      pinned,
+      collapsed,
+      overlayOpen,
+      setPinned,
+      setCollapsed,
+      togglePinned,
+      toggleCollapsed,
+      openOverlay,
+      closeOverlay,
+    ]
   );
 
   return (
@@ -91,5 +102,5 @@ export function useSidebarState(): SidebarCtx {
   return ctx;
 }
 
-// default export também disponível (resolve avisos de import)
+// default export também disponível
 export default SidebarProvider;

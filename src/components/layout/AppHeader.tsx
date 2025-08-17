@@ -6,7 +6,7 @@ import { useSidebarState } from "../SidebarWrapper";
 
 export default function AppHeader() {
   const { theme, setTheme } = useTheme();
-  const { pinned, collapsed, toggleCollapsed, openOverlay } = useSidebarState();
+  const { pinned, toggleCollapsed, openOverlay } = useSidebarState(); // remove 'collapsed' não usado
 
   const onToggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
 
@@ -16,7 +16,7 @@ export default function AppHeader() {
       style={{
         position: "sticky",
         top: 0,
-        zIndex: 40, // acima do scrim/overlay
+        zIndex: 40,
         background: "color-mix(in oklab, var(--bg) 88%, var(--card) 12%)",
         borderBottom: "1px solid var(--border)",
         backdropFilter: "saturate(140%) blur(6px)",
@@ -32,7 +32,6 @@ export default function AppHeader() {
           padding: "10px 16px",
         }}
       >
-        {/* Esquerda: “menu” (abre overlay se não estiver pinned; senão alterna rail/expandido) + search */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
           <button
             className="btn icon"
@@ -40,13 +39,11 @@ export default function AppHeader() {
             onClick={() => (pinned ? toggleCollapsed() : openOverlay())}
             title="Menu"
           >
-            {/* hambúrguer simples */}
             <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden>
               <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
             </svg>
           </button>
 
-          {/* o teu input/search aqui (placeholder para não romper layout) */}
           <div
             style={{
               flex: 1,
@@ -65,12 +62,10 @@ export default function AppHeader() {
           </div>
         </div>
 
-        {/* Direita: tema + terminar sessão (sempre visíveis) */}
         <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
           <button className="btn icon" onClick={onToggleTheme} title="Tema">
             {theme === "dark" ? "🌙" : "🌞"}
           </button>
-
           <button className="btn ghost" title="Terminar sessão">
             Terminar sessão
           </button>
