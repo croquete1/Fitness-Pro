@@ -5,7 +5,10 @@ import { signIn } from "next-auth/react";
 import Link from "next/link";
 import Logo from "@/components/layout/Logo";
 
-type LoginClientProps = { registered?: boolean };
+type LoginClientProps = {
+  /** Indica se o utilizador acabou de se registar (ex.: ?registered=1) */
+  registered?: boolean;
+};
 
 export default function LoginClient({ registered = false }: LoginClientProps) {
   const [email, setEmail] = useState("");
