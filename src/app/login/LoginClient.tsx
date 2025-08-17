@@ -30,39 +30,75 @@ export default function LoginClient() {
   }
 
   return (
-    <div className="auth-wrap">
-      <form onSubmit={onSubmit} className="auth-card" aria-labelledby="auth-title">
-        <div className="auth-header">
-          <Logo size={42} />
+    <div
+      className="auth-wrap"
+      style={{
+        // centra SEM depender de CSS externo
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: "100dvh",
+        padding: 16,
+        background: "var(--bg)",
+      }}
+    >
+      <form
+        onSubmit={onSubmit}
+        className="auth-card"
+        aria-labelledby="auth-title"
+        style={{
+          width: "min(520px, 92vw)",
+          background: "var(--panel)",
+          border: "1px solid var(--border)",
+          borderRadius: 14,
+          boxShadow: "0 20px 40px rgba(0,0,0,.06)",
+          padding: 20,
+        }}
+      >
+        <div
+          className="auth-header"
+          style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 6 }}
+        >
+          <Logo size={32} />
           <div>
-            <div id="auth-title" className="auth-title">Fitness Pro</div>
+            <div id="auth-title" className="auth-title" style={{ fontWeight: 800 }}>
+              Fitness Pro
+            </div>
             <div className="text-muted">Iniciar sessão</div>
           </div>
         </div>
 
-        <div className="auth-fields">
-          <label className="auth-label" htmlFor="login-email">Email</label>
+        <div className="auth-fields" style={{ display: "grid", gap: 12, marginTop: 8 }}>
+          <label className="auth-label">Email</label>
           <input
-            id="login-email"
             type="email"
             placeholder="o.teu@email.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            autoComplete="email"
             required
             className="auth-input"
+            style={{
+              border: "1px solid var(--border)",
+              borderRadius: 10,
+              padding: "10px 12px",
+              background: "var(--bg)",
+            }}
           />
 
-          <label className="auth-label" htmlFor="login-password">Palavra-passe</label>
-          <div className="auth-password">
+          <label className="auth-label">Palavra-passe</label>
+          <div className="auth-password" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
             <input
-              id="login-password"
               type={show ? "text" : "password"}
               value={pw}
               onChange={(e) => setPw(e.target.value)}
-              autoComplete="current-password"
               required
               className="auth-input"
+              style={{
+                border: "1px solid var(--border)",
+                borderRadius: 10,
+                padding: "10px 12px",
+                background: "var(--bg)",
+              }}
             />
             <button
               type="button"
@@ -70,30 +106,70 @@ export default function LoginClient() {
               onClick={() => setShow((v) => !v)}
               aria-pressed={show}
               aria-label={show ? "Esconder palavra-passe" : "Mostrar palavra-passe"}
+              style={{
+                border: "1px solid var(--border)",
+                borderRadius: 10,
+                padding: "10px 12px",
+                background: "var(--panel)",
+              }}
             >
               {show ? "Esconder" : "Mostrar"}
             </button>
           </div>
 
+          {/* Submeter */}
           <button
             type="submit"
             className="btn primary"
             disabled={!canSubmit}
             aria-disabled={!canSubmit}
-            style={{ width: "100%", marginTop: 4 }}
+            style={{
+              borderRadius: 10,
+              padding: "12px 14px",
+              background: "var(--primary)",
+              color: "white",
+              opacity: canSubmit ? 1 : 0.7,
+            }}
           >
             {loading ? "A entrar..." : "Entrar"}
           </button>
 
-          {err && <div className="badge-danger" role="alert">{err}</div>}
+          {err && (
+            <div
+              className="badge-danger"
+              role="alert"
+              style={{
+                background: "color-mix(in oklab, var(--danger) 15%, transparent)",
+                border: "1px solid color-mix(in oklab, var(--danger) 40%, var(--border))",
+                color: "var(--danger)",
+                borderRadius: 10,
+                padding: "8px 10px",
+              }}
+            >
+              {err}
+            </div>
+          )}
 
-          <div className="auth-actions">
-            <Link href="/login/forgot" className="btn link">Esqueceste-te da palavra-passe?</Link>
-            <Link href="/register" className="btn link">Registar</Link>
+          <div
+            className="auth-actions"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              marginTop: 4,
+            }}
+          >
+            <Link href="/login/forgot" className="btn link">
+              Esqueceste-te da palavra-passe?
+            </Link>
+            <Link href="/register" className="btn link">
+              Registar
+            </Link>
           </div>
 
-          <p className="text-muted small">
-            Após o registo, a tua conta fica pendente até aprovação por um administrador.
+          <p className="text-muted small" style={{ marginTop: 6 }}>
+            Após o registo, a tua conta ficará pendente até aprovação por um administrador.
           </p>
         </div>
       </form>
