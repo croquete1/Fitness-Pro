@@ -6,7 +6,7 @@ import { useSidebarState } from "../SidebarWrapper";
 
 export default function AppHeader() {
   // apenas o que usamos (evita o erro do ESLint)
-  const { toggleCollapsed, setOverlayOpen } = useSidebarState();
+  const { toggleCollapsed, openOverlay } = useSidebarState();
   const { theme, setTheme } = useTheme();
 
   const onToggleTheme = () =>
@@ -23,7 +23,7 @@ export default function AppHeader() {
             className="btn icon"
             aria-label="Menu"
             onClick={() => {
-              setOverlayOpen(true);
+              openOverlay();
               toggleCollapsed(); // comporta-se bem quando está afixada
             }}
           >
