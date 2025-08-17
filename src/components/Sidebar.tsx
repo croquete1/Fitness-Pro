@@ -10,10 +10,10 @@ import { useMe } from "@/hooks/useMe";
 
 type SidebarProps = {
   open: boolean;
-  onClose: () => void;
   onToggle: () => void;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
+  onClose?: () => void; // opcional
 };
 
 /* ---- Ícones “chips” ---- */
@@ -61,6 +61,7 @@ export default function Sidebar({
   const { user } = useMe();
   const role = (user?.role ?? "ADMIN").toUpperCase();
 
+  // dados dinâmicos para badges
   const { data: approvals } = usePoll<{pending:number}>("/api/admin/approvals/count", { intervalMs: 30000 });
   const pending = approvals?.pending ?? 0;
   const { data: notifs } = usePoll<any[]>("/api/admin/notifications?limit=8", { intervalMs: 45000 });
@@ -77,43 +78,45 @@ export default function Sidebar({
     { label: "Definições", href: "/dashboard/settings", icon: <ISettings /> },
   ]), [sessionsNext, notifCount]);
 
-  const grpAdmin: NavGroup = {
-    id: "grp-admin", label: "Administração", icon: <IAdmin />,
-    items: [
-      { label: "Administração", href: "/dashboard/admin",           icon: <IAdmin />,   strictBase: true },
-      { label: "Aprovações",    href: "/dashboard/admin/approvals", icon: <IApprove />, badge: pending },
-      { label: "Exercícios",    href: "/dashboard/admin/exercises", icon: <IExercise /> },
-      { label: "Planos (Admin)",href: "/dashboard/admin/plans",     icon: <IPlans /> },
-      { label: "Escala/Equipa", href: "/dashboard/admin/schedule",  icon: <ITeam /> },
-      { label: "Utilizadores",  href: "/dashboard/admin/users",     icon: <IUsers /> },
-    ],
-  };
-  const grpPT: NavGroup = {
-    id: "grp-pt", label: "PT", icon: <ITeam />,
-    items: [
-      { label: "Clientes",   href: "/dashboard/pt-clientes", icon: <IUsers /> },
-      { label: "Biblioteca", href: "/dashboard/pt/library",  icon: <ILibrary /> },
-      { label: "Planos",     href: "/dashboard/pt/plans",    icon: <IPlans /> },
-    ],
-  };
-  const grpSystem: NavGroup = {
-    id: "grp-system", label: "Sistema", icon: <ISystem />,
-    items: [
-      { label: "Sistema", href: "/dashboard/system/health", icon: <ISystem />, strictBase: true },
-      { label: "Logs",    href: "/dashboard/system/logs",   icon: <ILogs /> },
-    ],
-  };
-
+  // grupos dentro de UM único useMemo para não “mudar” em cada render
   const groups: NavGroup[] = useMemo(() => {
+    const grpAdmin: NavGroup = {
+      id: "grp-admin", label: "Administração", icon: <IAdmin />,
+      items: [
+        { label: "Administração", href: "/dashboard/admin",           icon: <IAdmin />,   strictBase: true },
+        { label: "Aprovações",    href: "/dashboard/admin/approvals", icon: <IApprove />, badge: pending },
+        { label: "Exercícios",    href: "/dashboard/admin/exercises", icon: <IExercise /> },
+        { label: "Planos (Admin)",href: "/dashboard/admin/plans",     icon: <IPlans /> },
+        { label: "Escala/Equipa", href: "/dashboard/admin/schedule",  icon: <ITeam /> },
+        { label: "Utilizadores",  href: "/dashboard/admin/users",     icon: <IUsers /> },
+      ],
+    };
+    const grpPT: NavGroup = {
+      id: "grp-pt", label: "PT", icon: <ITeam />,
+      items: [
+        { label: "Clientes",   href: "/dashboard/pt-clientes", icon: <IUsers /> },
+        { label: "Biblioteca", href: "/dashboard/pt/library",  icon: <ILibrary /> },
+        { label: "Planos",     href: "/dashboard/pt/plans",    icon: <IPlans /> },
+      ],
+    };
+    const grpSystem: NavGroup = {
+      id: "grp-system", label: "Sistema", icon: <ISystem />,
+      items: [
+        { label: "Sistema", href: "/dashboard/system/health", icon: <ISystem />, strictBase: true },
+        { label: "Logs",    href: "/dashboard/system/logs",   icon: <ILogs /> },
+      ],
+    };
+
     if (role === "ADMIN") return [grpAdmin, grpPT, grpSystem];
     if (role === "TRAINER") return [grpPT];
     return [];
-  }, [role, grpAdmin, grpPT, grpSystem]);
+  }, [role, pending]);
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   useEffect(() => { try { const raw = localStorage.getItem("sidebar:groups"); if (raw) setOpenGroups(JSON.parse(raw)); } catch {} }, []);
   useEffect(() => { try { localStorage.setItem("sidebar:groups", JSON.stringify(openGroups)); } catch {} }, [openGroups]);
 
+  // abre automaticamente o grupo que contém a rota atual
   useEffect(() => {
     const g = { ...openGroups };
     groups.forEach(grp => {
@@ -121,7 +124,7 @@ export default function Sidebar({
     });
     setOpenGroups(prev => ({ ...prev, ...g }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname, role, groups]);
+  }, [pathname, role, groups.length]);
 
   const baseItem: React.CSSProperties = { display:"flex", alignItems:"center", gap:10, padding:"10px 12px", borderRadius:12 };
   const activeItem: React.CSSProperties = { background:"var(--selection)", color:"var(--brand)", fontWeight:700 };

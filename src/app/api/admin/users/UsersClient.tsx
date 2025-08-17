@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
 type Role = "ADMIN" | "TRAINER" | "CLIENT";
 type Status = "PENDING" | "ACTIVE" | "SUSPENDED";
@@ -102,7 +102,6 @@ export default function UsersClient() {
   );
 
   useEffect(() => {
-    // carregar na montagem e quando muda a paginação/filtros
     load();
   }, [load]);
 
