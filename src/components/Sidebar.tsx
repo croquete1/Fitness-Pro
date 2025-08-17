@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useMemo } from "react";
-import Menu from "./sidebar/Menu"; // mantém o teu Menu
+import Menu from "./sidebar/Menu";
 import { useSidebarState } from "./SidebarWrapper";
 
-// Tipos mínimos para o Menu
+/* Tipagens mínimas para o Menu existente */
 type Role = any;
 type Item = {
   kind: "item";
@@ -23,45 +23,30 @@ type Group = {
 };
 type Entry = Item | Group;
 
-// emojis mantidos
+/* Ícones simples (mantém o teu estilo) */
 const ICON = {
   dashboard: "📊",
+  reports: "📈",
+  settings: "⚙️",
   clients: "🧑‍🤝‍🧑",
   plans: "📘",
   library: "📚",
   approvals: "✅",
   users: "👥",
-  reports: "📈",
-  settings: "⚙️",
+  system: "🖥️",
   health: "🛟",
 };
 
+/* Dados do menu (sem regras de role para simplificar aqui) */
 function buildMenu(): Entry[] {
   return [
     {
       kind: "group",
       label: "Geral",
       items: [
-        {
-          kind: "item",
-          href: "/dashboard",
-          label: "Dashboard",
-          icon: ICON.dashboard,
-          activeExact: true,
-        },
-        {
-          kind: "item",
-          href: "/dashboard/reports",
-          label: "Relatórios",
-          icon: ICON.reports,
-        },
-        {
-          kind: "item",
-          href: "/dashboard/settings",
-          label: "Definições",
-          icon: ICON.settings,
-          activeExact: true,
-        },
+        { kind: "item", href: "/dashboard", label: "Dashboard", icon: ICON.dashboard, activeExact: true },
+        { kind: "item", href: "/dashboard/reports", label: "Relatórios", icon: ICON.reports },
+        { kind: "item", href: "/dashboard/settings", label: "Definições", icon: ICON.settings },
       ],
     },
     {
@@ -84,28 +69,25 @@ function buildMenu(): Entry[] {
     {
       kind: "group",
       label: "Sistema",
-      items: [
-        { kind: "item", href: "/dashboard/system/health", label: "Saúde do sistema", icon: ICON.health },
-      ],
+      items: [{ kind: "item", href: "/dashboard/system/health", label: "Saúde do sistema", icon: ICON.health }],
     },
   ];
 }
 
-function IconHamburger() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden>
-      <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-    </svg>
-  );
-}
-
-function IconPin({ pinned }: { pinned: boolean }) {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden
-      style={{ transform: pinned ? "rotate(45deg)" : "none", transition: "transform 200ms" }}>
-      <path d="M14 3l7 7-3 3 2 2-2 2-2-2-3 3-7-7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  );
+/* Ajuda a gerar a coluna de ícones (rail) com espaçamento consistente */
+function flattenIcons(entries: Entry[]): { href: string; icon: React.ReactNode; label: string }[] {
+  const out: { href: string; icon: React.ReactNode; label: string }[] = [];
+  for (const e of entries) {
+    if ((e as Group).items) {
+      for (const it of (e as Group).items) {
+        out.push({ href: it.href, icon: it.icon, label: it.label });
+      }
+    } else {
+      const it = e as Item;
+      out.push({ href: it.href, icon: it.icon, label: it.label });
+    }
+  }
+  return out;
 }
 
 export default function Sidebar() {
@@ -119,136 +101,199 @@ export default function Sidebar() {
     closeOverlay,
   } = useSidebarState();
 
-  // quando não está pinned: abre por hover
-  const handleEnter = () => {
-    if (!pinned) openOverlay();
-  };
-  const handleLeave = () => {
-    if (!pinned) closeOverlay();
-  };
-
   const data = useMemo(() => buildMenu(), []);
+  const icons = useMemo(() => flattenIcons(data), [data]);
 
-  // largura efetiva
-  const expandedW = 260;
-  const railW = 68;
-  const width = pinned ? (collapsed ? railW : expandedW) : overlayOpen ? expandedW : railW;
+  const railW = 64;
+  const fullW = 260;
 
-  const isOverlayMode = !pinned && overlayOpen;
+  const showOverlay = !pinned && overlayOpen;
 
   return (
-    <>
-      {/* SCRIM (fica atrás do header, mas bloqueia cliques no conteúdo) */}
-      {isOverlayMode && (
-        <div
-          onClick={closeOverlay}
-          aria-hidden
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(15,23,42,0.28)",
-            backdropFilter: "blur(2px)",
-            zIndex: 35,
-          }}
-        />
-      )}
-
-      <aside
-        className="fp-sidebar"
-        data-pinned={pinned ? "true" : "false"}
-        data-collapsed={collapsed ? "true" : "false"}
-        data-overlay={isOverlayMode ? "true" : "false"}
-        onMouseEnter={handleEnter}
-        onMouseLeave={handleLeave}
+    <aside
+      className="fp-sidebar"
+      data-pinned={pinned ? "true" : "false"}
+      data-collapsed={collapsed ? "true" : "false"}
+      style={{
+        position: "sticky",
+        top: 0,
+        alignSelf: "start",
+        height: "100dvh",
+        borderRight: "1px solid var(--border)",
+        background: "var(--sidebar-bg)",
+        width: pinned ? (collapsed ? railW : fullW) : railW,
+        transition: "width 420ms cubic-bezier(.2,.8,.2,1)",
+        display: "grid",
+        gridTemplateRows: "auto 1fr",
+        zIndex: 50,
+      }}
+      aria-label="Sidebar de navegação"
+      onMouseEnter={() => { if (!pinned) openOverlay(); }}
+      onMouseLeave={() => { if (!pinned) closeOverlay(); }}
+    >
+      {/* Cabeçalho/brand da sidebar */}
+      <div
+        className="fp-sb-head"
         style={{
-          // quando overlay, a sidebar é fixa por cima do conteúdo
-          position: isOverlayMode ? "fixed" : "sticky",
-          left: 0,
-          top: 0,
-          alignSelf: "start",
-          height: "100dvh",
-          zIndex: isOverlayMode ? 50 : 30,
-          width,
-          transition: "width 380ms cubic-bezier(.22,1,.36,1), box-shadow 200ms",
-          boxShadow: isOverlayMode ? "0 10px 30px rgba(15,23,42,.22)" : "var(--shadow-1)",
-          background: "var(--sidebar-bg)",
-          borderRight: "1px solid var(--border)",
           display: "grid",
-          gridTemplateRows: "auto 1fr",
+          gridTemplateColumns: "1fr auto",
+          alignItems: "center",
+          padding: "10px",
+          gap: 8,
+          borderBottom: "1px solid var(--border)",
+          minHeight: 56,
+          background: "var(--sidebar-bg)",
+          position: "relative",
+          zIndex: 2,
         }}
-        aria-label="Sidebar de navegação"
       >
-        {/* Cabeçalho da sidebar */}
-        <div
-          className="fp-sb-head"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr auto",
-            alignItems: "center",
-            padding: "10px",
-            gap: 8,
-            borderBottom: "1px solid var(--border)",
-            minHeight: 56,
-          }}
-        >
-          <div className="fp-sb-brand" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span
-              aria-hidden
-              className="logo"
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 10,
-                background:
-                  "linear-gradient(180deg, rgba(79,70,229,.25), rgba(79,70,229,.06))",
-                border:
-                  "1px solid color-mix(in oklab, var(--primary) 35%, var(--border))",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 16,
-              }}
-            >
-              💪
-            </span>
-
-            {/* título só quando expandida */}
-            {width > railW && (
-              <div style={{ lineHeight: 1.1 }}>
-                <div style={{ fontWeight: 800, fontSize: 14 }}>Fitness Pro</div>
-              </div>
-            )}
-          </div>
-
-          {/* Ações (dentro da sidebar, como pediste) */}
-          <div className="fp-sb-actions" style={{ display: "inline-flex", gap: 6 }}>
-            {/* Botão: hamburger (quando pinned ⇒ alterna rail/expandida; quando não pinned ⇒ abre overlay) */}
-            <button
-              className="btn icon"
-              aria-label="Alternar navegação"
-              onClick={() => (pinned ? toggleCollapsed() : openOverlay())}
-              title="Menu"
-            >
-              <IconHamburger />
-            </button>
-
-            {/* Botão: fixar/desafixar */}
-            <button
-              className="btn icon"
-              aria-label={pinned ? "Desafixar" : "Afixar"}
-              onClick={togglePinned}
-              title={pinned ? "Desafixar" : "Afixar"}
-            >
-              <IconPin pinned={pinned} />
-            </button>
-          </div>
+        <div className="fp-sb-brand" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span
+            className="logo"
+            aria-hidden
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 10,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background:
+                "linear-gradient(180deg, rgba(79,70,229,.25), rgba(79,70,229,.06))",
+              border: "1px solid color-mix(in oklab, var(--primary) 35%, var(--border))",
+              fontSize: 16,
+            }}
+          >
+            💪
+          </span>
+          {pinned && !collapsed && (
+            <div style={{ lineHeight: 1.1 }}>
+              <div style={{ fontWeight: 800, fontSize: 14 }}>Fitness Pro</div>
+            </div>
+          )}
         </div>
 
-        {/* Navegação */}
+        <div className="fp-sb-actions" style={{ display: "inline-flex", gap: 6 }}>
+          {/* botão expandir/encolher SEMPRE visível na sidebar */}
+          <button
+            className="btn icon"
+            onClick={toggleCollapsed}
+            aria-label={collapsed ? "Expandir" : "Encolher"}
+            title={collapsed ? "Expandir" : "Encolher"}
+          >
+            ☰
+          </button>
+          {/* botão fixar/desafixar */}
+          <button
+            className="btn icon"
+            onClick={togglePinned}
+            aria-label={pinned ? "Desafixar" : "Fixar"}
+            title={pinned ? "Desafixar" : "Fixar"}
+          >
+            📌
+          </button>
+        </div>
+      </div>
+
+      {/* RAIL: lista vertical de ícones (alinhada e com tooltips nativos via title) */}
+      <div
+        aria-hidden="true"
+        style={{
+          padding: "6px 0",
+          display: "grid",
+          gap: 18,
+          alignContent: "start",
+          justifyItems: "center",
+        }}
+      >
+        {icons.map((it) => (
+          <a
+            key={it.href}
+            href={it.href}
+            className="btn icon"
+            title={it.label}
+            style={{
+              width: 40,
+              height: 40,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: 12,
+              background: "transparent",
+            }}
+          >
+            <span aria-hidden>{it.icon}</span>
+          </a>
+        ))}
+      </div>
+
+      {/* Painel completo: 
+          - render estático quando afixada e expandida
+          - overlay suave ao pairar quando NÃO afixada
+      */}
+      {(pinned && !collapsed) && (
         <div style={{ overflow: "auto", padding: 8 }}>
           <Menu data={data} />
         </div>
-      </aside>
-    </>
+      )}
+
+      {!pinned && (
+        <div
+          style={{
+            position: "fixed",
+            left: railW,
+            top: 0,
+            bottom: 0,
+            width: fullW,
+            background: "var(--sidebar-bg)",
+            borderRight: "1px solid var(--border)",
+            boxShadow: "var(--shadow-1)",
+            transform: showOverlay ? "translateX(0)" : "translateX(-12px)",
+            opacity: showOverlay ? 1 : 0,
+            pointerEvents: showOverlay ? "auto" : "none",
+            transition:
+              "transform 420ms cubic-bezier(.2,.8,.2,1), opacity 420ms ease",
+            zIndex: 60,
+            display: "grid",
+            gridTemplateRows: "56px 1fr",
+          }}
+          // clique fora fecha o overlay (fica a cargo do mouseleave também)
+        >
+          {/* cabeçalho espelhado para consistência visual */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "10px",
+              borderBottom: "1px solid var(--border)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span className="logo" aria-hidden
+                style={{
+                  width: 28, height: 28, borderRadius: 10,
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  background:
+                    "linear-gradient(180deg, rgba(79,70,229,.25), rgba(79,70,229,.06))",
+                  border: "1px solid color-mix(in oklab, var(--primary) 35%, var(--border))",
+                  fontSize: 16,
+                }}>
+                💪
+              </span>
+              <div style={{ fontWeight: 800, fontSize: 14 }}>Fitness Pro</div>
+            </div>
+            <div style={{ display: "inline-flex", gap: 6 }}>
+              <button className="btn icon" onClick={toggleCollapsed} title={collapsed ? "Expandir" : "Encolher"} aria-label="Alternar largura">☰</button>
+              <button className="btn icon" onClick={togglePinned} title={pinned ? "Desafixar" : "Fixar"} aria-label="Fixar">📌</button>
+            </div>
+          </div>
+
+          <div style={{ overflow: "auto", padding: 8 }}>
+            <Menu data={data} />
+          </div>
+        </div>
+      )}
+    </aside>
   );
 }
