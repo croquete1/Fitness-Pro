@@ -3,70 +3,57 @@
 import React from "react";
 import { signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
-// ✅ usar o HOOK como named import (não o default)
-import { useSidebarState } from "../SidebarWrapper";
 
 export default function AppHeader() {
-  const { toggleCollapsed, setOverlayOpen } = useSidebarState();
   const { theme, setTheme } = useTheme();
 
-  const onToggleTheme = () =>
-    setTheme(theme === "dark" ? "light" : "dark");
-
-  const onToggleSidebar = () => {
-    toggleCollapsed();
-    // abre/fecha overlay consoante o teu provider (não dispara warning porque é usado)
-    setOverlayOpen(false);
-  };
+  const onToggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
 
   return (
     <header className="fp-header">
       <div className="fp-header-inner">
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button
-            type="button"
-            className="btn icon"
-            onClick={onToggleSidebar}
-            title="Expandir/Encolher sidebar"
-            aria-label="Alternar sidebar"
+        {/* Área esquerda: pesquisa (placeholder simples) */}
+        <div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "24px 1fr",
+              alignItems: "center",
+              gap: 8,
+              border: "1px solid var(--border)",
+              borderRadius: 12,
+              background: "var(--card)",
+              padding: "8px 10px",
+              maxWidth: 520,
+            }}
           >
-            ☰
-          </button>
-
-          <input
-            aria-label="Pesquisar cliente por nome ou email..."
-            placeholder="Pesquisar cliente por nome ou email..."
-            className="auth-input"
-            style={{ width: "min(520px, 60vw)" }}
-          />
+            <span aria-hidden>🔎</span>
+            <input
+              placeholder="Pesquisar cliente por nome ou email..."
+              style={{
+                border: 0,
+                outline: "none",
+                background: "transparent",
+                padding: 0,
+              }}
+            />
+          </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button
-            type="button"
-            className="btn icon"
-            title="Notificações"
-            aria-label="Notificações"
-          >
+        {/* Área direita: ações */}
+        <div style={{ display: "inline-flex", gap: 6 }}>
+          <button className="btn icon" aria-label="Notificações" title="Notificações">
             🔔
           </button>
-
           <button
-            type="button"
             className="btn icon"
             onClick={onToggleTheme}
+            aria-label="Alternar tema"
             title="Alternar tema"
-            aria-pressed={theme === "dark"}
           >
             {theme === "dark" ? "🌙" : "🌞"}
           </button>
-
-          <button
-            type="button"
-            className="btn ghost"
-            onClick={() => signOut()}
-            title="Terminar sessão"
-          >
+          <button className="btn ghost" onClick={() => signOut()} title="Terminar sessão">
             Terminar sessão
           </button>
         </div>
