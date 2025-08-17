@@ -10,7 +10,7 @@ import { useMe } from "@/hooks/useMe";
 
 type SidebarProps = {
   open: boolean;
-  onClose: () => void; // mantemos no tipo para quem usa, mas não precisamos consumir aqui
+  onClose: () => void;
   onToggle: () => void;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
@@ -108,7 +108,7 @@ export default function Sidebar({
     if (role === "ADMIN") return [grpAdmin, grpPT, grpSystem];
     if (role === "TRAINER") return [grpPT];
     return [];
-  }, [role, pending, grpAdmin, grpPT, grpSystem]);
+  }, [role, grpAdmin, grpPT, grpSystem]);
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   useEffect(() => { try { const raw = localStorage.getItem("sidebar:groups"); if (raw) setOpenGroups(JSON.parse(raw)); } catch {} }, []);

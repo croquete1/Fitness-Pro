@@ -73,16 +73,6 @@ export default function UsersClient() {
     }, 250);
   };
 
-  const params = useMemo(() => {
-    const p = new URLSearchParams();
-    p.set("limit", String(PAGE_SIZE));
-    p.set("offset", String(page * PAGE_SIZE));
-    if (q.trim()) p.set("q", q.trim());
-    if (role !== "ALL") p.set("role", role);
-    if (status !== "ALL") p.set("status", status);
-    return p;
-  }, [page, q, role, status]);
-
   const load = useCallback(
     async (p = page, query = q, r: Role | "ALL" = role, s: Status | "ALL" = status) => {
       setLoading(true);
