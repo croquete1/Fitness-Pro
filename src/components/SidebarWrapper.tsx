@@ -1,29 +1,48 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Sidebar from "./Sidebar";
 
-/** --- Contexto partilhado (collapsed/overlay) --- */
+/** ---- Contexto partilhado ---- */
 type Ctx = {
   collapsed: boolean;
   setCollapsed: (v: boolean) => void;
   overlayOpen: boolean;
   setOverlayOpen: (v: boolean) => void;
 };
+
 const SidebarCtx = createContext<Ctx | null>(null);
-export function useSidebarState() {
-  const v = useContext(SidebarCtx);
-  if (!v) throw new Error("SidebarCtx not mounted");
-  return v;
+
+/**
+ * Hook tolerante a SSR:
+ * - Se o provider não estiver montado (ex.: prerender), devolve um “no-op context”
+ *   para evitar falhas no build. Em runtime, quando o provider existir, usa-o.
+ */
+const noop = () => {};
+const FALLBACK_CTX: Ctx = {
+  collapsed: false,
+  setCollapsed: noop,
+  overlayOpen: false,
+  setOverlayOpen: noop,
+};
+export function useSidebarState(): Ctx {
+  return useContext(SidebarCtx) ?? FALLBACK_CTX;
 }
 
-/** --- Wrapper do layout (sidebar + conteúdo) --- */
+/** ---- Wrapper do layout (sidebar + conteúdo) ---- */
 export default function SidebarWrapper({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);     // estado “fixo” (click)
   const [overlayOpen, setOverlayOpen] = useState(false); // mobile off-canvas
   const [isMobile, setIsMobile] = useState(false);
 
-  // Hover intent: expande temporariamente quando está recolhida
+  // Hover intent: expande temporariamente quando está recolhida (desktop apenas)
   const [hoverExpand, setHoverExpand] = useState(false);
   const enterT = useRef<number>();
   const leaveT = useRef<number>();
@@ -37,7 +56,9 @@ export default function SidebarWrapper({ children }: { children: React.ReactNode
   }, []);
 
   // Quando não mobile, garantir overlay fechado
-  useEffect(() => { if (!isMobile) setOverlayOpen(false); }, [isMobile]);
+  useEffect(() => {
+    if (!isMobile) setOverlayOpen(false);
+  }, [isMobile]);
 
   // “collapsed efetivo”: só colapsa se estiver collapsed e não em hoverExpand
   const effectiveCollapsed = collapsed && !hoverExpand;
@@ -54,8 +75,8 @@ export default function SidebarWrapper({ children }: { children: React.ReactNode
   );
 
   const onAsideEnter = () => {
-    if (isMobile) return;                 // sem hover em mobile
-    if (!collapsed) return;               // se não está recolhida, ignora
+    if (isMobile) return;          // sem hover em mobile
+    if (!collapsed) return;        // se não está recolhida, ignora
     window.clearTimeout(leaveT.current);
     enterT.current = window.setTimeout(() => setHoverExpand(true), 120);
   };
@@ -66,7 +87,9 @@ export default function SidebarWrapper({ children }: { children: React.ReactNode
   };
 
   return (
-    <SidebarCtx.Provider value={{ collapsed, setCollapsed, overlayOpen, setOverlayOpen }}>
+    <SidebarCtx.Provider
+      value={{ collapsed, setCollapsed, overlayOpen, setOverlayOpen }}
+    >
       <div className="fp-shell-wrapper">
         <div {...shellAttrs}>
           <aside
