@@ -1,268 +1,185 @@
 "use client";
 
-import React, { useMemo, useRef } from "react";
+import React, { useMemo } from "react";
+import Menu from "./sidebar/Menu";
 import { useSidebarState } from "./SidebarWrapper";
-import Link from "next/link";
 
-/** Ícones simples (emoji) – mantém os que combinámos */
+// ------- dados do menu (exemplo simples, mantém os teus itens reais) -------
+type Role = any;
+type Item = { kind: "item"; href: string; label: string; icon?: React.ReactNode; activeExact?: boolean; roles?: Role[]; };
+type Group = { kind: "group"; label: string; items: Item[]; roles?: Role[]; };
+type Entry = Item | Group;
+
 const ICON = {
   dashboard: "📊",
-  clients: "🧑‍🤝‍🧑",
-  reports: "📈",
+  reports: "📑",
   settings: "⚙️",
+  clients: "🧑‍🤝‍🧑",
   plans: "📘",
   library: "📚",
   approvals: "✅",
   users: "👥",
-  system: "🛟",
+  health: "🛟",
 };
 
-type NavItem = { href: string; label: string; icon: string; activeExact?: boolean };
-type NavSection = { title: string; items: NavItem[] };
+function buildMenu(): Entry[] {
+  return [
+    { kind: "group", label: "GERAL", items: [
+      { kind: "item", href: "/dashboard", label: "Dashboard", icon: ICON.dashboard, activeExact: true },
+      { kind: "item", href: "/dashboard/reports", label: "Relatórios", icon: ICON.reports },
+      { kind: "item", href: "/dashboard/settings", label: "Definições", icon: ICON.settings },
+    ]},
+    { kind: "group", label: "PT", items: [
+      { kind: "item", href: "/dashboard/pt/clients", label: "Clientes", icon: ICON.clients },
+      { kind: "item", href: "/dashboard/pt/plans", label: "Planos", icon: ICON.plans },
+      { kind: "item", href: "/dashboard/pt/library", label: "Biblioteca", icon: ICON.library },
+    ]},
+    { kind: "group", label: "ADMIN", items: [
+      { kind: "item", href: "/dashboard/admin/approvals", label: "Aprovações", icon: ICON.approvals },
+      { kind: "item", href: "/dashboard/admin/users", label: "Utilizadores", icon: ICON.users },
+    ]},
+    { kind: "group", label: "SISTEMA", items: [
+      { kind: "item", href: "/dashboard/system/health", label: "Saúde do sistema", icon: ICON.health },
+    ]},
+  ];
+}
 
-const SECTIONS: NavSection[] = [
-  {
-    title: "GERAL",
-    items: [
-      { href: "/dashboard", label: "Dashboard", icon: ICON.dashboard, activeExact: true },
-      { href: "/dashboard/reports", label: "Relatórios", icon: ICON.reports },
-      { href: "/dashboard/settings", label: "Definições", icon: ICON.settings },
-    ],
-  },
-  {
-    title: "PT",
-    items: [
-      { href: "/dashboard/pt/clients", label: "Clientes", icon: ICON.clients },
-      { href: "/dashboard/pt/plans", label: "Planos", icon: ICON.plans },
-      { href: "/dashboard/pt/library", label: "Biblioteca", icon: ICON.library },
-    ],
-  },
-  {
-    title: "ADMIN",
-    items: [
-      { href: "/dashboard/admin/approvals", label: "Aprovações", icon: ICON.approvals },
-      { href: "/dashboard/admin/users", label: "Utilizadores", icon: ICON.users },
-    ],
-  },
-  {
-    title: "SISTEMA",
-    items: [{ href: "/dashboard/system/health", label: "Saúde do sistema", icon: ICON.system }],
-  },
-];
-
-const RAIL_W = 64;      // rail compacto
-const FULL_W = 264;     // sidebar expandida
-const SPEED = 420;      // ms – mais suave
+// ---- constantes visuais
+const RAIL_W = 72;
+const FULL_W = 260;
+const EASE = "cubic-bezier(.22,.61,.36,1)";
 
 export default function Sidebar() {
   const {
-    pinned,
-    collapsed,
-    overlayOpen,
-    openOverlay,
-    closeOverlay,
-    toggleCollapsed,
-    togglePinned,
+    pinned, collapsed, open,
+    togglePinned, toggleCollapsed,
+    openOverlay, closeOverlay,
   } = useSidebarState();
 
-  /** aberta de facto (largura grande) – quando está afixada e não recolhida
-   *  ou quando está a mostrar overlay (não afixada)
-   */
-  const expanded =
-    (pinned && !collapsed) || (!pinned && overlayOpen);
+  const data = useMemo(() => buildMenu(), []);
 
-  /** mouse leave com pequeno atraso para não "cortar" a animação */
-  const leaveTimer = useRef<number | null>(null);
-  const onEnter = () => {
-    if (!pinned && collapsed) openOverlay();
-    if (leaveTimer.current) {
-      window.clearTimeout(leaveTimer.current);
-      leaveTimer.current = null;
-    }
-  };
-  const onLeave = () => {
-    if (!pinned && collapsed) {
-      leaveTimer.current = window.setTimeout(() => {
-        closeOverlay();
-      }, 120);
-    }
-  };
-
-  const sections = useMemo(() => SECTIONS, []);
-
-  return (
-    <>
-      {/* Scrim do overlay em ecrãs grandes quando não está afixada e abriu */}
-      {!pinned && overlayOpen && (
+  // Cabeçalho
+  const Header = (
+    <div className="fp-sb-head">
+      <div className="fp-sb-brand">
+        <span className="logo" aria-hidden>💪</span>
+        {!collapsed && <strong>Fitness Pro</strong>}
+      </div>
+      <div className="fp-sb-actions">
+        {/* hamburguer */}
         <button
-          aria-label="Fechar menu"
-          onClick={closeOverlay}
+          className="btn icon"
+          aria-label="Alternar largura"
+          onClick={pinned ? toggleCollapsed : openOverlay}
+          title={pinned ? (collapsed ? "Expandir" : "Compactar") : "Abrir menu"}
+        >
+          {/* simples hamburguer */}
+          <span aria-hidden>≡</span>
+        </button>
+        {/* pin/unpin – sempre visível dentro da sidebar, não no header */}
+        <button
+          className="btn icon"
+          aria-label={pinned ? "Desafixar sidebar" : "Afixar sidebar"}
+          onClick={togglePinned}
+          title={pinned ? "Desafixar" : "Afixar"}
+        >
+          {pinned ? "📌" : "📍"}
+        </button>
+      </div>
+    </div>
+  );
+
+  // -------------------- RENDER --------------------
+  // 1) Rail fixo quando não afixada (para hover/tooltip)
+  //    Só aparece quando a sidebar não está afixada.
+  const Rail = !pinned ? (
+    <div
+      onMouseEnter={openOverlay}
+      style={{
+        position: "fixed", left: 0, top: 0, height: "100dvh",
+        width: RAIL_W, zIndex: 41,
+        display: "grid", gridTemplateRows: "56px 1fr",
+        borderRight: "1px solid var(--border)",
+        background: "var(--sidebar-bg)",
+      }}
+    >
+      <div className="fp-sb-head" style={{ borderBottom: "1px solid var(--border)" }}>
+        <div className="fp-sb-brand"><span className="logo" aria-hidden>💪</span></div>
+        <div className="fp-sb-actions">
+          <button className="btn icon" aria-label="Abrir menu"><span aria-hidden>≡</span></button>
+        </div>
+      </div>
+      {/* os mesmos itens, mas o Menu já mostra os icons/labels conforme CSS */}
+      <div className="fp-nav" style={{ padding: 8 }}>
+        <Menu data={data} />
+      </div>
+    </div>
+  ) : null;
+
+  // 2) Scrim do overlay (clicável para fechar)
+  const Scrim = !pinned && open ? (
+    <button
+      aria-label="Fechar navegação"
+      onClick={closeOverlay}
+      style={{
+        position: "fixed", inset: 0, background: "color-mix(in oklab, black 30%, transparent)",
+        zIndex: 44, border: 0, padding: 0, margin: 0,
+      }}
+    />
+  ) : null;
+
+  // 3) A própria sidebar (drawer em fixed quando !pinned, sticky quando afixada)
+  if (!pinned) {
+    return (
+      <>
+        {Rail}
+        {Scrim}
+        <aside
+          className="fp-sidebar"
+          onMouseLeave={closeOverlay}
           style={{
             position: "fixed",
-            inset: 0,
-            background: "rgba(2,6,23,.28)",
-            backdropFilter: "blur(1px)",
-            zIndex: 39,
-          }}
-        />
-      )}
-
-      <aside
-        className="fp-sidebar"
-        data-pinned={pinned}
-        data-collapsed={collapsed}
-        data-expanded={expanded}
-        onMouseEnter={onEnter}
-        onMouseLeave={onLeave}
-        style={{
-          position: pinned ? "sticky" as const : ("fixed" as const),
-          inset: pinned ? undefined : "0 auto 0 0",
-          top: 0,
-          alignSelf: "start",
-          height: "100dvh",
-          background: "var(--sidebar-bg)",
-          color: "var(--sidebar-fg)",
-          borderRight: "1px solid var(--border)",
-          width: expanded ? FULL_W : RAIL_W,
-          transition: `width ${SPEED}ms cubic-bezier(.22,1,.36,1), transform ${SPEED}ms cubic-bezier(.22,1,.36,1)`,
-          transform: !pinned && !overlayOpen ? `translateX(-${FULL_W - RAIL_W}px)` : "translateX(0)",
-          boxShadow: "var(--shadow-1)",
-          display: "grid",
-          gridTemplateRows: "auto 1fr",
-          zIndex: 40,
-        }}
-      >
-        {/* Cabeçalho */}
-        <div
-          style={{
+            zIndex: 45,
+            left: 0,
+            top: 0,
+            height: "100dvh",
+            width: FULL_W,
+            borderRight: "1px solid var(--border)",
+            transform: open ? "translateX(0)" : `translateX(-${FULL_W - RAIL_W}px)`,
+            transition: `transform 360ms ${EASE}`,
+            boxShadow: "var(--shadow-1)",
+            background: "var(--sidebar-bg)",
             display: "grid",
-            gridTemplateColumns: expanded ? "1fr auto auto" : "1fr",
-            alignItems: "center",
-            gap: 8,
-            padding: 12,
-            borderBottom: "1px solid var(--border)",
-            minHeight: 56,
+            gridTemplateRows: "auto 1fr",
           }}
         >
-          {/* Brand + hambúrguer ficam sempre dentro da sidebar */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span
-              aria-hidden
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 10,
-                background:
-                  "linear-gradient(180deg, rgba(79,70,229,.25), rgba(79,70,229,.06))",
-                border:
-                  "1px solid color-mix(in oklab, var(--primary) 35%, var(--border))",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 16,
-              }}
-            >
-              💪
-            </span>
+          {Header}
+          <div className="fp-nav"><Menu data={data} /></div>
+        </aside>
+      </>
+    );
+  }
 
-            {expanded && (
-              <div style={{ lineHeight: 1.1 }}>
-                <div style={{ fontWeight: 800, fontSize: 14 }}>Fitness Pro</div>
-                <div className="text-muted" style={{ fontSize: 12 }}>
-                  {/* retirado “Navegação” como pediste */}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Botão hambúrguer – visível sempre, dentro do rail */}
-          <button
-            aria-label="Expandir/recolher"
-            title="Expandir/recolher"
-            onClick={toggleCollapsed}
-            className="btn icon"
-            style={{
-              justifySelf: "end",
-            }}
-          >
-            <span style={{ fontSize: 18 }}>≡</span>
-          </button>
-
-          {/* Botão pin – fica sempre visível (mesmo no rail) */}
-          <button
-            aria-label={pinned ? "Desafixar" : "Afixar"}
-            title={pinned ? "Desafixar" : "Afixar"}
-            onClick={togglePinned}
-            className="btn icon"
-          >
-            {pinned ? "📌" : "📍"}
-          </button>
-        </div>
-
-        {/* Navegação */}
-        <nav
-          aria-label="Navegação principal"
-          style={{
-            overflow: "auto",
-            padding: expanded ? 10 : 6,
-            display: "grid",
-            gap: 10,
-          }}
-        >
-          {sections.map((sec) => (
-            <div key={sec.title} style={{ display: "grid", gap: 8 }}>
-              {/* título da secção só visível expandida */}
-              {expanded && (
-                <div
-                  className="text-muted"
-                  style={{
-                    fontSize: 12,
-                    padding: "2px 10px",
-                    letterSpacing: ".04em",
-                  }}
-                >
-                  {sec.title}
-                </div>
-              )}
-
-              <div style={{ display: "grid", gap: 6 }}>
-                {sec.items.map((it) => (
-                  <Link
-                    key={it.href}
-                    href={it.href}
-                    className="nav-item"
-                    title={!expanded ? it.label : undefined}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: expanded ? "24px 1fr" : "1fr",
-                      alignItems: "center",
-                      gap: 10,
-                      padding: expanded ? "10px 12px" : 10,
-                      borderRadius: 12,
-                      color: "var(--sidebar-fg)",
-                      background: "transparent",
-                    }}
-                  >
-                    <span
-                      aria-hidden
-                      className="nav-icon"
-                      style={{
-                        display: "inline-flex",
-                        width: 24,
-                        justifyContent: "center",
-                        fontSize: 16,
-                      }}
-                    >
-                      {it.icon}
-                    </span>
-                    {expanded && <span>{it.label}</span>}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          ))}
-        </nav>
-      </aside>
-    </>
+  // 4) Modo afixado (ocupa a coluna do grid; não mexe no conteúdo)
+  return (
+    <aside
+      className="fp-sidebar"
+      style={{
+        position: "sticky",
+        top: 0,
+        alignSelf: "start",
+        height: "100dvh",
+        width: collapsed ? RAIL_W : FULL_W,
+        borderRight: "1px solid var(--border)",
+        background: "var(--sidebar-bg)",
+        transition: `width 360ms ${EASE}`,
+        display: "grid",
+        gridTemplateRows: "auto 1fr",
+        zIndex: 30,
+      }}
+    >
+      {Header}
+      <div className="fp-nav"><Menu data={data} /></div>
+    </aside>
   );
 }

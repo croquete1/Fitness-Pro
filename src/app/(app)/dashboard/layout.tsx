@@ -1,25 +1,36 @@
-/* Server Component */
 import React from "react";
-import Providers from "@/app/providers";                // providers globais (tema, etc.)
-import SidebarProvider from "@/components/SidebarWrapper"; // <— DEFAULT import, não named
+import Providers from "@/app/providers";
 import Sidebar from "@/components/Sidebar";
 import AppHeader from "@/components/layout/AppHeader";
+import { SidebarProvider, useSidebarState } from "@/components/SidebarWrapper";
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function Shell({ children }: { children: React.ReactNode }) {
+  const { pinned, collapsed } = useSidebarState();
+
+  // largura reservada para a coluna APENAS quando afixada
+  const sbw = pinned ? (collapsed ? 72 : 260) : 0;
+
+  return (
+    <div
+      className="fp-shell"
+      style={{ gridTemplateColumns: `${sbw}px 1fr` }}
+    >
+      {/* Quando desafixada, a Sidebar já está em fixed,
+          mas mantém-se aqui para o modo afixado */}
+      <Sidebar />
+      <main className="fp-main">
+        <AppHeader />
+        {children}
+      </main>
+    </div>
+  );
+}
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <Providers>
       <SidebarProvider>
-        <div className="fp-shell">
-          <Sidebar />
-          <main className="fp-main">
-            <AppHeader />
-            {children}
-          </main>
-        </div>
+        <Shell>{children}</Shell>
       </SidebarProvider>
     </Providers>
   );
