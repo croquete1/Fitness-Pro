@@ -1,162 +1,104 @@
 "use client";
 
-import Link from "next/link";
+import React from "react";
 import { usePathname } from "next/navigation";
-import { useSession } from "next-auth/react";
-import { useMemo } from "react";
-import { signOut } from "next-auth/react";
-import { useSidebar } from "./SidebarProvider";
-import { navFor } from "@/lib/nav";
+import { useSidebar } from "./SidebarContext";
+import Menu from "../sidebar/Menu";
 
-/** Tipos de entrada tolerantes: item simples ou grupo com children */
-type NavItem = { key: string; label: string; href: string; icon?: string; badge?: number | string };
-type NavGroup = { key: string; label: string; icon?: string; children: NavItem[] };
-type Entry = NavItem | NavGroup;
-
-function isGroup(x: Entry): x is NavGroup {
-  return (x as any)?.children && Array.isArray((x as any).children);
-}
-
-/** Icones simples (emoji) – sem dependências, estáveis */
-const ICON: Record<string, string> = {
+/** ⚠️ Mantivemos os teus ícones por emoji (como já usavas). */
+const ICON = {
   dashboard: "📊",
-  sessions: "⏱️",
-  messages: "✉️",
-  profile: "👤",
-  billing: "💳",
+  agenda: "📅",
+  notifications: "🔔",
+  clients: "👥",
+  plans: "📝",
+  library: "📚",
+  users: "👥",
+  approvals: "✅",
   reports: "📈",
   settings: "⚙️",
-  trainer: "🏋️",
-  approvals: "✅",
-  workouts: "🏷️",
-  clients: "🧑‍🤝‍🧑",
-  library: "📚",
-  plans: "📘",
-  exercises: "🏋️‍♂️",
-  users: "👥",
-  roster: "🗂️",
-  admin: "🛠️",
-  system: "🖥️",
+  health: "🩺",
   logs: "🧾",
-  metrics: "📊",
 };
 
-/** Item de navegação */
-function NavLink({ item, active }: { item: NavItem; active: boolean }) {
-  return (
-    <Link
-      href={item.href}
-      prefetch={false}
-      aria-current={active ? "page" : undefined}
-      className={`fp-nav-item${active ? " active" : ""}`}
-      title={item.label}
-      data-tooltip={item.label}
-    >
-      <span aria-hidden className="fp-ink" />
-      <span aria-hidden className="fp-nav-icon">{ICON[item.icon ?? ""] ?? "•"}</span>
-      <span className="fp-nav-label">{item.label}</span>
-      {item.badge != null && (
-        <span className="fp-badge" style={{ marginLeft: "auto" }}>
-          {item.badge}
-        </span>
-      )}
-    </Link>
-  );
-}
-
 export default function Sidebar() {
-  const { data } = useSession();
   const pathname = usePathname();
-  const { collapsed, mobileOpen, closeMobile, isMobile } = useSidebar();
+  const { pinned, collapsed, isMobile, open, closeSidebar } = useSidebar();
 
-  const role = (data?.user as any)?.role ?? "CLIENT";
-  const entries = useMemo<Entry[]>(() => navFor(role) as any, [role]);
-
-  // flattener para encontrar o ativo
-  const allItems: NavItem[] = useMemo(() => {
-    const out: NavItem[] = [];
-    for (const e of entries) {
-      if (isGroup(e)) out.push(...e.children);
-      else out.push(e);
-    }
-    return out;
-  }, [entries]);
-
-  const activeKey = useMemo(() => {
-    let best: NavItem | null = null;
-    let bestLen = -1;
-    for (const it of allItems) {
-      const href = it.href;
-      if (!href) continue;
-      if (pathname === href || pathname.startsWith(href + "/")) {
-        if (href.length > bestLen) {
-          best = it;
-          bestLen = href.length;
-        }
-      }
-    }
-    return best?.key ?? null;
-  }, [allItems, pathname]);
+  // dados do menu — iguais ao que já tinhas (Geral / Personal Trainer / Administração / Sistema)
+  const DATA = [
+    {
+      kind: "group",
+      label: "GERAL",
+      items: [
+        { kind: "item", href: "/dashboard",        label: "Dashboard",    icon: ICON.dashboard, activeExact: true },
+        { kind: "item", href: "/dashboard/agenda", label: "Agenda",       icon: ICON.agenda },
+        { kind: "item", href: "/dashboard/notifications", label: "Notificações", icon: ICON.notifications },
+      ],
+    },
+    {
+      kind: "group",
+      label: "PERSONAL TRAINER",
+      items: [
+        { kind: "item", href: "/dashboard/pt/clients", label: "Clientes",       icon: ICON.clients },
+        { kind: "item", href: "/dashboard/pt/plans",   label: "Planos de treino", icon: ICON.plans },
+        { kind: "item", href: "/dashboard/pt/library", label: "Biblioteca",     icon: ICON.library },
+      ],
+    },
+    {
+      kind: "group",
+      label: "ADMINISTRAÇÃO",
+      items: [
+        { kind: "item", href: "/dashboard/admin/users",  label: "Utilizadores", icon: ICON.users },
+        { kind: "item", href: "/dashboard/admin/approvals", label: "Aprovações", icon: ICON.approvals },
+        { kind: "item", href: "/dashboard/reports",     label: "Relatórios",   icon: ICON.reports },
+        { kind: "item", href: "/dashboard/settings",    label: "Definições",   icon: ICON.settings },
+      ],
+    },
+    {
+      kind: "group",
+      label: "SISTEMA",
+      items: [
+        { kind: "item", href: "/dashboard/system/health", label: "Saúde do sistema", icon: ICON.health },
+        { kind: "item", href: "/dashboard/system/logs",   label: "Logs de auditoria", icon: ICON.logs },
+      ],
+    },
+  ] as const;
 
   return (
     <>
-      {/* overlay mobile */}
-      {isMobile && mobileOpen && (
-        <div
-          onClick={closeMobile}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,.35)",
-            zIndex: 39,
-          }}
+      {/* Backdrop (apenas overlay) */}
+      {(!pinned || isMobile) && open && (
+        <button
+          type="button"
+          className="fp-sidebar-backdrop"
+          aria-label="Fechar menu"
+          onClick={closeSidebar}
         />
       )}
+
       <aside
         className="fp-sidebar"
         data-collapsed={collapsed ? "true" : "false"}
-        style={{
-          translate: isMobile ? (mobileOpen ? "0 0" : "-100% 0") : "0 0",
-          position: isMobile ? ("fixed" as const) : ("sticky" as const),
-          top: 0,
-          left: 0,
-          zIndex: isMobile ? 40 : 1,
-          transition: "translate .18s ease",
-        }}
+        data-pinned={pinned ? "true" : "false"}
+        data-overlay={!pinned || isMobile ? "true" : "false"}
+        // no overlay, desloca fora quando fechado
+        style={
+          (!pinned || isMobile)
+            ? { transform: open ? "translateX(0)" : "translateX(-100%)" }
+            : undefined
+        }
       >
-        <nav aria-label="Navegação lateral" className="fp-nav">
-          {entries.map((e) =>
-            isGroup(e) ? (
-              <div key={e.key} className="fp-nav-group">
-                <div className="fp-nav-group-title">
-                  {ICON[e.icon ?? ""] ? ICON[e.icon ?? ""] + " " : null}
-                  {e.label}
-                </div>
-                {e.children.map((item) => (
-                  <NavLink key={item.key} item={item} active={activeKey === item.key} />
-                ))}
-              </div>
-            ) : (
-              <NavLink key={e.key} item={e} active={activeKey === e.key} />
-            )
-          )}
-        </nav>
+        <div className="fp-sidebar-inner">
+          {/* a tua navegação original via Menu.tsx */}
+          <Menu data={DATA as any} />
+        </div>
 
-        {/* Footer fixo */}
-        <div className="fp-nav-footer">
-          <span className="fp-nav-session">Sessão iniciada</span>
-          <button
-            type="button"
-            className="fp-signout"
-            onClick={() => signOut({ callbackUrl: "/login" })}
-            title="Terminar sessão"
-            data-tooltip="Terminar sessão"
-          >
-            <span className="fp-nav-icon" aria-hidden>
-              ⎋
-            </span>
-            <span className="fp-label">Terminar sessão</span>
-          </button>
+        <div className="fp-sidebar-footer">
+          <a className="fp-nav-item" href="/api/auth/signout">
+            <span className="fp-nav-icon">⎋</span>
+            <span className="fp-nav-label">Terminar sessão</span>
+          </a>
         </div>
       </aside>
     </>

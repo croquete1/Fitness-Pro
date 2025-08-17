@@ -2,32 +2,70 @@
 
 import React from "react";
 import { signOut } from "next-auth/react";
-import { useSidebarState } from "../SidebarWrapper";
+import { useSidebar } from "./SidebarContext";
 
 export default function AppHeader() {
-  const { setCollapsed, collapsed, setOverlayOpen } = useSidebarState();
+  const { isMobile, pinned, toggleSidebar, toggleCollapse, collapsed, togglePin } = useSidebar();
 
   return (
-    <header className="fp-header">
+    <header className="fp-header" role="banner">
       <div className="fp-header-inner">
         <div className="fp-header-left">
-          <button className="fp-btn" onClick={() => setOverlayOpen(true)} aria-label="Abrir menu" title="Menu">☰</button>
+          {/* Botão Menu: aparece quando overlay (mobile ou unpinned) */}
+          {(!pinned || isMobile) && (
+            <button className="btn ghost" onClick={toggleSidebar} aria-label="Menu">
+              ☰
+            </button>
+          )}
+
+          {/* Colapsar/Expandir (válido quando pinada) */}
           <button
-            className="fp-btn"
-            onClick={() => setCollapsed(!collapsed)}
+            className="btn ghost"
+            onClick={toggleCollapse}
             aria-label={collapsed ? "Expandir sidebar" : "Recolher sidebar"}
-            title={collapsed ? "Expandir" : "Recolher"}
+            title={collapsed ? "Expandir sidebar" : "Recolher sidebar"}
           >
             {collapsed ? "➡️" : "⬅️"}
           </button>
+
+          {/* Fixar/Desafixar */}
+          <button
+            className="btn ghost"
+            onClick={togglePin}
+            aria-label={pinned ? "Desafixar sidebar" : "Fixar sidebar"}
+            title={pinned ? "Desafixar sidebar" : "Fixar sidebar"}
+          >
+            📌
+          </button>
+
+          {/* Campo de pesquisa simples (mantém visual leve) */}
+          <input
+            className="fp-search"
+            placeholder="Pesquisar cliente por nome ou email…"
+            aria-label="Pesquisar"
+          />
         </div>
 
-        <input className="fp-search" placeholder="Pesquisar cliente por nome ou email…" aria-label="Pesquisar" />
-
         <div className="fp-header-right">
-          <button className="fp-btn fp-btn-ghost" aria-label="Notificações" title="Notificações">🔔</button>
-          <button className="fp-btn fp-btn-ghost" aria-label="Alternar tema">🌓</button>
-          <button className="fp-btn fp-btn-primary" onClick={() => signOut({ callbackUrl: "/login" })}>
+          {/* Alternar tema: muito simples e à prova de bala */}
+          <button
+            className="btn ghost"
+            onClick={() => {
+              try {
+                const html = document.documentElement;
+                const cur = html.getAttribute("data-theme") === "dark" ? "dark" : "light";
+                const next = cur === "dark" ? "light" : "dark";
+                html.setAttribute("data-theme", next);
+                localStorage.setItem("fp-theme", next);
+              } catch {}
+            }}
+            aria-label="Alternar tema"
+            title="Alternar tema"
+          >
+            🌓
+          </button>
+
+          <button className="btn" onClick={() => signOut({ callbackUrl: "/login" })}>
             Terminar sessão
           </button>
         </div>

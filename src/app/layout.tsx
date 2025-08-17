@@ -1,30 +1,31 @@
-// src/app/layout.tsx
-import "./globals.css"; // <- IMPORTA O CSS (caminho que estás a usar)
+import "./globals.css";
+import type { Metadata } from "next";
+import React from "react";
 
-// (opcional, mas útil para SEO)
-export const metadata = {
+export const metadata: Metadata = {
   title: "Fitness Pro",
-  description: "Plataforma de gestão para admins, PTs e clientes",
+  description: "Plataforma de gestão Fitness Pro",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt" suppressHydrationWarning>
       <head>
-        {/* Aplica tema guardado sem “flash” de cores */}
+        {/* Aplica o tema guardado antes da hidratação para evitar flicker */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
-(function () {
-  try {
-    var t = localStorage.getItem("fp-theme") || "light";
-    document.documentElement.dataset.theme = t;
-  } catch (_) {}
-})();`,
+              (function(){
+                try{
+                  var t = localStorage.getItem("fp-theme") || "light";
+                  document.documentElement.setAttribute("data-theme", t);
+                }catch(e){}
+              })();
+            `,
           }}
         />
       </head>
-      <body className="fp-app">{children}</body>
+      <body>{children}</body>
     </html>
   );
 }
