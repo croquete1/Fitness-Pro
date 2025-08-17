@@ -5,8 +5,9 @@ import Menu from "./sidebar/Menu";
 import useSidebarState from "./SidebarWrapper";
 
 /** Larguras consistentes com o layout */
-const RAIL_W = 64;   // rail fixo (ícones)
-const PANEL_W = 260; // painel expandido
+const RAIL_W = 64;      // rail fixo (só ícones)
+const PANEL_W = 260;    // painel expandido
+const ANIM_MS = 420;    // animação mais lenta
 
 // Ícones (mantidos)
 const ICON = {
@@ -89,20 +90,18 @@ export default function Sidebar() {
   const data = useMemo(() => buildMenu(), []);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // rail sempre visível
+  // rail sempre presente
   const railWidth = pinned ? (collapsed ? RAIL_W : PANEL_W) : RAIL_W;
 
-  // Sidebar em “modo mini” = rail com ícones só (quando desafixada OU recolhida)
+  // “mini” quando desafixada OU recolhida
   const isMini = !pinned || (pinned && collapsed);
 
-  // Abrir ao entrar no rail quando desafixada
   const onMouseEnterRail = () => {
     if (!pinned) {
       if (hoverTimer.current) clearTimeout(hoverTimer.current);
       setOverlayOpen(true);
     }
   };
-  // Fechar com um pequeno delay para evitar flicker
   const onMouseLeaveRail = () => {
     if (!pinned) {
       if (hoverTimer.current) clearTimeout(hoverTimer.current);
@@ -116,17 +115,18 @@ export default function Sidebar() {
     };
   }, []);
 
-  // injecção de CSS (SSR-safe)
+  // injecção CSS (SSR safe)
   const [injectCss, setInjectCss] = useState(false);
   useEffect(() => setInjectCss(true), []);
 
   return (
     <>
-      {/* RAIL (coluna do grid) */}
+      {/* RAIL */}
       <aside
         className="fp-sidebar"
         data-pinned={pinned ? "true" : "false"}
         data-mini={isMini ? "true" : "false"}
+        data-overlay={overlayOpen ? "true" : "false"}
         style={{
           position: "sticky",
           top: 0,
@@ -135,16 +135,18 @@ export default function Sidebar() {
           borderRight: "1px solid var(--border)",
           background: "var(--sidebar-bg)",
           width: railWidth,
-          transition: "width 280ms cubic-bezier(.22,.61,.36,1)",
+          transition: `width ${ANIM_MS}ms cubic-bezier(.22,.61,.36,1)`,
           display: "grid",
           gridTemplateRows: "auto 1fr",
           zIndex: 30,
+          // corta quaisquer “balões”/pseudo-elements que saiam do rail
+          overflow: "hidden",
         }}
         aria-label="Sidebar"
         onMouseEnter={onMouseEnterRail}
         onMouseLeave={onMouseLeaveRail}
       >
-        {/* Cabeçalho do rail */}
+        {/* cabeçalho */}
         <div
           className="fp-sb-head"
           style={{
@@ -176,22 +178,20 @@ export default function Sidebar() {
             >
               💪
             </span>
-
-            {/* Removido o subtítulo "Navegação" */}
             {railWidth > RAIL_W && (
               <div style={{ fontWeight: 800, fontSize: 14, lineHeight: 1.1 }}>Fitness Pro</div>
             )}
           </div>
 
           <div className="fp-sb-actions" style={{ display: "inline-flex", gap: 6 }}>
-            {/* Menu / recolher/expandir (fica dentro da sidebar) */}
+            {/* recolher/expandir */}
             <button
               className="btn icon"
               aria-label={collapsed ? "Expandir sidebar" : "Recolher sidebar"}
               title={collapsed ? "Expandir" : "Recolher"}
               onClick={() => {
                 if (!pinned) {
-                  setOverlayOpen(true); // no modo desafixado abre o flyout
+                  setOverlayOpen(true);
                   return;
                 }
                 toggleCollapsed();
@@ -199,8 +199,7 @@ export default function Sidebar() {
             >
               <span aria-hidden>≡</span>
             </button>
-
-            {/* Afixar / Desafixar */}
+            {/* afixar/desafixar */}
             <button
               className="btn icon"
               aria-label={pinned ? "Desafixar sidebar" : "Afixar sidebar"}
@@ -212,21 +211,23 @@ export default function Sidebar() {
           </div>
         </div>
 
-        {/* CSS: esconder labels quando mini (desafixada OU recolhida) */}
+        {/* CSS para modo MINI */}
         {injectCss && (
           <style jsx global>{`
+            /* no modo mini escondemos labels e headings de grupo */
             .fp-sidebar[data-mini="true"] .nav-label { display: none !important; }
             .fp-sidebar[data-mini="true"] .nav-item { grid-template-columns: 24px !important; }
+            .fp-sidebar[data-mini="true"] .nav-section { display: none !important; }
           `}</style>
         )}
 
-        {/* Navegação */}
+        {/* navegação */}
         <div style={{ overflow: "auto", padding: 8 }}>
           <Menu data={data as any} />
         </div>
       </aside>
 
-      {/* SCRIM + FLYOUT quando DESAFIXADA e aberta */}
+      {/* SCRIM + FLYOUT quando DESAFIXADA */}
       {!pinned && overlayOpen && (
         <>
           <div
@@ -260,7 +261,7 @@ export default function Sidebar() {
               display: "grid",
               gridTemplateRows: "auto 1fr",
               zIndex: 60,
-              animation: "fp-slide-in 280ms cubic-bezier(.22,.61,.36,1)",
+              animation: `fp-slide-in ${ANIM_MS}ms cubic-bezier(.22,.61,.36,1)`,
             }}
           >
             <div
@@ -314,7 +315,7 @@ export default function Sidebar() {
 
           <style jsx global>{`
             @keyframes fp-slide-in {
-              from { transform: translateX(-10px); opacity: .0; }
+              from { transform: translateX(-14px); opacity: .0; }
               to   { transform: translateX(0);      opacity: 1;  }
             }
           `}</style>
