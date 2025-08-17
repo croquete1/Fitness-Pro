@@ -1,25 +1,29 @@
 "use client";
+
 import React from "react";
-import Link from "next/link";
-import Image from "next/image";
-import {useSidebar} from "./sidebar/SidebarCtx";
+import { useSidebar } from "./sidebar/SidebarCtx";
+import Logo from "@/components/layout/Logo";
 
-/** IMPORTA os teus dados/estruturas existentes */
-import { GROUPS } from "./sidebar/data";   // <- mantém como já tens (ícones, rotas, etc.)
+/**
+ * Este componente só trata do cabeçalho e dos botões (Afixar / Recolher).
+ * A lista de itens/grupos continua a ser renderizada pelo teu Menu.tsx,
+ * preservando 100% os ícones e a estrutura original.
+ */
+const Menu = React.lazy(() => import("@/components/sidebar/Menu"));
 
-export default function Sidebar(){
+export default function Sidebar() {
   const { pinned, collapsed, togglePinned, toggleCollapsed } = useSidebar();
 
   return (
     <nav>
-      {/* Cabeçalho da sidebar (logo + ações). Sem “Menu”. */}
+      {/* Cabeçalho da sidebar: sem botão "Menu"; só Afixar/Desafixar e Recolher/Expandir */}
       <div className="sb-head">
         <div className="flex items-center gap-2">
-          <Image src="/logo-64.png" alt="HMS" width={28} height={28} />
+          <Logo size={28} />
           {!collapsed && <strong>Menu</strong>}
         </div>
         <div className="sb-tools">
-          {/* Recolher/Expandir (fica fixa e mostra só ícones) */}
+          {/* Recolher/Expandir (mostra só ícones quando recolhida) */}
           <button
             type="button"
             className="iconbtn"
@@ -29,6 +33,7 @@ export default function Sidebar(){
           >
             {collapsed ? "⤢" : "⤡"}
           </button>
+
           {/* Afixar / Desafixar */}
           <button
             type="button"
@@ -42,24 +47,10 @@ export default function Sidebar(){
         </div>
       </div>
 
-      {/* Secções e itens. Mantém os teus ícones */}
-      {GROUPS.map((g) => (
-        <div key={g.key}>
-          <div className="sb-section">{g.title}</div>
-          {g.items.map((it) => (
-            <Link
-              key={it.href}
-              href={it.href}
-              className={`sb-item ${it.current ? "current" : ""}`}
-              title={it.title}
-            >
-              <span className="ico">{it.icon /* já vinham do teu projeto */}</span>
-              <span className="label">{it.title}</span>
-              {it.hasChildren && <span className="label">›</span>}
-            </Link>
-          ))}
-        </div>
-      ))}
+      {/* Lista de navegação original (com os teus ícones) */}
+      <React.Suspense fallback={null}>
+        <Menu />
+      </React.Suspense>
     </nav>
   );
 }
