@@ -1,106 +1,88 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Sidebar from "./Sidebar";
 
+/** --- Contexto partilhado (collapsed/overlay) --- */
+type Ctx = {
+  collapsed: boolean;
+  setCollapsed: (v: boolean) => void;
+  overlayOpen: boolean;
+  setOverlayOpen: (v: boolean) => void;
+};
+const SidebarCtx = createContext<Ctx | null>(null);
+export function useSidebarState() {
+  const v = useContext(SidebarCtx);
+  if (!v) throw new Error("SidebarCtx not mounted");
+  return v;
+}
+
+/** --- Wrapper do layout (sidebar + conteúdo) --- */
 export default function SidebarWrapper({ children }: { children: React.ReactNode }) {
-  const [pinned, setPinned] = useState<boolean>(true);
-  const [collapsed, setCollapsed] = useState<boolean>(false);
-  const [open, setOpen] = useState<boolean>(false);
-  const [isMobile, setIsMobile] = useState<boolean>(false);
+  const [collapsed, setCollapsed] = useState(false);     // estado “fixo” (click)
+  const [overlayOpen, setOverlayOpen] = useState(false); // mobile off-canvas
+  const [isMobile, setIsMobile] = useState(false);
 
-  // carregar preferências
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const p = localStorage.getItem("fp_pinned");
-    const c = localStorage.getItem("fp_collapsed");
-    setPinned(p !== "false");
-    setCollapsed(c === "true");
-  }, []);
+  // Hover intent: expande temporariamente quando está recolhida
+  const [hoverExpand, setHoverExpand] = useState(false);
+  const enterT = useRef<number>();
+  const leaveT = useRef<number>();
 
-  // media query para mobile
   useEffect(() => {
-    if (typeof window === "undefined") return;
     const mq = window.matchMedia("(max-width: 1023.98px)");
-    const apply = () => setIsMobile(mq.matches);
-    apply();
-    mq.addEventListener("change", apply);
-    return () => mq.removeEventListener("change", apply);
+    const handle = () => setIsMobile(mq.matches);
+    handle();
+    mq.addEventListener?.("change", handle);
+    return () => mq.removeEventListener?.("change", handle);
   }, []);
 
-  // guardar preferências
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    localStorage.setItem("fp_pinned", String(pinned));
-    localStorage.setItem("fp_collapsed", String(collapsed));
-  }, [pinned, collapsed]);
+  // Quando não mobile, garantir overlay fechado
+  useEffect(() => { if (!isMobile) setOverlayOpen(false); }, [isMobile]);
 
-  const overlay = !pinned || isMobile;
+  // “collapsed efetivo”: só colapsa se estiver collapsed e não em hoverExpand
+  const effectiveCollapsed = collapsed && !hoverExpand;
 
-  // hover-peek quando pinada & colapsada
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    const el = document.querySelector(".fp-hover-hotspot");
-    if (!el) return;
-    const onEnter = () => {
-      if (pinned && collapsed && !overlay) {
-        document.documentElement.setAttribute("data-sidebar", "open");
-      }
-    };
-    const onLeave = () => {
-      if (pinned && collapsed && !overlay) {
-        document.documentElement.removeAttribute("data-sidebar");
-      }
-    };
-    el.addEventListener("mouseenter", onEnter);
-    el.addEventListener("mouseleave", onLeave);
-    return () => {
-      el.removeEventListener("mouseenter", onEnter);
-      el.removeEventListener("mouseleave", onLeave);
-    };
-  }, [pinned, collapsed, overlay]);
+  // atributos data-* (tipados via any para agradar ao TS)
+  const shellAttrs = useMemo(
+    () =>
+      ({
+        className: "fp-shell",
+        "data-collapsed": effectiveCollapsed ? "true" : undefined,
+        "data-overlay-open": overlayOpen ? "true" : undefined,
+      } as any),
+    [effectiveCollapsed, overlayOpen]
+  );
 
-  const toggleCollapse = useCallback(() => setCollapsed((v) => !v), []);
-  const openOverlay = useCallback(() => setOpen(true), []);
-  const closeOverlay = useCallback(() => setOpen(false), []);
+  const onAsideEnter = () => {
+    if (isMobile) return;                 // sem hover em mobile
+    if (!collapsed) return;               // se não está recolhida, ignora
+    window.clearTimeout(leaveT.current);
+    enterT.current = window.setTimeout(() => setHoverExpand(true), 120);
+  };
+  const onAsideLeave = () => {
+    if (isMobile) return;
+    window.clearTimeout(enterT.current);
+    leaveT.current = window.setTimeout(() => setHoverExpand(false), 100);
+  };
 
   return (
-    <div
-      className="fp-shell"
-      data-pinned={pinned ? "true" : "false"}
-      data-collapsed={pinned && collapsed ? "true" : "false"}
-      data-overlay={overlay ? "true" : "false"}
-      data-open={open ? "true" : "false"}
-    >
-      {/* HEADER */}
-      <header className="fp-header">
-        {/* Botão hamburger (abre overlay em mobile/solta; colapsa/expande quando pinada) */}
-        <button
-          type="button"
-          className="btn-ghost pill"
-          onClick={overlay ? (open ? closeOverlay : openOverlay) : toggleCollapse}
-          aria-label={overlay ? (open ? "Fechar menu" : "Abrir menu") : (collapsed ? "Expandir sidebar" : "Recolher sidebar")}
-        >
-          <span aria-hidden="true">{overlay ? (open ? "✖" : "☰") : (collapsed ? "▤" : "▮▮")}</span>
-        </button>
+    <SidebarCtx.Provider value={{ collapsed, setCollapsed, overlayOpen, setOverlayOpen }}>
+      <div className="fp-shell-wrapper">
+        <div {...shellAttrs}>
+          <aside
+            className="fp-sidebar"
+            aria-label="Menu principal"
+            onMouseEnter={onAsideEnter}
+            onMouseLeave={onAsideLeave}
+          >
+            <Sidebar />
+          </aside>
 
-        {/* Espaço à direita para ações (placeholder) */}
-        <div style={{ marginLeft: "auto" }} />
-      </header>
+          <div className="fp-overlay" onClick={() => setOverlayOpen(false)} />
 
-      {/* HOTSPOT para hover-peek quando pinada+colapsada */}
-      <div className="fp-hover-hotspot" aria-hidden="true" />
-
-      {/* OVERLAY */}
-      <div className="fp-overlay" onClick={closeOverlay} />
-
-      {/* SIDEBAR */}
-      <aside className="fp-sidebar" role="complementary" aria-label="Sidebar de navegação" onClick={overlay ? closeOverlay : undefined}>
-        <Sidebar />
-      </aside>
-
-      {/* CONTEÚDO */}
-      <main className="fp-content">{children}</main>
-    </div>
+          <main className="fp-main">{children}</main>
+        </div>
+      </div>
+    </SidebarCtx.Provider>
   );
 }

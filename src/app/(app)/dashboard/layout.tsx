@@ -1,24 +1,12 @@
-import type { ReactNode } from "react";
-import { SidebarStateProvider } from "@/components/sidebar/SidebarState";
+// src/app/(app)/dashboard/layout.tsx
+import AppHeader from "@/components/layout/AppHeader";
 import SidebarWrapper from "@/components/SidebarWrapper";
-import HeaderBridge from "@/components/HeaderBridge";
 
-export default function AppLayout({ children }: { children: ReactNode }) {
+export default function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt">
-      <body>
-        <SidebarStateProvider>
-          {/* O teu header pode incluir o HeaderBridge (opcional): */}
-          <div className="fp-header">
-            <HeaderBridge />
-            {/* ... resto do teu header (search, logout, etc.) ... */}
-          </div>
-
-          <SidebarWrapper>
-            {children}
-          </SidebarWrapper>
-        </SidebarStateProvider>
-      </body>
-    </html>
+    <div className="fp-page">
+      <AppHeader />
+      <SidebarWrapper>{children}</SidebarWrapper>
+    </div>
   );
 }
