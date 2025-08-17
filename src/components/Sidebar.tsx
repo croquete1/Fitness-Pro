@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import Menu from "./sidebar/Menu";
-// 👇 usa o named import do hook (NÃO o default)
-import { useSidebarState } from "./SidebarWrapper";
+import useSidebarState from "./SidebarWrapper";
 
 type Role = any;
 type Item = {
@@ -33,11 +32,10 @@ const ICON = {
   users: "👥",
   reports: "📈",
   settings: "⚙️",
-  system: "🖥️",
   health: "🛟",
 };
 
-function buildMenu(_role?: Role): Entry[] {
+function buildMenu(): Entry[] {
   return [
     {
       kind: "group",
@@ -45,7 +43,7 @@ function buildMenu(_role?: Role): Entry[] {
       items: [
         { kind: "item", href: "/dashboard", label: "Dashboard", icon: ICON.dashboard, activeExact: true },
         { kind: "item", href: "/dashboard/reports", label: "Relatórios", icon: ICON.reports },
-        { kind: "item", href: "/dashboard/settings", label: "Definições", icon: ICON.settings },
+        { kind: "item", href: "/dashboard/settings", label: "Definições", icon: ICON.settings, activeExact: true },
       ],
     },
     {
@@ -74,99 +72,54 @@ function buildMenu(_role?: Role): Entry[] {
 }
 
 export default function Sidebar() {
-  const {
-    pinned,
-    collapsed,
-    togglePinned,
-    toggleCollapsed,
-    overlayOpen,
-    closeOverlay,
-  } = useSidebarState();
+  const { pinned, collapsed, togglePinned } = useSidebarState();
+  const [peek, setPeek] = useState(false);
 
-  // menu estável (sem deps desnecessárias)
-  const data = useMemo(() => buildMenu(undefined), []);
+  // Dados do menu (estáveis)
+  const data = useMemo(() => buildMenu(), []);
+
+  const canPeek = collapsed && !pinned;
 
   return (
     <aside
       className="fp-sidebar"
       data-pinned={pinned ? "true" : "false"}
       data-collapsed={collapsed ? "true" : "false"}
+      data-peek={peek ? "true" : "false"}
+      onMouseEnter={() => canPeek && setPeek(true)}
+      onMouseLeave={() => canPeek && setPeek(false)}
       style={{
         position: "sticky",
         top: 0,
         alignSelf: "start",
         height: "100dvh",
-        borderRight: "1px solid var(--border)",
-        background: "var(--sidebar-bg)",
-        width: collapsed ? 72 : 260,
-        transition: "width 200ms ease",
+        zIndex: 30,
         display: "grid",
         gridTemplateRows: "auto 1fr",
-        zIndex: 30,
       }}
       aria-label="Sidebar de navegação"
     >
-      {/* Cabeçalho da sidebar */}
-      <div
-        className="fp-sb-head"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr auto",
-          alignItems: "center",
-          padding: 10,
-          gap: 8,
-          borderBottom: "1px solid var(--border)",
-          minHeight: 56,
-        }}
-      >
-        <div className="fp-sb-brand" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span
-            aria-hidden
-            className="logo"
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: 10,
-              background:
-                "linear-gradient(180deg, rgba(79,70,229,.25), rgba(79,70,229,.06))",
-              border: "1px solid color-mix(in oklab, var(--primary) 35%, var(--border))",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 16,
-            }}
-          >
-            💪
-          </span>
-          {!collapsed && (
-            <div style={{ lineHeight: 1.1 }}>
-              <div style={{ fontWeight: 800, fontSize: 14 }}>Fitness Pro</div>
-              <div className="text-muted" style={{ fontSize: 12 }}>
-                Navegação
-              </div>
-            </div>
-          )}
+      {/* Cabeçalho */}
+      <div className="fp-sb-head">
+        <div className="fp-sb-brand">
+          <span className="logo" aria-hidden>💪</span>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 14 }}>Fitness Pro</div>
+            <div className="text-muted" style={{ fontSize: 12 }}>Navegação</div>
+          </div>
         </div>
 
-        {/* Botões: fixar e encolher/expandir */}
-        <div className="fp-sb-actions" style={{ display: "inline-flex", gap: 6 }}>
+        <div className="fp-sb-actions">
+          {/* Afixar/Desafixar */}
           <button
             type="button"
             className="btn icon"
             onClick={togglePinned}
-            title={pinned ? "Desafixar" : "Fixar"}
             aria-pressed={pinned}
+            aria-label={pinned ? "Desafixar sidebar" : "Afixar sidebar"}
+            title={pinned ? "Desafixar" : "Afixar"}
           >
-            📌
-          </button>
-          <button
-            type="button"
-            className="btn icon"
-            onClick={toggleCollapsed}
-            title={collapsed ? "Expandir" : "Encolher"}
-            aria-pressed={collapsed}
-          >
-            {collapsed ? "⟩" : "⟨"}
+            {pinned ? "📌" : "📍"}
           </button>
         </div>
       </div>
@@ -175,21 +128,6 @@ export default function Sidebar() {
       <div style={{ overflow: "auto", padding: 8 }}>
         <Menu data={data} />
       </div>
-
-      {/* Overlay para modo “drawer” em mobile quando não fixo */}
-      {overlayOpen && !pinned && (
-        <div
-          onClick={closeOverlay}
-          aria-hidden="true"
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(2,6,23,.45)",
-            backdropFilter: "blur(2px)",
-            zIndex: 20,
-          }}
-        />
-      )}
     </aside>
   );
 }

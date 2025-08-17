@@ -31,12 +31,15 @@ body {
 
   --radius: 12px;
   --shadow-1: 0 2px 8px rgba(15,23,42,.06), 0 1px 3px rgba(15,23,42,.04);
+
+  /* largura dinâmica da sidebar */
+  --sb-w: 260px;
+  --sb-w-collapsed: 72px;
 }
 
-/* wrapper opcional para páginas de auth */
 [data-auth-root] { min-height: 100dvh; }
 
-/* ===== Dark theme (opcional) ===== */
+/* ===== Dark theme ===== */
 [data-theme="dark"] {
   --bg: #0d1117;
   --card: #0f141b;
@@ -121,7 +124,15 @@ input:focus, select:focus, textarea:focus {
   color: var(--sidebar-fg);
   border-right: 1px solid var(--border);
   box-shadow: var(--shadow-1);
+
+  /* animação de expandir/recolher */
+  width: var(--sb-w);
+  transition:
+    width .22s cubic-bezier(.2,.8,.2,1),
+    box-shadow .18s ease;
 }
+.fp-sidebar[data-collapsed="true"] { --sb-w: var(--sb-w-collapsed); }
+.fp-sidebar[data-collapsed="true"][data-peek="true"] { --sb-w: 260px; }
 
 .fp-sb-head {
   display: grid;
@@ -150,6 +161,7 @@ input:focus, select:focus, textarea:focus {
   color: var(--sidebar-muted);
   font-size: 12px;
   text-transform: uppercase;
+  transition: opacity .18s ease;
 }
 .nav-item {
   display: grid;
@@ -159,30 +171,21 @@ input:focus, select:focus, textarea:focus {
   padding: 9px 10px;
   border-radius: 12px;
   color: var(--sidebar-fg);
+  transition: background .15s ease;
 }
 .nav-item:hover { background: var(--sidebar-hover); }
 .nav-item[data-active="true"] { background: var(--sidebar-active); }
 .nav-icon { display: inline-flex; width: 24px; justify-content: center; }
+.nav-label { transition: opacity .18s ease; }
 
-/* <details> usado para grupos (compat) */
-.fp-sidebar details { border: 0; padding: 0; }
-.fp-sidebar summary {
-  list-style: none; cursor: pointer;
-  display: grid; grid-template-columns: 1fr auto;
-  align-items: center; padding: 8px 10px; border-radius: 10px;
-}
-.fp-sidebar summary::-webkit-details-marker { display: none; }
-.fp-sidebar details[open] > summary { background: var(--sidebar-hover); }
-.fp-sidebar .group-items { display: grid; gap: 4px; padding: 4px 0 0 0; }
+/* Estado colapsado: oculta labels/sections — mas permite "peek" */
+.fp-sidebar[data-collapsed="true"] .nav-label { opacity: 0; pointer-events: none; }
+.fp-sidebar[data-collapsed="true"] .nav-section { opacity: 0; height: 0; overflow: hidden; }
+.fp-sidebar[data-collapsed="true"] .nav-item { grid-template-columns: 24px; justify-content: center; }
 
-/* Sidebar colapsada: só ícones */
-.fp-sidebar[data-collapsed="true"] .nav-label { display: none; }
-.fp-sidebar[data-collapsed="true"] .nav-section { display: none; }
-.fp-sidebar[data-collapsed="true"] .nav-item {
-  grid-template-columns: 24px;
-  justify-content: center;
-  padding: 10px 12px;
-}
+/* Em peek, volta a mostrar labels/sections */
+.fp-sidebar[data-collapsed="true"][data-peek="true"] .nav-label { opacity: 1; pointer-events: auto; }
+.fp-sidebar[data-collapsed="true"][data-peek="true"] .nav-section { opacity: 1; height: auto; }
 
 /* ===== Cartões / Dashboard ===== */
 .card {
