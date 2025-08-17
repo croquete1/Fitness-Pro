@@ -1,47 +1,48 @@
 import { NextResponse } from "next/server";
 import prismaAny from "@/lib/prisma";
-const prisma: any = (prismaAny as any).prisma ?? (prismaAny as any).default ?? prismaAny;
 
-async function isAdmin() {
-  try {
-    const { getServerSession } = await import("next-auth");
-    // @ts-ignore
-    const auth = await import("@/lib/auth");
-    const session = await getServerSession((auth as any).authOptions ?? (auth as any).default ?? (auth as any));
-    return (session as any)?.user?.role === "ADMIN";
-  } catch {
-    return true;
+const prisma: any =
+  (prismaAny as any).prisma ??
+  (prismaAny as any).default ??
+  prismaAny;
+
+const CANDIDATE_USER_MODELS = ["user", "User", "accountUser", "AccountUser"];
+
+function firstModel(names: string[]) {
+  for (const n of names) {
+    const m = (prisma as any)[n];
+    if (m && typeof m.update === "function") return n;
   }
+  return null;
 }
 
-export async function PATCH(_req: Request, ctx: { params: { id: string } }) {
-  if (!(await isAdmin())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+export async function PATCH(req: Request, ctx: { params: { id: string } }) {
+  const idRaw = ctx.params.id;
+  const body = await req.json().catch(() => ({} as any));
+  const model = firstModel(CANDIDATE_USER_MODELS);
+  if (!model) return NextResponse.json({ error: "User model not found" }, { status: 500 });
 
-  const id = ctx.params.id;
-  const body = await _req.json().catch(() => ({} as any));
-
-  // Campos permitidos
+  // só inclui campos fornecidos
   const data: any = {};
-  if (typeof body.name === "string") data.name = body.name;
-  if (typeof body.email === "string") data.email = body.email;
-  if (typeof body.role === "string") data.role = body.role;          // ADMIN | TRAINER | CLIENT
-  if (typeof body.status === "string") data.status = body.status;    // ACTIVE | PENDING | SUSPENDED
+  if (typeof body.name !== "undefined") data.name = body.name;
+  if (typeof body.email !== "undefined") data.email = body.email;
+  if (typeof body.role !== "undefined") data.role = String(body.role).toUpperCase();
+  if (typeof body.status !== "undefined") data.status = String(body.status).toUpperCase();
 
+  // tenta id string; se falhar, tenta numérico
   try {
-    const updated = await prisma.user.update({ where: { id }, data });
-    return NextResponse.json(updated);
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Update failed" }, { status: 400 });
-  }
-}
-
-export async function DELETE(_req: Request, ctx: { params: { id: string } }) {
-  if (!(await isAdmin())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  const id = ctx.params.id;
-  try {
-    await prisma.user.delete({ where: { id } });
-    return NextResponse.json({ ok: true });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Delete failed" }, { status: 400 });
+    const updated = await (prisma as any)[model].update({ where: { id: idRaw }, data });
+    return NextResponse.json({ data: updated });
+  } catch {
+    const n = Number(idRaw);
+    if (!Number.isNaN(n)) {
+      try {
+        const updated = await (prisma as any)[model].update({ where: { id: n }, data });
+        return NextResponse.json({ data: updated });
+      } catch (e: any) {
+        return NextResponse.json({ error: e?.message ?? "Update failed" }, { status: 400 });
+      }
+    }
+    return NextResponse.json({ error: "Update failed" }, { status: 400 });
   }
 }
