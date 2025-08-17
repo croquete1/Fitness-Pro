@@ -1,15 +1,17 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Sidebar from "./Sidebar";
 import MobileSidebarController from "./MobileSidebarController";
 
 export default function SidebarWrapper({ children }: { children: React.ReactNode }) {
-  const [open, setOpen] = useState(false);
+  const [pinned, setPinned] = useState(false);     // clicado no botão
+  const [hoverOpen, setHoverOpen] = useState(false); // abre ao aproximar o rato
   const [isMobile, setIsMobile] = useState(false);
+  const open = pinned || hoverOpen;
 
-  const closeSidebar = useCallback(() => setOpen(false), []);
-  const toggleSidebar = useCallback(() => setOpen(v => !v), []);
+  const closeHover = useCallback(() => setHoverOpen(false), []);
+  const openHover  = useCallback(() => { if (!pinned && !isMobile) setHoverOpen(true); }, [pinned, isMobile]);
 
   useEffect(() => {
     const compute = () => setIsMobile(typeof window !== "undefined" && window.innerWidth < 1024);
@@ -25,13 +27,33 @@ export default function SidebarWrapper({ children }: { children: React.ReactNode
     return () => root.removeAttribute("data-sidebar");
   }, [open, isMobile]);
 
+  // Fecha hover quando o mouse sai do aside
+  const hoverTimeout = useRef<number | null>(null);
+  const onAsideLeave = () => {
+    if (hoverTimeout.current) window.clearTimeout(hoverTimeout.current);
+    hoverTimeout.current = window.setTimeout(() => setHoverOpen(false), 120);
+  };
+
+  const shellClass = useMemo(() => `fp-shell ${open ? "" : "is-collapsed"}`, [open]);
+
   return (
-    <div className={`fp-shell ${open ? "" : "is-collapsed"}`}>
-      <Sidebar open={open} onClose={closeSidebar} onToggle={toggleSidebar} />
-      <MobileSidebarController onClose={closeSidebar} />
-      <main style={{ width: "100%", height: "100%", overflow: "auto" }}>
-        {children}
-      </main>
-    </div>
+    <>
+      {/* strip invisível que abre a sidebar ao aproximar o rato (desktop) */}
+      {!isMobile && !pinned && <div className="fp-hover-strip" onMouseEnter={openHover} />}
+
+      <div className={shellClass}>
+        <Sidebar
+          open={open}
+          onClose={() => { setPinned(false); setHoverOpen(false); }}
+          onToggle={() => setPinned(p => !p)}  /* pin/unpin */
+          onMouseLeave={onAsideLeave}
+          onMouseEnter={openHover}
+        />
+        <MobileSidebarController onClose={() => { setPinned(false); setHoverOpen(false); }} />
+        <main style={{ width: "100%", height: "100%", overflow: "auto" }}>
+          {children}
+        </main>
+      </div>
+    </>
   );
 }

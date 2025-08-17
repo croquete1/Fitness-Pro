@@ -1,9 +1,6 @@
-// src/app/(app)/dashboard/page.tsx
-import AdminHome from "@/components/dashboard/AdminHome";
-
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
-export default async function DashboardHomePage() {
-  // Server component simples que delega os fetches ao client component
-  return <AdminHome />;
-}
+import DashboardClient from "./DashboardClient";
+export default function Page(){ return <DashboardClient/>; }

@@ -1,64 +1,53 @@
 import { NextResponse } from "next/server";
-
-// Suporta projetos que exportam `prisma` como default ou named.
 import prismaAny from "@/lib/prisma";
 const prisma: any = (prismaAny as any).prisma ?? (prismaAny as any).default ?? prismaAny;
 
-// Tenta validar ADMIN; se não existir authOptions, não bloqueia (evita falhas em build).
-async function isAdmin() {
-  try {
-    const { getServerSession } = await import("next-auth");
-    // @ts-ignore
-    const auth = await import("@/lib/auth");
-    const session = await getServerSession((auth as any).authOptions ?? (auth as any).default ?? (auth as any));
-    const role = (session as any)?.user?.role ?? (session as any)?.role;
-    return role === "ADMIN";
-  } catch {
-    return true;
-  }
+function like(q: string) {
+  return { contains: q, mode: "insensitive" as const };
 }
 
 export async function GET(req: Request) {
-  if (!(await isAdmin())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
   const { searchParams } = new URL(req.url);
-  const page = Math.max(1, Number(searchParams.get("page") ?? 1));
+  const page  = Math.max(1, Number(searchParams.get("page")  ?? 1));
   const limit = Math.min(100, Math.max(1, Number(searchParams.get("limit") ?? 20)));
-  const q = (searchParams.get("q") ?? "").trim();
-  const role = searchParams.get("role") || undefined;      // ADMIN | TRAINER | CLIENT
-  const status = searchParams.get("status") || undefined;  // ACTIVE | PENDING | SUSPENDED
-  const order = (searchParams.get("order") ?? "createdAt:desc").split(":");
-  const orderBy: any = { [order[0] || "createdAt"]: (order[1] as any) === "asc" ? "asc" : "desc" };
+  const q     = (searchParams.get("q") ?? "").trim();
+  const role  = searchParams.get("role");   // optional
+  const status= searchParams.get("status"); // optional
 
-  const where: any = {};
-  if (role && role !== "ALL") where.role = role;
-  if (status && status !== "ALL") where.status = status;
-  if (q) {
-    where.OR = [
-      { name: { contains: q, mode: "insensitive" } },
-      { email: { contains: q, mode: "insensitive" } },
-      { role: { contains: q, mode: "insensitive" } },
-    ];
-  }
+  // 1) tentar com where "rico"; se falhar (colunas não existem), cai para um where simples
+  const whereRich: any = {};
+  if (q) whereRich.OR = [{ name: like(q) }, { email: like(q) }, { role: like(q) }];
+  if (role && role !== "ALL") whereRich.role = role;
+  if (status && status !== "ALL") whereRich.status = status;
 
-  const [total, items] = await Promise.all([
-    prisma.user.count({ where }),
-    prisma.user.findMany({
-      where,
-      orderBy,
+  let items: any[] = [];
+  let total = 0;
+
+  try {
+    total = await prisma.user.count({ where: whereRich });
+    items = await prisma.user.findMany({
+      where: whereRich,
+      orderBy: { createdAt: "desc" },
       skip: (page - 1) * limit,
       take: limit,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        status: true,
-        createdAt: true,
-        lastLoginAt: true,
-      },
-    }),
-  ]);
+    });
+  } catch {
+    // Fallback — schema sem role/status/createdAt
+    const whereSimple: any = q ? { OR: [{ name: like(q) }, { email: like(q) }] } : {};
+    total = await prisma.user.count({ where: whereSimple });
+    items = await prisma.user.findMany({
+      where: whereSimple,
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+  }
+
+  // Normalização de campos ausentes (status/role)
+  items = items.map((u: any) => ({
+    ...u,
+    status: u.status ?? (u.emailVerified ? "ACTIVE" : "PENDING"),
+    role:   u.role   ?? "CLIENT",
+  }));
 
   const res = NextResponse.json({ data: items, total });
   res.headers.set("x-total-count", String(total));

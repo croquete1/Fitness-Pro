@@ -1,11 +1,25 @@
-import React from "react";
+import "@/app/globals.css";
 import SidebarWrapper from "@/components/SidebarWrapper";
+import Topbar from "@/components/Topbar";
+import { useMe } from "@/hooks/useMe";
 
-// Impede SSG/Prerender neste segmento (usa SSR/edge em runtime)
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-export const fetchCache = "force-no-store";
+export const metadata = { title: "Dashboard • Fitness Pro" };
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  return <SidebarWrapper>{children}</SidebarWrapper>;
+function HeaderBridge() {
+  // pequeno client wrapper para obter role do utilizador no topo
+  const { user } = useMe();
+  return <Topbar role={user?.role ?? null} />;
+}
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="pt">
+      <body>
+        <HeaderBridge />
+        <SidebarWrapper>
+          {children}
+        </SidebarWrapper>
+      </body>
+    </html>
+  );
 }
