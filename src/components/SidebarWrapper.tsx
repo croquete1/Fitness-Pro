@@ -9,64 +9,83 @@ import React, {
   useState,
 } from "react";
 
-/** Contexto da sidebar */
+/** Estado partilhado da sidebar */
 type SidebarCtx = {
-  pinned: boolean;            // afixada (reserva a largura total)
-  collapsed: boolean;         // rail compacto (64px)
-  overlayOpen: boolean;       // painel temporário aberto (quando não afixada)
-  togglePinned: () => void;
-  toggleCollapsed: () => void;
-  openOverlay: () => void;
-  closeOverlay: () => void;
-  setCollapsed: (v: boolean) => void;
+  /** Se está “afixada” (fixa). Quando não está afixada, abre por overlay ao passar o rato. */
+  pinned: boolean;
+  /** Se está recolhida (rail). */
+  collapsed: boolean;
+  /** Overlay aberto (apenas quando !pinned). */
+  overlayOpen: boolean;
+
+  /** Ações */
+  togglePinned(): void;
+  toggleCollapsed(): void;
+  openOverlay(): void;
+  closeOverlay(): void;
+  setOverlayOpen(v: boolean): void;
 };
 
 const SidebarContext = createContext<SidebarCtx | null>(null);
 
-const LS = {
-  pinned: "fp:sb:pinned",
-  collapsed: "fp:sb:collapsed",
-};
+/** key com “v2” para evitar lixo antigo */
+const STORAGE_KEY = "fp.sidebar.v2";
 
-function readBool(key: string, fallback: boolean) {
-  if (typeof window === "undefined") return fallback;
-  const raw = window.localStorage.getItem(key);
-  if (raw == null) return fallback;
-  return raw === "1" || raw === "true";
+function readStored(): { pinned: boolean; collapsed: boolean } {
+  if (typeof window === "undefined")
+    return { pinned: true, collapsed: false };
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return { pinned: true, collapsed: false };
+    const parsed = JSON.parse(raw);
+    return {
+      pinned: typeof parsed.pinned === "boolean" ? parsed.pinned : true,
+      collapsed:
+        typeof parsed.collapsed === "boolean" ? parsed.collapsed : false,
+    };
+  } catch {
+    return { pinned: true, collapsed: false };
+  }
 }
 
-/** Provider com persistência em localStorage */
+function writeStored(v: { pinned: boolean; collapsed: boolean }) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(v));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Provider (default export). O hook é exportado com nome. */
 export default function SidebarProvider({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // preferências do utilizador (persistentes)
-  const [pinned, setPinned] = useState<boolean>(() => readBool(LS.pinned, true));
-  const [collapsed, setCollapsed] = useState<boolean>(() =>
-    readBool(LS.collapsed, false)
-  );
-
-  // estado efémero (hover quando não afixada)
+  const init = readStored();
+  const [pinned, setPinned] = useState(init.pinned);
+  const [collapsed, setCollapsed] = useState(init.collapsed);
   const [overlayOpen, setOverlayOpen] = useState(false);
 
+  /** persistir preferências do utilizador */
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem(LS.pinned, pinned ? "1" : "0");
-    }
-  }, [pinned]);
+    writeStored({ pinned, collapsed });
+  }, [pinned, collapsed]);
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem(LS.collapsed, collapsed ? "1" : "0");
-    }
-  }, [collapsed]);
+  const togglePinned = useCallback(() => {
+    setPinned((v) => !v);
+    // se deixar de estar afixada e estiver recolhida, fechamos o overlay
+    setOverlayOpen(false);
+  }, []);
 
-  const togglePinned = useCallback(() => setPinned((v) => !v), []);
-  const toggleCollapsed = useCallback(() => setCollapsed((v) => !v), []);
+  const toggleCollapsed = useCallback(() => {
+    setCollapsed((v) => !v);
+  }, []);
+
   const openOverlay = useCallback(() => setOverlayOpen(true), []);
   const closeOverlay = useCallback(() => setOverlayOpen(false), []);
 
+  /** dependências completas -> sem warning de `react-hooks/exhaustive-deps` */
   const value = useMemo(
     () => ({
       pinned,
@@ -76,7 +95,7 @@ export default function SidebarProvider({
       toggleCollapsed,
       openOverlay,
       closeOverlay,
-      setCollapsed,
+      setOverlayOpen,
     }),
     [
       pinned,
@@ -90,13 +109,14 @@ export default function SidebarProvider({
   );
 
   return (
-    <SidebarContext.Provider value={value}>{children}</SidebarContext.Provider>
+    <SidebarContext.Provider value={value}>
+      {children}
+    </SidebarContext.Provider>
   );
 }
 
-export function useSidebarState() {
+export function useSidebarState(): SidebarCtx {
   const ctx = useContext(SidebarContext);
-  if (!ctx)
-    throw new Error("useSidebarState deve ser usado dentro de SidebarProvider");
+  if (!ctx) throw new Error("useSidebarState must be used within SidebarProvider");
   return ctx;
 }

@@ -1,299 +1,268 @@
 "use client";
 
-import React, { useMemo } from "react";
-import Menu from "./sidebar/Menu";
+import React, { useMemo, useRef } from "react";
 import { useSidebarState } from "./SidebarWrapper";
+import Link from "next/link";
 
-/* Tipagens mínimas para o Menu existente */
-type Role = any;
-type Item = {
-  kind: "item";
-  href: string;
-  label: string;
-  icon?: React.ReactNode;
-  roles?: Role[];
-  activeExact?: boolean;
-};
-type Group = {
-  kind: "group";
-  label: string;
-  icon?: React.ReactNode;
-  roles?: Role[];
-  items: Item[];
-};
-type Entry = Item | Group;
-
-/* Ícones simples (mantém o teu estilo) */
+/** Ícones simples (emoji) – mantém os que combinámos */
 const ICON = {
   dashboard: "📊",
+  clients: "🧑‍🤝‍🧑",
   reports: "📈",
   settings: "⚙️",
-  clients: "🧑‍🤝‍🧑",
   plans: "📘",
   library: "📚",
   approvals: "✅",
   users: "👥",
-  system: "🖥️",
-  health: "🛟",
+  system: "🛟",
 };
 
-/* Dados do menu (sem regras de role para simplificar aqui) */
-function buildMenu(): Entry[] {
-  return [
-    {
-      kind: "group",
-      label: "Geral",
-      items: [
-        { kind: "item", href: "/dashboard", label: "Dashboard", icon: ICON.dashboard, activeExact: true },
-        { kind: "item", href: "/dashboard/reports", label: "Relatórios", icon: ICON.reports },
-        { kind: "item", href: "/dashboard/settings", label: "Definições", icon: ICON.settings },
-      ],
-    },
-    {
-      kind: "group",
-      label: "PT",
-      items: [
-        { kind: "item", href: "/dashboard/pt/clients", label: "Clientes", icon: ICON.clients },
-        { kind: "item", href: "/dashboard/pt/plans", label: "Planos", icon: ICON.plans },
-        { kind: "item", href: "/dashboard/pt/library", label: "Biblioteca", icon: ICON.library },
-      ],
-    },
-    {
-      kind: "group",
-      label: "Admin",
-      items: [
-        { kind: "item", href: "/dashboard/admin/approvals", label: "Aprovações", icon: ICON.approvals },
-        { kind: "item", href: "/dashboard/admin/users", label: "Utilizadores", icon: ICON.users },
-      ],
-    },
-    {
-      kind: "group",
-      label: "Sistema",
-      items: [{ kind: "item", href: "/dashboard/system/health", label: "Saúde do sistema", icon: ICON.health }],
-    },
-  ];
-}
+type NavItem = { href: string; label: string; icon: string; activeExact?: boolean };
+type NavSection = { title: string; items: NavItem[] };
 
-/* Ajuda a gerar a coluna de ícones (rail) com espaçamento consistente */
-function flattenIcons(entries: Entry[]): { href: string; icon: React.ReactNode; label: string }[] {
-  const out: { href: string; icon: React.ReactNode; label: string }[] = [];
-  for (const e of entries) {
-    if ((e as Group).items) {
-      for (const it of (e as Group).items) {
-        out.push({ href: it.href, icon: it.icon, label: it.label });
-      }
-    } else {
-      const it = e as Item;
-      out.push({ href: it.href, icon: it.icon, label: it.label });
-    }
-  }
-  return out;
-}
+const SECTIONS: NavSection[] = [
+  {
+    title: "GERAL",
+    items: [
+      { href: "/dashboard", label: "Dashboard", icon: ICON.dashboard, activeExact: true },
+      { href: "/dashboard/reports", label: "Relatórios", icon: ICON.reports },
+      { href: "/dashboard/settings", label: "Definições", icon: ICON.settings },
+    ],
+  },
+  {
+    title: "PT",
+    items: [
+      { href: "/dashboard/pt/clients", label: "Clientes", icon: ICON.clients },
+      { href: "/dashboard/pt/plans", label: "Planos", icon: ICON.plans },
+      { href: "/dashboard/pt/library", label: "Biblioteca", icon: ICON.library },
+    ],
+  },
+  {
+    title: "ADMIN",
+    items: [
+      { href: "/dashboard/admin/approvals", label: "Aprovações", icon: ICON.approvals },
+      { href: "/dashboard/admin/users", label: "Utilizadores", icon: ICON.users },
+    ],
+  },
+  {
+    title: "SISTEMA",
+    items: [{ href: "/dashboard/system/health", label: "Saúde do sistema", icon: ICON.system }],
+  },
+];
+
+const RAIL_W = 64;      // rail compacto
+const FULL_W = 264;     // sidebar expandida
+const SPEED = 420;      // ms – mais suave
 
 export default function Sidebar() {
   const {
     pinned,
     collapsed,
     overlayOpen,
-    togglePinned,
-    toggleCollapsed,
     openOverlay,
     closeOverlay,
+    toggleCollapsed,
+    togglePinned,
   } = useSidebarState();
 
-  const data = useMemo(() => buildMenu(), []);
-  const icons = useMemo(() => flattenIcons(data), [data]);
+  /** aberta de facto (largura grande) – quando está afixada e não recolhida
+   *  ou quando está a mostrar overlay (não afixada)
+   */
+  const expanded =
+    (pinned && !collapsed) || (!pinned && overlayOpen);
 
-  const railW = 64;
-  const fullW = 260;
+  /** mouse leave com pequeno atraso para não "cortar" a animação */
+  const leaveTimer = useRef<number | null>(null);
+  const onEnter = () => {
+    if (!pinned && collapsed) openOverlay();
+    if (leaveTimer.current) {
+      window.clearTimeout(leaveTimer.current);
+      leaveTimer.current = null;
+    }
+  };
+  const onLeave = () => {
+    if (!pinned && collapsed) {
+      leaveTimer.current = window.setTimeout(() => {
+        closeOverlay();
+      }, 120);
+    }
+  };
 
-  const showOverlay = !pinned && overlayOpen;
+  const sections = useMemo(() => SECTIONS, []);
 
   return (
-    <aside
-      className="fp-sidebar"
-      data-pinned={pinned ? "true" : "false"}
-      data-collapsed={collapsed ? "true" : "false"}
-      style={{
-        position: "sticky",
-        top: 0,
-        alignSelf: "start",
-        height: "100dvh",
-        borderRight: "1px solid var(--border)",
-        background: "var(--sidebar-bg)",
-        width: pinned ? (collapsed ? railW : fullW) : railW,
-        transition: "width 420ms cubic-bezier(.2,.8,.2,1)",
-        display: "grid",
-        gridTemplateRows: "auto 1fr",
-        zIndex: 50,
-      }}
-      aria-label="Sidebar de navegação"
-      onMouseEnter={() => { if (!pinned) openOverlay(); }}
-      onMouseLeave={() => { if (!pinned) closeOverlay(); }}
-    >
-      {/* Cabeçalho/brand da sidebar */}
-      <div
-        className="fp-sb-head"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr auto",
-          alignItems: "center",
-          padding: "10px",
-          gap: 8,
-          borderBottom: "1px solid var(--border)",
-          minHeight: 56,
-          background: "var(--sidebar-bg)",
-          position: "relative",
-          zIndex: 2,
-        }}
-      >
-        <div className="fp-sb-brand" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span
-            className="logo"
-            aria-hidden
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: 10,
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background:
-                "linear-gradient(180deg, rgba(79,70,229,.25), rgba(79,70,229,.06))",
-              border: "1px solid color-mix(in oklab, var(--primary) 35%, var(--border))",
-              fontSize: 16,
-            }}
-          >
-            💪
-          </span>
-          {pinned && !collapsed && (
-            <div style={{ lineHeight: 1.1 }}>
-              <div style={{ fontWeight: 800, fontSize: 14 }}>Fitness Pro</div>
-            </div>
-          )}
-        </div>
-
-        <div className="fp-sb-actions" style={{ display: "inline-flex", gap: 6 }}>
-          {/* botão expandir/encolher SEMPRE visível na sidebar */}
-          <button
-            className="btn icon"
-            onClick={toggleCollapsed}
-            aria-label={collapsed ? "Expandir" : "Encolher"}
-            title={collapsed ? "Expandir" : "Encolher"}
-          >
-            ☰
-          </button>
-          {/* botão fixar/desafixar */}
-          <button
-            className="btn icon"
-            onClick={togglePinned}
-            aria-label={pinned ? "Desafixar" : "Fixar"}
-            title={pinned ? "Desafixar" : "Fixar"}
-          >
-            📌
-          </button>
-        </div>
-      </div>
-
-      {/* RAIL: lista vertical de ícones (alinhada e com tooltips nativos via title) */}
-      <div
-        aria-hidden="true"
-        style={{
-          padding: "6px 0",
-          display: "grid",
-          gap: 18,
-          alignContent: "start",
-          justifyItems: "center",
-        }}
-      >
-        {icons.map((it) => (
-          <a
-            key={it.href}
-            href={it.href}
-            className="btn icon"
-            title={it.label}
-            style={{
-              width: 40,
-              height: 40,
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              borderRadius: 12,
-              background: "transparent",
-            }}
-          >
-            <span aria-hidden>{it.icon}</span>
-          </a>
-        ))}
-      </div>
-
-      {/* Painel completo: 
-          - render estático quando afixada e expandida
-          - overlay suave ao pairar quando NÃO afixada
-      */}
-      {(pinned && !collapsed) && (
-        <div style={{ overflow: "auto", padding: 8 }}>
-          <Menu data={data} />
-        </div>
-      )}
-
-      {!pinned && (
-        <div
+    <>
+      {/* Scrim do overlay em ecrãs grandes quando não está afixada e abriu */}
+      {!pinned && overlayOpen && (
+        <button
+          aria-label="Fechar menu"
+          onClick={closeOverlay}
           style={{
             position: "fixed",
-            left: railW,
-            top: 0,
-            bottom: 0,
-            width: fullW,
-            background: "var(--sidebar-bg)",
-            borderRight: "1px solid var(--border)",
-            boxShadow: "var(--shadow-1)",
-            transform: showOverlay ? "translateX(0)" : "translateX(-12px)",
-            opacity: showOverlay ? 1 : 0,
-            pointerEvents: showOverlay ? "auto" : "none",
-            transition:
-              "transform 420ms cubic-bezier(.2,.8,.2,1), opacity 420ms ease",
-            zIndex: 60,
-            display: "grid",
-            gridTemplateRows: "56px 1fr",
+            inset: 0,
+            background: "rgba(2,6,23,.28)",
+            backdropFilter: "blur(1px)",
+            zIndex: 39,
           }}
-          // clique fora fecha o overlay (fica a cargo do mouseleave também)
+        />
+      )}
+
+      <aside
+        className="fp-sidebar"
+        data-pinned={pinned}
+        data-collapsed={collapsed}
+        data-expanded={expanded}
+        onMouseEnter={onEnter}
+        onMouseLeave={onLeave}
+        style={{
+          position: pinned ? "sticky" as const : ("fixed" as const),
+          inset: pinned ? undefined : "0 auto 0 0",
+          top: 0,
+          alignSelf: "start",
+          height: "100dvh",
+          background: "var(--sidebar-bg)",
+          color: "var(--sidebar-fg)",
+          borderRight: "1px solid var(--border)",
+          width: expanded ? FULL_W : RAIL_W,
+          transition: `width ${SPEED}ms cubic-bezier(.22,1,.36,1), transform ${SPEED}ms cubic-bezier(.22,1,.36,1)`,
+          transform: !pinned && !overlayOpen ? `translateX(-${FULL_W - RAIL_W}px)` : "translateX(0)",
+          boxShadow: "var(--shadow-1)",
+          display: "grid",
+          gridTemplateRows: "auto 1fr",
+          zIndex: 40,
+        }}
+      >
+        {/* Cabeçalho */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: expanded ? "1fr auto auto" : "1fr",
+            alignItems: "center",
+            gap: 8,
+            padding: 12,
+            borderBottom: "1px solid var(--border)",
+            minHeight: 56,
+          }}
         >
-          {/* cabeçalho espelhado para consistência visual */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "10px",
-              borderBottom: "1px solid var(--border)",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span className="logo" aria-hidden
-                style={{
-                  width: 28, height: 28, borderRadius: 10,
-                  display: "inline-flex", alignItems: "center", justifyContent: "center",
-                  background:
-                    "linear-gradient(180deg, rgba(79,70,229,.25), rgba(79,70,229,.06))",
-                  border: "1px solid color-mix(in oklab, var(--primary) 35%, var(--border))",
-                  fontSize: 16,
-                }}>
-                💪
-              </span>
-              <div style={{ fontWeight: 800, fontSize: 14 }}>Fitness Pro</div>
-            </div>
-            <div style={{ display: "inline-flex", gap: 6 }}>
-              <button className="btn icon" onClick={toggleCollapsed} title={collapsed ? "Expandir" : "Encolher"} aria-label="Alternar largura">☰</button>
-              <button className="btn icon" onClick={togglePinned} title={pinned ? "Desafixar" : "Fixar"} aria-label="Fixar">📌</button>
-            </div>
+          {/* Brand + hambúrguer ficam sempre dentro da sidebar */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span
+              aria-hidden
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 10,
+                background:
+                  "linear-gradient(180deg, rgba(79,70,229,.25), rgba(79,70,229,.06))",
+                border:
+                  "1px solid color-mix(in oklab, var(--primary) 35%, var(--border))",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 16,
+              }}
+            >
+              💪
+            </span>
+
+            {expanded && (
+              <div style={{ lineHeight: 1.1 }}>
+                <div style={{ fontWeight: 800, fontSize: 14 }}>Fitness Pro</div>
+                <div className="text-muted" style={{ fontSize: 12 }}>
+                  {/* retirado “Navegação” como pediste */}
+                </div>
+              </div>
+            )}
           </div>
 
-          <div style={{ overflow: "auto", padding: 8 }}>
-            <Menu data={data} />
-          </div>
+          {/* Botão hambúrguer – visível sempre, dentro do rail */}
+          <button
+            aria-label="Expandir/recolher"
+            title="Expandir/recolher"
+            onClick={toggleCollapsed}
+            className="btn icon"
+            style={{
+              justifySelf: "end",
+            }}
+          >
+            <span style={{ fontSize: 18 }}>≡</span>
+          </button>
+
+          {/* Botão pin – fica sempre visível (mesmo no rail) */}
+          <button
+            aria-label={pinned ? "Desafixar" : "Afixar"}
+            title={pinned ? "Desafixar" : "Afixar"}
+            onClick={togglePinned}
+            className="btn icon"
+          >
+            {pinned ? "📌" : "📍"}
+          </button>
         </div>
-      )}
-    </aside>
+
+        {/* Navegação */}
+        <nav
+          aria-label="Navegação principal"
+          style={{
+            overflow: "auto",
+            padding: expanded ? 10 : 6,
+            display: "grid",
+            gap: 10,
+          }}
+        >
+          {sections.map((sec) => (
+            <div key={sec.title} style={{ display: "grid", gap: 8 }}>
+              {/* título da secção só visível expandida */}
+              {expanded && (
+                <div
+                  className="text-muted"
+                  style={{
+                    fontSize: 12,
+                    padding: "2px 10px",
+                    letterSpacing: ".04em",
+                  }}
+                >
+                  {sec.title}
+                </div>
+              )}
+
+              <div style={{ display: "grid", gap: 6 }}>
+                {sec.items.map((it) => (
+                  <Link
+                    key={it.href}
+                    href={it.href}
+                    className="nav-item"
+                    title={!expanded ? it.label : undefined}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: expanded ? "24px 1fr" : "1fr",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: expanded ? "10px 12px" : 10,
+                      borderRadius: 12,
+                      color: "var(--sidebar-fg)",
+                      background: "transparent",
+                    }}
+                  >
+                    <span
+                      aria-hidden
+                      className="nav-icon"
+                      style={{
+                        display: "inline-flex",
+                        width: 24,
+                        justifyContent: "center",
+                        fontSize: 16,
+                      }}
+                    >
+                      {it.icon}
+                    </span>
+                    {expanded && <span>{it.label}</span>}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))}
+        </nav>
+      </aside>
+    </>
   );
 }

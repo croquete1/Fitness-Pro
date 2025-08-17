@@ -2,30 +2,47 @@
 
 import React from "react";
 import { useTheme } from "next-themes";
-import { signOut } from "next-auth/react";
+import { useSidebarState } from "../SidebarWrapper";
 
 export default function AppHeader() {
+  // apenas o que usamos (evita o erro do ESLint)
+  const { toggleCollapsed, setOverlayOpen } = useSidebarState();
   const { theme, setTheme } = useTheme();
-  const onToggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
+
+  const onToggleTheme = () =>
+    setTheme(theme === "dark" ? "light" : "dark");
 
   return (
-    <header className="fp-header" role="banner" aria-label="Cabeçalho">
+    <header className="fp-header">
       <div className="fp-header-inner">
-        {/* Esquerda vazia – o botão de menu vive na sidebar */}
-        <div />
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {/* hambúrguer também no header se precisares (opcional).
+              Continua funcional: recolhe/expande a sidebar afixada e,
+              se estiver em modo overlay, força o abrir. */}
+          <button
+            className="btn icon"
+            aria-label="Menu"
+            onClick={() => {
+              setOverlayOpen(true);
+              toggleCollapsed(); // comporta-se bem quando está afixada
+            }}
+          >
+            ≡
+          </button>
+        </div>
+
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button className="btn icon" aria-label="Notificações">🔔</button>
           <button
             className="btn icon"
-            onClick={onToggleTheme}
             aria-label="Alternar tema"
-            title="Tema"
+            onClick={onToggleTheme}
           >
-            {theme === "dark" ? "🌙" : "🌞"}
+            🌙
           </button>
-          <button className="btn" onClick={() => signOut()}>
+          <a className="btn ghost" href="/api/auth/signout">
             Terminar sessão
-          </button>
+          </a>
         </div>
       </div>
     </header>
