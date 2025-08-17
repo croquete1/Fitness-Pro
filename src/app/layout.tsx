@@ -1,5 +1,5 @@
 // src/app/layout.tsx
-import "./global.css"; // <- IMPORTA O CSS (caminho que estás a usar)
+import "./globals.css"; // <- IMPORTA O CSS (caminho que estás a usar)
 
 // (opcional, mas útil para SEO)
 export const metadata = {

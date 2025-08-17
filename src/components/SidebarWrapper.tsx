@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 type Ctx = {
   pinned: boolean;
@@ -14,10 +14,27 @@ type Ctx = {
 const SidebarCtx = createContext<Ctx | null>(null);
 
 export default function SidebarProvider({ children }: { children: React.ReactNode }) {
-  // valores por defeito iguais ao comportamento que tinhas
   const [pinned, setPinned] = useState(true);
   const [collapsed, setCollapsed] = useState(false);
   const [overlayOpen, setOverlayOpen] = useState(false);
+
+  // carregar do localStorage uma única vez
+  useEffect(() => {
+    try {
+      const p = localStorage.getItem("sb:pinned");
+      const c = localStorage.getItem("sb:collapsed");
+      if (p !== null) setPinned(p === "1");
+      if (c !== null) setCollapsed(c === "1");
+    } catch {}
+  }, []);
+
+  // persistir alterações
+  useEffect(() => {
+    try { localStorage.setItem("sb:pinned", pinned ? "1" : "0"); } catch {}
+  }, [pinned]);
+  useEffect(() => {
+    try { localStorage.setItem("sb:collapsed", collapsed ? "1" : "0"); } catch {}
+  }, [collapsed]);
 
   const value = useMemo(
     () => ({ pinned, collapsed, overlayOpen, setPinned, setCollapsed, setOverlayOpen }),
