@@ -15,20 +15,24 @@ type SidebarCtxShape = {
   overlayOpen: boolean;
   setPinned: (v: boolean) => void;
   setCollapsed: (v: boolean) => void;
+  /** Setter bruto para compatibilidade com componentes antigos */
+  setOverlayOpen: (v: boolean) => void;
+
   togglePinned: () => void;
   toggleCollapsed: () => void;
+
+  /** Helpers opcionais */
   openOverlay: () => void;
   closeOverlay: () => void;
 };
 
 const SidebarCtx = createContext<SidebarCtxShape | null>(null);
 
-/** Hook de estado da sidebar (seguro mesmo se o Provider não estiver montado no SSR) */
-export default function useSidebarState(): SidebarCtxShape {
+/** Hook seguro (fallback em SSR/sem Provider para evitar crashes em build) */
+function useSidebarState(): SidebarCtxShape {
   const ctx = useContext(SidebarCtx);
   if (ctx) return ctx;
 
-  // Fallback silencioso em SSR/edge — evita crashes no build.
   const noop = () => {};
   return {
     pinned: true,
@@ -36,6 +40,7 @@ export default function useSidebarState(): SidebarCtxShape {
     overlayOpen: false,
     setPinned: noop,
     setCollapsed: noop,
+    setOverlayOpen: noop,
     togglePinned: noop,
     toggleCollapsed: noop,
     openOverlay: noop,
@@ -48,7 +53,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [overlayOpen, setOverlayOpen] = useState(false);
 
-  // Hydrate from localStorage
+  // Hydration a partir de localStorage
   useEffect(() => {
     try {
       const p = localStorage.getItem("fp:sb:pinned");
@@ -60,7 +65,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Persist
+  // Persistência
   useEffect(() => {
     try {
       localStorage.setItem("fp:sb:pinned", pinned ? "1" : "0");
@@ -85,13 +90,29 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
       overlayOpen,
       setPinned,
       setCollapsed,
+      setOverlayOpen, // <- exposto para compatibilidade
       togglePinned,
       toggleCollapsed,
       openOverlay,
       closeOverlay,
     }),
-    [pinned, collapsed, overlayOpen, togglePinned, toggleCollapsed, openOverlay, closeOverlay]
+    [
+      pinned,
+      collapsed,
+      overlayOpen,
+      setPinned,
+      setCollapsed,
+      setOverlayOpen,
+      togglePinned,
+      toggleCollapsed,
+      openOverlay,
+      closeOverlay,
+    ]
   );
 
   return <SidebarCtx.Provider value={value}>{children}</SidebarCtx.Provider>;
 }
+
+/* Disponível como default e named export */
+export default useSidebarState;
+export { useSidebarState };
