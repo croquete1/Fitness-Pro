@@ -5,11 +5,7 @@ export const fetchCache = "force-no-store";
 import PlanViewBeacon from "@/components/PlanViewBeacon";
 
 async function getPlan(id: string) {
-  // chamada local ao endpoint que normaliza o plano
-  const r = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/api/pt/plans/${id}`, {
-    // em dev/local o baseUrl pode estar vazio; o Next trata
-    cache: "no-store",
-  }).catch(() => null);
+  const r = await fetch(`/api/pt/plans/${id}`, { cache: "no-store" }).catch(() => null);
   if (!r || !r.ok) return null;
   const j = await r.json();
   return j?.data ?? null;
@@ -34,16 +30,20 @@ export default async function Page({ params }: { params: { id: string } }) {
 
   return (
     <div style={{ padding: 16, display: "grid", gap: 12 }}>
-      <h1>{plan.title}</h1>
+      <h1>{plan.title ?? `Plano #${plan.id}`}</h1>
 
-      {/* regista visualização quando CLIENT abre */}
-      <PlanViewBeacon planId={plan.id} />
+      {/* Marca visualização quando CLIENT abre o plano */}
+      <PlanViewBeacon planId={String(plan.id)} />
 
       <div className="card" style={{ padding: 12, display: "grid", gap: 8 }}>
         <div style={{ display: "grid", gap: 6, gridTemplateColumns: "repeat(2, minmax(0,1fr))" }}>
           <div>
             <div className="text-muted" style={{ fontSize: 12 }}>Estado</div>
-            <div><span className={`badge${plan.status === "ACTIVE" ? "-success" : plan.status === "SUSPENDED" ? "-danger" : ""}`}>{plan.status}</span></div>
+            <div>
+              <span className={`badge${plan.status === "ACTIVE" ? " badge-success" : plan.status === "SUSPENDED" ? " badge-danger" : ""}`}>
+                {plan.status ?? "—"}
+              </span>
+            </div>
           </div>
           <div>
             <div className="text-muted" style={{ fontSize: 12 }}>Treinador</div>
@@ -59,7 +59,6 @@ export default async function Page({ params }: { params: { id: string } }) {
           </div>
         </div>
 
-        {/* espaço para conteúdos do plano (exercícios, séries, etc.) */}
         <div className="card" style={{ padding: 12 }}>
           <div className="text-muted">Conteúdo do plano</div>
           <div style={{ paddingTop: 6 }}>— (integração dos exercícios aqui)</div>
