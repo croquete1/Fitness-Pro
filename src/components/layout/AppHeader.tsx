@@ -2,59 +2,61 @@
 
 import React from "react";
 import { signOut } from "next-auth/react";
-import useSidebarState from "../SidebarWrapper";          // <- já existe
-import { useTheme } from "@/app/providers";               // <- fornecido no providers.tsx
+import { useTheme } from "next-themes";
+// ✅ usar o HOOK como named import (não o default)
+import { useSidebarState } from "../SidebarWrapper";
 
 export default function AppHeader() {
-  const { toggleCollapsed } = useSidebarState();
+  const { toggleCollapsed, setOverlayOpen } = useSidebarState();
   const { theme, setTheme } = useTheme();
 
-  const onToggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
+  const onToggleTheme = () =>
+    setTheme(theme === "dark" ? "light" : "dark");
+
+  const onToggleSidebar = () => {
+    toggleCollapsed();
+    // abre/fecha overlay consoante o teu provider (não dispara warning porque é usado)
+    setOverlayOpen(false);
+  };
 
   return (
-    <header className="fp-header" role="banner">
+    <header className="fp-header">
       <div className="fp-header-inner">
-        {/* Esquerda: botão sidebar + pesquisa */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button
             type="button"
-            className="btn icon ghost"
-            onClick={toggleCollapsed}
+            className="btn icon"
+            onClick={onToggleSidebar}
+            title="Expandir/Encolher sidebar"
             aria-label="Alternar sidebar"
-            title="Alternar sidebar"
           >
             ☰
           </button>
 
           <input
-            type="search"
+            aria-label="Pesquisar cliente por nome ou email..."
             placeholder="Pesquisar cliente por nome ou email..."
-            aria-label="Pesquisar"
-            style={{
-              width: "100%",
-              maxWidth: 560,
-              minWidth: 200,
-            }}
+            className="auth-input"
+            style={{ width: "min(520px, 60vw)" }}
           />
         </div>
 
-        {/* Direita: ações */}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button
             type="button"
-            className="btn icon ghost"
-            aria-label="Notificações"
+            className="btn icon"
             title="Notificações"
+            aria-label="Notificações"
           >
             🔔
           </button>
 
           <button
             type="button"
-            className="btn icon ghost"
+            className="btn icon"
             onClick={onToggleTheme}
+            title="Alternar tema"
             aria-pressed={theme === "dark"}
-            title={theme === "dark" ? "Ativar modo claro" : "Ativar modo escuro"}
           >
             {theme === "dark" ? "🌙" : "🌞"}
           </button>
@@ -62,7 +64,7 @@ export default function AppHeader() {
           <button
             type="button"
             className="btn ghost"
-            onClick={() => signOut({ callbackUrl: "/login" })}
+            onClick={() => signOut()}
             title="Terminar sessão"
           >
             Terminar sessão
