@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { fetchEventsSince } from "@/lib/events";
 
-// GET /api/events?since=2025-08-23T12:00:00.000Z&trainerId=abc
+// GET /api/events?since=ISO&trainerId=abc
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const since = searchParams.get("since") ?? undefined;

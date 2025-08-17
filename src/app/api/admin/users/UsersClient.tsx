@@ -1,420 +1,458 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import Modal from "@/components/ui/Modal";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-type Role = "ADMIN" | "TRAINER" | "CLIENT" | string;
-type Status = "PENDING" | "ACTIVE" | "SUSPENDED" | string;
+type Role = "ADMIN" | "TRAINER" | "CLIENT";
+type Status = "PENDING" | "ACTIVE" | "SUSPENDED";
 
-type UserRow = {
+type User = {
   id: string;
-  name: string;
-  email?: string;
-  role?: Role;
-  status?: Status;
-  createdAt?: string;
-  lastLoginAt?: string;
-  meta?: any;
+  name: string | null;
+  email: string | null;
+  role: Role;
+  status: Status;
+  createdAt?: string | null;
+  lastLoginAt?: string | null;
 };
 
-async function apiList(page: number, limit: number, q: string, role: string | null, status: string | null) {
-  const p = new URLSearchParams({ page: String(page), limit: String(limit) });
-  if (q) p.set("q", q);
-  if (role && role !== "ALL") p.set("role", role);
-  if (status && status !== "ALL") p.set("status", status);
-  const r = await fetch(`/api/admin/users?${p.toString()}`, { credentials: "include" });
-  const j = await r.json();
-  const total = Number(r.headers.get("x-total-count") ?? j.total ?? 0);
-  return { items: (j.data ?? j) as any[], total };
+type UsersResponse = {
+  data: User[];
+  total?: number;
+};
+
+const PAGE_SIZE = 10;
+
+function Badge({ children, tone = "default" }: { children: React.ReactNode; tone?: "default" | "success" | "danger" | "warning" }) {
+  const bg =
+    tone === "success" ? "var(--green-600, #16a34a)" :
+    tone === "danger" ? "var(--red-600, #dc2626)" :
+    tone === "warning" ? "var(--amber-600, #d97706)" :
+    "var(--brand, #3b82f6)";
+  return (
+    <span
+      className="badge"
+      style={{
+        background: bg,
+        color: "#fff",
+        fontSize: 11,
+        padding: "2px 8px",
+        borderRadius: 999,
+        fontWeight: 800,
+      }}
+    >
+      {children}
+    </span>
+  );
 }
 
-function mapUsers(items: any[]): UserRow[] {
-  return items.map((x, i) => ({
-    id: String(x.id ?? x.userId ?? i),
-    name: String(x.name ?? x.fullName ?? x.username ?? "—"),
-    email: x.email ?? x.mail ?? undefined,
-    role: (x.role ?? x.type ?? x.kind ?? undefined) as Role,
-    status: (x.status ?? x.state ?? undefined) as Status,
-    createdAt: x.createdAt ?? x.created_at ?? x.when ?? undefined,
-    lastLoginAt: x.lastLoginAt ?? x.last_login_at ?? x.lastSeenAt ?? undefined,
-    meta: x,
-  }));
-}
-
-async function apiPatch(id: string, payload: any) {
-  const r = await fetch(`/api/admin/users/${id}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-    credentials: "include",
-  });
-  if (!r.ok) throw new Error((await r.json().catch(()=>({error:""}))).error || "Falha ao guardar");
-  return r.json();
-}
-async function apiApprove(id: string) {
-  const r = await fetch(`/api/admin/users/${id}/approve`, { method: "POST", credentials: "include" });
-  if (!r.ok) throw new Error("Falha ao aprovar");
-  return r.json();
-}
-async function apiReject(id: string, hardDelete = false) {
-  const r = await fetch(`/api/admin/users/${id}/reject${hardDelete ? "?delete=1" : ""}`, { method: "POST", credentials: "include" });
-  if (!r.ok) throw new Error("Falha ao rejeitar");
-  return r.json();
-}
-async function apiDelete(id: string) {
-  const r = await fetch(`/api/admin/users/${id}`, { method: "DELETE", credentials: "include" });
-  if (!r.ok) throw new Error("Falha ao eliminar");
-  return r.json();
+function StatusPill({ status }: { status: Status }) {
+  const tone = status === "ACTIVE" ? "success" : status === "SUSPENDED" ? "danger" : "warning";
+  return <Badge tone={tone}>{status}</Badge>;
 }
 
 export default function UsersClient() {
-  const sp = useSearchParams();
-  const router = useRouter();
-
-  const [rows, setRows] = useState<UserRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [q, setQ] = useState(sp.get("q") ?? "");
-  const [role, setRole] = useState<Role | "ALL">((sp.get("role") as any) ?? "ALL");
-  const [status, setStatus] = useState<Status | "ALL">((sp.get("status") as any) ?? "ALL");
-  const [page, setPage] = useState<number>(Number(sp.get("page") ?? 1) || 1);
-  const [limit, setLimit] = useState<number>(Number(sp.get("limit") ?? 20) || 20);
+  const [rows, setRows] = useState<User[]>([]);
   const [total, setTotal] = useState<number>(0);
+  const [page, setPage] = useState<number>(0);
+  const [q, setQ] = useState("");
+  const [role, setRole] = useState<Role | "ALL">("ALL");
+  const [status, setStatus] = useState<Status | "ALL">("ALL");
+  const [loading, setLoading] = useState(false);
+  const [editing, setEditing] = useState<Record<string, Partial<User>>>({});
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // dialogs
-  const [viewU, setViewU] = useState<UserRow | null>(null);
-  const [editU, setEditU] = useState<UserRow | null>(null);
-  const [busy, setBusy] = useState(false);
+  // Debounce de pesquisa
+  const searchTimer = useRef<number | null>(null);
+  const onChangeQ = (v: string) => {
+    setQ(v);
+    if (searchTimer.current) window.clearTimeout(searchTimer.current);
+    searchTimer.current = window.setTimeout(() => {
+      setPage(0);
+      load(0, v, role, status);
+    }, 250);
+  };
 
-  async function load() {
-    setLoading(true);
-    const { items, total } = await apiList(page, limit, q, role === "ALL" ? null : String(role), status === "ALL" ? null : String(status));
-    setRows(mapUsers(items));
-    setTotal(total);
-    setLoading(false);
+  const params = useMemo(() => {
+    const p = new URLSearchParams();
+    p.set("limit", String(PAGE_SIZE));
+    p.set("offset", String(page * PAGE_SIZE));
+    if (q.trim()) p.set("q", q.trim());
+    if (role !== "ALL") p.set("role", role);
+    if (status !== "ALL") p.set("status", status);
+    return p;
+  }, [page, q, role, status]);
+
+  const load = useCallback(
+    async (p = page, query = q, r: Role | "ALL" = role, s: Status | "ALL" = status) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const sp = new URLSearchParams();
+        sp.set("limit", String(PAGE_SIZE));
+        sp.set("offset", String(p * PAGE_SIZE));
+        if (query.trim()) sp.set("q", query.trim());
+        if (r !== "ALL") sp.set("role", r);
+        if (s !== "ALL") sp.set("status", s);
+
+        const resp = await fetch(`/api/admin/users?${sp.toString()}`, { cache: "no-store" });
+        if (!resp.ok) throw new Error(`GET /api/admin/users falhou (${resp.status})`);
+        const json: UsersResponse = await resp.json();
+        setRows(Array.isArray(json.data) ? json.data : []);
+        setTotal(Number(json.total ?? (Array.isArray(json.data) ? json.data.length : 0)));
+      } catch (e: any) {
+        setRows([]);
+        setTotal(0);
+        setError(e?.message ?? "Erro ao carregar utilizadores");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [page, q, role, status]
+  );
+
+  useEffect(() => {
+    // carregar na montagem e quando muda a paginação/filtros
+    load();
+  }, [load]);
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  function startEdit(u: User) {
+    setEditing((m) => ({ ...m, [u.id]: { name: u.name ?? "", email: u.email ?? "", role: u.role, status: u.status } }));
+  }
+  function cancelEdit(id: string) {
+    setEditing((m) => {
+      const n = { ...m };
+      delete n[id];
+      return n;
+    });
   }
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [page, limit, role, status]);
-  useEffect(() => {
-    const p = new URLSearchParams();
-    if (q) p.set("q", q);
-    if (role !== "ALL") p.set("role", String(role));
-    if (status !== "ALL") p.set("status", String(status));
-    if (page !== 1) p.set("page", String(page));
-    if (limit !== 20) p.set("limit", String(limit));
-    router.replace(p.toString() ? `?${p.toString()}` : "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, role, status, page, limit]);
-
-  const pageCount = Math.max(1, Math.ceil((total || 0) / limit));
-  const view = useMemo(() => {
-    const t = q.trim().toLowerCase();
-    if (!t) return rows;
-    return rows.filter(u =>
-      u.name?.toLowerCase().includes(t) ||
-      (u.email ?? "").toLowerCase().includes(t) ||
-      (u.role ?? "").toLowerCase().includes(t)
-    );
-  }, [rows, q]);
-
-  const saveEdits = async () => {
-    if (!editU) return;
-    setBusy(true);
+  async function saveEdit(id: string) {
+    const patch = editing[id];
+    if (!patch) return;
+    setSavingId(id);
+    setError(null);
     try {
-      const form = document.getElementById("user-edit-form") as HTMLFormElement | null;
-      const data = new FormData(form!);
-      const payload: any = {
-        name: String(data.get("name") || editU.name || ""),
-        email: String(data.get("email") || editU.email || ""),
-        role: String(data.get("role") || editU.role || "CLIENT"),
-        status: String(data.get("status") || editU.status || "ACTIVE"),
-      };
-      await apiPatch(editU.id, payload);
-      setRows(list => list.map(x => x.id === editU.id ? { ...x, ...payload } : x));
-      setEditU(null);
+      const resp = await fetch(`/api/admin/users/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      if (!resp.ok) throw new Error(`PATCH falhou (${resp.status})`);
+      cancelEdit(id);
+      await load();
     } catch (e: any) {
-      alert(e.message);
+      setError(e?.message ?? "Erro ao guardar alterações");
     } finally {
-      setBusy(false);
+      setSavingId(null);
     }
-  };
+  }
 
-  const approve = async (u: UserRow) => {
-    setBusy(true);
+  async function changeRole(id: string, newRole: Role) {
+    setSavingId(id);
+    setError(null);
     try {
-      await apiApprove(u.id);
-      setRows(list => list.map(x => x.id === u.id ? { ...x, status: "ACTIVE" } : x));
+      const resp = await fetch(`/api/admin/users/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: newRole }),
+      });
+      if (!resp.ok) throw new Error(`PATCH role falhou (${resp.status})`);
+      await load();
     } catch (e: any) {
-      alert(e.message);
+      setError(e?.message ?? "Erro ao alterar role");
     } finally {
-      setBusy(false);
+      setSavingId(null);
     }
-  };
+  }
 
-  const reject = async (u: UserRow, hardDelete = false) => {
-    if (hardDelete && !confirm("Eliminar permanentemente este utilizador?")) return;
-    setBusy(true);
+  async function changeStatus(id: string, newStatus: Status) {
+    setSavingId(id);
+    setError(null);
     try {
-      await apiReject(u.id, hardDelete);
-      if (hardDelete) setRows(list => list.filter(x => x.id !== u.id));
-      else setRows(list => list.map(x => x.id === u.id ? { ...x, status: "SUSPENDED" } : x));
+      const resp = await fetch(`/api/admin/users/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!resp.ok) throw new Error(`PATCH status falhou (${resp.status})`);
+      await load();
     } catch (e: any) {
-      alert(e.message);
+      setError(e?.message ?? "Erro ao alterar estado");
     } finally {
-      setBusy(false);
+      setSavingId(null);
     }
-  };
+  }
 
-  const toggleActive = async (u: UserRow) => {
-    setBusy(true);
+  async function approve(id: string) {
+    setSavingId(id);
+    setError(null);
     try {
-      const newStatus: Status = u.status === "SUSPENDED" ? "ACTIVE" : "SUSPENDED";
-      await apiPatch(u.id, { status: newStatus });
-      setRows(list => list.map(x => x.id === u.id ? { ...x, status: newStatus } : x));
+      const resp = await fetch(`/api/admin/users/${encodeURIComponent(id)}/approve`, { method: "POST" });
+      if (!resp.ok) throw new Error(`approve falhou (${resp.status})`);
+      await load();
     } catch (e: any) {
-      alert(e.message);
+      setError(e?.message ?? "Erro ao aprovar utilizador");
     } finally {
-      setBusy(false);
+      setSavingId(null);
     }
-  };
+  }
 
-  const changeRole = async (u: UserRow, newRole: Role) => {
-    setBusy(true);
+  async function reject(id: string) {
+    setSavingId(id);
+    setError(null);
     try {
-      await apiPatch(u.id, { role: newRole });
-      setRows(list => list.map(x => x.id === u.id ? { ...x, role: newRole } : x));
+      const resp = await fetch(`/api/admin/users/${encodeURIComponent(id)}/reject`, { method: "POST" });
+      if (!resp.ok) throw new Error(`reject falhou (${resp.status})`);
+      await load();
     } catch (e: any) {
-      alert(e.message);
+      setError(e?.message ?? "Erro ao rejeitar utilizador");
     } finally {
-      setBusy(false);
+      setSavingId(null);
     }
-  };
+  }
+
+  const headerRight = (
+    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+      <input
+        type="search"
+        placeholder="Pesquisar por nome ou email…"
+        aria-label="Pesquisar utilizadores"
+        defaultValue={q}
+        onChange={(e) => onChangeQ(e.target.value)}
+        className="pill"
+        style={{ padding: "10px 12px", minWidth: 260 }}
+      />
+      <select
+        value={role}
+        onChange={(e) => { setRole(e.target.value as any); setPage(0); load(0, q, e.target.value as any, status); }}
+        className="pill"
+        aria-label="Filtrar por role"
+        style={{ padding: "10px 12px" }}
+      >
+        <option value="ALL">Todos os roles</option>
+        <option value="ADMIN">Admin</option>
+        <option value="TRAINER">Personal Trainer</option>
+        <option value="CLIENT">Cliente</option>
+      </select>
+      <select
+        value={status}
+        onChange={(e) => { setStatus(e.target.value as any); setPage(0); load(0, q, role, e.target.value as any); }}
+        className="pill"
+        aria-label="Filtrar por estado"
+        style={{ padding: "10px 12px" }}
+      >
+        <option value="ALL">Todos os estados</option>
+        <option value="PENDING">Pendente</option>
+        <option value="ACTIVE">Ativo</option>
+        <option value="SUSPENDED">Suspenso</option>
+      </select>
+    </div>
+  );
 
   return (
-    <div style={{ padding: 16, display: "grid", gap: 12, height: "100%" }}>
-      <h1 style={{ margin: 0 }}>Utilizadores</h1>
-
-      <div className="card" style={{ padding: 12, display: "grid", gap: 8 }}>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <input
-            type="search"
-            placeholder="Pesquisar por nome, email ou role…"
-            value={q}
-            onChange={(e) => { setQ(e.target.value); setPage(1); }}
-            style={{
-              minWidth: 240,
-              padding: "10px 12px",
-              borderRadius: 12,
-              border: "1px solid var(--border)",
-              background: "var(--bg)",
-              color: "var(--fg)",
-              outline: "none",
-            }}
-          />
-          <select
-            value={role}
-            onChange={(e) => { setRole(e.target.value as any); setPage(1); }}
-            style={{
-              padding: "10px 12px",
-              borderRadius: 12,
-              border: "1px solid var(--border)",
-              background: "var(--bg)",
-              color: "var(--fg)",
-              outline: "none",
-            }}
-          >
-            <option value="ALL">Todos</option>
-            <option value="TRAINER">Personal Trainers</option>
-            <option value="CLIENT">Clientes</option>
-            <option value="ADMIN">Admins</option>
-          </select>
-
-          <select
-            value={status}
-            onChange={(e) => { setStatus(e.target.value as any); setPage(1); }}
-            style={{
-              padding: "10px 12px",
-              borderRadius: 12,
-              border: "1px solid var(--border)",
-              background: "var(--bg)",
-              color: "var(--fg)",
-              outline: "none",
-            }}
-          >
-            <option value="ALL">Todos estados</option>
-            <option value="PENDING">Pendentes</option>
-            <option value="ACTIVE">Ativos</option>
-            <option value="SUSPENDED">Suspensos</option>
-          </select>
-
-          <div style={{ display: "flex", gap: 8, marginLeft: "auto", alignItems: "center" }}>
-            <span className="text-muted" style={{ fontSize: 12 }}>
-              Página {page} / {Math.max(1, Math.ceil((total || 0) / limit))} • {total} total
-            </span>
-            <select
-              value={limit}
-              onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
-              aria-label="Itens por página"
-              style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg)" }}
-            >
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-            </select>
-          </div>
+    <div style={{ padding: 16, display: "grid", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <h1 style={{ margin: 0 }}>Utilizadores</h1>
+          <Badge>{total} total</Badge>
+          {loading && <span className="text-muted" style={{ fontSize: 12 }}>a carregar…</span>}
         </div>
+        {headerRight}
       </div>
 
+      {error && (
+        <div className="badge-danger" style={{ padding: 8, borderRadius: 10 }}>
+          {error}
+        </div>
+      )}
+
       <div className="card" style={{ overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
-          <thead style={{ background: "var(--selection)" }}>
-            <tr>
-              <th style={{ textAlign: "left", padding: 12 }}>Nome</th>
-              <th style={{ textAlign: "left", padding: 12 }}>Email</th>
-              <th style={{ textAlign: "left", padding: 12 }}>Role</th>
-              <th style={{ textAlign: "left", padding: 12 }}>Estado</th>
-              <th style={{ textAlign: "left", padding: 12 }}>Criado</th>
-              <th style={{ textAlign: "left", padding: 12 }}>Último acesso</th>
-              <th style={{ textAlign: "right", padding: 12, width: 260 }}>Ações</th>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr className="text-muted" style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: .3 }}>
+              <th style={{ textAlign: "left", padding: "10px 12px", borderBottom: "1px solid var(--border)" }}>Nome</th>
+              <th style={{ textAlign: "left", padding: "10px 12px", borderBottom: "1px solid var(--border)" }}>Email</th>
+              <th style={{ textAlign: "left", padding: "10px 12px", borderBottom: "1px solid var(--border)" }}>Role</th>
+              <th style={{ textAlign: "left", padding: "10px 12px", borderBottom: "1px solid var(--border)" }}>Estado</th>
+              <th style={{ textAlign: "left", padding: "10px 12px", borderBottom: "1px solid var(--border)" }}>Criado</th>
+              <th style={{ textAlign: "left", padding: "10px 12px", borderBottom: "1px solid var(--border)" }}>Último acesso</th>
+              <th style={{ textAlign: "right", padding: "10px 12px", borderBottom: "1px solid var(--border)" }}>Ações</th>
             </tr>
           </thead>
           <tbody>
-            {loading && (
-              <tr><td colSpan={7} style={{ padding: 16 }} className="text-muted">A carregar…</td></tr>
-            )}
-            {!loading && view.length === 0 && (
-              <tr><td colSpan={7} style={{ padding: 16 }} className="text-muted">Sem resultados.</td></tr>
-            )}
-            {view.map((u) => (
-              <tr key={u.id} style={{ borderTop: "1px solid var(--border)" }}>
-                <td style={{ padding: 12, fontWeight: 700 }}>{u.name}</td>
-                <td style={{ padding: 12 }}>{u.email ?? "—"}</td>
-                <td style={{ padding: 12 }}>{u.role ?? "—"}</td>
-                <td style={{ padding: 12 }}>
-                  <span className={`badge${u.status === "ACTIVE" ? "-success" : u.status === "PENDING" ? "" : "-danger"}`}>
-                    {u.status ?? "—"}
-                  </span>
-                </td>
-                <td style={{ padding: 12 }}>{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "—"}</td>
-                <td style={{ padding: 12 }}>{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : "—"}</td>
-                <td style={{ padding: 12 }}>
-                  <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, flexWrap: "wrap" }}>
-                    <button className="pill" onClick={() => setViewU(u)} style={{ padding: "6px 10px" }}>Ver</button>
-                    <button className="pill" onClick={() => setEditU(u)} style={{ padding: "6px 10px" }}>Editar</button>
-
-                    {u.status === "PENDING" ? (
-                      <>
-                        <button className="pill" onClick={() => approve(u)} style={{ padding: "6px 10px", background: "var(--brand)", color: "#fff", borderColor: "transparent" }}>
-                          Aprovar
-                        </button>
-                        <button className="pill" onClick={() => reject(u, false)} style={{ padding: "6px 10px" }}>
-                          Rejeitar
-                        </button>
-                        <button className="pill" onClick={() => reject(u, true)} style={{ padding: "6px 10px" }}>
-                          Rejeitar + Eliminar
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button className="pill" onClick={() => toggleActive(u)} style={{ padding: "6px 10px" }}>
-                          {u.status === "SUSPENDED" ? "Ativar" : "Suspender"}
-                        </button>
-                        <select
-                          aria-label="Mudar role"
-                          value={u.role ?? "CLIENT"}
-                          onChange={(e) => changeRole(u, e.target.value as Role)}
-                          className="pill"
-                          style={{ padding: "6px 10px" }}
-                        >
-                          <option value="CLIENT">Cliente</option>
-                          <option value="TRAINER">Personal Trainer</option>
-                          <option value="ADMIN">Admin</option>
-                        </select>
-                        <button className="pill" onClick={() => { if (confirm("Eliminar utilizador?")) apiDelete(u.id).then(()=> setRows(list=>list.filter(x=>x.id!==u.id))).catch(e=>alert(e.message)); }} style={{ padding: "6px 10px" }}>
-                          Eliminar
-                        </button>
-                      </>
-                    )}
-                  </div>
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={7} style={{ padding: 16, textAlign: "center" }} className="text-muted">
+                  Sem resultados para os filtros atuais.
                 </td>
               </tr>
-            ))}
+            )}
+            {rows.map((u) => {
+              const edit = editing[u.id];
+              const isSaving = savingId === u.id;
+
+              return (
+                <tr key={u.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                  <td style={{ padding: "10px 12px" }}>
+                    {edit ? (
+                      <input
+                        value={edit.name ?? ""}
+                        onChange={(e) => setEditing(m => ({ ...m, [u.id]: { ...m[u.id], name: e.target.value } }))}
+                        style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--border)" }}
+                      />
+                    ) : (
+                      <strong>{u.name ?? "—"}</strong>
+                    )}
+                  </td>
+                  <td style={{ padding: "10px 12px" }}>
+                    {edit ? (
+                      <input
+                        value={edit.email ?? ""}
+                        onChange={(e) => setEditing(m => ({ ...m, [u.id]: { ...m[u.id], email: e.target.value } }))}
+                        style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--border)" }}
+                      />
+                    ) : (
+                      <span>{u.email ?? "—"}</span>
+                    )}
+                  </td>
+                  <td style={{ padding: "10px 12px" }}>
+                    {edit ? (
+                      <select
+                        value={(edit.role ?? u.role) as Role}
+                        onChange={(e) => setEditing(m => ({ ...m, [u.id]: { ...m[u.id], role: e.target.value as Role } }))}
+                        className="pill"
+                        style={{ padding: "6px 8px" }}
+                      >
+                        <option value="CLIENT">Cliente</option>
+                        <option value="TRAINER">Personal Trainer</option>
+                        <option value="ADMIN">Admin</option>
+                      </select>
+                    ) : (
+                      <Badge>{u.role}</Badge>
+                    )}
+                  </td>
+                  <td style={{ padding: "10px 12px" }}>
+                    {edit ? (
+                      <select
+                        value={(edit.status ?? u.status) as Status}
+                        onChange={(e) => setEditing(m => ({ ...m, [u.id]: { ...m[u.id], status: e.target.value as Status } }))}
+                        className="pill"
+                        style={{ padding: "6px 8px" }}
+                      >
+                        <option value="PENDING">Pendente</option>
+                        <option value="ACTIVE">Ativo</option>
+                        <option value="SUSPENDED">Suspenso</option>
+                      </select>
+                    ) : (
+                      <StatusPill status={u.status} />
+                    )}
+                  </td>
+                  <td style={{ padding: "10px 12px" }}>
+                    <span className="text-muted" style={{ fontSize: 12 }}>
+                      {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "—"}
+                    </span>
+                  </td>
+                  <td style={{ padding: "10px 12px" }}>
+                    <span className="text-muted" style={{ fontSize: 12 }}>
+                      {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : "—"}
+                    </span>
+                  </td>
+                  <td style={{ padding: "10px 12px" }}>
+                    <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                      {edit ? (
+                        <>
+                          <button
+                            className="pill"
+                            onClick={() => saveEdit(u.id)}
+                            disabled={isSaving}
+                            style={{ padding: "6px 10px", background: "var(--brand)", color: "#fff", borderColor: "transparent" }}
+                          >
+                            {isSaving ? "A guardar…" : "Guardar"}
+                          </button>
+                          <button className="pill" onClick={() => cancelEdit(u.id)} disabled={isSaving} style={{ padding: "6px 10px" }}>
+                            Cancelar
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button className="pill" onClick={() => startEdit(u)} style={{ padding: "6px 10px" }}>
+                            Editar
+                          </button>
+
+                          {/* Role rápido (sem entrar em modo edição) */}
+                          <select
+                            title="Alterar role"
+                            value={u.role}
+                            onChange={(e) => changeRole(u.id, e.target.value as Role)}
+                            disabled={isSaving}
+                            className="pill"
+                            style={{ padding: "6px 8px" }}
+                          >
+                            <option value="CLIENT">Cliente</option>
+                            <option value="TRAINER">PT</option>
+                            <option value="ADMIN">Admin</option>
+                          </select>
+
+                          {/* Ativar / Suspender */}
+                          {u.status !== "ACTIVE" ? (
+                            <button className="pill" onClick={() => changeStatus(u.id, "ACTIVE")} disabled={isSaving} style={{ padding: "6px 10px" }}>
+                              Ativar
+                            </button>
+                          ) : (
+                            <button className="pill" onClick={() => changeStatus(u.id, "SUSPENDED")} disabled={isSaving} style={{ padding: "6px 10px" }}>
+                              Suspender
+                            </button>
+                          )}
+
+                          {/* Aprovar / Rejeitar (para pendentes) */}
+                          {u.status === "PENDING" && (
+                            <>
+                              <button className="pill" onClick={() => approve(u.id)} disabled={isSaving} style={{ padding: "6px 10px" }}>
+                                Aprovar
+                              </button>
+                              <button className="pill" onClick={() => reject(u.id)} disabled={isSaving} style={{ padding: "6px 10px" }}>
+                                Rejeitar
+                              </button>
+                            </>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
 
-      {/* paginação */}
-      <div style={{ display: "flex", gap: 8, alignItems: "center", marginLeft: "auto" }}>
-        <button className="pill" disabled={page<=1} onClick={() => setPage(p => Math.max(1, p-1))}>Anterior</button>
-        <span className="text-muted" style={{ fontSize: 12 }}>Página {page} de {pageCount}</span>
-        <button className="pill" disabled={page>=pageCount} onClick={() => setPage(p => Math.min(pageCount, p+1))}>Seguinte</button>
-      </div>
-
-      {/* Modal Ver */}
-      <Modal open={!!viewU} onClose={() => setViewU(null)} title={viewU?.name ?? "Utilizador"}>
-        <div style={{ display: "grid", gap: 6, fontSize: 14 }}>
-          <div><b>Nome:</b> {viewU?.name}</div>
-          <div><b>Email:</b> {viewU?.email ?? "—"}</div>
-          <div><b>Role:</b> {viewU?.role ?? "—"}</div>
-          <div><b>Estado:</b> {viewU?.status ?? "—"}</div>
-          <div><b>Criado:</b> {viewU?.createdAt ? new Date(viewU.createdAt).toLocaleString() : "—"}</div>
-          <div><b>Último acesso:</b> {viewU?.lastLoginAt ? new Date(viewU.lastLoginAt).toLocaleString() : "—"}</div>
-          {viewU?.meta && (
-            <pre style={{ background: "var(--selection)", padding: 8, borderRadius: 8, overflow: "auto" }}>
-              {JSON.stringify(viewU.meta, null, 2)}
-            </pre>
-          )}
+      {/* Paginação */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <div className="text-muted" style={{ fontSize: 12 }}>
+          Página {page + 1} de {totalPages} • {total} registo(s)
         </div>
-      </Modal>
-
-      {/* Modal Editar */}
-      <Modal
-        open={!!editU}
-        onClose={() => setEditU(null)}
-        title={editU ? `Editar: ${editU.name}` : "Editar"}
-        footer={
-          <>
-            <button className="pill" onClick={() => setEditU(null)}>Cancelar</button>
-            <button className="pill" disabled={busy}
-              onClick={saveEdits}
-              style={{ borderColor: "transparent", background: "var(--brand)", color: "#fff" }}
-            >
-              {busy ? "A guardar…" : "Guardar"}
-            </button>
-          </>
-        }
-      >
-        {editU && (
-          <form id="user-edit-form" style={{ display: "grid", gap: 10 }}>
-            <label style={{ display: "grid", gap: 6 }}>
-              <span>Nome</span>
-              <input name="name" defaultValue={editU.name} style={{ padding: "10px 12px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--bg)" }} />
-            </label>
-            <label style={{ display: "grid", gap: 6 }}>
-              <span>Email</span>
-              <input type="email" name="email" defaultValue={editU.email} style={{ padding: "10px 12px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--bg)" }} />
-            </label>
-            <div style={{ display: "grid", gap: 10, gridTemplateColumns: "1fr 1fr" }}>
-              <label style={{ display: "grid", gap: 6 }}>
-                <span>Role</span>
-                <select name="role" defaultValue={editU.role ?? "CLIENT"} style={{ padding: "10px 12px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--bg)" }}>
-                  <option value="CLIENT">Cliente</option>
-                  <option value="TRAINER">Personal Trainer</option>
-                  <option value="ADMIN">Admin</option>
-                </select>
-              </label>
-              <label style={{ display: "grid", gap: 6 }}>
-                <span>Estado</span>
-                <select name="status" defaultValue={editU.status ?? "ACTIVE"} style={{ padding: "10px 12px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--bg)" }}>
-                  <option value="ACTIVE">Ativo</option>
-                  <option value="PENDING">Pendente</option>
-                  <option value="SUSPENDED">Suspenso</option>
-                </select>
-              </label>
-            </div>
-          </form>
-        )}
-      </Modal>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button
+            className="pill"
+            onClick={() => { const np = Math.max(0, page - 1); setPage(np); load(np, q, role, status); }}
+            disabled={page === 0 || loading}
+            style={{ padding: "6px 10px" }}
+          >
+            Anterior
+          </button>
+          <button
+            className="pill"
+            onClick={() => { const np = Math.min(totalPages - 1, page + 1); setPage(np); load(np, q, role, status); }}
+            disabled={page >= totalPages - 1 || loading}
+            style={{ padding: "6px 10px" }}
+          >
+            Seguinte
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

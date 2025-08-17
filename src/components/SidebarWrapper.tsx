@@ -5,12 +5,11 @@ import Sidebar from "./Sidebar";
 import MobileSidebarController from "./MobileSidebarController";
 
 export default function SidebarWrapper({ children }: { children: React.ReactNode }) {
-  const [pinned, setPinned] = useState(false);     // clicado no botão
-  const [hoverOpen, setHoverOpen] = useState(false); // abre ao aproximar o rato
+  const [pinned, setPinned] = useState(false);
+  const [hoverOpen, setHoverOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const open = pinned || hoverOpen;
 
-  const closeHover = useCallback(() => setHoverOpen(false), []);
   const openHover  = useCallback(() => { if (!pinned && !isMobile) setHoverOpen(true); }, [pinned, isMobile]);
 
   useEffect(() => {
@@ -27,7 +26,6 @@ export default function SidebarWrapper({ children }: { children: React.ReactNode
     return () => root.removeAttribute("data-sidebar");
   }, [open, isMobile]);
 
-  // Fecha hover quando o mouse sai do aside
   const hoverTimeout = useRef<number | null>(null);
   const onAsideLeave = () => {
     if (hoverTimeout.current) window.clearTimeout(hoverTimeout.current);
@@ -38,14 +36,14 @@ export default function SidebarWrapper({ children }: { children: React.ReactNode
 
   return (
     <>
-      {/* strip invisível que abre a sidebar ao aproximar o rato (desktop) */}
+      {/* strip que abre a sidebar ao aproximar o rato (desktop) */}
       {!isMobile && !pinned && <div className="fp-hover-strip" onMouseEnter={openHover} />}
 
       <div className={shellClass}>
         <Sidebar
           open={open}
           onClose={() => { setPinned(false); setHoverOpen(false); }}
-          onToggle={() => setPinned(p => !p)}  /* pin/unpin */
+          onToggle={() => setPinned(p => !p)}
           onMouseLeave={onAsideLeave}
           onMouseEnter={openHover}
         />
