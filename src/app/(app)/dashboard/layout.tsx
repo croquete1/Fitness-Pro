@@ -1,12 +1,10 @@
-// src/app/(app)/dashboard/layout.tsx
-import AppHeader from "@/components/layout/AppHeader";
-import SidebarWrapper from "@/components/SidebarWrapper";
+import React from 'react';
+import { SidebarProvider } from '@/components/SidebarWrapper';
 
-export default function Layout({ children }: { children: React.ReactNode }) {
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="fp-page">
-      <AppHeader />
-      <SidebarWrapper>{children}</SidebarWrapper>
-    </div>
+    <SidebarProvider>
+      {children}
+    </SidebarProvider>
   );
 }
