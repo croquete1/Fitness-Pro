@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import Logo from "@/components/layout/Logo";
+import { useSearchParams } from "next/navigation";
 
 export default function LoginClient() {
   const [email, setEmail] = useState("");
@@ -13,6 +14,30 @@ export default function LoginClient() {
   const [err, setErr] = useState<string | null>(null);
 
   const canSubmit = email.trim().length > 0 && pw.length > 0 && !loading;
+
+  // ✅ Banner “registo concluído” (à prova de bala)
+  const sp = useSearchParams();
+  const registeredParam = sp.get("registered");
+  const registeredFromURL = useMemo(() => {
+    if (!registeredParam) return false;
+    const v = String(registeredParam).toLowerCase();
+    // aceita vários formatos para robustez
+    return v === "" || v === "1" || v === "true" || v === "yes" || v === "ok";
+  }, [registeredParam]);
+
+  const [hideRegistered, setHideRegistered] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const dismissed = sessionStorage.getItem("fp:login:registeredDismissed") === "1";
+    setHideRegistered(dismissed);
+  }, []);
+
+  const dismissRegistered = () => {
+    setHideRegistered(true);
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("fp:login:registeredDismissed", "1");
+    }
+  };
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -37,10 +62,28 @@ export default function LoginClient() {
         placeItems: "center",
         minHeight: "100dvh",
         padding: 16,
-        background: "var(--bg)",
+        background: "var(--app-bg, var(--bg))",
       }}
     >
       <form onSubmit={onSubmit} className="auth-card" aria-labelledby="auth-title">
+        {/* ✅ Banner robusto e acessível */}
+        {registeredFromURL && !hideRegistered && (
+          <div className="auth-banner success" role="status" aria-live="polite" aria-atomic="true">
+            <span className="auth-banner__dot" aria-hidden="true" />
+            <span>
+              Conta registada com sucesso. A tua conta ficará pendente até aprovação por um administrador.
+            </span>
+            <button
+              type="button"
+              className="btn ghost sm"
+              onClick={dismissRegistered}
+              aria-label="Dispensar aviso"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         <div className="auth-header">
           <Logo size={32} />
           <div>
@@ -80,7 +123,6 @@ export default function LoginClient() {
             </button>
           </div>
 
-          {/* Submeter */}
           <button
             type="submit"
             className="btn primary"

@@ -1,295 +1,153 @@
 /* ========== HMS Personal Trainer — Tema global & Layout base ========== */
 
-/* Paleta & tokens */
+/* ---------- Paleta & tokens ---------- */
 :root {
-  --bg: #f8fafc;         /* slate-50 */
-  --surface: #ffffff;
-  --fg: #0f172a;         /* slate-900 */
-  --muted: #475569;      /* slate-600 */
-  --muted-2: #64748b;    /* slate-500 */
-  --border: #e2e8f0;     /* slate-200 */
-  --accent: #3b82f6;     /* blue-500 */
-  --accent-2: #2563eb;   /* blue-600 */
-  --success: #22c55e;
-  --warning: #f59e0b;
-  --danger: #ef4444;
+  /* Cores base */
+  --bg: #f8fafc;          /* slate-50 */
+  --fg: #0f172a;          /* slate-900 */
+  --muted: #475569;       /* slate-600 */
+  --border: #e2e8f0;      /* slate-200 */
+  --accent: #3b82f6;      /* blue-500 */
+  --accent-600: #2563eb;
+  --success-bg: #ecfdf5;
+  --success-bd: #a7f3d0;
+  --success-fg: #065f46;
+  --danger-bg: #fef2f2;
+  --danger-bd: #fecaca;
+  --danger-fg: #7f1d1d;
 
+  /* Marca */
+  --brand: var(--accent);
+  --brand-600: var(--accent-600);
+
+  /* Fundo header e chips */
   --bg-header: rgba(248, 250, 252, 0.85);
   --chip: #e8f0fe;
 
   /* Layout */
-  --sidebar-w: 260px;          /* largura fixa da sidebar aberta */
-  --sidebar-collapsed: 72px;   /* largura quando recolhida/pinada */
-  --header-h: 64px;            /* altura do header */
+  --sidebar-w: 260px;          /* largura sidebar expandida (desktop) */
+  --sidebar-collapsed-w: 72px; /* largura quando colapsada+pinada */
+  --header-h: 64px;
 
-  --radius: 14px;
-  --radius-sm: 10px;
+  /* Efeitos */
+  --shadow-sm: 0 1px 0 rgba(0,0,0,.02), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-md: 0 10px 30px rgba(0,0,0,.08);
+  --radius: 12px;
+  --radius-lg: 16px;
+  --transition-fast: 160ms;
+  --transition-smooth: 280ms;
 
-  --shadow-1: 0 1px 2px rgba(2,6,23,.06);
-  --shadow-2: 0 8px 30px rgba(2,6,23,.08);
-  --shadow-3: 0 18px 60px rgba(2,6,23,.10);
-
-  --transition-quick: 180ms cubic-bezier(.2,.6,.2,1);
-  --transition-smooth: 300ms cubic-bezier(.2,.6,.2,1);   /* mais suave para colapsar/expandir */
+  /* Compat layer (ex.: auth background) */
+  --app-bg: var(--bg);
 }
 
 [data-theme="dark"] {
   --bg: #0b1220;
-  --surface: #0e1729;
   --fg: #e5e7eb;
   --muted: #94a3b8;
-  --muted-2: #9aa7bd;
   --border: #1f2937;
   --accent: #60a5fa;
-  --accent-2: #3b82f6;
+  --accent-600: #3b82f6;
+  --brand: var(--accent);
+  --brand-600: var(--accent-600);
   --bg-header: rgba(11, 18, 32, 0.6);
   --chip: #1f2937;
+
+  --success-bg: #06291e;
+  --success-bd: #064e3b;
+  --success-fg: #a7f3d0;
+  --danger-bg: #2a0b0b;
+  --danger-bd: #7f1d1d;
+  --danger-fg: #fecaca;
 }
 
-/* ===== Base ===== */
-*, *::before, *::after { box-sizing: border-box; }
-html, body, #__next { height: 100%; }
+/* ---------- Base ---------- */
+* { box-sizing: border-box; }
 html, body {
   background: var(--bg);
   color: var(--fg);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
+  margin: 0;
 }
+input, button, select, textarea { font: inherit; }
 a { color: inherit; text-decoration: none; }
-img { display:block; max-width:100%; height:auto; }
-input, button, select, textarea { font: inherit; color: inherit; }
 
-/* ===== Utilitários ===== */
-.text-muted { color: var(--muted-2); }
-.small { font-size: .875rem; }
-.sr-only {
-  position: absolute !important;
-  width: 1px; height: 1px;
-  padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0);
-  white-space: nowrap; border: 0;
-}
+.text-muted { color: var(--muted); }
+.small { font-size: .9rem; }
 
-/* ===== Botões (modernos) ===== */
-.btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
-  padding: .625rem 1rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--surface);
-  box-shadow: var(--shadow-1);
-  transition: transform var(--transition-quick), box-shadow var(--transition-quick), filter var(--transition-quick);
-  cursor: pointer;
-}
-.btn:hover { filter: brightness(1.02); box-shadow: var(--shadow-2); }
-.btn:active { transform: translateY(1px); }
-.btn[disabled], .btn[aria-disabled="true"] { opacity: .6; cursor: not-allowed; box-shadow: none; }
+/* Bloquear scroll da página quando a sidebar overlay está aberta (mobile/solta) */
+html[data-sidebar="open"] { overflow: hidden; }
 
-.btn.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-  font-weight: 700;
-  box-shadow: var(--shadow-1), 0 10px 26px rgba(59,130,246,.20);
-}
-.btn.primary:hover { background: var(--accent-2); border-color: var(--accent-2); }
-.btn.ghost { background: transparent; }
-.btn.link { background: transparent; border-color: transparent; text-decoration: underline; padding: .25rem .5rem; }
-
-/* Chips / Badges */
-.badge { display:inline-flex; align-items:center; gap:.35rem; padding: .25rem .5rem; border-radius: 999px; font-weight: 700; font-size: .75rem; }
-.badge.success { background: #dcfce7; color:#166534; border:1px solid #bbf7d0; }
-.badge.warn    { background: #fef9c3; color:#854d0e; border:1px solid #fde68a; }
-.badge.danger  { background: #fee2e2; color:#991b1b; border:1px solid #fecaca; }
-
-/* ===== Layout com sidebar ===== */
-
-/* Shell controla o estado com data-attrs:
-   data-pinned="true|false"   -> sidebar fixa ou overlay
-   data-collapsed="true|false"-> largura reduzida quando pinada
-   data-open="true|false"     -> (apenas overlay) visível
-   data-overlay="true|false"  -> se a sidebar está como overlay
-*/
+/* ---------- Layout com sidebar ---------- */
 .fp-shell {
-  position: relative;
-}
-
-/* Header (sempre no topo, alinhado com a coluna do conteúdo) */
-.fp-header {
-  position: sticky; top: 0; z-index: 40;
-  height: var(--header-h);
-  display: flex; align-items: center; gap: .75rem;
-  padding: .5rem 1rem;
-  background: var(--bg-header);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--border);
-}
-
-/* Conteúdo principal ajusta margem conforme estado da sidebar pinada */
-.fp-content { padding: 1.25rem; transition: margin var(--transition-smooth); }
-
-/* Sidebar base */
-.fp-sidebar {
-  position: fixed; top: var(--header-h); left: 0; z-index: 50;
-  height: calc(100dvh - var(--header-h));
-  width: var(--sidebar-w);
-  background: var(--surface);
-  border-right: 1px solid var(--border);
-  box-shadow: var(--shadow-2);
-  display: grid; grid-template-rows: auto 1fr auto;
-  transform: translateX(-100%);          /* por defeito, oculta (modo overlay) */
-  transition: transform var(--transition-smooth), width var(--transition-smooth), box-shadow var(--transition-quick);
-}
-
-/* Conteúdo da sidebar (lista) rola independentemente */
-.fp-sidebar .fp-nav { overflow-y: auto; overscroll-behavior: contain; }
-
-/* Quando pinada (fixa no desktop) fica sempre visível */
-.fp-shell[data-pinned="true"] .fp-sidebar {
-  position: fixed; transform: none; box-shadow: none;
-}
-
-/* Quando pinada e recolhida: encolhe largura */
-.fp-shell[data-pinned="true"][data-collapsed="true"] .fp-sidebar { width: var(--sidebar-collapsed); }
-
-/* Quando overlay e aberta (mobile / não pinada) */
-.fp-shell[data-overlay="true"][data-open="true"] .fp-sidebar { transform: translateX(0); }
-
-/* Overlay de fundo */
-.fp-overlay {
-  position: fixed; inset: 0; z-index: 40;
-  background: rgba(2,6,23,.42);
-  backdrop-filter: blur(1.5px);
-  opacity: 0; pointer-events: none;
-  transition: opacity var(--transition-smooth);
-}
-.fp-shell[data-overlay="true"][data-open="true"] .fp-overlay { opacity: 1; pointer-events: auto; }
-
-/* Ajuste de header + content quando sidebar está pinada */
-.fp-shell[data-pinned="true"][data-collapsed="false"] .fp-header,
-.fp-shell[data-pinned="true"][data-collapsed="false"] .fp-content { margin-left: var(--sidebar-w); }
-.fp-shell[data-pinned="true"][data-collapsed="true"]  .fp-header,
-.fp-shell[data-pinned="true"][data-collapsed="true"]  .fp-content { margin-left: var(--sidebar-collapsed); }
-
-/* No modo overlay (mobile ou não pinado), header e content sem margem */
-.fp-shell[data-overlay="true"] .fp-header,
-.fp-shell[data-overlay="true"] .fp-content { margin-left: 0; }
-
-/* ===== Navegação (sidebar) ===== */
-.nav-section { padding: .75rem .75rem .25rem; color: var(--muted-2); font-weight: 700; font-size: .8rem; }
-.nav-list { display: grid; gap: .25rem; padding: .25rem .5rem .75rem; }
-
-.nav-item, .nav-group-trigger {
   display: grid;
-  grid-template-columns: 40px 1fr auto;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  grid-template-rows: var(--header-h) 1fr;
+  min-height: 100dvh;
+}
+
+/* Header alinhado à coluna */
+.fp-header {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  display: flex;
   align-items: center;
   gap: .75rem;
-  padding: .55rem .65rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid transparent;
-  color: var(--fg);
-  transition: background var(--transition-quick), border-color var(--transition-quick), color var(--transition-quick);
-}
-.nav-item:hover, .nav-group-trigger:hover { background: rgba(2,6,23,.04); }
-
-.nav-ico {
-  display:flex; align-items:center; justify-content:center;
-  width: 34px; height: 34px; border-radius: 10px;
-  background: #eef2ff;          /* base clara */
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-1);
-  font-size: 18px;
-}
-[data-theme="dark"] .nav-ico { background: #0f1a31; }
-
-/* etiqueta do item */
-.nav-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-/* estado ativo (apenas no item real, não no pai) */
-.nav-item[aria-current="page"],
-.nav-item[data-active="true"] {
-  background: rgba(59,130,246,.12);
-  border-color: #bfdbfe;
+  padding: .8rem 1rem;
+  min-height: var(--header-h);
+  background: var(--bg-header);
+  backdrop-filter: saturate(180%) blur(6px);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 40;
 }
 
-/* o botão do grupo abre/fecha sem receber “ativo” por seleção de filho */
-.nav-group-trigger[aria-expanded="true"] {
-  background: rgba(2,6,23,.03);
-  border-color: var(--border);
+/* Sidebar */
+.fp-sidebar {
+  grid-column: 1;
+  grid-row: 2;
+  position: sticky;
+  top: var(--header-h);
+  height: calc(100dvh - var(--header-h));
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+  overflow: hidden; /* scroll só no nav */
+  transition:
+    width var(--transition-smooth),
+    transform var(--transition-smooth),
+    box-shadow var(--transition-fast);
+  z-index: 30;
+}
+.fp-sidebar .fp-nav {
+  height: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: .75rem;
 }
 
-/* sublista */
-.nav-sublist { display: grid; gap: .2rem; padding-left: 46px; margin-top: .25rem; }
-
-/* ===== Colapso (pinned + collapsed) — mostrar só ícones ===== */
-.fp-shell[data-pinned="true"][data-collapsed="true"] .nav-item,
-.fp-shell[data-pinned="true"][data-collapsed="true"] .nav-group-trigger {
-  grid-template-columns: 40px 0 auto;
-  padding: .55rem .55rem;
-}
-.fp-shell[data-pinned="true"][data-collapsed="true"] .nav-label,
-.fp-shell[data-pinned="true"][data-collapsed="true"] .nav-caret {
-  opacity: 0; width: 0; pointer-events: none;
-}
-.fp-shell[data-pinned="true"][data-collapsed="true"] .nav-sublist { display: none; }
-
-/* ===== Cartões / painéis (look consistente no dashboard) ===== */
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-1);
+/* Conteúdo */
+.fp-content {
+  grid-column: 2;
+  grid-row: 2;
+  min-height: calc(100dvh - var(--header-h));
   padding: 1rem;
 }
 
-/* ===== Login (garante que o submit não vira um input) ===== */
-.auth-card{
-  width: min(740px, 94vw);
-  padding: 22px;
-  border-radius: 16px;
-  box-shadow: var(--shadow-3);
-  border: 1px solid var(--border);
-  background: var(--surface);
-}
-.auth-header{ display:flex; align-items:center; gap:12px; margin-bottom:10px; }
-.auth-title{ font-weight:800; font-size:20px; }
-.auth-fields{ display:grid; gap:12px; }
-.auth-label{ font-weight:700; }
-.auth-input{
-  padding: 12px 14px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--fg);
-  outline: none;
-}
-.auth-password{ display:grid; grid-template-columns: 1fr auto; gap:8px; }
-.badge-danger{
-  padding: 8px;
-  border-radius: 10px;
-  background: #fee2e2;
-  color: #991b1b;
-  border: 1px solid #fecaca;
+/* Overlay (mobile/overlay) */
+.fp-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.42);
+  backdrop-filter: blur(1px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-fast) ease;
+  z-index: 25;
 }
 
-/* ===== Responsivo ===== */
-@media (max-width: 1023.98px) {
-  /* Em tablets/telemóveis, usamos overlay por padrão (controlado no TS),
-     mas o CSS aqui assegura layout confortável */
-  .fp-content { padding: 1rem .75rem 1.25rem; }
-}
-
-/* ===== Extras de qualidade de vida ===== */
-/* Impede que as linhas da sidebar estiquem */
-.fp-sidebar .fp-nav { align-content: start; grid-auto-rows: max-content; }
-.nav-item, .nav-group-trigger { min-height: 44px; line-height: 1.2; }
-
-/* Hover consistente */
-.nav-item:hover, .nav-subitem:hover, .nav-group-trigger:hover {
-  background: rgba(2,6,23,.06);
-
-  /* Hotspot para hover-peek quando pinada e colapsada */
+/* Hotspot para hover-peek quando pinada + colapsada */
 .fp-hover-hotspot{
   position: fixed;
   top: var(--header-h);
@@ -297,5 +155,228 @@ input, button, select, textarea { font: inherit; color: inherit; }
   width: 10px;
   height: calc(100dvh - var(--header-h));
   z-index: 45;
-  }
 }
+
+/* ---------- Estados via data-* (aplicados no container .fp-shell) ---------- */
+/* COLLAPSED + PINNED = sidebar estreita */
+.fp-shell[data-pinned="true"][data-collapsed="true"] {
+  grid-template-columns: var(--sidebar-collapsed-w) 1fr;
+}
+.fp-shell[data-pinned="true"][data-collapsed="true"] .fp-sidebar {
+  width: var(--sidebar-collapsed-w);
+}
+.fp-shell[data-pinned="true"][data-collapsed="false"] .fp-sidebar {
+  width: var(--sidebar-w);
+}
+
+/* OVERLAY (não pinada OU mobile): a sidebar vira off-canvas */
+.fp-shell[data-overlay="true"] {
+  grid-template-columns: 1fr; /* sem coluna fixa */
+}
+.fp-shell[data-overlay="true"] .fp-sidebar {
+  position: fixed;
+  left: 0; top: var(--header-h);
+  height: calc(100dvh - var(--header-h));
+  width: min(85vw, var(--sidebar-w));
+  max-width: 85vw;
+  box-shadow: 0 10px 30px rgba(0,0,0,.18);
+  transform: translateX(-100%);
+}
+.fp-shell[data-overlay="true"][data-open="true"] .fp-sidebar {
+  transform: translateX(0);
+}
+.fp-shell[data-overlay="true"][data-open="true"] .fp-overlay {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ---------- Responsivo ---------- */
+@media (min-width: 1024px) {
+  .fp-shell {
+    grid-template-columns: var(--sidebar-w) 1fr;
+  }
+  .fp-overlay { display: none; }
+}
+@media (max-width: 1023.98px) {
+  .fp-shell { grid-template-columns: 1fr; }
+}
+
+/* ---------- Navegação (menu) ---------- */
+.nav-section { margin-bottom: .5rem; }
+.nav-section-title {
+  font-size: .75rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--muted);
+  padding: .25rem .5rem;
+  margin: .25rem .25rem .5rem;
+}
+
+.nav-list { display: grid; gap: 4px; }
+
+/* Itens */
+.nav-item,
+.nav-group-trigger,
+.nav-subitem {
+  display: grid;
+  grid-template-columns: 24px 1fr auto;
+  align-items: center;
+  gap: .6rem;
+  padding: .55rem .6rem;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+  min-height: 36px;
+}
+
+.nav-item:hover,
+.nav-group-trigger:hover,
+.nav-subitem:hover {
+  background: color-mix(in oklab, var(--accent) 12%, transparent);
+}
+
+.nav-item[data-active="true"],
+.nav-subitem[data-active="true"] {
+  background: color-mix(in oklab, var(--accent) 18%, transparent);
+  border-color: color-mix(in oklab, var(--accent) 35%, transparent);
+}
+
+/* Grupos */
+.nav-group { display: grid; gap: 4px; }
+.nav-group .nav-caret { opacity: .7; font-size: .9rem; }
+.nav-sublist { display: grid; gap: 4px; padding-left: .5rem; }
+
+/* Ícone e rótulo */
+.nav-icon { display: inline-grid; place-items: center; width: 24px; height: 24px; }
+.nav-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Quando PINNED + COLLAPSED: esconder labels e sublistas (mostra só ícones)  */
+.fp-shell[data-pinned="true"][data-collapsed="true"] .nav-label { display: none; }
+.fp-shell[data-pinned="true"][data-collapsed="true"] .nav-sublist { display: none !important; }
+.fp-shell[data-pinned="true"][data-collapsed="true"] .nav-group-trigger { grid-template-columns: 24px; }
+
+/* ---------- Botões / Inputs / Cards ---------- */
+.btn, .pill, .btn-ghost {
+  display: inline-flex; align-items: center; gap: .5rem;
+  height: 36px; padding: 0 .9rem;
+  border-radius: 10px; border: 1px solid var(--border);
+  background: var(--bg); color: var(--fg);
+  box-shadow: var(--shadow-sm);
+  transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast), color var(--transition-fast);
+}
+.btn.sm, .pill.sm, .btn-ghost.sm { height: 28px; padding: 0 .5rem; border-radius: 8px; }
+
+.btn:hover, .pill:hover, .btn-ghost:hover { background: color-mix(in oklab, var(--accent) 12%, var(--bg)); }
+.btn:active, .pill:active, .btn-ghost:active { transform: translateY(1px); }
+
+.btn.primary, .pill.primary {
+  background: var(--brand); color: #fff; border-color: transparent;
+}
+.btn.primary:hover, .pill.primary:hover { background: var(--brand-600); }
+
+.btn.ghost, .pill.quiet {
+  background: transparent; border-color: var(--border);
+}
+
+.btn.link {
+  background: transparent; border-color: transparent; box-shadow: none;
+  height: auto; padding: 0;
+  color: var(--brand);
+}
+.btn.link:hover { text-decoration: underline; }
+
+.input, .auth-input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+  outline: none;
+}
+.input:focus, .auth-input:focus {
+  border-color: color-mix(in oklab, var(--accent) 50%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 24%, transparent);
+}
+
+.card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+/* ---------- Login UI ---------- */
+.auth-card {
+  width: min(720px, 94vw);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 22px;
+}
+.auth-header { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.auth-title { font-weight: 800; font-size: 20px; }
+
+.auth-fields { display: grid; gap: 12px; }
+.auth-label { font-weight: 700; }
+.auth-password { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.auth-actions { display: flex; gap: 16px; flex-wrap: wrap; }
+
+.badge-danger {
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+  border: 1px solid var(--danger-bd);
+  padding: 8px 10px;
+  border-radius: 10px;
+}
+
+/* Banner de feedback no login */
+.auth-banner {
+  display: flex; align-items: center; gap: .6rem;
+  padding: .65rem .8rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  margin-bottom: 1rem;
+  font-weight: 500;
+  box-shadow: var(--shadow-sm);
+}
+.auth-banner.success {
+  background: var(--success-bg);
+  border-color: var(--success-bd);
+  color: var(--success-fg);
+}
+.auth-banner__dot {
+  width: .6rem; height: .6rem; border-radius: 50%;
+  background: var(--success-fg);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--success-fg) 24%, transparent);
+}
+
+/* ---------- Acessibilidade ---------- */
+.sr-only {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0);
+  white-space: nowrap; border: 0;
+}
+
+/* ---------- Melhorias de UX ---------- */
+.fp-sidebar nav, .fp-sidebar .fp-nav { align-content: start; grid-auto-rows: max-content; }
+.fp-sidebar nav a { min-height: 0; line-height: 1.2; }
+
+.nav-item:hover,
+.nav-subitem:hover,
+.nav-group-trigger:hover {
+  background: color-mix(in oklab, var(--accent) 12%, transparent);
+}
+
+.page-title { margin: 0 0 .75rem 0; }
+.page-section { margin: .75rem 0; }
+
+/* Alternância de logótipo (light/dark) */
+.brand-logo-light { display: inline-block; }
+.brand-logo-dark { display: none; }
+[data-theme="dark"] .brand-logo-light { display: none; }
+[data-theme="dark"] .brand-logo-dark { display: inline-block; }
