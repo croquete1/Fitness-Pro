@@ -4,10 +4,10 @@ import React, { useMemo, useRef, useEffect, useState } from "react";
 import Menu from "./sidebar/Menu";
 import useSidebarState from "./SidebarWrapper";
 
-/** Dimensões e animação */
+/** Dimensões + animação (mais lenta) */
 const RAIL_W = 64;
 const PANEL_W = 260;
-const ANIM_MS = 520; // animação mais lenta/suave
+const ANIM_MS = 780; // antes: 520ms -> agora mais suave
 const EASE = "cubic-bezier(.22,.8,.2,1)";
 
 const ICON = {
@@ -76,10 +76,24 @@ function buildMenu(): Entry[] {
   ];
 }
 
-/** Ícone hambúrguer em SVG (alinhamento/espessura perfeitos) */
-const IconBurger = ({ size = 18 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
-    <path d="M3 7h18M3 12h18M3 17h18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+/** Hambúrguer com alinhamento perfeito e stroke consistente */
+const IconBurger = ({ size = 20 }: { size?: number }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    aria-hidden
+    style={{ display: "block" }} // evita “afundar” por baseline
+  >
+    <path
+      d="M4 6.5h16M4 12h16M4 17.5h16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      shapeRendering="geometricPrecision"
+    />
   </svg>
 );
 
@@ -109,7 +123,7 @@ export default function Sidebar() {
   const onMouseLeaveRail = () => {
     if (!pinned) {
       if (hoverTimer.current) clearTimeout(hoverTimer.current);
-      hoverTimer.current = setTimeout(() => setOverlayOpen(false), 180);
+      hoverTimer.current = setTimeout(() => setOverlayOpen(false), 240); // atraso um pouco maior
     }
   };
 
@@ -139,6 +153,8 @@ export default function Sidebar() {
           gridTemplateRows: "auto 1fr",
           zIndex: 30,
           overflow: "hidden",
+          willChange: "width", // ajuda a suavizar
+          transform: "translateZ(0)", // GPU
         }}
         aria-label="Sidebar"
         onMouseEnter={onMouseEnterRail}
@@ -180,7 +196,7 @@ export default function Sidebar() {
             )}
           </div>
 
-          <div className="fp-sb-actions" style={{ display: "inline-flex", gap: 6 }}>
+          <div className="fp-sb-actions" style={{ display: "inline-flex", gap: 8 }}>
             {/* Recolher/expandir */}
             <button
               className="btn icon sb-icon"
@@ -208,7 +224,6 @@ export default function Sidebar() {
           </div>
         </div>
 
-        {/* Transições suaves para labels/itens; esconder headings no modo mini */}
         {injectCss && (
           <style jsx global>{`
             .fp-sidebar .nav-item,
@@ -223,7 +238,7 @@ export default function Sidebar() {
             .fp-sidebar[data-mini="true"] .nav-item { grid-template-columns: 24px !important; }
             .fp-sidebar[data-mini="true"] .nav-section { display: none !important; }
 
-            /* Botão/ícone bem centrado e consistente */
+            /* Botões / ícone – centrados e com hit area consistente */
             .fp-sidebar .sb-icon {
               width: 36px;
               height: 36px;
@@ -231,8 +246,12 @@ export default function Sidebar() {
               align-items: center;
               justify-content: center;
               border-radius: 10px;
+              line-height: 0; /* ajuda a centralizar o SVG */
             }
             .fp-sidebar .sb-icon:hover { background: var(--sidebar-hover); }
+            @media (prefers-reduced-motion: reduce) {
+              .fp-sidebar .nav-item, .fp-sidebar .nav-label { transition: none !important; }
+            }
           `}</style>
         )}
 
@@ -260,7 +279,7 @@ export default function Sidebar() {
             onMouseEnter={() => hoverTimer.current && clearTimeout(hoverTimer.current)}
             onMouseLeave={() => {
               if (hoverTimer.current) clearTimeout(hoverTimer.current);
-              hoverTimer.current = setTimeout(() => setOverlayOpen(false), 180);
+              hoverTimer.current = setTimeout(() => setOverlayOpen(false), 240);
             }}
             style={{
               position: "fixed",
@@ -276,6 +295,8 @@ export default function Sidebar() {
               gridTemplateRows: "auto 1fr",
               zIndex: 60,
               animation: `fp-slide-in ${ANIM_MS}ms ${EASE}`,
+              willChange: "transform, opacity",
+              transform: "translateZ(0)",
             }}
           >
             <div
@@ -311,7 +332,7 @@ export default function Sidebar() {
                 <div style={{ fontWeight: 800, fontSize: 14, lineHeight: 1.1 }}>Fitness Pro</div>
               </div>
 
-              <div className="fp-sb-actions" style={{ display: "inline-flex", gap: 6 }}>
+              <div className="fp-sb-actions" style={{ display: "inline-flex", gap: 8 }}>
                 <button className="btn icon sb-icon" aria-label="Fechar menu" title="Fechar" onClick={closeOverlay}>
                   ✕
                 </button>
@@ -328,7 +349,7 @@ export default function Sidebar() {
 
           <style jsx global>{`
             @keyframes fp-slide-in {
-              from { transform: translateX(-16px); opacity: .0; }
+              from { transform: translateX(-18px); opacity: .0; }
               to   { transform: translateX(0);      opacity: 1;  }
             }
             @keyframes fp-fade-in {
