@@ -1,9 +1,10 @@
-import dynamic from "next/dynamic";
+import LoginClient from "./LoginClient";
 
-// Carrega o componente de cliente sem SSR para evitar
-// serialização de event handlers (bulletproof).
-const LoginClient = dynamic(() => import("./LoginClient"), { ssr: false });
+export const metadata = {
+  title: "Iniciar sessão • Fitness Pro",
+};
 
 export default function Page() {
+  // Server Component simples: só renderiza o Client Component
   return <LoginClient />;
 }
