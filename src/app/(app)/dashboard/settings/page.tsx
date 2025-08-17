@@ -1,21 +1,33 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
-import { redirect } from "next/navigation";
+"use client";
 
-export const dynamic = "force-dynamic";
+import React, { useState } from "react";
 
-export default async function SettingsPage() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) redirect("/login");
-  const role = (session.user as any).role as "ADMIN" | "TRAINER" | "CLIENT";
-  if (role !== "ADMIN") redirect("/dashboard");
+export default function SettingsPage() {
+  const [emailNotifs, setEmailNotifs] = useState(true);
+  const [pushNotifs, setPushNotifs] = useState(true);
 
   return (
-    <main className="p-6 space-y-6">
-      <h1 className="text-2xl font-semibold">Definições</h1>
-      <div className="rounded-2xl border p-6 text-sm opacity-70">
-        Sem definições configuráveis neste momento.
+    <div style={{ padding: 16, display: "grid", gap: 12 }}>
+      <h1 style={{ margin: 0 }}>Definições</h1>
+
+      <div className="card" style={{ padding: 16, display: "grid", gap: 12, maxWidth: 720 }}>
+        <strong>Notificações</strong>
+        <label style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <input type="checkbox" checked={emailNotifs} onChange={(e) => setEmailNotifs(e.target.checked)} />
+          Receber por e-mail
+        </label>
+        <label style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <input type="checkbox" checked={pushNotifs} onChange={(e) => setPushNotifs(e.target.checked)} />
+          Receber push
+        </label>
+
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="pill" style={{ padding: "8px 12px", background: "var(--brand)", color: "#fff", borderColor: "transparent" }}>
+            Guardar
+          </button>
+          <button className="pill" style={{ padding: "8px 12px" }}>Cancelar</button>
+        </div>
       </div>
-    </main>
+    </div>
   );
 }
