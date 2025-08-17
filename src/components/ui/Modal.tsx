@@ -1,42 +1,46 @@
 "use client";
+import React, { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 
-import React, { useEffect } from "react";
-
-type Props = {
+export default function Modal({
+  open,
+  onClose,
+  children,
+}: {
   open: boolean;
-  title?: string;
   onClose: () => void;
-  footer?: React.ReactNode;
-  children?: React.ReactNode;
-  maxWidth?: number;
-};
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
 
-export default function Modal({ open, title, onClose, footer, children, maxWidth = 640 }: Props) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    if (open) window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   if (!open) return null;
 
-  return (
-    <div aria-modal role="dialog" aria-label={title ?? "Janela"} style={{
-      position: "fixed", inset: 0, zIndex: 80,
-      display: "grid", placeItems: "center",
-      background: "rgba(0,0,0,.35)", backdropFilter: "blur(2px)"
-    }}>
-      <div className="card" style={{
-        width: "min(96vw, "+maxWidth+"px)", borderRadius: 16, overflow: "hidden",
-        background: "var(--bg)", border: "1px solid var(--border)", boxShadow: "var(--shadow-md)"
-      }}>
-        <div style={{ padding: 14, borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center" }}>
-          <div style={{ fontWeight: 800 }}>{title}</div>
-          <button onClick={onClose} className="pill" style={{ marginLeft: "auto", padding: "6px 10px" }}>Fechar</button>
-        </div>
-        <div style={{ padding: 14 }}>{children}</div>
-        {footer && <div style={{ padding: 12, borderTop: "1px solid var(--border)", display: "flex", gap: 8, justifyContent: "flex-end" }}>{footer}</div>}
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}                         /* clica fora = fechar */
+      style={{
+        position: "fixed", inset: 0, zIndex: 80,
+        background: "rgba(0,0,0,.35)", backdropFilter: "blur(2px)",
+        display: "grid", placeItems: "center",
+      }}
+    >
+      <div
+        ref={ref}
+        onClick={(e) => e.stopPropagation()}     /* clicar no conteúdo não fecha */
+        className="card"
+        style={{ width: "min(640px, 94vw)", padding: 16, borderRadius: 16 }}
+      >
+        {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

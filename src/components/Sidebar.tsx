@@ -8,7 +8,7 @@ type Item = { label: string; href: string; icon: React.ReactNode; title?: string
 type Group = { title?: string; items: Item[] };
 
 function ItemLink({ item, current, rail }: { item: Item; current: boolean; rail: boolean }) {
-  const common = (
+  const inner = (
     <>
       <div className="nav-icon" aria-hidden>{item.icon}</div>
       <div className="nav-label">{item.label}</div>
@@ -16,34 +16,20 @@ function ItemLink({ item, current, rail }: { item: Item; current: boolean; rail:
     </>
   );
 
-  // No rail mostramos tooltip com o label
-  if (rail) {
-    return (
-      <Link
-        href={item.href}
-        className="nav-item tooltip"
-        data-tip={item.title ?? item.label}
-        aria-current={current ? "page" : undefined}
-      >
-        {common}
-      </Link>
-    );
-  }
-  return (
+  return rail ? (
+    <Link href={item.href} className="nav-item tooltip" data-tip={item.title ?? item.label} aria-current={current ? "page" : undefined}>
+      {inner}
+    </Link>
+  ) : (
     <Link href={item.href} className="nav-item" aria-current={current ? "page" : undefined}>
-      {common}
+      {inner}
     </Link>
   );
 }
 
 export default function Sidebar({ rail }: { rail?: boolean }) {
   const pathname = usePathname();
-
-  const is = (href: string) => {
-    // evita “selecionado duplo” – match exato ou prefixo só quando não há conflito
-    if (href === "/dashboard") return pathname === "/dashboard";
-    return pathname === href || pathname.startsWith(href + "/");
-  };
+  const is = (href: string) => pathname === href; // match EXATO (evita selecionar o “pai”)
 
   const inicio: Group = {
     title: "Início",
@@ -87,12 +73,12 @@ export default function Sidebar({ rail }: { rail?: boolean }) {
     ],
   };
 
-  const all: Group[] = [inicio, admin, pt, sistema];
+  const groups: Group[] = [inicio, admin, pt, sistema];
 
   return (
-    <nav style={{ display: "grid", gap: 8 }}>
-      {all.map((g, gi) => (
-        <div key={gi} style={{ display: "grid", gap: 6 }}>
+    <nav style={{ display: "grid", gap: 6 }}>
+      {groups.map((g, i) => (
+        <div key={i} style={{ display: "grid", gap: 4 }}>
           {g.title && <div className="section-title">{g.title}</div>}
           {g.items.map((it) => (
             <ItemLink key={it.href} item={it} current={is(it.href)} rail={!!rail} />

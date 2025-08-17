@@ -2,82 +2,62 @@
 
 /* Paleta & tokens */
 :root{
-  --bg:#f8fafc;           /* slate-50 */
-  --fg:#0f172a;           /* slate-900 */
-  --muted:#475569;        /* slate-600 */
-  --border:#e2e8f0;       /* slate-200 */
-  --accent:#3b82f6;       /* blue-500 */
-  --accent-600:#2563eb;   /* blue-600 */
-  --bg-header:rgba(248,250,252,.85);
-  --chip:#e8f0fe;
+  --bg:#f8fafc; --fg:#0f172a; --muted:#475569; --border:#e2e8f0;
+  --accent:#3b82f6; --accent-600:#2563eb;
+  --bg-header:rgba(248,250,252,.85); --chip:#e8f0fe;
 
   /* Layout */
-  --sidebar-w: 264px;         /* largura sidebar aberta */
-  --sidebar-collapsed: 72px;  /* largura sidebar recolhida (rail) */
-  --header-h: 64px;
-  --radius: 14px;
+  --sidebar-w:264px;            /* aberta */
+  --sidebar-collapsed:72px;     /* rail (só ícones) */
+  --header-h:64px;
+  --radius:14px;
 
-  /* Transições */
+  /* Transições (mais suave/lenta) */
   --sb-ease:cubic-bezier(.22,1,.36,1);
-  --sb-dur:240ms;
+  --sb-dur:320ms;
 
-  /* variável corrente (muda com o estado recolhido/expandido) */
-  --sidebar-current: var(--sidebar-w);
+  /* variável corrente controlada via <html data-sb="collapsed"> */
+  --sidebar-current:var(--sidebar-w);
 }
 
 [data-theme="dark"]{
-  --bg:#0b1220;
-  --fg:#e5e7eb;
-  --muted:#94a3b8;
-  --border:#1f2937;
-  --accent:#60a5fa;
-  --accent-600:#3b82f6;
-  --bg-header:rgba(11,18,32,.6);
-  --chip:#1f2937;
+  --bg:#0b1220; --fg:#e5e7eb; --muted:#94a3b8; --border:#1f2937;
+  --accent:#60a5fa; --accent-600:#3b82f6;
+  --bg-header:rgba(11,18,32,.6); --chip:#1f2937;
 }
 
 html,body{
-  background:var(--bg);
-  color:var(--fg);
+  background:var(--bg); color:var(--fg);
   font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",
-    Arial,"Noto Sans","Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol",sans-serif;
+  Arial,"Noto Sans","Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol",sans-serif;
 }
 input,button,select,textarea{ font:inherit; }
-
 a{ color:inherit; text-decoration:none; }
 .text-muted{ color:var(--muted); }
 
-/* Botões (look moderno & consistente) */
+/* Botões (moderno) */
 .btn{
   display:inline-flex; align-items:center; gap:.5rem;
-  padding:.6rem .9rem; border:1px solid var(--border);
+  padding:.55rem .85rem; border:1px solid var(--border);
   background:#fff; color:var(--fg);
   border-radius:12px; box-shadow:0 1px 0 rgba(0,0,0,.03);
   transition:background .15s ease, transform .05s ease, border-color .15s ease;
 }
 .btn:hover{ background:#f3f7ff; border-color:#d6e4ff; }
 .btn:active{ transform:translateY(1px); }
-.btn-primary{
-  background:var(--accent); border-color:transparent; color:#fff;
-}
+.btn-primary{ background:var(--accent); border-color:transparent; color:#fff; }
 .btn-primary:hover{ background:var(--accent-600); }
-.pill{
-  display:inline-flex; align-items:center; gap:.5rem;
-  padding:.5rem .8rem; border:1px solid var(--border);
-  border-radius:999px; background:#fff;
-}
+.pill{ display:inline-flex; align-items:center; gap:.5rem; padding:.45rem .8rem; border:1px solid var(--border); border-radius:999px; background:#fff; }
 
 /* Cards/Tabelas */
 .card{ background:#fff; border:1px solid var(--border); border-radius:var(--radius); }
-table th, table td{ font-weight:400; }
-
-/* Bloquear scroll geral quando a sidebar off-canvas abre no mobile */
-html[data-sidebar="open"]{ overflow:hidden; }
 
 /* ===== Shell com sidebar ===== */
+html[data-sidebar="open"]{ overflow:hidden; } /* mobile off-canvas */
+
 .fp-shell{
   display:grid;
-  grid-template-columns: var(--sidebar-current) 1fr; /* expande/encolhe com a variável */
+  grid-template-columns: var(--sidebar-current) 1fr;
   min-height: calc(100dvh - var(--header-h));
   transition: grid-template-columns var(--sb-dur) var(--sb-ease);
 }
@@ -92,46 +72,45 @@ html[data-sidebar="open"]{ overflow:hidden; }
   transition: width var(--sb-dur) var(--sb-ease), box-shadow .2s ease;
   overflow:hidden;
 }
-.fp-sidebar .inner{
-  height:100%;
-  display:grid;
-  grid-template-rows:auto 1fr auto; /* header | nav (scroll) | footer */
-}
-.fp-sidebar .nav-scroll{
-  overflow:auto;
-  padding-right:6px; /* nice scroll */
-}
+.fp-sidebar .inner{ height:100%; display:grid; grid-template-rows:auto 1fr auto; }
+.fp-sidebar .nav-scroll{ overflow:auto; padding: 2px 8px 8px 8px; }
 
-/* Itens de navegação */
-.nav-item, .nav-group-trigger{
-  display:grid; grid-template-columns: 32px 1fr auto; align-items:center;
-  gap:.75rem; padding:.7rem .9rem; border-radius:12px; cursor:pointer;
-  transition: background .12s ease, transform .05s ease;
+/* Itens de navegação — compactos e alinhados */
+.nav-item,.nav-group-trigger{
+  display:grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items:center;
+  gap:.6rem;
+  padding:.6rem .8rem;
+  border-radius:12px;
+  cursor:pointer;
+  transition:background .12s ease, transform .05s ease;
+  min-height:44px;
 }
-.nav-item:hover, .nav-group-trigger:hover{ background:rgba(59,130,246,.08); }
+.nav-item:hover,.nav-group-trigger:hover{ background:rgba(59,130,246,.08); }
 .nav-item[aria-current="page"]{ background:rgba(59,130,246,.12); }
+
 .nav-icon{
-  width:32px; height:32px; border-radius:10px; display:grid; place-items:center;
-  background:#eef4ff; color:#2643a3; font-size:18px;
+  width:28px; height:28px; border-radius:9px;
+  display:grid; place-items:center;
+  background:#eef4ff; color:#2643a3; font-size:17px; line-height:1;
 }
 .nav-label{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
-/* Collapsed (rail) – esconde label mas mantém tooltip/title */
-html[data-sb="collapsed"]{
-  --sidebar-current: var(--sidebar-collapsed);
-}
-html[data-sb="collapsed"] .nav-label,
-html[data-sb="collapsed"] .nav-caret,
-html[data-sb="collapsed"] .section-title{
-  opacity:0; transform:translateX(-8px); pointer-events:none;
-}
+/* Títulos de secção mais justos */
 .section-title{
   font-size:12px; color:var(--muted); font-weight:700;
-  margin:1rem .75rem .4rem;
+  margin: .6rem .4rem .2rem;
   transition:opacity var(--sb-dur) var(--sb-ease), transform var(--sb-dur) var(--sb-ease);
 }
 
-/* Header alinhado ao layout com sidebar */
+/* Collapsed (rail) */
+html[data-sb="collapsed"]{ --sidebar-current:var(--sidebar-collapsed); }
+html[data-sb="collapsed"] .nav-label,
+html[data-sb="collapsed"] .nav-caret,
+html[data-sb="collapsed"] .section-title{ opacity:0; transform:translateX(-6px); pointer-events:none; }
+
+/* Header alinhado */
 .fp-header{
   position:sticky; top:0; z-index:40;
   background:var(--bg-header); backdrop-filter: blur(6px);
@@ -140,16 +119,13 @@ html[data-sb="collapsed"] .section-title{
   transition: grid-template-columns var(--sb-dur) var(--sb-ease);
   border-bottom:1px solid rgba(0,0,0,.04);
 }
-.fp-header-inner{
-  grid-column:2; display:grid; grid-template-columns:1fr auto; align-items:center;
-  gap:.75rem; padding:.8rem 1rem;
-}
+.fp-header-inner{ grid-column:2; display:grid; grid-template-columns:1fr auto; align-items:center; gap:.75rem; padding:.8rem 1rem; }
 
 /* Conteúdo */
-.fp-content{ padding:16px; min-height:calc(100dvh - var(--header-h)); }
-.page h1{ margin: 0 0 12px; }
+.fp-content{ padding: 14px 16px; min-height:calc(100dvh - var(--header-h)); }
+.page h1{ margin: 0 0 8px; }
 
-/* Tooltip simples para rail */
+/* Tooltip simples (para rail) */
 .tooltip{ position:relative; }
 .tooltip[data-tip]:hover:after{
   content:attr(data-tip);
@@ -160,7 +136,7 @@ html[data-sb="collapsed"] .section-title{
 
 /* ===== Mobile/Tablet ===== */
 @media (max-width:1023.98px){
-  .fp-shell{ grid-template-columns:1fr !important; }
+  .fp-shell{ grid-template-columns:1fr!important; }
   .fp-header{ grid-template-columns:1fr; }
   .fp-header-inner{ grid-column:1; }
 
