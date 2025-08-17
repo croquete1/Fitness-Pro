@@ -1,10 +1,17 @@
+/* =============================
+   globals.css  (src/app/globals.css)
+   ============================= */
+
 /* ===== Reset básico / tokens ===== */
 *,
 *::before,
 *::after { box-sizing: border-box; }
 html, body { height: 100%; }
 html { -webkit-text-size-adjust: 100%; }
-body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"; }
+body {
+  margin: 0;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+}
 
 :root {
   --bg: #f7f9fc;
@@ -25,8 +32,11 @@ body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, S
   --radius: 12px;
   --shadow-1: 0 2px 8px rgba(15,23,42,.06), 0 1px 3px rgba(15,23,42,.04);
 }
+
+/* wrapper opcional para páginas de auth */
 [data-auth-root] { min-height: 100dvh; }
 
+/* ===== Dark theme (opcional) ===== */
 [data-theme="dark"] {
   --bg: #0d1117;
   --card: #0f141b;
@@ -43,6 +53,7 @@ body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, S
   --sidebar-active: #182230;
 }
 
+/* ===== Base ===== */
 body {
   color: var(--fg);
   background:
@@ -51,14 +62,21 @@ body {
     var(--bg);
 }
 
-/* ===== Elementos genéricos ===== */
 a { color: inherit; text-decoration: none; }
 button { border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+
 input, select, textarea {
-  color: inherit; background: var(--card); border: 1px solid var(--border);
-  border-radius: 10px; padding: 10px 12px; outline: none;
+  color: inherit;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  outline: none;
 }
-input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-color: var(--primary); }
+input:focus, select:focus, textarea:focus {
+  box-shadow: var(--ring);
+  border-color: var(--primary);
+}
 
 /* ===== Botões ===== */
 .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 12px; }
@@ -70,18 +88,30 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
 .btn.icon:hover { background: var(--sidebar-hover); }
 
 /* ===== App Shell ===== */
-.fp-shell { display: grid; grid-template-columns: auto 1fr; min-height: 100dvh; }
+.fp-shell {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  min-height: 100dvh;
+}
 
-.fp-main { min-width: 0; padding: 20px; }
+.fp-main {
+  min-width: 0;
+  padding: 20px;
+}
 
 .fp-header {
-  position: sticky; top: 0; z-index: 40;
+  position: sticky;
+  top: 0;
+  z-index: 40;
   background: color-mix(in oklab, var(--bg) 88%, var(--card) 12%);
   border-bottom: 1px solid var(--border);
   backdrop-filter: saturate(140%) blur(6px);
 }
 .fp-header-inner {
-  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 12px;
   padding: 10px 16px;
 }
 
@@ -91,12 +121,15 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
   color: var(--sidebar-fg);
   border-right: 1px solid var(--border);
   box-shadow: var(--shadow-1);
-  transition: width 200ms ease; /* animação suave ao encolher/expandir */
 }
 
 .fp-sb-head {
-  display: grid; grid-template-columns: 1fr auto; align-items: center;
-  padding: 10px; gap: 8px; border-bottom: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  padding: 10px;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
   min-height: 56px;
 }
 .fp-sb-brand { display: flex; align-items: center; gap: 10px; }
@@ -112,32 +145,44 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
 /* Navegação */
 .fp-nav { display: grid; gap: 6px; padding: 8px; }
 .nav-section {
-  margin-top: 10px; padding: 6px 8px;
-  color: var(--sidebar-muted); font-size: 12px; text-transform: uppercase;
+  margin-top: 10px;
+  padding: 6px 8px;
+  color: var(--sidebar-muted);
+  font-size: 12px;
+  text-transform: uppercase;
 }
 .nav-item {
-  display: grid; grid-template-columns: 24px 1fr; align-items: center; gap: 10px;
-  padding: 9px 10px; border-radius: 12px; color: var(--sidebar-fg);
-  text-decoration: none;
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 12px;
+  color: var(--sidebar-fg);
 }
 .nav-item:hover { background: var(--sidebar-hover); }
 .nav-item[data-active="true"] { background: var(--sidebar-active); }
-
 .nav-icon { display: inline-flex; width: 24px; justify-content: center; }
-.nav-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* Ocultar labels quando a sidebar estiver encolhida (mostrar só ícones) */
-.fp-sidebar[data-collapsed="true"] .nav-label { display: none; }
-
-/* Detalhes (MenuGroup baseado em <details>) */
+/* <details> usado para grupos (compat) */
 .fp-sidebar details { border: 0; padding: 0; }
 .fp-sidebar summary {
-  list-style: none; cursor: pointer; display: grid; grid-template-columns: 1fr auto;
+  list-style: none; cursor: pointer;
+  display: grid; grid-template-columns: 1fr auto;
   align-items: center; padding: 8px 10px; border-radius: 10px;
 }
 .fp-sidebar summary::-webkit-details-marker { display: none; }
 .fp-sidebar details[open] > summary { background: var(--sidebar-hover); }
 .fp-sidebar .group-items { display: grid; gap: 4px; padding: 4px 0 0 0; }
+
+/* Sidebar colapsada: só ícones */
+.fp-sidebar[data-collapsed="true"] .nav-label { display: none; }
+.fp-sidebar[data-collapsed="true"] .nav-section { display: none; }
+.fp-sidebar[data-collapsed="true"] .nav-item {
+  grid-template-columns: 24px;
+  justify-content: center;
+  padding: 10px 12px;
+}
 
 /* ===== Cartões / Dashboard ===== */
 .card {
@@ -147,8 +192,13 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
   box-shadow: var(--shadow-1);
 }
 
-/* ===== Auth (login) – mantém o visual anterior e centrado ===== */
-.auth-wrap { display: grid; place-items: center; min-height: 100dvh; padding: 20px; }
+/* ===== Auth (login) ===== */
+.auth-wrap {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: 20px;
+}
 .auth-card {
   width: min(560px, 92vw);
   background: var(--card);
@@ -156,9 +206,14 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
   border-radius: 20px;
   box-shadow: var(--shadow-1);
   padding: 18px;
-  margin: 0 auto; /* segurança extra para centrar */
 }
-.auth-header { display: grid; grid-template-columns: 40px 1fr; gap: 10px; align-items: center; margin-bottom: 10px; }
+.auth-header {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+}
 .auth-title { font-weight: 800; font-size: 20px; }
 .auth-fields { display: grid; gap: 10px; }
 .auth-label { font-size: 13px; color: var(--muted-fg); }
