@@ -1,37 +1,20 @@
-import React from "react";
-import Providers from "@/app/providers";
-import Sidebar from "@/components/Sidebar";
-import AppHeader from "@/components/layout/AppHeader";
-import { SidebarProvider, useSidebarState } from "@/components/SidebarWrapper";
+// Server Component
+import type { ReactNode } from "react";
+import Providers from "@/app/providers";           // client wrapper (theme + sidebar context)
+import Sidebar from "@/components/Sidebar";        // client component
+import AppHeader from "@/components/layout/AppHeader"; // client component
 
-function Shell({ children }: { children: React.ReactNode }) {
-  const { pinned, collapsed } = useSidebarState();
-
-  // largura reservada para a coluna APENAS quando afixada
-  const sbw = pinned ? (collapsed ? 72 : 260) : 0;
-
-  return (
-    <div
-      className="fp-shell"
-      style={{ gridTemplateColumns: `${sbw}px 1fr` }}
-    >
-      {/* Quando desafixada, a Sidebar já está em fixed,
-          mas mantém-se aqui para o modo afixado */}
-      <Sidebar />
-      <main className="fp-main">
-        <AppHeader />
-        {children}
-      </main>
-    </div>
-  );
-}
-
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <Providers>
-      <SidebarProvider>
-        <Shell>{children}</Shell>
-      </SidebarProvider>
+      {/* Shell base: a sidebar fixa + conteúdo. Nada de event handlers aqui. */}
+      <div className="min-h-screen flex bg-[var(--bg,white)]">
+        <Sidebar />
+        <div className="flex-1 min-w-0 flex flex-col">
+          <AppHeader />
+          <main className="flex-1 p-6">{children}</main>
+        </div>
+      </div>
     </Providers>
   );
 }

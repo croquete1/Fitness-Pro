@@ -1,87 +1,92 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 type SidebarCtx = {
-  pinned: boolean;
   collapsed: boolean;
-  open: boolean;                // drawer aberto (quando não afixada)
-  // Ações
-  togglePinned: () => void;
+  pinned: boolean;
+  overlayOpen: boolean;
+  // actions
   toggleCollapsed: () => void;
+  setCollapsed: (v: boolean) => void;
+  togglePinned: () => void;
   openOverlay: () => void;
   closeOverlay: () => void;
-  setOpen: (v: boolean) => void;
 };
 
-const SidebarContext = createContext<SidebarCtx | null>(null);
+const Ctx = createContext<SidebarCtx | null>(null);
 
-const LS_PINNED = "fp.sidebar.pinned";
-const LS_COLLAPSED = "fp.sidebar.collapsed";
+const LS_KEY = "fp:sidebar:v1"; // guarda preferências do utilizador
 
-export function SidebarProvider({ children }: { children: React.ReactNode }) {
-  // preferências persistentes
-  const [pinned, setPinned] = useState<boolean>(() => {
-    const v = typeof window !== "undefined" ? window.localStorage.getItem(LS_PINNED) : null;
-    return v ? v === "1" : true; // por defeito afixada
-  });
-
-  const [collapsed, setCollapsed] = useState<boolean>(() => {
-    const v = typeof window !== "undefined" ? window.localStorage.getItem(LS_COLLAPSED) : null;
-    return v ? v === "1" : false;
-  });
-
-  // estado de overlay (só interessa quando !pinned)
-  const [open, setOpen] = useState<boolean>(false);
-
-  // persistência
-  useEffect(() => {
-    try { localStorage.setItem(LS_PINNED, pinned ? "1" : "0"); } catch {}
-  }, [pinned]);
-
-  useEffect(() => {
-    try { localStorage.setItem(LS_COLLAPSED, collapsed ? "1" : "0"); } catch {}
-  }, [collapsed]);
-
-  // ações
-  const togglePinned = useCallback(() => {
-    setPinned((p) => {
-      const next = !p;
-      if (next === true) {
-        // se voltar a afixar, fecha o drawer
-        setOpen(false);
-      }
-      return next;
-    });
-  }, []);
-
-  const toggleCollapsed = useCallback(() => setCollapsed((c) => !c), []);
-
-  const openOverlay = useCallback(() => setOpen(true), []);
-  const closeOverlay = useCallback(() => setOpen(false), []);
-
-  // valor memoizado (inclui todas as deps -> sem aviso do ESLint)
-  const value = useMemo<SidebarCtx>(
-    () => ({
-      pinned,
-      collapsed,
-      open,
-      togglePinned,
-      toggleCollapsed,
-      openOverlay,
-      closeOverlay,
-      setOpen,
-    }),
-    [pinned, collapsed, open, togglePinned, toggleCollapsed, openOverlay, closeOverlay]
-  );
-
-  return <SidebarContext.Provider value={value}>{children}</SidebarContext.Provider>;
+function loadPrefs() {
+  if (typeof window === "undefined") return { collapsed: false, pinned: true };
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return { collapsed: false, pinned: true };
+    const parsed = JSON.parse(raw) as Partial<{ collapsed: boolean; pinned: boolean }>;
+    return {
+      collapsed: !!parsed.collapsed,
+      pinned: parsed.pinned ?? true,
+    };
+  } catch {
+    return { collapsed: false, pinned: true };
+  }
 }
 
-// hook (named + default export para evitar erros de import)
-export const useSidebarState = () => {
-  const ctx = useContext(SidebarContext);
-  if (!ctx) throw new Error("useSidebarState must be used inside <SidebarProvider />");
+export function SidebarProvider({ children }: { children: ReactNode }) {
+  const booted = useRef(false);
+  const [collapsed, setCollapsed] = useState<boolean>(false);
+  const [pinned, setPinned] = useState<boolean>(true);
+  const [overlayOpen, setOverlayOpen] = useState<boolean>(false);
+
+  // carregar preferências do utilizador (primeiro render no cliente)
+  useEffect(() => {
+    if (booted.current) return;
+    booted.current = true;
+    const prefs = loadPrefs();
+    setCollapsed(prefs.collapsed);
+    setPinned(prefs.pinned);
+  }, []);
+
+  // persistir alterações
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(LS_KEY, JSON.stringify({ collapsed, pinned }));
+  }, [collapsed, pinned]);
+
+  const toggleCollapsed = useCallback(() => setCollapsed((v) => !v), []);
+  const togglePinned = useCallback(() => setPinned((v) => !v), []);
+  const openOverlay = useCallback(() => setOverlayOpen(true), []);
+  const closeOverlay = useCallback(() => setOverlayOpen(false), []);
+
+  const value = useMemo<SidebarCtx>(
+    () => ({
+      collapsed,
+      pinned,
+      overlayOpen,
+      toggleCollapsed,
+      setCollapsed,
+      togglePinned,
+      openOverlay,
+      closeOverlay,
+    }),
+    [collapsed, pinned, overlayOpen, toggleCollapsed, openOverlay, closeOverlay]
+  );
+
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+}
+
+export default function useSidebarState() {
+  const ctx = useContext(Ctx);
+  if (!ctx) throw new Error("useSidebarState must be used inside <SidebarProvider>");
   return ctx;
-};
-export default useSidebarState;
+}

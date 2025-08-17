@@ -1,46 +1,38 @@
 "use client";
 
-import React from "react";
 import { useTheme } from "next-themes";
-import { useSidebarState } from "../SidebarWrapper";
+import useSidebarState from "../SidebarWrapper";
 
 export default function AppHeader() {
-  // apenas o que usamos (evita o erro do ESLint)
-  const { toggleCollapsed, openOverlay } = useSidebarState();
+  const { toggleCollapsed } = useSidebarState(); // só o necessário
   const { theme, setTheme } = useTheme();
 
-  const onToggleTheme = () =>
-    setTheme(theme === "dark" ? "light" : "dark");
+  const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
 
   return (
-    <header className="fp-header">
-      <div className="fp-header-inner">
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {/* hambúrguer também no header se precisares (opcional).
-              Continua funcional: recolhe/expande a sidebar afixada e,
-              se estiver em modo overlay, força o abrir. */}
-          <button
-            className="btn icon"
-            aria-label="Menu"
-            onClick={() => {
-              openOverlay();
-              toggleCollapsed(); // comporta-se bem quando está afixada
-            }}
-          >
-            ≡
-          </button>
-        </div>
+    <header className="sticky top-0 z-20 bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60 border-b border-black/5">
+      <div className="h-14 px-5 flex items-center justify-between gap-3">
+        <button
+          onClick={toggleCollapsed}
+          className="rounded-xl px-3 py-2 text-sm ring-1 ring-slate-200 hover:bg-slate-50"
+          title="Mostrar/ocultar sidebar"
+        >
+          ☰
+        </button>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button className="btn icon" aria-label="Notificações">🔔</button>
+        <div className="flex items-center gap-3 ml-auto">
           <button
-            className="btn icon"
-            aria-label="Alternar tema"
-            onClick={onToggleTheme}
+            onClick={toggleTheme}
+            className="rounded-xl px-3 py-2 text-sm ring-1 ring-slate-200 hover:bg-slate-50"
+            title="Alternar tema"
           >
-            🌙
+            {theme === "dark" ? "🌙" : "🌞"}
           </button>
-          <a className="btn ghost" href="/api/auth/signout">
+
+          <a
+            href="/api/auth/signout"
+            className="rounded-xl px-3 py-2 text-sm ring-1 ring-slate-200 hover:bg-slate-50"
+          >
             Terminar sessão
           </a>
         </div>

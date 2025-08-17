@@ -1,12 +1,13 @@
 "use client";
 
-import React from "react";
+import type { ReactNode } from "react";
 import { ThemeProvider } from "next-themes";
+import { SidebarProvider } from "@/components/SidebarWrapper";
 
-export default function Providers({ children }: { children: React.ReactNode }) {
+export default function Providers({ children }: { children: ReactNode }) {
   return (
-    <ThemeProvider attribute="data-theme" defaultTheme="light" enableSystem={false}>
-      {children}
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+      <SidebarProvider>{children}</SidebarProvider>
     </ThemeProvider>
   );
 }
