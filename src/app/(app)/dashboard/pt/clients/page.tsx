@@ -62,14 +62,20 @@ export default function PTClientsPage() {
     <div style={{ padding: 16, display: "grid", gap: 12 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0 }}>Clientes</h1>
-        <input
-          type="search"
-          placeholder="Pesquisar cliente por nome ou email…"
-          defaultValue={q}
-          onChange={(e) => debouncedSearch(e.target.value)}
-          className="pill"
-          style={{ padding: "10px 12px", minWidth: 280 }}
-        />
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {loading && (
+            <span className="text-muted" style={{ fontSize: 12 }}>A carregar…</span>
+          )}
+          <input
+            type="search"
+            placeholder="Pesquisar cliente por nome ou email…"
+            defaultValue={q}
+            onChange={(e) => debouncedSearch(e.target.value)}
+            className="pill"
+            disabled={loading}
+            style={{ padding: "10px 12px", minWidth: 280 }}
+          />
+        </div>
       </div>
 
       {/* Cards rápidos */}
@@ -97,7 +103,7 @@ export default function PTClientsPage() {
             {rows.length === 0 && (
               <tr>
                 <td colSpan={5} style={{ padding: 16, textAlign: "center" }} className="text-muted">
-                  Sem resultados.
+                  {loading ? "A carregar…" : "Sem resultados."}
                 </td>
               </tr>
             )}
