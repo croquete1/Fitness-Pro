@@ -6,7 +6,7 @@ import Sidebar from "./Sidebar";
 type SidebarCtx = {
   collapsed: boolean;
   setCollapsed: (v: boolean) => void;
-  pinned: boolean; // desktop: true = sidebar fixa (não overlay)
+  pinned: boolean;
   setPinned: (v: boolean) => void;
 };
 
@@ -23,7 +23,6 @@ export default function SidebarWrapper({ children }: { children: React.ReactNode
   const [isMobile, setIsMobile] = useState(false);
   const [hovering, setHovering] = useState(false);
 
-  // detectar mobile para forçar overlay
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 1023.98px)");
     const apply = () => setIsMobile(mq.matches);
@@ -32,12 +31,10 @@ export default function SidebarWrapper({ children }: { children: React.ReactNode
     return () => mq.removeEventListener("change", apply);
   }, []);
 
-  // Em mobile a sidebar nunca é "pinned"
   useEffect(() => {
     if (isMobile) setPinned(false);
   }, [isMobile]);
 
-  // quando colapsada e afixada, abrir por hover
   const expandOnHover = pinned && collapsed;
 
   const ctxValue = useMemo(
@@ -45,16 +42,14 @@ export default function SidebarWrapper({ children }: { children: React.ReactNode
     [collapsed, pinned]
   );
 
-  const shellAttrs: React.HTMLAttributes<HTMLDivElement> = {
-    className: "fp-shell",
-    "data-collapsed": (pinned && collapsed) ? "true" : "false",
-    "data-pinned": pinned ? "true" : "false",
-    "data-overlay": (!pinned || isMobile) ? "true" : "false",
-  };
-
   return (
     <Ctx.Provider value={ctxValue}>
-      <div {...shellAttrs}>
+      <div
+        className="fp-shell"
+        data-collapsed={pinned && collapsed ? "true" : "false"}
+        data-pinned={pinned ? "true" : "false"}
+        data-overlay={!pinned || isMobile ? "true" : "false"}
+      >
         <aside
           className="fp-sidebar"
           onMouseEnter={() => expandOnHover && setHovering(true)}
@@ -65,7 +60,6 @@ export default function SidebarWrapper({ children }: { children: React.ReactNode
         </aside>
 
         <main className="fp-main">
-          {/* Header fica dentro do main para alinhar com o conteúdo */}
           <header className="fp-header">
             <div className="fp-header-inner">
               <div />
@@ -74,7 +68,12 @@ export default function SidebarWrapper({ children }: { children: React.ReactNode
                 placeholder="Pesquisar cliente por nome ou email..."
                 aria-label="Pesquisar"
               />
-              <button className="btn ghost" onClick={() => (window.location.href = "/api/auth/signout?callbackUrl=/login")}>
+              <button
+                className="btn ghost"
+                onClick={() =>
+                  (window.location.href = "/api/auth/signout?callbackUrl=/login")
+                }
+              >
                 Terminar sessão
               </button>
             </div>
@@ -83,7 +82,6 @@ export default function SidebarWrapper({ children }: { children: React.ReactNode
           <div className="fp-content">{children}</div>
         </main>
 
-        {/* overlay (só em mobile/overlay) */}
         <div
           className="fp-overlay"
           onClick={() => !pinned && setCollapsed(false)}
