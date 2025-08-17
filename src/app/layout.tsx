@@ -1,22 +1,12 @@
-import "./globals.css";
-import type { Metadata } from "next";
-import Providers from "./providers";
-import ClientCompat from "@/components/system/ClientCompat"; // mantém o polyfill que já te enviei
-import React from "react";
+// src/app/(app)/dashboard/layout.tsx
+import SidebarWrapper from "@/components/SidebarWrapper";
 
-export const metadata: Metadata = {
-  title: "Fitness Pro",
-  description: "Dashboard Fitness Pro",
-};
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function Layout({children}:{children:React.ReactNode}){
   return (
     <html lang="pt">
       <body>
-        <Providers>
-          <ClientCompat />
-          {children}
-        </Providers>
+        {/* Header global aqui, se tiveres */}
+        <SidebarWrapper>{children}</SidebarWrapper>
       </body>
     </html>
   );

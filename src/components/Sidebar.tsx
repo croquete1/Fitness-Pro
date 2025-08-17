@@ -1,127 +1,64 @@
 "use client";
-
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import React from "react";
-import { useSidebarState } from "./SidebarWrapper";
+import Link from "next/link";
+import Image from "next/image";
+import {useSidebar} from "./sidebar/SidebarCtx";
 
-/** Ícones em emoji – versão que acordámos */
-const ICONS = {
-  dashboard: "📊",
-  calendar: "📅",
-  bell: "🔔",
-  profile: "👤",
-  reports: "📈",
-  settings: "⚙️",
+/** IMPORTA os teus dados/estruturas existentes */
+import { GROUPS } from "./sidebar/data";   // <- mantém como já tens (ícones, rotas, etc.)
 
-  clients: "🧑‍🤝‍🧑",
-  plans: "📘",
-  library: "📚",
-
-  users: "👥",
-  approvals: "✅",
-
-  health: "🩺",
-  logs: "🧾",
-} as const;
-
-type Item = { label: string; href: string; icon: keyof typeof ICONS };
-type Group = { title: string; items: Item[] };
-
-const NAV: { title: string; groups: Group[] }[] = [
-  {
-    title: "Geral",
-    groups: [
-      { title: "", items: [
-        { label: "Dashboard", href: "/dashboard", icon: "dashboard" },
-        { label: "Agenda", href: "/dashboard/sessions", icon: "calendar" },
-        { label: "Notificações", href: "/dashboard/notifications", icon: "bell" },
-      ]},
-    ],
-  },
-  {
-    title: "Personal trainer",
-    groups: [
-      { title: "", items: [
-        { label: "Clientes", href: "/dashboard/pt/clients", icon: "clients" },
-        { label: "Planos de treino", href: "/dashboard/pt/plans", icon: "plans" },
-        { label: "Biblioteca", href: "/dashboard/pt/library", icon: "library" },
-      ]},
-    ],
-  },
-  {
-    title: "Administração",
-    groups: [
-      { title: "", items: [{ label: "Utilizadores", href: "/dashboard/admin/users", icon: "users" }] },
-      { title: "", items: [{ label: "Aprovações", href: "/dashboard/admin/approvals", icon: "approvals" }] },
-      { title: "", items: [{ label: "Relatórios", href: "/dashboard/reports", icon: "reports" }] },
-      { title: "", items: [{ label: "Definições", href: "/dashboard/settings", icon: "settings" }] },
-    ],
-  },
-  {
-    title: "Sistema",
-    groups: [
-      { title: "", items: [{ label: "Saúde do sistema", href: "/dashboard/system/health", icon: "health" }] },
-      { title: "", items: [{ label: "Logs de auditoria", href: "/dashboard/system/logs", icon: "logs" }] },
-    ],
-  },
-];
-
-export default function Sidebar() {
-  const pathname = usePathname();
-  const { collapsed, setCollapsed, overlayOpen, setOverlayOpen } = useSidebarState();
-
-  const closeMobile = () => setOverlayOpen(false);
+export default function Sidebar(){
+  const { pinned, collapsed, togglePinned, toggleCollapsed } = useSidebar();
 
   return (
-    <nav className="fp-nav">
-      {/* Controlo de recolher/expandir (permanece funcional) */}
-      <div className="fp-nav-top" style={{ display: "flex", gap: 8, padding: "4px 6px 10px" }}>
-        <button
-          type="button"
-          className="fp-btn"
-          onClick={() => setCollapsed(!collapsed)}
-          aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
-          title={collapsed ? "Expandir" : "Recolher"}
-        >
-          {collapsed ? "➡️" : "⬅️"} <span className="fp-label">Recolher</span>
-        </button>
-        <button
-          type="button"
-          className="fp-btn"
-          onClick={() => setOverlayOpen(!overlayOpen)}
-          aria-label={overlayOpen ? "Fechar menu" : "Abrir menu"}
-          title={overlayOpen ? "Fechar menu" : "Abrir menu"}
-        >
-          {overlayOpen ? "✖️" : "☰"} <span className="fp-label">Menu</span>
-        </button>
+    <nav>
+      {/* Cabeçalho da sidebar (logo + ações). Sem “Menu”. */}
+      <div className="sb-head">
+        <div className="flex items-center gap-2">
+          <Image src="/logo-64.png" alt="HMS" width={28} height={28} />
+          {!collapsed && <strong>Menu</strong>}
+        </div>
+        <div className="sb-tools">
+          {/* Recolher/Expandir (fica fixa e mostra só ícones) */}
+          <button
+            type="button"
+            className="iconbtn"
+            onClick={toggleCollapsed}
+            title={collapsed ? "Expandir" : "Recolher (só ícones)"}
+            aria-label={collapsed ? "Expandir" : "Recolher"}
+          >
+            {collapsed ? "⤢" : "⤡"}
+          </button>
+          {/* Afixar / Desafixar */}
+          <button
+            type="button"
+            className="iconbtn"
+            onClick={togglePinned}
+            title={pinned ? "Desafixar" : "Afixar"}
+            aria-label={pinned ? "Desafixar" : "Afixar"}
+          >
+            {pinned ? "📌" : "📍"}
+          </button>
+        </div>
       </div>
 
-      {NAV.map((sec) => (
-        <section key={sec.title}>
-          {sec.title ? <div className="fp-nav-section">{sec.title}</div> : null}
-
-          {sec.groups.map((g, gi) => (
-            <div key={gi}>
-              {g.items.map((it) => {
-                const active = pathname === it.href; // apenas o item exato fica ativo
-                return (
-                  <Link
-                    key={it.href}
-                    href={it.href}
-                    className="fp-item"
-                    data-active={active ? "true" : undefined}
-                    title={collapsed ? it.label : undefined}
-                    onClick={closeMobile}
-                  >
-                    <span aria-hidden className="fp-ico">{ICONS[it.icon]}</span>
-                    <span className="fp-label">{it.label}</span>
-                  </Link>
-                );
-              })}
-            </div>
+      {/* Secções e itens. Mantém os teus ícones */}
+      {GROUPS.map((g) => (
+        <div key={g.key}>
+          <div className="sb-section">{g.title}</div>
+          {g.items.map((it) => (
+            <Link
+              key={it.href}
+              href={it.href}
+              className={`sb-item ${it.current ? "current" : ""}`}
+              title={it.title}
+            >
+              <span className="ico">{it.icon /* já vinham do teu projeto */}</span>
+              <span className="label">{it.title}</span>
+              {it.hasChildren && <span className="label">›</span>}
+            </Link>
           ))}
-        </section>
+        </div>
       ))}
     </nav>
   );
