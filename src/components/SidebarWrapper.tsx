@@ -1,118 +1,75 @@
 "use client";
 
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import React from "react";
 
-type SidebarCtxShape = {
+type Ctx = {
+  /** fixar a sidebar ao layout (empurra o conteúdo) */
   pinned: boolean;
+  /** recolhida (larga=260px vs estreita=72px) quando está fixa */
   collapsed: boolean;
+  /** overlay aberto quando NÃO está fixa (pairar aproxima) */
   overlayOpen: boolean;
+
   setPinned: (v: boolean) => void;
   setCollapsed: (v: boolean) => void;
-  /** Setter bruto para compatibilidade com componentes antigos */
   setOverlayOpen: (v: boolean) => void;
 
   togglePinned: () => void;
   toggleCollapsed: () => void;
-
-  /** Helpers opcionais */
   openOverlay: () => void;
   closeOverlay: () => void;
 };
 
-const SidebarCtx = createContext<SidebarCtxShape | null>(null);
+const SidebarCtx = React.createContext<Ctx | null>(null);
 
-/** Hook seguro (fallback em SSR/sem Provider para evitar crashes em build) */
-function useSidebarState(): SidebarCtxShape {
-  const ctx = useContext(SidebarCtx);
-  if (ctx) return ctx;
-
-  const noop = () => {};
-  return {
-    pinned: true,
-    collapsed: false,
-    overlayOpen: false,
-    setPinned: noop,
-    setCollapsed: noop,
-    setOverlayOpen: noop,
-    togglePinned: noop,
-    toggleCollapsed: noop,
-    openOverlay: noop,
-    closeOverlay: noop,
-  };
+/** Hook nomeado (para evitar confusões com default import) */
+export function useSidebarState(): Ctx {
+  const ctx = React.useContext(SidebarCtx);
+  if (!ctx) throw new Error("SidebarCtx not mounted");
+  return ctx;
 }
 
-export function SidebarProvider({ children }: { children: React.ReactNode }) {
-  const [pinned, setPinned] = useState(true);
-  const [collapsed, setCollapsed] = useState(false);
-  const [overlayOpen, setOverlayOpen] = useState(false);
+/** Provider com persistência em localStorage */
+export default function SidebarProvider({ children }: { children: React.ReactNode }) {
+  const [pinned, setPinned] = React.useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    const v = localStorage.getItem("fp.sb.pinned");
+    return v === null ? true : v === "true";
+  });
 
-  // Hydration a partir de localStorage
-  useEffect(() => {
-    try {
-      const p = localStorage.getItem("fp:sb:pinned");
-      const c = localStorage.getItem("fp:sb:collapsed");
-      if (p !== null) setPinned(p === "1");
-      if (c !== null) setCollapsed(c === "1");
-    } catch {
-      /* ignore */
-    }
-  }, []);
+  const [collapsed, setCollapsed] = React.useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    const v = localStorage.getItem("fp.sb.collapsed");
+    return v === "true";
+  });
 
-  // Persistência
-  useEffect(() => {
-    try {
-      localStorage.setItem("fp:sb:pinned", pinned ? "1" : "0");
-    } catch {}
+  const [overlayOpen, setOverlayOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("fp.sb.pinned", String(pinned));
+    // se desafixar, força recolhida (apenas ícones)
+    if (!pinned) setCollapsed(true);
   }, [pinned]);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem("fp:sb:collapsed", collapsed ? "1" : "0");
-    } catch {}
+  React.useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("fp.sb.collapsed", String(collapsed));
   }, [collapsed]);
 
-  const togglePinned = useCallback(() => setPinned((v) => !v), []);
-  const toggleCollapsed = useCallback(() => setCollapsed((v) => !v), []);
-  const openOverlay = useCallback(() => setOverlayOpen(true), []);
-  const closeOverlay = useCallback(() => setOverlayOpen(false), []);
+  const value: Ctx = {
+    pinned,
+    collapsed,
+    overlayOpen,
 
-  const value = useMemo(
-    () => ({
-      pinned,
-      collapsed,
-      overlayOpen,
-      setPinned,
-      setCollapsed,
-      setOverlayOpen, // <- exposto para compatibilidade
-      togglePinned,
-      toggleCollapsed,
-      openOverlay,
-      closeOverlay,
-    }),
-    [
-      pinned,
-      collapsed,
-      overlayOpen,
-      setPinned,
-      setCollapsed,
-      setOverlayOpen,
-      togglePinned,
-      toggleCollapsed,
-      openOverlay,
-      closeOverlay,
-    ]
-  );
+    setPinned,
+    setCollapsed,
+    setOverlayOpen,
+
+    togglePinned: () => setPinned((v) => !v),
+    toggleCollapsed: () => setCollapsed((v) => !v),
+
+    openOverlay: () => setOverlayOpen(true),
+    closeOverlay: () => setOverlayOpen(false),
+  };
 
   return <SidebarCtx.Provider value={value}>{children}</SidebarCtx.Provider>;
 }
-
-/* Disponível como default e named export */
-export default useSidebarState;
-export { useSidebarState };
