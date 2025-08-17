@@ -93,7 +93,7 @@ input:focus, select:focus, textarea:focus {
 /* ===== App Shell ===== */
 .fp-shell {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto minmax(0, 1fr);
   min-height: 100dvh;
 }
 

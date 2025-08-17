@@ -4,9 +4,11 @@ import React, { useMemo, useRef, useEffect, useState } from "react";
 import Menu from "./sidebar/Menu";
 import useSidebarState from "./SidebarWrapper";
 
+// dimensões/animação
 const RAIL_W = 64;
 const PANEL_W = 260;
-const ANIM_MS = 780; // mais suave
+// transição mais lenta e suave
+const ANIM_MS = 1200;
 const EASE = "cubic-bezier(.22,.8,.2,1)";
 
 const ICON = {
@@ -90,15 +92,8 @@ const IconBurger = ({ size = 20 }: { size?: number }) => (
 );
 
 export default function Sidebar() {
-  const {
-    pinned,
-    collapsed,
-    overlayOpen,
-    setOverlayOpen,
-    togglePinned,
-    toggleCollapsed,
-    closeOverlay,
-  } = useSidebarState();
+  const { pinned, collapsed, overlayOpen, setOverlayOpen, togglePinned, toggleCollapsed, closeOverlay } =
+    useSidebarState();
 
   const data = useMemo(() => buildMenu(), []);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -115,7 +110,7 @@ export default function Sidebar() {
   const onMouseLeaveRail = () => {
     if (!pinned) {
       if (hoverTimer.current) clearTimeout(hoverTimer.current);
-      hoverTimer.current = setTimeout(() => setOverlayOpen(false), 240);
+      hoverTimer.current = setTimeout(() => setOverlayOpen(false), 260);
     }
   };
   useEffect(() => () => hoverTimer.current && clearTimeout(hoverTimer.current), []);
@@ -155,7 +150,7 @@ export default function Sidebar() {
           className="fp-sb-head"
           style={{
             display: "grid",
-            gridTemplateColumns: isMini ? "1fr" : "1fr auto", // no rail o cabeçalho tem 1 coluna
+            gridTemplateColumns: "1fr auto",
             alignItems: "center",
             padding: 10,
             gap: 8,
@@ -163,6 +158,7 @@ export default function Sidebar() {
             minHeight: 56,
           }}
         >
+          {/* cluster com LOGO + hamburger (quando mini) */}
           <div className="fp-sb-brand" style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span
               aria-hidden
@@ -181,39 +177,47 @@ export default function Sidebar() {
             >
               💪
             </span>
-            {/* mostrar o texto só expandido */}
+
+            {/* título apenas expandido */}
             {railWidth > RAIL_W && (
               <div style={{ fontWeight: 800, fontSize: 14, lineHeight: 1.1 }}>Fitness Pro</div>
             )}
+
+            {/* hambúrguer AO LADO do flex quando mini */}
+            {isMini && (
+              <button
+                className="btn icon sb-icon"
+                aria-label={collapsed ? "Expandir sidebar" : "Recolher sidebar"}
+                title={collapsed ? "Expandir" : "Recolher"}
+                onClick={() => {
+                  if (!pinned) {
+                    setOverlayOpen(true);
+                    return;
+                  }
+                  toggleCollapsed();
+                }}
+              >
+                <IconBurger />
+              </button>
+            )}
           </div>
 
-          <div
-            className="fp-sb-actions"
-            style={{
-              display: "inline-flex",
-              gap: 8,
-              width: isMini ? "100%" : undefined,
-              justifyContent: isMini ? "center" : "flex-end", // hambúrguer centrado no rail
-            }}
-          >
-            {/* Recolher/expandir */}
-            <button
-              className="btn icon sb-icon"
-              aria-label={collapsed ? "Expandir sidebar" : "Recolher sidebar"}
-              title={collapsed ? "Expandir" : "Recolher"}
-              onClick={() => {
-                if (!pinned) {
-                  setOverlayOpen(true);
-                  return;
-                }
-                toggleCollapsed();
-              }}
-            >
-              <IconBurger />
-            </button>
-
-            {/* Afixar/desafixar (esconder no rail para não “cortar”) */}
+          {/* ações (lado direito). No mini mostramos só pino quando expandido por overlay */}
+          <div className="fp-sb-actions" style={{ display: "inline-flex", gap: 8 }}>
+            {/* hambúrguer nas ações QUANDO expandido (pinned & !collapsed) */}
             {!isMini && (
+              <button
+                className="btn icon sb-icon"
+                aria-label={collapsed ? "Expandir sidebar" : "Recolher sidebar"}
+                title={collapsed ? "Expandir" : "Recolher"}
+                onClick={toggleCollapsed}
+              >
+                <IconBurger />
+              </button>
+            )}
+
+            {/* pinar: aparece no expandido e também no overlay */}
+            {(!isMini || overlayOpen) && (
               <button
                 className="btn icon sb-icon"
                 aria-label={pinned ? "Desafixar sidebar" : "Afixar sidebar"}
@@ -226,34 +230,41 @@ export default function Sidebar() {
           </div>
         </div>
 
-        {/* CSS fino: gaps, placeholders de secção, etc. */}
+        {/* CSS fino inserido aqui para manter tudo contido */}
         {injectCss && (
           <style jsx global>{`
-            .fp-nav { gap: 2px; padding: 6px; }                /* menos gap */
+            /* gaps e alturas estáveis entre estados (secções/itens) */
+            .fp-nav { gap: 2px; padding: 6px; }
+            :root { --sb-sec-h: 22px; }               /* altura “verdadeira” da secção */
+            .nav-section {
+              height: var(--sb-sec-h);
+              display: flex;
+              align-items: center;
+              margin: 6px 8px 4px;
+              color: var(--sidebar-muted);
+              font-size: 12px;
+              letter-spacing: .02em;
+              text-transform: uppercase;
+            }
             .nav-item {
               display: grid;
               grid-template-columns: 24px 1fr;
               align-items: center;
               gap: 8px;
-              padding: 7px 8px;                                /* menos padding */
+              padding: 7px 8px;
               border-radius: 12px;
               color: var(--sidebar-fg);
             }
-            .nav-icon { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; }
             .nav-item:hover { background: var(--sidebar-hover); }
             .nav-item[data-active="true"] { background: var(--sidebar-active); }
+            .nav-icon { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; }
 
-            /* Secções: manter o “espaço” mesmo recolhido para não mudar a vertical dos ícones */
-            .nav-section { margin-top: 10px; padding: 6px 8px; color: var(--sidebar-muted); font-size: 12px; text-transform: uppercase; }
+            /* recolhida: secções continuam com a MESMA altura, texto invisível */
             .fp-sidebar[data-mini="true"] .nav-section {
-              display: block !important;
-              height: 14px;               /* placeholder */
-              margin: 8px 0 2px 0;
-              padding: 0;
-              opacity: 0;                 /* invisível mas ocupa espaço */
+              opacity: 0;
+              pointer-events: none;
+              margin: 6px 0 4px 0;   /* remove recuo lateral para alinhar com ícones */
             }
-
-            /* labels desaparecem com transição */
             .fp-sidebar .nav-item, .fp-sidebar .nav-label {
               transition: opacity ${ANIM_MS}ms ${EASE}, transform ${ANIM_MS}ms ${EASE};
             }
@@ -262,7 +273,7 @@ export default function Sidebar() {
             }
             .fp-sidebar[data-mini="true"] .nav-item { grid-template-columns: 24px !important; }
 
-            /* botões do header */
+            /* botões */
             .fp-sidebar .sb-icon {
               width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center;
               border-radius: 10px; line-height: 0;
@@ -281,7 +292,7 @@ export default function Sidebar() {
         </div>
       </aside>
 
-      {/* Overlay (desafixada) */}
+      {/* Overlay (quando não está afixada) */}
       {!pinned && overlayOpen && (
         <>
           <div
@@ -299,7 +310,7 @@ export default function Sidebar() {
             onMouseEnter={() => hoverTimer.current && clearTimeout(hoverTimer.current)}
             onMouseLeave={() => {
               if (hoverTimer.current) clearTimeout(hoverTimer.current);
-              hoverTimer.current = setTimeout(() => setOverlayOpen(false), 240);
+              hoverTimer.current = setTimeout(() => setOverlayOpen(false), 260);
             }}
             style={{
               position: "fixed",
@@ -350,13 +361,24 @@ export default function Sidebar() {
                   💪
                 </span>
                 <div style={{ fontWeight: 800, fontSize: 14, lineHeight: 1.1 }}>Fitness Pro</div>
+                {/* no overlay deixamos o hambúrguer aqui também */}
+                <button
+                  className="btn icon sb-icon"
+                  aria-label="Fechar menu"
+                  title="Fechar"
+                  onClick={closeOverlay}
+                >
+                  ✕
+                </button>
               </div>
 
               <div className="fp-sb-actions" style={{ display: "inline-flex", gap: 8 }}>
-                <button className="btn icon sb-icon" aria-label="Fechar menu" title="Fechar" onClick={closeOverlay}>
-                  ✕
-                </button>
-                <button className="btn icon sb-icon" aria-label="Afixar sidebar" title="Afixar" onClick={togglePinned}>
+                <button
+                  className="btn icon sb-icon"
+                  aria-label="Afixar sidebar"
+                  title="Afixar"
+                  onClick={togglePinned}
+                >
                   📌
                 </button>
               </div>
@@ -368,7 +390,7 @@ export default function Sidebar() {
           </div>
 
           <style jsx global>{`
-            @keyframes fp-slide-in { from { transform: translateX(-18px); opacity: .0; } to { transform: translateX(0); opacity: 1; } }
+            @keyframes fp-slide-in { from { transform: translateX(-22px); opacity: .0; } to { transform: translateX(0); opacity: 1; } }
             @keyframes fp-fade-in  { from { opacity: 0; } to { opacity: 1; } }
           `}</style>
         </>
