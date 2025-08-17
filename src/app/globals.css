@@ -45,9 +45,10 @@ body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, S
 
 body {
   color: var(--fg);
-  background: radial-gradient(1200px 800px at -10% -10%, rgba(59,130,246,.08), transparent 60%) ,
-              radial-gradient(1000px 700px at 110% -10%, rgba(16,185,129,.05), transparent 60%) ,
-              var(--bg);
+  background:
+    radial-gradient(1200px 800px at -10% -10%, rgba(59,130,246,.08), transparent 60%),
+    radial-gradient(1000px 700px at 110% -10%, rgba(16,185,129,.05), transparent 60%),
+    var(--bg);
 }
 
 /* ===== Elementos genéricos ===== */
@@ -71,10 +72,7 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
 /* ===== App Shell ===== */
 .fp-shell { display: grid; grid-template-columns: auto 1fr; min-height: 100dvh; }
 
-.fp-main {
-  min-width: 0;
-  padding: 20px;
-}
+.fp-main { min-width: 0; padding: 20px; }
 
 .fp-header {
   position: sticky; top: 0; z-index: 40;
@@ -93,6 +91,7 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
   color: var(--sidebar-fg);
   border-right: 1px solid var(--border);
   box-shadow: var(--shadow-1);
+  transition: width 200ms ease; /* animação suave ao encolher/expandir */
 }
 
 .fp-sb-head {
@@ -112,15 +111,23 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
 
 /* Navegação */
 .fp-nav { display: grid; gap: 6px; padding: 8px; }
-.nav-section { margin-top: 10px; padding: 6px 8px; color: var(--sidebar-muted); font-size: 12px; text-transform: uppercase; }
+.nav-section {
+  margin-top: 10px; padding: 6px 8px;
+  color: var(--sidebar-muted); font-size: 12px; text-transform: uppercase;
+}
 .nav-item {
   display: grid; grid-template-columns: 24px 1fr; align-items: center; gap: 10px;
   padding: 9px 10px; border-radius: 12px; color: var(--sidebar-fg);
+  text-decoration: none;
 }
 .nav-item:hover { background: var(--sidebar-hover); }
 .nav-item[data-active="true"] { background: var(--sidebar-active); }
 
 .nav-icon { display: inline-flex; width: 24px; justify-content: center; }
+.nav-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Ocultar labels quando a sidebar estiver encolhida (mostrar só ícones) */
+.fp-sidebar[data-collapsed="true"] .nav-label { display: none; }
 
 /* Detalhes (MenuGroup baseado em <details>) */
 .fp-sidebar details { border: 0; padding: 0; }
@@ -140,9 +147,17 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
   box-shadow: var(--shadow-1);
 }
 
-/* ===== Auth (login) – mantém o visual anterior ===== */
+/* ===== Auth (login) – mantém o visual anterior e centrado ===== */
 .auth-wrap { display: grid; place-items: center; min-height: 100dvh; padding: 20px; }
-.auth-card { width: min(560px, 92vw); background: var(--card); border: 1px solid var(--border); border-radius: 20px; box-shadow: var(--shadow-1); padding: 18px; }
+.auth-card {
+  width: min(560px, 92vw);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--shadow-1);
+  padding: 18px;
+  margin: 0 auto; /* segurança extra para centrar */
+}
 .auth-header { display: grid; grid-template-columns: 40px 1fr; gap: 10px; align-items: center; margin-bottom: 10px; }
 .auth-title { font-weight: 800; font-size: 20px; }
 .auth-fields { display: grid; gap: 10px; }

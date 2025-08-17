@@ -2,65 +2,91 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 
-/** ----- Contexto da Sidebar (pin / collapse) ----- */
-type SidebarContextValue = {
-  pinned: boolean;
-  collapsed: boolean;
+type SidebarState = {
+  pinned: boolean;               // afixada
+  collapsed: boolean;            // encolhida (só ícones)
+  overlayOpen: boolean;          // aberta em modo overlay (mobile)
   setPinned: (v: boolean) => void;
   setCollapsed: (v: boolean) => void;
+  setOverlayOpen: (v: boolean) => void;
   togglePinned: () => void;
   toggleCollapsed: () => void;
+  openOverlay: () => void;
+  closeOverlay: () => void;
 };
 
-const SidebarCtx = createContext<SidebarContextValue | null>(null);
+const Ctx = createContext<SidebarState | null>(null);
 
-export function SidebarProvider({ children }: { children: React.ReactNode }) {
+/** Hook – usa-o como `const s = useSidebarState()` */
+export default function useSidebarState() {
+  const v = useContext(Ctx);
+  if (!v) throw new Error("SidebarCtx not mounted");
+  return v;
+}
+
+/** Mantém compat com o nome que tinhas: podes importar este componente como <SidebarWrapper> */
+export function SidebarWrapper({ children }: { children: React.ReactNode }) {
   const [pinned, setPinned] = useState<boolean>(true);
   const [collapsed, setCollapsed] = useState<boolean>(false);
+  const [overlayOpen, setOverlayOpen] = useState<boolean>(false);
 
-  // Leitura inicial (no browser) e persistência
+  // Hidratação (evita FOUC e mantém preferências)
   useEffect(() => {
     try {
-      const raw = localStorage.getItem("fp.sidebar");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (typeof parsed.pinned === "boolean") setPinned(parsed.pinned);
-        if (typeof parsed.collapsed === "boolean") setCollapsed(parsed.collapsed);
-      }
+      const p = localStorage.getItem("fp.sidebar.pinned");
+      const c = localStorage.getItem("fp.sidebar.collapsed");
+      if (p !== null) setPinned(p === "1");
+      if (c !== null) setCollapsed(c === "1");
     } catch {}
   }, []);
-
   useEffect(() => {
     try {
-      localStorage.setItem("fp.sidebar", JSON.stringify({ pinned, collapsed }));
+      localStorage.setItem("fp.sidebar.pinned", pinned ? "1" : "0");
+      localStorage.setItem("fp.sidebar.collapsed", collapsed ? "1" : "0");
     } catch {}
   }, [pinned, collapsed]);
 
-  // Ajuda CSS (opcional)
+  // Controla scroll quando overlay está aberto (mobile)
   useEffect(() => {
-    document.documentElement.style.setProperty("--fp-collapsed", collapsed ? "1" : "0");
-  }, [collapsed]);
+    document.body.style.overflow = overlayOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [overlayOpen]);
 
-  const value = useMemo<SidebarContextValue>(
+  // Fechar overlay clicando fora
+  useEffect(() => {
+    if (!overlayOpen) return;
+    const onClick = (e: MouseEvent) => {
+      const el = document.getElementById("app-sidebar");
+      if (el && !el.contains(e.target as Node)) setOverlayOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOverlayOpen(false);
+    };
+    document.addEventListener("click", onClick, true);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("click", onClick, true);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [overlayOpen]);
+
+  const value = useMemo<SidebarState>(
     () => ({
       pinned,
       collapsed,
+      overlayOpen,
       setPinned,
       setCollapsed,
+      setOverlayOpen,
       togglePinned: () => setPinned((v) => !v),
       toggleCollapsed: () => setCollapsed((v) => !v),
+      openOverlay: () => setOverlayOpen(true),
+      closeOverlay: () => setOverlayOpen(false),
     }),
-    [pinned, collapsed]
+    [pinned, collapsed, overlayOpen]
   );
 
-  return <SidebarCtx.Provider value={value}>{children}</SidebarCtx.Provider>;
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
-
-export function useSidebarState() {
-  const ctx = useContext(SidebarCtx);
-  if (!ctx) throw new Error("SidebarCtx not mounted");
-  return ctx;
-}
-
-/** export default para compatibilidade com imports existentes */
-export default useSidebarState;
