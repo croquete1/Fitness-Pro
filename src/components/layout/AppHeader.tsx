@@ -2,71 +2,76 @@
 
 import React from "react";
 import ThemeToggle from "./ThemeToggle";
-import { useSidebar } from "./SidebarProvider";
-import { NavIcon } from "./icons";
 import Logo from "./Logo";
+import { useSidebar } from "./SidebarProvider";
+
+function greet(now: Date) {
+  const h = now.getHours();
+  if (h < 12) return "Bom dia";
+  if (h < 19) return "Boa tarde";
+  return "Boa noite";
+}
 
 export default function AppHeader() {
-  const { isMobile, openMobile, toggleCollapsed } = useSidebar();
+  const { toggle, isMobile, setMobileOpen } = useSidebar();
 
   return (
     <header
       style={{
-        height: 56,
-        borderBottom: "1px solid var(--border)",
-        background: "var(--bg)",
         position: "sticky",
         top: 0,
         zIndex: 30,
+        background: "var(--app-bg)",
+        borderBottom: "1px solid var(--border)",
+        backdropFilter: "saturate(160%) blur(6px)",
       }}
-      aria-label="Barra de topo"
     >
       <div
         style={{
-          height: "100%",
-          display: "flex",
+          display: "grid",
+          gridTemplateColumns: "auto 1fr auto",
           alignItems: "center",
-          gap: 10,
-          padding: "0 12px",
+          gap: 12,
+          padding: "10px 12px",
         }}
       >
+        {/* Hambúrguer */}
         <button
-          onClick={isMobile ? openMobile : toggleCollapsed}
-          aria-label="Alternar menu"
-          style={{
-            width: 36,
-            height: 36,
-            display: "grid",
-            placeItems: "center",
-            borderRadius: 10,
-            border: "1px solid var(--border)",
-            background: "var(--bg)",
+          type="button"
+          aria-label="Abrir/fechar navegação"
+          className="pill"
+          onClick={() => {
+            if (isMobile) setMobileOpen(true);
+            else toggle();
           }}
+          title="Menu"
         >
-          <NavIcon name="menu" size={18} />
+          <span aria-hidden>☰</span>
         </button>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-          <div className="hidden md:flex" style={{ alignItems: "center" }}>
-            <Logo size={22} />
-          </div>
+        {/* Logo + título reduzido */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+          <Logo size={20} />
           <div style={{ lineHeight: 1.1, minWidth: 0 }}>
-            <div
-              style={{
-                fontWeight: 800,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
+            <div style={{ fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               Fitness Pro
             </div>
-            <small style={{ color: "var(--muted)" }}>Dashboard</small>
+            <div className="text-muted" style={{ fontSize: 12 }}>
+              Dashboard
+            </div>
           </div>
         </div>
 
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+        {/* Ações à direita */}
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
           <ThemeToggle />
+        </div>
+      </div>
+
+      {/* saudação centrada (opcional) */}
+      <div style={{ display: "flex", justifyContent: "center", paddingBottom: 8 }}>
+        <div className="pill" aria-live="polite">
+          {greet(new Date())}, Admin 👋
         </div>
       </div>
     </header>

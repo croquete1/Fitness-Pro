@@ -1,14 +1,23 @@
+"use client";
+
 import React from "react";
-import Sidebar from "./Sidebar";
-import MobileSidebarController from "./MobileSidebarController";
+import { SidebarProvider } from "@/components/layout/SidebarProvider";
+import Sidebar from "@/components/layout/Sidebar";
 
 export default function SidebarWrapper({ children }: { children: React.ReactNode }) {
   return (
-    <div className="fp-shell">
-      {/* Sidebar (server) + Overlay controlador (client) */}
-      <Sidebar />
-      <div style={{ padding: "1rem" }}>{children}</div>
-      <MobileSidebarController />
-    </div>
+    <SidebarProvider>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "var(--sidebar-w, 260px) 1fr",
+          minHeight: "100dvh",
+          background: "var(--app-bg)",
+        }}
+      >
+        <Sidebar />
+        <div style={{ minWidth: 0 }}>{children}</div>
+      </div>
+    </SidebarProvider>
   );
 }

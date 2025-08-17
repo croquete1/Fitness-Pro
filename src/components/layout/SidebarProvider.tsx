@@ -1,51 +1,60 @@
 "use client";
 
-import React from "react";
+import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 
-type Ctx = {
+type SidebarCtx = {
   collapsed: boolean;
-  toggleCollapsed: () => void;
+  setCollapsed: (v: boolean) => void;
+  toggle: () => void;
 
   mobileOpen: boolean;
+  setMobileOpen: (v: boolean) => void;
   openMobile: () => void;
   closeMobile: () => void;
 
   isMobile: boolean;
 };
 
-const SidebarContext = React.createContext<Ctx>({
-  collapsed: false,
-  toggleCollapsed: () => {},
-  mobileOpen: false,
-  openMobile: () => {},
-  closeMobile: () => {},
-  isMobile: false,
-});
+const Ctx = createContext<SidebarCtx | null>(null);
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
-  const [collapsed, setCollapsed] = React.useState(false);
-  const [mobileOpen, setMobileOpen] = React.useState(false);
-  const [isMobile, setIsMobile] = React.useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
-  React.useEffect(() => {
-    const mq = window.matchMedia("(max-width: 1023px)");
+  // detetar mobile
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1024px)");
     const apply = () => setIsMobile(mq.matches);
     apply();
     mq.addEventListener("change", apply);
     return () => mq.removeEventListener("change", apply);
   }, []);
 
-  const toggleCollapsed = React.useCallback(() => setCollapsed(v => !v), []);
-  const openMobile = React.useCallback(() => setMobileOpen(true), []);
-  const closeMobile = React.useCallback(() => setMobileOpen(false), []);
+  const toggle = useCallback(() => setCollapsed((v) => !v), []);
+  const openMobile = useCallback(() => setMobileOpen(true), []);
+  const closeMobile = useCallback(() => setMobileOpen(false), []);
 
   return (
-    <SidebarContext.Provider
-      value={{ collapsed, toggleCollapsed, mobileOpen, openMobile, closeMobile, isMobile }}
+    <Ctx.Provider
+      value={{
+        collapsed,
+        setCollapsed,
+        toggle,
+        mobileOpen,
+        setMobileOpen,
+        openMobile,
+        closeMobile,
+        isMobile,
+      }}
     >
       {children}
-    </SidebarContext.Provider>
+    </Ctx.Provider>
   );
 }
 
-export const useSidebar = () => React.useContext(SidebarContext);
+export function useSidebar() {
+  const v = useContext(Ctx);
+  if (!v) throw new Error("useSidebar deve ser usado dentro de <SidebarProvider>");
+  return v;
+}
