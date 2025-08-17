@@ -1,76 +1,95 @@
 "use client";
 
-import * as React from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
-type SidebarCtx = {
-  pinned: boolean;
-  collapsed: boolean;
-  overlayOpen: boolean;
+export type SidebarCtx = {
+  pinned: boolean;           // sidebar “fixa” (rail = false, expanded = true)
+  collapsed: boolean;        // rail compacto quando pinned = true
+  overlayOpen: boolean;      // aberto por hover quando NÃO está pinned
+  setPinned: (v: boolean) => void;
+  setCollapsed: (v: boolean) => void;
   togglePinned: () => void;
   toggleCollapsed: () => void;
   openOverlay: () => void;
   closeOverlay: () => void;
-  setPinned: (v: boolean) => void;
-  setCollapsed: (v: boolean) => void;
-  setOverlayOpen: (v: boolean) => void;
 };
 
-const SidebarContext = React.createContext<SidebarCtx | null>(null);
+const SidebarContext = createContext<SidebarCtx | null>(null);
 
-const LS_PINNED = "fp:sidenav:pinned";
-const LS_COLLAPSED = "fp:sidenav:collapsed";
+const STORAGE_PINNED = "fp.sidebar.pinned";
+const STORAGE_COLLAPSED = "fp.sidebar.collapsed";
 
-function readBool(key: string, fallback: boolean) {
-  if (typeof window === "undefined") return fallback;
-  const raw = window.localStorage.getItem(key);
-  if (raw === null) return fallback;
-  return raw === "1";
+function readBool(key: string, fallback: boolean): boolean {
+  try {
+    const v = localStorage.getItem(key);
+    return v === null ? fallback : v === "1";
+  } catch {
+    return fallback;
+  }
 }
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
-  // Defaults estáveis: afixada e expandida
-  const [pinned, setPinned] = React.useState<boolean>(() => readBool(LS_PINNED, true));
-  const [collapsed, setCollapsed] = React.useState<boolean>(() => readBool(LS_COLLAPSED, false));
-  const [overlayOpen, setOverlayOpen] = React.useState<boolean>(false);
+  // defaults: o normal é iniciar rail compacto (pinned=false ⇒ overlay só por hover)
+  const [pinned, setPinned] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
+  const [overlayOpen, setOverlayOpen] = useState(false);
 
-  React.useEffect(() => {
-    try {
-      window.localStorage.setItem(LS_PINNED, pinned ? "1" : "0");
-      window.localStorage.setItem(LS_COLLAPSED, collapsed ? "1" : "0");
-    } catch { /* ignore */ }
-  }, [pinned, collapsed]);
+  // hidratar do localStorage
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setPinned(readBool(STORAGE_PINNED, false));
+    setCollapsed(readBool(STORAGE_COLLAPSED, true));
+  }, []);
 
-  const togglePinned = React.useCallback(() => setPinned((v) => !v), []);
-  const toggleCollapsed = React.useCallback(() => setCollapsed((v) => !v), []);
+  // persistir as preferências
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(STORAGE_PINNED, pinned ? "1" : "0");
+  }, [pinned]);
 
-  const openOverlay = React.useCallback(() => setOverlayOpen(true), []);
-  const closeOverlay = React.useCallback(() => setOverlayOpen(false), []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(STORAGE_COLLAPSED, collapsed ? "1" : "0");
+  }, [collapsed]);
 
-  const value: SidebarCtx = React.useMemo(
+  const openOverlay = useCallback(() => setOverlayOpen(true), []);
+  const closeOverlay = useCallback(() => setOverlayOpen(false), []);
+  const togglePinned = useCallback(() => setPinned((p) => !p), []);
+  const toggleCollapsed = useCallback(() => setCollapsed((c) => !c), []);
+
+  const value = useMemo(
     () => ({
       pinned,
       collapsed,
       overlayOpen,
+      setPinned,
+      setCollapsed,
       togglePinned,
       toggleCollapsed,
       openOverlay,
       closeOverlay,
-      setPinned,
-      setCollapsed,
-      setOverlayOpen,
     }),
-    [pinned, collapsed, overlayOpen, togglePinned, toggleCollapsed, openOverlay, closeOverlay]
+    [pinned, collapsed, overlayOpen]
   );
 
-  return <SidebarContext.Provider value={value}>{children}</SidebarContext.Provider>;
+  return (
+    <SidebarContext.Provider value={value}>{children}</SidebarContext.Provider>
+  );
 }
 
-// Hook (named export) — lança erro claro se não montado
-export function useSidebarState() {
-  const ctx = React.useContext(SidebarContext);
+// hook (named export)
+export function useSidebarState(): SidebarCtx {
+  const ctx = useContext(SidebarContext);
   if (!ctx) throw new Error("SidebarCtx not mounted");
   return ctx;
 }
 
-// Default export para compatibilidade com imports antigos
+// default export também disponível (resolve avisos de import)
 export default SidebarProvider;

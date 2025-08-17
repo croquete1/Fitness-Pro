@@ -81,7 +81,10 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
 .btn.icon:hover { background: var(--sidebar-hover); }
 
 /* ===== App Shell ===== */
-.fp-shell { display: grid; grid-template-columns: auto 1fr; min-height: 100dvh; }
+.fp-shell {
+  /* a coluna da sidebar é regida pela largura efetiva do componente; o conteúdo ocupa o resto */
+  grid-template-columns: auto 1fr;
+}
 .fp-main {
   min-width: 0;
   width: 100%;
@@ -102,11 +105,11 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
 
 /* ===== Sidebar ===== */
 .fp-sidebar {
-  background: var(--sidebar-bg);
-  color: var(--sidebar-fg);
-  border-right: 1px solid var(--border);
-  box-shadow: var(--shadow-1);
-  will-change: width;
+  transition: width 380ms cubic-bezier(.22,1,.36,1), box-shadow 200ms ease;
+}
+.fp-sidebar [data-rail],
+.fp-sidebar[data-collapsed="true"] .nav-item {
+  --rail-gap: 22px;
 }
 
 /* Cabeçalho */
