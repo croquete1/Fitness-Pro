@@ -1,15 +1,15 @@
 "use client";
 
-import React from "react";
+import * as React from "react";
 import Menu from "./sidebar/Menu";
 import { useSidebarState } from "./SidebarWrapper";
 
-// --- Constantes visuais (mantém simples e coesas) ---
-const RAIL_W = 64;     // largura do rail (compactada)
-const PANEL_W = 260;   // largura expandida
-const TRANS = "380ms cubic-bezier(0.22, 1, 0.36, 1)";
+// Larguras e transições
+const RAIL_W = 64;
+const PANEL_W = 264;
+const TRANS = "480ms cubic-bezier(0.22, 1, 0.36, 1)";
 
-// Tipagens mínimas compatíveis com o teu Menu.tsx
+// Tipos mínimos
 type Role = any;
 type Item = {
   kind: "item";
@@ -28,7 +28,7 @@ type Group = {
 };
 type Entry = Item | Group;
 
-// Ícones simples (podes trocar pelos teus)
+// Ícones simples (mantém como estavas a usar)
 const ICON = {
   dashboard: "📊",
   clients: "🧑‍🤝‍🧑",
@@ -85,17 +85,15 @@ export default function Sidebar() {
     collapsed,
     togglePinned,
     toggleCollapsed,
+    overlayOpen,
     openOverlay,
     closeOverlay,
   } = useSidebarState();
 
   const data = React.useMemo(() => buildMenu(), []);
 
-  // Apenas para mostrar/ocultar pin quando rail está compacto
+  // Hover só controla overlay quando NÃO está afixada
   const [hovered, setHovered] = React.useState(false);
-  const showPin = pinned ? !collapsed || hovered : hovered; // rail: só em hover
-
-  // Abre o painel quando não está afixada (overlay) ao passar o rato
   const handleEnter = () => {
     setHovered(true);
     if (!pinned) openOverlay();
@@ -105,11 +103,16 @@ export default function Sidebar() {
     if (!pinned) closeOverlay();
   };
 
-  // Largura física do aside (NÃO cresce no overlay; mantém RAIL_W para não “comer” header/conteúdo)
   const asideWidth = pinned ? (collapsed ? RAIL_W : PANEL_W) : RAIL_W;
 
-  // Painel “flyout”: só visível se (pinned && !collapsed) OU (overlay aberto ao passar o rato)
-  const flyoutVisible = pinned ? !collapsed : hovered;
+  // Mostrar painel “flyout” quando não afixada e em hover
+  const flyoutVisible = !pinned && (hovered || overlayOpen);
+
+  // Mostrar conteúdo expandido embutido quando afixada e não colapsada
+  const isExpandedInline = pinned && !collapsed;
+
+  // Mostrar botão de “pin” no rail apenas em hover (para não poluir quando compacto)
+  const showPin = collapsed || !pinned ? hovered : true;
 
   return (
     <aside
@@ -129,13 +132,13 @@ export default function Sidebar() {
         color: "var(--sidebar-fg)",
         borderRight: "1px solid var(--border)",
         transition: `width ${TRANS}`,
-        zIndex: 30, // header tem > 30, portanto continua clicável
+        zIndex: 30, // o header fica acima (z-index maior)
         display: "grid",
         gridTemplateRows: "auto 1fr",
         overflow: "visible",
       }}
     >
-      {/* Cabeçalho do rail */}
+      {/* Cabeçalho */}
       <div
         className="fp-sb-head"
         style={{
@@ -168,34 +171,29 @@ export default function Sidebar() {
             💪
           </span>
 
-          {/* Quando o rail está fechado e pinned, não mostramos texto aqui */}
-          {pinned && !collapsed && (
+          {/* Só mostra o nome quando expandida e afixada */}
+          {isExpandedInline && (
             <div style={{ fontWeight: 800, fontSize: 14, lineHeight: 1.1 }}>Fitness Pro</div>
           )}
         </div>
 
-        {/* Ações (mostrar pin só em hover quando rail compacto) */}
+        {/* Ações: hamburguer (colapsar) e pin (afixar) */}
         <div className="fp-sb-actions" style={{ display: "inline-flex", gap: 6 }}>
-          {/* Botão de colapsar/expandir apenas quando pinned */}
+          {/* Hamburguer só faz sentido quando afixada */}
           {pinned && (
             <button
               className="btn icon"
               type="button"
               aria-label={collapsed ? "Expandir sidebar" : "Recolher sidebar"}
-              onClick={() => toggleCollapsed()}
+              onClick={toggleCollapsed}
               title={collapsed ? "Expandir" : "Recolher"}
-              style={{
-                borderRadius: 10,
-                padding: 8,
-                lineHeight: 0,
-              }}
+              style={{ borderRadius: 10, padding: 8, lineHeight: 0 }}
             >
-              {/* hamburguer */}
               <span style={{ fontSize: 18 }}>≡</span>
             </button>
           )}
 
-          {/* Pin / Unpin: só aparece em hover quando rail está compacto */}
+          {/* Pin: em rail compacto, aparece só no hover */}
           <button
             className="btn icon"
             type="button"
@@ -216,25 +214,19 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* Rail (apenas ícones) - mantém o espaçamento coerente com os grupos */}
-      <div
-        className="fp-rail"
-        style={{
-          padding: "8px 6px",
-          overflow: "hidden auto",
-        }}
-      >
-        {/* Espaços que simulam as secções quando está compacto,
-            para que a posição vertical dos ícones coincida com a versão expandida */}
-        <div style={{ height: 4 }} />
-        <div style={{ height: 14 }} />
-        <div style={{ height: 14 }} />
-        <div style={{ height: 14 }} />
-        <div style={{ height: 14 }} />
-        <div style={{ height: 14 }} />
-      </div>
+      {/* Conteúdo inline quando está afixada e expandida */}
+      {isExpandedInline ? (
+        <div style={{ overflow: "auto", padding: 8 }}>
+          <Menu data={data} />
+        </div>
+      ) : (
+        // Rail compacto (apenas ocupa altura; os tooltips vêm do title do <Menu> no flyout)
+        <div style={{ overflow: "hidden auto", padding: "8px 6px" }}>
+          {/* Mantemos vazio para não empurrar o layout; a navegação completa aparece no flyout */}
+        </div>
+      )}
 
-      {/* Painel flyout (não empurra o layout) */}
+      {/* Flyout quando NÃO está afixada: abre sobreposto e não mexe na largura do conteúdo */}
       <div
         aria-hidden={!flyoutVisible}
         style={{
@@ -253,16 +245,11 @@ export default function Sidebar() {
           gridTemplateRows: "64px 1fr",
           pointerEvents: flyoutVisible ? "auto" : "none",
         }}
-        // Impede que um clique fora imediatamente feche durante hover rápido
         onMouseEnter={() => !pinned && openOverlay()}
         onMouseLeave={() => !pinned && closeOverlay()}
       >
-        {/* Head “fantasma” para alinhar com o rail */}
-        <div
-          style={{
-            borderBottom: "1px solid var(--border)",
-          }}
-        />
+        {/* “Tampo” para alinhar com o head do rail */}
+        <div style={{ borderBottom: "1px solid var(--border)" }} />
         <div style={{ overflow: "auto", padding: 8 }}>
           <Menu data={data} />
         </div>
