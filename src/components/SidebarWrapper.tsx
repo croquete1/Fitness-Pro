@@ -1,115 +1,66 @@
 "use client";
 
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 
-/** Estado/acciones expostas pela sidebar */
-type SidebarContext = {
+/** ----- Contexto da Sidebar (pin / collapse) ----- */
+type SidebarContextValue = {
   pinned: boolean;
   collapsed: boolean;
-  overlayOpen: boolean;
   setPinned: (v: boolean) => void;
   setCollapsed: (v: boolean) => void;
-  setOverlayOpen: (v: boolean) => void;
   togglePinned: () => void;
   toggleCollapsed: () => void;
-  openOverlay: () => void;
-  closeOverlay: () => void;
 };
 
-// noops p/ fallback seguro (evita crash em SSR/prerender)
-const noop = () => {};
-const DEFAULT_CTX: SidebarContext = {
-  pinned: true,
-  collapsed: false,
-  overlayOpen: false,
-  setPinned: noop,
-  setCollapsed: noop,
-  setOverlayOpen: noop,
-  togglePinned: noop,
-  toggleCollapsed: noop,
-  openOverlay: noop,
-  closeOverlay: noop,
-};
+const SidebarCtx = createContext<SidebarContextValue | null>(null);
 
-const Ctx = createContext<SidebarContext | null>(null);
+export function SidebarProvider({ children }: { children: React.ReactNode }) {
+  const [pinned, setPinned] = useState<boolean>(true);
+  const [collapsed, setCollapsed] = useState<boolean>(false);
 
-/** Hook — default export (suporta `import useSidebarState from "./SidebarWrapper"`) */
-function useSidebarState(): SidebarContext {
-  const ctx = useContext(Ctx);
-  // Fallback “à prova de bala”: nunca lança erro durante build/SSR
-  return ctx ?? DEFAULT_CTX;
-}
-
-/** Provider com persistência (localStorage) e atalhos */
-function SidebarProvider({ children }: { children: React.ReactNode }) {
-  const [pinned, setPinned] = useState(true);
-  const [collapsed, setCollapsed] = useState(false);
-  const [overlayOpen, setOverlayOpen] = useState(false);
-
-  // Carregar preferências gravadas
+  // Leitura inicial (no browser) e persistência
   useEffect(() => {
     try {
-      const p = localStorage.getItem("fp-sidebar:pinned");
-      const c = localStorage.getItem("fp-sidebar:collapsed");
-      if (p !== null) setPinned(p === "1");
-      if (c !== null) setCollapsed(c === "1");
+      const raw = localStorage.getItem("fp.sidebar");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (typeof parsed.pinned === "boolean") setPinned(parsed.pinned);
+        if (typeof parsed.collapsed === "boolean") setCollapsed(parsed.collapsed);
+      }
     } catch {}
   }, []);
 
-  // Guardar alterações
   useEffect(() => {
     try {
-      localStorage.setItem("fp-sidebar:pinned", pinned ? "1" : "0");
+      localStorage.setItem("fp.sidebar", JSON.stringify({ pinned, collapsed }));
     } catch {}
-  }, [pinned]);
+  }, [pinned, collapsed]);
 
+  // Ajuda CSS (opcional)
   useEffect(() => {
-    try {
-      localStorage.setItem("fp-sidebar:collapsed", collapsed ? "1" : "0");
-    } catch {}
+    document.documentElement.style.setProperty("--fp-collapsed", collapsed ? "1" : "0");
   }, [collapsed]);
 
-  // ESC fecha overlay
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOverlayOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
-  const value = useMemo<SidebarContext>(
+  const value = useMemo<SidebarContextValue>(
     () => ({
       pinned,
       collapsed,
-      overlayOpen,
       setPinned,
       setCollapsed,
-      setOverlayOpen,
       togglePinned: () => setPinned((v) => !v),
       toggleCollapsed: () => setCollapsed((v) => !v),
-      openOverlay: () => setOverlayOpen(true),
-      closeOverlay: () => setOverlayOpen(false),
     }),
-    [pinned, collapsed, overlayOpen]
+    [pinned, collapsed]
   );
 
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+  return <SidebarCtx.Provider value={value}>{children}</SidebarCtx.Provider>;
 }
 
-/** Wrapper de compatibilidade: alguns ficheiros podem importar este nome */
-function SidebarWrapper({ children }: { children: React.ReactNode }) {
-  return <SidebarProvider>{children}</SidebarProvider>;
+export function useSidebarState() {
+  const ctx = useContext(SidebarCtx);
+  if (!ctx) throw new Error("SidebarCtx not mounted");
+  return ctx;
 }
 
-// ✅ default export para `import useSidebarState from "./SidebarWrapper"`
+/** export default para compatibilidade com imports existentes */
 export default useSidebarState;
-
-// ✅ também disponível como named export (compatibilidade com imports antigos)
-export { useSidebarState, SidebarProvider, SidebarWrapper };

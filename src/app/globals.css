@@ -1,395 +1,154 @@
-/* src/app/global.css */
-/* ------------------- RESET & BASE ------------------- */
+/* ===== Reset básico / tokens ===== */
 *,
 *::before,
-*::after {
-  box-sizing: border-box;
-}
+*::after { box-sizing: border-box; }
+html, body { height: 100%; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"; }
 
 :root {
-  /* Cores (Light) */
-  --bg: #0a0b0d;             /* fundo base (ajustado para o look dark elegante) */
-  --surface: #111318;        /* cards/elementos */
-  --fg: #eef0f5;             /* texto principal */
-  --muted: #98a2b3;          /* texto secundário */
-  --muted-2: #6b7280;
-  --border: #1f2430;         /* linhas / divisores */
-  --primary: #4f46e5;        /* roxo elegante */
-  --primary-contrast: #ffffff;
-  --accent: #22d3ee;         /* ciano subtil para detalhes */
-  --ok: #16a34a;
-  --warn: #f59e0b;
-  --danger: #ef4444;
+  --bg: #f7f9fc;
+  --card: #ffffff;
+  --fg: #0f172a;
+  --muted-fg: #5b677a;
+  --border: #e8ecf2;
+  --primary: #3b82f6;
+  --primary-600: #2563eb;
+  --ring: 0 0 0 3px rgba(59,130,246,.3);
 
-  /* Layout */
+  --sidebar-bg: #ffffff;
+  --sidebar-fg: #0f172a;
+  --sidebar-muted: #7b8797;
+  --sidebar-hover: #eef2f7;
+  --sidebar-active: #e5eeff;
+
   --radius: 12px;
-  --radius-sm: 10px;
-  --shadow-1: 0 6px 22px rgba(0,0,0,.22);
-  --shadow-2: 0 10px 30px rgba(0,0,0,.28);
-
-  /* Header */
-  --header-h: 64px;
-
-  /* Transições */
-  --t-fast: 120ms;
-  --t-med: 200ms;
-  --t-slow: 320ms;
+  --shadow-1: 0 2px 8px rgba(15,23,42,.06), 0 1px 3px rgba(15,23,42,.04);
 }
 
-html, body {
-  height: 100%;
-}
+[data-theme="dark"] {
+  --bg: #0d1117;
+  --card: #0f141b;
+  --fg: #e5e7eb;
+  --muted-fg: #a7b1c2;
+  --border: #1f2a37;
+  --primary: #60a5fa;
+  --primary-600: #3b82f6;
 
-html {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --sidebar-bg: #0f141b;
+  --sidebar-fg: #e5e7eb;
+  --sidebar-muted: #9aa6b2;
+  --sidebar-hover: #141b23;
+  --sidebar-active: #182230;
 }
 
 body {
-  margin: 0;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
   color: var(--fg);
-  background: radial-gradient(1200px 800px at 20% -10%, rgba(79,70,229,.12), transparent 60%),
-              radial-gradient(1000px 900px at 120% 0%, rgba(34,211,238,.10), transparent 50%),
+  background: radial-gradient(1200px 800px at -10% -10%, rgba(59,130,246,.08), transparent 60%) ,
+              radial-gradient(1000px 700px at 110% -10%, rgba(16,185,129,.05), transparent 60%) ,
               var(--bg);
-  accent-color: var(--primary);
 }
 
-/* Tema claro opcional (se desejares forçar): */
-/* html[data-theme="light"] { ... } */
-
-/* Dark por defeito; se quiseres seguir o SO, descomenta:
-@media (prefers-color-scheme: light) {
-  :root {
-    --bg: #0a0b0d;
-    --surface: #111318;
-    --fg: #eef0f5;
-    --muted: #98a2b3;
-    --muted-2: #6b7280;
-    --border: #1f2430;
-    --primary: #4f46e5;
-    --primary-contrast: #ffffff;
-  }
+/* ===== Elementos genéricos ===== */
+a { color: inherit; text-decoration: none; }
+button { border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+input, select, textarea {
+  color: inherit; background: var(--card); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 12px; outline: none;
 }
-*/
+input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-color: var(--primary); }
 
-a {
-  color: inherit;
-}
+/* ===== Botões ===== */
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 12px; }
+.btn.primary { background: var(--primary); color: #fff; }
+.btn.primary:hover { background: var(--primary-600); }
+.btn.ghost { background: transparent; }
+.btn.ghost:hover { background: var(--sidebar-hover); }
+.btn.icon { padding: 8px; border-radius: 10px; }
+.btn.icon:hover { background: var(--sidebar-hover); }
 
-/* ------------------- UTILITÁRIOS ------------------- */
-.text-muted { color: var(--muted); }
-.small { font-size: 12px; }
-.hr {
-  height: 1px;
-  background: var(--border);
-  margin: 12px 0;
-  border: 0;
+/* ===== App Shell ===== */
+.fp-shell { display: grid; grid-template-columns: auto 1fr; min-height: 100dvh; }
+
+.fp-main {
+  min-width: 0;
+  padding: 20px;
 }
 
-/* ------------------- BOTÕES ------------------- */
-.btn {
-  --h: 40px;
-  height: var(--h);
-  padding: 0 14px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--fg);
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  transition: background var(--t-med) ease, border-color var(--t-med) ease, transform var(--t-fast) ease, box-shadow var(--t-med) ease, color var(--t-med) ease;
-  text-decoration: none;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
+.fp-header {
+  position: sticky; top: 0; z-index: 40;
+  background: color-mix(in oklab, var(--bg) 88%, var(--card) 12%);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: saturate(140%) blur(6px);
 }
-.btn:hover {
-  background: #151823;
-}
-.btn:active {
-  transform: translateY(1px);
-}
-.btn[disabled],
-.btn[aria-disabled="true"] {
-  opacity: .6;
-  pointer-events: none;
+.fp-header-inner {
+  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px;
+  padding: 10px 16px;
 }
 
-.btn.primary {
-  background: linear-gradient(180deg, #5b54ee, #4f46e5);
-  color: var(--primary-contrast);
-  box-shadow: 0 8px 18px rgba(79,70,229,.28);
-}
-.btn.primary:hover {
-  box-shadow: 0 10px 22px rgba(79,70,229,.36);
-  filter: brightness(1.02);
-}
-.btn.primary:active { transform: translateY(1px); }
-
-.btn.ghost {
-  background: transparent;
-  border-color: var(--border);
-}
-.btn.ghost:hover {
-  background: #141823;
-  border-color: #2a3141;
-}
-
-.btn.link {
-  background: transparent;
-  border: 0;
-  padding: 0;
-  height: auto;
-  color: var(--accent);
-}
-.btn.link:hover { text-decoration: underline; }
-
-/* Badges / feedback */
-.badge-danger {
-  background: rgba(239,68,68,.12);
-  color: #fecaca;
-  border: 1px solid rgba(239,68,68,.24);
-  padding: 8px 12px;
-  border-radius: 10px;
-}
-
-/* Focus visível */
-:focus-visible {
-  outline: 2px solid color-mix(in oklab, var(--accent) 60%, white);
-  outline-offset: 2px;
-  border-radius: 10px;
-}
-
-/* ------------------- LOGIN (auth-*) ------------------- */
-.auth-wrap {
-  min-height: 100dvh;
-  padding: 16px;
-  display: grid;
-  place-items: center;
-}
-
-.auth-card {
-  width: 100%;
-  max-width: 420px;
-  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.00)),
-              var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  box-shadow: var(--shadow-1);
-  padding: 22px;
-}
-
-.auth-header {
-  display: grid;
-  grid-template-columns: 40px 1fr;
-  gap: 12px;
-  align-items: center;
-  margin-bottom: 8px;
-}
-.auth-title {
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: .2px;
-}
-
-.auth-fields {
-  display: grid;
-  gap: 12px;
-  margin-top: 12px;
-}
-
-.auth-label {
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.auth-input {
-  height: 44px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: #0f1219;
-  color: var(--fg);
-  padding: 0 12px;
-  transition: border-color var(--t-med) ease, box-shadow var(--t-med) ease, background var(--t-med) ease;
-}
-.auth-input::placeholder { color: #7f8da3; }
-.auth-input:focus {
-  border-color: color-mix(in oklab, var(--accent) 70%, var(--border));
-  box-shadow: 0 0 0 4px rgba(34,211,238,.12);
-}
-
-.auth-password {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 8px;
-}
-
-.auth-actions {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 2px;
-}
-
-/* ------------------- SIDEBAR ------------------- */
-/* Container da sidebar é o próprio <aside.fp-sidebar> que já vem com estilos inline
-   para largura/posicionamento. Aqui tratamos da estética dos itens e estados. */
-
+/* ===== Sidebar ===== */
 .fp-sidebar {
-  color: var(--fg);
-  background: var(--bg);
+  background: var(--sidebar-bg);
+  color: var(--sidebar-fg);
+  border-right: 1px solid var(--border);
+  box-shadow: var(--shadow-1);
 }
 
-/* Título/grupo */
-.nav-group-heading {
-  color: var(--muted);
+.fp-sb-head {
+  display: grid; grid-template-columns: 1fr auto; align-items: center;
+  padding: 10px; gap: 8px; border-bottom: 1px solid var(--border);
+  min-height: 56px;
 }
+.fp-sb-brand { display: flex; align-items: center; gap: 10px; }
+.fp-sb-brand .logo {
+  width: 28px; height: 28px; border-radius: 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: linear-gradient(180deg, rgba(79,70,229,.25), rgba(79,70,229,.06));
+  border: 1px solid color-mix(in oklab, var(--primary) 35%, var(--border));
+  font-size: 16px;
+}
+.fp-sb-actions { display: inline-flex; gap: 6px; }
 
-/* Itens */
-.nav-item,
-.nav-subitem {
-  position: relative;
-  border: 1px solid transparent;
-  background: transparent;
-  transition: background var(--t-med) ease, border-color var(--t-med) ease, color var(--t-med) ease, box-shadow var(--t-med) ease;
+/* Navegação */
+.fp-nav { display: grid; gap: 6px; padding: 8px; }
+.nav-section { margin-top: 10px; padding: 6px 8px; color: var(--sidebar-muted); font-size: 12px; text-transform: uppercase; }
+.nav-item {
+  display: grid; grid-template-columns: 24px 1fr; align-items: center; gap: 10px;
+  padding: 9px 10px; border-radius: 12px; color: var(--sidebar-fg);
 }
-.nav-item:hover,
-.nav-subitem:hover {
-  background: #121520;
-  border-color: #1d2330;
-}
+.nav-item:hover { background: var(--sidebar-hover); }
+.nav-item[data-active="true"] { background: var(--sidebar-active); }
 
-/* Ativo */
-.nav-item[data-active="true"],
-.nav-subitem[data-active="true"] {
-  background: linear-gradient(180deg, rgba(79,70,229,.18), rgba(79,70,229,.10));
-  border-color: color-mix(in oklab, var(--primary) 45%, var(--border));
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--primary) 35%, transparent);
-}
-.nav-item[data-active="true"]::before,
-.nav-subitem[data-active="true"]::before {
-  content: "";
-  position: absolute;
-  left: 6px;
-  top: 50%;
-  translate: 0 -50%;
-  width: 3px;
-  height: 18px;
-  border-radius: 3px;
-  background: var(--accent);
-}
+.nav-icon { display: inline-flex; width: 24px; justify-content: center; }
 
-/* Quando a sidebar está encolhida e fixada, escondemos labels por CSS também
-   (o TS/inline já trata de opacidades, isto só reforça). */
-.fp-sidebar[data-pinned="true"][data-collapsed="true"] .nav-label {
-  display: none;
+/* Detalhes (MenuGroup baseado em <details>) */
+.fp-sidebar details { border: 0; padding: 0; }
+.fp-sidebar summary {
+  list-style: none; cursor: pointer; display: grid; grid-template-columns: 1fr auto;
+  align-items: center; padding: 8px 10px; border-radius: 10px;
 }
+.fp-sidebar summary::-webkit-details-marker { display: none; }
+.fp-sidebar details[open] > summary { background: var(--sidebar-hover); }
+.fp-sidebar .group-items { display: grid; gap: 4px; padding: 4px 0 0 0; }
 
-/* Scrollbar só na sidebar/nav */
-.fp-sidebar nav {
-  scrollbar-width: thin;
-  scrollbar-color: #2b3344 transparent;
-}
-.fp-sidebar nav::-webkit-scrollbar {
-  width: 10px;
-}
-.fp-sidebar nav::-webkit-scrollbar-thumb {
-  background: #2b3344;
-  border-radius: 10px;
-  border: 2px solid transparent;
-  background-clip: padding-box;
-}
-.fp-sidebar nav::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-/* ------------------- HEADER APP (opcional, caso uses) ------------------- */
-.app-header {
-  position: sticky;
-  top: 0;
-  height: var(--header-h);
-  border-bottom: 1px solid var(--border);
-  background: color-mix(in oklab, var(--bg) 96%, white);
-  backdrop-filter: blur(6px);
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  padding: 0 12px;
-  z-index: 40;
-}
-
-/* ------------------- CARDS / PAINÉIS ------------------- */
+/* ===== Cartões / Dashboard ===== */
 .card {
-  background: var(--surface);
+  background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-1);
 }
 
-/* ------------------- TABELAS BÁSICAS ------------------- */
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  border-spacing: 0;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-}
-.table th,
-.table td {
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--border);
-}
-.table thead th {
-  font-size: 12px;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: .04em;
-  background: #0f1219;
-}
-
-/* ------------------- MODAIS GENÉRICOS ------------------- */
-/* Caso uses <dialog> ou um container próprio, já fica o estilo base. */
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,.42);
-  backdrop-filter: blur(1.5px);
-}
-.modal {
-  background: var(--surface);
-  color: var(--fg);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  box-shadow: var(--shadow-2);
-  padding: 18px;
-  width: min(680px, 92vw);
-}
-
-/* ------------------- FORMS ------------------- */
-.input,
-.select,
-.textarea {
-  width: 100%;
-  border: 1px solid var(--border);
-  background: #0f1219;
-  color: var(--fg);
-  border-radius: 12px;
-  padding: 10px 12px;
-  transition: border-color var(--t-med) ease, box-shadow var(--t-med) ease, background var(--t-med) ease;
-}
-.input:focus,
-.select:focus,
-.textarea:focus {
-  border-color: color-mix(in oklab, var(--accent) 70%, var(--border));
-  box-shadow: 0 0 0 4px rgba(34,211,238,.12);
-}
-
-/* ------------------- MISC ------------------- */
-code, pre {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-}
+/* ===== Auth (login) – mantém o visual anterior ===== */
+.auth-wrap { display: grid; place-items: center; min-height: 100dvh; padding: 20px; }
+.auth-card { width: min(560px, 92vw); background: var(--card); border: 1px solid var(--border); border-radius: 20px; box-shadow: var(--shadow-1); padding: 18px; }
+.auth-header { display: grid; grid-template-columns: 40px 1fr; gap: 10px; align-items: center; margin-bottom: 10px; }
+.auth-title { font-weight: 800; font-size: 20px; }
+.auth-fields { display: grid; gap: 10px; }
+.auth-label { font-size: 13px; color: var(--muted-fg); }
+.auth-input { width: 100%; }
+.auth-password { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.badge-danger { color: #b91c1c; background: #fee2e2; border: 1px solid #fecaca; border-radius: 10px; padding: 8px 10px; font-size: 13px; }
+.text-muted { color: var(--muted-fg); }
+.small { font-size: 13px; }
+.auth-actions { display: flex; justify-content: space-between; gap: 8px; }

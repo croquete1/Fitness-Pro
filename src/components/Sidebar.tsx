@@ -4,7 +4,7 @@ import React, { useMemo } from "react";
 import Menu from "./sidebar/Menu";
 import useSidebarState from "./SidebarWrapper";
 
-// Tipagens mínimas compatíveis com Menu.tsx
+// Tipagens mínimas (compatíveis com Menu.tsx)
 type Role = any;
 type Item = {
   kind: "item";
@@ -23,7 +23,7 @@ type Group = {
 };
 type Entry = Item | Group;
 
-// Ícones (mantém os que tinhas/pediste)
+// Ícones (iguais ao que combinámos)
 const ICON = {
   dashboard: "📊",
   clients: "🧑‍🤝‍🧑",
@@ -38,7 +38,7 @@ const ICON = {
   health: "🛟",
 };
 
-function buildMenu(_role?: Role): Entry[] {
+function buildMenu(): Entry[] {
   return [
     {
       kind: "group",
@@ -76,18 +76,19 @@ function buildMenu(_role?: Role): Entry[] {
   ];
 }
 
-export default function Sidebar({ role: _role }: { role?: Role }) {
-  // Estado global da sidebar (fornecido pelo provider do teu SidebarWrapper)
-  const { pinned, collapsed, togglePinned, toggleCollapsed } = useSidebarState();
+export default function Sidebar() {
+  // Usa o estado global da sidebar (evita o erro de var não utilizada)
+  const { pinned, collapsed } = useSidebarState();
 
-  // Dados do menu — estável (não dependemos de estado volátil para evitar re-renders)
-  const data = useMemo(() => buildMenu(_role), [_role]);
+  // Dados do menu
+  const data = useMemo(() => buildMenu(), []);
 
   return (
     <aside
       className="fp-sidebar"
       data-pinned={pinned ? "true" : "false"}
       data-collapsed={collapsed ? "true" : "false"}
+      aria-label="Sidebar de navegação"
       style={{
         position: "sticky",
         top: 0,
@@ -101,9 +102,8 @@ export default function Sidebar({ role: _role }: { role?: Role }) {
         gridTemplateRows: "auto 1fr",
         zIndex: 30,
       }}
-      aria-label="Sidebar de navegação"
     >
-      {/* Cabeçalho da sidebar — sem botão “menu”, com Afixar e Encolher/Expandir */}
+      {/* Cabeçalho compacto (sem 'menu' extra) */}
       <div
         style={{
           padding: "10px 10px 8px 10px",
@@ -112,67 +112,39 @@ export default function Sidebar({ role: _role }: { role?: Role }) {
           alignItems: "center",
           gap: 8,
           minHeight: 56,
-          justifyContent: collapsed ? "center" : "space-between",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span
-            aria-hidden
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: 10,
-              background:
-                "linear-gradient(180deg, rgba(79,70,229,.25), rgba(79,70,229,.05))",
-              border:
-                "1px solid color-mix(in oklab, var(--primary) 35%, var(--border))",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 16,
-            }}
-          >
-            💪
-          </span>
-          {!collapsed && (
-            <div style={{ lineHeight: 1.1 }}>
-              <div style={{ fontWeight: 800, fontSize: 14 }}>Fitness Pro</div>
-              <div className="text-muted" style={{ fontSize: 12 }}>
-                Navegação
-              </div>
+        <span
+          aria-hidden
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 10,
+            background:
+              "linear-gradient(180deg, rgba(79,70,229,.25), rgba(79,70,229,.05))",
+            border:
+              "1px solid color-mix(in oklab, var(--primary) 35%, var(--border))",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 16,
+          }}
+        >
+          💪
+        </span>
+        {!collapsed && (
+          <div style={{ lineHeight: 1.1 }}>
+            <div style={{ fontWeight: 800, fontSize: 14 }}>Fitness Pro</div>
+            <div className="text-muted" style={{ fontSize: 12 }}>
+              Navegação
             </div>
-          )}
-        </div>
-
-        {/* Controlo de afixar/encolher (sem “menu”) */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <button
-            type="button"
-            className="btn ghost"
-            onClick={togglePinned}
-            aria-pressed={pinned}
-            aria-label={pinned ? "Desafixar sidebar" : "Afixar sidebar"}
-            title={pinned ? "Desafixar" : "Afixar"}
-          >
-            {pinned ? "📌" : "📍"}
-          </button>
-
-          <button
-            type="button"
-            className="btn ghost"
-            onClick={toggleCollapsed}
-            aria-pressed={collapsed}
-            aria-label={collapsed ? "Expandir sidebar" : "Encolher sidebar"}
-            title={collapsed ? "Expandir" : "Encolher"}
-          >
-            {collapsed ? "➕" : "➖"}
-          </button>
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Navegação */}
       <div style={{ overflow: "auto", padding: 8 }}>
-        <Menu data={data} role={_role} />
+        <Menu data={data} />
       </div>
     </aside>
   );

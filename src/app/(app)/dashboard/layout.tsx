@@ -1,10 +1,35 @@
+// src/app/(app)/layout.tsx
 import React from "react";
-import ClientShell from "./ClientShell";
+import type { Metadata } from "next";
 
-// Evita que o Next tente pré-renderizar estático páginas que usam o contexto
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+import Providers from "@/app/providers";                 // wrapper de tema/contexts (client provider)
+import { SidebarProvider } from "@/components/SidebarWrapper"; // provider do estado da sidebar
+import Sidebar from "@/components/Sidebar";              // componente da sidebar (client)
+import AppHeader from "@/components/layout/AppHeader";   // header (client)
 
-export default function Layout({ children }: { children: React.ReactNode }) {
-  return <ClientShell>{children}</ClientShell>;
+export const metadata: Metadata = {
+  title: "Dashboard | Fitness Pro",
+};
+
+export default function AppLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <Providers>
+      <SidebarProvider>
+        <div className="fp-shell">
+          {/* Coluna fixa da sidebar */}
+          <Sidebar />
+
+          {/* Área principal */}
+          <main className="fp-main">
+            <AppHeader />
+            <div className="fp-content">{children}</div>
+          </main>
+        </div>
+      </SidebarProvider>
+    </Providers>
+  );
 }

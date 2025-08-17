@@ -2,59 +2,72 @@
 
 import React from "react";
 import { signOut } from "next-auth/react";
-
-function applyTheme(t: "dark" | "light") {
-  if (typeof document !== "undefined") {
-    document.documentElement.setAttribute("data-theme", t);
-  }
-}
+import useSidebarState from "../SidebarWrapper";          // <- já existe
+import { useTheme } from "@/app/providers";               // <- fornecido no providers.tsx
 
 export default function AppHeader() {
-  const [theme, setTheme] = React.useState<"dark" | "light">("dark");
+  const { toggleCollapsed } = useSidebarState();
+  const { theme, setTheme } = useTheme();
 
-  React.useEffect(() => {
-    const saved = (typeof window !== "undefined" && localStorage.getItem("fp-theme")) as
-      | "dark"
-      | "light"
-      | null;
-    const initial = saved ?? "dark";
-    setTheme(initial);
-    applyTheme(initial);
-  }, []);
-
-  function toggleTheme() {
-    const next = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    if (typeof window !== "undefined") localStorage.setItem("fp-theme", next);
-    applyTheme(next);
-  }
+  const onToggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
 
   return (
-    <header className="app-header">
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <strong>Dashboard</strong>
-      </div>
+    <header className="fp-header" role="banner">
+      <div className="fp-header-inner">
+        {/* Esquerda: botão sidebar + pesquisa */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <button
+            type="button"
+            className="btn icon ghost"
+            onClick={toggleCollapsed}
+            aria-label="Alternar sidebar"
+            title="Alternar sidebar"
+          >
+            ☰
+          </button>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <button className="btn ghost" type="button" aria-label="Notificações">
-          🔔
-        </button>
-        <button
-          className="btn ghost"
-          type="button"
-          onClick={toggleTheme}
-          aria-label="Alternar tema"
-          title={theme === "dark" ? "Mudar para claro" : "Mudar para escuro"}
-        >
-          {theme === "dark" ? "🌙" : "☀️"}
-        </button>
-        <button
-          className="btn"
-          type="button"
-          onClick={() => signOut({ callbackUrl: "/login" })}
-        >
-          Terminar sessão
-        </button>
+          <input
+            type="search"
+            placeholder="Pesquisar cliente por nome ou email..."
+            aria-label="Pesquisar"
+            style={{
+              width: "100%",
+              maxWidth: 560,
+              minWidth: 200,
+            }}
+          />
+        </div>
+
+        {/* Direita: ações */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button
+            type="button"
+            className="btn icon ghost"
+            aria-label="Notificações"
+            title="Notificações"
+          >
+            🔔
+          </button>
+
+          <button
+            type="button"
+            className="btn icon ghost"
+            onClick={onToggleTheme}
+            aria-pressed={theme === "dark"}
+            title={theme === "dark" ? "Ativar modo claro" : "Ativar modo escuro"}
+          >
+            {theme === "dark" ? "🌙" : "🌞"}
+          </button>
+
+          <button
+            type="button"
+            className="btn ghost"
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            title="Terminar sessão"
+          >
+            Terminar sessão
+          </button>
+        </div>
       </div>
     </header>
   );
