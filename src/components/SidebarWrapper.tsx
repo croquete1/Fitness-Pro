@@ -11,7 +11,6 @@ export default function SidebarWrapper({ children }: { children: React.ReactNode
   const closeSidebar = useCallback(() => setOpen(false), []);
   const toggleSidebar = useCallback(() => setOpen(v => !v), []);
 
-  // detectar mobile
   useEffect(() => {
     const compute = () => setIsMobile(typeof window !== "undefined" && window.innerWidth < 1024);
     compute();
@@ -19,7 +18,6 @@ export default function SidebarWrapper({ children }: { children: React.ReactNode
     return () => window.removeEventListener("resize", compute);
   }, []);
 
-  // aplicar/remover atributo no <html> para o off-canvas e overlay
   useEffect(() => {
     const root = document.documentElement;
     if (isMobile && open) root.setAttribute("data-sidebar", "open");
@@ -28,11 +26,12 @@ export default function SidebarWrapper({ children }: { children: React.ReactNode
   }, [open, isMobile]);
 
   return (
-    <div className="fp-shell">
+    <div className={`fp-shell ${open ? "" : "is-collapsed"}`}>
       <Sidebar open={open} onClose={closeSidebar} onToggle={toggleSidebar} />
       <MobileSidebarController onClose={closeSidebar} />
-      <main style={{ width: "100%", overflow: "auto" }}>{children}</main>
-      {/* overlay é controlado por CSS via html[data-sidebar="open"] .fp-overlay; se quiseres, adiciona <div className="fp-overlay" /> no layout raiz */}
+      <main style={{ width: "100%", height: "100%", overflow: "auto" }}>
+        {children}
+      </main>
     </div>
   );
 }
