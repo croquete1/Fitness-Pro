@@ -38,7 +38,7 @@ const ICON = {
   health: "🛟",
 };
 
-function buildMenu(role?: Role): Entry[] {
+function buildMenu(_role?: Role): Entry[] {
   return [
     {
       kind: "group",
@@ -76,12 +76,12 @@ function buildMenu(role?: Role): Entry[] {
   ];
 }
 
-export default function Sidebar() {
-  // Estado global da sidebar (pinned/collapsed/overlay, já existente no teu projeto)
-  const { pinned, collapsed } = useSidebarState();
+export default function Sidebar({ role: _role }: { role?: Role }) {
+  // Estado global da sidebar (fornecido pelo provider do teu SidebarWrapper)
+  const { pinned, collapsed, togglePinned, toggleCollapsed } = useSidebarState();
 
-  // Dados do menu — estável (sem overlayOpen na lista de deps)
-  const data = useMemo(() => buildMenu(undefined), []);
+  // Dados do menu — estável (não dependemos de estado volátil para evitar re-renders)
+  const data = useMemo(() => buildMenu(_role), [_role]);
 
   return (
     <aside
@@ -103,7 +103,7 @@ export default function Sidebar() {
       }}
       aria-label="Sidebar de navegação"
     >
-      {/* Cabeçalho da sidebar — mantém apenas o essencial (sem botão 'menu', como pediste) */}
+      {/* Cabeçalho da sidebar — sem botão “menu”, com Afixar e Encolher/Expandir */}
       <div
         style={{
           padding: "10px 10px 8px 10px",
@@ -112,38 +112,67 @@ export default function Sidebar() {
           alignItems: "center",
           gap: 8,
           minHeight: 56,
+          justifyContent: collapsed ? "center" : "space-between",
         }}
       >
-        <span
-          aria-hidden
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: 10,
-            background:
-              "linear-gradient(180deg, rgba(79,70,229,.25), rgba(79,70,229,.05))",
-            border: "1px solid color-mix(in oklab, var(--primary) 35%, var(--border))",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 16,
-          }}
-        >
-          💪
-        </span>
-        {!collapsed && (
-          <div style={{ lineHeight: 1.1 }}>
-            <div style={{ fontWeight: 800, fontSize: 14 }}>Fitness Pro</div>
-            <div className="text-muted" style={{ fontSize: 12 }}>
-              Navegação
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span
+            aria-hidden
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 10,
+              background:
+                "linear-gradient(180deg, rgba(79,70,229,.25), rgba(79,70,229,.05))",
+              border:
+                "1px solid color-mix(in oklab, var(--primary) 35%, var(--border))",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 16,
+            }}
+          >
+            💪
+          </span>
+          {!collapsed && (
+            <div style={{ lineHeight: 1.1 }}>
+              <div style={{ fontWeight: 800, fontSize: 14 }}>Fitness Pro</div>
+              <div className="text-muted" style={{ fontSize: 12 }}>
+                Navegação
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
+
+        {/* Controlo de afixar/encolher (sem “menu”) */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <button
+            type="button"
+            className="btn ghost"
+            onClick={togglePinned}
+            aria-pressed={pinned}
+            aria-label={pinned ? "Desafixar sidebar" : "Afixar sidebar"}
+            title={pinned ? "Desafixar" : "Afixar"}
+          >
+            {pinned ? "📌" : "📍"}
+          </button>
+
+          <button
+            type="button"
+            className="btn ghost"
+            onClick={toggleCollapsed}
+            aria-pressed={collapsed}
+            aria-label={collapsed ? "Expandir sidebar" : "Encolher sidebar"}
+            title={collapsed ? "Expandir" : "Encolher"}
+          >
+            {collapsed ? "➕" : "➖"}
+          </button>
+        </div>
       </div>
 
       {/* Navegação */}
       <div style={{ overflow: "auto", padding: 8 }}>
-        <Menu data={data} />
+        <Menu data={data} role={_role} />
       </div>
     </aside>
   );
