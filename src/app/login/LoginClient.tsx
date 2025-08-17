@@ -1,12 +1,15 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
-import Logo from "@/components/layout/Logo";
 import { useSearchParams } from "next/navigation";
+import Logo from "@/components/layout/Logo";
 
 export default function LoginClient() {
+  const sp = useSearchParams();
+  const registered = useMemo(() => sp?.get("registered") === "1", [sp]);
+
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [show, setShow] = useState(false);
@@ -15,43 +18,31 @@ export default function LoginClient() {
 
   const canSubmit = email.trim().length > 0 && pw.length > 0 && !loading;
 
-  // ✅ Banner “registo concluído” (à prova de bala)
-  const sp = useSearchParams();
-  const registeredParam = sp.get("registered");
-  const registeredFromURL = useMemo(() => {
-    if (!registeredParam) return false;
-    const v = String(registeredParam).toLowerCase();
-    // aceita vários formatos para robustez
-    return v === "" || v === "1" || v === "true" || v === "yes" || v === "ok";
-  }, [registeredParam]);
-
-  const [hideRegistered, setHideRegistered] = useState(false);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const dismissed = sessionStorage.getItem("fp:login:registeredDismissed") === "1";
-    setHideRegistered(dismissed);
-  }, []);
-
-  const dismissRegistered = () => {
-    setHideRegistered(true);
-    if (typeof window !== "undefined") {
-      sessionStorage.setItem("fp:login:registeredDismissed", "1");
-    }
-  };
-
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSubmit) return;
+
     setErr(null);
     setLoading(true);
-    const res = await signIn("credentials", {
-      redirect: true,
-      callbackUrl: "/dashboard",
-      email,
-      password: pw,
-    });
-    setLoading(false);
-    if ((res as any)?.error) setErr("Credenciais inválidas.");
+
+    try {
+      const res = await signIn("credentials", {
+        redirect: true,
+        callbackUrl: "/dashboard",
+        email,
+        password: pw,
+      });
+
+      // next-auth trata do redirect; se falhar, mantém-se na página
+      if ((res as any)?.error) {
+        setErr("Credenciais inválidas. Verifica o email e a palavra-passe.");
+        setLoading(false);
+      }
+    } catch (ex: any) {
+      // Mensagem “à prova de bala” (sem vazar detalhes)
+      setErr("Não foi possível iniciar sessão. Tenta novamente em alguns segundos.");
+      setLoading(false);
+    }
   }
 
   return (
@@ -62,28 +53,10 @@ export default function LoginClient() {
         placeItems: "center",
         minHeight: "100dvh",
         padding: 16,
-        background: "var(--app-bg, var(--bg))",
+        background: "var(--app-bg)",
       }}
     >
       <form onSubmit={onSubmit} className="auth-card" aria-labelledby="auth-title">
-        {/* ✅ Banner robusto e acessível */}
-        {registeredFromURL && !hideRegistered && (
-          <div className="auth-banner success" role="status" aria-live="polite" aria-atomic="true">
-            <span className="auth-banner__dot" aria-hidden="true" />
-            <span>
-              Conta registada com sucesso. A tua conta ficará pendente até aprovação por um administrador.
-            </span>
-            <button
-              type="button"
-              className="btn ghost sm"
-              onClick={dismissRegistered}
-              aria-label="Dispensar aviso"
-            >
-              ✕
-            </button>
-          </div>
-        )}
-
         <div className="auth-header">
           <Logo size={32} />
           <div>
@@ -92,25 +65,37 @@ export default function LoginClient() {
           </div>
         </div>
 
+        {/* Banner de feedback pós-registo (não quebra se a query não existir) */}
+        {registered && (
+          <div className="auth-banner success" role="status" aria-live="polite">
+            <span className="auth-banner__dot" aria-hidden="true" />
+            Conta criada com sucesso. Podes iniciar sessão.
+          </div>
+        )}
+
         <div className="auth-fields">
-          <label className="auth-label">Email</label>
+          <label className="auth-label" htmlFor="email">Email</label>
           <input
+            id="email"
             type="email"
             placeholder="o.teu@email.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
             className="auth-input"
+            autoComplete="username"
           />
 
-          <label className="auth-label">Palavra-passe</label>
+          <label className="auth-label" htmlFor="pw">Palavra-passe</label>
           <div className="auth-password">
             <input
+              id="pw"
               type={show ? "text" : "password"}
               value={pw}
               onChange={(e) => setPw(e.target.value)}
               required
               className="auth-input"
+              autoComplete="current-password"
             />
             <button
               type="button"
@@ -132,7 +117,11 @@ export default function LoginClient() {
             {loading ? "A entrar..." : "Entrar"}
           </button>
 
-          {err && <div className="badge-danger">{err}</div>}
+          {err && (
+            <div className="badge-danger" role="alert" aria-live="assertive">
+              {err}
+            </div>
+          )}
 
           <div className="auth-actions">
             <Link href="/login/forgot" className="btn link">Esqueceste-te da palavra-passe?</Link>
@@ -140,7 +129,7 @@ export default function LoginClient() {
           </div>
 
           <p className="text-muted small">
-            Após o registo, a tua conta ficará pendente até aprovação por um administrador.
+            Após o registo, a tua conta fica pendente até aprovação por um administrador.
           </p>
         </div>
       </form>
