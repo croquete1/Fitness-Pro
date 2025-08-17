@@ -1,30 +1,28 @@
 "use client";
 
 import { useEffect } from "react";
-import { usePathname } from "next/navigation";
 
-export default function MobileSidebarController() {
-  const pathname = usePathname();
+type Props = {
+  onClose?: () => void;
+};
 
-  const close = () => {
-    const html = document.documentElement;
-    if (html.getAttribute("data-sidebar") === "open") {
-      html.removeAttribute("data-sidebar");
-    }
-  };
-
+export default function MobileSidebarController({ onClose }: Props) {
   useEffect(() => {
-    // Fechar ao carregar uma nova rota
-    close();
-  }, [pathname]);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
+    const handleKeyDown = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") onClose?.();
     };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, []);
+    const handleResize = () => {
+      // Fechar sidebar ao passar para _desktop_ (prevenir estados presos)
+      if (window.innerWidth >= 1024) onClose?.();
+    };
 
-  return <div className="fp-overlay" onClick={close} />;
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [onClose]);
+
+  return null; // controlador invisível
 }

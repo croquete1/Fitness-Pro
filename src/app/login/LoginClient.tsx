@@ -5,10 +5,7 @@ import { signIn } from "next-auth/react";
 import Link from "next/link";
 import Logo from "@/components/layout/Logo";
 
-type LoginClientProps = {
-  /** Indica se o utilizador acabou de se registar (ex.: ?registered=1) */
-  registered?: boolean;
-};
+type LoginClientProps = { registered?: boolean };
 
 export default function LoginClient({ registered = false }: LoginClientProps) {
   const [email, setEmail] = useState("");
@@ -17,8 +14,8 @@ export default function LoginClient({ registered = false }: LoginClientProps) {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setErr(null);
     setLoading(true);
     try {
@@ -57,91 +54,39 @@ export default function LoginClient({ registered = false }: LoginClientProps) {
       </div>
 
       {registered && (
-        <div
-          className="badge-success"
-          style={{ padding: 8, borderRadius: 10, marginBottom: 10 }}
-          role="status"
-          aria-live="polite"
-        >
+        <div className="badge-success" style={{ padding: 8, borderRadius: 10, marginBottom: 10 }} role="status" aria-live="polite">
           Registo concluído. A conta ficará pendente até aprovação por um administrador.
         </div>
       )}
 
       <div style={{ display: "grid", gap: 12 }}>
         <label htmlFor="email" style={{ fontWeight: 700 }}>Email</label>
-        <input
-          id="email"
-          type="email"
-          placeholder="o.teu@email.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          style={{
-            padding: "12px 14px",
-            borderRadius: 12,
-            border: "1px solid var(--border)",
-            background: "var(--bg)",
-            color: "var(--fg)",
-            outline: "none",
-          }}
+        <input id="email" type="email" placeholder="o.teu@email.com"
+          value={email} onChange={(ev) => setEmail(ev.target.value)} required
+          style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--fg)", outline: "none" }}
         />
 
         <label htmlFor="password" style={{ fontWeight: 700 }}>Palavra-passe</label>
         <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
-          <input
-            id="password"
-            type={show ? "text" : "password"}
-            value={pw}
-            onChange={(e) => setPw(e.target.value)}
-            required
-            style={{
-              padding: "12px 14px",
-              borderRadius: 12,
-              border: "1px solid var(--border)",
-              background: "var(--bg)",
-              color: "var(--fg)",
-              outline: "none",
-            }}
+          <input id="password" type={show ? "text" : "password"} value={pw} onChange={(ev) => setPw(ev.target.value)} required
+            style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--fg)", outline: "none" }}
           />
-          <button
-            type="button"
-            className="pill"
-            onClick={() => setShow((v) => !v)}
-            aria-pressed={show}
-            aria-label={show ? "Esconder palavra-passe" : "Mostrar palavra-passe"}
-          >
+          <button type="button" className="pill" onClick={() => setShow(v => !v)} aria-pressed={show}
+            aria-label={show ? "Esconder palavra-passe" : "Mostrar palavra-passe"}>
             {show ? "Esconder" : "Mostrar"}
           </button>
         </div>
 
-        <button
-          type="submit"
-          className="pill"
-          disabled={loading}
-          style={{
-            justifySelf: "start",
-            background: "var(--brand)",
-            color: "white",
-            borderColor: "transparent",
-            padding: ".6rem 1rem",
-          }}
-        >
+        <button type="submit" className="pill" disabled={loading}
+          style={{ justifySelf: "start", background: "var(--brand)", color: "white", borderColor: "transparent", padding: ".6rem 1rem" }}>
           {loading ? "A entrar..." : "Entrar"}
         </button>
 
-        {err && (
-          <div className="badge-danger" style={{ padding: 8, borderRadius: 10 }}>
-            {err}
-          </div>
-        )}
+        {err && <div className="badge-danger" style={{ padding: 8, borderRadius: 10 }}>{err}</div>}
 
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-          <Link href="/login/forgot" className="pill" style={{ padding: "6px 10px" }}>
-            Esqueceste-te da palavra-passe?
-          </Link>
-          <Link href="/register" className="pill" style={{ padding: "6px 10px" }}>
-            Registar
-          </Link>
+          <Link href="/login/forgot" className="pill" style={{ padding: "6px 10px" }}>Esqueceste-te da palavra-passe?</Link>
+          <Link href="/register" className="pill" style={{ padding: "6px 10px" }}>Registar</Link>
         </div>
 
         <p className="text-muted" style={{ marginTop: 6 }}>
