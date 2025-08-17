@@ -4,10 +4,9 @@ import React, { useMemo, useRef, useEffect, useState } from "react";
 import Menu from "./sidebar/Menu";
 import useSidebarState from "./SidebarWrapper";
 
-/** Dimensões + animação (mais lenta) */
 const RAIL_W = 64;
 const PANEL_W = 260;
-const ANIM_MS = 780; // antes: 520ms -> agora mais suave
+const ANIM_MS = 780; // mais suave
 const EASE = "cubic-bezier(.22,.8,.2,1)";
 
 const ICON = {
@@ -76,15 +75,8 @@ function buildMenu(): Entry[] {
   ];
 }
 
-/** Hambúrguer com alinhamento perfeito e stroke consistente */
 const IconBurger = ({ size = 20 }: { size?: number }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    aria-hidden
-    style={{ display: "block" }} // evita “afundar” por baseline
-  >
+  <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden style={{ display: "block" }}>
     <path
       d="M4 6.5h16M4 12h16M4 17.5h16"
       fill="none"
@@ -111,8 +103,8 @@ export default function Sidebar() {
   const data = useMemo(() => buildMenu(), []);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const railWidth = pinned ? (collapsed ? RAIL_W : PANEL_W) : RAIL_W;
   const isMini = !pinned || (pinned && collapsed);
+  const railWidth = pinned ? (collapsed ? RAIL_W : PANEL_W) : RAIL_W;
 
   const onMouseEnterRail = () => {
     if (!pinned) {
@@ -123,10 +115,9 @@ export default function Sidebar() {
   const onMouseLeaveRail = () => {
     if (!pinned) {
       if (hoverTimer.current) clearTimeout(hoverTimer.current);
-      hoverTimer.current = setTimeout(() => setOverlayOpen(false), 240); // atraso um pouco maior
+      hoverTimer.current = setTimeout(() => setOverlayOpen(false), 240);
     }
   };
-
   useEffect(() => () => hoverTimer.current && clearTimeout(hoverTimer.current), []);
 
   const [injectCss, setInjectCss] = useState(false);
@@ -134,7 +125,6 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* RAIL / PAINEL */}
       <aside
         className="fp-sidebar"
         data-pinned={pinned ? "true" : "false"}
@@ -153,8 +143,8 @@ export default function Sidebar() {
           gridTemplateRows: "auto 1fr",
           zIndex: 30,
           overflow: "hidden",
-          willChange: "width", // ajuda a suavizar
-          transform: "translateZ(0)", // GPU
+          willChange: "width",
+          transform: "translateZ(0)",
         }}
         aria-label="Sidebar"
         onMouseEnter={onMouseEnterRail}
@@ -165,7 +155,7 @@ export default function Sidebar() {
           className="fp-sb-head"
           style={{
             display: "grid",
-            gridTemplateColumns: "1fr auto",
+            gridTemplateColumns: isMini ? "1fr" : "1fr auto", // no rail o cabeçalho tem 1 coluna
             alignItems: "center",
             padding: 10,
             gap: 8,
@@ -191,12 +181,21 @@ export default function Sidebar() {
             >
               💪
             </span>
+            {/* mostrar o texto só expandido */}
             {railWidth > RAIL_W && (
               <div style={{ fontWeight: 800, fontSize: 14, lineHeight: 1.1 }}>Fitness Pro</div>
             )}
           </div>
 
-          <div className="fp-sb-actions" style={{ display: "inline-flex", gap: 8 }}>
+          <div
+            className="fp-sb-actions"
+            style={{
+              display: "inline-flex",
+              gap: 8,
+              width: isMini ? "100%" : undefined,
+              justifyContent: isMini ? "center" : "flex-end", // hambúrguer centrado no rail
+            }}
+          >
             {/* Recolher/expandir */}
             <button
               className="btn icon sb-icon"
@@ -212,43 +211,64 @@ export default function Sidebar() {
             >
               <IconBurger />
             </button>
-            {/* Afixar/desafixar */}
-            <button
-              className="btn icon sb-icon"
-              aria-label={pinned ? "Desafixar sidebar" : "Afixar sidebar"}
-              title={pinned ? "Desafixar" : "Afixar"}
-              onClick={togglePinned}
-            >
-              <span aria-hidden>{pinned ? "📌" : "📍"}</span>
-            </button>
+
+            {/* Afixar/desafixar (esconder no rail para não “cortar”) */}
+            {!isMini && (
+              <button
+                className="btn icon sb-icon"
+                aria-label={pinned ? "Desafixar sidebar" : "Afixar sidebar"}
+                title={pinned ? "Desafixar" : "Afixar"}
+                onClick={togglePinned}
+              >
+                <span aria-hidden>{pinned ? "📌" : "📍"}</span>
+              </button>
+            )}
           </div>
         </div>
 
+        {/* CSS fino: gaps, placeholders de secção, etc. */}
         {injectCss && (
           <style jsx global>{`
-            .fp-sidebar .nav-item,
-            .fp-sidebar .nav-label {
+            .fp-nav { gap: 2px; padding: 6px; }                /* menos gap */
+            .nav-item {
+              display: grid;
+              grid-template-columns: 24px 1fr;
+              align-items: center;
+              gap: 8px;
+              padding: 7px 8px;                                /* menos padding */
+              border-radius: 12px;
+              color: var(--sidebar-fg);
+            }
+            .nav-icon { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; }
+            .nav-item:hover { background: var(--sidebar-hover); }
+            .nav-item[data-active="true"] { background: var(--sidebar-active); }
+
+            /* Secções: manter o “espaço” mesmo recolhido para não mudar a vertical dos ícones */
+            .nav-section { margin-top: 10px; padding: 6px 8px; color: var(--sidebar-muted); font-size: 12px; text-transform: uppercase; }
+            .fp-sidebar[data-mini="true"] .nav-section {
+              display: block !important;
+              height: 14px;               /* placeholder */
+              margin: 8px 0 2px 0;
+              padding: 0;
+              opacity: 0;                 /* invisível mas ocupa espaço */
+            }
+
+            /* labels desaparecem com transição */
+            .fp-sidebar .nav-item, .fp-sidebar .nav-label {
               transition: opacity ${ANIM_MS}ms ${EASE}, transform ${ANIM_MS}ms ${EASE};
             }
             .fp-sidebar[data-mini="true"] .nav-label {
-              opacity: 0;
-              transform: translateX(-6px);
-              pointer-events: none;
+              opacity: 0; transform: translateX(-6px); pointer-events: none;
             }
             .fp-sidebar[data-mini="true"] .nav-item { grid-template-columns: 24px !important; }
-            .fp-sidebar[data-mini="true"] .nav-section { display: none !important; }
 
-            /* Botões / ícone – centrados e com hit area consistente */
+            /* botões do header */
             .fp-sidebar .sb-icon {
-              width: 36px;
-              height: 36px;
-              display: inline-flex;
-              align-items: center;
-              justify-content: center;
-              border-radius: 10px;
-              line-height: 0; /* ajuda a centralizar o SVG */
+              width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center;
+              border-radius: 10px; line-height: 0;
             }
             .fp-sidebar .sb-icon:hover { background: var(--sidebar-hover); }
+
             @media (prefers-reduced-motion: reduce) {
               .fp-sidebar .nav-item, .fp-sidebar .nav-label { transition: none !important; }
             }
@@ -256,12 +276,12 @@ export default function Sidebar() {
         )}
 
         {/* Navegação */}
-        <div style={{ overflow: "auto", padding: 8 }}>
+        <div style={{ overflow: "auto", padding: 6 }}>
           <Menu data={data as any} />
         </div>
       </aside>
 
-      {/* SCRIM + FLYOUT quando DESAFIXADA */}
+      {/* Overlay (desafixada) */}
       {!pinned && overlayOpen && (
         <>
           <div
@@ -342,20 +362,14 @@ export default function Sidebar() {
               </div>
             </div>
 
-            <div style={{ overflow: "auto", padding: 8 }}>
+            <div style={{ overflow: "auto", padding: 6 }}>
               <Menu data={data as any} />
             </div>
           </div>
 
           <style jsx global>{`
-            @keyframes fp-slide-in {
-              from { transform: translateX(-18px); opacity: .0; }
-              to   { transform: translateX(0);      opacity: 1;  }
-            }
-            @keyframes fp-fade-in {
-              from { opacity: 0; }
-              to   { opacity: 1; }
-            }
+            @keyframes fp-slide-in { from { transform: translateX(-18px); opacity: .0; } to { transform: translateX(0); opacity: 1; } }
+            @keyframes fp-fade-in  { from { opacity: 0; } to { opacity: 1; } }
           `}</style>
         </>
       )}
