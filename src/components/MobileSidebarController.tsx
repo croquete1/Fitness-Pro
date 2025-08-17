@@ -1,28 +1,17 @@
 "use client";
-
 import { useEffect } from "react";
 
-type Props = {
-  onClose?: () => void;
-};
-
-export default function MobileSidebarController({ onClose }: Props) {
+export default function MobileSidebarController({ onClose }: { onClose?: () => void }) {
   useEffect(() => {
-    const handleKeyDown = (ev: KeyboardEvent) => {
-      if (ev.key === "Escape") onClose?.();
-    };
-    const handleResize = () => {
-      // Fechar sidebar ao passar para _desktop_ (prevenir estados presos)
-      if (window.innerWidth >= 1024) onClose?.();
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("resize", handleResize);
+    const onKey = (ev: KeyboardEvent) => { if (ev.key === "Escape") onClose?.(); };
+    const onResize = () => { if (window.innerWidth >= 1024) onClose?.(); };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("resize", onResize);
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", onResize);
     };
   }, [onClose]);
 
-  return null; // controlador invisível
+  return null;
 }
