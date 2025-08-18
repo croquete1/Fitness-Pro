@@ -6,7 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
 
-// menu local – apenas dados serializáveis (texto/emoji/rotas)
+// Apenas dados serializáveis
 function buildMenu() {
   return [
     {
@@ -40,14 +40,13 @@ function buildMenu() {
 }
 
 export default function Sidebar() {
-  const { collapsed, pinned, togglePinned, openOverlay, closeOverlay, overlayOpen } =
+  const { collapsed, pinned, openOverlay, closeOverlay, overlayOpen, togglePinned } =
     useSidebarState();
 
   const pathname = usePathname();
   const data = useMemo(() => buildMenu(), []);
   const railRef = useRef<HTMLDivElement>(null);
 
-  // hover para abrir em modo rail (quando não está pinada)
   const onMouseEnter = () => {
     if (!pinned && collapsed) openOverlay();
   };
@@ -59,13 +58,13 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* rail compacto (sempre visível, 64px) */}
+      {/* RAIL compacto (64px) – participa no fluxo */}
       <div className="z-40 flex-shrink-0 w-16 border-r border-black/5 bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60">
         <div
           ref={railRef}
           onMouseEnter={onMouseEnter}
           onMouseLeave={onMouseLeave}
-          className="h-screen flex flex-col items-center py-4 gap-6"
+          className="h-dvh flex flex-col items-center py-4 gap-6"
         >
           {/* logo + pin */}
           <div className="flex flex-col items-center gap-2">
@@ -103,18 +102,18 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* gaveta expandida (abre só quando isOpen=true) */}
+      {/* DRAWER expandido – SEMPRE fixed para não empurrar o header */}
       <aside
         aria-hidden={!isOpen}
-        className={clsx(
-          "z-40 w-72 h-screen border-r border-black/5 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70",
-          "transition-[transform,opacity] duration-300 ease-[cubic-bezier(.22,1,.36,1)]",
-          isOpen ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0",
-          // em ecrã grande manter alinhada; em mobile pode ficar over content se quiseres
-          "fixed left-16 top-0"
-        )}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
+        className={clsx(
+          "fixed left-16 top-0 h-dvh w-72 z-50",
+          "border-r border-black/5 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70",
+          "transition-[transform,opacity] duration-350 ease-[cubic-bezier(.22,1,.36,1)]",
+          isOpen ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0",
+          "overflow-y-auto"
+        )}
       >
         <div className="px-4 py-5">
           <div className="text-xs font-semibold tracking-wide text-slate-500 mb-4">
@@ -126,7 +125,8 @@ export default function Sidebar() {
               <div className="text-[11px] font-semibold tracking-wider text-slate-400 mb-2">
                 {sec.section}
               </div>
-              <ul className="space-y-1.5">
+              {/* 👇 sem bullets */}
+              <ul className="list-none p-0 m-0 space-y-1.5">
                 {sec.items.map((it) => {
                   const active = pathname?.startsWith(it.href);
                   return (
@@ -152,12 +152,12 @@ export default function Sidebar() {
         </div>
       </aside>
 
-      {/* backdrop quando a gaveta abre sem estar pinada */}
+      {/* Backdrop apenas quando não está pinada */}
       {!pinned && overlayOpen && (
         <button
           aria-label="Fechar menu"
           onClick={closeOverlay}
-          className="fixed inset-0 z-30 bg-black/20 backdrop-blur-[1px]"
+          className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[1px]"
         />
       )}
     </>
