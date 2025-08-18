@@ -1,21 +1,22 @@
-// Server Component
 import type { ReactNode } from "react";
-import Providers from "@/app/providers";
+import SidebarProvider from "@/components/SidebarProvider";
 import Sidebar from "@/components/Sidebar";
+import MainContent from "@/components/layout/MainContent";
 import AppHeader from "@/components/layout/AppHeader";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
-    <Providers>
-      <div className="min-h-screen flex bg-[var(--bg,white)]">
-        {/* Rail compacto participa no flex (64px) */}
+    <SidebarProvider>
+      <div className="relative min-h-screen">
+        {/* Sidebar (rail + gaveta) */}
         <Sidebar />
-        {/* Conteúdo */}
-        <div className="flex-1 min-w-0 flex flex-col">
+
+        {/* Conteúdo (empurrado dinamicamente) */}
+        <MainContent>
           <AppHeader />
-          <main className="flex-1 p-6">{children}</main>
-        </div>
+          <main className="mx-auto max-w-[1400px] px-6 py-6">{children}</main>
+        </MainContent>
       </div>
-    </Providers>
+    </SidebarProvider>
   );
 }
