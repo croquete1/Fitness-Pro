@@ -89,6 +89,7 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
   min-width: 0;
   width: 100%;
   padding: 20px;
+  min-height: calc(100dvh - 64px); /* NEW: reserva de espaço abaixo do header */
 }
 
 /* Header */
@@ -97,10 +98,12 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
   background: color-mix(in oklab, var(--bg) 88%, var(--card) 12%);
   border-bottom: 1px solid var(--border);
   backdrop-filter: saturate(140%) blur(6px);
+  height: 64px; /* NEW: altura explícita do header */
 }
 .fp-header-inner {
   display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px;
   padding: 10px 16px;
+  height: 100%; /* NEW: faz o inner ocupar a altura do header */
 }
 
 /* ===== Sidebar ===== */
