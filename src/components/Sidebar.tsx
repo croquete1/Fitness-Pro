@@ -1,109 +1,133 @@
-"use client";
+'use client';
 
-import React, { useEffect } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useSidebarState } from "./SidebarWrapper";
+import Link from 'next/link';
+import Image from 'next/image';
+import { usePathname } from 'next/navigation';
+import { Menu, Pin, PinOff } from 'lucide-react';
+import { useSidebarState } from './SidebarWrapper';
+import { useMemo } from 'react';
 
-type NavItem = { label: string; href: string; icon: React.ReactNode };
-type NavGroup = { title?: string; items: NavItem[] };
+type NavItem = { href: string; label: string; icon: React.ReactNode };
+type NavGroup = { title: string; items: NavItem[] };
 
 const NAV: NavGroup[] = [
   {
-    title: "GERAL",
+    title: 'GERAL',
     items: [
-      { label: "Dashboard", href: "/dashboard", icon: <span className="nav-icon">📊</span> },
-      { label: "Relatórios", href: "/dashboard/reports", icon: <span className="nav-icon">🧾</span> },
-      { label: "Definições", href: "/dashboard/settings", icon: <span className="nav-icon">⚙️</span> },
+      { href: '/dashboard', label: 'Dashboard', icon: <span>📊</span> },
+      { href: '/dashboard/reports', label: 'Relatórios', icon: <span>🧾</span> },
+      { href: '/dashboard/settings', label: 'Definições', icon: <span>⚙️</span> },
     ],
   },
   {
-    title: "PT",
+    title: 'PT',
     items: [
-      { label: "Clientes", href: "/dashboard/pt/clients", icon: <span className="nav-icon">🧑‍🤝‍🧑</span> },
-      { label: "Planos", href: "/dashboard/pt/plans", icon: <span className="nav-icon">🧱</span> },
-      { label: "Biblioteca", href: "/dashboard/pt/library", icon: <span className="nav-icon">📚</span> },
+      { href: '/dashboard/pt/clients', label: 'Clientes', icon: <span>🙋</span> },
+      { href: '/dashboard/pt/plans', label: 'Planos', icon: <span>🧱</span> },
+      { href: '/dashboard/pt/library', label: 'Biblioteca', icon: <span>📚</span> },
     ],
   },
   {
-    title: "ADMIN",
+    title: 'ADMIN',
     items: [
-      { label: "Aprovações", href: "/dashboard/admin/approvals", icon: <span className="nav-icon">✅</span> },
-      { label: "Utilizadores", href: "/dashboard/users", icon: <span className="nav-icon">👥</span> },
+      { href: '/dashboard/admin/approvals', label: 'Aprovações', icon: <span>✅</span> },
+      { href: '/dashboard/admin/users', label: 'Utilizadores', icon: <span>👥</span> },
     ],
   },
   {
-    title: "SISTEMA",
-    items: [{ label: "Saúde do sistema", href: "/dashboard/system/health", icon: <span className="nav-icon">🩺</span> }],
+    title: 'SISTEMA',
+    items: [
+      { href: '/dashboard/system/health', label: 'Saúde do sistema', icon: <span>🧰</span> },
+    ],
   },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { collapsed, pinned, toggleCollapsed, togglePinned, setCollapsed } = useSidebarState();
+  const {
+    collapsed,
+    pinned,
+    toggleCollapsed,
+    togglePinned,
+  } = useSidebarState();
 
-  // Coloca o atributo data-collapsed diretamente na <aside.fp-sidebar>
-  useEffect(() => {
-    const el = document.querySelector<HTMLElement>(".fp-sidebar");
-    if (el) el.setAttribute("data-collapsed", collapsed ? "true" : "false");
-  }, [collapsed]);
+  // ativo por prefixo (p.ex. /dashboard/pt/clients/123)
+  const isActive = (href: string) =>
+    pathname === href || pathname.startsWith(`${href}/`);
 
-  // Botão "pin": fixa/desfixa E sincroniza a vista (pinned=true => expandida; pinned=false => rail)
-  const onTogglePin = () => {
-    const nextPinned = !pinned;
-    togglePinned();
-    setCollapsed(!nextPinned); // se ficou pinned -> expandir; se despin -> encolher
-  };
+  // classes utilitárias
+  const sbDataAttrs = useMemo(
+    () => ({
+      'data-collapsed': collapsed ? 'true' : 'false',
+    }),
+    [collapsed]
+  );
 
   return (
-    <>
-      {/* Cabeçalho / marca */}
+    <div className="h-full flex flex-col" {...sbDataAttrs}>
+      {/* Cabeçalho da sidebar */}
       <div className="fp-sb-head">
-        <div className="fp-sb-brand">
-          <div className="logo">💪</div>
-          {/* título só aparece quando não está colapsada (CSS faz o resto) */}
-          <div className="nav-label" aria-hidden={collapsed}>Fitness Pro</div>
-        </div>
+        <Link href="/dashboard" className="fp-sb-brand" aria-label="Início">
+          <span className="logo overflow-hidden">
+            {/* Coloca o teu ficheiro em /public/logo.svg (ou troca src por .png) */}
+            <Image
+              src="/logo.svg"
+              alt="Fitness Pro"
+              width={28}
+              height={28}
+              priority
+              style={{ objectFit: 'contain' }}
+            />
+          </span>
+          {/* Esconde o texto quando encolhida */}
+          {!collapsed && <strong>Fitness Pro</strong>}
+        </Link>
 
         <div className="fp-sb-actions">
-          {/* hambúrguer — só colapsa/expande */}
+          {/* fixar/desafixar preferência */}
           <button
             type="button"
-            onClick={toggleCollapsed}
-            aria-label={collapsed ? "Expandir sidebar" : "Colapsar sidebar"}
             className="btn icon"
-            title={collapsed ? "Expandir" : "Colapsar"}
+            aria-label={pinned ? 'Desafixar sidebar' : 'Fixar sidebar'}
+            title={pinned ? 'Desafixar' : 'Fixar'}
+            onClick={togglePinned}
           >
-            <span>≡</span>
+            {pinned ? <Pin size={18} /> : <PinOff size={18} />}
           </button>
 
-          {/* pin — fixa / desafixa e ajusta visual */}
-          <button
-            type="button"
-            onClick={onTogglePin}
-            aria-pressed={pinned}
-            aria-label={pinned ? "Desafixar sidebar" : "Afixar sidebar"}
-            className="btn icon"
-            title={pinned ? "Desafixar" : "Afixar"}
-          >
-            <span>{pinned ? "📌" : "📍"}</span>
-          </button>
+          {/* hambúrguer: quando expandida, encolhe para ícones */}
+          {!collapsed && (
+            <button
+              type="button"
+              className="btn icon"
+              aria-label="Encolher sidebar"
+              title="Encolher"
+              onClick={toggleCollapsed}
+            >
+              <Menu size={18} />
+            </button>
+          )}
         </div>
       </div>
 
       {/* Navegação */}
-      <nav className="fp-nav">
-        {NAV.map((group, i) => (
-          <div key={i} className="nav-group">
-            {group.title ? <div className="nav-section">{group.title}</div> : null}
+      <nav className="fp-nav overflow-y-auto">
+        {NAV.map((group) => (
+          <div key={group.title} className="nav-group">
+            {/* título da secção (oculto quando encolhida via CSS) */}
+            <div className="nav-section">{group.title}</div>
 
             {group.items.map((item) => {
-              const active =
-                pathname === item.href ||
-                (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"));
+              const active = isActive(item.href);
               return (
-                <Link key={item.href} href={item.href} className="nav-item" data-active={active ? "true" : "false"}>
-                  {item.icon}
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="nav-item"
+                  data-active={active ? 'true' : 'false'}
+                  aria-current={active ? 'page' : undefined}
+                >
+                  <span className="nav-icon">{item.icon}</span>
                   <span className="nav-label">{item.label}</span>
                 </Link>
               );
@@ -111,6 +135,6 @@ export default function Sidebar() {
           </div>
         ))}
       </nav>
-    </>
+    </div>
   );
 }
