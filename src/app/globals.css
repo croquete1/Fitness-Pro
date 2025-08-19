@@ -85,7 +85,17 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
 .btn.icon:hover { background: var(--sidebar-hover); }
 
 /* ===== App Shell ===== */
-.fp-shell { display: grid; min-height: 100dvh; grid-template-columns: var(--sb-w) 1fr; }
+/* (fix) impedir “apertos”/larguras estranhas: segunda coluna com minmax(0,1fr) */
+.fp-shell {
+  display: grid;
+  min-height: 100dvh;
+  grid-template-columns: var(--sb-w) minmax(0, 1fr);
+}
+.fp-content {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
 .fp-main  { min-width: 0; width: 100%; padding: 20px; }
 
 /* Header */
@@ -96,7 +106,8 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
   backdrop-filter: saturate(140%) blur(6px);
 }
 .fp-header-inner {
-  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px;
+  /* (fix) dá espaço de sobra à barra de pesquisa */
+  display: grid; grid-template-columns: minmax(320px, 1fr) auto; align-items: center; gap: 12px;
   padding: 10px 16px;
 }
 
@@ -164,13 +175,13 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
   content: ""; position: absolute; top: 0; right: -8px; width: 8px; height: 100%;
 }
 
-/* ===== Mostrar apenas UM botão de menu ===== */
+/* ===== Mostrar apenas UM botão de menu (no header fica oculto) ===== */
 .btn-toggle--header { display: none !important; }
 
 /* ===== Procura no header ===== */
 .fp-search {
   min-width: 0;
-  width: min(900px, 100%);
+  width: 100%;                /* (fix) ocupar todo o espaço disponível */
   height: 44px;
   display: inline-flex;
   align-items: center;
@@ -195,8 +206,11 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
   background: var(--card);
   padding: 2px 6px; border-radius: 8px;
 }
+@media (max-width: 1024px) {
+  .fp-header-inner { grid-template-columns: minmax(220px, 1fr) auto; }
+}
 @media (max-width: 640px) {
-  .fp-search-kbd.hide-sm { display: none; }
+  .fp-search-kbd { display: none; }
 }
 
 /* ===== Cartões / Dashboard ===== */

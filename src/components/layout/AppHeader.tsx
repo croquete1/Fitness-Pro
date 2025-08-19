@@ -5,9 +5,11 @@ import { useTheme } from "next-themes";
 import { signOut } from "next-auth/react";
 
 export default function AppHeader() {
-  const { theme, setTheme } = useTheme();
+  const { theme, resolvedTheme, setTheme } = useTheme();
+  const current = (theme ?? resolvedTheme) || "light";
+  const isDark = current === "dark";
 
-  const onToggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
+  const onToggleTheme = () => setTheme(isDark ? "light" : "dark");
   const onSignOut = () => signOut({ callbackUrl: "/login" });
 
   return (
@@ -23,7 +25,7 @@ export default function AppHeader() {
         aria-label="Alternar tema"
         title="Alternar tema"
       >
-        <span>{theme === "dark" ? "🌞" : "🌙"}</span>
+        <span>{isDark ? "🌞" : "🌙"}</span>
       </button>
 
       <button type="button" onClick={onSignOut} className="btn ghost" title="Terminar sessão">

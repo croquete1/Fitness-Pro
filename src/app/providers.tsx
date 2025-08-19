@@ -1,20 +1,15 @@
 "use client";
 
-/**
- * App-level providers (ex.: tema). A sidebar NÃO é inicializada aqui
- * para evitar dependências no SSR/SSG. O provider da sidebar vive
- * no layout do dashboard.
- */
-import * as React from "react";
 import { ThemeProvider } from "next-themes";
+import React from "react";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider
-      attribute="class"
+      attribute="data-theme"       // <- necessário para [data-theme="dark"] do teu CSS
       defaultTheme="light"
-      enableSystem={false}
-      disableTransitionOnChange
+      enableSystem={false}         // controlamos só light/dark
+      storageKey="fp:theme"        // mantém a preferência do utilizador
     >
       {children}
     </ThemeProvider>
