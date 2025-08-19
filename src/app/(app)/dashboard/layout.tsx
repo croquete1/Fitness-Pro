@@ -1,59 +1,68 @@
 // src/app/(app)/dashboard/layout.tsx
 import "@/app/globals.css";
 import type { ReactNode } from "react";
-import SidebarProvider from "@/components/SidebarWrapper";
-import Sidebar from "@/components/Sidebar";
-import AppHeader from "@/components/layout/AppHeader";
-import HeaderSearch from "@/components/layout/HeaderSearch";
+import dynamic from "next/dynamic";
 
-/**
- * Layout do “app shell” (sidebar + header) para todas as rotas /dashboard.
- * - Mantém a preferência de “sidebar colapsada” sem salto visual (boot script).
- * - Header com barra de pesquisa (à esquerda) e ações (à direita).
- * - A largura do conteúdo ocupa todo o ecrã (controlado por classes .fp-* no globals.css).
- */
-export default function DashboardLayout({ children }: { children: ReactNode }) {
+// Carregar componentes client apenas no browser (evita crashes de SSR/hidratação)
+const SidebarProvider = dynamic(() => import("@/components/SidebarWrapper"), {
+  ssr: false,
+});
+const Sidebar = dynamic(() => import("@/components/Sidebar"), { ssr: false });
+const AppHeader = dynamic(() => import("@/components/layout/AppHeader"), {
+  ssr: false,
+});
+const HeaderSearch = dynamic(
+  () => import("@/components/layout/HeaderSearch"),
+  { ssr: false }
+);
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
   return (
-    <SidebarProvider>
-      {/* Aplica preferência (colapsada/expandida) antes de hidratar para não haver “salto” */}
+    <>
+      {/* Aplica a preferência antes da hidratação (sem “salto”) */}
       <script
         id="fp-sb-boot"
-        // Nota: corre só no browser; em SSR não há localStorage mas não faz mal.
         dangerouslySetInnerHTML={{
           __html: `(function(){
             try{
               var v = localStorage.getItem('fp:sb:collapsed');
-              if (v === '1' || v === '0') {
-                document.documentElement.setAttribute('data-sb-collapsed', v);
+              if (v === '1') {
+                document.documentElement.setAttribute('data-sb-collapsed','1');
+              } else {
+                document.documentElement.removeAttribute('data-sb-collapsed');
               }
             }catch(e){}
           })();`,
         }}
       />
 
-      <div className="fp-shell">
-        {/* SIDEBAR (a largura real é controlada por --sb-w em globals.css) */}
-        <aside className="fp-sidebar" data-testid="fp-sidebar">
-          <Sidebar />
-        </aside>
+      {/* Provider e UI só no cliente */}
+      <SidebarProvider>
+        <div className="fp-shell">
+          {/* SIDEBAR (largura controlada por --sb-w em globals.css) */}
+          <aside className="fp-sidebar" data-testid="fp-sidebar">
+            <Sidebar />
+          </aside>
 
-        {/* CONTEÚDO */}
-        <div className="fp-content">
-          {/* HEADER fixo com pesquisa + ações (menu hambúrguer incluído no AppHeader) */}
-          <header className="fp-header">
-            <div className="fp-header-inner">
-              {/* Esquerda: barra de pesquisa global */}
-              <HeaderSearch />
+          {/* CONTEÚDO */}
+          <div className="fp-content">
+            <header className="fp-header">
+              <div className="fp-header-inner">
+                {/* Esquerda: barra de pesquisa */}
+                <HeaderSearch />
+                {/* Direita: ações (hambúrguer para colapsar/expandir, sino, tema, logout, etc.) */}
+                <AppHeader />
+              </div>
+            </header>
 
-              {/* Direita: ações (hambúrguer para colapsar/expandir, sino, tema, logout, etc.) */}
-              <AppHeader />
-            </div>
-          </header>
-
-          {/* MAIN ocupa toda a largura disponível */}
-          <main className="fp-main">{children}</main>
+            <main className="fp-main">{children}</main>
+          </div>
         </div>
-      </div>
-    </SidebarProvider>
+      </SidebarProvider>
+    </>
   );
 }
