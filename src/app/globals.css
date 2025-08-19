@@ -32,8 +32,8 @@ body {
   /* sidebar layout */
   --sb-collapsed: 64px;   /* coluna icons */
   --sb-expanded: 260px;   /* aberta */
-  --sb-ease: cubic-bezier(0.22,1,0.36,1);
-  --sb-dur: 420ms;
+  --sb-ease: cubic-bezier(.18,.9,.22,1);
+  --sb-dur: 560ms;        /* + suave */
 
   /* largura aplicada já no arranque (ajustada pelo boot script) */
   --sb-w: var(--sb-expanded);
@@ -113,17 +113,17 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
   transition: width var(--sb-dur) var(--sb-ease), box-shadow 200ms ease;
   position: relative;
   z-index: 30;
+  will-change: width;
+  overflow: visible;
 }
 
 /* Cabeçalho */
 .fp-sb-head { display: grid; grid-template-columns: 1fr auto; align-items: center; padding: 10px; gap: 8px; min-height: 56px; }
 .fp-sb-brand { display: flex; align-items: center; gap: 10px; }
 .fp-sb-brand .logo {
-  width: 32px; height: 32px; border-radius: 12px;
+  width: 32px; height: 32px; border-radius: 10px;
   display: inline-flex; align-items: center; justify-content: center;
-  background: linear-gradient(180deg, rgba(79,70,229,.25), rgba(79,70,229,.06));
-  border: 1px solid color-mix(in oklab, var(--primary) 35%, var(--border));
-  font-size: 18px;
+  object-fit: contain; background: transparent; border: 0;
 }
 .fp-sb-actions { display: inline-flex; gap: 6px; }
 
@@ -140,7 +140,8 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
 .nav-item:hover { background: var(--sidebar-hover); }
 .nav-item[data-active="true"] { background: var(--sidebar-active); }
 
-.nav-icon { display: inline-flex; width: 24px; justify-content: center; }
+.nav-icon { display: inline-flex; align-items: center; justify-content: center; }
+.nav-icon svg { width: 20px; height: 20px; }
 .nav-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ===== Rail (encolhida): esconder labels/sections e centralizar ícones ===== */
@@ -153,7 +154,7 @@ html[data-sb-collapsed="1"] .fp-sidebar .nav-item    { grid-template-columns: 1f
 /* ===== Rail → ABRIR AO PASSAR O RATO (overlay, sem empurrar a página) ===== */
 html[data-sb-collapsed="1"] .fp-sidebar:hover {
   width: var(--sb-expanded);
-  box-shadow: 0 12px 40px rgba(15, 23, 42, .18);
+  box-shadow: 0 18px 60px rgba(15, 23, 42, .22);
   z-index: 60;
 }
 html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section { display: block; }
@@ -164,7 +165,17 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-label   { display: block; }
 
 /* ampliar ligeiramente a “zona quente” para facilitar o hover */
 html[data-sb-collapsed="1"] .fp-sidebar::after {
-  content: ""; position: absolute; top: 0; right: -8px; width: 8px; height: 100%;
+  content: ""; position: absolute; top: 0; right: -12px; width: 12px; height: 100%;
+}
+
+/* ===== Header: esconder qualquer toggle/pin da sidebar no header (defensivo) ===== */
+.fp-header .btn-toggle,
+.fp-header .btn-pin,
+.fp-header [data-role="sb-toggle"],
+.fp-header [data-role="sb-pin"],
+.btn-toggle--header,
+.btn-pin--header {
+  display: none !important;
 }
 
 /* ===== Cartões / Dashboard ===== */
@@ -189,78 +200,14 @@ html[data-sb-collapsed="1"] .fp-sidebar::after {
 .small { font-size: 13px; }
 .auth-actions { display: flex; justify-content: space-between; gap: 8px; }
 
-/* ===== Header: esconder qualquer toggle/pin da sidebar no header (defensivo) ===== */
-.fp-header .btn-toggle,
-.fp-header .btn-pin,
-.fp-header [data-role="sb-toggle"],
-.fp-header [data-role="sb-pin"],
-.btn-toggle--header,
-.btn-pin--header {
-  display: none !important;
-/* =========================
-   PATCH – Sidebar & Header
-   ========================= */
-
-/* 1) animação mais suave/lenta */
-:root {
-  --sb-dur: 560ms;                  /* antes: 420ms */
-  --sb-ease: cubic-bezier(.18,.9,.22,1);
-}
-
-/* 2) overlay ao passar o rato – prevenir flicker e não empurrar o conteúdo */
-html[data-sb-collapsed="1"] .fp-sidebar {
-  will-change: width;
-  overflow: visible;
-}
-html[data-sb-collapsed="1"] .fp-sidebar:hover {
-  /* a track do grid continua com var(--sb-collapsed); só o aside cresce por cima */
-  box-shadow: 0 18px 60px rgba(15,23,42,.22);
-}
-html[data-sb-collapsed="1"] .fp-sidebar::after {
-  /* “zona quente” um pouco maior para facilitar o hover */
-  right: -12px;
-  width: 12px;
-}
-
-/* 3) ícones e logo mais consistentes */
-.nav-icon { display: inline-flex; align-items: center; justify-content: center; }
-.nav-icon svg { width: 20px; height: 20px; }
-
-.fp-sb-brand .logo {
-  /* se usares <img class="logo" src="/logo.svg" /> ele fica bonito por default */
-  width: 32px; height: 32px; border-radius: 10px;
-  object-fit: contain; background: transparent; border: 0;
-}
-
-/* (defensivo) esconder qualquer toggle/pin da sidebar no header */
-.fp-header .btn-toggle,
-.fp-header .btn-pin,
-.fp-header [data-role="sb-toggle"],
-.fp-header [data-role="sb-pin"],
-.btn-toggle--header,
-.btn-pin--header {
-  display: none !important;
-}
-/* =========================
-   PATCH – Icons antigos + botões da sidebar
-   ========================= */
-
-/* ícones (emoji) com tamanho consistente */
+/* ===== Icons antigos (emoji) + feedback do pin ===== */
 .nav-emoji {
   font-size: 18px;
   line-height: 1;
   width: 24px;
   text-align: center;
 }
-
-/* feedback visual do “pin” quando a sidebar está expandida (afixada) */
 .btn-pin.is-pinned svg {
   transform: rotate(35deg);
   transition: transform 200ms ease;
-}
-
-/* animação de largura um pouco mais lenta/suave */
-:root {
-  --sb-dur: 560ms; /* antes: 420ms */
-  --sb-ease: cubic-bezier(.18,.9,.22,1);
 }
