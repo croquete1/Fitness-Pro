@@ -8,17 +8,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <SidebarProvider>
       {/* aplica preferência (colapsada/expandida) antes de hidratar para não haver “salto” */}
-      <script
-        id="fp-sb-boot"
-        dangerouslySetInnerHTML={{
-          __html: `(function(){
-            try{
-              var v = localStorage.getItem('fp:sb:collapsed');
-              if(v){ document.documentElement.setAttribute('data-sb-collapsed', v==='1'?'1':'0'); }
-            }catch(e){}
-          })();`,
-        }}
-      />
+<script
+  id="fp-sb-boot"
+  dangerouslySetInnerHTML={{
+    __html: `(function () {
+      try {
+        var p = localStorage.getItem('fp:sb:pinned');
+        var c = localStorage.getItem('fp:sb:collapsed');
+        // Se estiver fixada, força expandida
+        if (p === '1') {
+          document.documentElement.setAttribute('data-sb-collapsed','0');
+        } else if (c) {
+          document.documentElement.setAttribute('data-sb-collapsed', c === '1' ? '1' : '0');
+        }
+      } catch (e) {}
+    })();`,
+  }}
+/>
 
       <div className="fp-shell">
         <aside className="fp-sidebar">

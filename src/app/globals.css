@@ -197,4 +197,49 @@ html[data-sb-collapsed="1"] .fp-sidebar::after {
 .btn-toggle--header,
 .btn-pin--header {
   display: none !important;
+/* =========================
+   PATCH – Sidebar & Header
+   ========================= */
+
+/* 1) animação mais suave/lenta */
+:root {
+  --sb-dur: 560ms;                  /* antes: 420ms */
+  --sb-ease: cubic-bezier(.18,.9,.22,1);
+}
+
+/* 2) overlay ao passar o rato – prevenir flicker e não empurrar o conteúdo */
+html[data-sb-collapsed="1"] .fp-sidebar {
+  will-change: width;
+  overflow: visible;
+}
+html[data-sb-collapsed="1"] .fp-sidebar:hover {
+  /* a track do grid continua com var(--sb-collapsed); só o aside cresce por cima */
+  box-shadow: 0 18px 60px rgba(15,23,42,.22);
+}
+html[data-sb-collapsed="1"] .fp-sidebar::after {
+  /* “zona quente” um pouco maior para facilitar o hover */
+  right: -12px;
+  width: 12px;
+}
+
+/* 3) ícones e logo mais consistentes */
+.nav-icon { display: inline-flex; align-items: center; justify-content: center; }
+.nav-icon svg { width: 20px; height: 20px; }
+
+.fp-sb-brand .logo {
+  /* se usares <img class="logo" src="/logo.svg" /> ele fica bonito por default */
+  width: 32px; height: 32px; border-radius: 10px;
+  object-fit: contain; background: transparent; border: 0;
+}
+
+/* (defensivo) esconder qualquer toggle/pin da sidebar no header */
+.fp-header .btn-toggle,
+.fp-header .btn-pin,
+.fp-header [data-role="sb-toggle"],
+.fp-header [data-role="sb-pin"],
+.btn-toggle--header,
+.btn-pin--header {
+  display: none !important;
+}
+
 }
