@@ -1,41 +1,35 @@
-import "@/app/globals.css";
-import SidebarProvider from "@/components/SidebarWrapper";
-import Sidebar from "@/components/Sidebar";
-import AppHeader from "@/components/layout/AppHeader";
-import HeaderSearch from "@/components/layout/HeaderSearch";
+// src/app/layout.tsx  (ROOT LAYOUT – minimalista e estável)
+import "./globals.css";
+import type { Metadata } from "next";
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export const metadata: Metadata = {
+  title: "Fitness Pro",
+  description: "Plataforma de gestão Fitness Pro",
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <SidebarProvider>
-      {/* aplica preferência (colapsada/expandida) antes de hidratar para não haver “salto” */}
-      <script
-        id="fp-sb-boot"
-        dangerouslySetInnerHTML={{
-          __html: `(function(){
-            try{
-              var v = localStorage.getItem('fp:sb:collapsed');
-              if(v){ document.documentElement.setAttribute('data-sb-collapsed', v==='1'?'1':'0'); }
-            }catch(e){}
-          })();`,
-        }}
-      />
-
-      <div className="fp-shell">
-        <aside className="fp-sidebar">
-          <Sidebar />
-        </aside>
-
-        <div className="fp-content">
-          <header className="fp-header">
-            <div className="fp-header-inner">
-              <HeaderSearch />
-              <AppHeader />
-            </div>
-          </header>
-
-          <main className="fp-main">{children}</main>
-        </div>
-      </div>
-    </SidebarProvider>
+    <html lang="pt" suppressHydrationWarning>
+      <head>
+        {/* Inicializa o tema MUITO cedo para evitar “flash” e sem depender de nenhum provider */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                var t = localStorage.getItem('fp:theme');
+                if (t) document.documentElement.setAttribute('data-theme', t);
+              } catch(e) {}
+            `,
+          }}
+        />
+      </head>
+      {/* Mantém simples: nada de Sidebar/Providers aqui.
+          O login renderiza normalmente; o shell completo fica no layout de (app)/dashboard */}
+      <body data-auth-root>{children}</body>
+    </html>
   );
 }
