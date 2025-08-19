@@ -188,3 +188,13 @@ html[data-sb-collapsed="1"] .fp-sidebar::after {
 .text-muted { color: var(--muted-fg); }
 .small { font-size: 13px; }
 .auth-actions { display: flex; justify-content: space-between; gap: 8px; }
+
+/* ===== Header: esconder qualquer toggle/pin da sidebar no header (defensivo) ===== */
+.fp-header .btn-toggle,
+.fp-header .btn-pin,
+.fp-header [data-role="sb-toggle"],
+.fp-header [data-role="sb-pin"],
+.btn-toggle--header,
+.btn-pin--header {
+  display: none !important;
+}

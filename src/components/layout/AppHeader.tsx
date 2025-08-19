@@ -1,53 +1,56 @@
+// src/components/layout/AppHeader.tsx
 "use client";
 
-import { useSidebarState } from "@/components/SidebarWrapper";
-import { useTheme } from "next-themes";
-import { Bell, Moon, Sun, Pin, Menu } from "lucide-react";
+import { Bell, LogOut, Moon, Sun } from "lucide-react";
+import { useEffect, useState } from "react";
 
 export default function AppHeader() {
-  const { collapsed, toggleCollapsed, pinned, togglePinned } = useSidebarState();
-  const { theme, setTheme } = useTheme();
+  // Lê o tema atual do atributo no <html> (definido no root layout boot script)
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    if (typeof document === "undefined") return "light";
+    const t = document.documentElement.getAttribute("data-theme");
+    return (t === "dark" ? "dark" : "light");
+  });
 
-  const onToggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
+  // Escreve no <html> + persiste no localStorage
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    try { localStorage.setItem("fp:theme", theme); } catch {}
+  }, [theme]);
+
+  const toggleTheme = () => setTheme(t => (t === "dark" ? "light" : "dark"));
+
+  const onSignOut = async () => {
+    try {
+      const { signOut } = await import("next-auth/react");
+      await signOut({ callbackUrl: "/login" });
+    } catch {
+      // fallback caso next-auth não esteja disponível neste bundle
+      window.location.href = "/api/auth/signout";
+    }
+  };
 
   return (
-    <div style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
-      {/* HAMBÚRGUER -> compacta/expande a sidebar */}
-      <button
-        aria-label={collapsed ? "Expandir sidebar" : "Compactar sidebar"}
-        className="btn icon"
-        onClick={toggleCollapsed}
-        title={collapsed ? "Expandir sidebar" : "Compactar sidebar"}
-      >
-        <Menu size={18} />
-      </button>
-
-      {/* PIN -> fixa/desfixa (continua visível em ambos os modos) */}
-      <button
-        aria-label={pinned ? "Desafixar sidebar" : "Afixar sidebar"}
-        className="btn icon"
-        onClick={togglePinned}
-        title={pinned ? "Desafixar sidebar" : "Afixar sidebar"}
-      >
-        <Pin size={18} style={{ transform: pinned ? "rotate(0deg)" : "rotate(45deg)" }} />
-      </button>
-
-      <button className="btn icon" aria-label="Notificações" title="Notificações">
+    <div className="flex items-center gap-2">
+      {/* Notificações (placeholder) */}
+      <button className="btn icon" aria-label="Notificações">
         <Bell size={18} />
       </button>
 
+      {/* Tema claro/escuro */}
       <button
         className="btn icon"
-        onClick={onToggleTheme}
-        aria-label="Alternar tema"
+        onClick={toggleTheme}
+        aria-label="Alternar tema claro/escuro"
         title="Alternar tema"
       >
         {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
       </button>
 
-      <a className="btn ghost" href="/api/auth/signout">
+      {/* Terminar sessão */}
+      <button className="btn ghost" onClick={onSignOut}>
         Terminar sessão
-      </a>
+      </button>
     </div>
   );
 }
