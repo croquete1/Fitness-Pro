@@ -2,11 +2,12 @@ import "@/app/globals.css";
 import SidebarProvider from "@/components/SidebarWrapper";
 import Sidebar from "@/components/Sidebar";
 import AppHeader from "@/components/layout/AppHeader";
+import HeaderSearch from "@/components/layout/HeaderSearch";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
-      {/* Boot rápido para aplicar a preferência antes da hidratação (evita “salto”) */}
+      {/* aplica preferência (colapsada/expandida) antes de hidratar para não haver “salto” */}
       <script
         id="fp-sb-boot"
         dangerouslySetInnerHTML={{
@@ -27,7 +28,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="fp-content">
           <header className="fp-header">
             <div className="fp-header-inner">
-              <div /> {/* espaço à esquerda (ex. pesquisa) */}
+              {/* esquerda: procura */}
+              <HeaderSearch />
+              {/* direita: ações */}
               <AppHeader />
             </div>
           </header>
