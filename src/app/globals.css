@@ -33,7 +33,7 @@ body {
   --sb-collapsed: 64px;   /* coluna icons */
   --sb-expanded: 260px;   /* aberta */
   --sb-ease: cubic-bezier(0.22,1,0.36,1);
-  --sb-dur: 420ms;
+  --sb-dur: 520ms;        /* + suave */
 
   /* largura aplicada já no arranque (ajustada pelo boot script) */
   --sb-w: var(--sb-expanded);
@@ -105,7 +105,7 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
   width: var(--sb-w);
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
-  transition: width 380ms cubic-bezier(.22,1,.36,1), box-shadow 200ms ease;
+  transition: width var(--sb-dur) var(--sb-ease), box-shadow 240ms ease;
   position: relative;
   z-index: 30;
 }
@@ -147,17 +147,18 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
 .fp-sidebar[data-collapsed="true"] .nav-group   { gap: 4px; }
 .fp-sidebar[data-collapsed="true"] .nav-item    { grid-template-columns: 1fr; justify-items: center; padding: 10px 0; border-radius: 14px; }
 
-/* ===== Rail → ABRIR AO PASSAR O RATO (overlay, sem empurrar a página) ===== */
-.fp-sidebar[data-collapsed="true"]:hover {
+/* ===== Rail → ABRIR AO PASSAR O RATO SÓ QUANDO ESTIVER DESAFIXADA ===== */
+/* (overlay=true && collapsed=true) */
+.fp-sidebar[data-overlay="true"][data-collapsed="true"]:hover {
   width: var(--sb-expanded);                 /* expande sobre a main (grid track mantém 64px) */
   box-shadow: 0 12px 40px rgba(15,23,42,.18);
   z-index: 60;
 }
-.fp-sidebar[data-collapsed="true"]:hover .nav-section { display: block; }
-.fp-sidebar[data-collapsed="true"]:hover .fp-nav      { gap: 8px; padding: 8px; }
-.fp-sidebar[data-collapsed="true"]:hover .nav-group   { gap: 6px; }
-.fp-sidebar[data-collapsed="true"]:hover .nav-item    { grid-template-columns: 24px 1fr; justify-items: start; padding: 9px 10px; border-radius: 12px; }
-.fp-sidebar[data-collapsed="true"]:hover .nav-label   { display: block; }
+.fp-sidebar[data-overlay="true"][data-collapsed="true"]:hover .nav-section { display: block; }
+.fp-sidebar[data-overlay="true"][data-collapsed="true"]:hover .fp-nav      { gap: 8px; padding: 8px; }
+.fp-sidebar[data-overlay="true"][data-collapsed="true"]:hover .nav-group   { gap: 6px; }
+.fp-sidebar[data-overlay="true"][data-collapsed="true"]:hover .nav-item    { grid-template-columns: 24px 1fr; justify-items: start; padding: 9px 10px; border-radius: 12px; }
+.fp-sidebar[data-overlay="true"][data-collapsed="true"]:hover .nav-label   { display: block; }
 
 /* ampliar ligeiramente a “zona quente” para facilitar o hover */
 .fp-sidebar[data-collapsed="true"]::after {

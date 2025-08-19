@@ -1,98 +1,102 @@
 "use client";
 
 import Link from "next/link";
-import { useSidebarState } from "@/components/SidebarWrapper";
+import { useSidebarState } from "./SidebarWrapper";
 
 export default function Sidebar() {
-  const { collapsed, overlay, toggleCollapsed, togglePinned } =
-    useSidebarState();
+  const { collapsed, pinned, toggleCollapsed, togglePinned } = useSidebarState();
 
   return (
     <aside
       className="fp-sidebar"
       data-collapsed={collapsed ? "true" : "false"}
-      data-overlay={overlay ? "true" : "false"}
-      suppressHydrationWarning
+      data-overlay={!pinned && collapsed ? "true" : "false"}
     >
-      {/* Cabeçalho da sidebar */}
+      {/* Cabeçalho */}
       <div className="fp-sb-head">
         <div className="fp-sb-brand">
-          <span className="logo" aria-hidden>💪</span>
+          <span className="logo">💪</span>
           {!collapsed && <strong>Fitness Pro</strong>}
         </div>
 
-        {/* Botões próprios da sidebar */}
         <div className="fp-sb-actions">
+          {/* ☰ -> ENCOLHER/EXPANDIR (corrigido) */}
           <button
-            className="btn icon btn-toggle--sidebar"
+            className="btn icon"
             aria-label="Alternar sidebar"
+            title={collapsed ? "Expandir" : "Encolher"}
             onClick={toggleCollapsed}
-            title="Expandir/compactar"
           >
             ☰
           </button>
 
-          {!collapsed && (
-            <button
-              className="btn icon"
-              aria-label="Afixar/Desafixar"
-              onClick={togglePinned}
-              title="Afixar/Desafixar"
-            >
-              📌
-            </button>
-          )}
+          {/* 📌 -> Afixar/Desafixar (corrigido) */}
+          <button
+            className={`btn icon ${pinned ? "is-active" : ""}`}
+            aria-label={pinned ? "Desafixar" : "Afixar"}
+            aria-pressed={pinned}
+            title={pinned ? "Desafixar" : "Afixar"}
+            onClick={togglePinned}
+          >
+            📌
+          </button>
         </div>
       </div>
 
       {/* Navegação */}
       <nav className="fp-nav">
-        <div className="nav-section">Geral</div>
+        <div className="nav-section">GERAL</div>
         <div className="nav-group">
-          <NavItem href="/dashboard" icon="📊" label="Dashboard" />
-          <NavItem href="/dashboard/reports" icon="📈" label="Relatórios" />
-          <NavItem href="/dashboard/settings" icon="⚙️" label="Definições" />
+          <Link href="/dashboard" className="nav-item" data-active="true">
+            <span className="nav-icon">📊</span>
+            <span className="nav-label">Dashboard</span>
+          </Link>
+          <Link href="/dashboard/reports" className="nav-item">
+            <span className="nav-icon">🧾</span>
+            <span className="nav-label">Relatórios</span>
+          </Link>
+          <Link href="/dashboard/settings" className="nav-item">
+            <span className="nav-icon">⚙️</span>
+            <span className="nav-label">Definições</span>
+          </Link>
         </div>
 
         <div className="nav-section">PT</div>
         <div className="nav-group">
-          <NavItem href="/dashboard/pt/clients" icon="👥" label="Clientes" />
-          <NavItem href="/dashboard/pt/plans" icon="📦" label="Planos" />
-          <NavItem href="/dashboard/pt/library" icon="📚" label="Biblioteca" />
+          <Link href="/dashboard/pt/clients" className="nav-item">
+            <span className="nav-icon">🧑‍🤝‍🧑</span>
+            <span className="nav-label">Clientes</span>
+          </Link>
+          <Link href="/dashboard/pt/plans" className="nav-item">
+            <span className="nav-icon">📦</span>
+            <span className="nav-label">Planos</span>
+          </Link>
+          <Link href="/dashboard/pt/library" className="nav-item">
+            <span className="nav-icon">📚</span>
+            <span className="nav-label">Biblioteca</span>
+          </Link>
         </div>
 
-        <div className="nav-section">Admin</div>
+        <div className="nav-section">ADMIN</div>
         <div className="nav-group">
-          <NavItem href="/dashboard/admin/approvals" icon="✅" label="Aprovações" />
-          <NavItem href="/dashboard/admin/users" icon="👤" label="Utilizadores" />
+          <Link href="/dashboard/admin/approvals" className="nav-item">
+            <span className="nav-icon">✅</span>
+            <span className="nav-label">Aprovações</span>
+          </Link>
+          <Link href="/dashboard/admin/users" className="nav-item">
+            <span className="nav-icon">👥</span>
+            <span className="nav-label">Utilizadores</span>
+          </Link>
         </div>
 
-        <div className="nav-section">Sistema</div>
+        <div className="nav-section">SISTEMA</div>
         <div className="nav-group">
-          <NavItem href="/dashboard/system/health" icon="🩺" label="Saúde do sistema" />
+          <Link href="/dashboard/system/health" className="nav-item">
+            <span className="nav-icon">🧩</span>
+            <span className="nav-label">Saúde do sistema</span>
+          </Link>
         </div>
       </nav>
     </aside>
-  );
-}
-
-function NavItem({
-  href,
-  icon,
-  label,
-  active,
-}: {
-  href: string;
-  icon: string;
-  label: string;
-  active?: boolean;
-}) {
-  return (
-    <Link className="nav-item" href={href} data-active={active ? "true" : "false"}>
-      <span className="nav-icon" aria-hidden>
-        {icon}
-      </span>
-      <span className="nav-label">{label}</span>
-    </Link>
   );
 }

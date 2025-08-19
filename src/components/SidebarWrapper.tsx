@@ -1,73 +1,75 @@
 "use client";
 
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 type SidebarCtx = {
   collapsed: boolean;
   pinned: boolean;
-  overlay: boolean;
+  setCollapsed: (v: boolean) => void;
+  setPinned: (v: boolean) => void;
   toggleCollapsed: () => void;
   togglePinned: () => void;
 };
 
-const Ctx = createContext<SidebarCtx | null>(null);
+const SidebarContext = createContext<SidebarCtx>({
+  collapsed: false,
+  pinned: true,
+  setCollapsed: () => {},
+  setPinned: () => {},
+  toggleCollapsed: () => {},
+  togglePinned: () => {},
+});
 
-export const useSidebarState = () => {
-  const ctx = useContext(Ctx);
-  if (!ctx) throw new Error("SidebarContext not found");
-  return ctx;
-};
+const LS_COLLAPSED = "fp.sidebar.collapsed";
+const LS_PINNED = "fp.sidebar.pinned";
 
-function readBoot() {
-  if (typeof document === "undefined")
-    return { collapsed: false, pinned: true };
+function bootFromStorage() {
+  if (typeof window === "undefined") return { collapsed: false, pinned: true };
+  const c = localStorage.getItem(LS_COLLAPSED);
+  const p = localStorage.getItem(LS_PINNED);
   return {
-    collapsed: document.documentElement.dataset.sbCollapsed === "1",
-    pinned: document.documentElement.dataset.sbPinned === "1",
+    collapsed: c ? c === "1" : false,
+    pinned: p ? p === "1" : true,
   };
 }
 
-export default function SidebarProvider({ children }: { children: ReactNode }) {
-  const boot = readBoot();
+function applyHtmlAttrs({ collapsed }: { collapsed: boolean }) {
+  if (typeof document === "undefined") return;
+  document.documentElement.setAttribute("data-sb-collapsed", collapsed ? "1" : "0");
+}
 
+export default function SidebarProvider({ children }: { children: React.ReactNode }) {
+  const boot = bootFromStorage();
   const [collapsed, setCollapsed] = useState<boolean>(boot.collapsed);
   const [pinned, setPinned] = useState<boolean>(boot.pinned);
 
-  // A tua lógica: quando não está "pinned" a navegação atua como overlay
-  const overlay = !pinned;
-
-  const toggleCollapsed = useCallback(() => setCollapsed((c) => !c), []);
-  const togglePinned = useCallback(() => setPinned((p) => !p), []);
-
-  // Sincroniza data-attributes + CSS vars + localStorage
+  // Persistência + atributo no <html> para layout instantâneo
   useEffect(() => {
-    if (typeof document === "undefined") return;
-    const d = document.documentElement;
+    applyHtmlAttrs({ collapsed });
+    if (typeof window !== "undefined") {
+      localStorage.setItem(LS_COLLAPSED, collapsed ? "1" : "0");
+    }
+  }, [collapsed]);
 
-    d.dataset.sbCollapsed = collapsed ? "1" : "0";
-    d.dataset.sbPinned = pinned ? "1" : "0";
-    d.style.setProperty("--sb-w", collapsed ? "64px" : "260px");
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(LS_PINNED, pinned ? "1" : "0");
+    }
+  }, [pinned]);
 
-    try {
-      localStorage.setItem(
-        "fp:sidebar",
-        JSON.stringify({ collapsed, pinned })
-      );
-    } catch {}
-  }, [collapsed, pinned]);
-
-  const value = useMemo(
-    () => ({ collapsed, pinned, overlay, toggleCollapsed, togglePinned }),
-    [collapsed, pinned, overlay, toggleCollapsed, togglePinned]
+  const value = useMemo<SidebarCtx>(
+    () => ({
+      collapsed,
+      pinned,
+      setCollapsed,
+      setPinned,
+      toggleCollapsed: () => setCollapsed((v) => !v),
+      togglePinned: () => setPinned((v) => !v),
+    }),
+    [collapsed, pinned]
   );
 
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+  return <SidebarContext.Provider value={value}>{children}</SidebarContext.Provider>;
 }
+
+export const useSidebarState = () => useContext(SidebarContext);
