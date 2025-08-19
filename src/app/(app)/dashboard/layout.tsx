@@ -1,66 +1,34 @@
-// src/app/(app)/dashboard/layout.tsx
-import "@/app/globals.css";
 import type { ReactNode } from "react";
-import dynamic from "next/dynamic";
+import Script from "next/script";
+import SidebarProvider from "@/components/SidebarWrapper";
+import Sidebar from "@/components/Sidebar";
+import AppHeader from "@/components/layout/AppHeader";
 
-// Carregar componentes client apenas no browser (evita crashes de SSR/hidratação)
-const SidebarProvider = dynamic(() => import("@/components/SidebarWrapper"), {
-  ssr: false,
-});
-const Sidebar = dynamic(() => import("@/components/Sidebar"), { ssr: false });
-const AppHeader = dynamic(() => import("@/components/layout/AppHeader"), {
-  ssr: false,
-});
-const HeaderSearch = dynamic(
-  () => import("@/components/layout/HeaderSearch"),
-  { ssr: false }
-);
-
-export default function DashboardLayout({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <>
-      {/* Aplica a preferência antes da hidratação (sem “salto”) */}
-      <script
-        id="fp-sb-boot"
-        dangerouslySetInnerHTML={{
-          __html: `(function(){
-            try{
-              var v = localStorage.getItem('fp:sb:collapsed');
-              if (v === '1') {
-                document.documentElement.setAttribute('data-sb-collapsed','1');
-              } else {
-                document.documentElement.removeAttribute('data-sb-collapsed');
-              }
-            }catch(e){}
-          })();`,
-        }}
-      />
+      {/* Aplica a preferência (collapsed/pinned) ANTES da hidratação → evita "salto" */}
+      <Script id="fp-sb-boot" strategy="beforeInteractive">{`
+        try {
+          const raw = localStorage.getItem('fp:sidebar');
+          const pref = raw ? JSON.parse(raw) : {};
+          const collapsed = !!pref?.collapsed;
+          const pinned = !!pref?.pinned;
 
-      {/* Provider e UI só no cliente */}
+          document.documentElement.dataset.sbCollapsed = collapsed ? '1' : '0';
+          document.documentElement.dataset.sbPinned    = pinned ? '1' : '0';
+          // Largura precoz (usa as mesmas que estão no CSS)
+          document.documentElement.style.setProperty('--sb-w', collapsed ? '64px' : '260px');
+        } catch (_) {}
+      `}</Script>
+
       <SidebarProvider>
-        <div className="fp-shell">
-          {/* SIDEBAR (largura controlada por --sb-w em globals.css) */}
-          <aside className="fp-sidebar" data-testid="fp-sidebar">
-            <Sidebar />
-          </aside>
-
-          {/* CONTEÚDO */}
-          <div className="fp-content">
-            <header className="fp-header">
-              <div className="fp-header-inner">
-                {/* Esquerda: barra de pesquisa */}
-                <HeaderSearch />
-                {/* Direita: ações (hambúrguer para colapsar/expandir, sino, tema, logout, etc.) */}
-                <AppHeader />
-              </div>
-            </header>
-
-            <main className="fp-main">{children}</main>
-          </div>
+        <div className="fp-shell" style={{ display: "grid", minHeight: "100dvh" }}>
+          <Sidebar />
+          <main className="fp-main">
+            <AppHeader />
+            {children}
+          </main>
         </div>
       </SidebarProvider>
     </>
