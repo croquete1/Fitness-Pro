@@ -41,7 +41,7 @@ export default function Sidebar() {
           {/* LOGO: coloca /public/logo.svg no projeto */}
           {/* Fallback: se não existir, o texto "Fitness Pro" continua visível */}
           <Image
-            src="/logo.svg"
+            src="logo.png"
             alt="Fitness Pro"
             width={32}
             height={32}
