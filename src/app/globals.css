@@ -35,13 +35,10 @@ body {
   --sb-ease: cubic-bezier(0.22,1,0.36,1);
   --sb-dur: 420ms;
 
-  /* largura efetiva aplicada já no arranque (ajustada pelo boot script) */
+  /* largura aplicada já no arranque (ajustada pelo boot script) */
   --sb-w: var(--sb-expanded);
 }
-
-/* flags rápidas */
 html[data-sb-collapsed="1"] { --sb-w: var(--sb-collapsed); }
-
 [data-auth-root] { min-height: 100dvh; }
 
 [data-theme="dark"] {
@@ -88,11 +85,8 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
 .btn.icon:hover { background: var(--sidebar-hover); }
 
 /* ===== App Shell ===== */
-.fp-shell {
-  /* usa a largura já computada no boot → evita CLS/salto */
-  grid-template-columns: var(--sb-w) 1fr;
-}
-.fp-main { min-width: 0; width: 100%; padding: 20px; }
+.fp-shell { display: grid; min-height: 100dvh; grid-template-columns: var(--sb-w) 1fr; }
+.fp-main  { min-width: 0; width: 100%; padding: 20px; }
 
 /* Header */
 .fp-header {
@@ -112,18 +106,14 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
   transition: width 380ms cubic-bezier(.22,1,.36,1), box-shadow 200ms ease;
+  position: relative;
+  z-index: 30;
 }
 .fp-sidebar [data-rail],
-.fp-sidebar[data-collapsed="true"] .nav-item {
-  --rail-gap: 22px;
-}
+.fp-sidebar[data-collapsed="true"] .nav-item { --rail-gap: 22px; }
 
 /* Cabeçalho */
-.fp-sb-head {
-  display: grid; grid-template-columns: 1fr auto; align-items: center;
-  padding: 10px; gap: 8px;
-  min-height: 56px;
-}
+.fp-sb-head { display: grid; grid-template-columns: 1fr auto; align-items: center; padding: 10px; gap: 8px; min-height: 56px; }
 .fp-sb-brand { display: flex; align-items: center; gap: 10px; }
 .fp-sb-brand .logo {
   width: 32px; height: 32px; border-radius: 12px;
@@ -150,28 +140,33 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
 .nav-icon { display: inline-flex; width: 24px; justify-content: center; }
 .nav-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* Modo recolhido: escondemos labels e títulos; aproximamos ícones */
-.fp-sidebar[data-collapsed="true"] .nav-label { display: none; }
+/* ===== Rail (encolhida): esconder labels/sections e centralizar ícones ===== */
+.fp-sidebar[data-collapsed="true"] .nav-label   { display: none; }
 .fp-sidebar[data-collapsed="true"] .nav-section { display: none; }
-.fp-sidebar[data-collapsed="true"] .fp-nav { gap: 0; padding: 10px 6px; }
-.fp-sidebar[data-collapsed="true"] .nav-group { gap: 4px; }
-.fp-sidebar[data-collapsed="true"] .nav-item {
-  grid-template-columns: 1fr;
-  justify-items: center;
-  padding: 10px 0;
-  border-radius: 14px;
-}
+.fp-sidebar[data-collapsed="true"] .fp-nav      { gap: 0; padding: 10px 6px; }
+.fp-sidebar[data-collapsed="true"] .nav-group   { gap: 4px; }
+.fp-sidebar[data-collapsed="true"] .nav-item    { grid-template-columns: 1fr; justify-items: center; padding: 10px 0; border-radius: 14px; }
 
-/* Overlay (desafixada): pairar abre suavemente */
-.fp-sidebar[data-overlay="true"] {
-  box-shadow: 0 12px 40px rgba(15, 23, 42, .18);
-  transition: width var(--sb-dur) var(--sb-ease), box-shadow var(--sb-dur) var(--sb-ease);
+/* ===== Rail → ABRIR AO PASSAR O RATO (overlay, sem empurrar a página) ===== */
+.fp-sidebar[data-collapsed="true"]:hover {
+  width: var(--sb-expanded);                 /* expande sobre a main (grid track mantém 64px) */
+  box-shadow: 0 12px 40px rgba(15,23,42,.18);
+  z-index: 60;
+}
+.fp-sidebar[data-collapsed="true"]:hover .nav-section { display: block; }
+.fp-sidebar[data-collapsed="true"]:hover .fp-nav      { gap: 8px; padding: 8px; }
+.fp-sidebar[data-collapsed="true"]:hover .nav-group   { gap: 6px; }
+.fp-sidebar[data-collapsed="true"]:hover .nav-item    { grid-template-columns: 24px 1fr; justify-items: start; padding: 9px 10px; border-radius: 12px; }
+.fp-sidebar[data-collapsed="true"]:hover .nav-label   { display: block; }
+
+/* ampliar ligeiramente a “zona quente” para facilitar o hover */
+.fp-sidebar[data-collapsed="true"]::after {
+  content: ""; position: absolute; top: 0; right: -8px; width: 8px; height: 100%;
 }
 
 /* ===== Mostrar apenas UM botão de menu ===== */
-.btn-toggle--header { display: none; }                        /* por defeito, escondido */
-html[data-sb-collapsed="1"] .btn-toggle--header { display: inline-flex; }
-html[data-sb-collapsed="1"] .btn-toggle--sidebar { display: none; }
+/* -> Por pedido: o botão do HEADER não deve aparecer nunca */
+.btn-toggle--header { display: none !important; }
 
 /* ===== Cartões / Dashboard ===== */
 .card {
@@ -181,7 +176,7 @@ html[data-sb-collapsed="1"] .btn-toggle--sidebar { display: none; }
   box-shadow: var(--shadow-1);
 }
 
-/* ===== Auth (login) – mantém o visual anterior ===== */
+/* ===== Auth (login) ===== */
 .auth-wrap { display: grid; place-items: center; min-height: 100dvh; padding: 20px; }
 .auth-card { width: min(560px, 92vw); background: var(--card); border: 1px solid var(--border); border-radius: 20px; box-shadow: var(--shadow-1); padding: 18px; }
 .auth-header { display: grid; grid-template-columns: 40px 1fr; gap: 10px; align-items: center; margin-bottom: 10px; }
