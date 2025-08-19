@@ -1,68 +1,97 @@
-"use client";
+'use client';
 
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
-type SidebarCtx = {
+export type SidebarCtx = {
   collapsed: boolean;
   pinned: boolean;
-  toggleCollapsed: () => void;
-  togglePinned: () => void;
+  overlayOpen: boolean;
+
   setCollapsed: (v: boolean) => void;
+  toggleCollapsed: () => void;
+
   setPinned: (v: boolean) => void;
+  togglePinned: () => void;
+
+  setOverlayOpen: (v: boolean) => void;
 };
 
-const Ctx = createContext<SidebarCtx | null>(null);
+const SidebarContext = createContext<SidebarCtx | null>(null);
 
-function applyCollapsedToDOM(collapsed: boolean) {
+function getLS(key: string) {
   try {
-    document.documentElement.setAttribute("data-sb-collapsed", collapsed ? "1" : "0");
-    localStorage.setItem("fp:sb:collapsed", collapsed ? "1" : "0");
+    return typeof window !== 'undefined' ? localStorage.getItem(key) : null;
+  } catch {
+    return null;
+  }
+}
+function setLS(key: string, value: string) {
+  try {
+    if (typeof window !== 'undefined') localStorage.setItem(key, value);
   } catch {}
 }
 
-function readInitialCollapsed(): boolean {
-  try {
-    const v = localStorage.getItem("fp:sb:collapsed");
-    return v === "1";
-  } catch {
-    return false;
-  }
-}
-
-function readInitialPinned(): boolean {
-  try {
-    const v = localStorage.getItem("fp:sb:pinned");
-    return v !== "0"; // default pinned
-  } catch {
-    return true;
-  }
-}
+const LS_COLLAPSED = 'fp:sb:collapsed';
+const LS_PINNED = 'fp:sb:pinned';
 
 export default function SidebarProvider({ children }: { children: React.ReactNode }) {
-  const [collapsed, setCollapsedState] = useState<boolean>(readInitialCollapsed());
-  const [pinned, setPinnedState] = useState<boolean>(readInitialPinned());
+  // collapsed: por defeito expandida (false)
+  const [collapsed, setCollapsed] = useState<boolean>(() => getLS(LS_COLLAPSED) === '1');
 
-  useEffect(() => { applyCollapsedToDOM(collapsed); }, [collapsed]);
+  // pinned: por defeito "fixada" (true)
+  const [pinned, setPinned] = useState<boolean>(() => {
+    const v = getLS(LS_PINNED);
+    return v ? v === '1' : true;
+  });
 
-  const setCollapsed = (v: boolean) => setCollapsedState(v);
-  const setPinned = (v: boolean) => {
-    setPinnedState(v);
-    try { localStorage.setItem("fp:sb:pinned", v ? "1" : "0"); } catch {}
-  };
+  // overlay para mobile (se estiveres a usar)
+  const [overlayOpen, setOverlayOpen] = useState(false);
 
-  const toggleCollapsed = () => setCollapsedState(c => !c);
-  const togglePinned = () => setPinned(!pinned);
+  // refletir "collapsed" no <html data-sb-collapsed> para evitar saltos de layout
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-sb-collapsed', collapsed ? '1' : '0');
+    }
+    setLS(LS_COLLAPSED, collapsed ? '1' : '0');
+  }, [collapsed]);
 
+  // guardar pinned
+  useEffect(() => {
+    setLS(LS_PINNED, pinned ? '1' : '0');
+  }, [pinned]);
+
+  const toggleCollapsed = useCallback(() => setCollapsed((v) => !v), []);
+  const togglePinned = useCallback(() => setPinned((v) => !v), []);
+
+  // valor estabilizado – incluir TODAS as dependências (corrige o erro do ESLint)
   const value = useMemo(
-    () => ({ collapsed, pinned, toggleCollapsed, togglePinned, setCollapsed, setPinned }),
-    [collapsed, pinned]
+    () => ({
+      collapsed,
+      pinned,
+      overlayOpen,
+      setCollapsed,
+      toggleCollapsed,
+      setPinned,
+      togglePinned,
+      setOverlayOpen,
+    }),
+    [collapsed, pinned, overlayOpen, toggleCollapsed, togglePinned]
   );
 
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+  return <SidebarContext.Provider value={value}>{children}</SidebarContext.Provider>;
 }
 
-export const useSidebarState = () => {
-  const ctx = useContext(Ctx);
-  if (!ctx) throw new Error("useSidebarState must be used within SidebarProvider");
+export function useSidebarState(): SidebarCtx {
+  const ctx = useContext(SidebarContext);
+  if (!ctx) {
+    throw new Error('useSidebarState must be used within <SidebarProvider>');
+  }
   return ctx;
-};
+}
