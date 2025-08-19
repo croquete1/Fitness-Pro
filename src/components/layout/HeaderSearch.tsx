@@ -1,50 +1,43 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React from "react";
+import { Search } from "lucide-react";
 
 export default function HeaderSearch() {
-  const [q, setQ] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  // atalhos: "/" ou "Ctrl+K" focam a procura
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
-      const isTyping = tag === "input" || tag === "textarea" || (e.target as HTMLElement)?.isContentEditable;
-      if (isTyping) return;
-
-      const ctrlK = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k";
-      const slash = e.key === "/";
-
-      if (ctrlK || slash) {
-        e.preventDefault();
-        inputRef.current?.focus();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
-  const onSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // por agora só previne o submit — integra com a tua rota de pesquisa quando quiseres
-    // ex: router.push(`/dashboard/search?q=${encodeURIComponent(q.trim())}`)
-  };
-
   return (
-    <form className="fp-search" role="search" aria-label="Procurar" onSubmit={onSubmit}>
-      <button className="fp-search-icon" type="submit" aria-label="Procurar">
-        🔎
-      </button>
-      <input
-        ref={inputRef}
-        className="fp-search-input"
-        placeholder="Pesquisar cliente por nome ou email…"
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-      />
-      <kbd className="fp-search-kbd">/</kbd>
-      <kbd className="fp-search-kbd hide-sm">⌘K</kbd>
+    <form
+      role="search"
+      aria-label="Pesquisar clientes"
+      onSubmit={(e) => e.preventDefault()}
+      style={{ width: "100%" }}
+    >
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "24px 1fr",
+          alignItems: "center",
+          gap: 8,
+          padding: "10px 12px",
+          borderRadius: 12,
+          border: "1px solid var(--border)",
+          background: "var(--card)",
+          boxShadow: "var(--shadow-1)",
+        }}
+      >
+        <Search size={18} style={{ opacity: 0.75 }} />
+        <input
+          aria-label="Pesquisar cliente por nome ou email"
+          placeholder="Pesquisar cliente por nome ou email…"
+          style={{
+            width: "100%",
+            border: 0,
+            outline: "none",
+            background: "transparent",
+            color: "var(--fg)",
+            fontSize: 14,
+          }}
+        />
+      </div>
     </form>
   );
 }

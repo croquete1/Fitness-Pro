@@ -1,36 +1,53 @@
 "use client";
 
-import React from "react";
+import { useSidebarState } from "@/components/SidebarWrapper";
 import { useTheme } from "next-themes";
-import { signOut } from "next-auth/react";
+import { Bell, Moon, Sun, Pin, Menu } from "lucide-react";
 
 export default function AppHeader() {
-  const { theme, resolvedTheme, setTheme } = useTheme();
-  const current = (theme ?? resolvedTheme) || "light";
-  const isDark = current === "dark";
+  const { collapsed, toggleCollapsed, pinned, togglePinned } = useSidebarState();
+  const { theme, setTheme } = useTheme();
 
-  const onToggleTheme = () => setTheme(isDark ? "light" : "dark");
-  const onSignOut = () => signOut({ callbackUrl: "/login" });
+  const onToggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
 
   return (
     <div style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
-      <button type="button" className="btn icon" aria-label="Notificações" title="Notificações">
-        <span>🔔</span>
+      {/* HAMBÚRGUER -> compacta/expande a sidebar */}
+      <button
+        aria-label={collapsed ? "Expandir sidebar" : "Compactar sidebar"}
+        className="btn icon"
+        onClick={toggleCollapsed}
+        title={collapsed ? "Expandir sidebar" : "Compactar sidebar"}
+      >
+        <Menu size={18} />
+      </button>
+
+      {/* PIN -> fixa/desfixa (continua visível em ambos os modos) */}
+      <button
+        aria-label={pinned ? "Desafixar sidebar" : "Afixar sidebar"}
+        className="btn icon"
+        onClick={togglePinned}
+        title={pinned ? "Desafixar sidebar" : "Afixar sidebar"}
+      >
+        <Pin size={18} style={{ transform: pinned ? "rotate(0deg)" : "rotate(45deg)" }} />
+      </button>
+
+      <button className="btn icon" aria-label="Notificações" title="Notificações">
+        <Bell size={18} />
       </button>
 
       <button
-        type="button"
         className="btn icon"
         onClick={onToggleTheme}
         aria-label="Alternar tema"
         title="Alternar tema"
       >
-        <span>{isDark ? "🌞" : "🌙"}</span>
+        {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
       </button>
 
-      <button type="button" onClick={onSignOut} className="btn ghost" title="Terminar sessão">
+      <a className="btn ghost" href="/api/auth/signout">
         Terminar sessão
-      </button>
+      </a>
     </div>
   );
 }

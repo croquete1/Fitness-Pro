@@ -1,5 +1,4 @@
 import "@/app/globals.css";
-import Providers from "@/app/providers";           // <— ThemeProvider (next-themes)
 import SidebarProvider from "@/components/SidebarWrapper";
 import Sidebar from "@/components/Sidebar";
 import AppHeader from "@/components/layout/AppHeader";
@@ -7,7 +6,7 @@ import HeaderSearch from "@/components/layout/HeaderSearch";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <Providers>
+    <SidebarProvider>
       {/* aplica preferência (colapsada/expandida) antes de hidratar para não haver “salto” */}
       <script
         id="fp-sb-boot"
@@ -21,26 +20,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }}
       />
 
-      <SidebarProvider>
-        <div className="fp-shell">
-          <aside className="fp-sidebar">
-            <Sidebar />
-          </aside>
+      <div className="fp-shell">
+        <aside className="fp-sidebar">
+          <Sidebar />
+        </aside>
 
-          <div className="fp-content">
-            <header className="fp-header">
-              <div className="fp-header-inner">
-                {/* esquerda: procura (ocupa 100% graças ao CSS .fp-search) */}
-                <HeaderSearch />
-                {/* direita: ações (notificação, tema, terminar sessão) */}
-                <AppHeader />
-              </div>
-            </header>
+        <div className="fp-content">
+          <header className="fp-header">
+            <div className="fp-header-inner">
+              <HeaderSearch />
+              <AppHeader />
+            </div>
+          </header>
 
-            <main className="fp-main">{children}</main>
-          </div>
+          <main className="fp-main">{children}</main>
         </div>
-      </SidebarProvider>
-    </Providers>
+      </div>
+    </SidebarProvider>
   );
 }
