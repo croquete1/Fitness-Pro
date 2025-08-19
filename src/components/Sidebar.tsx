@@ -1,179 +1,98 @@
 "use client";
 
-import React, { useMemo } from "react";
-import Menu from "./sidebar/Menu";
-import { useSidebar } from "./SidebarProvider";
-
-// Tipagens mínimas compatíveis com o Menu
-type Role = any;
-type Item = {
-  kind: "item";
-  href: string;
-  label: string;
-  icon?: React.ReactNode;
-  roles?: Role[];
-  activeExact?: boolean;
-};
-type Group = {
-  kind: "group";
-  label: string;
-  icon?: React.ReactNode;
-  roles?: Role[];
-  items: Item[];
-};
-type Entry = Item | Group;
-
-// Ícones (placeholder — mantém os atuais)
-const ICON = {
-  dashboard: "📊",
-  clients: "🧑‍🤝‍🧑",
-  workouts: "💪",
-  plans: "📘",
-  library: "📚",
-  approvals: "✅",
-  users: "👥",
-  reports: "📈",
-  settings: "⚙️",
-  system: "🖥️",
-  health: "🛟",
-};
-
-function buildMenu(): Entry[] {
-  return [
-    {
-      kind: "group",
-      label: "Geral",
-      items: [
-        { kind: "item", href: "/dashboard", label: "Dashboard", icon: ICON.dashboard, activeExact: true },
-        { kind: "item", href: "/dashboard/reports", label: "Relatórios", icon: ICON.reports },
-        { kind: "item", href: "/dashboard/settings", label: "Definições", icon: ICON.settings, activeExact: true },
-      ],
-    },
-    {
-      kind: "group",
-      label: "PT",
-      items: [
-        { kind: "item", href: "/dashboard/pt/clients", label: "Clientes", icon: ICON.clients },
-        { kind: "item", href: "/dashboard/pt/plans", label: "Planos", icon: ICON.plans },
-        { kind: "item", href: "/dashboard/pt/library", label: "Biblioteca", icon: ICON.library },
-      ],
-    },
-    {
-      kind: "group",
-      label: "Admin",
-      items: [
-        { kind: "item", href: "/dashboard/admin/approvals", label: "Aprovações", icon: ICON.approvals },
-        { kind: "item", href: "/dashboard/admin/users", label: "Utilizadores", icon: ICON.users },
-      ],
-    },
-    {
-      kind: "group",
-      label: "Sistema",
-      items: [
-        { kind: "item", href: "/dashboard/system/health", label: "Saúde do sistema", icon: ICON.health },
-      ],
-    },
-  ];
-}
+import Link from "next/link";
+import { useSidebarState } from "@/components/SidebarWrapper";
 
 export default function Sidebar() {
-  // Estado global da sidebar (do SidebarProvider)
-  const { pinned, collapsed, togglePinned, toggleCollapsed } = useSidebar();
-
-  // Dados do menu
-  const data = useMemo(() => buildMenu(), []);
+  const { collapsed, overlay, toggleCollapsed, togglePinned } =
+    useSidebarState();
 
   return (
     <aside
       className="fp-sidebar"
-      data-pinned={pinned ? "true" : "false"}
       data-collapsed={collapsed ? "true" : "false"}
-      style={{
-        position: "sticky",
-        top: 0,
-        alignSelf: "start",
-        height: "100dvh",
-        borderRight: "1px solid var(--border)",
-        background: "var(--sidebar-bg)",
-        color: "var(--sidebar-fg)",
-        width: collapsed ? 72 : 260,
-        transition: "width 420ms cubic-bezier(0.22, 1, 0.36, 1)",
-        display: "grid",
-        gridTemplateRows: "auto 1fr",
-        zIndex: 30,
-      }}
-      aria-label="Barra lateral"
+      data-overlay={overlay ? "true" : "false"}
+      suppressHydrationWarning
     >
-      {/* Cabeçalho */}
-      <div
-        className="fp-sb-head"
-        style={{
-          display: "grid",
-          gridTemplateColumns: collapsed ? "1fr" : "1fr auto",
-          alignItems: "center",
-          gap: 8,
-          padding: "10px",
-          borderBottom: "1px solid var(--border)",
-          minHeight: 56,
-        }}
-      >
-        <div className="fp-sb-brand" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span
-            className="logo"
-            aria-hidden
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: 10,
-              background: "linear-gradient(180deg, rgba(79,70,229,.25), rgba(79,70,229,.06))",
-              border: "1px solid color-mix(in oklab, var(--primary) 35%, var(--border))",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 16,
-            }}
-          >
-            💪
-          </span>
-          {!collapsed && (
-            <div style={{ lineHeight: 1.1 }}>
-              <div style={{ fontWeight: 800, fontSize: 14 }}>Fitness Pro</div>
-              {/* Removido "Navegação" conforme pedido */}
-            </div>
-          )}
+      {/* Cabeçalho da sidebar */}
+      <div className="fp-sb-head">
+        <div className="fp-sb-brand">
+          <span className="logo" aria-hidden>💪</span>
+          {!collapsed && <strong>Fitness Pro</strong>}
         </div>
 
-        {/* Ações (ficam dentro da sidebar, com hamburguer + pin) */}
-        <div className="fp-sb-actions" style={{ display: "inline-flex", gap: 6 }}>
+        {/* Botões próprios da sidebar */}
+        <div className="fp-sb-actions">
           <button
-            type="button"
-            className="btn icon"
-            aria-label={collapsed ? "Expandir sidebar" : "Recolher sidebar"}
-            title={collapsed ? "Expandir" : "Recolher"}
+            className="btn icon btn-toggle--sidebar"
+            aria-label="Alternar sidebar"
             onClick={toggleCollapsed}
+            title="Expandir/compactar"
           >
-            {/* Hamburguer visível mesmo em rail */}
-            <span aria-hidden>☰</span>
+            ☰
           </button>
 
-          {/* Botão de fixar/desafixar */}
-          <button
-            type="button"
-            className="btn icon"
-            aria-pressed={pinned}
-            aria-label={pinned ? "Desafixar sidebar" : "Fixar sidebar"}
-            title={pinned ? "Desafixar" : "Fixar"}
-            onClick={togglePinned}
-          >
-            <span aria-hidden>{pinned ? "📌" : "📍"}</span>
-          </button>
+          {!collapsed && (
+            <button
+              className="btn icon"
+              aria-label="Afixar/Desafixar"
+              onClick={togglePinned}
+              title="Afixar/Desafixar"
+            >
+              📌
+            </button>
+          )}
         </div>
       </div>
 
       {/* Navegação */}
-      <div style={{ overflow: "auto", padding: 8 }}>
-        <Menu data={data} />
-      </div>
+      <nav className="fp-nav">
+        <div className="nav-section">Geral</div>
+        <div className="nav-group">
+          <NavItem href="/dashboard" icon="📊" label="Dashboard" />
+          <NavItem href="/dashboard/reports" icon="📈" label="Relatórios" />
+          <NavItem href="/dashboard/settings" icon="⚙️" label="Definições" />
+        </div>
+
+        <div className="nav-section">PT</div>
+        <div className="nav-group">
+          <NavItem href="/dashboard/pt/clients" icon="👥" label="Clientes" />
+          <NavItem href="/dashboard/pt/plans" icon="📦" label="Planos" />
+          <NavItem href="/dashboard/pt/library" icon="📚" label="Biblioteca" />
+        </div>
+
+        <div className="nav-section">Admin</div>
+        <div className="nav-group">
+          <NavItem href="/dashboard/admin/approvals" icon="✅" label="Aprovações" />
+          <NavItem href="/dashboard/admin/users" icon="👤" label="Utilizadores" />
+        </div>
+
+        <div className="nav-section">Sistema</div>
+        <div className="nav-group">
+          <NavItem href="/dashboard/system/health" icon="🩺" label="Saúde do sistema" />
+        </div>
+      </nav>
     </aside>
+  );
+}
+
+function NavItem({
+  href,
+  icon,
+  label,
+  active,
+}: {
+  href: string;
+  icon: string;
+  label: string;
+  active?: boolean;
+}) {
+  return (
+    <Link className="nav-item" href={href} data-active={active ? "true" : "false"}>
+      <span className="nav-icon" aria-hidden>
+        {icon}
+      </span>
+      <span className="nav-label">{label}</span>
+    </Link>
   );
 }

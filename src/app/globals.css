@@ -34,7 +34,14 @@ body {
   --sb-expanded: 260px;   /* aberta */
   --sb-ease: cubic-bezier(0.22,1,0.36,1);
   --sb-dur: 420ms;
+
+  /* largura efetiva aplicada já no arranque (ajustada pelo boot script) */
+  --sb-w: var(--sb-expanded);
 }
+
+/* flags rápidas */
+html[data-sb-collapsed="1"] { --sb-w: var(--sb-collapsed); }
+
 [data-auth-root] { min-height: 100dvh; }
 
 [data-theme="dark"] {
@@ -82,15 +89,10 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
 
 /* ===== App Shell ===== */
 .fp-shell {
-  /* a coluna da sidebar é regida pela largura efetiva do componente; o conteúdo ocupa o resto */
-  grid-template-columns: auto 1fr;
+  /* usa a largura já computada no boot → evita CLS/salto */
+  grid-template-columns: var(--sb-w) 1fr;
 }
-.fp-main {
-  min-width: 0;
-  width: 100%;
-  padding: 20px;
-  min-height: calc(100dvh - 64px); /* NEW: reserva de espaço abaixo do header */
-}
+.fp-main { min-width: 0; width: 100%; padding: 20px; }
 
 /* Header */
 .fp-header {
@@ -98,16 +100,17 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
   background: color-mix(in oklab, var(--bg) 88%, var(--card) 12%);
   border-bottom: 1px solid var(--border);
   backdrop-filter: saturate(140%) blur(6px);
-  height: 64px; /* NEW: altura explícita do header */
 }
 .fp-header-inner {
   display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px;
   padding: 10px 16px;
-  height: 100%; /* NEW: faz o inner ocupar a altura do header */
 }
 
 /* ===== Sidebar ===== */
 .fp-sidebar {
+  width: var(--sb-w);
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
   transition: width 380ms cubic-bezier(.22,1,.36,1), box-shadow 200ms ease;
 }
 .fp-sidebar [data-rail],
@@ -165,6 +168,11 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
   transition: width var(--sb-dur) var(--sb-ease), box-shadow var(--sb-dur) var(--sb-ease);
 }
 
+/* ===== Mostrar apenas UM botão de menu ===== */
+.btn-toggle--header { display: none; }                        /* por defeito, escondido */
+html[data-sb-collapsed="1"] .btn-toggle--header { display: inline-flex; }
+html[data-sb-collapsed="1"] .btn-toggle--sidebar { display: none; }
+
 /* ===== Cartões / Dashboard ===== */
 .card {
   background: var(--card);
@@ -185,26 +193,4 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
 .badge-danger { color: #b91c1c; background: #fee2e2; border: 1px solid #fecaca; border-radius: 10px; padding: 8px 10px; font-size: 13px; }
 .text-muted { color: var(--muted-fg); }
 .small { font-size: 13px; }
-.auth-actions { display: flex; justify-content: space-between; gap: 8px; 
-  /* === Anti-salto do header (sem mexer na sidebar) === */
-:root {
-  --header-h: 64px; /* mesma altura visual do header */
-}
-
-/* Tira o header do fluxo: não empurra o layout quando hidrata */
-.fp-header {
-  position: fixed;
-  top: 0; left: 0; right: 0;
-  height: var(--header-h);
-  z-index: 40;            /* já tinhas, só reafirmar a intenção */
-}
-
-/* Garante que o conteúdo já nasce com espaço reservado para o header */
-.fp-main {
-  padding-top: var(--header-h);
-  min-height: calc(100dvh - var(--header-h));
-}
-
-/* O interior do header ocupa a altura toda */
-.fp-header-inner { height: 100%; }
-}
+.auth-actions { display: flex; justify-content: space-between; gap: 8px; }

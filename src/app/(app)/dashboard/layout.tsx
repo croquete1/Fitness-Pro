@@ -1,22 +1,36 @@
 import type { ReactNode } from "react";
-import SidebarProvider from "@/components/SidebarProvider";
+import Script from "next/script";
+import SidebarProvider from "@/components/SidebarWrapper";
 import Sidebar from "@/components/Sidebar";
-import MainContent from "@/components/layout/MainContent";
 import AppHeader from "@/components/layout/AppHeader";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
-    <SidebarProvider>
-      <div className="relative min-h-screen">
-        {/* Sidebar (rail + gaveta) */}
-        <Sidebar />
+    <>
+      {/* Aplica a preferência (collapsed/pinned) ANTES da hidratação → evita "salto" */}
+      <Script id="fp-sb-boot" strategy="beforeInteractive">{`
+        try {
+          const raw = localStorage.getItem('fp:sidebar');
+          const pref = raw ? JSON.parse(raw) : {};
+          const collapsed = !!pref?.collapsed;
+          const pinned = !!pref?.pinned;
 
-        {/* Conteúdo (empurrado dinamicamente) */}
-        <MainContent>
-          <AppHeader />
-          <main className="mx-auto max-w-[1400px] px-6 py-6">{children}</main>
-        </MainContent>
-      </div>
-    </SidebarProvider>
+          document.documentElement.dataset.sbCollapsed = collapsed ? '1' : '0';
+          document.documentElement.dataset.sbPinned    = pinned ? '1' : '0';
+          // Largura precoz (usa as mesmas que estão no CSS)
+          document.documentElement.style.setProperty('--sb-w', collapsed ? '64px' : '260px');
+        } catch (_) {}
+      `}</Script>
+
+      <SidebarProvider>
+        <div className="fp-shell" style={{ display: "grid", minHeight: "100dvh" }}>
+          <Sidebar />
+          <main className="fp-main">
+            <AppHeader />
+            {children}
+          </main>
+        </div>
+      </SidebarProvider>
+    </>
   );
 }
