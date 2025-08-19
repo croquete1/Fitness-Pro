@@ -30,15 +30,17 @@ body {
   --shadow-1: 0 2px 8px rgba(15,23,42,.06), 0 1px 3px rgba(15,23,42,.04);
 
   /* sidebar layout */
-  --sb-collapsed: 64px;   /* coluna icons */
-  --sb-expanded: 260px;   /* aberta */
+  --sb-collapsed: 64px;     /* rail */
+  --sb-expanded: 260px;     /* aberta */
   --sb-ease: cubic-bezier(0.22,1,0.36,1);
-  --sb-dur: 520ms;        /* + suave */
+  --sb-dur: 420ms;
 
-  /* largura aplicada já no arranque (ajustada pelo boot script) */
+  /* largura aplicada ao grid logo no arranque */
   --sb-w: var(--sb-expanded);
 }
+/* quando o html diz que está colapsada, o track do grid usa a largura do rail */
 html[data-sb-collapsed="1"] { --sb-w: var(--sb-collapsed); }
+
 [data-auth-root] { min-height: 100dvh; }
 
 [data-theme="dark"] {
@@ -85,7 +87,12 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
 .btn.icon:hover { background: var(--sidebar-hover); }
 
 /* ===== App Shell ===== */
-.fp-shell { display: grid; min-height: 100dvh; grid-template-columns: var(--sb-w) 1fr; }
+.fp-shell {
+  display: grid;
+  min-height: 100dvh;
+  grid-template-columns: var(--sb-w) 1fr;   /* <— evita “saltos” */
+}
+.fp-content { display: flex; flex-direction: column; min-width: 0; }
 .fp-main  { min-width: 0; width: 100%; padding: 20px; }
 
 /* Header */
@@ -147,26 +154,25 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
 .fp-sidebar[data-collapsed="true"] .nav-group   { gap: 4px; }
 .fp-sidebar[data-collapsed="true"] .nav-item    { grid-template-columns: 1fr; justify-items: center; padding: 10px 0; border-radius: 14px; }
 
-/* ===== Rail → ABRIR AO PASSAR O RATO SÓ QUANDO ESTIVER DESAFIXADA ===== */
-/* (overlay=true && collapsed=true) */
-.fp-sidebar[data-overlay="true"][data-collapsed="true"]:hover {
-  width: var(--sb-expanded);                 /* expande sobre a main (grid track mantém 64px) */
-  box-shadow: 0 12px 40px rgba(15,23,42,.18);
+/* ===== Rail → abrir ao passar o rato (overlay sem empurrar a página) ===== */
+.fp-sidebar[data-collapsed="true"]:hover {
+  width: var(--sb-expanded);     /* expande sobre a main; o grid mantém 64px */
+  box-shadow: 0 12px 40px rgba(15, 23, 42, .18);
   z-index: 60;
 }
-.fp-sidebar[data-overlay="true"][data-collapsed="true"]:hover .nav-section { display: block; }
-.fp-sidebar[data-overlay="true"][data-collapsed="true"]:hover .fp-nav      { gap: 8px; padding: 8px; }
-.fp-sidebar[data-overlay="true"][data-collapsed="true"]:hover .nav-group   { gap: 6px; }
-.fp-sidebar[data-overlay="true"][data-collapsed="true"]:hover .nav-item    { grid-template-columns: 24px 1fr; justify-items: start; padding: 9px 10px; border-radius: 12px; }
-.fp-sidebar[data-overlay="true"][data-collapsed="true"]:hover .nav-label   { display: block; }
+.fp-sidebar[data-collapsed="true"]:hover .nav-section { display: block; }
+.fp-sidebar[data-collapsed="true"]:hover .fp-nav      { gap: 8px; padding: 8px; }
+.fp-sidebar[data-collapsed="true"]:hover .nav-group   { gap: 6px; }
+.fp-sidebar[data-collapsed="true"]:hover .nav-item    { grid-template-columns: 24px 1fr; justify-items: start; padding: 9px 10px; border-radius: 12px; }
+.fp-sidebar[data-collapsed="true"]:hover .nav-label   { display: block; }
 
-/* ampliar ligeiramente a “zona quente” para facilitar o hover */
+/* ampliar ligeiramente a “zona quente” */
 .fp-sidebar[data-collapsed="true"]::after {
   content: ""; position: absolute; top: 0; right: -8px; width: 8px; height: 100%;
 }
 
 /* ===== Mostrar apenas UM botão de menu ===== */
-/* -> Por pedido: o botão do HEADER não deve aparecer nunca */
+/* o hambúrguer do header nunca aparece */
 .btn-toggle--header { display: none !important; }
 
 /* ===== Cartões / Dashboard ===== */

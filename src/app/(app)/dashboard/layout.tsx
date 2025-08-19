@@ -1,36 +1,40 @@
-import type { ReactNode } from "react";
-import Script from "next/script";
+import "@/app/globals.css";
 import SidebarProvider from "@/components/SidebarWrapper";
 import Sidebar from "@/components/Sidebar";
 import AppHeader from "@/components/layout/AppHeader";
 
-export default function DashboardLayout({ children }: { children: ReactNode }) {
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <>
-      {/* Aplica a preferência (collapsed/pinned) ANTES da hidratação → evita "salto" */}
-      <Script id="fp-sb-boot" strategy="beforeInteractive">{`
-        try {
-          const raw = localStorage.getItem('fp:sidebar');
-          const pref = raw ? JSON.parse(raw) : {};
-          const collapsed = !!pref?.collapsed;
-          const pinned = !!pref?.pinned;
+    <SidebarProvider>
+      {/* Boot rápido para aplicar a preferência antes da hidratação (evita “salto”) */}
+      <script
+        id="fp-sb-boot"
+        dangerouslySetInnerHTML={{
+          __html: `(function(){
+            try{
+              var v = localStorage.getItem('fp:sb:collapsed');
+              if(v){ document.documentElement.setAttribute('data-sb-collapsed', v==='1'?'1':'0'); }
+            }catch(e){}
+          })();`,
+        }}
+      />
 
-          document.documentElement.dataset.sbCollapsed = collapsed ? '1' : '0';
-          document.documentElement.dataset.sbPinned    = pinned ? '1' : '0';
-          // Largura precoz (usa as mesmas que estão no CSS)
-          document.documentElement.style.setProperty('--sb-w', collapsed ? '64px' : '260px');
-        } catch (_) {}
-      `}</Script>
-
-      <SidebarProvider>
-        <div className="fp-shell" style={{ display: "grid", minHeight: "100dvh" }}>
+      <div className="fp-shell">
+        <aside className="fp-sidebar">
           <Sidebar />
-          <main className="fp-main">
-            <AppHeader />
-            {children}
-          </main>
+        </aside>
+
+        <div className="fp-content">
+          <header className="fp-header">
+            <div className="fp-header-inner">
+              <div /> {/* espaço à esquerda (ex. pesquisa) */}
+              <AppHeader />
+            </div>
+          </header>
+
+          <main className="fp-main">{children}</main>
         </div>
-      </SidebarProvider>
-    </>
+      </div>
+    </SidebarProvider>
   );
 }
