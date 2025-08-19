@@ -241,5 +241,26 @@ html[data-sb-collapsed="1"] .fp-sidebar::after {
 .btn-pin--header {
   display: none !important;
 }
+/* =========================
+   PATCH – Icons antigos + botões da sidebar
+   ========================= */
 
+/* ícones (emoji) com tamanho consistente */
+.nav-emoji {
+  font-size: 18px;
+  line-height: 1;
+  width: 24px;
+  text-align: center;
+}
+
+/* feedback visual do “pin” quando a sidebar está expandida (afixada) */
+.btn-pin.is-pinned svg {
+  transform: rotate(35deg);
+  transition: transform 200ms ease;
+}
+
+/* animação de largura um pouco mais lenta/suave */
+:root {
+  --sb-dur: 560ms; /* antes: 420ms */
+  --sb-ease: cubic-bezier(.18,.9,.22,1);
 }
