@@ -1,4 +1,3 @@
-/* Base (light) – usa variáveis já definidas em theme.css/globals.css */
 .fp-nav { height: 100%; padding: 12px; background: var(--sidebar-bg); color: var(--text); overflow: auto; }
 .nav-group { margin-bottom: 10px; }
 .nav-section { font-size: 11px; color: var(--muted); letter-spacing: .6px; text-transform: uppercase; margin: 12px 8px 6px; }

@@ -1,15 +1,29 @@
 import React, { ReactNode } from "react";
 import Script from "next/script";
 import AppHeader from "@/components/layout/AppHeader";
-// ⬇️ Atualizado: importa RoleSidebar diretamente de src/components/
-import RoleSidebar from "@/components/RoleSidebar";
+import RoleSidebar from "@/components/layout/RoleSidebar"; // ← caminho correto
 import "./theme.css";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="pt-PT" suppressHydrationWarning>
       <head>
-        <Script id="init-preferences" strategy="beforeInteractive">{`(function(){try{var r=document.documentElement;var s=localStorage.getItem("sb-collapsed");if(s==="true"||s==="false")r.setAttribute("data-sb-collapsed",s);var t=localStorage.getItem("theme");if(t==="dark"||t==="light"){r.setAttribute("data-theme",t);}else{var d=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;r.setAttribute("data-theme",d?"dark":"light");}}catch(e){}})();`}</Script>
+        <Script id="init-preferences" strategy="beforeInteractive">{`
+(function () {
+  try {
+    var root = document.documentElement;
+    var sb = localStorage.getItem("sb-collapsed");
+    if (sb === "true" || sb === "false") root.setAttribute("data-sb-collapsed", sb);
+    var theme = localStorage.getItem("theme");
+    if (theme === "dark" || theme === "light") {
+      root.setAttribute("data-theme", theme);
+    } else {
+      var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      root.setAttribute("data-theme", prefersDark ? "dark" : "light");
+    }
+  } catch (e) {}
+})();
+        `}</Script>
       </head>
       <body
         style={{

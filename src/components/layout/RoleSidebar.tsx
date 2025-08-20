@@ -4,10 +4,10 @@ import React from "react";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 
-// ↴ As tuas sidebars estão diretamente em src/components/
-import SidebarAdmin from "@/components/SidebarAdmin";
-import SidebarPT from "@/components/SidebarPT";
-import SidebarClient from "@/components/SidebarClient";
+import SidebarAdmin from "@/components/layout/SidebarAdmin";
+import SidebarPT from "@/components/layout/SidebarPT";
+import SidebarClient from "@/components/layout/SidebarClient";
+import "./sidebar.css";
 
 /**
  * Escolhe a sidebar pelo ROLE da sessão:
@@ -15,8 +15,8 @@ import SidebarClient from "@/components/SidebarClient";
  *  - "pt"    → SidebarPT
  *  - "client" (ou indefinido) → SidebarClient
  *
- * Fallback: se a sessão ainda não chegou mas o path começa por /dashboard/admin ou /dashboard/pt,
- * usamos essa pista para evitar "piscar" a sidebar errada.
+ * Fallback: enquanto a sessão está a carregar, usa o path
+ * (/dashboard/admin/** ou /dashboard/pt/**) para evitar piscar.
  */
 export default function RoleSidebar() {
   const { data: session, status } = useSession();
