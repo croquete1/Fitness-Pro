@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import Modal from "@/components/ui/Modal";
 
 type Role = "ADMIN" | "TRAINER" | "CLIENT" | string;
@@ -89,6 +90,12 @@ async function tryPost(id: string, payload: any) {
 export default function UsersClient() {
   const sp = useSearchParams();
   const router = useRouter();
+  const { data: session } = useSession();
+
+  // info do utilizador autenticado
+  const me: any = (session as any)?.user ?? null;
+  const myId: string | null = me?.id ?? me?.userId ?? me?._id ?? null;
+  const myRole: Role | undefined = me?.role ?? me?.type;
 
   const [all, setAll] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -102,6 +109,14 @@ export default function UsersClient() {
   const [viewU, setViewU] = useState<UserRow | null>(null);
   const [editU, setEditU] = useState<UserRow | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // helpers de permissão no cliente (defensivo; o servidor também valida)
+  const isSelf = (u: UserRow | null | undefined) =>
+    !!u?.id && !!myId && String(u.id) === String(myId);
+
+  const isAdmin = (myRole ?? "").toUpperCase() === "ADMIN";
+  const canEditUser = (u: UserRow) => isAdmin && !isSelf(u);
+  const canToggleSuspend = (u: UserRow) => isAdmin && !isSelf(u);
 
   // carregar página
   useEffect(() => {
@@ -139,9 +154,14 @@ export default function UsersClient() {
     });
   }, [all, q, role]);
 
-  const pageCount = Math.max(1, Math.ceil((total || view.length || 0) / limit));
+  const effectiveTotal = total || view.length || 0;
+  const pageCount = Math.max(1, Math.ceil(effectiveTotal / limit));
 
   const changeStatus = async (u: UserRow, status: Status) => {
+    if (!canToggleSuspend(u)) {
+      alert("Não pode alterar o estado da sua própria conta.");
+      return;
+    }
     setBusy(true);
     try {
       await tryPost(u.id, { status });
@@ -156,6 +176,10 @@ export default function UsersClient() {
   };
 
   const changeRole = async (u: UserRow, newRole: Role) => {
+    if (!canEditUser(u)) {
+      alert("Não pode alterar o seu próprio papel/role.");
+      return;
+    }
     setBusy(true);
     try {
       await tryPost(u.id, { role: newRole });
@@ -209,7 +233,7 @@ export default function UsersClient() {
 
           <div style={{ display: "flex", gap: 8, marginLeft: "auto", alignItems: "center" }}>
             <span className="text-muted" style={{ fontSize: 12 }}>
-              {view.length} itens nesta página • {total || view.length} total
+              {view.length} itens nesta página • {effectiveTotal} total
             </span>
             <select
               value={limit}
@@ -235,7 +259,7 @@ export default function UsersClient() {
               <th style={{ textAlign: "left", padding: 12 }}>Estado</th>
               <th style={{ textAlign: "left", padding: 12 }}>Criado</th>
               <th style={{ textAlign: "left", padding: 12 }}>Último acesso</th>
-              <th style={{ textAlign: "right", padding: 12, width: 140 }}>Ações</th>
+              <th style={{ textAlign: "right", padding: 12, width: 180 }}>Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -245,33 +269,59 @@ export default function UsersClient() {
             {!loading && view.length === 0 && (
               <tr><td colSpan={7} style={{ padding: 16 }} className="text-muted">Sem resultados.</td></tr>
             )}
-            {view.map((u) => (
-              <tr key={u.id} style={{ borderTop: "1px solid var(--border)" }}>
-                <td style={{ padding: 12, fontWeight: 700 }}>{u.name}</td>
-                <td style={{ padding: 12 }}>{u.email ?? "—"}</td>
-                <td style={{ padding: 12 }}>{u.role ?? "—"}</td>
-                <td style={{ padding: 12 }}>
-                  <span className={`badge${u.status === "ACTIVE" ? "-success" : u.status === "PENDING" ? "" : "-danger"}`}>
-                    {u.status ?? "—"}
-                  </span>
-                </td>
-                <td style={{ padding: 12 }}>{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "—"}</td>
-                <td style={{ padding: 12 }}>{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : "—"}</td>
-                <td style={{ padding: 12 }}>
-                  <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
-                    <button className="pill" onClick={() => setViewU(u)} style={{ padding: "6px 10px" }}>Ver</button>
-                    <button className="pill" onClick={() => setEditU(u)} style={{ padding: "6px 10px" }}>Editar</button>
-                    <button
-                      className="pill"
-                      onClick={() => changeStatus(u, u.status === "SUSPENDED" ? "ACTIVE" : "SUSPENDED")}
-                      style={{ padding: "6px 10px", borderColor: "transparent", background: "var(--brand)", color: "#fff" }}
-                    >
-                      {u.status === "SUSPENDED" ? "Ativar" : "Suspender"}
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {view.map((u) => {
+              const self = isSelf(u);
+              const canEdit = canEditUser(u);
+              const canSusp = canToggleSuspend(u);
+              return (
+                <tr key={u.id} style={{ borderTop: "1px solid var(--border)" }}>
+                  <td style={{ padding: 12, fontWeight: 700 }}>{u.name}</td>
+                  <td style={{ padding: 12 }}>{u.email ?? "—"}</td>
+                  <td style={{ padding: 12 }}>{u.role ?? "—"}</td>
+                  <td style={{ padding: 12 }}>
+                    <span className={`badge${u.status === "ACTIVE" ? "-success" : u.status === "PENDING" ? "" : "-danger"}`}>
+                      {u.status ?? "—"}
+                    </span>
+                  </td>
+                  <td style={{ padding: 12 }}>{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "—"}</td>
+                  <td style={{ padding: 12 }}>{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : "—"}</td>
+                  <td style={{ padding: 12 }}>
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
+                      <button className="pill" onClick={() => setViewU(u)} style={{ padding: "6px 10px" }}>Ver</button>
+                      <button
+                        className="pill"
+                        onClick={() => canEdit && setEditU(u)}
+                        disabled={!canEdit}
+                        title={canEdit ? "Editar" : self ? "Não pode editar o seu próprio papel/estado" : "Sem permissão"}
+                        style={{ padding: "6px 10px", opacity: canEdit ? 1 : 0.6, cursor: canEdit ? "pointer" : "not-allowed" }}
+                      >
+                        Editar
+                      </button>
+                      <button
+                        className="pill"
+                        disabled={!canSusp}
+                        onClick={() =>
+                          canSusp &&
+                          changeStatus(u, u.status === "SUSPENDED" ? "ACTIVE" : "SUSPENDED")
+                        }
+                        title={canSusp ? (u.status === "SUSPENDED" ? "Ativar" : "Suspender")
+                                       : self ? "Não pode alterar o estado da sua própria conta" : "Sem permissão"}
+                        style={{
+                          padding: "6px 10px",
+                          borderColor: "transparent",
+                          background: "var(--brand)",
+                          color: "#fff",
+                          opacity: canSusp ? 1 : 0.6,
+                          cursor: canSusp ? "pointer" : "not-allowed",
+                        }}
+                      >
+                        {u.status === "SUSPENDED" ? "Ativar" : "Suspender"}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -308,17 +358,18 @@ export default function UsersClient() {
         footer={
           <>
             <button className="pill" onClick={() => setEditU(null)}>Cancelar</button>
-            <button className="pill" disabled={busy}
+            <button
+              className="pill"
+              disabled={busy || (editU ? !canEditUser(editU) : true)}
               onClick={() => {
                 const form = document.getElementById("user-edit-form") as HTMLFormElement | null;
-                if (!form) return;
+                if (!form || !editU) return;
+                if (!canEditUser(editU)) return;
                 const data = new FormData(form);
                 const newRole = (data.get("role") as string) as Role;
                 const newStatus = (data.get("status") as string) as Status;
-                if (editU) {
-                  if (newRole !== editU.role) changeRole(editU, newRole);
-                  if (newStatus !== editU.status) changeStatus(editU, newStatus);
-                }
+                if (newRole !== editU.role) changeRole(editU, newRole);
+                if (newStatus !== editU.status) changeStatus(editU, newStatus);
               }}
               style={{ borderColor: "transparent", background: "var(--brand)", color: "#fff" }}
             >
@@ -331,9 +382,19 @@ export default function UsersClient() {
           <form id="user-edit-form" style={{ display: "grid", gap: 10 }}>
             <label style={{ display: "grid", gap: 6 }}>
               <span>Role</span>
-              <select name="role" defaultValue={editU.role ?? "CLIENT"} style={{
-                padding: "10px 12px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--bg)"
-              }}>
+              <select
+                name="role"
+                defaultValue={editU.role ?? "CLIENT"}
+                disabled={!canEditUser(editU)}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 12,
+                  border: "1px solid var(--border)",
+                  background: "var(--bg)",
+                  opacity: canEditUser(editU) ? 1 : 0.6,
+                  cursor: canEditUser(editU) ? "pointer" : "not-allowed",
+                }}
+              >
                 <option value="CLIENT">Cliente</option>
                 <option value="TRAINER">Personal Trainer</option>
                 <option value="ADMIN">Admin</option>
@@ -341,9 +402,19 @@ export default function UsersClient() {
             </label>
             <label style={{ display: "grid", gap: 6 }}>
               <span>Estado</span>
-              <select name="status" defaultValue={editU.status ?? "ACTIVE"} style={{
-                padding: "10px 12px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--bg)"
-              }}>
+              <select
+                name="status"
+                defaultValue={editU.status ?? "ACTIVE"}
+                disabled={!canEditUser(editU)}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 12,
+                  border: "1px solid var(--border)",
+                  background: "var(--bg)",
+                  opacity: canEditUser(editU) ? 1 : 0.6,
+                  cursor: canEditUser(editU) ? "pointer" : "not-allowed",
+                }}
+              >
                 <option value="ACTIVE">Ativo</option>
                 <option value="PENDING">Pendente</option>
                 <option value="SUSPENDED">Suspenso</option>
