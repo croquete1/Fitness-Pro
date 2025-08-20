@@ -3,12 +3,19 @@ import SidebarProvider from "@/components/SidebarWrapper";
 import Sidebar from "@/components/Sidebar";
 import AppHeader from "@/components/layout/AppHeader";
 import HeaderSearch from "@/components/layout/HeaderSearch";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const fetchCache = "force-no-store";
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+type Role = "ADMIN" | "TRAINER" | "CLIENT";
+
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const session = await getServerSession(authOptions);
+  const role = ((session?.user as any)?.role ?? "ADMIN") as Role;
+
   return (
     <SidebarProvider>
       {/* aplica preferência (colapsada/expandida) antes de hidratar para não haver “salto” */}
@@ -26,15 +33,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       <div className="fp-shell">
         <aside className="fp-sidebar">
-          <Sidebar />
+          <Sidebar role={role} />
         </aside>
 
         <div className="fp-content">
           <header className="fp-header">
             <div className="fp-header-inner">
-              {/* esquerda: procura */}
               <HeaderSearch />
-              {/* direita: ações */}
               <AppHeader />
             </div>
           </header>

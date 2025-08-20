@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import Image from "next/image";
 import { Pin, PinOff } from "lucide-react";
-// importar sem quebrar quando não há Provider
-import * as NextAuthReact from "next-auth/react";
 import { useSidebar } from "./SidebarWrapper";
 
 type Role = "ADMIN" | "TRAINER" | "CLIENT";
@@ -31,15 +30,11 @@ const NAV_TRAINER = [
   { href: "/dashboard/pt/library", label: "Biblioteca", icon: "📚" },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ role: roleProp }: { role?: Role }) {
   const pathname = usePathname();
   const { collapsed, setCollapsed, pinned, togglePinned } = useSidebar();
 
-  // pegar hook com fallback seguro
-  const useSession = (NextAuthReact as any)?.useSession as (() => any) | undefined;
-  const session = useSession ? useSession() : undefined;
-  const role = ((session?.data?.user?.role as Role) || "ADMIN") as Role;
-
+  const role = (roleProp ?? "ADMIN") as Role;
   const items = role === "TRAINER" ? NAV_TRAINER : NAV_ADMIN;
 
   const isActive = (href?: string) =>
@@ -50,8 +45,7 @@ export default function Sidebar() {
       {/* Cabeçalho da sidebar */}
       <div className="fp-sb-head">
         <div className="fp-sb-brand">
-          <img src="/logo.svg" alt="Fitness Pro" className="logo" />
-          {/* label escondido quando encolhida, graças ao CSS */}
+          <Image src="/logo.svg" alt="Fitness Pro" className="logo" width={32} height={32} priority />
           <strong>Fitness Pro</strong>
         </div>
         <div className="fp-sb-actions">
@@ -70,14 +64,13 @@ export default function Sidebar() {
               } catch {}
             }}
           >
-            {/* ícone que sugere “mostrar/ocultar nomes” */}
             {collapsed ? "›" : "‹"}
           </button>
 
-          {/* Afixar (pinned) — mantém expandida mesmo após hover-out */}
+          {/* Afixar (pinned) — independente do encolher */}
           <button
             type="button"
-            className="btn icon"
+            className={`btn icon btn-pin${pinned ? " is-pinned" : ""}`}
             aria-label={pinned ? "Desafixar sidebar" : "Afixar sidebar"}
             title={pinned ? "Desafixar" : "Afixar"}
             onClick={() => {
@@ -95,7 +88,6 @@ export default function Sidebar() {
       {/* Navegação */}
       <nav className="fp-nav">
         {items.map((it, i) =>
-          // separadores (secções)
           (it as any).section ? (
             <div key={`sec-${i}`} className="nav-section">
               {(it as any).section}
