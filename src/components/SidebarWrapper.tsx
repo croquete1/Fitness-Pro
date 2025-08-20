@@ -1,4 +1,5 @@
-"use client";
+// src/components/SidebarWrapper.tsx
+'use client';
 
 import React, {
   createContext,
@@ -7,49 +8,73 @@ import React, {
   useEffect,
   useMemo,
   useState,
-} from "react";
+} from 'react';
 
-type SidebarCtx = {
+type Ctx = {
   collapsed: boolean;
+  pinned: boolean;
   toggleCollapsed: () => void;
+  togglePinned: () => void;
   setCollapsed: (v: boolean) => void;
+  setPinned: (v: boolean) => void;
 };
 
-const SidebarContext = createContext<SidebarCtx>({
-  collapsed: false,
-  // no-ops por defeito (substituídos no Provider)
-  toggleCollapsed: () => {},
-  setCollapsed: () => {},
-});
+const SidebarContext = createContext<Ctx | null>(null);
+
+export function useSidebar() {
+  const ctx = useContext(SidebarContext);
+  if (!ctx) throw new Error('useSidebar must be used within SidebarProvider');
+  return ctx;
+}
+
+function readLS(key: string, fallback: boolean) {
+  try {
+    const v = localStorage.getItem(key);
+    if (v === '1') return true;
+    if (v === '0') return false;
+  } catch {}
+  return fallback;
+}
 
 export default function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [pinned, setPinned] = useState(true);
 
-  // sincroniza com localStorage (há também o boot-script no layout para evitar “salto”)
+  // boot (client)
   useEffect(() => {
-    try {
-      const v = localStorage.getItem("fp:sb:collapsed");
-      if (v === "1") setCollapsed(true);
-      if (v === "0") setCollapsed(false);
-    } catch {}
+    const c = readLS('fp:sb:collapsed', false);
+    const p = readLS('fp:sb:pinned', true);
+    setCollapsed(c);
+    setPinned(p && !c); // não pode estar pinned se estiver colapsada
   }, []);
 
-  // aplica atributo no <html> e persiste
+  // reflect 'collapsed'
   useEffect(() => {
-    document.documentElement.setAttribute("data-sb-collapsed", collapsed ? "1" : "0");
+    if (typeof document === 'undefined') return;
+    document.documentElement.setAttribute('data-sb-collapsed', collapsed ? '1' : '0');
     try {
-      localStorage.setItem("fp:sb:collapsed", collapsed ? "1" : "0");
+      localStorage.setItem('fp:sb:collapsed', collapsed ? '1' : '0');
     } catch {}
-  }, [collapsed]);
+    if (collapsed && pinned) setPinned(false); // se encolheres, deixa de estar afixada
+  }, [collapsed, pinned]);
 
-  const toggleCollapsed = useCallback(() => setCollapsed((c) => !c), []);
+  // reflect 'pinned'
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    document.documentElement.setAttribute('data-sb-pinned', pinned ? '1' : '0');
+    try {
+      localStorage.setItem('fp:sb:pinned', pinned ? '1' : '0');
+    } catch {}
+    if (pinned) setCollapsed(false); // afixar => força expandida
+  }, [pinned]);
+
+  const toggleCollapsed = useCallback(() => setCollapsed(v => !v), []);
+  const togglePinned = useCallback(() => setPinned(v => !v), []);
 
   const value = useMemo(
-    () => ({ collapsed, toggleCollapsed, setCollapsed }),
-    [collapsed, toggleCollapsed]
+    () => ({ collapsed, pinned, toggleCollapsed, togglePinned, setCollapsed, setPinned }),
+    [collapsed, pinned, toggleCollapsed, togglePinned]
   );
 
   return <SidebarContext.Provider value={value}>{children}</SidebarContext.Provider>;
 }
-
-export const useSidebarState = () => useContext(SidebarContext);

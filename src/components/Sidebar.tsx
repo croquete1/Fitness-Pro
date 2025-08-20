@@ -1,114 +1,126 @@
-"use client";
+// src/components/Sidebar.tsx
+'use client';
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useSidebarState } from "./SidebarWrapper";
-import { Pin, PanelLeftClose, PanelLeftOpen } from "lucide-react";
-import Image from "next/image";
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useSidebar } from './SidebarWrapper';
+import { Pin, PinOff, ChevronsLeft, ChevronsRight } from 'lucide-react';
 
-type Item =
-  | { section: string }
-  | { href: string; label: string; icon: string };
+type Item = {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+  exact?: boolean;
+};
+type Group = { title: string; items: Item[] };
 
-const NAV: Item[] = [
-  { section: "GERAL" },
-  { href: "/dashboard", label: "Dashboard", icon: "📊" },
-  { href: "/dashboard/reports", label: "Relatórios", icon: "🧾" },
-  { href: "/dashboard/settings", label: "Definições", icon: "⚙️" },
-
-  { section: "PT" },
-  { href: "/dashboard/pt/clients", label: "Clientes", icon: "🧑‍🤝‍🧑" },
-  { href: "/dashboard/pt/plans", label: "Planos", icon: "🧱" },
-  { href: "/dashboard/pt/library", label: "Biblioteca", icon: "📚" },
-
-  { section: "ADMIN" },
-  { href: "/dashboard/admin/approvals", label: "Aprovações", icon: "✅" },
-  { href: "/dashboard/admin/users", label: "Utilizadores", icon: "👥" },
-
-  { section: "SISTEMA" },
-  { href: "/dashboard/system/health", label: "Saúde do sistema", icon: "🩺" },
+const NAV: Group[] = [
+  {
+    title: 'GERAL',
+    items: [
+      { href: '/dashboard', label: 'Dashboard', icon: <span className="nav-emoji">📊</span>, exact: true },
+      { href: '/dashboard/reports', label: 'Relatórios', icon: <span className="nav-emoji">🧾</span> },
+      { href: '/dashboard/settings', label: 'Definições', icon: <span className="nav-emoji">⚙️</span> },
+    ],
+  },
+  {
+    title: 'PT',
+    items: [
+      { href: '/dashboard/pt/clients', label: 'Clientes', icon: <span className="nav-emoji">👫</span> },
+      { href: '/dashboard/pt/plans', label: 'Planos', icon: <span className="nav-emoji">🧱</span> },
+      { href: '/dashboard/pt/library', label: 'Biblioteca', icon: <span className="nav-emoji">📚</span> },
+    ],
+  },
+  {
+    title: 'ADMIN',
+    items: [
+      { href: '/dashboard/admin/approvals', label: 'Aprovações', icon: <span className="nav-emoji">✅</span> },
+      { href: '/dashboard/admin/users', label: 'Utilizadores', icon: <span className="nav-emoji">👥</span> },
+    ],
+  },
+  {
+    title: 'SISTEMA',
+    items: [
+      { href: '/dashboard/system/health', label: 'Saúde do sistema', icon: <span className="nav-emoji">🧰</span> },
+    ],
+  },
 ];
+
+function isActive(pathname: string, href: string, exact?: boolean) {
+  // normaliza trailing slash (excepto '/')
+  const clean = pathname !== '/' && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
+
+  if (exact || href === '/dashboard') {
+    // Dashboard só activo em match exacto
+    return clean === href;
+  }
+  return clean === href || clean.startsWith(href + '/');
+}
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { collapsed, toggleCollapsed } = useSidebarState();
+  const { collapsed, pinned, toggleCollapsed, togglePinned } = useSidebar();
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Cabeçalho/brand da sidebar */}
+    <>
+      {/* Cabeçalho da sidebar */}
       <div className="fp-sb-head">
         <div className="fp-sb-brand">
-          {/* LOGO: coloca /public/logo.svg no projeto */}
-          {/* Fallback: se não existir, o texto "Fitness Pro" continua visível */}
-          <Image
-            src="logo.png"
-            alt="Fitness Pro"
-            width={32}
-            height={32}
-            className="logo"
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = "none";
-            }}
-          />
-          <div className="font-semibold">Fitness Pro</div>
+          {/* Logo (usa o teu /logo.svg ou imagem que já tenhas) */}
+          <img src="/logo.png" alt="Logo" className="logo" />
+          <strong>Fitness Pro</strong>
         </div>
 
-        {/* Ações: “esconder nomes” e “afixar” */}
         <div className="fp-sb-actions">
-          {/* substituir hamburger: ícone sugere “esconder nomes” */}
+          {/* PIN – afixar/desafixar, não colapsa */}
           <button
             type="button"
             className="btn icon"
-            title={collapsed ? "Expandir (mostrar nomes)" : "Encolher (mostrar só ícones)"}
-            aria-label={collapsed ? "Expandir" : "Encolher"}
-            data-role="sb-toggle"
-            onClick={toggleCollapsed}
+            aria-label={pinned ? 'Desafixar sidebar' : 'Afixar sidebar'}
+            title={pinned ? 'Desafixar sidebar' : 'Afixar sidebar'}
+            onClick={togglePinned}
+            data-role="sb-pin"
           >
-            {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+            {pinned ? <Pin size={18} /> : <PinOff size={18} />}
           </button>
 
-          {/* “Afixar”: funciona como o toggle, mas com feedback visual (pin inclinado quando expandido) */}
+          {/* COLAPSO – mostrar só ícones vs. expandida; não mexe no pin */}
           <button
             type="button"
-            className={`btn icon btn-pin ${!collapsed ? "is-pinned" : ""}`}
-            title={!collapsed ? "Desafixar (mostrar só ícones)" : "Afixar (mostrar nomes)"}
-            aria-label="Afixar/Desafixar"
-            data-role="sb-pin"
+            className="btn icon"
+            aria-label={collapsed ? 'Expandir menu' : 'Encolher para ícones'}
+            title={collapsed ? 'Expandir menu' : 'Encolher para ícones'}
             onClick={toggleCollapsed}
+            data-role="sb-toggle"
           >
-            <Pin size={18} />
+            {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
           </button>
         </div>
       </div>
 
       {/* Navegação */}
       <nav className="fp-nav">
-        <div className="nav-group">
-          {NAV.map((it, idx) => {
-            if ("section" in it) {
+        {NAV.map((group) => (
+          <div key={group.title} className="nav-group">
+            <div className="nav-section">{group.title}</div>
+            {group.items.map((item) => {
+              const active = isActive(pathname, item.href, item.exact);
               return (
-                <div key={`sec-${idx}`} className="nav-section">
-                  {it.section}
-                </div>
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="nav-item"
+                  data-active={active ? 'true' : undefined}
+                  aria-current={active ? 'page' : undefined}
+                >
+                  <span className="nav-icon">{item.icon}</span>
+                  <span className="nav-label">{item.label}</span>
+                </Link>
               );
-            }
-            const active = pathname?.startsWith(it.href);
-            return (
-              <Link
-                key={it.href}
-                href={it.href}
-                className="nav-item"
-                data-active={active ? "true" : undefined}
-              >
-                <span className="nav-icon nav-emoji" aria-hidden>
-                  {it.icon}
-                </span>
-                <span className="nav-label">{it.label}</span>
-              </Link>
-            );
-          })}
-        </div>
+            })}
+          </div>
+        ))}
       </nav>
-    </div>
+    </>
   );
 }
