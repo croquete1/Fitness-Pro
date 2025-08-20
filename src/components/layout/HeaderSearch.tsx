@@ -1,43 +1,40 @@
-"use client";
+'use client';
 
-import React from "react";
-import { Search } from "lucide-react";
+import { Search } from 'lucide-react';
+import { useState } from 'react';
 
 export default function HeaderSearch() {
+  const [q, setQ] = useState('');
+
   return (
-    <form
-      role="search"
-      aria-label="Pesquisar clientes"
-      onSubmit={(e) => e.preventDefault()}
-      style={{ width: "100%" }}
-    >
-      <div
+    <div style={{ position: 'relative', width: '100%' }}>
+      <Search
+        size={16}
+        aria-hidden
         style={{
-          display: "grid",
-          gridTemplateColumns: "24px 1fr",
-          alignItems: "center",
-          gap: 8,
-          padding: "10px 12px",
-          borderRadius: 12,
-          border: "1px solid var(--border)",
-          background: "var(--card)",
-          boxShadow: "var(--shadow-1)",
+          position: 'absolute',
+          left: 12,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          opacity: .7,
         }}
-      >
-        <Search size={18} style={{ opacity: 0.75 }} />
-        <input
-          aria-label="Pesquisar cliente por nome ou email"
-          placeholder="Pesquisar cliente por nome ou email…"
-          style={{
-            width: "100%",
-            border: 0,
-            outline: "none",
-            background: "transparent",
-            color: "var(--fg)",
-            fontSize: 14,
-          }}
-        />
-      </div>
-    </form>
+      />
+      <input
+        type="search"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Pesquisar cliente por nome ou email..."
+        aria-label="Pesquisar"
+        style={{
+          width: '100%',
+          padding: '10px 12px 10px 34px',
+          borderRadius: 12,
+          border: '1px solid var(--border)',
+          background: 'var(--card)',
+          color: 'var(--fg)',
+          outline: 'none',
+        }}
+      />
+    </div>
   );
 }

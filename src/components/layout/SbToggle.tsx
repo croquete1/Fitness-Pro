@@ -1,35 +1,36 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { PanelLeftClose, PanelLeft } from 'lucide-react';
 
 export default function SbToggle() {
-  // aplicar estado guardado logo no arranque
+  const [collapsed, setCollapsed] = useState(false);
+
+  // aplicar estado guardado e sincronizar no arranque
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('sb-collapsed');
-      if (saved === '0' || saved === '1') {
-        document.documentElement.setAttribute('data-sb-collapsed', saved);
-      }
-    } catch {}
+    const saved = (typeof window !== 'undefined' && localStorage.getItem('sb-collapsed')) || '0';
+    const isCollapsed = saved === '1';
+    document.documentElement.setAttribute('data-sb-collapsed', isCollapsed ? '1' : '0');
+    setCollapsed(isCollapsed);
   }, []);
 
   const onToggle = () => {
-    const html = document.documentElement;
-    const isCollapsed = html.getAttribute('data-sb-collapsed') === '1';
-    const next = isCollapsed ? '0' : '1';
-    html.setAttribute('data-sb-collapsed', next);
-    try { localStorage.setItem('sb-collapsed', next); } catch {}
+    const next = !collapsed;
+    setCollapsed(next);
+    document.documentElement.setAttribute('data-sb-collapsed', next ? '1' : '0');
+    try { localStorage.setItem('sb-collapsed', next ? '1' : '0'); } catch {}
   };
 
   return (
     <button
       type="button"
       className="btn icon"
+      aria-pressed={collapsed}
       aria-label="Compactar/expandir sidebar"
-      title="Compactar/expandir sidebar"
+      title={collapsed ? 'Expandir sidebar' : 'Compactar sidebar'}
       onClick={onToggle}
     >
-      <span className="nav-emoji" aria-hidden>🗂️</span>
+      {collapsed ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
     </button>
   );
 }

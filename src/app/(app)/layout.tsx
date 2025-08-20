@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth';
 import Sidebar from '@/components/Sidebar';
 import AppHeader from '@/components/layout/AppHeader';
 import SbToggle from '@/components/layout/SbToggle';
+import HeaderSearch from '@/components/layout/HeaderSearch';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -24,18 +25,18 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             <strong>Fitness Pro</strong>
           </div>
           <div className="fp-sb-actions">
-            {/* botão cliente; nada é passado por props */}
             <SbToggle />
           </div>
         </div>
-
         <Sidebar role={role} />
       </aside>
 
       <div className="fp-content">
         <header className="fp-header">
           <div className="fp-header-inner">
-            <div />
+            {/* Esquerda: caixa de pesquisa */}
+            <HeaderSearch />
+            {/* Direita: ações do header */}
             <AppHeader />
           </div>
         </header>
