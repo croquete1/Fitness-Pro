@@ -1,83 +1,118 @@
 'use client';
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Pin, PinOff } from "lucide-react";
+// importar sem quebrar quando não há Provider
+import * as NextAuthReact from "next-auth/react";
+import { useSidebar } from "./SidebarWrapper";
 
-export type AppRole = 'ADMIN' | 'TRAINER' | 'CLIENT' | string;
+type Role = "ADMIN" | "TRAINER" | "CLIENT";
 
-type NavItem = { href: string; label: string; icon: string; startsWith?: boolean };
-type NavGroup = { title: string; items: NavItem[] };
+const NAV_ADMIN = [
+  { href: "/dashboard", label: "Dashboard", icon: "📊" },
+  { href: "/dashboard/reports", label: "Relatórios", icon: "🧾" },
+  { href: "/dashboard/settings", label: "Definições", icon: "⚙️" },
+  { section: "PT" as const },
+  { href: "/dashboard/pt/clients", label: "Clientes", icon: "🧑‍🤝‍🧑" },
+  { href: "/dashboard/pt/plans", label: "Planos", icon: "🧱" },
+  { href: "/dashboard/pt/library", label: "Biblioteca", icon: "📚" },
+  { section: "ADMIN" as const },
+  { href: "/dashboard/admin/approvals", label: "Aprovações", icon: "✅" },
+  { href: "/dashboard/admin/users", label: "Utilizadores", icon: "👥" },
+  { section: "SISTEMA" as const },
+  { href: "/dashboard/system/health", label: "Saúde do sistema", icon: "🧰" },
+];
 
-function NavLink({ item, active }: { item: NavItem; active: boolean }) {
-  return (
-    <Link
-      href={item.href}
-      className="nav-item"
-      data-active={active ? 'true' : 'false'}
-      aria-current={active ? 'page' : undefined}
-    >
-      <span className="nav-icon nav-emoji" aria-hidden>{item.icon}</span>
-      <span className="nav-label">{item.label}</span>
-    </Link>
-  );
-}
+const NAV_TRAINER = [
+  { href: "/dashboard", label: "Dashboard", icon: "📊" },
+  { href: "/dashboard/pt/clients", label: "Clientes", icon: "🧑‍🤝‍🧑" },
+  { href: "/dashboard/pt/plans", label: "Planos", icon: "🧱" },
+  { href: "/dashboard/pt/library", label: "Biblioteca", icon: "📚" },
+];
 
-export default function Sidebar({ role = 'CLIENT' }: { role?: AppRole }) {
-  const pathname = usePathname() || '/';
-  const R = String(role).toUpperCase();
+export default function Sidebar() {
+  const pathname = usePathname();
+  const { collapsed, setCollapsed, pinned, togglePinned } = useSidebar();
 
-  const groupGeral: NavGroup = {
-    title: 'GERAL',
-    items: [
-      { href: '/dashboard', label: 'Dashboard', icon: '📊', startsWith: true },
-      { href: '/dashboard/reports', label: 'Relatórios', icon: '🧾' },
-      { href: '/dashboard/settings', label: 'Definições', icon: '⚙️' },
-    ],
-  };
+  // pegar hook com fallback seguro
+  const useSession = (NextAuthReact as any)?.useSession as (() => any) | undefined;
+  const session = useSession ? useSession() : undefined;
+  const role = ((session?.data?.user?.role as Role) || "ADMIN") as Role;
 
-  const groupPT: NavGroup = {
-    title: 'PT',
-    items: [
-      { href: '/dashboard/pt/clients', label: 'Clientes', icon: '🧑‍🤝‍🧑', startsWith: true },
-      { href: '/dashboard/pt/plans', label: 'Planos', icon: '🧱' },
-      { href: '/dashboard/pt/library', label: 'Biblioteca', icon: '🧠', startsWith: true },
-    ],
-  };
+  const items = role === "TRAINER" ? NAV_TRAINER : NAV_ADMIN;
 
-  const groupAdmin: NavGroup = {
-    title: 'ADMIN',
-    items: [
-      { href: '/dashboard/admin/approvals', label: 'Aprovações', icon: '✅', startsWith: true },
-      { href: '/dashboard/admin/users', label: 'Utilizadores', icon: '👥', startsWith: true },
-    ],
-  };
-
-  const groupSystem: NavGroup = {
-    title: 'SISTEMA',
-    items: [{ href: '/dashboard/system/health', label: 'Saúde do sistema', icon: '🧰' }],
-  };
-
-  let groups: NavGroup[] = [];
-  if (R === 'ADMIN') {
-    groups = [groupGeral, groupPT, groupAdmin, groupSystem];
-  } else if (R === 'TRAINER') {
-    groups = [{ title: groupGeral.title, items: [groupGeral.items[0]] }, groupPT];
-  } else {
-    groups = [{ title: groupGeral.title, items: [groupGeral.items[0]] }];
-  }
-
-  const isActive = (it: NavItem) => (it.startsWith ? pathname.startsWith(it.href) : pathname === it.href);
+  const isActive = (href?: string) =>
+    href ? (href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href)) : false;
 
   return (
-    <div className="fp-nav">
-      {groups.map((g) => (
-        <div key={g.title} className="nav-group">
-          <div className="nav-section">{g.title}</div>
-          {g.items.map((it) => (
-            <NavLink key={it.href} item={it} active={isActive(it)} />
-          ))}
+    <div>
+      {/* Cabeçalho da sidebar */}
+      <div className="fp-sb-head">
+        <div className="fp-sb-brand">
+          <img src="/logo.svg" alt="Fitness Pro" className="logo" />
+          {/* label escondido quando encolhida, graças ao CSS */}
+          <strong>Fitness Pro</strong>
         </div>
-      ))}
+        <div className="fp-sb-actions">
+          {/* Encolher/expandir (mostrar só ícones) */}
+          <button
+            type="button"
+            className="btn icon"
+            aria-label={collapsed ? "Expandir menu" : "Encolher menu"}
+            title={collapsed ? "Expandir" : "Encolher"}
+            onClick={() => {
+              const next = !collapsed;
+              setCollapsed(next);
+              try {
+                localStorage.setItem("fp:sb:collapsed", next ? "1" : "0");
+                document.documentElement.setAttribute("data-sb-collapsed", next ? "1" : "0");
+              } catch {}
+            }}
+          >
+            {/* ícone que sugere “mostrar/ocultar nomes” */}
+            {collapsed ? "›" : "‹"}
+          </button>
+
+          {/* Afixar (pinned) — mantém expandida mesmo após hover-out */}
+          <button
+            type="button"
+            className="btn icon"
+            aria-label={pinned ? "Desafixar sidebar" : "Afixar sidebar"}
+            title={pinned ? "Desafixar" : "Afixar"}
+            onClick={() => {
+              togglePinned();
+              try {
+                localStorage.setItem("fp:sb:pinned", !pinned ? "1" : "0");
+              } catch {}
+            }}
+          >
+            {pinned ? <PinOff size={18} /> : <Pin size={18} />}
+          </button>
+        </div>
+      </div>
+
+      {/* Navegação */}
+      <nav className="fp-nav">
+        {items.map((it, i) =>
+          // separadores (secções)
+          (it as any).section ? (
+            <div key={`sec-${i}`} className="nav-section">
+              {(it as any).section}
+            </div>
+          ) : (
+            <Link
+              key={it.href}
+              href={it.href!}
+              className="nav-item"
+              data-active={isActive(it.href) ? "true" : "false"}
+            >
+              <span className="nav-icon" aria-hidden>{it.icon}</span>
+              <span className="nav-label">{it.label}</span>
+            </Link>
+          )
+        )}
+      </nav>
     </div>
   );
 }
