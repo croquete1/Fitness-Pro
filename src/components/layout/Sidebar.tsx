@@ -1,80 +1,89 @@
-"use client";
+// src/components/Sidebar.tsx
+'use client';
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import {
-  BarChart3, FileBarChart, Settings, Users, ClipboardList,
-  BookOpen, BadgeCheck, UserCircle2, Activity
-} from "lucide-react";
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import React from 'react';
 
-type Item = { label: string; href: string; icon: React.ReactNode };
-type Group = { title: string; items: Item[] };
+type Item = {
+  href: string;
+  label: string;
+  icon: React.ReactNode; // mantemos os teus ícones/emoji
+  exact?: boolean;       // quando true, só active em match exacto
+};
 
-const groups: Group[] = [
+type Group = {
+  title: string;
+  items: Item[];
+};
+
+const NAV: Group[] = [
   {
-    title: "GERAL",
+    title: 'GERAL',
     items: [
-      { label: "Dashboard", href: "/dashboard", icon: <BarChart3 size={18} /> },
-      { label: "Relatórios", href: "/dashboard/reports", icon: <FileBarChart size={18} /> },
-      { label: "Definições", href: "/dashboard/settings", icon: <Settings size={18} /> },
+      { href: '/dashboard', label: 'Dashboard', icon: <span className="nav-emoji">📊</span>, exact: true },
+      { href: '/dashboard/reports', label: 'Relatórios', icon: <span className="nav-emoji">🧾</span> },
+      { href: '/dashboard/settings', label: 'Definições', icon: <span className="nav-emoji">⚙️</span> },
     ],
   },
   {
-    title: "PT",
+    title: 'PT',
     items: [
-      { label: "Clientes", href: "/dashboard/pt/clients", icon: <Users size={18} /> },
-      { label: "Planos", href: "/dashboard/pt/plans", icon: <ClipboardList size={18} /> },
-      { label: "Biblioteca", href: "/dashboard/pt/library", icon: <BookOpen size={18} /> },
+      { href: '/dashboard/pt/clients', label: 'Clientes', icon: <span className="nav-emoji">👫</span> },
+      { href: '/dashboard/pt/plans', label: 'Planos', icon: <span className="nav-emoji">🧱</span> },
+      { href: '/dashboard/pt/library', label: 'Biblioteca', icon: <span className="nav-emoji">📚</span> },
     ],
   },
   {
-    title: "ADMIN",
+    title: 'ADMIN',
     items: [
-      { label: "Aprovações", href: "/dashboard/admin/approvals", icon: <BadgeCheck size={18} /> },
-      { label: "Utilizadores", href: "/dashboard/users", icon: <UserCircle2 size={18} /> },
+      { href: '/dashboard/admin/approvals', label: 'Aprovações', icon: <span className="nav-emoji">✅</span> },
+      { href: '/dashboard/admin/users', label: 'Utilizadores', icon: <span className="nav-emoji">👥</span> },
     ],
   },
   {
-    title: "SISTEMA",
+    title: 'SISTEMA',
     items: [
-      { label: "Saúde do sistema", href: "/dashboard/system/health", icon: <Activity size={18} /> },
+      { href: '/dashboard/system/health', label: 'Saúde do sistema', icon: <span className="nav-emoji">🧰</span> },
     ],
   },
 ];
 
+function isActive(pathname: string, href: string, exact?: boolean) {
+  // normaliza (remove trailing slash do pathname, excepto raiz)
+  const clean = pathname !== '/' && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
+
+  if (exact) return clean === href;
+  return clean === href || clean.startsWith(href + '/');
+}
+
 export default function Sidebar() {
   const pathname = usePathname();
 
-  const isActive = (href: string) => {
-    if (href === "/dashboard") return pathname === "/dashboard";
-    return pathname.startsWith(href);
-  };
-
   return (
-    <>
-      {/* Cabeçalho/Brand */}
-      <div className="fp-sb-head">
-        <div className="fp-sb-brand">
-          <div className="logo">💪</div>
-          <div className="nav-label" style={{ fontWeight: 800 }}>Fitness Pro</div>
-        </div>
-        <div className="fp-sb-actions" />
-      </div>
+    <nav className="fp-nav">
+      {NAV.map((group) => (
+        <div key={group.title} className="nav-group">
+          <div className="nav-section">{group.title}</div>
 
-      {/* Navegação */}
-      <nav className="fp-nav" aria-label="Navegação principal">
-        {groups.map((g) => (
-          <div className="nav-group" key={g.title}>
-            <div className="nav-section">{g.title}</div>
-            {g.items.map((it) => (
-              <Link key={it.href} href={it.href} className="nav-item" data-active={isActive(it.href)}>
-                <span className="nav-icon">{it.icon}</span>
-                <span className="nav-label">{it.label}</span>
+          {group.items.map((item) => {
+            const active = isActive(pathname, item.href, item.exact);
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="nav-item"
+                data-active={active ? 'true' : undefined}
+                aria-current={active ? 'page' : undefined}
+              >
+                <span className="nav-icon">{item.icon}</span>
+                <span className="nav-label">{item.label}</span>
               </Link>
-            ))}
-          </div>
-        ))}
-      </nav>
-    </>
+            );
+          })}
+        </div>
+      ))}
+    </nav>
   );
 }
