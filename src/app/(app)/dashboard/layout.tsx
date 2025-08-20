@@ -3,32 +3,41 @@ import SidebarProvider from "@/components/SidebarWrapper";
 import Sidebar from "@/components/Sidebar";
 import AppHeader from "@/components/layout/AppHeader";
 import HeaderSearch from "@/components/layout/HeaderSearch";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export const dynamic = "force-dynamic";   // impede SSG
+export const revalidate = 0;               // sem cache estática
+export const fetchCache = "default-no-store";
+
+export default async function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  // role obtido no servidor (evita useSession() durante o build)
+  const session = await getServerSession(authOptions);
+  const role = String((session as any)?.user?.role ?? "CLIENT").toUpperCase();
+
   return (
     <SidebarProvider>
-      {/* aplica preferência (colapsada/expandida) antes de hidratar para não haver “salto” */}
-<script
-  id="fp-sb-boot"
-  dangerouslySetInnerHTML={{
-    __html: `(function () {
-      try {
-        var p = localStorage.getItem('fp:sb:pinned');
-        var c = localStorage.getItem('fp:sb:collapsed');
-        // Se estiver fixada, força expandida
-        if (p === '1') {
-          document.documentElement.setAttribute('data-sb-collapsed','0');
-        } else if (c) {
-          document.documentElement.setAttribute('data-sb-collapsed', c === '1' ? '1' : '0');
-        }
-      } catch (e) {}
-    })();`,
-  }}
-/>
+      {/* Boot: aplica preferências de colapso antes de hidratar */}
+      <script
+        id="fp-sb-boot"
+        dangerouslySetInnerHTML={{
+          __html: `(function(){
+            try{
+              var v = localStorage.getItem('fp:sb:collapsed');
+              if(v){ document.documentElement.setAttribute('data-sb-collapsed', v==='1'?'1':'0'); }
+            }catch(e){}
+          })();`,
+        }}
+      />
 
       <div className="fp-shell">
         <aside className="fp-sidebar">
-          <Sidebar />
+          {/* Sidebar já sem useSession; recebe o role do servidor */}
+          <Sidebar role={role} />
         </aside>
 
         <div className="fp-content">

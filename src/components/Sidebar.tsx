@@ -2,14 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useSession } from 'next-auth/react';
 
-/**
- * Sidebar role-aware:
- *  - Admin: Geral + PT + Admin + Sistema
- *  - Trainer: Geral (só Dashboard) + PT
- *  - Client: só Dashboard
- */
+export type AppRole = 'ADMIN' | 'TRAINER' | 'CLIENT' | string;
 
 type NavItem = { href: string; label: string; icon: string; startsWith?: boolean };
 type NavGroup = { title: string; items: NavItem[] };
@@ -28,12 +22,10 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
   );
 }
 
-export default function Sidebar() {
+export default function Sidebar({ role = 'CLIENT' }: { role?: AppRole }) {
   const pathname = usePathname() || '/';
-  const { data } = useSession();
-  const role = String((data as any)?.user?.role ?? (data as any)?.role ?? 'CLIENT').toUpperCase();
+  const R = String(role).toUpperCase();
 
-  // Grupos
   const groupGeral: NavGroup = {
     title: 'GERAL',
     items: [
@@ -65,17 +57,15 @@ export default function Sidebar() {
     items: [{ href: '/dashboard/system/health', label: 'Saúde do sistema', icon: '🧰' }],
   };
 
-  // Filtrar por role
   let groups: NavGroup[] = [];
-  if (role === 'ADMIN') {
+  if (R === 'ADMIN') {
     groups = [groupGeral, groupPT, groupAdmin, groupSystem];
-  } else if (role === 'TRAINER') {
+  } else if (R === 'TRAINER') {
     groups = [{ title: groupGeral.title, items: [groupGeral.items[0]] }, groupPT];
   } else {
     groups = [{ title: groupGeral.title, items: [groupGeral.items[0]] }];
   }
 
-  // Active fix
   const isActive = (it: NavItem) => (it.startsWith ? pathname.startsWith(it.href) : pathname === it.href);
 
   return (
