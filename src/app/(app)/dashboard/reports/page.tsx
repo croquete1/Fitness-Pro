@@ -1,10 +1,16 @@
-export default function ReportsPage(){
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Relatórios" };
+
+export default function ReportsPage() {
   return (
-    <div className="page">
-      <h1>Relatórios</h1>
-      <div className="card" style={{ padding:16 }}>
-        Em breve: KPIs, exportação e filtros.
+    <section className="space-y-6">
+      <h1 className="text-2xl font-bold">Relatórios</h1>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="card p-4">Em breve…</div>
+        <div className="card p-4">Em breve…</div>
+        <div className="card p-4">Em breve…</div>
       </div>
-    </div>
+    </section>
   );
 }

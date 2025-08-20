@@ -1,12 +1,12 @@
-export const metadata = {
-  title: "Planos PT · Dashboard",
-};
+import type { Metadata } from "next";
 
-export default function PlansPTPage() {
+export const metadata: Metadata = { title: "Planos" };
+
+export default function PlansPtPage() {
   return (
-    <div style={{ padding: "1rem" }}>
-      <h1 style={{ fontSize: "1.5rem", marginBottom: ".5rem" }}>Planos (PT)</h1>
-      <p>Em breve: gestão de planos de treino de Personal Trainer.</p>
-    </div>
+    <section className="space-y-6">
+      <h1 className="text-2xl font-bold">Planos</h1>
+      <div className="card p-4">Gestão de planos em breve…</div>
+    </section>
   );
 }

@@ -1,10 +1,14 @@
-export default function SettingsPage(){
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Definições" };
+
+export default function SettingsPage() {
   return (
-    <div className="page">
-      <h1>Definições</h1>
-      <div className="card" style={{ padding:16, display:"grid", gap:12 }}>
-        <div className="text-muted">Preferências, tema e notificações.</div>
+    <section className="space-y-6">
+      <h1 className="text-2xl font-bold">Definições</h1>
+      <div className="card p-4">
+        <p>Preferências da conta e da aplicação.</p>
       </div>
-    </div>
+    </section>
   );
 }

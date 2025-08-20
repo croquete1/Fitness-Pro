@@ -1,12 +1,12 @@
-export const metadata = {
-  title: "Biblioteca PT · Dashboard",
-};
+import type { Metadata } from "next";
 
-export default function LibraryPTPage() {
+export const metadata: Metadata = { title: "Biblioteca" };
+
+export default function LibraryPtPage() {
   return (
-    <div style={{ padding: "1rem" }}>
-      <h1 style={{ fontSize: "1.5rem", marginBottom: ".5rem" }}>Biblioteca (PT)</h1>
-      <p>Em breve: biblioteca de exercícios, planos e recursos.</p>
-    </div>
+    <section className="space-y-6">
+      <h1 className="text-2xl font-bold">Biblioteca</h1>
+      <div className="card p-4">Conteúdos em breve…</div>
+    </section>
   );
 }
