@@ -1,0 +1,22 @@
+/* Base (light) – usa variáveis já definidas em theme.css/globals.css */
+.fp-nav { height: 100%; padding: 12px; background: var(--sidebar-bg); color: var(--text); overflow: auto; }
+.nav-group { margin-bottom: 10px; }
+.nav-section { font-size: 11px; color: var(--muted); letter-spacing: .6px; text-transform: uppercase; margin: 12px 8px 6px; }
+
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px; margin: 4px 0; border-radius: 10px;
+  color: var(--text); text-decoration: none; border: 1px solid transparent;
+  background: transparent;
+}
+.nav-item:hover { background: var(--hover); border-color: var(--border); }
+.nav-item[data-active="true"] { background: var(--active); border-color: var(--border-strong); }
+
+.nav-icon { width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; }
+.nav-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Colapso controlado em <html data-sb-collapsed="true"> */
+html[data-sb-collapsed="true"] .nav-section,
+html[data-sb-collapsed="true"] .nav-label {
+  opacity: 0; pointer-events: none; width: 0; height: 0; overflow: hidden; position: absolute;
+}
