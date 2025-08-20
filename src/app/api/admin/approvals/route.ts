@@ -1,64 +1,44 @@
-// src/app/api/admin/approvals/route.ts
-import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { Status } from "@prisma/client";
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import prisma from '@/lib/prisma';
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-
-type Action = "approve" | "reject";
+function forbid() {
+  return new NextResponse('Forbidden', { status: 403 });
+}
 
 export async function GET() {
-  try {
-    const users = await prisma.user.findMany({
-      where: { status: Status.PENDING },
-      select: { id: true, email: true, name: true, role: true, status: true, createdAt: true },
-      orderBy: { createdAt: "desc" },
-      take: 100,
-    });
-    return NextResponse.json({ ok: true, data: users });
-  } catch (e: any) {
-    console.error("[approvals][GET]", e?.message ?? e);
-    return NextResponse.json({ ok: false, error: "INTERNAL_ERROR" }, { status: 500 });
-  }
+  const session = await getServerSession(authOptions);
+  const role = (session as any)?.user?.role || (session as any)?.user?.type;
+
+  if (!session?.user || (role && role !== 'ADMIN')) return forbid();
+
+  const users = await prisma.user.findMany({
+    where: { status: 'PENDING' },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true, name: true, email: true, createdAt: true, status: true, role: true },
+  });
+
+  return NextResponse.json({ users });
 }
 
 export async function POST(req: Request) {
-  try {
-    const body = await readBody(req);
-    const id = String(body.id ?? "").trim();
-    const action = String(body.action ?? "").toLowerCase() as Action;
+  const session = await getServerSession(authOptions);
+  const role = (session as any)?.user?.role || (session as any)?.user?.type;
 
-    if (!id) return NextResponse.json({ ok: false, error: "MISSING_ID" }, { status: 400 });
-    if (action !== "approve" && action !== "reject") {
-      return NextResponse.json({ ok: false, error: "INVALID_ACTION" }, { status: 400 });
-    }
+  if (!session?.user || (role && role !== 'ADMIN')) return forbid();
 
-    const newStatus = action === "approve" ? Status.ACTIVE : Status.SUSPENDED;
-
-    const updated = await prisma.user.update({
-      where: { id },
-      data: { status: newStatus },
-      select: { id: true, email: true, name: true, role: true, status: true, updatedAt: true },
-    });
-
-    return NextResponse.json({ ok: true, data: updated });
-  } catch (e: any) {
-    console.error("[approvals][POST]", e?.message ?? e);
-    return NextResponse.json({ ok: false, error: "INTERNAL_ERROR" }, { status: 500 });
+  const { id, action } = await req.json().catch(() => ({} as any));
+  if (!id || !['approve', 'reject'].includes(action)) {
+    return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
   }
-}
 
-async function readBody(req: Request): Promise<Record<string, any>> {
-  try {
-    const json = await req.json();
-    if (json && typeof json === "object") return json as Record<string, any>;
-  } catch {}
-  try {
-    const fd = await req.formData();
-    const obj: Record<string, any> = {};
-    fd.forEach((v, k) => (obj[k] = typeof v === "string" ? v : ""));
-    return obj;
-  } catch {}
-  return {};
+  const newStatus = action === 'approve' ? 'ACTIVE' : 'SUSPENDED';
+
+  await prisma.user.update({
+    where: { id },
+    data: { status: newStatus },
+  });
+
+  return NextResponse.json({ ok: true });
 }
