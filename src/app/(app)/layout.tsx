@@ -1,48 +1,66 @@
-import { ReactNode } from 'react';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import React, { ReactNode } from "react";
+import Script from "next/script";
+import AppHeader from "@/components/layout/AppHeader";
+import Sidebar from "@/components/Sidebar"; // assumir que já existe no teu projeto
 
-import Sidebar from '@/components/Sidebar';
-import AppHeader from '@/components/layout/AppHeader';
-import SbToggle from '@/components/layout/SbToggle';
-import HeaderSearch from '@/components/layout/HeaderSearch';
-
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-
-export default async function AppLayout({ children }: { children: ReactNode }) {
-  const session = await getServerSession(authOptions).catch(() => null);
-  const role = String(
-    (session as any)?.user?.role ?? (session as any)?.role ?? 'CLIENT'
-  ).toUpperCase();
-
+export default function AppLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="fp-shell">
-      <aside className="fp-sidebar">
-        <div className="fp-sb-head">
-          <div className="fp-sb-brand">
-            <span className="logo">HMS</span>
-            <strong>Fitness Pro</strong>
-          </div>
-          <div className="fp-sb-actions">
-            <SbToggle />
-          </div>
+    <html lang="pt-PT" suppressHydrationWarning>
+      <head>
+        {/* Inicialização precoce: aplica tema e estado da sidebar antes da hidratação para evitar "flash" */}
+        <Script id="init-preferences" strategy="beforeInteractive">{`
+(function () {
+  try {
+    var root = document.documentElement;
+    var sb = localStorage.getItem("sb-collapsed");
+    if (sb === "true" || sb === "false") root.setAttribute("data-sb-collapsed", sb);
+
+    var theme = localStorage.getItem("theme");
+    if (theme === "dark" || theme === "light") {
+      root.setAttribute("data-theme", theme);
+    } else {
+      var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      root.setAttribute("data-theme", prefersDark ? "dark" : "light");
+    }
+  } catch (e) {}
+})();
+        `}</Script>
+      </head>
+      <body
+        style={{
+          margin: 0,
+          minHeight: "100vh",
+          display: "grid",
+          gridTemplateColumns:
+            "var(--sb-width, 260px) 1fr", // deixa o teu globals.css controlar via [data-sb-collapsed]
+          gridTemplateRows: "auto 1fr",
+          gridTemplateAreas: `
+            "sidebar header"
+            "sidebar main"
+          `,
+        }}
+      >
+        <aside style={{ gridArea: "sidebar", minHeight: 0, borderRight: "1px solid var(--border, #e5e5e5)" }}>
+          {/* A tua Sidebar existente */}
+          <Sidebar />
+        </aside>
+
+        <div style={{ gridArea: "header" }}>
+          <AppHeader />
         </div>
-        <Sidebar role={role} />
-      </aside>
 
-      <div className="fp-content">
-        <header className="fp-header">
-          <div className="fp-header-inner">
-            {/* Esquerda: caixa de pesquisa */}
-            <HeaderSearch />
-            {/* Direita: ações do header */}
-            <AppHeader />
-          </div>
-        </header>
-
-        <main className="fp-main">{children}</main>
-      </div>
-    </div>
+        <main
+          id="app-content"
+          style={{
+            gridArea: "main",
+            minWidth: 0,
+            minHeight: 0,
+            padding: 16,
+          }}
+        >
+          {children}
+        </main>
+      </body>
+    </html>
   );
 }
