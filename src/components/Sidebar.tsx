@@ -1,126 +1,140 @@
 // src/components/Sidebar.tsx
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useSidebar } from './SidebarWrapper';
-import { Pin, PinOff, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useEffect, useState, useMemo } from "react";
+
+type Role = "ADMIN" | "TRAINER" | "CLIENT" | string;
 
 type Item = {
   href: string;
   label: string;
-  icon: React.ReactNode;
-  exact?: boolean;
+  emoji: string;
+  match?: "exact" | "prefix";
 };
-type Group = { title: string; items: Item[] };
+type Section = { title?: string; items: Item[] };
 
-const NAV: Group[] = [
-  {
-    title: 'GERAL',
-    items: [
-      { href: '/dashboard', label: 'Dashboard', icon: <span className="nav-emoji">📊</span>, exact: true },
-      { href: '/dashboard/reports', label: 'Relatórios', icon: <span className="nav-emoji">🧾</span> },
-      { href: '/dashboard/settings', label: 'Definições', icon: <span className="nav-emoji">⚙️</span> },
-    ],
-  },
-  {
-    title: 'PT',
-    items: [
-      { href: '/dashboard/pt/clients', label: 'Clientes', icon: <span className="nav-emoji">👫</span> },
-      { href: '/dashboard/pt/plans', label: 'Planos', icon: <span className="nav-emoji">🧱</span> },
-      { href: '/dashboard/pt/library', label: 'Biblioteca', icon: <span className="nav-emoji">📚</span> },
-    ],
-  },
-  {
-    title: 'ADMIN',
-    items: [
-      { href: '/dashboard/admin/approvals', label: 'Aprovações', icon: <span className="nav-emoji">✅</span> },
-      { href: '/dashboard/admin/users', label: 'Utilizadores', icon: <span className="nav-emoji">👥</span> },
-    ],
-  },
-  {
-    title: 'SISTEMA',
-    items: [
-      { href: '/dashboard/system/health', label: 'Saúde do sistema', icon: <span className="nav-emoji">🧰</span> },
-    ],
-  },
-];
+async function resolveRoleSafely(): Promise<Role> {
+  // tenta next-auth via import dinâmico (não requer Provider)
+  try {
+    const mod = await import("next-auth/react");
+    const s = await mod.getSession();
+    const r =
+      (s?.user as any)?.role ||
+      (s?.user as any)?.type ||
+      (s as any)?.role ||
+      null;
+    if (r) return String(r).toUpperCase();
+  } catch {}
+  // fallback: endpoint de sessão
+  try {
+    const r = await fetch("/api/auth/session", { credentials: "include" });
+    if (r.ok) {
+      const j = await r.json();
+      const role =
+        j?.user?.role || j?.user?.type || j?.role || j?.type || "CLIENT";
+      return String(role).toUpperCase();
+    }
+  } catch {}
+  return "CLIENT";
+}
 
-function isActive(pathname: string, href: string, exact?: boolean) {
-  // normaliza trailing slash (excepto '/')
-  const clean = pathname !== '/' && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
-
-  if (exact || href === '/dashboard') {
-    // Dashboard só activo em match exacto
-    return clean === href;
-  }
-  return clean === href || clean.startsWith(href + '/');
+function isActive(pathname: string, href: string, match: Item["match"]) {
+  if (match === "exact") return pathname === href;
+  return pathname.startsWith(href);
 }
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { collapsed, pinned, toggleCollapsed, togglePinned } = useSidebar();
+  const [role, setRole] = useState<Role>("CLIENT"); // por omissão o mais restritivo
+
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      const r = await resolveRoleSafely();
+      if (!cancel) setRole(r);
+    })();
+    return () => {
+      cancel = true;
+    };
+  }, []);
+
+  const sections: Section[] = useMemo(() => {
+    // Gerais (toda a gente)
+    const general: Section = {
+      title: "GERAL",
+      items: [
+        { href: "/dashboard", label: "Dashboard", emoji: "📊", match: "exact" },
+        { href: "/dashboard/reports", label: "Relatórios", emoji: "📄", match: "prefix" },
+        { href: "/dashboard/settings", label: "Definições", emoji: "⚙️", match: "prefix" },
+      ],
+    };
+
+    // PT
+    const pt: Section = {
+      title: "PT",
+      items: [
+        { href: "/dashboard/clients", label: "Clientes", emoji: "🧑‍🤝‍🧑", match: "prefix" },
+        { href: "/dashboard/plans", label: "Planos", emoji: "🧱", match: "prefix" },
+        { href: "/dashboard/library", label: "Biblioteca", emoji: "📚", match: "prefix" },
+      ],
+    };
+
+    // Admin
+    const admin: Section = {
+      title: "ADMIN",
+      items: [
+        { href: "/dashboard/admin/approvals", label: "Aprovações", emoji: "✅", match: "prefix" },
+        { href: "/dashboard/admin/users", label: "Utilizadores", emoji: "👥", match: "prefix" },
+      ],
+    };
+
+    // Sistema (apenas admin)
+    const system: Section = {
+      title: "SISTEMA",
+      items: [{ href: "/dashboard/system", label: "Saúde do sistema", emoji: "🧰", match: "prefix" }],
+    };
+
+    // Composição por role
+    const r = String(role).toUpperCase();
+    if (r === "ADMIN") {
+      return [general, pt, admin, system];
+    }
+    if (r === "TRAINER") {
+      return [general, pt]; // sem Admin, sem Sistema
+    }
+    // CLIENT (ou desconhecido)
+    return [
+      // cliente vê o básico; remove PT/Admin/Sistema
+      {
+        title: "GERAL",
+        items: [
+          { href: "/dashboard", label: "Dashboard", emoji: "📊", match: "exact" },
+          { href: "/dashboard/library", label: "Biblioteca", emoji: "📚", match: "prefix" },
+        ],
+      },
+    ];
+  }, [role]);
 
   return (
-    <>
-      {/* Cabeçalho da sidebar */}
-      <div className="fp-sb-head">
-        <div className="fp-sb-brand">
-          {/* Logo (usa o teu /logo.svg ou imagem que já tenhas) */}
-          <img src="/logo.png" alt="Logo" className="logo" />
-          <strong>Fitness Pro</strong>
+    <nav className="fp-nav">
+      {sections.map((s, idx) => (
+        <div key={idx} className="nav-group">
+          {s.title && <div className="nav-section">{s.title}</div>}
+          {s.items.map((it) => {
+            const active = isActive(pathname, it.href, it.match ?? "prefix");
+            return (
+              <Link key={it.href} href={it.href} className="nav-item" data-active={active ? "true" : undefined}>
+                <span className="nav-icon nav-emoji" aria-hidden>
+                  {it.emoji}
+                </span>
+                <span className="nav-label">{it.label}</span>
+              </Link>
+            );
+          })}
         </div>
-
-        <div className="fp-sb-actions">
-          {/* PIN – afixar/desafixar, não colapsa */}
-          <button
-            type="button"
-            className="btn icon"
-            aria-label={pinned ? 'Desafixar sidebar' : 'Afixar sidebar'}
-            title={pinned ? 'Desafixar sidebar' : 'Afixar sidebar'}
-            onClick={togglePinned}
-            data-role="sb-pin"
-          >
-            {pinned ? <Pin size={18} /> : <PinOff size={18} />}
-          </button>
-
-          {/* COLAPSO – mostrar só ícones vs. expandida; não mexe no pin */}
-          <button
-            type="button"
-            className="btn icon"
-            aria-label={collapsed ? 'Expandir menu' : 'Encolher para ícones'}
-            title={collapsed ? 'Expandir menu' : 'Encolher para ícones'}
-            onClick={toggleCollapsed}
-            data-role="sb-toggle"
-          >
-            {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
-          </button>
-        </div>
-      </div>
-
-      {/* Navegação */}
-      <nav className="fp-nav">
-        {NAV.map((group) => (
-          <div key={group.title} className="nav-group">
-            <div className="nav-section">{group.title}</div>
-            {group.items.map((item) => {
-              const active = isActive(pathname, item.href, item.exact);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="nav-item"
-                  data-active={active ? 'true' : undefined}
-                  aria-current={active ? 'page' : undefined}
-                >
-                  <span className="nav-icon">{item.icon}</span>
-                  <span className="nav-label">{item.label}</span>
-                </Link>
-              );
-            })}
-          </div>
-        ))}
-      </nav>
-    </>
+      ))}
+    </nav>
   );
 }
