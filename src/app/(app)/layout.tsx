@@ -37,7 +37,6 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
                 try { localStorage.setItem("sb-collapsed", next); } catch {}
               }}
             >
-              {/* ícone simples para compactar/expandir (sem pin duplicado) */}
               <span className="nav-emoji" aria-hidden>🗂️</span>
             </button>
           </div>

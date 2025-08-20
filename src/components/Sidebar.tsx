@@ -1,110 +1,83 @@
-'use client';
+// src/components/Sidebar.tsx
+"use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 import { usePathname } from "next/navigation";
-import Image from "next/image";
-import { Pin, PinOff } from "lucide-react";
-import { useSidebar } from "./SidebarWrapper";
 
-type Role = "ADMIN" | "TRAINER" | "CLIENT";
+type Props = { role?: string };
 
-const NAV_ADMIN = [
-  { href: "/dashboard", label: "Dashboard", icon: "📊" },
-  { href: "/dashboard/reports", label: "Relatórios", icon: "🧾" },
-  { href: "/dashboard/settings", label: "Definições", icon: "⚙️" },
-  { section: "PT" as const },
-  { href: "/dashboard/pt/clients", label: "Clientes", icon: "🧑‍🤝‍🧑" },
-  { href: "/dashboard/pt/plans", label: "Planos", icon: "🧱" },
-  { href: "/dashboard/pt/library", label: "Biblioteca", icon: "📚" },
-  { section: "ADMIN" as const },
-  { href: "/dashboard/admin/approvals", label: "Aprovações", icon: "✅" },
-  { href: "/dashboard/admin/users", label: "Utilizadores", icon: "👥" },
-  { section: "SISTEMA" as const },
-  { href: "/dashboard/system/health", label: "Saúde do sistema", icon: "🧰" },
-];
+type Item = { href: string; label: string; icon: string };
 
-const NAV_TRAINER = [
-  { href: "/dashboard", label: "Dashboard", icon: "📊" },
-  { href: "/dashboard/pt/clients", label: "Clientes", icon: "🧑‍🤝‍🧑" },
-  { href: "/dashboard/pt/plans", label: "Planos", icon: "🧱" },
-  { href: "/dashboard/pt/library", label: "Biblioteca", icon: "📚" },
-];
+function isActive(pathname: string, href: string) {
+  if (href === "/dashboard") return pathname === "/dashboard";
+  return pathname.startsWith(href);
+}
 
-export default function Sidebar({ role: roleProp }: { role?: Role }) {
+export default function Sidebar({ role }: Props) {
   const pathname = usePathname();
-  const { collapsed, setCollapsed, pinned, togglePinned } = useSidebar();
 
-  const role = (roleProp ?? "ADMIN") as Role;
-  const items = role === "TRAINER" ? NAV_TRAINER : NAV_ADMIN;
+  // respeitar preferência guardada (quando a app carrega no cliente)
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("sb-collapsed");
+      if (saved === "1" || saved === "0") {
+        document.documentElement.setAttribute("data-sb-collapsed", saved);
+      }
+    } catch {}
+  }, []);
 
-  const isActive = (href?: string) =>
-    href ? (href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href)) : false;
+  const geral: Item[] = [
+    { href: "/dashboard", label: "Dashboard", icon: "📊" },
+    { href: "/dashboard/reports", label: "Relatórios", icon: "🧾" },
+    { href: "/dashboard/settings", label: "Definições", icon: "⚙️" },
+  ];
+
+  const pt: Item[] = [
+    { href: "/dashboard/pt/clients", label: "Clientes", icon: "👥" },
+    { href: "/dashboard/pt/plans", label: "Planos", icon: "🧱" },
+    { href: "/dashboard/pt/library", label: "Biblioteca", icon: "📚" },
+  ];
+
+  const admin: Item[] = [
+    { href: "/dashboard/admin/approvals", label: "Aprovações", icon: "✅" },
+    { href: "/dashboard/admin/users", label: "Utilizadores", icon: "🧑‍🤝‍🧑" },
+  ];
+
+  const sistema: Item[] = [
+    { href: "/dashboard/system/health", label: "Saúde do sistema", icon: "🩺" },
+  ];
+
+  const showPT = role === "TRAINER" || role === "ADMIN";
+  const showAdmin = role === "ADMIN";
+
+  const Section = ({ title, items }: { title: string; items: Item[] }) => (
+    <>
+      <div className="nav-section">{title}</div>
+      <div className="nav-group">
+        {items.map((it) => (
+          <Link
+            key={it.href}
+            href={it.href}
+            className="nav-item"
+            data-active={isActive(pathname, it.href)}
+          >
+            <span className="nav-icon nav-emoji" aria-hidden>
+              {it.icon}
+            </span>
+            <span className="nav-label">{it.label}</span>
+          </Link>
+        ))}
+      </div>
+    </>
+  );
 
   return (
-    <div>
-      {/* Cabeçalho da sidebar */}
-      <div className="fp-sb-head">
-        <div className="fp-sb-brand">
-          <Image src="/logo.svg" alt="Fitness Pro" className="logo" width={32} height={32} priority />
-          <strong>Fitness Pro</strong>
-        </div>
-        <div className="fp-sb-actions">
-          {/* Encolher/expandir (mostrar só ícones) */}
-          <button
-            type="button"
-            className="btn icon"
-            aria-label={collapsed ? "Expandir menu" : "Encolher menu"}
-            title={collapsed ? "Expandir" : "Encolher"}
-            onClick={() => {
-              const next = !collapsed;
-              setCollapsed(next);
-              try {
-                localStorage.setItem("fp:sb:collapsed", next ? "1" : "0");
-                document.documentElement.setAttribute("data-sb-collapsed", next ? "1" : "0");
-              } catch {}
-            }}
-          >
-            {collapsed ? "›" : "‹"}
-          </button>
-
-          {/* Afixar (pinned) — independente do encolher */}
-          <button
-            type="button"
-            className={`btn icon btn-pin${pinned ? " is-pinned" : ""}`}
-            aria-label={pinned ? "Desafixar sidebar" : "Afixar sidebar"}
-            title={pinned ? "Desafixar" : "Afixar"}
-            onClick={() => {
-              togglePinned();
-              try {
-                localStorage.setItem("fp:sb:pinned", !pinned ? "1" : "0");
-              } catch {}
-            }}
-          >
-            {pinned ? <PinOff size={18} /> : <Pin size={18} />}
-          </button>
-        </div>
-      </div>
-
-      {/* Navegação */}
-      <nav className="fp-nav">
-        {items.map((it, i) =>
-          (it as any).section ? (
-            <div key={`sec-${i}`} className="nav-section">
-              {(it as any).section}
-            </div>
-          ) : (
-            <Link
-              key={it.href}
-              href={it.href!}
-              className="nav-item"
-              data-active={isActive(it.href) ? "true" : "false"}
-            >
-              <span className="nav-icon" aria-hidden>{it.icon}</span>
-              <span className="nav-label">{it.label}</span>
-            </Link>
-          )
-        )}
-      </nav>
-    </div>
+    <nav className="fp-nav">
+      <Section title="GERAL" items={geral} />
+      {showPT && <Section title="PT" items={pt} />}
+      {showAdmin && <Section title="ADMIN" items={admin} />}
+      <Section title="SISTEMA" items={sistema} />
+    </nav>
   );
 }
