@@ -1,105 +1,140 @@
+// src/app/api/dashboard/stats/route.ts
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
-// Força runtime dinâmico (estes dados são sempre "reais")
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-function startOfUTCDay(d = new Date()) {
+function startOfDay(d: Date) {
   const x = new Date(d);
-  x.setUTCHours(0, 0, 0, 0);
-  return x;
-}
-function endOfUTCDay(d = new Date()) {
-  const x = new Date(d);
-  x.setUTCHours(24, 0, 0, 0);
+  x.setHours(0, 0, 0, 0);
   return x;
 }
 function addDays(d: Date, n: number) {
   const x = new Date(d);
-  x.setUTCDate(x.getUTCDate() + n);
+  x.setDate(x.getDate() + n);
   return x;
 }
 
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
-    const userId = (session?.user as any)?.id as string | undefined;
-    const role = ((session?.user as any)?.role ?? "ADMIN") as "ADMIN" | "TRAINER" | "CLIENT";
+    const session = await getServerSession(authOptions).catch(() => null);
+    const role = String(
+      (session as any)?.user?.role ?? (session as any)?.role ?? "CLIENT"
+    ).toUpperCase();
+    const userId: string | null =
+      (session as any)?.user?.id ?? (session as any)?.id ?? null;
 
-    // Filtros por role (PT só vê dele)
-    const roleFilter =
-      role === "TRAINER" && userId ? { trainerId: userId } : {};
+    const now = new Date();
+    const sod = startOfDay(now);
+    const tomorrow = addDays(sod, 1);
+    const in7 = addDays(sod, 7);
 
-    // Janela temporal
-    const todayStart = startOfUTCDay();
-    const todayEnd = endOfUTCDay();
-    const weekEnd = addDays(todayStart, 7);
+    let sessionsToday = 0;
+    let sessionsNext7Days = 0;
+    let pendingApprovals = 0;
+    let totalsClients = 0;
+    let totalsTrainers = 0;
+    let upcoming:
+      | { id: string; scheduledAt: Date; status: string; client?: { name?: string | null } | null }[]
+      | [] = [];
 
-    // === SESSÕES (usar scheduledAt, que existe no schema) ===
-    const sessionsToday = await prisma.session.count({
-      where: {
-        ...roleFilter,
-        scheduledAt: { gte: todayStart, lt: todayEnd },
-      },
-    });
+    if (role === "TRAINER" && userId) {
+      // PT: métricas filtradas por trainerId
+      sessionsToday = await prisma.session.count({
+        where: {
+          trainerId: userId,
+          scheduledAt: { gte: sod, lt: tomorrow },
+        },
+      });
 
-    const sessionsNext7Days = await prisma.session.count({
-      where: {
-        ...roleFilter,
-        scheduledAt: { gte: todayStart, lt: weekEnd },
-      },
-    });
+      sessionsNext7Days = await prisma.session.count({
+        where: {
+          trainerId: userId,
+          scheduledAt: { gte: sod, lt: in7 },
+        },
+      });
 
-    const upcoming = await prisma.session.findMany({
-      where: {
-        ...roleFilter,
-        scheduledAt: { gte: todayStart, lt: weekEnd },
-      },
-      orderBy: { scheduledAt: "asc" },
-      take: 10,
-      select: {
-        id: true,
-        scheduledAt: true,
-        status: true,
-        client: { select: { name: true } },
-      },
-    });
+      // Nº de clientes do PT = nº distinto de clientId nas sessões desse PT
+      const distinctClients = await prisma.session.findMany({
+        where: { trainerId: userId },
+        select: { clientId: true },
+        distinct: ["clientId"],
+      });
+      totalsClients = distinctClients.filter((c) => !!c.clientId).length;
 
-    // === APROVAÇÕES PENDENTES (ADMIN) ===
-    const pendingApprovals =
-      role === "ADMIN"
-        ? await prisma.user.count({ where: { status: "PENDING" } })
-        : 0;
+      totalsTrainers = 1; // o próprio PT
 
-    // === TOTAIS SIMPLES ===
-    const totalClients =
-      role === "TRAINER" && userId
-        ? await prisma.user.count({
-            where: { role: "CLIENT", sessionsAsClient: { some: { trainerId: userId } } },
-          })
-        : await prisma.user.count({ where: { role: "CLIENT" } });
+      upcoming = await prisma.session.findMany({
+        where: { trainerId: userId, scheduledAt: { gte: now } },
+        orderBy: { scheduledAt: "asc" },
+        take: 10,
+        select: {
+          id: true,
+          scheduledAt: true,
+          status: true,
+          client: { select: { name: true } },
+        },
+      });
+    } else {
+      // ADMIN (ou outros): métricas globais
+      sessionsToday = await prisma.session.count({
+        where: { scheduledAt: { gte: sod, lt: tomorrow } },
+      });
 
-    const totalTrainers =
-      role === "TRAINER"
-        ? 1 // o próprio
-        : await prisma.user.count({ where: { role: "TRAINER" } });
+      sessionsNext7Days = await prisma.session.count({
+        where: { scheduledAt: { gte: sod, lt: in7 } },
+      });
+
+      pendingApprovals = await prisma.user.count({
+        // tipos do Prisma podem ser enum; cast para evitar erro em build caso enum tenha nome diferente
+        where: { status: "PENDING" as any },
+      });
+
+      totalsClients = await prisma.user.count({
+        where: { role: "CLIENT" as any },
+      });
+
+      totalsTrainers = await prisma.user.count({
+        where: { role: "TRAINER" as any },
+      });
+
+      upcoming = await prisma.session.findMany({
+        where: { scheduledAt: { gte: now } },
+        orderBy: { scheduledAt: "asc" },
+        take: 10,
+        select: {
+          id: true,
+          scheduledAt: true,
+          status: true,
+          client: { select: { name: true } },
+        },
+      });
+    }
 
     return NextResponse.json({
-      role,
+      role: role === "TRAINER" ? "TRAINER" : "ADMIN",
       sessionsToday,
       sessionsNext7Days,
       pendingApprovals,
-      totals: {
-        clients: totalClients,
-        trainers: totalTrainers,
-      },
+      totals: { clients: totalsClients, trainers: totalsTrainers },
       upcoming,
     });
-  } catch (e: any) {
-    console.error("stats route error:", e);
-    return NextResponse.json({ error: "Failed to load stats" }, { status: 500 });
+  } catch (err) {
+    // fallback seguro para não rebentar a dashboard
+    return NextResponse.json(
+      {
+        role: "ADMIN",
+        sessionsToday: 0,
+        sessionsNext7Days: 0,
+        pendingApprovals: 0,
+        totals: { clients: 0, trainers: 0 },
+        upcoming: [],
+        _error: "stats-failed",
+      },
+      { status: 200 }
+    );
   }
 }
