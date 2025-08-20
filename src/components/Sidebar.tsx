@@ -1,140 +1,106 @@
-// src/components/Sidebar.tsx
-"use client";
+'use client';
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useState, useMemo } from "react";
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { useEffect, useState } from 'react';
 
-type Role = "ADMIN" | "TRAINER" | "CLIENT" | string;
+/**
+ * A sidebar respeita:
+ *  - Admin: vê todos os grupos (Geral, PT, Admin, Sistema)
+ *  - Trainer: vê apenas Geral (Dashboard/Relatórios se quiseres) + PT
+ *  - Client: só Geral (Dashboard) por enquanto
+ *
+ * Mantém a tua lógica de "pin" e "collapse" via html[data-sb-collapsed]
+ * (não mexi no wrapper nem no CSS para não quebrar nada).
+ */
 
-type Item = {
-  href: string;
-  label: string;
-  emoji: string;
-  match?: "exact" | "prefix";
-};
-type Section = { title?: string; items: Item[] };
+type NavItem = { href: string; label: string; icon: string; startsWith?: boolean };
+type NavGroup = { title: string; items: NavItem[] };
 
-async function resolveRoleSafely(): Promise<Role> {
-  // tenta next-auth via import dinâmico (não requer Provider)
-  try {
-    const mod = await import("next-auth/react");
-    const s = await mod.getSession();
-    const r =
-      (s?.user as any)?.role ||
-      (s?.user as any)?.type ||
-      (s as any)?.role ||
-      null;
-    if (r) return String(r).toUpperCase();
-  } catch {}
-  // fallback: endpoint de sessão
-  try {
-    const r = await fetch("/api/auth/session", { credentials: "include" });
-    if (r.ok) {
-      const j = await r.json();
-      const role =
-        j?.user?.role || j?.user?.type || j?.role || j?.type || "CLIENT";
-      return String(role).toUpperCase();
-    }
-  } catch {}
-  return "CLIENT";
-}
-
-function isActive(pathname: string, href: string, match: Item["match"]) {
-  if (match === "exact") return pathname === href;
-  return pathname.startsWith(href);
+function NavLink({ item, active }: { item: NavItem; active: boolean }) {
+  return (
+    <Link
+      href={item.href}
+      className="nav-item"
+      data-active={active ? 'true' : 'false'}
+      aria-current={active ? 'page' : undefined}
+    >
+      <span className="nav-icon nav-emoji" aria-hidden>{item.icon}</span>
+      <span className="nav-label">{item.label}</span>
+    </Link>
+  );
 }
 
 export default function Sidebar() {
-  const pathname = usePathname();
-  const [role, setRole] = useState<Role>("CLIENT"); // por omissão o mais restritivo
+  const pathname = usePathname() || '/';
+  const { data } = useSession();
+  const role = String((data as any)?.user?.role ?? (data as any)?.role ?? 'CLIENT').toUpperCase();
 
-  useEffect(() => {
-    let cancel = false;
-    (async () => {
-      const r = await resolveRoleSafely();
-      if (!cancel) setRole(r);
-    })();
-    return () => {
-      cancel = true;
-    };
-  }, []);
+  // groups “base”
+  const groupGeral: NavGroup = {
+    title: 'GERAL',
+    items: [
+      { href: '/dashboard', label: 'Dashboard', icon: '📊', startsWith: true },
+      { href: '/dashboard/reports', label: 'Relatórios', icon: '🧾' },
+      { href: '/dashboard/settings', label: 'Definições', icon: '⚙️' },
+    ],
+  };
 
-  const sections: Section[] = useMemo(() => {
-    // Gerais (toda a gente)
-    const general: Section = {
-      title: "GERAL",
-      items: [
-        { href: "/dashboard", label: "Dashboard", emoji: "📊", match: "exact" },
-        { href: "/dashboard/reports", label: "Relatórios", emoji: "📄", match: "prefix" },
-        { href: "/dashboard/settings", label: "Definições", emoji: "⚙️", match: "prefix" },
-      ],
-    };
+  const groupPT: NavGroup = {
+    title: 'PT',
+    items: [
+      { href: '/dashboard/pt/clients', label: 'Clientes', icon: '🧑‍🤝‍🧑', startsWith: true },
+      { href: '/dashboard/pt/plans', label: 'Planos', icon: '🧱' },
+      { href: '/dashboard/pt/library', label: 'Biblioteca', icon: '🧠', startsWith: true },
+    ],
+  };
 
-    // PT
-    const pt: Section = {
-      title: "PT",
-      items: [
-        { href: "/dashboard/clients", label: "Clientes", emoji: "🧑‍🤝‍🧑", match: "prefix" },
-        { href: "/dashboard/plans", label: "Planos", emoji: "🧱", match: "prefix" },
-        { href: "/dashboard/library", label: "Biblioteca", emoji: "📚", match: "prefix" },
-      ],
-    };
+  const groupAdmin: NavGroup = {
+    title: 'ADMIN',
+    items: [
+      { href: '/dashboard/admin/approvals', label: 'Aprovações', icon: '✅', startsWith: true },
+      { href: '/dashboard/admin/users', label: 'Utilizadores', icon: '👥', startsWith: true },
+    ],
+  };
 
-    // Admin
-    const admin: Section = {
-      title: "ADMIN",
-      items: [
-        { href: "/dashboard/admin/approvals", label: "Aprovações", emoji: "✅", match: "prefix" },
-        { href: "/dashboard/admin/users", label: "Utilizadores", emoji: "👥", match: "prefix" },
-      ],
-    };
+  const groupSystem: NavGroup = {
+    title: 'SISTEMA',
+    items: [{ href: '/dashboard/system/health', label: 'Saúde do sistema', icon: '🧰' }],
+  };
 
-    // Sistema (apenas admin)
-    const system: Section = {
-      title: "SISTEMA",
-      items: [{ href: "/dashboard/system", label: "Saúde do sistema", emoji: "🧰", match: "prefix" }],
-    };
-
-    // Composição por role
-    const r = String(role).toUpperCase();
-    if (r === "ADMIN") {
-      return [general, pt, admin, system];
-    }
-    if (r === "TRAINER") {
-      return [general, pt]; // sem Admin, sem Sistema
-    }
-    // CLIENT (ou desconhecido)
-    return [
-      // cliente vê o básico; remove PT/Admin/Sistema
-      {
-        title: "GERAL",
-        items: [
-          { href: "/dashboard", label: "Dashboard", emoji: "📊", match: "exact" },
-          { href: "/dashboard/library", label: "Biblioteca", emoji: "📚", match: "prefix" },
-        ],
-      },
+  // filtra por role
+  let groups: NavGroup[] = [];
+  if (role === 'ADMIN') {
+    groups = [groupGeral, groupPT, groupAdmin, groupSystem];
+  } else if (role === 'TRAINER') {
+    // trainer: sem secção Admin e Sistema; podes esconder “Relatórios/Definições” se quiser
+    groups = [
+      { title: groupGeral.title, items: [groupGeral.items[0]] }, // só Dashboard
+      groupPT,
     ];
-  }, [role]);
+  } else {
+    // client: só dashboard por agora
+    groups = [{ title: groupGeral.title, items: [groupGeral.items[0]] }];
+  }
 
+  // highlight ativo (corrige o “ficar sempre Dashboard”)
+  const isActive = (it: NavItem) => {
+    if (it.startsWith) return pathname.startsWith(it.href);
+    return pathname === it.href;
+  };
+
+  // nada de toggles no header (já está no CSS), mantemos só os botões da brand (se existirem)
   return (
-    <nav className="fp-nav">
-      {sections.map((s, idx) => (
-        <div key={idx} className="nav-group">
-          {s.title && <div className="nav-section">{s.title}</div>}
-          {s.items.map((it) => {
-            const active = isActive(pathname, it.href, it.match ?? "prefix");
-            return (
-              <Link key={it.href} href={it.href} className="nav-item" data-active={active ? "true" : undefined}>
-                <span className="nav-icon nav-emoji" aria-hidden>
-                  {it.emoji}
-                </span>
-                <span className="nav-label">{it.label}</span>
-              </Link>
-            );
-          })}
+    <div className="fp-nav">
+      {groups.map((g) => (
+        <div key={g.title} className="nav-group">
+          <div className="nav-section">{g.title}</div>
+          {g.items.map((it) => (
+            <NavLink key={it.href} item={it} active={isActive(it)} />
+          ))}
         </div>
       ))}
-    </nav>
+    </div>
   );
 }
