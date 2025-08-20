@@ -3,7 +3,7 @@ import { ReactNode } from "react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import Sidebar from "@/components/Sidebar";
-import AppHeader from "@/components/AppHeader";
+import AppHeader from "@/components/layout/AppHeader";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
