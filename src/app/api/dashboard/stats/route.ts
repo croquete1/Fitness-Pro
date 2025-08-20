@@ -13,6 +13,7 @@ export async function GET() {
     const endOfToday = new Date(startOfToday); endOfToday.setDate(endOfToday.getDate() + 1);
     const in7Days = new Date(startOfToday); in7Days.setDate(in7Days.getDate() + 7);
 
+    // Contagens base
     const [clients, trainers, admins, sessionsNext7] = await Promise.all([
       prisma.user.count({ where: { role: "CLIENT" } }),
       prisma.user.count({ where: { role: "TRAINER" } }),
@@ -22,23 +23,37 @@ export async function GET() {
       }),
     ]);
 
-    // Próximas sessões do próprio PT (se for PT)
-    const nextSessions = userId
-      ? await prisma.session.findMany({
-          where: {
-            trainerId: userId,
-            scheduledAt: { gte: startOfToday, lt: in7Days },
-          },
-          orderBy: { scheduledAt: "asc" },
-          take: 10,
-          select: {
-            id: true,
-            scheduledAt: true,
-            type: true,
-            client: { select: { name: true } },
-          },
-        })
-      : [];
+    // Próximas sessões do próprio PT (se autenticado como PT)
+    let nextSessions: Array<{
+      id: string;
+      scheduledAt: Date;
+      status: string;
+      type: string; // alias para compatibilidade com UI antiga
+      client: { name: string | null };
+    }> = [];
+
+    if (userId) {
+      const raw = await prisma.session.findMany({
+        where: {
+          trainerId: userId,
+          scheduledAt: { gte: startOfToday, lt: in7Days },
+        },
+        orderBy: { scheduledAt: "asc" },
+        take: 10,
+        select: {
+          id: true,
+          scheduledAt: true,
+          status: true,                 // <-- existe no schema
+          client: { select: { name: true } },
+        },
+      });
+
+      // acrescenta alias "type" para não partir componentes que ainda leem .type
+      nextSessions = raw.map((s) => ({
+        ...s,
+        type: s.status,
+      }));
+    }
 
     return NextResponse.json({
       counts: { clients, trainers, admins, sessionsNext7 },
