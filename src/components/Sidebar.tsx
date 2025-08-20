@@ -3,16 +3,12 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { useEffect, useState } from 'react';
 
 /**
- * A sidebar respeita:
- *  - Admin: vê todos os grupos (Geral, PT, Admin, Sistema)
- *  - Trainer: vê apenas Geral (Dashboard/Relatórios se quiseres) + PT
- *  - Client: só Geral (Dashboard) por enquanto
- *
- * Mantém a tua lógica de "pin" e "collapse" via html[data-sb-collapsed]
- * (não mexi no wrapper nem no CSS para não quebrar nada).
+ * Sidebar role-aware:
+ *  - Admin: Geral + PT + Admin + Sistema
+ *  - Trainer: Geral (só Dashboard) + PT
+ *  - Client: só Dashboard
  */
 
 type NavItem = { href: string; label: string; icon: string; startsWith?: boolean };
@@ -37,7 +33,7 @@ export default function Sidebar() {
   const { data } = useSession();
   const role = String((data as any)?.user?.role ?? (data as any)?.role ?? 'CLIENT').toUpperCase();
 
-  // groups “base”
+  // Grupos
   const groupGeral: NavGroup = {
     title: 'GERAL',
     items: [
@@ -69,28 +65,19 @@ export default function Sidebar() {
     items: [{ href: '/dashboard/system/health', label: 'Saúde do sistema', icon: '🧰' }],
   };
 
-  // filtra por role
+  // Filtrar por role
   let groups: NavGroup[] = [];
   if (role === 'ADMIN') {
     groups = [groupGeral, groupPT, groupAdmin, groupSystem];
   } else if (role === 'TRAINER') {
-    // trainer: sem secção Admin e Sistema; podes esconder “Relatórios/Definições” se quiser
-    groups = [
-      { title: groupGeral.title, items: [groupGeral.items[0]] }, // só Dashboard
-      groupPT,
-    ];
+    groups = [{ title: groupGeral.title, items: [groupGeral.items[0]] }, groupPT];
   } else {
-    // client: só dashboard por agora
     groups = [{ title: groupGeral.title, items: [groupGeral.items[0]] }];
   }
 
-  // highlight ativo (corrige o “ficar sempre Dashboard”)
-  const isActive = (it: NavItem) => {
-    if (it.startsWith) return pathname.startsWith(it.href);
-    return pathname === it.href;
-  };
+  // Active fix
+  const isActive = (it: NavItem) => (it.startsWith ? pathname.startsWith(it.href) : pathname === it.href);
 
-  // nada de toggles no header (já está no CSS), mantemos só os botões da brand (se existirem)
   return (
     <div className="fp-nav">
       {groups.map((g) => (
