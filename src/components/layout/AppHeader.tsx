@@ -3,26 +3,22 @@
 import React from "react";
 import { signOut } from "next-auth/react";
 import HeaderSearch from "./HeaderSearch";
-import SbToggle from "./SbToggle";
 
 /**
- * Ações: notificações, tema, terminar sessão.
- * Nota: sem dependências externas; o tema é guardado em localStorage ("theme": "light" | "dark")
- * e reflectido em <html data-theme="..."> para ser compatível com o teu globals.css.
+ * Header: pesquisa à esquerda, ações à direita.
+ * 🔔 Notificações (placeholder), 🌗 alternador de tema, ⎋ terminar sessão.
+ * ⚠️ Sem botão de compactar/expandir — esse existe apenas na Sidebar.
  */
 export default function AppHeader() {
   const [theme, setTheme] = React.useState<"light" | "dark">("light");
-  const mounted = React.useRef(false);
 
   React.useEffect(() => {
-    // Ler tema inicial
     try {
       const saved = localStorage.getItem("theme");
       if (saved === "dark" || saved === "light") {
         setTheme(saved);
         document.documentElement.setAttribute("data-theme", saved);
       } else {
-        // fallback: respeitar prefers-color-scheme
         const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches;
         const initial = prefersDark ? "dark" : "light";
         setTheme(initial);
@@ -31,7 +27,6 @@ export default function AppHeader() {
     } catch {
       /* noop */
     }
-    mounted.current = true;
   }, []);
 
   function toggleTheme() {
@@ -46,7 +41,6 @@ export default function AppHeader() {
   }
 
   function handleSignOut() {
-    // Redirecciona para a homepage ao terminar sessão
     void signOut({ callbackUrl: "/" });
   }
 
@@ -68,21 +62,19 @@ export default function AppHeader() {
         backdropFilter: "saturate(120%) blur(6px)",
       }}
     >
+      {/* Esquerda: apenas pesquisa (sem toggle) */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1 }}>
-        <SbToggle />
         <HeaderSearch />
       </div>
 
+      {/* Direita: ações */}
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         {/* Notificações (placeholder) */}
         <button
           type="button"
           title="Notificações"
           aria-label="Notificações"
-          onClick={() => {
-            // Placeholder: podes substituir por um menu/popover de notificações
-            console.log("Abrir notificações");
-          }}
+          onClick={() => console.log("Abrir notificações")}
           style={btnStyle}
         >
           <svg width="18" height="18" viewBox="0 0 24 24">
@@ -106,7 +98,6 @@ export default function AppHeader() {
           style={btnStyle}
         >
           {theme === "dark" ? (
-            // Ícone lua
             <svg width="18" height="18" viewBox="0 0 24 24">
               <path
                 d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"
@@ -116,7 +107,6 @@ export default function AppHeader() {
               />
             </svg>
           ) : (
-            // Ícone sol
             <svg width="18" height="18" viewBox="0 0 24 24">
               <circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" strokeWidth="2" />
               <path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l-1.5-1.5M20.5 20.5L19 19M5 19l-1.5 1.5M20.5 3.5L19 5" stroke="currentColor" strokeWidth="2" />

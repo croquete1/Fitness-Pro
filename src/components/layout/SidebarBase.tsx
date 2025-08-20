@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React from "react";
+import SbToggle from "@/components/layout/SbToggle";
 import "./sidebar.css";
 
 export type Item = {
@@ -17,22 +18,34 @@ export type Group = {
   items: Item[];
 };
 
+function normalize(pathname: string) {
+  return pathname !== "/" && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+}
+
 function isActive(pathname: string, href: string, exact?: boolean) {
-  const clean = pathname !== "/" && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+  const clean = normalize(pathname);
   if (exact) return clean === href;
   return clean === href || clean.startsWith(href + "/");
 }
 
-export default function SidebarBase({ nav }: { nav: Group[] }) {
+export default function SidebarBase({ nav, showToggle = true }: { nav: Group[]; showToggle?: boolean }) {
   const pathname = usePathname();
 
   return (
     <nav className="fp-nav">
+      {showToggle && (
+        <div className="nav-tools" aria-hidden="false">
+          <SbToggle />
+        </div>
+      )}
+
       {nav.map((group) => (
         <div key={group.title} className="nav-group">
           <div className="nav-section">{group.title}</div>
+
           {group.items.map((item) => {
             const active = isActive(pathname, item.href, item.exact);
+
             return (
               <Link
                 key={item.href}

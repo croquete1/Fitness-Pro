@@ -1,4 +1,8 @@
 .fp-nav { height: 100%; padding: 12px; background: var(--sidebar-bg); color: var(--text); overflow: auto; }
+
+.nav-tools { display: flex; justify-content: flex-end; margin: 2px 0 8px; }
+html[data-sb-collapsed="true"] .nav-tools { justify-content: center; }
+
 .nav-group { margin-bottom: 10px; }
 .nav-section { font-size: 11px; color: var(--muted); letter-spacing: .6px; text-transform: uppercase; margin: 12px 8px 6px; }
 
@@ -14,7 +18,7 @@
 .nav-icon { width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; }
 .nav-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* Colapso controlado em <html data-sb-collapsed="true"> */
+/* Colapso: esconde labels e cabeçalhos para sidebar compacta */
 html[data-sb-collapsed="true"] .nav-section,
 html[data-sb-collapsed="true"] .nav-label {
   opacity: 0; pointer-events: none; width: 0; height: 0; overflow: hidden; position: absolute;
