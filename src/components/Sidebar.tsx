@@ -1,83 +1,67 @@
-// src/components/Sidebar.tsx
-"use client";
+'use client';
 
-import Link from "next/link";
-import { useEffect } from "react";
-import { usePathname } from "next/navigation";
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
-type Props = { role?: string };
+type SidebarProps = { role?: string };
 
-type Item = { href: string; label: string; icon: string };
+const NAV = {
+  ADMIN: [
+    { section: 'GERAL' },
+    { title: 'Dashboard',   href: '/dashboard',            icon: '📊' },
+    { title: 'Relatórios',  href: '/dashboard/reports',    icon: '🧾' },
+    { title: 'Definições',  href: '/dashboard/settings',   icon: '⚙️' },
+
+    { section: 'PT' },
+    { title: 'Clientes',    href: '/dashboard/pt/clients', icon: '👫' },
+    { title: 'Planos',      href: '/dashboard/pt/plans',   icon: '🧱' },
+    { title: 'Biblioteca',  href: '/dashboard/pt/library', icon: '📚' },
+
+    { section: 'ADMIN' },
+    { title: 'Aprovações',  href: '/dashboard/admin/approvals', icon: '✅' },
+    { title: 'Utilizadores',href: '/dashboard/admin/users',     icon: '👥' },
+
+    { section: 'SISTEMA' },
+    { title: 'Saúde do sistema', href: '/dashboard/system/health', icon: '🧰' },
+  ],
+  TRAINER: [
+    { section: 'GERAL' },
+    { title: 'Dashboard',   href: '/dashboard',            icon: '📊' },
+
+    { section: 'PT' },
+    { title: 'Clientes',    href: '/dashboard/pt/clients', icon: '👫' },
+    { title: 'Planos',      href: '/dashboard/pt/plans',   icon: '🧱' },
+    { title: 'Biblioteca',  href: '/dashboard/pt/library', icon: '📚' },
+  ],
+  CLIENT: [
+    { section: 'GERAL' },
+    { title: 'Dashboard',   href: '/dashboard',            icon: '📊' },
+  ],
+} as const;
 
 function isActive(pathname: string, href: string) {
-  if (href === "/dashboard") return pathname === "/dashboard";
+  if (href === '/dashboard') return pathname === '/dashboard';
   return pathname.startsWith(href);
 }
 
-export default function Sidebar({ role }: Props) {
+export default function Sidebar({ role = 'CLIENT' }: SidebarProps) {
   const pathname = usePathname();
-
-  // respeitar preferência guardada (quando a app carrega no cliente)
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("sb-collapsed");
-      if (saved === "1" || saved === "0") {
-        document.documentElement.setAttribute("data-sb-collapsed", saved);
-      }
-    } catch {}
-  }, []);
-
-  const geral: Item[] = [
-    { href: "/dashboard", label: "Dashboard", icon: "📊" },
-    { href: "/dashboard/reports", label: "Relatórios", icon: "🧾" },
-    { href: "/dashboard/settings", label: "Definições", icon: "⚙️" },
-  ];
-
-  const pt: Item[] = [
-    { href: "/dashboard/pt/clients", label: "Clientes", icon: "👥" },
-    { href: "/dashboard/pt/plans", label: "Planos", icon: "🧱" },
-    { href: "/dashboard/pt/library", label: "Biblioteca", icon: "📚" },
-  ];
-
-  const admin: Item[] = [
-    { href: "/dashboard/admin/approvals", label: "Aprovações", icon: "✅" },
-    { href: "/dashboard/admin/users", label: "Utilizadores", icon: "🧑‍🤝‍🧑" },
-  ];
-
-  const sistema: Item[] = [
-    { href: "/dashboard/system/health", label: "Saúde do sistema", icon: "🩺" },
-  ];
-
-  const showPT = role === "TRAINER" || role === "ADMIN";
-  const showAdmin = role === "ADMIN";
-
-  const Section = ({ title, items }: { title: string; items: Item[] }) => (
-    <>
-      <div className="nav-section">{title}</div>
-      <div className="nav-group">
-        {items.map((it) => (
-          <Link
-            key={it.href}
-            href={it.href}
-            className="nav-item"
-            data-active={isActive(pathname, it.href)}
-          >
-            <span className="nav-icon nav-emoji" aria-hidden>
-              {it.icon}
-            </span>
-            <span className="nav-label">{it.label}</span>
-          </Link>
-        ))}
-      </div>
-    </>
-  );
+  const items = (NAV as any)[role] ?? NAV.CLIENT;
 
   return (
     <nav className="fp-nav">
-      <Section title="GERAL" items={geral} />
-      {showPT && <Section title="PT" items={pt} />}
-      {showAdmin && <Section title="ADMIN" items={admin} />}
-      <Section title="SISTEMA" items={sistema} />
+      {items.map((it: any, i: number) => {
+        if (it.section) {
+          return <div key={`sec-${i}`} className="nav-section">{it.section}</div>;
+        }
+        const active = isActive(pathname, it.href);
+        return (
+          <Link key={it.href} href={it.href} className="nav-item" data-active={active ? 'true' : 'false'}>
+            <span className="nav-icon nav-emoji" aria-hidden>{it.icon}</span>
+            <span className="nav-label">{it.title}</span>
+          </Link>
+        );
+      })}
     </nav>
   );
 }

@@ -1,17 +1,18 @@
-// src/app/(app)/layout.tsx
-import { ReactNode } from "react";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import Sidebar from "@/components/Sidebar";
-import AppHeader from "@/components/layout/AppHeader";
+import { ReactNode } from 'react';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
-export const dynamic = "force-dynamic";
+import Sidebar from '@/components/Sidebar';
+import AppHeader from '@/components/layout/AppHeader';
+import SbToggle from '@/components/layout/SbToggle';
+
+export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const session = await getServerSession(authOptions).catch(() => null);
   const role = String(
-    (session as any)?.user?.role ?? (session as any)?.role ?? "CLIENT"
+    (session as any)?.user?.role ?? (session as any)?.role ?? 'CLIENT'
   ).toUpperCase();
 
   return (
@@ -23,22 +24,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             <strong>Fitness Pro</strong>
           </div>
           <div className="fp-sb-actions">
-            <button
-              type="button"
-              className="btn icon"
-              aria-label="Compactar/expandir sidebar"
-              title="Compactar/expandir sidebar"
-              onClick={() => {
-                if (typeof document === "undefined") return;
-                const html = document.documentElement;
-                const isCollapsed = html.getAttribute("data-sb-collapsed") === "1";
-                const next = isCollapsed ? "0" : "1";
-                html.setAttribute("data-sb-collapsed", next);
-                try { localStorage.setItem("sb-collapsed", next); } catch {}
-              }}
-            >
-              <span className="nav-emoji" aria-hidden>🗂️</span>
-            </button>
+            {/* botão cliente; nada é passado por props */}
+            <SbToggle />
           </div>
         </div>
 
