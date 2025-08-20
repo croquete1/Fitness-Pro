@@ -8,21 +8,33 @@
  *      NOTIFICATIONS_TRY      → ["notification","notifications"]
  *  - CAMPOS DE DATA DA SESSÃO (usados para filtros por intervalo):
  *      SESSION_DATE_FIELDS_TRY → ["date","startAt","startsAt","scheduledAt","start","dateTime"]
- *
- * Mantemos tudo dinamicamente com (prisma as any) para não partir o build se o nome não existir.
  */
 
 import { prisma } from "./prisma";
 
 // ----- CONFIG AJUSTÁVEL -----
 const USERS_MODEL = "user";
-const SESSIONS_MODELS_TRY = ["trainingSession", "session", "workoutSession", "appointment", "booking"];
+const SESSIONS_MODELS_TRY = [
+  "trainingSession",
+  "session",
+  "workoutSession",
+  "appointment",
+  "booking",
+];
 const NOTIFICATIONS_TRY = ["notification", "notifications"];
-const SESSION_DATE_FIELDS_TRY = ["date", "startAt", "startsAt", "scheduledAt", "start", "dateTime"];
+const SESSION_DATE_FIELDS_TRY = [
+  "date",
+  "startAt",
+  "startsAt",
+  "scheduledAt",
+  "start",
+  "dateTime",
+];
 
 // Helpers básicos
 type DateRange = { from: Date; to: Date };
-const addDays = (d: Date, days: number) => new Date(d.getTime() + days * 24 * 60 * 60 * 1000);
+const addDays = (d: Date, days: number) =>
+  new Date(d.getTime() + days * 24 * 60 * 60 * 1000);
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -41,17 +53,16 @@ async function pickDateField(sessionModel: string): Promise<string | undefined> 
   const db = prisma as any;
   for (const f of SESSION_DATE_FIELDS_TRY) {
     try {
-      // Tenta uma query inócua com where vazio, só para ver se não explode quando referenciarmos o campo
       await db[sessionModel].count({ where: { [f]: { not: null } } });
       return f;
     } catch {
-      /* tenta o próximo */
+      /* next */
     }
   }
   return undefined;
 }
 
-// COUNT genérico com intervalo de datas e where extra
+// COUNT genérico
 async function countSessionsBetween(
   sessionModel: string,
   dateField: string,
@@ -72,7 +83,7 @@ async function countSessionsBetween(
   }
 }
 
-// LIST próximas sessões (máx N) simplificado
+// LIST próximas sessões (máx N)
 async function listUpcomingSessions(
   sessionModel: string,
   dateField: string,
@@ -89,7 +100,6 @@ async function listUpcomingSessions(
       select: {
         id: true,
         [dateField]: true,
-        // Tentativa best-effort de nomes de relações/campos
         client: { select: { name: true } },
         coach: { select: { name: true } },
         title: true,
@@ -102,7 +112,6 @@ async function listUpcomingSessions(
       title: r.title ?? r?.client?.name ?? r?.coach?.name ?? undefined,
     }));
   } catch {
-    // Fallback minimalista
     return [];
   }
 }
@@ -128,7 +137,7 @@ async function listNotifications(userId: string, notifModel?: string, take = 5) 
   }
 }
 
-// CONTAGENS de utilizadores por role (admin/PT/cliente)
+// CONTAGENS de utilizadores por role
 async function countUsersByRole() {
   const db = prisma as any;
   try {
@@ -143,7 +152,7 @@ async function countUsersByRole() {
   }
 }
 
-// Tendência diária (últimos N dias), devolve [{date, sessions}]
+// Tendência diária (últimos N dias)
 async function buildTrend(
   sessionModel: string | undefined,
   dateField: string | undefined,
@@ -152,7 +161,6 @@ async function buildTrend(
 ) {
   const out: Array<{ date: string; sessions: number }> = [];
   if (!sessionModel || !dateField) {
-    // devolve 0s para não partir UI
     for (let i = days - 1; i >= 0; i--) {
       const d = startOfDay(addDays(new Date(), -i));
       out.push({ date: iso(d), sessions: 0 });
@@ -173,7 +181,7 @@ async function buildTrend(
 
 export async function getAdminStats(rangeDays = 7) {
   const sessionModel = pickModel(SESSIONS_MODELS_TRY);
-  const notifModel = pickModel(NOTIFICATIONS_TRY);
+  // 🔧 removido: const notifModel = pickModel(NOTIFICATIONS_TRY);
   const dateField = sessionModel ? await pickDateField(sessionModel) : undefined;
 
   const from = startOfDay(new Date());
@@ -181,9 +189,13 @@ export async function getAdminStats(rangeDays = 7) {
 
   const [userCounts, sessionsNext7d, trend7d, upcomingSessions] = await Promise.all([
     countUsersByRole(),
-    sessionModel && dateField ? countSessionsBetween(sessionModel, dateField, { from, to }) : Promise.resolve(0),
+    sessionModel && dateField
+      ? countSessionsBetween(sessionModel, dateField, { from, to })
+      : Promise.resolve(0),
     buildTrend(sessionModel, dateField, rangeDays),
-    sessionModel && dateField ? listUpcomingSessions(sessionModel, dateField, new Date()) : Promise.resolve([]),
+    sessionModel && dateField
+      ? listUpcomingSessions(sessionModel, dateField, new Date())
+      : Promise.resolve([]),
   ]);
 
   return {
@@ -195,7 +207,7 @@ export async function getAdminStats(rangeDays = 7) {
     },
     trend7d,
     upcomingSessions,
-    notifications: [], // Admin tende a ter notificações globais; se quiseres, cria um userId "admin" e passa aqui.
+    notifications: [], // Admin: preenche se tiveres um modelo global
   };
 }
 
@@ -206,10 +218,8 @@ export async function getPTStats(viewerId: string, rangeDays = 7) {
 
   const from = startOfDay(new Date());
   const to = addDays(from, rangeDays);
-
   const whereCoach = { coachId: viewerId };
 
-  // nº clientes distintos do PT
   async function countDistinctClients(): Promise<number> {
     const db = prisma as any;
     if (!sessionModel || !dateField) return 0;
@@ -240,7 +250,7 @@ export async function getPTStats(viewerId: string, rangeDays = 7) {
   return {
     counts: {
       clients: clientsCount,
-      trainers: 1, // o próprio
+      trainers: 1,
       admins: 0,
       sessionsNext7d,
     },
@@ -257,10 +267,8 @@ export async function getClientStats(viewerId: string, rangeDays = 7) {
 
   const from = startOfDay(new Date());
   const to = addDays(from, rangeDays);
-
   const whereClient = { clientId: viewerId };
 
-  // nº treinadores distintos do cliente
   async function countDistinctTrainers(): Promise<number> {
     const db = prisma as any;
     if (!sessionModel || !dateField) return 0;
@@ -290,7 +298,7 @@ export async function getClientStats(viewerId: string, rangeDays = 7) {
 
   return {
     counts: {
-      clients: 1, // o próprio
+      clients: 1,
       trainers: trainersCount,
       admins: 0,
       sessionsNext7d,
