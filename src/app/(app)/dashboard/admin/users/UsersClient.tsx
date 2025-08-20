@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useSession } from "next-auth/react";
 import Modal from "@/components/ui/Modal";
 
 type Role = "ADMIN" | "TRAINER" | "CLIENT" | string;
@@ -39,7 +38,7 @@ async function fetchFirstOkPaged(page: number, limit: number): Promise<PageResul
       }
     } catch {}
   }
-  // última tentativa: endpoint sem paginação
+  // fallback: endpoint sem paginação
   for (const u of ["/api/admin/users", "/api/users", "/api/admin/clients"]) {
     try {
       const r = await fetch(u, { credentials: "include" });
@@ -87,15 +86,44 @@ async function tryPost(id: string, payload: any) {
   throw new Error("Falha ao comunicar com o servidor");
 }
 
+/** Obtém o utilizador autenticado sem depender do SessionProvider */
+async function fetchMe() {
+  // 1) NextAuth session default
+  try {
+    const r = await fetch("/api/auth/session", { credentials: "include" });
+    if (r.ok) {
+      const s = await r.json();
+      const u = s?.user ?? s;
+      return {
+        id: u?.id ?? u?._id ?? u?.userId ?? null,
+        role: (u?.role ?? u?.type) as Role | undefined,
+        email: u?.email as string | undefined,
+      };
+    }
+  } catch {}
+  // 2) Fallbacks comuns
+  for (const url of ["/api/me", "/api/user/me"]) {
+    try {
+      const r = await fetch(url, { credentials: "include" });
+      if (r.ok) {
+        const u = await r.json();
+        return {
+          id: u?.id ?? u?._id ?? u?.userId ?? null,
+          role: (u?.role ?? u?.type) as Role | undefined,
+          email: u?.email as string | undefined,
+        };
+      }
+    } catch {}
+  }
+  return { id: null as string | null, role: undefined as Role | undefined, email: undefined as string | undefined };
+}
+
 export default function UsersClient() {
   const sp = useSearchParams();
   const router = useRouter();
-  const { data: session } = useSession();
 
-  // info do utilizador autenticado
-  const me: any = (session as any)?.user ?? null;
-  const myId: string | null = me?.id ?? me?.userId ?? me?._id ?? null;
-  const myRole: Role | undefined = me?.role ?? me?.type;
+  // “me” sem SessionProvider
+  const [me, setMe] = useState<{ id: string | null; role?: Role; email?: string }>({ id: null });
 
   const [all, setAll] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -110,11 +138,15 @@ export default function UsersClient() {
   const [editU, setEditU] = useState<UserRow | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // helpers de permissão no cliente (defensivo; o servidor também valida)
-  const isSelf = (u: UserRow | null | undefined) =>
-    !!u?.id && !!myId && String(u.id) === String(myId);
+  // carregar sessão atual
+  useEffect(() => {
+    fetchMe().then(setMe).catch(() => setMe({ id: null }));
+  }, []);
 
-  const isAdmin = (myRole ?? "").toUpperCase() === "ADMIN";
+  // helpers de permissão no cliente (defensivo; servidor também valida)
+  const isSelf = (u: UserRow | null | undefined) =>
+    !!u?.id && !!me.id && String(u.id) === String(me.id);
+  const isAdmin = (me.role ?? "").toUpperCase() === "ADMIN";
   const canEditUser = (u: UserRow) => isAdmin && !isSelf(u);
   const canToggleSuspend = (u: UserRow) => isAdmin && !isSelf(u);
 
@@ -137,7 +169,7 @@ export default function UsersClient() {
     if (page !== 1) params.set("page", String(page));
     if (limit !== 20) params.set("limit", String(limit));
     const qs = params.toString();
-    router.replace(qs ? `?${qs}` : ""); // query-only
+    router.replace(qs ? `?${qs}` : "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, role, page, limit]);
 
@@ -165,7 +197,6 @@ export default function UsersClient() {
     setBusy(true);
     try {
       await tryPost(u.id, { status });
-      // otimista
       setAll(list => list.map(x => x.id === u.id ? { ...x, status } : x));
       setEditU(null);
     } catch (e) {
