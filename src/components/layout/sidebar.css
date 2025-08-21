@@ -1,25 +1,112 @@
-.fp-nav { height: 100%; padding: 12px; background: var(--sidebar-bg); color: var(--text); overflow: auto; }
+/* ====== DIMENSÕES/CORES herdadas do theme.css ======
+   --sb-width, --sb-width-collapsed, --sidebar-bg, --border, --border-strong,
+   --hover, --active, --text, --muted, --btn-bg
+*/
 
-.nav-tools { display: flex; justify-content: flex-end; margin: 2px 0 8px; }
-html[data-sb-collapsed="true"] .nav-tools { justify-content: center; }
+/* --- flyout wrapper: cresce por cima do conteúdo quando colapsada --- */
+.fp-sb-flyout {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  width: var(--sb-width);                 /* largura total */
+  transform: translateX(0);
+  will-change: transform, box-shadow;
+  transition: transform 200ms ease, box-shadow 200ms ease;
+  z-index: 40;
+}
 
-.nav-group { margin-bottom: 10px; }
-.nav-section { font-size: 11px; color: var(--muted); letter-spacing: .6px; text-transform: uppercase; margin: 12px 8px 6px; }
+/* Quando colapsada, “empurra” o painel para a esquerda deixando visível só a parte estreita */
+html[data-sb-collapsed="true"] .fp-sb-flyout {
+  width: var(--sb-width);                 /* continua a ter a largura total para poder “voar” */
+  transform: translateX(calc(var(--sb-width-collapsed) - var(--sb-width)));
+  box-shadow: none;
+}
 
+/* Ao passar o rato (peek), mostra a sidebar por cima do conteúdo */
+html[data-sb-collapsed="true"] aside:hover .fp-sb-flyout {
+  transform: translateX(0);
+  box-shadow: 0 8px 40px rgba(0,0,0,.20), 0 1px 0 rgba(0,0,0,.08) inset;
+}
+
+/* --- nav base --- */
+.fp-nav {
+  height: 100%;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* barra de ferramentas (toggle) */
+.nav-tools {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 4px 0 4px;
+}
+
+/* grupos/itens */
+.nav-group { display: grid; gap: 6px; }
+.nav-section {
+  font-size: 11px;
+  letter-spacing: .6px;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin: 6px 8px;
+}
 .nav-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px; margin: 4px 0; border-radius: 10px;
-  color: var(--text); text-decoration: none; border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin: 2px 0;
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--text);
+  border: 1px solid transparent;
   background: transparent;
+  transition: background 120ms ease, border-color 120ms ease, transform 100ms ease;
 }
 .nav-item:hover { background: var(--hover); border-color: var(--border); }
+.nav-item:active { transform: translateY(1px); }
 .nav-item[data-active="true"] { background: var(--active); border-color: var(--border-strong); }
 
 .nav-icon { width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; }
 .nav-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* Colapso: esconde labels e cabeçalhos para sidebar compacta */
-html[data-sb-collapsed="true"] .nav-section,
-html[data-sb-collapsed="true"] .nav-label {
-  opacity: 0; pointer-events: none; width: 0; height: 0; overflow: hidden; position: absolute;
+/* --- estado COLAPSADO (sem hover) -> mostra só ícones, centralizados --- */
+html[data-sb-collapsed="true"] .fp-sb-flyout:not(:hover) .nav-section,
+html[data-sb-collapsed="true"] .fp-sb-flyout:not(:hover) .nav-label {
+  opacity: 0;
+  pointer-events: none;
+  width: 0;
+  max-width: 0;
+  overflow: hidden;
+  position: absolute;
+}
+
+html[data-sb-collapsed="true"] .fp-sb-flyout:not(:hover) .nav-item {
+  justify-content: center;
+  padding: 10px;                          /* aperta para ícone */
+}
+
+/* --- estado COLAPSADO + HOVER (peek) -> volta a mostrar labels/cabeçalhos --- */
+html[data-sb-collapsed="true"] aside:hover .nav-section,
+html[data-sb-collapsed="true"] aside:hover .nav-label {
+  position: static;
+  width: auto;
+  max-width: none;
+  opacity: 1;
+  transition: opacity 140ms ease;
+}
+
+html[data-sb-collapsed="true"] aside:hover .nav-item {
+  justify-content: flex-start;
+  padding: 10px 12px;
+}
+
+/* Dark: leve brilho quando em hover-peek para destacar a barra */
+:root[data-theme="dark"] html[data-sb-collapsed="true"] aside:hover .fp-sb-flyout {
+  box-shadow: 0 12px 50px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.04) inset;
 }

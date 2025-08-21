@@ -2,11 +2,12 @@ import React, { ReactNode } from "react";
 import Script from "next/script";
 import AppHeader from "@/components/layout/AppHeader";
 import RoleSidebar from "@/components/layout/RoleSidebar";
-import AppProviders from "@/components/layout/AppProviders"; // ⟵ novo
+import AppProviders from "@/components/layout/AppProviders";
 import "./theme.css";
 
-// no topo de src/app/(app)/layout.tsx
+/** Força execução dinâmica (auth + preferências) */
 export const dynamic = "force-dynamic";
+
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="pt-PT" suppressHydrationWarning>
@@ -28,6 +29,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 })();
         `}</Script>
       </head>
+
       <body
         style={{
           margin: 0,
@@ -38,9 +40,17 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           gridTemplateAreas: `"sidebar header" "sidebar main"`,
         }}
       >
-        {/* ⟵ Monta providers de cliente aqui (inclui SessionProvider) */}
+        {/* Providers de cliente (inclui SessionProvider) */}
         <AppProviders>
-          <aside style={{ gridArea: "sidebar", minHeight: 0, borderRight: "1px solid var(--border)" }}>
+          <aside
+            style={{
+              gridArea: "sidebar",
+              minHeight: 0,
+              /* permite o flyout da sidebar ultrapassar a largura da coluna quando está colapsada */
+              overflow: "visible",
+              position: "relative",
+            }}
+          >
             <RoleSidebar />
           </aside>
 
@@ -48,7 +58,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             <AppHeader />
           </div>
 
-          <main id="app-content" style={{ gridArea: "main", minWidth: 0, minHeight: 0, padding: 16 }}>
+          <main
+            id="app-content"
+            style={{ gridArea: "main", minWidth: 0, minHeight: 0, padding: 16 }}
+          >
             {children}
           </main>
         </AppProviders>
