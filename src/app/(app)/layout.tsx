@@ -1,9 +1,12 @@
 import React, { ReactNode } from "react";
 import Script from "next/script";
 import AppHeader from "@/components/layout/AppHeader";
-import RoleSidebar from "@/components/layout/RoleSidebar"; // ← caminho correto
+import RoleSidebar from "@/components/layout/RoleSidebar";
+import AppProviders from "@/components/layout/AppProviders"; // ⟵ novo
 import "./theme.css";
 
+// no topo de src/app/(app)/layout.tsx
+export const dynamic = "force-dynamic";
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="pt-PT" suppressHydrationWarning>
@@ -35,17 +38,20 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           gridTemplateAreas: `"sidebar header" "sidebar main"`,
         }}
       >
-        <aside style={{ gridArea: "sidebar", minHeight: 0, borderRight: "1px solid var(--border)" }}>
-          <RoleSidebar />
-        </aside>
+        {/* ⟵ Monta providers de cliente aqui (inclui SessionProvider) */}
+        <AppProviders>
+          <aside style={{ gridArea: "sidebar", minHeight: 0, borderRight: "1px solid var(--border)" }}>
+            <RoleSidebar />
+          </aside>
 
-        <div style={{ gridArea: "header" }}>
-          <AppHeader />
-        </div>
+          <div style={{ gridArea: "header" }}>
+            <AppHeader />
+          </div>
 
-        <main id="app-content" style={{ gridArea: "main", minWidth: 0, minHeight: 0, padding: 16 }}>
-          {children}
-        </main>
+          <main id="app-content" style={{ gridArea: "main", minWidth: 0, minHeight: 0, padding: 16 }}>
+            {children}
+          </main>
+        </AppProviders>
       </body>
     </html>
   );
