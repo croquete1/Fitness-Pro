@@ -12,20 +12,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="pt-PT" suppressHydrationWarning>
       <head>
-        {/* Inicializa tema e estado da sidebar ANTES de hidratar */}
+        {/* apply theme + persisted sidebar state ASAP */}
         <Script id="init-preferences" strategy="beforeInteractive">{`
 (function () {
   try {
     var root = document.documentElement;
-
-    // sidebar: colapsada / afixada
-    var c = localStorage.getItem("fp:sb:collapsed");
-    root.setAttribute("data-sb-collapsed", (c === "1" || c === "true") ? "1" : "0");
-
-    var p = localStorage.getItem("fp:sb:pinned");
-    root.setAttribute("data-sb-pinned", (p === "1" || p === "true") ? "1" : "0");
-
-    // tema
+    // theme
     var theme = localStorage.getItem("theme");
     if (theme === "dark" || theme === "light") {
       root.setAttribute("data-theme", theme);
@@ -33,23 +25,34 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
       root.setAttribute("data-theme", prefersDark ? "dark" : "light");
     }
+    // sidebar
+    var collapsed = localStorage.getItem("fp:sb:collapsed");
+    var pinned    = localStorage.getItem("fp:sb:pinned");
+    root.setAttribute("data-sb-collapsed", collapsed === "1" ? "1" : "0");
+    root.setAttribute("data-sb-pinned",    pinned === "1" ? "1" : "0");
+    // initialize CSS var used by the grid
+    if (collapsed === "1") {
+      root.style.setProperty("--sb-col", getComputedStyle(root).getPropertyValue("--sb-width-collapsed").trim());
+    } else {
+      root.style.setProperty("--sb-col", getComputedStyle(root).getPropertyValue("--sb-width").trim());
+    }
   } catch (e) {}
 })();
         `}</Script>
       </head>
-<body
-  style={{
-    margin: 0,
-    minHeight: "100vh",
-    display: "grid",
-    // ⬇️ antes: "var(--sb-width, 264px) 1fr"
-    gridTemplateColumns: "var(--sb-col, var(--sb-width)) 1fr",
-    gridTemplateRows: "auto 1fr",
-    gridTemplateAreas: `"sidebar header" "sidebar main"`,
-  }}
->
-
+      <body
+        style={{
+          margin: 0,
+          minHeight: "100vh",
+          display: "grid",
+          // IMPORTANT: the grid must read --sb-col
+          gridTemplateColumns: "var(--sb-col, var(--sb-width)) 1fr",
+          gridTemplateRows: "auto 1fr",
+          gridTemplateAreas: `"sidebar header" "sidebar main"`,
+        }}
+      >
         <AppProviders>
+          {/* keep aside very neutral; RoleSidebar provides the flyout container */}
           <aside style={{ gridArea: "sidebar", minHeight: 0, borderRight: "1px solid var(--border)" }}>
             <RoleSidebar />
           </aside>
