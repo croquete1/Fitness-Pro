@@ -1,67 +1,48 @@
 :root {
-  /* dimensões sidebar */
   --sb-width: 264px;
   --sb-width-collapsed: 72px;
 
-  /* paleta light */
   --bg: #f7f9fc;
-  --sidebar-bg: #f3f6fb;
-  --card: #ffffff;
-  --text: #0b1220;
+  --text: #0e1116;
   --muted: #6b7280;
   --border: #e5e7eb;
-  --border-strong: #d4d7df;
+  --border-strong: #d1d5db;
+  --hover: #f1f5f9;
+  --active: #eef2ff;
 
-  --header-bg: var(--card);
-  --btn-bg: var(--card);
-  --hover: rgba(2, 6, 23, 0.04);
-  --active: rgba(2, 6, 23, 0.06);
-  --input-bg: rgba(2, 6, 23, 0.03);
+  --sidebar-bg: #ffffff;
+  --header-bg: #ffffffcc;
+  --card-bg: #ffffff;
+  --btn-bg: #ffffff;
 }
 
+/* dark */
+:root[data-theme="dark"] {
+  --bg: #0b0f14;
+  --text: #e5e7eb;
+  --muted: #9aa4b2;
+  --border: #1f2937;
+  --border-strong: #2b3542;
+  --hover: #131a22;
+  --active: #0f172a;
+
+  --sidebar-bg: #0e151d;
+  --header-bg: #0e151dcc;
+  --card-bg: #0e151d;
+  --btn-bg: #0e151d;
+}
+
+/* colapso */
 html[data-sb-collapsed="true"] {
   --sb-width: var(--sb-width-collapsed);
 }
 
-/* ---------- Dark theme ---------- */
-html[data-theme="dark"] {
-  --bg: #0d1117;
-  --sidebar-bg: #0b1020;
-  --card: #0f172a; /* superfície elevada */
-  --text: #e7ecf3;
-  --muted: #94a3b8;
-  --border: #263044;
-  --border-strong: #36445e;
-
-  --header-bg: linear-gradient(180deg, rgba(20,27,44,.85), rgba(20,27,44,.85));
-  --btn-bg: #151c2f;
-  --hover: rgba(148, 163, 184, 0.12);
-  --active: rgba(148, 163, 184, 0.18);
-  --input-bg: #0b1326;
-}
-
-/* aplica fundo base */
 html, body {
   background: var(--bg);
   color: var(--text);
 }
 
-/* inputs e botões genéricos que usem variáveis */
-input[type="search"],
-input[type="text"],
-input[type="number"] {
-  background: var(--input-bg);
-  color: var(--text);
-  border: 1px solid var(--border);
-}
-
-button {
-  color: var(--text);
-}
-
-/* cartões comuns (se usares .card) */
-.card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
+#app-content {
+  /* só para dar o mesmo “ar” da tua screenshot */
+  background: radial-gradient(1200px 400px at 40% -200px, rgba(114,137,218,0.04), transparent);
 }
