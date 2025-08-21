@@ -1,11 +1,8 @@
 :root {
-  /* Sidebar */
   --sb-width: 264px;
   --sb-width-collapsed: 72px;
-  /* Largura efetiva da coluna usada pelo layout */
   --sb-col: var(--sb-width);
 
-  /* Cores claras */
   --bg: #f7f9fc;
   --text: #0e1116;
   --muted: #6b7280;
@@ -20,7 +17,7 @@
   --btn-bg: #ffffff;
 }
 
-/* Dark */
+/* dark */
 :root[data-theme="dark"] {
   --bg: #0b0f14;
   --text: #e5e7eb;
@@ -36,18 +33,12 @@
   --btn-bg: #0e151d;
 }
 
-/* Estado colapsado:
-   ⚠️ não alteramos --sb-width; apenas a coluna real usada pela grid */
-html[data-sb-collapsed="1"] {
-  --sb-col: var(--sb-width-collapsed);
-}
+/* ✅ controla a largura da 1ª coluna do grid */
+html[data-sb-collapsed="0"] { --sb-col: var(--sb-width); }
+html[data-sb-collapsed="1"] { --sb-col: var(--sb-width-collapsed); }
 
-html, body {
-  background: var(--bg);
-  color: var(--text);
-}
+html, body { background: var(--bg); color: var(--text); }
 
 #app-content {
-  /* só para dar o mesmo “ar” da tua screenshot */
   background: radial-gradient(1200px 400px at 40% -200px, rgba(114,137,218,0.04), transparent);
 }
