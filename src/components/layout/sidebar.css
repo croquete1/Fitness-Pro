@@ -1,97 +1,95 @@
-/* ===== TOKENS (theme.css) =====
-   --sb-width, --sb-width-collapsed, --sidebar-bg, --border, --border-strong,
-   --hover, --active, --text, --muted
-*/
+/* Tokens base (podes deixar também em theme.css) */
 :root{
+  --sb-width-expanded: 264px;   /* largura do painel quando aberto */
+  --sb-width-collapsed: 64px;   /* largura do rail reservado no layout */
+  --sb-rail: var(--sb-width-expanded); /* rail por defeito (expandida) */
+
+  --sidebar-bg: var(--sidebar-bg, #0b0b0b00); /* já tens no tema */
   --sb-peek-delay: 250ms;
-  --sb-ease: cubic-bezier(.22,1,.36,1); /* ease-out suave */
+  --sb-ease: cubic-bezier(.22,1,.36,1);
 }
 
-/* ========== FLYOUT: FIXO À VIEWPORT (resolve a largura “meia”) ========== */
+/* quando colapsada, o rail do layout é estreito */
+html[data-sb-collapsed="1"]{ --sb-rail: var(--sb-width-collapsed); }
+
+/* ================= FLYOUT ================= */
+/* painel fixo com a largura expandida SEMPRE; o colapso é translado */
 .fp-sb-flyout{
-  position: fixed;        /* <- fundamental */
+  position: fixed;
   left: 0; top: 0;
   height: 100vh;
-  width: var(--sb-width); /* painel tem sempre a largura total */
+  width: var(--sb-width-expanded);
+  display: grid;
+  grid-template-rows: auto 1fr;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
   box-sizing: border-box;
   will-change: transform, box-shadow;
-  transform: translateX(0); /* expandida/pinned */
+  transform: translateX(0);
   transition: transform 360ms var(--sb-ease), box-shadow 360ms var(--sb-ease);
   z-index: 200; /* acima do header */
 }
 
-/* Colapsada: deixa visível apenas a fatia var(--sb-width-collapsed) */
-html[data-sb-collapsed="true"] .fp-sb-flyout{
-  transform: translateX(calc(var(--sb-width-collapsed) - var(--sb-width)));
+/* colapsada: deixa só o rail visível */
+html[data-sb-collapsed="1"] .fp-sb-flyout{
+  transform: translateX(calc(var(--sb-width-collapsed) - var(--sb-width-expanded)));
   box-shadow: none;
 }
 
-/* Hover “peek”: abre por cima do conteúdo com atraso suave */
-html[data-sb-collapsed="true"] .fp-sb-flyout.is-peek{
+/* peek (hover) – abre completo com ligeiro brilho */
+html[data-sb-collapsed="1"] .fp-sb-flyout.is-peek{
   transform: translateX(0);
-  box-shadow: 0 10px 44px rgba(0,0,0,.22), 0 1px 0 rgba(0,0,0,.08) inset;
+  box-shadow: 0 10px 44px rgba(0,0,0,.22), 0 1px 0 rgba(0,0,0,.06) inset;
   transition:
     transform 380ms var(--sb-ease) var(--sb-peek-delay),
     box-shadow 380ms var(--sb-ease) var(--sb-peek-delay);
 }
 
-/* ========== CONTEÚDO DA SIDEBAR ========== */
-.fp-nav{
-  height: 100%;
+/* ================= HEADER ================= */
+.fp-sb-head{
+  position: sticky; top: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px;
+  padding: 10px 10px 8px 10px;
   background: var(--sidebar-bg);
-  border-right: 1px solid var(--border);
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  border-bottom: 1px solid var(--border);
+  z-index: 1;
 }
 
-/* Header: logo à esquerda + botão fixo à direita (sem sobrepor) */
-.sb-header{
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 4px 6px 0 6px;
+.fp-sb-brand{
+  display:flex; align-items:center; gap:10px;
+  text-decoration:none; color:var(--text);
+  min-width:0;
 }
-.sb-pin{
-  position: absolute;
-  right: 6px;
-  top: 6px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: 0;
-  padding: 0;
-}
-
-/* Brand */
-.nav-brand{
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 10px; border-radius: 12px;
-  color: var(--text); text-decoration: none; border: 1px solid transparent;
-  min-width: 0;
-}
-.nav-brand:hover{ background: var(--hover); border-color: var(--border); }
-
 .brand-logo{
-  width: 28px; height: 28px; flex: 0 0 28px;
-  display: inline-flex; align-items: center; justify-content: center;
-  border-radius: 8px;
+  width:28px; height:28px; flex:0 0 28px;
+  display:inline-flex; align-items:center; justify-content:center;
+  border-radius:8px; overflow:hidden;
   background: linear-gradient(135deg,#7c3aed,#22d3ee);
-  color:#fff; font-weight:700; line-height:1; overflow:hidden;
+  color:#fff; font-weight:700;
 }
-.brand-logo.has-img{ background: transparent; }
-.brand-logo img{ width:100%; height:100%; display:block; object-fit:contain; }
+.brand-logo.has-img{ background:transparent; }
+.brand-logo img{ width:100%; height:100%; object-fit:contain; display:block; }
 .brand-emoji{ font-size:18px; line-height:1; display:block; }
 
 .brand-text{ display:grid; line-height:1.1; min-width:0; }
 .brand-name{ font-weight:800; }
 .brand-sub{ font-size:11px; color:var(--muted); }
 
-/* Grupos/itens */
+.fp-sb-actions{ display:flex; gap:6px; }
+.btn.icon{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:36px; height:36px; border-radius:12px;
+  border:1px solid var(--border);
+  background: var(--hover);
+  color: var(--text);
+  transition: transform 90ms ease, background 160ms var(--sb-ease), border-color 160ms var(--sb-ease);
+}
+.btn.icon:hover{ background: var(--active); border-color: var(--border-strong); }
+.btn.icon:active{ transform: translateY(1px); }
+
+/* ================= NAV ================= */
+.fp-nav{ padding:12px 12px 16px 12px; overflow:auto; }
 .nav-group{ display:grid; gap:6px; }
 .nav-section{
   font-size:11px; letter-spacing:.6px; color:var(--muted);
@@ -108,38 +106,32 @@ html[data-sb-collapsed="true"] .fp-sb-flyout.is-peek{
 .nav-item:active{ transform: translateY(1px); }
 .nav-item[data-active="true"]{ background:var(--active); border-color:var(--border-strong); }
 
-/* Ícones alinhados (sem saltos) */
-.nav-icon{
-  width:18px; height:18px; flex:0 0 18px;
-  display:flex; align-items:center; justify-content:center;
-}
-.nav-icon svg, .nav-icon img{ width:18px; height:18px; display:block; }
+.nav-icon{ width:18px; height:18px; flex:0 0 18px; display:flex; align-items:center; justify-content:center; }
 .nav-emoji{ font-size:18px; line-height:1; display:block; }
 .nav-label{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
 
-/* ========== ESTADO COLAPSADO (apenas ícones) ========== */
-html[data-sb-collapsed="true"] .fp-sb-flyout:not(.is-peek) .nav-section,
-html[data-sb-collapsed="true"] .fp-sb-flyout:not(.is-peek) .nav-label,
-html[data-sb-collapsed="true"] .fp-sb-flyout:not(.is-peek) .brand-text{
-  opacity:0; pointer-events:none; width:0; max-width:0;
-  overflow:hidden; position:absolute;
+/* ===== COLAPSADO (sem peek): esconder textos e centrar os ícones ===== */
+html[data-sb-collapsed="1"] .fp-sb-flyout:not(.is-peek) .brand-text,
+html[data-sb-collapsed="1"] .fp-sb-flyout:not(.is-peek) .nav-section,
+html[data-sb-collapsed="1"] .fp-sb-flyout:not(.is-peek) .nav-label{
+  opacity:0; pointer-events:none; width:0; max-width:0; overflow:hidden; position:absolute;
 }
-html[data-sb-collapsed="true"] .fp-sb-flyout:not(.is-peek) .nav-item{
+html[data-sb-collapsed="1"] .fp-sb-flyout:not(.is-peek) .nav-item{
   justify-content:center; padding:10px;
 }
 
-/* Em peek, volta tudo com fade */
-html[data-sb-collapsed="true"] .fp-sb-flyout.is-peek .nav-section,
-html[data-sb-collapsed="true"] .fp-sb-flyout.is-peek .nav-label,
-html[data-sb-collapsed="true"] .fp-sb-flyout.is-peek .brand-text{
+/* ===== em peek volta tudo com fade ===== */
+html[data-sb-collapsed="1"] .fp-sb-flyout.is-peek .brand-text,
+html[data-sb-collapsed="1"] .fp-sb-flyout.is-peek .nav-section,
+html[data-sb-collapsed="1"] .fp-sb-flyout.is-peek .nav-label{
   position:static; width:auto; max-width:none; opacity:1;
   transition: opacity 180ms var(--sb-ease) var(--sb-peek-delay);
 }
-html[data-sb-collapsed="true"] .fp-sb-flyout.is-peek .nav-item{
+html[data-sb-collapsed="1"] .fp-sb-flyout.is-peek .nav-item{
   justify-content:flex-start; padding:10px 12px;
 }
 
-/* Dark: brilho no peek */
-:root[data-theme="dark"] html[data-sb-collapsed="true"] .fp-sb-flyout.is-peek{
+/* Dark – brilho ligeiro no peek */
+:root[data-theme="dark"] html[data-sb-collapsed="1"] .fp-sb-flyout.is-peek{
   box-shadow: 0 12px 50px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.04) inset;
 }

@@ -31,16 +31,17 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         `}</Script>
       </head>
 
-      <body
-        style={{
-          margin: 0,
-          minHeight: "100vh",
-          display: "grid",
-          gridTemplateColumns: "var(--sb-width) 1fr",
-          gridTemplateRows: "auto 1fr",
-          gridTemplateAreas: `"sidebar header" "sidebar main"`,
-        }}
-      >
+<body
+  style={{
+    margin: 0,
+    minHeight: "100vh",
+    display: "grid",
+    gridTemplateColumns: "var(--sb-rail, 264px) 1fr", // <— aqui
+    gridTemplateRows: "auto 1fr",
+    gridTemplateAreas: `"sidebar header" "sidebar main"`,
+  }}
+>
+ >
         <AppProviders>
           {/* escreve cookie tz no 1º render do cliente */}
           <TimezoneCookie />
