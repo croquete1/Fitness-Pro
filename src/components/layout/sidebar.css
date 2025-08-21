@@ -1,7 +1,10 @@
-/* ====== DIMENSÕES/CORES herdadas do theme.css ======
+/* ====== TOKENS esperados do theme.css ======
    --sb-width, --sb-width-collapsed, --sidebar-bg, --border, --border-strong,
    --hover, --active, --text, --muted, --btn-bg
 */
+
+/* Delay do hover-peek (podes ajustar aqui) */
+:root { --sb-peek-delay: 250ms; }
 
 /* --- flyout wrapper: cresce por cima do conteúdo quando colapsada --- */
 .fp-sb-flyout {
@@ -17,15 +20,19 @@
 
 /* Quando colapsada, “empurra” o painel para a esquerda deixando visível só a parte estreita */
 html[data-sb-collapsed="true"] .fp-sb-flyout {
-  width: var(--sb-width);                 /* continua a ter a largura total para poder “voar” */
+  width: var(--sb-width);                 /* mantém largura para poder “voar” */
   transform: translateX(calc(var(--sb-width-collapsed) - var(--sb-width)));
   box-shadow: none;
+  transition: transform 200ms ease, box-shadow 200ms ease; /* sem delay a fechar */
 }
 
-/* Ao passar o rato (peek), mostra a sidebar por cima do conteúdo */
+/* Ao passar o rato (peek), mostra a sidebar por cima do conteúdo — COM DELAY */
 html[data-sb-collapsed="true"] aside:hover .fp-sb-flyout {
   transform: translateX(0);
   box-shadow: 0 8px 40px rgba(0,0,0,.20), 0 1px 0 rgba(0,0,0,.08) inset;
+  transition:
+    transform 200ms ease var(--sb-peek-delay),
+    box-shadow 200ms ease var(--sb-peek-delay);
 }
 
 /* --- nav base --- */
@@ -86,19 +93,20 @@ html[data-sb-collapsed="true"] .fp-sb-flyout:not(:hover) .nav-label {
   position: absolute;
 }
 
+/* Ícones mais centrados quando colapsado */
 html[data-sb-collapsed="true"] .fp-sb-flyout:not(:hover) .nav-item {
   justify-content: center;
-  padding: 10px;                          /* aperta para ícone */
+  padding: 10px; /* aperta para ícone */
 }
 
-/* --- estado COLAPSADO + HOVER (peek) -> volta a mostrar labels/cabeçalhos --- */
+/* --- estado COLAPSADO + HOVER (peek) -> volta a mostrar labels/cabeçalhos — COM DELAY p/ sincronizar --- */
 html[data-sb-collapsed="true"] aside:hover .nav-section,
 html[data-sb-collapsed="true"] aside:hover .nav-label {
   position: static;
   width: auto;
   max-width: none;
   opacity: 1;
-  transition: opacity 140ms ease;
+  transition: opacity 140ms ease var(--sb-peek-delay);
 }
 
 html[data-sb-collapsed="true"] aside:hover .nav-item {

@@ -7,8 +7,7 @@ const NAV: Group[] = [
   {
     title: "GERAL",
     items: [
-      { href: "/dashboard", label: "Dashboard", icon: <span className="nav-emoji">📊</span>, exact: true },
-      { href: "/dashboard/reports", label: "Relatórios", icon: <span className="nav-emoji">🧾</span> },
+      { href: "/dashboard/pt", label: "Dashboard", icon: <span className="nav-emoji">📊</span>, exact: true },
       { href: "/dashboard/settings", label: "Definições", icon: <span className="nav-emoji">⚙️</span> },
     ],
   },
@@ -18,7 +17,6 @@ const NAV: Group[] = [
       { href: "/dashboard/pt/clients", label: "Clientes", icon: <span className="nav-emoji">👫</span> },
       { href: "/dashboard/pt/plans", label: "Planos", icon: <span className="nav-emoji">🧱</span> },
       { href: "/dashboard/pt/library", label: "Biblioteca", icon: <span className="nav-emoji">📚</span> },
-      { href: "/dashboard/pt/sessions", label: "Sessões", icon: <span className="nav-emoji">🗓️</span> },
     ],
   },
 ];

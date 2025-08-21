@@ -12,12 +12,11 @@ const NAV: Group[] = [
     ],
   },
   {
-    title: "A MINHA CONTA",
+    title: "CONTA",
     items: [
-      { href: "/dashboard/me/sessions", label: "Minhas sessões", icon: <span className="nav-emoji">🗓️</span> },
-      { href: "/dashboard/me/plan", label: "Plano", icon: <span className="nav-emoji">🏋️</span> },
-      { href: "/dashboard/me/progress", label: "Progresso", icon: <span className="nav-emoji">📈</span> },
-      { href: "/dashboard/me/billing", label: "Pagamentos", icon: <span className="nav-emoji">💳</span> },
+      { href: "/dashboard/account", label: "A minha conta", icon: <span className="nav-emoji">👤</span> },
+      { href: "/dashboard/sessions", label: "Minhas sessões", icon: <span className="nav-emoji">🗓️</span> },
+      { href: "/dashboard/payments", label: "Pagamentos", icon: <span className="nav-emoji">💳</span> },
     ],
   },
 ];

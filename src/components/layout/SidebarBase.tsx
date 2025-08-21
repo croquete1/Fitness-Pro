@@ -18,6 +18,12 @@ export type Group = {
   items: Item[];
 };
 
+export type SidebarBaseProps = {
+  nav: Group[];
+  /** Mostrar o botão de compactar/expandir. Default: true */
+  showToggle?: boolean;
+};
+
 function normalize(pathname: string) {
   return pathname !== "/" && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
 }
@@ -27,16 +33,18 @@ function isActive(pathname: string, href: string, exact?: boolean) {
   return clean === href || clean.startsWith(href + "/");
 }
 
-export default function SidebarBase({ nav }: { nav: Group[] }) {
+export default function SidebarBase({ nav, showToggle = true }: SidebarBaseProps) {
   const pathname = usePathname();
 
   return (
-    // ⬇️ Este wrapper permite “peek on hover” mesmo com a coluna da grid estreita
+    // Wrapper que permite o "peek on hover" quando colapsada
     <div className="fp-sb-flyout">
       <nav className="fp-nav">
-        <div className="nav-tools">
-          <SbToggle />
-        </div>
+        {showToggle && (
+          <div className="nav-tools">
+            <SbToggle />
+          </div>
+        )}
 
         {nav.map((group) => (
           <div key={group.title} className="nav-group">

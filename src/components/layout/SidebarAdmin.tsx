@@ -17,7 +17,12 @@ const NAV: Group[] = [
     items: [
       { href: "/dashboard/admin/approvals", label: "Aprovações", icon: <span className="nav-emoji">✅</span> },
       { href: "/dashboard/admin/users", label: "Utilizadores", icon: <span className="nav-emoji">👥</span> },
-      { href: "/dashboard/admin/system", label: "Sistema", icon: <span className="nav-emoji">🧰</span> },
+    ],
+  },
+  {
+    title: "SISTEMA",
+    items: [
+      { href: "/dashboard/system/health", label: "Saúde do sistema", icon: <span className="nav-emoji">🧰</span> },
     ],
   },
 ];
