@@ -1,33 +1,32 @@
-/* ====== TOKENS esperados do theme.css ======
+/* ====== TOKENS esperados de theme.css ======
    --sb-width, --sb-width-collapsed, --sidebar-bg, --border, --border-strong,
    --hover, --active, --text, --muted, --btn-bg
 */
 
-/* Delay do hover-peek (podes ajustar aqui) */
+/* Delay do hover-peek (ajusta se quiseres) */
 :root { --sb-peek-delay: 250ms; }
 
-/* --- flyout wrapper: cresce por cima do conteúdo quando colapsada --- */
+/* ---------- FLYOUT ---------- */
 .fp-sb-flyout {
   position: sticky;
   top: 0;
   height: 100vh;
-  width: var(--sb-width);                 /* largura total */
+  width: var(--sb-width);
   transform: translateX(0);
   will-change: transform, box-shadow;
   transition: transform 200ms ease, box-shadow 200ms ease;
-  z-index: 40;
+  z-index: 60; /* acima do header */
 }
 
-/* Quando colapsada, “empurra” o painel para a esquerda deixando visível só a parte estreita */
+/* colapsada: deixa só o slice visível */
 html[data-sb-collapsed="true"] .fp-sb-flyout {
-  width: var(--sb-width);                 /* mantém largura para poder “voar” */
+  width: var(--sb-width);
   transform: translateX(calc(var(--sb-width-collapsed) - var(--sb-width)));
   box-shadow: none;
-  transition: transform 200ms ease, box-shadow 200ms ease; /* sem delay a fechar */
 }
 
-/* Ao passar o rato (peek), mostra a sidebar por cima do conteúdo — COM DELAY */
-html[data-sb-collapsed="true"] aside:hover .fp-sb-flyout {
+/* PEK no próprio flyout (e não no <aside>) — com delay para abrir */
+html[data-sb-collapsed="true"] .fp-sb-flyout:hover {
   transform: translateX(0);
   box-shadow: 0 8px 40px rgba(0,0,0,.20), 0 1px 0 rgba(0,0,0,.08) inset;
   transition:
@@ -35,7 +34,7 @@ html[data-sb-collapsed="true"] aside:hover .fp-sb-flyout {
     box-shadow 200ms ease var(--sb-peek-delay);
 }
 
-/* --- nav base --- */
+/* ---------- NAV ---------- */
 .fp-nav {
   height: 100%;
   background: var(--sidebar-bg);
@@ -46,11 +45,34 @@ html[data-sb-collapsed="true"] aside:hover .fp-sb-flyout {
   gap: 12px;
 }
 
+/* BRAND */
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--text);
+  border: 1px solid transparent;
+}
+.nav-brand:hover { background: var(--hover); border-color: var(--border); }
+.brand-logo {
+  width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #7c3aed, #22d3ee);
+  color: #fff; font-weight: 700;
+}
+.brand-text { display: grid; line-height: 1.1; }
+.brand-name { font-weight: 800; }
+.brand-sub { font-size: 11px; color: var(--muted); }
+
 /* barra de ferramentas (toggle) */
 .nav-tools {
   display: flex;
   justify-content: flex-end;
-  padding: 4px 4px 0 4px;
+  padding: 0 4px;
 }
 
 /* grupos/itens */
@@ -63,16 +85,11 @@ html[data-sb-collapsed="true"] aside:hover .fp-sb-flyout {
   margin: 6px 8px;
 }
 .nav-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  margin: 2px 0;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; margin: 2px 0;
   border-radius: 12px;
-  text-decoration: none;
-  color: var(--text);
-  border: 1px solid transparent;
-  background: transparent;
+  text-decoration: none; color: var(--text);
+  border: 1px solid transparent; background: transparent;
   transition: background 120ms ease, border-color 120ms ease, transform 100ms ease;
 }
 .nav-item:hover { background: var(--hover); border-color: var(--border); }
@@ -82,39 +99,40 @@ html[data-sb-collapsed="true"] aside:hover .fp-sb-flyout {
 .nav-icon { width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; }
 .nav-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* --- estado COLAPSADO (sem hover) -> mostra só ícones, centralizados --- */
+/* ---------- ESTADO COLAPSADO ---------- */
 html[data-sb-collapsed="true"] .fp-sb-flyout:not(:hover) .nav-section,
-html[data-sb-collapsed="true"] .fp-sb-flyout:not(:hover) .nav-label {
+html[data-sb-collapsed="true"] .fp-sb-flyout:not(:hover) .nav-label,
+html[data-sb-collapsed="true"] .fp-sb-flyout:not(:hover) .brand-text {
   opacity: 0;
   pointer-events: none;
-  width: 0;
-  max-width: 0;
+  width: 0; max-width: 0;
   overflow: hidden;
   position: absolute;
 }
 
-/* Ícones mais centrados quando colapsado */
-html[data-sb-collapsed="true"] .fp-sb-flyout:not(:hover) .nav-item {
+html[data-sb-collapsed="true"] .fp-sb-flyout:not(:hover) .nav-item,
+html[data-sb-collapsed="true"] .fp-sb-flyout:not(:hover) .nav-brand {
   justify-content: center;
-  padding: 10px; /* aperta para ícone */
+  padding: 10px;
 }
 
-/* --- estado COLAPSADO + HOVER (peek) -> volta a mostrar labels/cabeçalhos — COM DELAY p/ sincronizar --- */
-html[data-sb-collapsed="true"] aside:hover .nav-section,
-html[data-sb-collapsed="true"] aside:hover .nav-label {
+/* voltar a mostrar quando hover no flyout (peek) — com delay */
+html[data-sb-collapsed="true"] .fp-sb-flyout:hover .nav-section,
+html[data-sb-collapsed="true"] .fp-sb-flyout:hover .nav-label,
+html[data-sb-collapsed="true"] .fp-sb-flyout:hover .brand-text {
   position: static;
-  width: auto;
-  max-width: none;
+  width: auto; max-width: none;
   opacity: 1;
   transition: opacity 140ms ease var(--sb-peek-delay);
 }
 
-html[data-sb-collapsed="true"] aside:hover .nav-item {
+html[data-sb-collapsed="true"] .fp-sb-flyout:hover .nav-item,
+html[data-sb-collapsed="true"] .fp-sb-flyout:hover .nav-brand {
   justify-content: flex-start;
   padding: 10px 12px;
 }
 
-/* Dark: leve brilho quando em hover-peek para destacar a barra */
-:root[data-theme="dark"] html[data-sb-collapsed="true"] aside:hover .fp-sb-flyout {
+/* Dark: brilho no peek */
+:root[data-theme="dark"] html[data-sb-collapsed="true"] .fp-sb-flyout:hover {
   box-shadow: 0 12px 50px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.04) inset;
 }

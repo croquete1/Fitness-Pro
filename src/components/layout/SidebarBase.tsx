@@ -37,9 +37,20 @@ export default function SidebarBase({ nav, showToggle = true }: SidebarBaseProps
   const pathname = usePathname();
 
   return (
-    // Wrapper que permite o "peek on hover" quando colapsada
+    /* Wrapper permite “peek on hover” — o :hover é no próprio flyout
+       (não no <aside>), para manter o hover mesmo quando o painel sai
+       fora da coluna da grid. */
     <div className="fp-sb-flyout">
       <nav className="fp-nav">
+        {/* BRAND / LOGO */}
+        <Link href="/dashboard" className="nav-brand" aria-label="Ir para a Dashboard">
+          <span className="brand-logo" aria-hidden>📊</span>
+          <span className="brand-text">
+            <span className="brand-name">Fitness&nbsp;Pro</span>
+            <span className="brand-sub">Dashboard</span>
+          </span>
+        </Link>
+
         {showToggle && (
           <div className="nav-tools">
             <SbToggle />

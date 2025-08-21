@@ -18,26 +18,28 @@ type DashboardData = {
   notifications: Notif[];
 };
 
-// helpers
 function fmtDateTimeISO(iso: string) {
   const d = new Date(iso);
   try {
     return d.toLocaleString("pt-PT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
-  } catch {
-    return iso.replace("T", " ").slice(0, 16);
-  }
+  } catch { return iso.replace("T", " ").slice(0, 16); }
 }
 
 function sparklinePoints(data: TrendPoint[], w = 200, h = 48, pad = 2) {
   const max = Math.max(1, ...data.map((d) => d.sessions));
   const step = (w - pad * 2) / Math.max(1, data.length - 1);
-  return data
-    .map((d, i) => {
-      const x = pad + i * step;
-      const y = pad + (h - pad * 2) * (1 - d.sessions / max);
-      return `${x},${y}`;
-    })
-    .join(" ");
+  return data.map((d, i) => {
+    const x = pad + i * step;
+    const y = pad + (h - pad * 2) * (1 - d.sessions / max);
+    return `${x},${y}`;
+  }).join(" ");
+}
+
+function greetingFor(date = new Date()) {
+  const h = date.getHours();
+  if (h < 12) return "Bom dia";
+  if (h < 19) return "Boa tarde";
+  return "Boa noite";
 }
 
 export default async function DashboardPage() {
@@ -52,14 +54,15 @@ export default async function DashboardPage() {
       ? await getPTStats(user.id)
       : await getClientStats(user.id);
 
+  const greet = greetingFor();
+  const displayName = user.name?.split(" ")[0] || (role === "admin" ? "Admin" : role === "pt" ? "PT" : "Cliente");
+
   return (
     <div className={styles.wrap}>
-      <h1 className={styles.h1}>Dashboard</h1>
-      <div className={styles.subtitle}>
-        <span className={styles.labelMuted}>Perfil:</span> {role}
-      </div>
+      <h1 className={styles.h1}>
+        {greet}, {displayName} <span aria-hidden>👋</span>
+      </h1>
 
-      {/* Counts */}
       <section className={styles.countsRow} aria-label="Resumo">
         <CountCard label="Clientes" value={data.counts.clients} />
         <CountCard label="Treinadores" value={data.counts.trainers} />
@@ -67,7 +70,6 @@ export default async function DashboardPage() {
         <CountCard label="Sessões (próx. 7d)" value={data.counts.sessionsNext7d} />
       </section>
 
-      {/* Tendência */}
       <section className={styles.gridTwo}>
         <div className={styles.card}>
           <div className={styles.cardHeader}>
@@ -100,7 +102,6 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Próximas sessões + Notificações */}
         <div className={styles.gridSubTwo}>
           <div className={styles.card}>
             <div className={styles.cardHeader}>
