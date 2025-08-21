@@ -1,11 +1,12 @@
 "use client";
 
+import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSidebar } from "@/components/SidebarWrapper";
 import { ChevronsLeft, ChevronsRight, Pin, PinOff } from "lucide-react";
-import React from "react";
+import "./sidebar.css";
 
 export type Item = {
   href: string;
@@ -16,7 +17,6 @@ export type Item = {
 export type Group = { title: string; items: Item[] };
 export type SidebarBaseProps = {
   nav: Group[];
-  /** deixa true por omissão – mostra os botões no topo */
   showToggle?: boolean;
 };
 
@@ -32,19 +32,10 @@ export default function SidebarBase({ nav, showToggle = true }: SidebarBaseProps
   const { collapsed, pinned, toggleCollapsed, togglePinned } = useSidebar();
 
   return (
-    // *** IMPORTANTE: esta classe é a que o teu CSS anima ***
     <div className="fp-sb-flyout" data-collapsed={collapsed} data-pinned={pinned}>
-      {/* Cabeçalho da sidebar (logo + ações no topo direito) */}
       <div className="fp-sb-head">
         <Link href="/dashboard" className="fp-sb-brand" aria-label="Início">
-          <Image
-            src="/logo.png"
-            alt="Logo"
-            width={28}
-            height={28}
-            className="logo"
-            priority
-          />
+          <Image src="/logo.png" alt="Logo" width={28} height={28} className="logo" priority />
           <div className="brand-text">
             <strong className="brand-name">Fitness Pro</strong>
             <span className="brand-sub">Dashboard</span>
@@ -76,7 +67,6 @@ export default function SidebarBase({ nav, showToggle = true }: SidebarBaseProps
         )}
       </div>
 
-      {/* Navegação */}
       <nav className="fp-nav">
         {nav.map((group) => (
           <div key={group.title} className="nav-group">
