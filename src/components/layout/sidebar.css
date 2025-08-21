@@ -4,61 +4,73 @@
 */
 :root{
   --sb-peek-delay: 250ms;
-  --sb-ease: cubic-bezier(.22,1,.36,1); /* suave */
+  --sb-ease: cubic-bezier(.22,1,.36,1); /* ease-out suave */
 }
 
-/* ---------- FLYOUT (container do peek) ---------- */
+/* ---------- FLYOUT (painel que "paira") ---------- */
 .fp-sb-flyout{
-  position: sticky; top: 0; height: 100vh;
-  width: var(--sb-width); /* largura real do painel, sempre */
-  transform: translateX(0); /* expandida */
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  /* tem SEMPRE a largura completa do painel (overlay) */
+  width: var(--sb-width);
+  box-sizing: border-box;
   will-change: transform, box-shadow;
-  transition: transform 320ms var(--sb-ease), box-shadow 320ms var(--sb-ease);
+  transform: translateX(0);               /* expandida */
+  transition: transform 340ms var(--sb-ease), box-shadow 340ms var(--sb-ease);
   z-index: 60;
 }
 
-/* Estado colapsado: mostra só a “fatia” var(--sb-width-collapsed) */
+/* Quando colapsado, mostramos só uma fatia, deslocando o painel para a esquerda */
 html[data-sb-collapsed="true"] .fp-sb-flyout{
   transform: translateX(calc(var(--sb-width-collapsed) - var(--sb-width)));
   box-shadow: none;
 }
 
-/* Peek controlado em JS: sem flicker e com delay coerente */
+/* Em hover (peek) abrimos com delay, por cima do conteúdo */
 html[data-sb-collapsed="true"] .fp-sb-flyout.is-peek{
   transform: translateX(0);
   box-shadow: 0 10px 44px rgba(0,0,0,.22), 0 1px 0 rgba(0,0,0,.08) inset;
   transition:
-    transform 340ms var(--sb-ease) var(--sb-peek-delay),
-    box-shadow 340ms var(--sb-ease) var(--sb-peek-delay);
+    transform 360ms var(--sb-ease) var(--sb-peek-delay),
+    box-shadow 360ms var(--sb-ease) var(--sb-peek-delay);
 }
 
-/* ---------- BOTÃO FIXO (canto superior-direito) ---------- */
-.sb-pin{
-  position: absolute;
-  top: 8px; right: 8px;
-  z-index: 70;
-  pointer-events: auto;
-}
-
-/* ---------- NAV ---------- */
+/* ---------- CONTEÚDO DA SIDEBAR ---------- */
 .fp-nav{
   height: 100%;
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
-  /* espaço à direita para o botão fixo não sobrepor o brand */
-  padding: 12px 48px 12px 12px;
-  display: flex; flex-direction: column; gap: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-/* BRAND */
+/* HEADER: logo + botão fixo à direita (NÃO sobrepõe) */
+.sb-header{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 4px 0 4px;
+}
+
+/* link do brand */
 .nav-brand{
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 10px; border-radius: 12px;
-  color: var(--text); text-decoration: none; border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  color: var(--text);
+  text-decoration: none;
+  border: 1px solid transparent;
   min-width: 0;
 }
 .nav-brand:hover{ background: var(--hover); border-color: var(--border); }
 
+/* logo (com fallback) */
 .brand-logo{
   width: 28px; height: 28px; flex: 0 0 28px;
   display: inline-flex; align-items: center; justify-content: center;
@@ -75,12 +87,16 @@ html[data-sb-collapsed="true"] .fp-sb-flyout.is-peek{
 .brand-name{ font-weight: 800; }
 .brand-sub{ font-size: 11px; color: var(--muted); }
 
-/* GRUPOS / ITENS */
+/* botão de afixar (posicionado no header, à direita) */
+.sb-pin{ display: flex; align-items: center; }
+
+/* grupos/itens */
 .nav-group{ display: grid; gap: 6px; }
 .nav-section{
   font-size: 11px; letter-spacing: .6px; color: var(--muted);
   text-transform: uppercase; margin: 6px 8px;
 }
+
 .nav-item{
   display: flex; align-items: center; gap: 10px;
   padding: 10px 12px; margin: 2px 0;
@@ -92,7 +108,7 @@ html[data-sb-collapsed="true"] .fp-sb-flyout.is-peek{
 .nav-item:active{ transform: translateY(1px); }
 .nav-item[data-active="true"]{ background: var(--active); border-color: var(--border-strong); }
 
-/* Ícones alinhados (svg/emoji/img) */
+/* ícones sem salto */
 .nav-icon{
   width: 18px; height: 18px; flex: 0 0 18px;
   display: flex; align-items: center; justify-content: center;
@@ -103,7 +119,7 @@ html[data-sb-collapsed="true"] .fp-sb-flyout.is-peek{
 .nav-label{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 
 /* ---------- ESTADO COLAPSADO ---------- */
-/* Esconde textos e subtítulos, mas mantém logo e botão fixo visíveis */
+/* escondemos textos; mantemos logo e botão visíveis */
 html[data-sb-collapsed="true"] .fp-sb-flyout:not(.is-peek) .nav-section,
 html[data-sb-collapsed="true"] .fp-sb-flyout:not(.is-peek) .nav-label,
 html[data-sb-collapsed="true"] .fp-sb-flyout:not(.is-peek) .brand-text{
@@ -111,12 +127,12 @@ html[data-sb-collapsed="true"] .fp-sb-flyout:not(.is-peek) .brand-text{
   overflow: hidden; position: absolute;
 }
 
-/* Itens centrados quando fechado */
+/* itens centrados quando fechado (o brand fica normal) */
 html[data-sb-collapsed="true"] .fp-sb-flyout:not(.is-peek) .nav-item{
   justify-content: center; padding: 10px;
 }
 
-/* Em peek, volta a mostrar com fade */
+/* em peek tudo volta com fade */
 html[data-sb-collapsed="true"] .fp-sb-flyout.is-peek .nav-section,
 html[data-sb-collapsed="true"] .fp-sb-flyout.is-peek .nav-label,
 html[data-sb-collapsed="true"] .fp-sb-flyout.is-peek .brand-text{

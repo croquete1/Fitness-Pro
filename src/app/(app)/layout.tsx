@@ -36,7 +36,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           margin: 0,
           minHeight: "100vh",
           display: "grid",
-          gridTemplateColumns: "var(--sb-width) 1fr",
+          gridTemplateColumns: "var(--sb-width, 264px) 1fr",
           gridTemplateRows: "auto 1fr",
           gridTemplateAreas: `"sidebar header" "sidebar main"`,
         }}

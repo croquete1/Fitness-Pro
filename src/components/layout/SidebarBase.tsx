@@ -28,7 +28,7 @@ function isActive(pathname: string, href: string, exact?: boolean) {
 export default function SidebarBase({ nav, showToggle = true }: SidebarBaseProps) {
   const pathname = usePathname();
 
-  // Hover-peek robusto (sem flicker)
+  // Hover-peek controlado (sem flicker)
   const [peek, setPeek] = React.useState(false);
   const enterTimer = React.useRef<number | null>(null);
   const insideRef = React.useRef(false);
@@ -45,9 +45,12 @@ export default function SidebarBase({ nav, showToggle = true }: SidebarBaseProps
     if (enterTimer.current) window.clearTimeout(enterTimer.current);
     setPeek(false);
   };
-  React.useEffect(() => () => {
-    if (enterTimer.current) window.clearTimeout(enterTimer.current);
-  }, []);
+  React.useEffect(
+    () => () => {
+      if (enterTimer.current) window.clearTimeout(enterTimer.current);
+    },
+    []
+  );
 
   // Logo (fallback para emoji)
   const [hasLogo, setHasLogo] = React.useState(true);
@@ -60,42 +63,42 @@ export default function SidebarBase({ nav, showToggle = true }: SidebarBaseProps
       role="navigation"
       aria-label="Navegação lateral"
     >
-      {/* Botão fixo no canto superior-direito */}
-      {showToggle && (
-        <div className="sb-pin" aria-hidden="true">
-          <SbToggle />
-        </div>
-      )}
-
       <nav className="fp-nav">
-        {/* BRAND */}
-        <Link href="/dashboard" className="nav-brand" aria-label="Ir para a Dashboard">
-          <span className={`brand-logo${hasLogo ? " has-img" : ""}`}>
-            {hasLogo ? (
-              <Image
-                src="/logo.png"
-                alt="Fitness Pro"
-                width={28}
-                height={28}
-                priority
-                onError={() => setHasLogo(false)}
-              />
-            ) : (
-              <span className="brand-emoji" aria-hidden>
-                📊
-              </span>
-            )}
-          </span>
-          <span className="brand-text">
-            <span className="brand-name">Fitness&nbsp;Pro</span>
-            <span className="brand-sub">Dashboard</span>
-          </span>
-        </Link>
+        {/* HEADER DA SIDEBAR: logo à esquerda + botão fixo à direita */}
+        <div className="sb-header">
+          <Link href="/dashboard" className="nav-brand" aria-label="Ir para a Dashboard">
+            <span className={`brand-logo${hasLogo ? " has-img" : ""}`}>
+              {hasLogo ? (
+                <Image
+                  src="/logo.png"
+                  alt="Fitness Pro"
+                  width={28}
+                  height={28}
+                  priority
+                  onError={() => setHasLogo(false)}
+                />
+              ) : (
+                <span className="brand-emoji" aria-hidden>
+                  📊
+                </span>
+              )}
+            </span>
+            <span className="brand-text">
+              <span className="brand-name">Fitness&nbsp;Pro</span>
+              <span className="brand-sub">Dashboard</span>
+            </span>
+          </Link>
+
+          {showToggle && (
+            <div className="sb-pin">
+              <SbToggle />
+            </div>
+          )}
+        </div>
 
         {nav.map((group) => (
           <div key={group.title} className="nav-group">
             <div className="nav-section">{group.title}</div>
-
             {group.items.map((item) => {
               const active = isActive(pathname, item.href, item.exact);
               return (
