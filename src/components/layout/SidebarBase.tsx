@@ -36,11 +36,28 @@ function isActive(pathname: string, href: string, exact?: boolean) {
 export default function SidebarBase({ nav, showToggle = true }: SidebarBaseProps) {
   const pathname = usePathname();
 
+  // --- Hover-peek controlado (evita “piscar” ao expandir) ---
+  const [peek, setPeek] = React.useState(false);
+  const enterTimer = React.useRef<number | null>(null);
+
+  const onEnter = () => {
+    // só ativa o peek após o delay configurado em CSS (250ms por omissão)
+    if (enterTimer.current) window.clearTimeout(enterTimer.current);
+    enterTimer.current = window.setTimeout(() => setPeek(true), 250);
+  };
+  const onLeave = () => {
+    if (enterTimer.current) window.clearTimeout(enterTimer.current);
+    setPeek(false); // fecha imediatamente ao sair
+  };
+  React.useEffect(() => () => { if (enterTimer.current) window.clearTimeout(enterTimer.current); }, []);
+
   return (
-    /* Wrapper permite “peek on hover” — o :hover é no próprio flyout
-       (não no <aside>), para manter o hover mesmo quando o painel sai
-       fora da coluna da grid. */
-    <div className="fp-sb-flyout">
+    /* Wrapper do flyout; a classe is-peek é o “abre/fecha” da animação */
+    <div
+      className={`fp-sb-flyout${peek ? " is-peek" : ""}`}
+      onMouseEnter={onEnter}
+      onMouseLeave={onLeave}
+    >
       <nav className="fp-nav">
         {/* BRAND / LOGO */}
         <Link href="/dashboard" className="nav-brand" aria-label="Ir para a Dashboard">
