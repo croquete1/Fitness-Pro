@@ -1,61 +1,39 @@
-/* ====== TOKENS esperados de theme.css ======
-   --sb-width, --sb-width-collapsed, --sidebar-bg, --border, --border-strong,
-   --hover, --active, --text, --muted, --btn-bg, --sb-col
-*/
+/* --- TRACK DA GRID: garante a largura correcta da coluna da sidebar --- */
+:root { --sb-col: var(--sb-width); }                     /* expandida */
+html[data-sb-collapsed="1"] { --sb-col: var(--sb-width-collapsed); }  /* colapsada */
 
-/* Delay do hover-peek */
-:root { --sb-peek-delay: 250ms; }
-
-/* ---------- LARGURA DA COLUNA (ligação ao layout grid) ---------- */
-/* Expandida (default) */
-html:not([data-sb-collapsed]),
-html[data-sb-collapsed="0"],
-html[data-sb-collapsed="false"] {
-  --sb-col: var(--sb-width);
-}
-
-/* Colapsada */
-html[data-sb-collapsed="1"],
-html[data-sb-collapsed="true"] {
-  --sb-col: var(--sb-width-collapsed);
-}
-
-/* ---------- FLYOUT ---------- */
+/* --- FLYOUT: layering correcto para não tapar o header quando colapsada --- */
 .fp-sb-flyout {
   position: sticky;
   top: 0;
   height: 100vh;
-  width: var(--sb-width); /* largura real do flyout; a coluna encolhe/alarga por --sb-col */
+  width: var(--sb-width);
   transform: translateX(0);
   will-change: transform, box-shadow;
-  transition:
-    transform 280ms cubic-bezier(.2,.8,.2,1),
-    box-shadow 240ms ease;
-  z-index: 60;
+  transition: transform 280ms cubic-bezier(.2,.8,.2,1), box-shadow 240ms ease;
+  z-index: 40; /* base */
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
   overflow: hidden;
 }
 
-/* Quando colapsada: mostra só o slice visível, deslizando o resto para fora */
-html[data-sb-collapsed="1"] .fp-sb-flyout,
-html[data-sb-collapsed="true"] .fp-sb-flyout {
+/* Quando colapsada: baixa o z-index para não cobrir o header; no hover volta a subir */
+html[data-sb-collapsed="1"] .fp-sb-flyout {
   transform: translateX(calc(var(--sb-width-collapsed) - var(--sb-width)));
   box-shadow: none;
+  z-index: 20; /* header fica acima da “fatia” colapsada */
 }
-
-/* Peek com hover (com atraso para evitar abrir à mínima passagem) */
-html[data-sb-collapsed="1"] .fp-sb-flyout:hover,
-html[data-sb-collapsed="true"] .fp-sb-flyout:hover {
+html[data-sb-collapsed="1"] .fp-sb-flyout:hover {
   transform: translateX(0);
   box-shadow: 0 8px 40px rgba(0,0,0,.20), 0 1px 0 rgba(0,0,0,.08) inset;
   transition:
     transform 220ms cubic-bezier(.2,.8,.2,1) var(--sb-peek-delay),
     box-shadow 220ms ease var(--sb-peek-delay);
+  z-index: 80; /* no peek, a sidebar fica por cima do header */
 }
 
-/* ---------- HEAD ---------- */
-.fp-sb-head {
+/* --- HEAD (brand e botões) --- */
+.fp-sb-head{
   position: sticky;
   top: 0;
   z-index: 2;
@@ -66,24 +44,22 @@ html[data-sb-collapsed="true"] .fp-sb-flyout:hover {
   padding: 10px 12px;
   background: var(--sidebar-bg);
 }
+.fp-sb-brand{ display:flex; align-items:center; gap:10px; color:var(--text); text-decoration:none; }
+.fp-sb-brand .logo{ width:28px; height:28px; border-radius:8px; flex:0 0 28px; } /* garante que o logo nunca “encolhe” */
+.brand-text{ display:grid; line-height:1.1; }
+.brand-name{ font-weight:800; }
+.brand-sub{ font-size:11px; color:var(--muted); }
 
-.fp-sb-brand { display: flex; align-items: center; gap: 10px; color: var(--text); text-decoration: none; }
-.fp-sb-brand .logo { border-radius: 8px; }
-.brand-text { display: grid; line-height: 1.1; }
-.brand-name { font-weight: 800; }
-.brand-sub { font-size: 11px; color: var(--muted); }
-
-.fp-sb-actions { display: flex; gap: 8px; }
-.btn.icon {
-  width: 32px; height: 32px;
-  display: inline-flex; align-items: center; justify-content: center;
-  border-radius: 10px; border: 1px solid var(--border); background: var(--btn-bg);
+.fp-sb-actions{ display:flex; gap:8px; }
+.btn.icon{
+  width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center;
+  border-radius:10px; border:1px solid var(--border); background:var(--btn-bg);
   transition: transform 100ms ease, background 120ms ease, border-color 120ms ease;
 }
-.btn.icon:hover  { background: var(--hover);  border-color: var(--border-strong); }
-.btn.icon:active { transform: translateY(1px); }
+.btn.icon:hover{ background:var(--hover); border-color:var(--border-strong); }
+.btn.icon:active{ transform: translateY(1px); }
 
-/* ---------- NAV ---------- */
+/* --- NAV --- */
 .fp-nav {
   position: relative;
   z-index: 1;
@@ -94,75 +70,53 @@ html[data-sb-collapsed="true"] .fp-sb-flyout:hover {
   gap: 12px;
   overflow: auto;
 }
-
 .nav-group { display: grid; gap: 6px; }
-
 .nav-section {
-  font-size: 11px;
-  letter-spacing: .6px;
-  color: var(--muted);
-  text-transform: uppercase;
-  margin: 6px 8px;
+  font-size: 11px; letter-spacing: .6px; color: var(--muted);
+  text-transform: uppercase; margin: 6px 8px;
 }
-
 .nav-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 12px; margin: 2px 0;
-  border-radius: 12px;
-  text-decoration: none; color: var(--text);
-  border: 1px solid transparent; background: transparent;
+  display:flex; align-items:center; gap:10px;
+  padding:10px 12px; margin:2px 0; border-radius:12px;
+  text-decoration:none; color:var(--text);
+  border:1px solid transparent; background:transparent;
   transition: background 120ms ease, border-color 120ms ease, transform 100ms ease;
 }
 .nav-item:hover { background: var(--hover); border-color: var(--border); }
 .nav-item:active { transform: translateY(1px); }
 .nav-item[data-active="true"] { background: var(--active); border-color: var(--border-strong); }
+.nav-icon { width:18px; height:18px; display:inline-flex; align-items:center; justify-content:center; }
+.nav-label { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
-.nav-icon  { width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; }
-.nav-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-/* ---------- ESTADO COLAPSADO (esconde texto/labels fora do fluxo) ---------- */
+/* --- ESTADO COLAPSADO (texto escondido fora do hover) --- */
 html[data-sb-collapsed="1"] .fp-sb-flyout:not(:hover) .nav-section,
 html[data-sb-collapsed="1"] .fp-sb-flyout:not(:hover) .nav-label,
-html[data-sb-collapsed="1"] .fp-sb-flyout:not(:hover) .brand-text,
-html[data-sb-collapsed="true"] .fp-sb-flyout:not(:hover) .nav-section,
-html[data-sb-collapsed="true"] .fp-sb-flyout:not(:hover) .nav-label,
-html[data-sb-collapsed="true"] .fp-sb-flyout:not(:hover) .brand-text {
+html[data-sb-collapsed="1"] .fp-sb-flyout:not(:hover) .brand-text {
   opacity: 0; visibility: hidden; pointer-events: none;
   width: 0; max-width: 0;
-  position: absolute; /* evita ocupar espaço quando colapsada */
 }
 
 html[data-sb-collapsed="1"] .fp-sb-flyout:not(:hover) .nav-item,
-html[data-sb-collapsed="1"] .fp-sb-flyout:not(:hover) .fp-sb-brand,
-html[data-sb-collapsed="true"] .fp-sb-flyout:not(:hover) .nav-item,
-html[data-sb-collapsed="true"] .fp-sb-flyout:not(:hover) .fp-sb-brand {
+html[data-sb-collapsed="1"] .fp-sb-flyout:not(:hover) .fp-sb-brand {
   justify-content: center;
   padding: 10px;
 }
 
-/* Ao fazer hover (peek) volta a mostrar com fade */
+/* volta a mostrar no peek */
 html[data-sb-collapsed="1"] .fp-sb-flyout:hover .nav-section,
 html[data-sb-collapsed="1"] .fp-sb-flyout:hover .nav-label,
-html[data-sb-collapsed="1"] .fp-sb-flyout:hover .brand-text,
-html[data-sb-collapsed="true"] .fp-sb-flyout:hover .nav-section,
-html[data-sb-collapsed="true"] .fp-sb-flyout:hover .nav-label,
-html[data-sb-collapsed="true"] .fp-sb-flyout:hover .brand-text {
-  position: static;
+html[data-sb-collapsed="1"] .fp-sb-flyout:hover .brand-text {
   opacity: 1; visibility: visible;
   width: auto; max-width: none;
   transition: opacity 140ms ease var(--sb-peek-delay);
 }
-
 html[data-sb-collapsed="1"] .fp-sb-flyout:hover .nav-item,
-html[data-sb-collapsed="1"] .fp-sb-flyout:hover .fp-sb-brand,
-html[data-sb-collapsed="true"] .fp-sb-flyout:hover .nav-item,
-html[data-sb-collapsed="true"] .fp-sb-flyout:hover .fp-sb-brand {
+html[data-sb-collapsed="1"] .fp-sb-flyout:hover .fp-sb-brand {
   justify-content: flex-start;
   padding: 10px 12px;
 }
 
 /* Dark: brilho no peek */
-:root[data-theme="dark"] html[data-sb-collapsed="1"] .fp-sb-flyout:hover,
-:root[data-theme="dark"] html[data-sb-collapsed="true"] .fp-sb-flyout:hover {
+:root[data-theme="dark"] html[data-sb-collapsed="1"] .fp-sb-flyout:hover {
   box-shadow: 0 12px 50px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.04) inset;
 }
