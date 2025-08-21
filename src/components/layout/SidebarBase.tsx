@@ -1,102 +1,100 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import Image from "next/image";
-import { usePathname } from "next/navigation";
-import React from "react";
-import { useSidebar } from "@/components/SidebarWrapper";
-import { Pin, PinOff, ChevronsLeft, ChevronsRight } from "lucide-react";
-import "./sidebar.css";
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import React from 'react';
+import { Pin, PinOff, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { useSidebar } from '@/components/SidebarWrapper';
 
-export type Item = { href: string; label: string; icon: React.ReactNode; exact?: boolean };
-export type Group = { title: string; items: Item[] };
-export type SidebarBaseProps = { nav: Group[] };
+/** Tipos base (não precisam ser importados noutros ficheiros) */
+type NavItem = {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+  exact?: boolean;
+};
+type NavGroup = { title: string; items: NavItem[] };
 
-function normalize(p: string) {
-  return p !== "/" && p.endsWith("/") ? p.slice(0, -1) : p;
-}
+/** Props do componente base */
+export type SidebarBaseProps = {
+  nav: NavGroup[];
+  /** Mostra/oculta o botão de colapsar/expandir (default: true) */
+  showToggle?: boolean;
+  /** Caminho do logo (default: /logo.png) */
+  logoSrc?: string;
+  /** Nome da marca (default: "Fitness Pro") */
+  brandName?: string;
+  /** Subtítulo por baixo do nome (opcional) */
+  brandSub?: string;
+};
+
 function isActive(pathname: string, href: string, exact?: boolean) {
-  const clean = normalize(pathname);
-  if (exact || href === "/dashboard") return clean === href;
-  return clean === href || clean.startsWith(href + "/");
+  const clean =
+    pathname !== '/' && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
+
+  if (exact || href === '/dashboard') return clean === href;
+  return clean === href || clean.startsWith(href + '/');
 }
 
-export default function SidebarBase({ nav }: SidebarBaseProps) {
+/**
+ * Componente base da sidebar.
+ * Estrutura 100% compatível com o teu sidebar.css:
+ * - .fp-sb-flyout (painel sticky que desliza)
+ * - .fp-nav       (contentor interno)
+ * - .nav-brand    (logo+texto)
+ * - .nav-tools    (botões pin/toggle no topo-direito)
+ */
+export default function SidebarBase({
+  nav,
+  showToggle = true,
+  logoSrc = '/logo.png',
+  brandName = 'Fitness Pro',
+  brandSub,
+}: SidebarBaseProps) {
   const pathname = usePathname();
   const { collapsed, pinned, toggleCollapsed, togglePinned } = useSidebar();
 
-  // “peek” só quando está colapsada e não afixada
-  const [peek, setPeek] = React.useState(false);
-  const timer = React.useRef<number | null>(null);
-  const onEnter = () => {
-    if (!(collapsed && !pinned)) return;
-    if (timer.current) window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => setPeek(true), 250);
-  };
-  const onLeave = () => {
-    if (timer.current) window.clearTimeout(timer.current);
-    setPeek(false);
-  };
-  React.useEffect(() => () => { if (timer.current) window.clearTimeout(timer.current); }, []);
-
-  const [hasLogo, setHasLogo] = React.useState(true);
-
   return (
-    <div
-      className={`fp-sb-flyout${peek ? " is-peek" : ""}`}
-      onPointerEnter={onEnter}
-      onPointerLeave={onLeave}
-      role="navigation"
-      aria-label="Navegação lateral"
-    >
-      <div className="fp-sb-head">
-        <Link href="/dashboard" className="fp-sb-brand" aria-label="Ir para a Dashboard">
-          <span className={`brand-logo${hasLogo ? " has-img" : ""}`}>
-            {hasLogo ? (
-              <Image
-                src="/logo.png"
-                alt="Fitness Pro"
-                width={28}
-                height={28}
-                priority
-                onError={() => setHasLogo(false)}
-              />
-            ) : (
-              <span className="brand-emoji" aria-hidden>📊</span>
-            )}
-          </span>
+    <div className="fp-sb-flyout" role="navigation" aria-label="Sidebar">
+      <div className="fp-nav">
+        {/* BRAND */}
+        <Link href="/dashboard" className="nav-brand" aria-label="Ir para o dashboard">
+          {/* O teu CSS define .brand-logo (28x28). A imagem respeita esse tamanho. */}
+          <img src={logoSrc} alt="Logo" className="brand-logo" />
           <span className="brand-text">
-            <strong className="brand-name">Fitness&nbsp;Pro</strong>
-            <span className="brand-sub">Dashboard</span>
+            <span className="brand-name">{brandName}</span>
+            {brandSub ? <span className="brand-sub">{brandSub}</span> : null}
           </span>
         </Link>
 
-        <div className="fp-sb-actions">
+        {/* TOOLS (topo-direito) */}
+        <div className="nav-tools">
           <button
             type="button"
             className="btn icon"
-            aria-label={pinned ? "Desafixar sidebar" : "Afixar sidebar"}
-            title={pinned ? "Desafixar sidebar" : "Afixar sidebar"}
+            aria-label={pinned ? 'Desafixar sidebar' : 'Afixar sidebar'}
+            title={pinned ? 'Desafixar sidebar' : 'Afixar sidebar'}
             onClick={togglePinned}
             data-role="sb-pin"
           >
             {pinned ? <Pin size={18} /> : <PinOff size={18} />}
           </button>
 
-          <button
-            type="button"
-            className="btn icon"
-            aria-label={collapsed ? "Expandir menu" : "Encolher para ícones"}
-            title={collapsed ? "Expandir menu" : "Encolher para ícones"}
-            onClick={toggleCollapsed}
-            data-role="sb-toggle"
-          >
-            {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
-          </button>
+          {showToggle && (
+            <button
+              type="button"
+              className="btn icon"
+              aria-label={collapsed ? 'Expandir menu' : 'Encolher para ícones'}
+              title={collapsed ? 'Expandir menu' : 'Encolher para ícones'}
+              onClick={toggleCollapsed}
+              data-role="sb-toggle"
+            >
+              {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
+            </button>
+          )}
         </div>
-      </div>
 
-      <nav className="fp-nav">
+        {/* NAV */}
         {nav.map((group) => (
           <div key={group.title} className="nav-group">
             <div className="nav-section">{group.title}</div>
@@ -107,8 +105,8 @@ export default function SidebarBase({ nav }: SidebarBaseProps) {
                   key={item.href}
                   href={item.href}
                   className="nav-item"
-                  data-active={active ? "true" : undefined}
-                  aria-current={active ? "page" : undefined}
+                  data-active={active ? 'true' : undefined}
+                  aria-current={active ? 'page' : undefined}
                 >
                   <span className="nav-icon">{item.icon}</span>
                   <span className="nav-label">{item.label}</span>
@@ -117,7 +115,7 @@ export default function SidebarBase({ nav }: SidebarBaseProps) {
             })}
           </div>
         ))}
-      </nav>
+      </div>
     </div>
   );
 }
