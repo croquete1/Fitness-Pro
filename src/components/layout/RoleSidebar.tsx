@@ -3,9 +3,9 @@
 import React from "react";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
-import SidebarAdmin from "@/components/sidebars/SidebarAdmin";
-import SidebarPT from "@/components/sidebars/SidebarPT";
-import SidebarClient from "@/components/sidebars/SidebarClient";
+import SidebarAdmin from "@/components/layout/SidebarAdmin";
+import SidebarPT from "@/components/layout/SidebarPT";
+import SidebarClient from "@/components/layout/SidebarClient";
 
 // normaliza possíveis formatos de role
 function normalizeRole(r?: string | null) {
