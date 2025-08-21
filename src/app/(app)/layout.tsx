@@ -36,16 +36,16 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         `}</Script>
       </head>
 
-      <body
-        style={{
-          margin: 0,
-          minHeight: "100vh",
-          display: "grid",
-          gridTemplateColumns: "var(--sb-rail, 264px) 1fr", // rail da sidebar (64px quando colapsada)
-          gridTemplateRows: "auto 1fr",
-          gridTemplateAreas: `"sidebar header" "sidebar main"`,
-        }}
-      >
+<body
+  style={{
+    margin: 0,
+    minHeight: "100vh",
+    display: "grid",
+    gridTemplateColumns: "var(--sb-col, var(--sb-width, 264px)) 1fr", // <— AQUI
+    gridTemplateRows: "auto 1fr",
+    gridTemplateAreas: `"sidebar header" "sidebar main"`,
+  }}
+>
         <AppProviders>
           {/* A sidebar fixa desenha o painel; o <aside> apenas reserva o rail na grid */}
           <aside style={{ gridArea: "sidebar" }} aria-hidden="true">

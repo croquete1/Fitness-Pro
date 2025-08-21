@@ -1,7 +1,7 @@
 :root {
   --sb-width: 264px;
   --sb-width-collapsed: 72px;
-
+  --sb-col: var(--sb-width);
   --bg: #f7f9fc;
   --text: #0e1116;
   --muted: #6b7280;
@@ -33,7 +33,7 @@
 }
 
 /* colapso */
-html[data-sb-collapsed="true"] {
+html[data-sb-collapsed="1"] {
   --sb-width: var(--sb-width-collapsed);
 }
 

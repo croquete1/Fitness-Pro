@@ -1,36 +1,31 @@
-/* ====== TOKENS de theme.css ======
+/* ====== TOKENS esperados de theme.css ======
    --sb-width, --sb-width-collapsed, --sidebar-bg, --border, --border-strong,
-   --hover, --active, --text, --muted, --btn-bg
+   --hover, --active, --text, --muted, --btn-bg, --sb-col
 */
 :root { --sb-peek-delay: 250ms; }
-
-/* Quando colapsada, reduz a coluna do layout (a tua grid usa var(--sb-width)) */
-html[data-sb-collapsed="1"] {
-  --sb-width: var(--sb-width-collapsed);
-}
 
 /* ---------- FLYOUT ---------- */
 .fp-sb-flyout {
   position: sticky;
   top: 0;
   height: 100vh;
-  width: var(--sb-width);
+  width: var(--sb-width);                         /* mantém largura expandida */
   transform: translateX(0);
   will-change: transform, box-shadow;
   transition: transform 280ms cubic-bezier(.2,.8,.2,1), box-shadow 240ms ease;
-  z-index: 60;                /* acima do conteúdo */
+  z-index: 60;
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
-  overflow: hidden;           /* evita que o conteúdo “vaze” no colapso */
+  overflow: hidden;
 }
 
-/* slice visível quando colapsada (peek fechado) */
+/* colapsada: deixa só o slice visível (largura da coluna encolhe via --sb-col) */
 html[data-sb-collapsed="1"] .fp-sb-flyout {
   transform: translateX(calc(var(--sb-width-collapsed) - var(--sb-width)));
   box-shadow: none;
 }
 
-/* abre em hover (peek) com pequeno delay */
+/* abre com hover (peek) – com delay */
 html[data-sb-collapsed="1"] .fp-sb-flyout:hover {
   transform: translateX(0);
   box-shadow: 0 8px 40px rgba(0,0,0,.20), 0 1px 0 rgba(0,0,0,.08) inset;
@@ -43,7 +38,7 @@ html[data-sb-collapsed="1"] .fp-sb-flyout:hover {
 .fp-sb-head{
   position: sticky;
   top: 0;
-  z-index: 2;                  /* só cobre a área do cabeçalho */
+  z-index: 2;
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
@@ -51,11 +46,7 @@ html[data-sb-collapsed="1"] .fp-sb-flyout:hover {
   padding: 10px 12px;
   background: var(--sidebar-bg);
 }
-
-.fp-sb-brand{
-  display:flex; align-items:center; gap:10px;
-  text-decoration:none; color: var(--text);
-}
+.fp-sb-brand{ display:flex; align-items:center; gap:10px; color:var(--text); text-decoration:none; }
 .fp-sb-brand .logo{ border-radius:8px; }
 .brand-text{ display:grid; line-height:1.1; }
 .brand-name{ font-weight:800; }
@@ -63,11 +54,8 @@ html[data-sb-collapsed="1"] .fp-sb-flyout:hover {
 
 .fp-sb-actions{ display:flex; gap:8px; }
 .btn.icon{
-  width:32px; height:32px;
-  display:inline-flex; align-items:center; justify-content:center;
-  border-radius:10px;
-  border:1px solid var(--border);
-  background: var(--btn-bg);
+  width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center;
+  border-radius:10px; border:1px solid var(--border); background:var(--btn-bg);
   transition: transform 100ms ease, background 120ms ease, border-color 120ms ease;
 }
 .btn.icon:hover{ background:var(--hover); border-color:var(--border-strong); }
@@ -75,27 +63,24 @@ html[data-sb-collapsed="1"] .fp-sb-flyout:hover {
 
 /* ---------- NAV ---------- */
 .fp-nav {
-  position: relative;          /* garante empilhamento correto */
+  position: relative;
   z-index: 1;
   height: calc(100% - 54px);
   padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  overflow: auto;              /* scroll se preciso */
+  overflow: auto;
 }
 .nav-group { display: grid; gap: 6px; }
 .nav-section {
-  font-size: 11px;
-  letter-spacing: .6px;
-  color: var(--muted);
-  text-transform: uppercase;
-  margin: 6px 8px;
+  font-size: 11px; letter-spacing: .6px; color: var(--muted);
+  text-transform: uppercase; margin: 6px 8px;
 }
 .nav-item {
   display:flex; align-items:center; gap:10px;
-  padding:10px 12px; margin:2px 0;
-  border-radius:12px; text-decoration:none; color:var(--text);
+  padding:10px 12px; margin:2px 0; border-radius:12px;
+  text-decoration:none; color:var(--text);
   border:1px solid transparent; background:transparent;
   transition: background 120ms ease, border-color 120ms ease, transform 100ms ease;
 }
@@ -106,29 +91,25 @@ html[data-sb-collapsed="1"] .fp-sb-flyout:hover {
 .nav-icon { width:18px; height:18px; display:inline-flex; align-items:center; justify-content:center; }
 .nav-label { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
-/* ---------- COLAPSADO (esconde rótulos/headers/brand) ---------- */
+/* ---------- ESTADO COLAPSADO ---------- */
 html[data-sb-collapsed="1"] .fp-sb-flyout:not(:hover) .nav-section,
 html[data-sb-collapsed="1"] .fp-sb-flyout:not(:hover) .nav-label,
 html[data-sb-collapsed="1"] .fp-sb-flyout:not(:hover) .brand-text {
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
+  opacity: 0; visibility: hidden; pointer-events: none;
   width: 0; max-width: 0;
 }
 
-/* centra itens quando colapsado */
 html[data-sb-collapsed="1"] .fp-sb-flyout:not(:hover) .nav-item,
 html[data-sb-collapsed="1"] .fp-sb-flyout:not(:hover) .fp-sb-brand {
   justify-content: center;
   padding: 10px;
 }
 
-/* volta a mostrar no hover (peek) */
+/* volta a mostrar quando hover (peek) — com delay */
 html[data-sb-collapsed="1"] .fp-sb-flyout:hover .nav-section,
 html[data-sb-collapsed="1"] .fp-sb-flyout:hover .nav-label,
 html[data-sb-collapsed="1"] .fp-sb-flyout:hover .brand-text {
-  opacity: 1;
-  visibility: visible;
+  opacity: 1; visibility: visible;
   width: auto; max-width: none;
   transition: opacity 140ms ease var(--sb-peek-delay);
 }
