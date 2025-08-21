@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/sessions";
 import { toAppRole } from "@/lib/roles";
 import { getAdminStats, getPTStats, getClientStats } from "@/lib/dashboardRepo";
+import { getUserTimeZone, greetingForTZ } from "@/lib/time";
 import styles from "./dashboard.module.css";
 
 type TrendPoint = { date: string; sessions: number };
@@ -35,13 +36,6 @@ function sparklinePoints(data: TrendPoint[], w = 200, h = 48, pad = 2) {
   }).join(" ");
 }
 
-function greetingFor(date = new Date()) {
-  const h = date.getHours();
-  if (h < 12) return "Bom dia";
-  if (h < 19) return "Boa tarde";
-  return "Boa noite";
-}
-
 export default async function DashboardPage() {
   const user = await getSessionUser();
   if (!user) redirect("/login");
@@ -54,7 +48,8 @@ export default async function DashboardPage() {
       ? await getPTStats(user.id)
       : await getClientStats(user.id);
 
-  const greet = greetingFor();
+  const tz = getUserTimeZone();
+  const greet = greetingForTZ(tz);
   const displayName = user.name?.split(" ")[0] || (role === "admin" ? "Admin" : role === "pt" ? "PT" : "Cliente");
 
   return (

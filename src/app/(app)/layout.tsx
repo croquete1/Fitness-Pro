@@ -3,6 +3,7 @@ import Script from "next/script";
 import AppHeader from "@/components/layout/AppHeader";
 import RoleSidebar from "@/components/layout/RoleSidebar";
 import AppProviders from "@/components/layout/AppProviders";
+import TimezoneCookie from "@/components/system/TimezoneCookie";
 import "./theme.css";
 
 /** Força execução dinâmica (auth + preferências) */
@@ -40,14 +41,15 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           gridTemplateAreas: `"sidebar header" "sidebar main"`,
         }}
       >
-        {/* Providers de cliente (inclui SessionProvider) */}
         <AppProviders>
+          {/* escreve cookie tz no 1º render do cliente */}
+          <TimezoneCookie />
+
           <aside
             style={{
               gridArea: "sidebar",
               minHeight: 0,
-              /* permite o flyout da sidebar ultrapassar a largura da coluna quando está colapsada */
-              overflow: "visible",
+              overflow: "visible", // para o flyout da sidebar
               position: "relative",
             }}
           >
@@ -58,10 +60,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             <AppHeader />
           </div>
 
-          <main
-            id="app-content"
-            style={{ gridArea: "main", minWidth: 0, minHeight: 0, padding: 16 }}
-          >
+          <main id="app-content" style={{ gridArea: "main", minWidth: 0, minHeight: 0, padding: 16 }}>
             {children}
           </main>
         </AppProviders>
