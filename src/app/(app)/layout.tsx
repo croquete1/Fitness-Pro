@@ -37,17 +37,18 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 })();
         `}</Script>
       </head>
-      <body
-        style={{
-          margin: 0,
-          minHeight: "100vh",
-          display: "grid",
-          // a largura da coluna da sidebar vem de --sb-col que o CSS atualiza consoante o estado
-          gridTemplateColumns: "var(--sb-col, var(--sb-width)) 1fr",
-          gridTemplateRows: "auto 1fr",
-          gridTemplateAreas: `"sidebar header" "sidebar main"`,
-        }}
-      >
+<body
+  style={{
+    margin: 0,
+    minHeight: "100vh",
+    display: "grid",
+    // ⬇️ antes: "var(--sb-width, 264px) 1fr"
+    gridTemplateColumns: "var(--sb-col, var(--sb-width)) 1fr",
+    gridTemplateRows: "auto 1fr",
+    gridTemplateAreas: `"sidebar header" "sidebar main"`,
+  }}
+>
+
         <AppProviders>
           <aside style={{ gridArea: "sidebar", minHeight: 0, borderRight: "1px solid var(--border)" }}>
             <RoleSidebar />
