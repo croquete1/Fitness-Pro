@@ -1,13 +1,14 @@
+// src/components/layout/AppProviders.tsx
 "use client";
 
 import React from "react";
 import { SessionProvider } from "next-auth/react";
+import SidebarProvider from "@/components/SidebarWrapper";
 
-/** Providers do app (Session, etc). Coloca isto no layout do segmento (app). */
 export default function AppProviders({ children }: { children: React.ReactNode }) {
   return (
-    <SessionProvider refetchOnWindowFocus={false}>
-      {children}
+    <SessionProvider>
+      <SidebarProvider>{children}</SidebarProvider>
     </SessionProvider>
   );
 }
