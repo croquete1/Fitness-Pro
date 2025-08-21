@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import React from "react";
 import SbToggle from "@/components/layout/SbToggle";
@@ -20,8 +21,7 @@ export type Group = {
 
 export type SidebarBaseProps = {
   nav: Group[];
-  /** Mostrar o botão de compactar/expandir. Default: true */
-  showToggle?: boolean;
+  showToggle?: boolean; // default: true
 };
 
 function normalize(pathname: string) {
@@ -36,32 +36,54 @@ function isActive(pathname: string, href: string, exact?: boolean) {
 export default function SidebarBase({ nav, showToggle = true }: SidebarBaseProps) {
   const pathname = usePathname();
 
-  // --- Hover-peek controlado (evita “piscar” ao expandir) ---
+  // Hover-peek robusto (sem flicker)
   const [peek, setPeek] = React.useState(false);
   const enterTimer = React.useRef<number | null>(null);
+  const insideRef = React.useRef(false);
 
   const onEnter = () => {
-    // só ativa o peek após o delay configurado em CSS (250ms por omissão)
+    insideRef.current = true;
     if (enterTimer.current) window.clearTimeout(enterTimer.current);
-    enterTimer.current = window.setTimeout(() => setPeek(true), 250);
+    enterTimer.current = window.setTimeout(() => {
+      if (insideRef.current) setPeek(true);
+    }, 250);
   };
   const onLeave = () => {
+    insideRef.current = false;
     if (enterTimer.current) window.clearTimeout(enterTimer.current);
-    setPeek(false); // fecha imediatamente ao sair
+    setPeek(false);
   };
   React.useEffect(() => () => { if (enterTimer.current) window.clearTimeout(enterTimer.current); }, []);
 
+  // Logo: tenta /logo.png; se falhar, cai no emoji 📊
+  const [hasLogo, setHasLogo] = React.useState(true);
+
   return (
-    /* Wrapper do flyout; a classe is-peek é o “abre/fecha” da animação */
     <div
       className={`fp-sb-flyout${peek ? " is-peek" : ""}`}
-      onMouseEnter={onEnter}
-      onMouseLeave={onLeave}
+      onPointerEnter={onEnter}
+      onPointerLeave={onLeave}
+      role="navigation"
+      aria-label="Navegação lateral"
     >
       <nav className="fp-nav">
-        {/* BRAND / LOGO */}
+        {/* BRAND */}
         <Link href="/dashboard" className="nav-brand" aria-label="Ir para a Dashboard">
-          <span className="brand-logo" aria-hidden>📊</span>
+          <span className={`brand-logo${hasLogo ? " has-img" : ""}`}>
+            {hasLogo ? (
+              <Image
+                src="/logo.png"
+                alt="Fitness Pro"
+                width={28}
+                height={28}
+                priority
+                onError={() => setHasLogo(false)}
+              />
+            ) : (
+              <span className="brand-emoji" aria-hidden>📊</span>
+            )}
+          </span>
+
           <span className="brand-text">
             <span className="brand-name">Fitness&nbsp;Pro</span>
             <span className="brand-sub">Dashboard</span>
@@ -77,7 +99,6 @@ export default function SidebarBase({ nav, showToggle = true }: SidebarBaseProps
         {nav.map((group) => (
           <div key={group.title} className="nav-group">
             <div className="nav-section">{group.title}</div>
-
             {group.items.map((item) => {
               const active = isActive(pathname, item.href, item.exact);
               return (
