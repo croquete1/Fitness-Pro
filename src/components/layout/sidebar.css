@@ -3,7 +3,10 @@
    --hover, --active, --text, --muted, --btn-bg
 */
 
-:root { --sb-peek-delay: 250ms; }
+:root{
+  --sb-peek-delay: 250ms;
+  --sb-ease: cubic-bezier(.22,1,.36,1); /* easeOutQuint: mais suave */
+}
 
 /* ---------- FLYOUT ---------- */
 .fp-sb-flyout{
@@ -11,7 +14,7 @@
   width:var(--sb-width);
   transform:translateX(0);
   will-change:transform, box-shadow;
-  transition:transform 200ms ease, box-shadow 200ms ease;
+  transition:transform 280ms var(--sb-ease), box-shadow 280ms var(--sb-ease);
   z-index:60;
 }
 
@@ -25,10 +28,10 @@ html[data-sb-collapsed="true"] .fp-sb-flyout{
 /* classe controlada em JS (sem :hover → sem flicker) */
 html[data-sb-collapsed="true"] .fp-sb-flyout.is-peek{
   transform:translateX(0);
-  box-shadow:0 8px 40px rgba(0,0,0,.20), 0 1px 0 rgba(0,0,0,.08) inset;
+  box-shadow:0 10px 44px rgba(0,0,0,.22), 0 1px 0 rgba(0,0,0,.08) inset;
   transition:
-    transform 200ms ease var(--sb-peek-delay),
-    box-shadow 200ms ease var(--sb-peek-delay);
+    transform 300ms var(--sb-ease) var(--sb-peek-delay),
+    box-shadow 300ms var(--sb-ease) var(--sb-peek-delay);
 }
 
 /* ---------- NAV ---------- */
@@ -40,11 +43,18 @@ html[data-sb-collapsed="true"] .fp-sb-flyout.is-peek{
   display:flex; flex-direction:column; gap:12px;
 }
 
+/* BRAND ROW (logo + toggle) */
+.nav-brand-row{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:8px; padding:2px 0;
+}
+
 /* BRAND */
 .nav-brand{
   display:flex; align-items:center; gap:10px;
   padding:8px 10px; border-radius:12px;
   color:var(--text); text-decoration:none; border:1px solid transparent;
+  min-width:0;
 }
 .nav-brand:hover{ background:var(--hover); border-color:var(--border); }
 
@@ -64,8 +74,7 @@ html[data-sb-collapsed="true"] .fp-sb-flyout.is-peek{
 .brand-name{ font-weight:800; }
 .brand-sub{ font-size:11px; color:var(--muted); }
 
-/* ferramentas */
-.nav-tools{ display:flex; justify-content:flex-end; padding:0 4px; }
+.brand-tools{ display:flex; align-items:center; }
 
 /* grupos/itens */
 .nav-group{ display:grid; gap:6px; }
@@ -73,18 +82,20 @@ html[data-sb-collapsed="true"] .fp-sb-flyout.is-peek{
   font-size:11px; letter-spacing:.6px; color:var(--muted);
   text-transform:uppercase; margin:6px 8px;
 }
+
+/* item */
 .nav-item{
   display:flex; align-items:center; gap:10px;
   padding:10px 12px; margin:2px 0;
   border-radius:12px; border:1px solid transparent;
   background:transparent; color:var(--text); text-decoration:none;
-  transition:background 120ms ease, border-color 120ms ease, transform 100ms ease;
+  transition:background 140ms var(--sb-ease), border-color 140ms var(--sb-ease), transform 90ms ease;
 }
 .nav-item:hover{ background:var(--hover); border-color:var(--border); }
 .nav-item:active{ transform:translateY(1px); }
 .nav-item[data-active="true"]{ background:var(--active); border-color:var(--border-strong); }
 
-/* ÍCONES SEM SALTO (svg/emoji/img alinhados) */
+/* ÍCONES sem salto (svg/emoji/img alinhados) */
 .nav-icon{
   width:18px; height:18px; flex:0 0 18px;
   display:flex; align-items:center; justify-content:center;
@@ -96,6 +107,7 @@ html[data-sb-collapsed="true"] .fp-sb-flyout.is-peek{
 .nav-label{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
 
 /* ---------- ESTADO COLAPSADO ---------- */
+/* Esconde textos, mas mantém o logo e o TOGGLE visíveis na mesma linha */
 html[data-sb-collapsed="true"] .fp-sb-flyout:not(.is-peek) .nav-section,
 html[data-sb-collapsed="true"] .fp-sb-flyout:not(.is-peek) .nav-label,
 html[data-sb-collapsed="true"] .fp-sb-flyout:not(.is-peek) .brand-text{
@@ -103,20 +115,19 @@ html[data-sb-collapsed="true"] .fp-sb-flyout:not(.is-peek) .brand-text{
   overflow:hidden; position:absolute;
 }
 
-html[data-sb-collapsed="true"] .fp-sb-flyout:not(.is-peek) .nav-item,
-html[data-sb-collapsed="true"] .fp-sb-flyout:not(.is-peek) .nav-brand{
+/* Itens centrados quando colapsado (apenas os itens, não a brand) */
+html[data-sb-collapsed="true"] .fp-sb-flyout:not(.is-peek) .nav-item{
   justify-content:center; padding:10px;
 }
 
-/* quando em peek, volta tudo ao normal */
+/* quando em peek, volta tudo ao normal (com fade suave) */
 html[data-sb-collapsed="true"] .fp-sb-flyout.is-peek .nav-section,
 html[data-sb-collapsed="true"] .fp-sb-flyout.is-peek .nav-label,
 html[data-sb-collapsed="true"] .fp-sb-flyout.is-peek .brand-text{
   position:static; width:auto; max-width:none; opacity:1;
-  transition:opacity 140ms ease var(--sb-peek-delay);
+  transition:opacity 160ms var(--sb-ease) var(--sb-peek-delay);
 }
-html[data-sb-collapsed="true"] .fp-sb-flyout.is-peek .nav-item,
-html[data-sb-collapsed="true"] .fp-sb-flyout.is-peek .nav-brand{
+html[data-sb-collapsed="true"] .fp-sb-flyout.is-peek .nav-item{
   justify-content:flex-start; padding:10px 12px;
 }
 
