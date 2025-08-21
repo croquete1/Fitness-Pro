@@ -13,19 +13,11 @@ export type Item = {
   icon: React.ReactNode;
   exact?: boolean;
 };
+export type Group = { title: string; items: Item[] };
+export type SidebarBaseProps = { nav: Group[]; showToggle?: boolean };
 
-export type Group = {
-  title: string;
-  items: Item[];
-};
-
-export type SidebarBaseProps = {
-  nav: Group[];
-  showToggle?: boolean; // default: true
-};
-
-function normalize(pathname: string) {
-  return pathname !== "/" && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+function normalize(p: string) {
+  return p !== "/" && p.endsWith("/") ? p.slice(0, -1) : p;
 }
 function isActive(pathname: string, href: string, exact?: boolean) {
   const clean = normalize(pathname);
@@ -46,16 +38,18 @@ export default function SidebarBase({ nav, showToggle = true }: SidebarBaseProps
     if (enterTimer.current) window.clearTimeout(enterTimer.current);
     enterTimer.current = window.setTimeout(() => {
       if (insideRef.current) setPeek(true);
-    }, 250);
+    }, 250); // == --sb-peek-delay
   };
   const onLeave = () => {
     insideRef.current = false;
     if (enterTimer.current) window.clearTimeout(enterTimer.current);
     setPeek(false);
   };
-  React.useEffect(() => () => { if (enterTimer.current) window.clearTimeout(enterTimer.current); }, []);
+  React.useEffect(() => () => {
+    if (enterTimer.current) window.clearTimeout(enterTimer.current);
+  }, []);
 
-  // Logo: tenta /logo.png; se falhar, cai no emoji 📊
+  // Logo (fallback para emoji)
   const [hasLogo, setHasLogo] = React.useState(true);
 
   return (
@@ -66,6 +60,13 @@ export default function SidebarBase({ nav, showToggle = true }: SidebarBaseProps
       role="navigation"
       aria-label="Navegação lateral"
     >
+      {/* Botão fixo no canto superior-direito */}
+      {showToggle && (
+        <div className="sb-pin" aria-hidden="true">
+          <SbToggle />
+        </div>
+      )}
+
       <nav className="fp-nav">
         {/* BRAND */}
         <Link href="/dashboard" className="nav-brand" aria-label="Ir para a Dashboard">
@@ -80,25 +81,21 @@ export default function SidebarBase({ nav, showToggle = true }: SidebarBaseProps
                 onError={() => setHasLogo(false)}
               />
             ) : (
-              <span className="brand-emoji" aria-hidden>📊</span>
+              <span className="brand-emoji" aria-hidden>
+                📊
+              </span>
             )}
           </span>
-
           <span className="brand-text">
             <span className="brand-name">Fitness&nbsp;Pro</span>
             <span className="brand-sub">Dashboard</span>
           </span>
         </Link>
 
-        {showToggle && (
-          <div className="nav-tools">
-            <SbToggle />
-          </div>
-        )}
-
         {nav.map((group) => (
           <div key={group.title} className="nav-group">
             <div className="nav-section">{group.title}</div>
+
             {group.items.map((item) => {
               const active = isActive(pathname, item.href, item.exact);
               return (
