@@ -1,98 +1,70 @@
-"use client";
+'use client';
 
-import React from "react";
+import {
+  createContext, useCallback, useContext, useEffect, useMemo, useState,
+} from 'react';
 
 type Ctx = {
-  pinned: boolean;
   collapsed: boolean;
-  overlayOpen: boolean;
-  setPinned: (v: boolean) => void;
-  setCollapsed: (v: boolean) => void;
-  setOverlayOpen: (v: boolean) => void;
-  togglePinned: () => void;
+  pinned: boolean;
   toggleCollapsed: () => void;
-  openOverlay: () => void;
-  closeOverlay: () => void;
+  togglePinned: () => void;
+  setCollapsed: (v: boolean) => void;
+  setPinned: (v: boolean) => void;
 };
 
-/**
- * Valor seguro por defeito (NÃO lança erro). Isto evita falhas
- * no build/prerender quando algum componente usa o hook fora do provider.
- */
-const safeDefault: Ctx = {
-  pinned: true,
-  collapsed: false,
-  overlayOpen: false,
-  setPinned: () => {},
-  setCollapsed: () => {},
-  setOverlayOpen: () => {},
-  togglePinned: () => {},
-  toggleCollapsed: () => {},
-  openOverlay: () => {},
-  closeOverlay: () => {},
-};
+const SidebarContext = createContext<Ctx | null>(null);
 
-const SidebarContext = React.createContext<Ctx>(safeDefault);
-
-export function useSidebar(): Ctx {
-  return React.useContext(SidebarContext);
+export function useSidebar() {
+  const ctx = useContext(SidebarContext);
+  if (!ctx) throw new Error('useSidebar must be used within SidebarProvider');
+  return ctx;
 }
 
-// Alias para compatibilidade com imports antigos (ex.: useSidebarState)
-export const useSidebarState = useSidebar;
+function readLS(key: string, fallback: boolean) {
+  try {
+    const v = localStorage.getItem(key);
+    if (v === '1' || v === 'true') return true;
+    if (v === '0' || v === 'false') return false;
+  } catch {}
+  return fallback;
+}
 
-type ProviderProps = { children: React.ReactNode };
+export default function SidebarProvider({ children }: { children: React.ReactNode }) {
+  const [collapsed, setCollapsed] = useState(false);
+  const [pinned, setPinned] = useState(true);
 
-export function SidebarProvider({ children }: ProviderProps) {
-  // carregar prefs do utilizador (no 1º render no cliente)
-  const [pinned, setPinned] = React.useState<boolean>(true);
-  const [collapsed, setCollapsed] = React.useState<boolean>(false);
-  const [overlayOpen, setOverlayOpen] = React.useState<boolean>(false);
-
-  // boot no cliente
-  React.useEffect(() => {
-    try {
-      const p = localStorage.getItem("fp:pinned");
-      const c = localStorage.getItem("fp:collapsed");
-      if (p !== null) setPinned(p === "1");
-      if (c !== null) setCollapsed(c === "1");
-    } catch {}
+  // boot (cliente) — compatível com as chaves antigas
+  useEffect(() => {
+    const c = readLS('fp:sb:collapsed', readLS('sb-collapsed', false));
+    const p = readLS('fp:sb:pinned', true);
+    setCollapsed(c);
+    setPinned(p && !c);
   }, []);
 
-  // persistir
-  React.useEffect(() => {
-    try {
-      localStorage.setItem("fp:pinned", pinned ? "1" : "0");
-    } catch {}
+  // reflect 'collapsed'
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    document.documentElement.setAttribute('data-sb-collapsed', collapsed ? 'true' : 'false');
+    try { localStorage.setItem('fp:sb:collapsed', collapsed ? 'true' : 'false'); } catch {}
+    if (collapsed && pinned) setPinned(false);
+  }, [collapsed, pinned]);
+
+  // reflect 'pinned'
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    document.documentElement.setAttribute('data-sb-pinned', pinned ? 'true' : 'false');
+    try { localStorage.setItem('fp:sb:pinned', pinned ? 'true' : 'false'); } catch {}
+    if (pinned) setCollapsed(false);
   }, [pinned]);
 
-  React.useEffect(() => {
-    try {
-      localStorage.setItem("fp:collapsed", collapsed ? "1" : "0");
-    } catch {}
-  }, [collapsed]);
+  const toggleCollapsed = useCallback(() => setCollapsed(v => !v), []);
+  const togglePinned = useCallback(() => setPinned(v => !v), []);
 
-  // helpers
-  const togglePinned = React.useCallback(() => setPinned((v) => !v), []);
-  const toggleCollapsed = React.useCallback(() => setCollapsed((v) => !v), []);
-  const openOverlay = React.useCallback(() => setOverlayOpen(true), []);
-  const closeOverlay = React.useCallback(() => setOverlayOpen(false), []);
-
-  const value: Ctx = {
-    pinned,
-    collapsed,
-    overlayOpen,
-    setPinned,
-    setCollapsed,
-    setOverlayOpen,
-    togglePinned,
-    toggleCollapsed,
-    openOverlay,
-    closeOverlay,
-  };
+  const value = useMemo(
+    () => ({ collapsed, pinned, toggleCollapsed, togglePinned, setCollapsed, setPinned }),
+    [collapsed, pinned, toggleCollapsed, togglePinned],
+  );
 
   return <SidebarContext.Provider value={value}>{children}</SidebarContext.Provider>;
 }
-
-// default export também disponível (para evitar erros de import default)
-export default SidebarProvider;

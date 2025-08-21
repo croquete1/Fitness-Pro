@@ -12,18 +12,17 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="pt-PT" suppressHydrationWarning>
       <head>
-        <Script id="init-preferences" strategy="beforeInteractive">{`
+        <script id="init-preferences" strategy="beforeInteractive">
+{`
 (function () {
   try {
     var root = document.documentElement;
-
-    // Sidebar (compatível com o teu SidebarWrapper: "1" | "0")
+    // aceitar as duas chaves (nova e antiga)
     var sb = localStorage.getItem("fp:sb:collapsed");
-    if (sb === "1" || sb === "0") root.setAttribute("data-sb-collapsed", sb);
-    var pin = localStorage.getItem("fp:sb:pinned");
-    if (pin === "1" || pin === "0") root.setAttribute("data-sb-pinned", pin);
-
-    // Tema
+    if (sb == null) sb = localStorage.getItem("sb-collapsed");
+    if (sb === "true" || sb === "false") {
+      root.setAttribute("data-sb-collapsed", sb);
+    }
     var theme = localStorage.getItem("theme");
     if (theme === "dark" || theme === "light") {
       root.setAttribute("data-theme", theme);
@@ -33,7 +32,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     }
   } catch (e) {}
 })();
-        `}</Script>
+`}
+</script>
+
       </head>
 
 <body
