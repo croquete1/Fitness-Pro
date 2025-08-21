@@ -1,9 +1,7 @@
 "use client";
+import SidebarBase, { Group } from "@/components/layout/SidebarBase";
 
-import React from "react";
-import SidebarBase from "@/components/layout/SidebarBase";
-
-const NAV = [
+const NAV: Group[] = [
   {
     title: "GERAL",
     items: [
@@ -15,13 +13,5 @@ const NAV = [
 ];
 
 export default function SidebarClient() {
-  return (
-    <SidebarBase
-      nav={NAV}
-      showToggle
-      logoSrc="/logo.png"
-      brandName="Fitness Pro"
-      brandSub="Cliente"
-    />
-  );
+  return <SidebarBase nav={NAV} showToggle />;
 }

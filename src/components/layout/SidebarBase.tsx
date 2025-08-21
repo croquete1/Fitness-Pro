@@ -1,100 +1,83 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import React from 'react';
-import { Pin, PinOff, ChevronsLeft, ChevronsRight } from 'lucide-react';
-import { useSidebar } from '@/components/SidebarWrapper';
+import Link from "next/link";
+import Image from "next/image";
+import { usePathname } from "next/navigation";
+import { useSidebar } from "@/components/SidebarWrapper";
+import { ChevronsLeft, ChevronsRight, Pin, PinOff } from "lucide-react";
+import React from "react";
 
-/** Tipos base (não precisam ser importados noutros ficheiros) */
-type NavItem = {
+export type Item = {
   href: string;
   label: string;
   icon: React.ReactNode;
   exact?: boolean;
 };
-type NavGroup = { title: string; items: NavItem[] };
-
-/** Props do componente base */
+export type Group = { title: string; items: Item[] };
 export type SidebarBaseProps = {
-  nav: NavGroup[];
-  /** Mostra/oculta o botão de colapsar/expandir (default: true) */
+  nav: Group[];
+  /** deixa true por omissão – mostra os botões no topo */
   showToggle?: boolean;
-  /** Caminho do logo (default: /logo.png) */
-  logoSrc?: string;
-  /** Nome da marca (default: "Fitness Pro") */
-  brandName?: string;
-  /** Subtítulo por baixo do nome (opcional) */
-  brandSub?: string;
 };
 
 function isActive(pathname: string, href: string, exact?: boolean) {
   const clean =
-    pathname !== '/' && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
-
-  if (exact || href === '/dashboard') return clean === href;
-  return clean === href || clean.startsWith(href + '/');
+    pathname !== "/" && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+  if (exact || href === "/dashboard") return clean === href;
+  return clean === href || clean.startsWith(href + "/");
 }
 
-/**
- * Componente base da sidebar.
- * Estrutura 100% compatível com o teu sidebar.css:
- * - .fp-sb-flyout (painel sticky que desliza)
- * - .fp-nav       (contentor interno)
- * - .nav-brand    (logo+texto)
- * - .nav-tools    (botões pin/toggle no topo-direito)
- */
-export default function SidebarBase({
-  nav,
-  showToggle = true,
-  logoSrc = '/logo.png',
-  brandName = 'Fitness Pro',
-  brandSub,
-}: SidebarBaseProps) {
+export default function SidebarBase({ nav, showToggle = true }: SidebarBaseProps) {
   const pathname = usePathname();
   const { collapsed, pinned, toggleCollapsed, togglePinned } = useSidebar();
 
   return (
-    <div className="fp-sb-flyout" role="navigation" aria-label="Sidebar">
-      <div className="fp-nav">
-        {/* BRAND */}
-        <Link href="/dashboard" className="nav-brand" aria-label="Ir para o dashboard">
-          {/* O teu CSS define .brand-logo (28x28). A imagem respeita esse tamanho. */}
-          <img src={logoSrc} alt="Logo" className="brand-logo" />
-          <span className="brand-text">
-            <span className="brand-name">{brandName}</span>
-            {brandSub ? <span className="brand-sub">{brandSub}</span> : null}
-          </span>
+    // *** IMPORTANTE: esta classe é a que o teu CSS anima ***
+    <div className="fp-sb-flyout" data-collapsed={collapsed} data-pinned={pinned}>
+      {/* Cabeçalho da sidebar (logo + ações no topo direito) */}
+      <div className="fp-sb-head">
+        <Link href="/dashboard" className="fp-sb-brand" aria-label="Início">
+          <Image
+            src="/logo.png"
+            alt="Logo"
+            width={28}
+            height={28}
+            className="logo"
+            priority
+          />
+          <div className="brand-text">
+            <strong className="brand-name">Fitness Pro</strong>
+            <span className="brand-sub">Dashboard</span>
+          </div>
         </Link>
 
-        {/* TOOLS (topo-direito) */}
-        <div className="nav-tools">
-          <button
-            type="button"
-            className="btn icon"
-            aria-label={pinned ? 'Desafixar sidebar' : 'Afixar sidebar'}
-            title={pinned ? 'Desafixar sidebar' : 'Afixar sidebar'}
-            onClick={togglePinned}
-            data-role="sb-pin"
-          >
-            {pinned ? <Pin size={18} /> : <PinOff size={18} />}
-          </button>
-
-          {showToggle && (
+        {showToggle && (
+          <div className="fp-sb-actions">
             <button
               type="button"
               className="btn icon"
-              aria-label={collapsed ? 'Expandir menu' : 'Encolher para ícones'}
-              title={collapsed ? 'Expandir menu' : 'Encolher para ícones'}
+              title={pinned ? "Desafixar sidebar" : "Afixar sidebar"}
+              aria-label={pinned ? "Desafixar sidebar" : "Afixar sidebar"}
+              onClick={togglePinned}
+            >
+              {pinned ? <Pin size={18} /> : <PinOff size={18} />}
+            </button>
+
+            <button
+              type="button"
+              className="btn icon"
+              title={collapsed ? "Expandir menu" : "Encolher para ícones"}
+              aria-label={collapsed ? "Expandir menu" : "Encolher para ícones"}
               onClick={toggleCollapsed}
-              data-role="sb-toggle"
             >
               {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
             </button>
-          )}
-        </div>
+          </div>
+        )}
+      </div>
 
-        {/* NAV */}
+      {/* Navegação */}
+      <nav className="fp-nav">
         {nav.map((group) => (
           <div key={group.title} className="nav-group">
             <div className="nav-section">{group.title}</div>
@@ -105,8 +88,8 @@ export default function SidebarBase({
                   key={item.href}
                   href={item.href}
                   className="nav-item"
-                  data-active={active ? 'true' : undefined}
-                  aria-current={active ? 'page' : undefined}
+                  data-active={active ? "true" : undefined}
+                  aria-current={active ? "page" : undefined}
                 >
                   <span className="nav-icon">{item.icon}</span>
                   <span className="nav-label">{item.label}</span>
@@ -115,7 +98,7 @@ export default function SidebarBase({
             })}
           </div>
         ))}
-      </div>
+      </nav>
     </div>
   );
 }

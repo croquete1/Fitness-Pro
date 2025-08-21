@@ -3,25 +3,28 @@
 import React from "react";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
-import SidebarAdmin from "@/components/layout/SidebarAdmin";
-import SidebarPT from "@/components/layout/SidebarPT";
-import SidebarClient from "@/components/layout/SidebarClient";
-import { toAppRole } from "@/lib/roles";
-import "./sidebar.css";
+import SidebarAdmin from "@/components/sidebars/SidebarAdmin";
+import SidebarPT from "@/components/sidebars/SidebarPT";
+import SidebarClient from "@/components/sidebars/SidebarClient";
 
-/**
- * Sidebar por role, robusta a ausência de SessionProvider (no build).
- * Agora usamos um acesso seguro ao hook, sem destructuring direto.
- */
+// normaliza possíveis formatos de role
+function normalizeRole(r?: string | null) {
+  if (!r) return undefined;
+  const v = r.toString().toLowerCase();
+  if (v === "admin" || v === "administrator" || v === "adm") return "admin";
+  if (v === "pt" || v === "trainer" || v === "treinador" || v === "coach" || v === "trainer_user" || v === "trainerrole")
+    return "pt";
+  if (v === "client" || v === "cliente" || v === "user") return "client";
+  if (v === "trainer") return "pt";
+  if (v === "admin".toUpperCase()) return "admin";
+  return undefined;
+}
+
 export default function RoleSidebar() {
-  // ⚠️ useSession() pode ser undefined se não houver Provider durante o build
-  const sess: any = (useSession as any)?.() ?? {};
-  const session = sess?.data ?? null;
-  const status: "loading" | "authenticated" | "unauthenticated" =
-    sess?.status ?? "unauthenticated";
-
+  const { data: session, status } = useSession();
   const pathname = usePathname();
 
+  const roleFromSession = normalizeRole((session?.user as any)?.role);
   const roleFromPath =
     pathname.startsWith("/dashboard/admin")
       ? "admin"
@@ -29,7 +32,7 @@ export default function RoleSidebar() {
       ? "pt"
       : "client";
 
-  const role = toAppRole(session?.user?.role ?? (status === "loading" ? roleFromPath : "client"));
+  const role = roleFromSession ?? (status === "loading" ? roleFromPath : "client");
 
   if (role === "admin") return <SidebarAdmin />;
   if (role === "pt") return <SidebarPT />;

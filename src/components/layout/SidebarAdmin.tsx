@@ -1,9 +1,7 @@
 "use client";
+import SidebarBase, { Group } from "@/components/layout/SidebarBase";
 
-import React from "react";
-import SidebarBase from "@/components/layout/SidebarBase";
-
-const NAV = [
+const NAV: Group[] = [
   {
     title: "GERAL",
     items: [
@@ -21,20 +19,10 @@ const NAV = [
   },
   {
     title: "SISTEMA",
-    items: [
-      { href: "/dashboard/system/health", label: "Saúde do sistema", icon: <span className="nav-emoji">🧰</span> },
-    ],
+    items: [{ href: "/dashboard/system/health", label: "Saúde do sistema", icon: <span className="nav-emoji">🧰</span> }],
   },
 ];
 
 export default function SidebarAdmin() {
-  return (
-    <SidebarBase
-      nav={NAV}
-      showToggle
-      logoSrc="/logo.png"
-      brandName="Fitness Pro"
-      brandSub="Admin"
-    />
-  );
+  return <SidebarBase nav={NAV} showToggle />;
 }
