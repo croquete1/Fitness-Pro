@@ -28,31 +28,23 @@ function isActive(pathname: string, href: string, exact?: boolean) {
 export default function SidebarBase({ nav, showToggle = true }: SidebarBaseProps) {
   const pathname = usePathname();
 
-  // Hover-peek controlado (sem flicker)
+  // Hover-peek sem flicker (controlado via classe)
   const [peek, setPeek] = React.useState(false);
-  const enterTimer = React.useRef<number | null>(null);
-  const insideRef = React.useRef(false);
+  const t = React.useRef<number | null>(null);
+  const inside = React.useRef(false);
 
   const onEnter = () => {
-    insideRef.current = true;
-    if (enterTimer.current) window.clearTimeout(enterTimer.current);
-    enterTimer.current = window.setTimeout(() => {
-      if (insideRef.current) setPeek(true);
-    }, 250); // == --sb-peek-delay
+    inside.current = true;
+    if (t.current) window.clearTimeout(t.current);
+    t.current = window.setTimeout(() => inside.current && setPeek(true), 250);
   };
   const onLeave = () => {
-    insideRef.current = false;
-    if (enterTimer.current) window.clearTimeout(enterTimer.current);
+    inside.current = false;
+    if (t.current) window.clearTimeout(t.current);
     setPeek(false);
   };
-  React.useEffect(
-    () => () => {
-      if (enterTimer.current) window.clearTimeout(enterTimer.current);
-    },
-    []
-  );
+  React.useEffect(() => () => { if (t.current) window.clearTimeout(t.current); }, []);
 
-  // Logo (fallback para emoji)
   const [hasLogo, setHasLogo] = React.useState(true);
 
   return (
@@ -64,7 +56,7 @@ export default function SidebarBase({ nav, showToggle = true }: SidebarBaseProps
       aria-label="Navegação lateral"
     >
       <nav className="fp-nav">
-        {/* HEADER DA SIDEBAR: logo à esquerda + botão fixo à direita */}
+        {/* Header da sidebar */}
         <div className="sb-header">
           <Link href="/dashboard" className="nav-brand" aria-label="Ir para a Dashboard">
             <span className={`brand-logo${hasLogo ? " has-img" : ""}`}>
@@ -78,9 +70,7 @@ export default function SidebarBase({ nav, showToggle = true }: SidebarBaseProps
                   onError={() => setHasLogo(false)}
                 />
               ) : (
-                <span className="brand-emoji" aria-hidden>
-                  📊
-                </span>
+                <span className="brand-emoji" aria-hidden>📊</span>
               )}
             </span>
             <span className="brand-text">
@@ -90,9 +80,9 @@ export default function SidebarBase({ nav, showToggle = true }: SidebarBaseProps
           </Link>
 
           {showToggle && (
-            <div className="sb-pin">
+            <button className="sb-pin" aria-label="Afixar/Desafixar sidebar">
               <SbToggle />
-            </div>
+            </button>
           )}
         </div>
 
