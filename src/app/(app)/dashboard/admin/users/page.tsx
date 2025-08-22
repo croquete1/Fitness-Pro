@@ -2,7 +2,7 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import UsersClient from '@/components/admin/UsersClient';
-import { NextRequest } from 'next/server';
+
 
 function isAdmin(role: unknown) {
   return String(role ?? '').toUpperCase() === 'ADMIN';
