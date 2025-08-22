@@ -51,8 +51,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               minHeight: 0,
               borderRight: "1px solid var(--border)",
               position: "relative",
-              zIndex: 1,
-              overflow: "hidden",
+              zIndex: 0,
             }}
           >
             <RoleSidebar />
