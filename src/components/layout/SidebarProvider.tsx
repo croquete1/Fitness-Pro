@@ -36,60 +36,51 @@ function readLS(key: string, fallback: boolean) {
   return fallback;
 }
 
-function getVar(root: HTMLElement, name: string, fallback: string) {
-  const v = getComputedStyle(root).getPropertyValue(name).trim();
-  return v || fallback;
-}
-
+/** Apenas escreve os data-attributes; nada de CSS vars aqui. */
 function writeHtmlState(collapsed: boolean, pinned: boolean) {
   if (typeof document === 'undefined') return;
   const root = document.documentElement;
-
-  // flags para CSS
   root.setAttribute('data-sb-collapsed', collapsed ? '1' : '0');
   root.setAttribute('data-sb-pinned', pinned ? '1' : '0');
-
-  // controla a coluna do grid
-  const expanded = getVar(root, '--sb-width', '264px');
-  const sliced   = getVar(root, '--sb-width-collapsed', '72px');
-  root.style.setProperty('--sb-col', collapsed ? sliced : expanded);
 }
 
 export default function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [pinned, setPinned] = useState(true);
 
-  // boot (apenas cliente)
+  // boot (cliente)
   useEffect(() => {
     const c = readLS('fp:sb:collapsed', false);
     const p = readLS('fp:sb:pinned', true);
-    const normalizedPinned = p && !c; // se colapsada, não pode estar afixada
+    const normalizedPinned = p && !c; // se estiver colapsada, não pode estar afixada
     setCollapsed(c);
     setPinned(normalizedPinned);
     writeHtmlState(c, normalizedPinned);
   }, []);
 
-  // reflect 'collapsed'
+  // reflect 'collapsed' — colapsar desfixa
   useEffect(() => {
     try {
       localStorage.setItem('fp:sb:collapsed', collapsed ? '1' : '0');
     } catch {}
-    if (collapsed && pinned) setPinned(false); // colapsar desfixa
-    writeHtmlState(collapsed, pinned && !collapsed);
+    const nextPinned = pinned && !collapsed;
+    if (nextPinned !== pinned) setPinned(nextPinned);
+    writeHtmlState(collapsed, nextPinned);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [collapsed]);
 
-  // reflect 'pinned'
+  // reflect 'pinned' — afixar força expandida
   useEffect(() => {
     try {
       localStorage.setItem('fp:sb:pinned', pinned ? '1' : '0');
     } catch {}
-    if (pinned) setCollapsed(false); // afixar força expandida
-    writeHtmlState(collapsed, pinned && !collapsed);
+    const nextCollapsed = pinned ? false : collapsed;
+    if (nextCollapsed !== collapsed) setCollapsed(nextCollapsed);
+    writeHtmlState(nextCollapsed, pinned);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pinned]);
 
-  // sincroniza entre separadores (opcional mas útil)
+  // sincroniza entre separadores
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
       if (e.key === 'fp:sb:collapsed' || e.key === 'fp:sb:pinned') {

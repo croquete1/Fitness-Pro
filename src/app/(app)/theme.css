@@ -1,34 +1,86 @@
-/* ====== TOKENS esperados de theme.css ======
-   --sb-width, --sb-width-collapsed, --sidebar-bg, --border, --border-strong,
-   --hover, --active, --text, --muted, --btn-bg
-*/
-:root { --sb-peek-delay: 220ms; }
+/* =================== TOKENS =================== */
+:root {
+  /* larguras */
+  --sb-width: 264px;
+  --sb-width-collapsed: 72px;
 
-/* ---------- FLYOUT (agora FIXED) ---------- */
+  /* layout: coluna reservada à esquerda (definida + abaixo) */
+  --sb-col: var(--sb-width);
+
+  /* cores (light) */
+  --bg: #f7f9fc;
+  --text: #0e1116;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --border-strong: #d1d5db;
+  --hover: #f1f5f9;
+  --active: #eef2ff;
+
+  --sidebar-bg: #ffffff;
+  --header-bg: #ffffffcc;
+  --card-bg: #ffffff;
+  --btn-bg: #ffffff;
+
+  /* animações */
+  --sb-peek-delay: 220ms;
+}
+
+/* Dark */
+:root[data-theme="dark"] {
+  --bg: #0b0f14;
+  --text: #e5e7eb;
+  --muted: #9aa4b2;
+  --border: #1f2937;
+  --border-strong: #2b3542;
+  --hover: #131a22;
+  --active: #0f172a;
+
+  --sidebar-bg: #0e151d;
+  --header-bg: #0e151dcc;
+  --card-bg: #0e151d;
+  --btn-bg: #0e151d;
+}
+
+/* =================== LAYOUT: RESERVA DE COLUNA ===================
+   NÃO uses JS para escrever --sb-col. Deixa o CSS decidir:
+   - pinned=1  => reserva a largura expandida
+   - pinned=0 & collapsed=1 => reserva a largura colapsada (mantém o header alinhado)
+   - pinned=0 & collapsed=0 => sem reserva (overlay total)
+*/
+html[data-sb-pinned="1"] { --sb-col: var(--sb-width); }
+html[data-sb-pinned="0"][data-sb-collapsed="1"] { --sb-col: var(--sb-width-collapsed); }
+html[data-sb-pinned="0"][data-sb-collapsed="0"] { --sb-col: 0px; }
+
+/* fundo e texto */
+html, body { background: var(--bg); color: var(--text); }
+
+/* apenas para um “toque” visual na área de conteúdo */
+#app-content {
+  background: radial-gradient(1200px 400px at 40% -200px, rgba(114,137,218,0.04), transparent);
+}
+
+/* =================== SIDEBAR (FLYOUT FIXED) =================== */
 .fp-sb-flyout {
-  position: fixed;                 /* <- fora do grid, encostado à esquerda */
-  left: 0;
-  top: 0;
+  position: fixed;         /* fora do grid, encostada à esquerda */
+  left: 0; top: 0;
   height: 100vh;
-  width: var(--sb-width);          /* largura real, sempre */
-  transform: translateX(0);        /* estado expandido */
+  width: var(--sb-width);  /* largura real do painel */
+  transform: translateX(0);
   will-change: transform, box-shadow;
-  transition:
-    transform 260ms cubic-bezier(.2,.8,.2,1),
-    box-shadow 200ms ease;
+  transition: transform 260ms cubic-bezier(.2,.8,.2,1), box-shadow 200ms ease;
   z-index: 60;
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
   overflow: hidden;
 }
 
-/* COLAPSADA e NÃO afixada: mostra só um slice igual à largura colapsada */
+/* Colapsada e NÃO afixada: mostra só o slice colapsado (peek possível) */
 html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout {
   transform: translateX(calc(var(--sb-width-collapsed) - var(--sb-width)));
   box-shadow: none;
 }
 
-/* PEEK no hover/focus – abre suavemente */
+/* Peek no hover/focus */
 html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:hover,
 html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:focus-within {
   transform: translateX(0);
@@ -38,54 +90,43 @@ html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:focus-within {
     box-shadow 200ms ease var(--sb-peek-delay);
 }
 
-/* Quando AFIXADA, permanece aberta e o layout já reserva a coluna */
-html[data-sb-pinned="1"] .fp-sb-flyout {
-  transform: translateX(0);
-  box-shadow: none;
-}
+/* Afixada: mantém-se aberta; a reserva da coluna é feita acima via --sb-col */
+html[data-sb-pinned="1"] .fp-sb-flyout { transform: translateX(0); box-shadow: none; }
 
-/* ---------- HEAD ---------- */
-.fp-sb-head{
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  background: var(--sidebar-bg);
+/* =================== HEAD =================== */
+.fp-sb-head {
+  position: sticky; top: 0; z-index: 2;
+  display: grid; grid-template-columns: 1fr auto;
+  align-items: center; gap: 8px;
+  padding: 10px 12px; background: var(--sidebar-bg);
 }
-.fp-sb-brand{ display:flex; align-items:center; gap:10px; color:var(--text); text-decoration:none; }
-.fp-sb-brand .logo{ border-radius:8px; width:28px; height:28px; }
-.brand-text{ display:grid; line-height:1.1; }
-.brand-name{ font-weight:800; }
-.brand-sub{ font-size:11px; color: var(--muted); }
+.fp-sb-brand { display:flex; align-items:center; gap:10px; color:var(--text); text-decoration:none; }
+.fp-sb-brand .logo { width:28px; height:28px; border-radius:8px; object-fit:cover; }
+.brand-text { display:grid; line-height:1.1; }
+.brand-name { font-weight:800; }
+.brand-sub { font-size:11px; color: var(--muted); }
 
-.fp-sb-actions{ display:flex; gap:8px; }
-.btn.icon{
+.fp-sb-actions { display:flex; gap:8px; }
+.btn.icon {
   width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center;
   border-radius:10px; border:1px solid var(--border); background:var(--btn-bg);
   transition: transform 100ms ease, background 120ms ease, border-color 120ms ease;
 }
-.btn.icon:hover{ background:var(--hover); border-color:var(--border-strong); }
-.btn.icon:active{ transform: translateY(1px); }
+.btn.icon:hover { background:var(--hover); border-color:var(--border-strong); }
+.btn.icon:active { transform: translateY(1px); }
 
-/* ---------- NAV ---------- */
+/* =================== NAV =================== */
 .fp-nav {
-  position: relative;
-  z-index: 1;
+  position: relative; z-index: 1;
   height: calc(100% - 54px);
   padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  overflow: auto;
+  display:flex; flex-direction:column; gap:12px;
+  overflow:auto;
 }
-.nav-group { display: grid; gap: 6px; }
+.nav-group { display:grid; gap:6px; }
 .nav-section {
-  font-size: 11px; letter-spacing: .6px; color: var(--muted);
-  text-transform: uppercase; margin: 6px 8px;
+  font-size:11px; letter-spacing:.6px; color:var(--muted);
+  text-transform:uppercase; margin:6px 8px;
 }
 .nav-item {
   display:flex; align-items:center; gap:10px;
@@ -93,49 +134,47 @@ html[data-sb-pinned="1"] .fp-sb-flyout {
   text-decoration:none; color:var(--text);
   border:1px solid transparent; background:transparent;
   transition: background 120ms ease, border-color 120ms ease, transform 100ms ease;
+  cursor:pointer; pointer-events:auto;
 }
-.nav-item:hover { background: var(--hover); border-color: var(--border); }
+.nav-item:hover { background:var(--hover); border-color:var(--border); }
 .nav-item:active { transform: translateY(1px); }
-.nav-item[data-active="true"] { background: var(--active); border-color: var(--border-strong); }
-
+.nav-item[data-active="true"] { background:var(--active); border-color:var(--border-strong); }
 .nav-icon { width:18px; height:18px; display:inline-flex; align-items:center; justify-content:center; }
 .nav-label { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
-/* ---------- ESCONDER TEXTO QUANDO COLAPSADA (e não em hover) ---------- */
+/* =================== ESTADO COLAPSADO: esconder texto (não ícones) =================== */
 html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:not(:hover):not(:focus-within) .nav-section,
 html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:not(:hover):not(:focus-within) .nav-label,
 html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:not(:hover):not(:focus-within) .brand-text {
-  opacity: 0; visibility: hidden; pointer-events: none;
-  width: 0; max-width: 0;
+  opacity:0; visibility:hidden; pointer-events:none;
+  width:0; max-width:0;
 }
 
-/* Centro os itens só quando colapsada e sem hover */
 html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:not(:hover):not(:focus-within) .nav-item,
 html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:not(:hover):not(:focus-within) .fp-sb-brand {
-  justify-content: center;
-  padding: 10px;
+  justify-content:center; padding:10px; pointer-events:auto;
 }
 
-/* Ao “peek”, volta tudo ao normal */
+/* no peek/focus volta tudo */
 html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:hover .nav-section,
 html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:hover .nav-label,
 html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:hover .brand-text,
 html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:focus-within .nav-section,
 html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:focus-within .nav-label,
 html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:focus-within .brand-text {
-  opacity: 1; visibility: visible;
-  width: auto; max-width: none;
+  opacity:1; visibility:visible; width:auto; max-width:none;
   transition: opacity 140ms ease var(--sb-peek-delay);
 }
 html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:hover .nav-item,
 html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:hover .fp-sb-brand,
 html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:focus-within .nav-item,
 html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:focus-within .fp-sb-brand {
-  justify-content: flex-start;
-  padding: 10px 12px;
+  justify-content:flex-start; padding:10px 12px;
 }
 
 /* Dark: brilho no peek */
-:root[data-theme="dark"] html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:hover {
+:root[data-theme="dark"]
+  html[data-sb-collapsed="1"][data-sb-pinned="0"]
+  .fp-sb-flyout:hover {
   box-shadow: 0 12px 50px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.04) inset;
 }
