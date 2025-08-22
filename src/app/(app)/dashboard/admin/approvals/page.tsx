@@ -2,9 +2,9 @@ export const dynamic = 'force-dynamic';
 
 export default function ApprovalsPage() {
   return (
-    <div className="container">
-      <h1>Aprovações</h1>
-      <p>Página de aprovações pronta. Aqui virá a lista de contas por aprovar.</p>
+    <div style={{ padding: 8 }}>
+      <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Aprovações</h1>
+      <p>Em breve: listagem de contas a aprovar e ações (aprovar/rejeitar).</p>
     </div>
   );
 }

@@ -7,37 +7,11 @@ import './theme.css';
 
 export const dynamic = 'force-dynamic';
 
-export default function AppLayout({ children }: { children: ReactNode }) {
+// …imports iguais
+export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-PT" suppressHydrationWarning>
-      <head>
-        <script
-          id="init-preferences"
-          dangerouslySetInnerHTML={{
-            __html: `
-(function () {
-  try {
-    var root = document.documentElement;
-    var theme = localStorage.getItem("theme");
-    if (theme === "dark" || theme === "light") {
-      root.setAttribute("data-theme", theme);
-    } else {
-      var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-      root.setAttribute("data-theme", prefersDark ? "dark" : "light");
-    }
-    var collapsed = localStorage.getItem("fp:sb:collapsed");
-    var widthVar = getComputedStyle(root).getPropertyValue(
-      collapsed === "1" ? "--sb-width-collapsed" : "--sb-width"
-    ).trim();
-    root.style.setProperty("--sb-col", widthVar);
-    root.setAttribute("data-sb-collapsed", collapsed === "1" ? "1" : "0");
-    var pinned = localStorage.getItem("fp:sb:pinned");
-    root.setAttribute("data-sb-pinned", pinned === "1" ? "1" : "0");
-  } catch (e) {}
-})();`,
-          }}
-        />
-      </head>
+      <head>{/* o teu <Script> inicial continua igual */}</head>
       <body
         style={{
           margin: 0,
@@ -49,17 +23,24 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         }}
       >
         <AppProviders>
-          <aside style={{ gridArea: 'sidebar', minHeight: 0, borderRight: '1px solid var(--border)' }}>
-            <RoleSidebar />
-          </aside>
-
+          {/* aside é apenas o "espaço" do grid; não pode capturar eventos */}
+          <aside
+            style={{
+              gridArea: 'sidebar',
+              minHeight: 0,
+              borderRight: '1px solid var(--border)',
+              pointerEvents: 'none', // <- importante
+            }}
+          />
           <div style={{ gridArea: 'header' }}>
             <AppHeader />
           </div>
-
           <main id="app-content" style={{ gridArea: 'main', minWidth: 0, minHeight: 0, padding: 16 }}>
             {children}
           </main>
+
+          {/* O flyout continua a ser renderizado aqui fora do grid */}
+          <RoleSidebar />
         </AppProviders>
       </body>
     </html>
