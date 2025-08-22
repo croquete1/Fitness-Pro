@@ -1,6 +1,7 @@
 'use client';
 
 import SidebarBase, { Ico } from './SidebarBase';
+import Image from 'next/image';
 
 export default function SidebarClient() {
   return (

@@ -12,7 +12,7 @@ export default function SidebarAdmin() {
         <>
           <Image
             className="logo"
-            src="/logo.svg"
+            src="/logo.png"
             alt=""
             width={28}
             height={28}

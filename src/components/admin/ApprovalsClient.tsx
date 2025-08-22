@@ -1,101 +1,77 @@
-// src/components/admin/ApprovalsClient.tsx
 'use client';
 
-import * as React from 'react';
+import React, { useOptimistic, useTransition } from 'react';
 
-export type ApprovalItem = {
+type Row = {
   id: string;
   name: string | null;
   email: string | null;
-  role: 'ADMIN' | 'TRAINER' | 'CLIENT';
-  status: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
-  createdAt: string; // ISO
+  role: string;
+  status: string;
+  createdAt: string;
 };
 
-type Props = { initial: ApprovalItem[] };
+export default function ApprovalsClient({ initial }: { initial: Row[] }) {
+  const [isPending, start] = useTransition();
+  const [rows, setRows] = useOptimistic<Row[], { id: string }>(
+    initial,
+    (state, payload) => state.filter(r => r.id !== payload.id)
+  );
 
-export default function ApprovalsClient({ initial }: Props) {
-  const [items, setItems] = React.useState<ApprovalItem[]>(initial);
-  const [busy, setBusy] = React.useState<string | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
-
-  async function act(id: string, action: 'approve' | 'reject') {
-    setBusy(id);
-    setError(null);
-    try {
-      const res = await fetch(`/api/admin/users/${id}/${action}`, { method: 'POST' });
-      if (!res.ok) throw new Error(await res.text());
-      setItems((curr) => curr.filter((x) => x.id !== id));
-    } catch (e: any) {
-      setError(e?.message || 'Falha na operação.');
-    } finally {
-      setBusy(null);
-    }
+  async function act(id: string, action: 'approve' | 'suspend') {
+    start(async () => {
+      setRows({ id }); // otimista: remove da lista
+      await fetch(`/api/admin/approvals/${id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+    });
   }
 
   return (
-    <div style={{ display: 'grid', gap: 12 }}>
-      {error && (
-        <div
-          style={{
-            border: '1px solid var(--border-strong)',
-            background: 'rgba(239,68,68,.08)',
-            color: '#ef4444',
-            padding: 10,
-            borderRadius: 10,
-          }}
-        >
-          {error}
-        </div>
-      )}
+    <div className="card" style={{ padding: 16 }}>
+      <h1 style={{ marginBottom: 12 }}>Aprovações de conta</h1>
 
-      {items.length === 0 ? (
-        <div style={{ color: 'var(--muted)' }}>Sem contas pendentes de aprovação.</div>
+      {rows.length === 0 ? (
+        <p>Sem contas pendentes 🎉</p>
       ) : (
-        <div
-          style={{
-            overflow: 'auto',
-            border: '1px solid var(--border)',
-            borderRadius: 12,
-            background: 'var(--card-bg)',
-          }}
-        >
-          <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+        <div style={{ overflow: 'auto' }}>
+          <table className="table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
             <thead>
-              <tr style={{ background: 'var(--hover)' }}>
-                <th style={th}>Nome</th>
-                <th style={th}>Email</th>
-                <th style={th}>Função</th>
-                <th style={th}>Criado em</th>
-                <th style={{ ...th, width: 180 }}>Ações</th>
+              <tr>
+                <th style={{ textAlign: 'left', padding: 8 }}>Nome</th>
+                <th style={{ textAlign: 'left', padding: 8 }}>Email</th>
+                <th style={{ textAlign: 'left', padding: 8 }}>Role</th>
+                <th style={{ textAlign: 'left', padding: 8 }}>Criado em</th>
+                <th style={{ padding: 8 }}>Ações</th>
               </tr>
             </thead>
             <tbody>
-              {items.map((u) => (
-                <tr key={u.id} style={{ borderTop: '1px solid var(--border)' }}>
-                  <td style={td}>{u.name ?? '—'}</td>
-                  <td style={td}>{u.email ?? '—'}</td>
-                  <td style={td}>{u.role}</td>
-                  <td style={td}>{new Date(u.createdAt).toLocaleString('pt-PT')}</td>
-                  <td style={{ ...td }}>
-                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                      <button
-                        disabled={busy === u.id}
-                        onClick={() => act(u.id, 'reject')}
-                        className="btn"
-                        style={btnGhost}
-                      >
-                        Rejeitar
-                      </button>
-                      <button
-                        disabled={busy === u.id}
-                        onClick={() => act(u.id, 'approve')}
-                        className="btn"
-                        style={btnPrimary}
-                      >
-                        {busy === u.id ? 'A aprovar…' : 'Aprovar'}
-                      </button>
-                    </div>
+              {rows.map(r => (
+                <tr key={r.id} style={{ borderTop: '1px solid var(--border)' }}>
+                  <td style={{ padding: 8 }}>{r.name ?? '—'}</td>
+                  <td style={{ padding: 8 }}>{r.email ?? '—'}</td>
+                  <td style={{ padding: 8 }}>{r.role}</td>
+                  <td style={{ padding: 8 }}>{new Date(r.createdAt).toLocaleString()}</td>
+                  <td style={{ padding: 8, whiteSpace: 'nowrap' }}>
+                    <button
+                      className="btn icon"
+                      onClick={() => act(r.id, 'approve')}
+                      disabled={isPending}
+                      title="Aprovar"
+                      style={{ marginRight: 8 }}
+                    >
+                      ✅
+                    </button>
+                    <button
+                      className="btn icon"
+                      onClick={() => act(r.id, 'suspend')}
+                      disabled={isPending}
+                      title="Suspender"
+                    >
+                      ⛔
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -106,35 +82,3 @@ export default function ApprovalsClient({ initial }: Props) {
     </div>
   );
 }
-
-const th: React.CSSProperties = {
-  textAlign: 'left',
-  padding: '10px 12px',
-  color: 'var(--muted)',
-  fontWeight: 600,
-  borderBottom: '1px solid var(--border)',
-};
-
-const td: React.CSSProperties = {
-  padding: '10px 12px',
-  borderBottom: '1px solid var(--border)',
-  verticalAlign: 'middle',
-};
-
-const btnBase: React.CSSProperties = {
-  padding: '8px 12px',
-  borderRadius: 10,
-  border: '1px solid var(--border)',
-  cursor: 'pointer',
-};
-
-const btnPrimary: React.CSSProperties = {
-  ...btnBase,
-  background: 'var(--active)',
-  fontWeight: 700,
-};
-
-const btnGhost: React.CSSProperties = {
-  ...btnBase,
-  background: 'var(--btn-bg)',
-};
