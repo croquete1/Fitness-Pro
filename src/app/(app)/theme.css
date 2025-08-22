@@ -49,4 +49,92 @@ body {
 
 #app-content {
   background: radial-gradient(1200px 400px at 40% -200px, rgba(114,137,218,0.04), transparent);
+/* ===================== TOASTS ===================== */
+.fp-toast-host{
+  position: fixed;
+  top: 12px; right: 12px;
+  display: grid; gap: 10px;
+  z-index: 9999;
+  pointer-events: none;
+}
+@media (max-width:640px){
+  .fp-toast-host{ top: auto; bottom: 12px; left: 12px; right: 12px; }
+}
+
+.fp-toast{
+  pointer-events: auto;
+  display: grid;
+  grid-template-columns: 20px 1fr auto;
+  gap: 10px;
+  align-items: start;
+  min-width: 280px; max-width: 360px;
+  padding: 12px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text);
+  box-shadow: 0 8px 30px rgba(0,0,0,.12);
+  position: relative;
+  overflow: hidden;
+}
+
+.fp-toast[data-variant="success"] { border-color: rgba(22,163,74,.35); }
+.fp-toast[data-variant="info"]    { border-color: rgba(59,130,246,.30); }
+.fp-toast[data-variant="warning"] { border-color: rgba(245,158,11,.35); }
+.fp-toast[data-variant="error"]   { border-color: rgba(239,68,68,.35); }
+
+.fp-toast-icon{
+  width: 20px; height: 20px;
+  display: inline-flex; align-items: center; justify-content: center;
+  opacity: .9;
+}
+.fp-toast-title{ font-weight: 700; line-height: 1.2; }
+.fp-toast-desc{ font-size: 13px; color: var(--muted); margin-top: 2px; }
+.fp-toast-action{
+  margin-top: 8px;
+  font-size: 12px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--btn-bg);
+}
+.fp-toast-action:hover{ background: var(--hover); }
+
+.fp-toast-close{
+  margin-left: 8px;
+  width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 8px; border: 1px solid var(--border);
+  background: var(--btn-bg);
+}
+.fp-toast-close:hover{ background: var(--hover); }
+
+/* progress bar (duração) */
+.fp-toast-progress{
+  position: absolute; left: 0; bottom: 0;
+  height: 2px; width: 100%;
+  background: linear-gradient(90deg, rgba(100,116,139,.0), rgba(100,116,139,.2));
+}
+.fp-toast[data-variant="success"] .fp-toast-progress{ background: linear-gradient(90deg, rgba(16,185,129,.15), rgba(16,185,129,.45)); }
+.fp-toast[data-variant="info"]    .fp-toast-progress{ background: linear-gradient(90deg, rgba(59,130,246,.15), rgba(59,130,246,.45)); }
+.fp-toast[data-variant="warning"] .fp-toast-progress{ background: linear-gradient(90deg, rgba(245,158,11,.15), rgba(245,158,11,.45)); }
+.fp-toast[data-variant="error"]   .fp-toast-progress{ background: linear-gradient(90deg, rgba(239,68,68,.15), rgba(239,68,68,.45)); }
+
+@keyframes toastIn   { from { opacity: 0; transform: translateY(8px) scale(.98);} to { opacity:1; transform: translateY(0) scale(1);} }
+@keyframes toastOut  { from { opacity: 1; transform: translateY(0) scale(1);} to { opacity:0; transform: translateY(8px) scale(.98);} }
+
+.fp-toast[data-state="enter"]{ animation: toastIn 160ms ease-out; }
+.fp-toast[data-state="leave"]{ animation: toastOut 140ms ease-in forwards; }
+
+/* ===================== HELPERS: Fade/Scale ===================== */
+@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+@keyframes fadeOut { from { opacity: 1 } to { opacity: 0 } }
+
+@keyframes fadeScaleIn { from { opacity: 0; transform: scale(.98) } to { opacity: 1; transform: scale(1) } }
+@keyframes fadeScaleOut { from { opacity: 1; transform: scale(1) } to { opacity: 0; transform: scale(.98) } }
+
+/* usados por <TransitionFadeScale /> */
+[data-anim="enter"]{ animation: fadeScaleIn var(--anim-in,160ms) cubic-bezier(.2,.8,.2,1) }
+[data-anim="leave"]{ animation: fadeScaleOut var(--anim-out,140ms) ease-in forwards }
+
 }
