@@ -1,6 +1,10 @@
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-export const fetchCache = "force-no-store";
+export const dynamic = 'force-dynamic';
 
-import UsersClient from "./UsersClient";
-export default function Page() { return <UsersClient />; }
+export default function AdminUsersPage() {
+  return (
+    <div style={{ padding: 16 }}>
+      <h1>Utilizadores</h1>
+      <p>Em breve: gestão/listagem de utilizadores.</p>
+    </div>
+  );
+}

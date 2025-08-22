@@ -1,6 +1,14 @@
+// src/components/layout/SidebarProvider.tsx
 'use client';
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 type Ctx = {
   collapsed: boolean;
@@ -28,16 +36,22 @@ function readLS(key: string, fallback: boolean) {
   return fallback;
 }
 
+function getVar(root: HTMLElement, name: string, fallback: string) {
+  const v = getComputedStyle(root).getPropertyValue(name).trim();
+  return v || fallback;
+}
+
 function writeHtmlState(collapsed: boolean, pinned: boolean) {
   if (typeof document === 'undefined') return;
   const root = document.documentElement;
+
+  // flags para CSS
   root.setAttribute('data-sb-collapsed', collapsed ? '1' : '0');
   root.setAttribute('data-sb-pinned', pinned ? '1' : '0');
 
-  // controla a coluna do grid (—sb-col) para o layout
-  const styles = getComputedStyle(root);
-  const expanded = styles.getPropertyValue('--sb-width').trim();
-  const sliced = styles.getPropertyValue('--sb-width-collapsed').trim();
+  // controla a coluna do grid
+  const expanded = getVar(root, '--sb-width', '264px');
+  const sliced   = getVar(root, '--sb-width-collapsed', '72px');
   root.style.setProperty('--sb-col', collapsed ? sliced : expanded);
 }
 
@@ -45,12 +59,11 @@ export default function SidebarProvider({ children }: { children: React.ReactNod
   const [collapsed, setCollapsed] = useState(false);
   const [pinned, setPinned] = useState(true);
 
-  // boot (client)
+  // boot (apenas cliente)
   useEffect(() => {
     const c = readLS('fp:sb:collapsed', false);
     const p = readLS('fp:sb:pinned', true);
-    // regra: se colapsada, não pode estar pinned
-    const normalizedPinned = p && !c;
+    const normalizedPinned = p && !c; // se colapsada, não pode estar afixada
     setCollapsed(c);
     setPinned(normalizedPinned);
     writeHtmlState(c, normalizedPinned);
@@ -75,6 +88,21 @@ export default function SidebarProvider({ children }: { children: React.ReactNod
     writeHtmlState(collapsed, pinned && !collapsed);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pinned]);
+
+  // sincroniza entre separadores (opcional mas útil)
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'fp:sb:collapsed' || e.key === 'fp:sb:pinned') {
+        const c = readLS('fp:sb:collapsed', false);
+        const p = readLS('fp:sb:pinned', true) && !c;
+        setCollapsed(c);
+        setPinned(p);
+        writeHtmlState(c, p);
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
 
   const toggleCollapsed = useCallback(() => setCollapsed(v => !v), []);
   const togglePinned = useCallback(() => setPinned(v => !v), []);
