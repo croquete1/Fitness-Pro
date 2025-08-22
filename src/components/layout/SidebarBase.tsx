@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Pin, PinOff, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useSidebar } from '@/components/layout/SidebarProvider';
+import Image from 'next/image';
 
 export type Item = { href: string; label: string; icon: React.ReactNode; exact?: boolean };
 export type Group = { title: string; items: Item[] };
@@ -22,7 +23,7 @@ export default function SidebarBase({ nav, showToggle = true }: SidebarBaseProps
     <div className="fp-sb-flyout" data-pinned={pinned ? '1' : '0'}>
       <div className="fp-sb-head">
         <Link href="/dashboard" className="fp-sb-brand" aria-label="Fitness Pro">
-          <img src="/logo.png" alt="Logo" className="logo" width={28} height={28} />
+          <Image src="/logo.png" alt="Logo" width={28} height={28} className="logo" />
           <span className="brand-text">
             <span className="brand-name">Fitness Pro</span>
             <span className="brand-sub">Dashboard</span>
