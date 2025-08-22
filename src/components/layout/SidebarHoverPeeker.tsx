@@ -1,31 +1,24 @@
 // src/components/layout/SidebarHoverPeeker.tsx
-"use client";
+'use client';
 
-/**
- * Uma faixa invisível na esquerda que, ao aproximar o rato,
- * activa data-sb-peek="1" no <html>. Assim a flyout abre mesmo
- * que outro elemento esteja por cima do slice.
- */
+import React from 'react';
+
 export default function SidebarHoverPeeker() {
+  // Uma pequena faixa fixa à esquerda que NÃO bloqueia quando a sidebar está afixada
   return (
     <div
       aria-hidden
-      onMouseEnter={() =>
-        document.documentElement.setAttribute("data-sb-peek", "1")
-      }
-      onMouseLeave={() =>
-        document.documentElement.removeAttribute("data-sb-peek")
-      }
       style={{
-        position: "fixed",
-        left: 0,
-        top: 0,
-        height: "100vh",
-        width: "var(--sb-width-collapsed)", // zona de activação
-        zIndex: 9998,
-        pointerEvents: "auto",
-        background: "transparent",
+        position: 'fixed',
+        inset: '0 auto 0 0',
+        width: '10px',
+        zIndex: 80,
+        // só ativa quando colapsada e não afixada
+        pointerEvents: 'auto',
       }}
+      className="fp-sb-peeker"
+      // Não precisamos JS: o :hover do .fp-sb-flyout já abre;
+      // esta faixa apenas facilita atingir a área quando a sidebar está encostada.
     />
   );
 }
