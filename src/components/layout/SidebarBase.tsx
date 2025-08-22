@@ -1,30 +1,17 @@
-"use client";
+'use client';
 
-import React from "react";
-import Link from "next/link";
-import Image from "next/image";
-import { usePathname } from "next/navigation";
-import { useSidebar } from "@/components/SidebarWrapper";
-import { ChevronsLeft, ChevronsRight, Pin, PinOff } from "lucide-react";
-import "./sidebar.css";
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { Pin, PinOff, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { useSidebar } from '@/components/layout/SidebarProvider';
 
-export type Item = {
-  href: string;
-  label: string;
-  icon: React.ReactNode;
-  exact?: boolean;
-};
+export type Item = { href: string; label: string; icon: React.ReactNode; exact?: boolean };
 export type Group = { title: string; items: Item[] };
-export type SidebarBaseProps = {
-  nav: Group[];
-  showToggle?: boolean;
-};
+export type SidebarBaseProps = { nav: Group[]; showToggle?: boolean };
 
 function isActive(pathname: string, href: string, exact?: boolean) {
-  const clean =
-    pathname !== "/" && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
-  if (exact || href === "/dashboard") return clean === href;
-  return clean === href || clean.startsWith(href + "/");
+  const clean = pathname !== '/' && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
+  return exact ? clean === href : (clean === href || clean.startsWith(href + '/'));
 }
 
 export default function SidebarBase({ nav, showToggle = true }: SidebarBaseProps) {
@@ -32,14 +19,14 @@ export default function SidebarBase({ nav, showToggle = true }: SidebarBaseProps
   const { collapsed, pinned, toggleCollapsed, togglePinned } = useSidebar();
 
   return (
-    <div className="fp-sb-flyout" data-collapsed={collapsed} data-pinned={pinned}>
+    <div className="fp-sb-flyout" data-pinned={pinned ? '1' : '0'}>
       <div className="fp-sb-head">
-        <Link href="/dashboard" className="fp-sb-brand" aria-label="Início">
-          <Image src="/logo.png" alt="Logo" width={28} height={28} className="logo" priority />
-          <div className="brand-text">
-            <strong className="brand-name">Fitness Pro</strong>
+        <Link href="/dashboard" className="fp-sb-brand" aria-label="Fitness Pro">
+          <img src="/logo.png" alt="Logo" className="logo" width={28} height={28} />
+          <span className="brand-text">
+            <span className="brand-name">Fitness Pro</span>
             <span className="brand-sub">Dashboard</span>
-          </div>
+          </span>
         </Link>
 
         {showToggle && (
@@ -47,19 +34,20 @@ export default function SidebarBase({ nav, showToggle = true }: SidebarBaseProps
             <button
               type="button"
               className="btn icon"
-              title={pinned ? "Desafixar sidebar" : "Afixar sidebar"}
-              aria-label={pinned ? "Desafixar sidebar" : "Afixar sidebar"}
+              aria-label={pinned ? 'Desafixar sidebar' : 'Afixar sidebar'}
+              title={pinned ? 'Desafixar sidebar' : 'Afixar sidebar'}
               onClick={togglePinned}
+              data-role="sb-pin"
             >
               {pinned ? <Pin size={18} /> : <PinOff size={18} />}
             </button>
-
             <button
               type="button"
               className="btn icon"
-              title={collapsed ? "Expandir menu" : "Encolher para ícones"}
-              aria-label={collapsed ? "Expandir menu" : "Encolher para ícones"}
+              aria-label={collapsed ? 'Expandir menu' : 'Encolher para ícones'}
+              title={collapsed ? 'Expandir menu' : 'Encolher para ícones'}
               onClick={toggleCollapsed}
+              data-role="sb-toggle"
             >
               {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
             </button>
@@ -78,8 +66,8 @@ export default function SidebarBase({ nav, showToggle = true }: SidebarBaseProps
                   key={item.href}
                   href={item.href}
                   className="nav-item"
-                  data-active={active ? "true" : undefined}
-                  aria-current={active ? "page" : undefined}
+                  data-active={active ? 'true' : undefined}
+                  aria-current={active ? 'page' : undefined}
                 >
                   <span className="nav-icon">{item.icon}</span>
                   <span className="nav-label">{item.label}</span>

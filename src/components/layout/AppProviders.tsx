@@ -1,10 +1,9 @@
-"use client";
+'use client';
 
-import { SessionProvider } from "next-auth/react";
-import SidebarProvider from "@/components/SidebarWrapper";
-import { ReactNode } from "react";
+import { SessionProvider } from 'next-auth/react';
+import SidebarProvider from './SidebarProvider';
 
-export default function AppProviders({ children }: { children: ReactNode }) {
+export default function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
       <SidebarProvider>{children}</SidebarProvider>

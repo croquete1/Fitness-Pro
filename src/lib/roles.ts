@@ -1,21 +1,16 @@
-export type AppRole = "admin" | "pt" | "client";
+export type RoleKey = 'admin' | 'pt' | 'client';
 
-/** Converte valores vindos da BD/sessão para o nosso enum canónico ("admin"|"pt"|"client") */
-export function toAppRole(value: unknown): AppRole {
-  const v = String(value ?? "").trim().toLowerCase();
-  if (v === "admin" || v === "administrator") return "admin";
-  if (v === "pt" || v === "trainer" || v === "coach" || v === "treinador") return "pt";
-  if (v === "client" || v === "cliente" || v === "user") return "client";
-
-  // Aceita variantes em maiúsculas
-  if (v === "trainER".toLowerCase() || v === "trainer".toLowerCase()) return "pt"; // redundante mas seguro
-  if (v === "admin".toLowerCase()) return "admin";
-  if (v === "client".toLowerCase()) return "client";
-
-  // Fallback seguro
-  return "client";
+export function normalizeRole(input?: string | null): RoleKey {
+  if (!input) return 'client';
+  const v = input.toUpperCase();
+  if (v === 'ADMIN') return 'admin';
+  if (v === 'TRAINER' || v === 'PT') return 'pt';
+  return 'client';
 }
 
-export const isAdmin = (r: unknown) => toAppRole(r) === "admin";
-export const isPT    = (r: unknown) => toAppRole(r) === "pt";
-export const isClient= (r: unknown) => toAppRole(r) === "client";
+export function isBillingAllowedForPT(user?: { id?: string | null; email?: string | null }): boolean {
+  if (!user) return false;
+  const allowedId = process.env.NEXT_PUBLIC_BILLING_PT_ID;
+  const allowedEmail = process.env.NEXT_PUBLIC_BILLING_PT_EMAIL;
+  return (!!allowedId && user.id === allowedId) || (!!allowedEmail && user.email === allowedEmail);
+}

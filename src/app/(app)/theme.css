@@ -2,7 +2,6 @@
   --sb-width: 264px;
   --sb-width-collapsed: 72px;
   --sb-col: var(--sb-width);
-
   --bg: #f7f9fc;
   --text: #0e1116;
   --muted: #6b7280;
@@ -33,11 +32,20 @@
   --btn-bg: #0e151d;
 }
 
-/* ✅ controla a largura da 1ª coluna do grid */
-html[data-sb-collapsed="0"] { --sb-col: var(--sb-width); }
-html[data-sb-collapsed="1"] { --sb-col: var(--sb-width-collapsed); }
+/* colapso (fallback; o provider controla --sb-col dinamicamente) */
+html[data-sb-collapsed="1"] {
+  --sb-col: var(--sb-width-collapsed);
+}
 
-html, body { background: var(--bg); color: var(--text); }
+html, body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* transição suave do layout quando a coluna muda */
+body {
+  transition: grid-template-columns 260ms cubic-bezier(.2,.8,.2,1);
+}
 
 #app-content {
   background: radial-gradient(1200px 400px at 40% -200px, rgba(114,137,218,0.04), transparent);
