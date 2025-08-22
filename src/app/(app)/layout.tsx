@@ -3,6 +3,7 @@ import Script from "next/script";
 import AppHeader from "@/components/layout/AppHeader";
 import RoleSidebar from "@/components/layout/RoleSidebar";
 import AppProviders from "@/components/layout/AppProviders";
+import SidebarHoverPeeker from "@/components/layout/SidebarHoverPeeker";
 import "./theme.css";
 
 export const dynamic = "force-dynamic";
@@ -11,11 +12,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-PT" suppressHydrationWarning>
       <head>
+        {/* Aplica tema + estado da sidebar antes de hidratar */}
         <Script id="init-preferences" strategy="beforeInteractive">{`
 (function () {
   try {
     var root = document.documentElement;
-    // theme
+
+    // ---- tema
     var theme = localStorage.getItem("theme");
     if (theme === "dark" || theme === "light") {
       root.setAttribute("data-theme", theme);
@@ -23,20 +26,26 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
       root.setAttribute("data-theme", prefersDark ? "dark" : "light");
     }
-    // sidebar
-    var collapsed = localStorage.getItem("fp:sb:collapsed");
-    var pinned    = localStorage.getItem("fp:sb:pinned");
-    root.setAttribute("data-sb-collapsed", collapsed === "1" ? "1" : "0");
-    root.setAttribute("data-sb-pinned",    pinned === "1" ? "1" : "0");
-    // coluna do grid
+
+    // ---- sidebar (collapsed/pinned) com fallback seguro
+    var lsCollapsed = localStorage.getItem("fp:sb:collapsed");
+    var lsPinned    = localStorage.getItem("fp:sb:pinned");
+    var isCollapsed = lsCollapsed === "1";
+    var isPinned    = lsPinned === "1" && !isCollapsed; // se colapsada, não fica afixada
+
+    root.setAttribute("data-sb-collapsed", isCollapsed ? "1" : "0");
+    root.setAttribute("data-sb-pinned",    isPinned ? "1" : "0");
+
+    // coluna do grid (--sb-col)
     var cs = getComputedStyle(root);
-    var w  = cs.getPropertyValue("--sb-width").trim();
-    var wc = cs.getPropertyValue("--sb-width-collapsed").trim();
-    root.style.setProperty("--sb-col", (pinned === "1" ? w : wc) || w);
+    var w  = (cs.getPropertyValue("--sb-width") || "264px").trim();
+    var wc = (cs.getPropertyValue("--sb-width-collapsed") || "72px").trim();
+    root.style.setProperty("--sb-col", (isCollapsed && !isPinned) ? wc : w);
   } catch (e) {}
 })();
         `}</Script>
       </head>
+
       <body
         style={{
           margin: 0,
@@ -48,26 +57,31 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         }}
       >
         <AppProviders>
-          {/* apenas reserva espaço no grid; não deve “apanhar” o hover do flyout */}
+          {/* O aside é apenas o espaço do grid; não deve bloquear o hover */}
           <aside
             style={{
               gridArea: "sidebar",
               minHeight: 0,
               borderRight: "1px solid var(--border)",
               pointerEvents: "none",
+              position: "relative",
+              zIndex: 0,
             }}
-          />
+          >
+            {/* A flyout é fixed e tem z-index alto; permanece clicável */}
+            <RoleSidebar />
+          </aside>
 
-          <div style={{ gridArea: "header" }}>
+          {/* Faixa invisível que activa o “peek” ao encostar o rato */}
+          <SidebarHoverPeeker />
+
+          <div className="app-header" style={{ gridArea: "header", position: "relative", zIndex: 20 }}>
             <AppHeader />
           </div>
 
           <main id="app-content" style={{ gridArea: "main", minWidth: 0, minHeight: 0, padding: 16 }}>
             {children}
           </main>
-
-          {/* flyout fixo, por cima do layout */}
-          <RoleSidebar />
         </AppProviders>
       </body>
     </html>

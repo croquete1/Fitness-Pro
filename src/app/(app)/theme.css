@@ -181,4 +181,32 @@ html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:focus-within .fp-s
 :root[data-theme="dark"] html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:hover,
 :root[data-theme="dark"] html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:focus-within {
   box-shadow: 0 12px 50px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.04) inset;
+/* A flyout deve aceitar cliques independentemente do aside */
+.fp-sb-flyout { pointer-events: auto; }
+
+/* Modo "peek" activado pelo peeker (data-sb-peek="1") */
+html[data-sb-collapsed="1"][data-sb-pinned="0"][data-sb-peek="1"] .fp-sb-flyout {
+  transform: translateX(0);
+  box-shadow: 0 10px 40px rgba(0,0,0,.20), 0 1px 0 rgba(0,0,0,.07) inset;
+  transition:
+    transform 220ms cubic-bezier(.2,.8,.2,1) var(--sb-peek-delay),
+    box-shadow 200ms ease var(--sb-peek-delay);
+}
+
+html[data-sb-collapsed="1"][data-sb-pinned="0"][data-sb-peek="1"] .fp-sb-flyout .nav-section,
+html[data-sb-collapsed="1"][data-sb-pinned="0"][data-sb-peek="1"] .fp-sb-flyout .nav-label,
+html[data-sb-collapsed="1"][data-sb-pinned="0"][data-sb-peek="1"] .fp-sb-flyout .brand-text {
+  opacity: 1; visibility: visible; width: auto; max-width: none;
+  transition: opacity 140ms ease var(--sb-peek-delay);
+}
+
+html[data-sb-collapsed="1"][data-sb-pinned="0"][data-sb-peek="1"] .fp-sb-flyout .nav-item,
+html[data-sb-collapsed="1"][data-sb-pinned="0"][data-sb-peek="1"] .fp-sb-flyout .fp-sb-brand {
+  justify-content: flex-start; padding: 10px 12px;
+}
+
+/* Garantir que nada da app "cobre" a barra lateral */
+.app-header { z-index: 20; }
+.fp-sb-flyout { z-index: 9999; }
+
 }
