@@ -1,44 +1,15 @@
-import { NextResponse } from "next/server";
-import prismaAny from "@/lib/prisma";
+// src/app/api/admin/users/[id]/approve/route.ts
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 
-const prisma: any =
-  (prismaAny as any).prisma ??
-  (prismaAny as any).default ??
-  prismaAny;
+export async function POST(_: Request, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+  const role = (session?.user as any)?.role?.toUpperCase?.();
+  if (role !== 'ADMIN') return NextResponse.json({ error: 'forbidden' }, { status: 403 });
 
-const CANDIDATE_USER_MODELS = ["user", "User", "accountUser", "AccountUser"];
-
-function firstModel(names: string[]) {
-  for (const n of names) {
-    const m = (prisma as any)[n];
-    if (m && typeof m.update === "function") return n;
-  }
-  return null;
-}
-
-// POST /api/admin/users/:id/approve
-export async function POST(_req: Request, ctx: { params: { id: string } }) {
-  const idRaw = ctx.params.id;
-  const model = firstModel(CANDIDATE_USER_MODELS);
-  if (!model) return NextResponse.json({ error: "User model not found" }, { status: 500 });
-
-  const data: any = { status: "ACTIVE" };
-  // se o teu schema tiver approvedAt:
-  try { data.approvedAt = new Date(); } catch {}
-
-  try {
-    const updated = await (prisma as any)[model].update({ where: { id: idRaw }, data });
-    return NextResponse.json({ data: updated });
-  } catch {
-    const n = Number(idRaw);
-    if (!Number.isNaN(n)) {
-      try {
-        const updated = await (prisma as any)[model].update({ where: { id: n }, data });
-        return NextResponse.json({ data: updated });
-      } catch (e: any) {
-        return NextResponse.json({ error: e?.message ?? "Approve failed" }, { status: 400 });
-      }
-    }
-    return NextResponse.json({ error: "Approve failed" }, { status: 400 });
-  }
+  const id = params.id;
+  await prisma.user.update({ where: { id }, data: { status: 'ACTIVE' as any } });
+  return NextResponse.json({ ok: true });
 }
