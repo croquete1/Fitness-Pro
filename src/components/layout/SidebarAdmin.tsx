@@ -7,7 +7,7 @@ export default function SidebarAdmin() {
     <SidebarBase
       brand={
         <>
-          <img className="logo" src="/logo.svg" alt="" width={28} height={28} />
+          <Image className="logo" src="/logo.png" alt="" width={28} height={28} priority/>
         </>
       }
       groups={[
