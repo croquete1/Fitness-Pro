@@ -1,61 +1,81 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Pin, PinOff, ChevronsLeft, ChevronsRight } from 'lucide-react';
-import { useSidebar } from '@/components/layout/SidebarWrapper';
-import Image from 'next/image';
+import { useSidebar } from '@/components/layout/SidebarProvider';
 
-export type Item = { href: string; label: string; icon: React.ReactNode; exact?: boolean };
+export type Item = {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+  exact?: boolean;
+};
 export type Group = { title: string; items: Item[] };
-export type SidebarBaseProps = { nav: Group[]; showToggle?: boolean };
 
 function isActive(pathname: string, href: string, exact?: boolean) {
-  const clean = pathname !== '/' && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
-  return exact ? clean === href : (clean === href || clean.startsWith(href + '/'));
+  const clean =
+    pathname !== '/' && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
+  if (exact || href === '/dashboard') return clean === href;
+  return clean === href || clean.startsWith(href + '/');
 }
+
+type SidebarBaseProps = {
+  nav: Group[];
+  showToggle?: boolean;
+};
 
 export default function SidebarBase({ nav, showToggle = true }: SidebarBaseProps) {
   const pathname = usePathname();
   const { collapsed, pinned, toggleCollapsed, togglePinned } = useSidebar();
 
   return (
-    <div className="fp-sb-flyout" data-pinned={pinned ? '1' : '0'}>
+    <div className="fp-sb-flyout">
+      {/* Cabeçalho */}
       <div className="fp-sb-head">
-        <Link href="/dashboard" className="fp-sb-brand" aria-label="Fitness Pro">
-          <Image src="/logo.png" alt="Logo" width={28} height={28} className="logo" />
+        <a className="fp-sb-brand" href="/dashboard" aria-label="Início">
+          <Image
+            src="/logo.png"
+            width={28}
+            height={28}
+            alt="Logo"
+            className="logo"
+            priority
+          />
           <span className="brand-text">
             <span className="brand-name">Fitness Pro</span>
-            <span className="brand-sub">Dashboard</span>
+            <span className="brand-sub">Admin &amp; PT</span>
           </span>
-        </Link>
+        </a>
 
         {showToggle && (
           <div className="fp-sb-actions">
+            {/* Afixar/desafixar */}
             <button
               type="button"
               className="btn icon"
               aria-label={pinned ? 'Desafixar sidebar' : 'Afixar sidebar'}
               title={pinned ? 'Desafixar sidebar' : 'Afixar sidebar'}
               onClick={togglePinned}
-              data-role="sb-pin"
             >
-              {pinned ? <Pin size={18} /> : <PinOff size={18} />}
+              {pinned ? '📌' : '📍'}
             </button>
+
+            {/* Colapsar/Expandir */}
             <button
               type="button"
               className="btn icon"
               aria-label={collapsed ? 'Expandir menu' : 'Encolher para ícones'}
               title={collapsed ? 'Expandir menu' : 'Encolher para ícones'}
               onClick={toggleCollapsed}
-              data-role="sb-toggle"
             >
-              {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
+              {collapsed ? '»' : '«'}
             </button>
           </div>
         )}
       </div>
 
+      {/* Navegação */}
       <nav className="fp-nav">
         {nav.map((group) => (
           <div key={group.title} className="nav-group">

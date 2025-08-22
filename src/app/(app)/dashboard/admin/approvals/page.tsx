@@ -1,10 +1,10 @@
 export const dynamic = 'force-dynamic';
 
-export default function AdminApprovalsPage() {
+export default function ApprovalsPage() {
   return (
-    <div>
+    <section style={{ padding: 16 }}>
       <h1>Aprovações</h1>
-      <p>Em Breve: Aprovar contas pendentes</p>
-    </div>
+      <p>Lista e gestão de pedidos de aprovação aparecerão aqui.</p>
+    </section>
   );
 }
