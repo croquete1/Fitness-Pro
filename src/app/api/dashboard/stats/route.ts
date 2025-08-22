@@ -1,19 +1,18 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { Role } from '@prisma/client'; // <-- fix
+import { Role } from '@prisma/client'; // <- importa o enum do Prisma
 
+// util simples para hoje e +7
 function startOfToday() {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
   return d;
 }
-function addDays(base: Date, n: number) {
-  const d = new Date(base);
-  d.setDate(d.getDate() + n);
-  return d;
+function addDays(d: Date, days: number) {
+  const c = new Date(d);
+  c.setDate(c.getDate() + days);
+  return c;
 }
-
-export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
@@ -24,15 +23,21 @@ export async function GET() {
       prisma.user.count({ where: { role: Role.CLIENT } }),
       prisma.user.count({ where: { role: Role.TRAINER } }),
       prisma.user.count({ where: { role: Role.ADMIN } }),
-      prisma.session.count({
-        // use your real datetime field; keeping scheduledAt based on your schema
-        where: { scheduledAt: { gte: today, lt: in7 } },
-      }),
+      prisma.session.count({ where: { scheduledAt: { gte: today, lt: in7 } } }),
     ]);
 
-    return NextResponse.json({ clients, trainers, admins, sessionsNext7 });
-  } catch (e) {
-    console.error('stats error:', e);
-    return NextResponse.json({ error: 'stats_failed' }, { status: 500 });
+    return NextResponse.json({
+      clients,
+      trainers,
+      admins,
+      sessionsNext7,
+    });
+  } catch (err) {
+    // loga e devolve zeros para não quebrar o UI
+    console.error('stats endpoint error:', err);
+    return NextResponse.json(
+      { clients: 0, trainers: 0, admins: 0, sessionsNext7: 0 },
+      { status: 200 }
+    );
   }
 }
