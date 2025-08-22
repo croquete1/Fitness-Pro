@@ -61,25 +61,29 @@ html, body { background: var(--bg); color: var(--text); }
 
 /* =================== SIDEBAR (FLYOUT FIXED) =================== */
 .fp-sb-flyout {
-  position: fixed;         /* fora do grid, encostada à esquerda */
-  left: 0; top: 0;
+  position: fixed;                 /* fora do grid, encostada à esquerda */
+  left: 0;
+  top: 0;
   height: 100vh;
-  width: var(--sb-width);  /* largura real do painel */
+  width: var(--sb-width);
   transform: translateX(0);
   will-change: transform, box-shadow;
-  transition: transform 260ms cubic-bezier(.2,.8,.2,1), box-shadow 200ms ease;
-  z-index: 60;
+  transition:
+    transform 260ms cubic-bezier(.2,.8,.2,1),
+    box-shadow 200ms ease;
+  z-index: 9999;                   /* <<< MUITO acima do header / overlays */
+  pointer-events: auto;            /* garante que recebe cliques */
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
   overflow: hidden;
 }
 
 /* Colapsada e NÃO afixada: mostra só o slice colapsado (peek possível) */
-html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout {
-  transform: translateX(calc(var(--sb-width-collapsed) - var(--sb-width)));
-  box-shadow: none;
+html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:hover,
+html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:focus-within {
+  transform: translateX(0);
+  box-shadow: 0 10px 40px rgba(0,0,0,.20), 0 1px 0 rgba(0,0,0,.07) inset;
 }
-
 /* Peek no hover/focus */
 html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:hover,
 html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:focus-within {
@@ -91,8 +95,10 @@ html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:focus-within {
 }
 
 /* Afixada: mantém-se aberta; a reserva da coluna é feita acima via --sb-col */
-html[data-sb-pinned="1"] .fp-sb-flyout { transform: translateX(0); box-shadow: none; }
-
+html[data-sb-pinned="1"] .fp-sb-flyout {
+  transform: translateX(0);
+  box-shadow: none;
+}
 /* =================== HEAD =================== */
 .fp-sb-head {
   position: sticky; top: 0; z-index: 2;
@@ -177,4 +183,12 @@ html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:focus-within .fp-s
   html[data-sb-collapsed="1"][data-sb-pinned="0"]
   .fp-sb-flyout:hover {
   box-shadow: 0 12px 50px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.04) inset;
+/* Header por baixo da sidebar flyout */
+.app-header {
+  position: sticky;   /* ou fixed, se já usares fixed */
+  top: 0;
+  z-index: 20;        /* <<< mais baixo que a sidebar (que pusemos a 9999) */
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(6px);
 }
