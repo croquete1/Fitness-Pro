@@ -1,42 +1,57 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
-import { getAdminStats, getClientStats, getPTStats } from "@/lib/dashboardRepo";
+import { NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
+import { Role } from '@prisma/client';
 
-export async function GET(req: NextRequest) {
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-  if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export const dynamic = 'force-dynamic';
 
-  const role = (token as any).role ?? "client";
-  const viewerId = (token as any).uid ?? (token as any).sub ?? null;
+function startOfDay(d: Date) {
+  const x = new Date(d);
+  x.setHours(0,0,0,0);
+  return x;
+}
+function addDays(d: Date, n: number) {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
+}
+function fmt(d: Date) {
+  return d.toISOString().slice(0,10);
+}
 
-  // rangeDays ?range=7
-  const { searchParams } = new URL(req.url);
-  const daysParam = searchParams.get("range");
-  const rangeDays = Math.max(1, Math.min(31, Number(daysParam) || 7));
-
-  let payload: any = {
-    role,
-    viewerId,
-    counts: { clients: 0, trainers: 0, admins: 0, sessionsNext7d: 0 },
-    trend7d: [],
-    upcomingSessions: [],
-    notifications: [],
-  };
-
+export async function GET() {
   try {
-    if (role === "admin") {
-      const data = await getAdminStats(rangeDays);
-      payload = { role, viewerId, ...data };
-    } else if (role === "pt") {
-      const data = await getPTStats(String(viewerId ?? ""), rangeDays);
-      payload = { role, viewerId, ...data };
-    } else {
-      const data = await getClientStats(String(viewerId ?? ""), rangeDays);
-      payload = { role, viewerId, ...data };
-    }
-  } catch (e) {
-    // Mantém payload com zeros para não partir a UI
-  }
+    const now = new Date();
+    const today = startOfDay(now);
+    const in7 = addDays(today, 7);
 
-  return NextResponse.json(payload, { status: 200 });
+    const [clients, trainers, admins, sessionsNext7] = await Promise.all([
+      prisma.user.count({ where: { role: Role.CLIENT } }),
+      prisma.user.count({ where: { role: Role.PT } }),
+      prisma.user.count({ where: { role: Role.ADMIN } }),
+      prisma.session.count({
+        where: { scheduledAt: { gte: today, lt: in7 } },
+      }),
+    ]);
+
+    // tendência últimos 7 dias
+    const trend: Array<{date: string; sessions: number}> = [];
+    for (let i = 6; i >= 0; i--) {
+      const day = addDays(today, -i);
+      const next = addDays(day, 1);
+      const sessions = await prisma.session.count({
+        where: { scheduledAt: { gte: day, lt: next } },
+      });
+      trend.push({ date: fmt(day), sessions });
+    }
+
+    return NextResponse.json({
+      counts: { clients, trainers, admins, sessionsNext7 },
+      trend,
+      upcomingSessions: [],
+      notifications: [],
+    });
+  } catch (e) {
+    console.error('stats error', e);
+    return NextResponse.json({ error: 'stats_failed' }, { status: 500 });
+  }
 }

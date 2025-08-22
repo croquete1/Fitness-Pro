@@ -1,5 +1,4 @@
-// src/components/SidebarWrapper.tsx
-"use client";
+'use client';
 
 import React, {
   createContext,
@@ -8,7 +7,7 @@ import React, {
   useEffect,
   useMemo,
   useState,
-} from "react";
+} from 'react';
 
 type Ctx = {
   collapsed: boolean;
@@ -19,13 +18,51 @@ type Ctx = {
   setPinned: (v: boolean) => void;
 };
 
-const SidebarContext = createContext<Ctx | undefined>(undefined);
+const SidebarContext = createContext<Ctx | null>(null);
 
-function readLS(key: string, fallback: boolean) {
+/** Helpers para refletir no DOM + localStorage (também usados no fallback) */
+function applyCollapsedToDOM(v: boolean) {
+  if (typeof document === 'undefined') return;
+  const root = document.documentElement;
+  root.setAttribute('data-sb-collapsed', v ? '1' : '0');
+  try { localStorage.setItem('fp:sb:collapsed', v ? '1' : '0'); } catch {}
+  // atualiza a coluna da grid
+  const cs = getComputedStyle(root);
+  const val = (v ? cs.getPropertyValue('--sb-width-collapsed') : cs.getPropertyValue('--sb-width')).trim();
+  root.style.setProperty('--sb-col', val);
+}
+function applyPinnedToDOM(v: boolean) {
+  if (typeof document === 'undefined') return;
+  const root = document.documentElement;
+  root.setAttribute('data-sb-pinned', v ? '1' : '0');
+  try { localStorage.setItem('fp:sb:pinned', v ? '1' : '0'); } catch {}
+}
+
+export function useSidebar(): Ctx {
+  const ctx = useContext(SidebarContext);
+  if (ctx) return ctx;
+
+  // --- Fallback seguro ---
+  // Se, por alguma razão, um consumidor renderizar fora do provider, não crasha.
+  const root = typeof document !== 'undefined' ? document.documentElement : null;
+  const collapsed = root?.getAttribute('data-sb-collapsed') === '1';
+  const pinned = root?.getAttribute('data-sb-pinned') === '1';
+
+  return {
+    collapsed,
+    pinned,
+    toggleCollapsed: () => applyCollapsedToDOM(!collapsed),
+    togglePinned: () => applyPinnedToDOM(!pinned),
+    setCollapsed: applyCollapsedToDOM,
+    setPinned: applyPinnedToDOM,
+  };
+}
+
+function readBoolLS(key: string, fallback: boolean) {
   try {
     const v = localStorage.getItem(key);
-    if (v === "1") return true;
-    if (v === "0") return false;
+    if (v === '1') return true;
+    if (v === '0') return false;
   } catch {}
   return fallback;
 }
@@ -34,36 +71,28 @@ export default function SidebarProvider({ children }: { children: React.ReactNod
   const [collapsed, setCollapsed] = useState(false);
   const [pinned, setPinned] = useState(true);
 
-  // boot (client)
+  // Boot dos estados a partir do localStorage (apenas cliente)
   useEffect(() => {
-    const c = readLS("fp:sb:collapsed", false);
-    const p = readLS("fp:sb:pinned", true);
+    const c = readBoolLS('fp:sb:collapsed', false);
+    const p = readBoolLS('fp:sb:pinned', true);
     setCollapsed(c);
     setPinned(p && !c); // não pode estar pinned se estiver colapsada
   }, []);
 
-  // reflect 'collapsed'
+  // Reflete collapsed no DOM e sincroniza com pin
   useEffect(() => {
-    if (typeof document === "undefined") return;
-    document.documentElement.setAttribute("data-sb-collapsed", collapsed ? "true" : "false");
-    try {
-      localStorage.setItem("fp:sb:collapsed", collapsed ? "1" : "0");
-    } catch {}
-    if (collapsed && pinned) setPinned(false); // se encolheres, desfixa
-  }, [collapsed, pinned]);
+    applyCollapsedToDOM(collapsed);
+    if (collapsed && pinned) setPinned(false);
+  }, [collapsed]);
 
-  // reflect 'pinned'
+  // Reflete pinned no DOM e sincroniza com collapsed
   useEffect(() => {
-    if (typeof document === "undefined") return;
-    document.documentElement.setAttribute("data-sb-pinned", pinned ? "true" : "false");
-    try {
-      localStorage.setItem("fp:sb:pinned", pinned ? "1" : "0");
-    } catch {}
-    if (pinned) setCollapsed(false); // afixar => força expandida
+    applyPinnedToDOM(pinned);
+    if (pinned) setCollapsed(false);
   }, [pinned]);
 
-  const toggleCollapsed = useCallback(() => setCollapsed((v) => !v), []);
-  const togglePinned = useCallback(() => setPinned((v) => !v), []);
+  const toggleCollapsed = useCallback(() => setCollapsed(v => !v), []);
+  const togglePinned = useCallback(() => setPinned(v => !v), []);
 
   const value = useMemo(
     () => ({ collapsed, pinned, toggleCollapsed, togglePinned, setCollapsed, setPinned }),
@@ -71,20 +100,4 @@ export default function SidebarProvider({ children }: { children: React.ReactNod
   );
 
   return <SidebarContext.Provider value={value}>{children}</SidebarContext.Provider>;
-}
-
-/** Hook seguro: se o Provider faltar, não quebra a UI (no-ops) */
-export function useSidebar(): Ctx {
-  const ctx = useContext(SidebarContext);
-  if (ctx) return ctx;
-
-  // Fallback silencioso (para não rebentar a página em produção)
-  return {
-    collapsed: false,
-    pinned: true,
-    toggleCollapsed: () => {},
-    togglePinned: () => {},
-    setCollapsed: () => {},
-    setPinned: () => {},
-  };
 }
