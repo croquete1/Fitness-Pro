@@ -14,17 +14,17 @@ export default function SidebarAdmin() {
         {
           title: 'Geral',
           items: [
-            { label: 'Dashboard', href: '/dashboard', icon: Ico.Dashboard },
-            { label: 'Relatórios', href: '/dashboard/reports', icon: Ico.Reports },
-            { label: 'Definições', href: '/dashboard/settings', icon: Ico.Settings },
+            { label: 'Dashboard',  href: '/dashboard',           icon: Ico.Dashboard },
+            { label: 'Relatórios', href: '/dashboard/reports',   icon: Ico.Reports   },
+            { label: 'Definições', href: '/dashboard/settings',  icon: Ico.Settings  },
           ],
         },
         {
           title: 'Admin',
           items: [
-            { label: 'Aprovações', href: '/dashboard/admin/approvals', icon: Ico.Star },
-            { label: 'Utilizadores', href: '/dashboard/admin/users', icon: Ico.Users },
-            { label: 'Saúde do sistema', href: '/dashboard/admin/health', icon: Ico.Health },
+            { label: 'Aprovações',        href: '/dashboard/admin/approvals', icon: Ico.Star  },
+            { label: 'Utilizadores',      href: '/dashboard/admin/users',     icon: Ico.Users },
+            { label: 'Saúde do sistema',  href: '/dashboard/admin/health',    icon: Ico.Health},
           ],
         },
         {
