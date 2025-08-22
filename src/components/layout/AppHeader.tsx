@@ -3,6 +3,7 @@
 import React from "react";
 import { signOut } from "next-auth/react";
 import HeaderSearch from "./HeaderSearch";
+import LiveCounters from '@/components/header/LiveCounters';
 
 /**
  * Header: pesquisa à esquerda, ações à direita.
@@ -76,7 +77,13 @@ export default function AppHeader() {
           aria-label="Notificações"
           onClick={() => console.log("Abrir notificações")}
           style={btnStyle}
-        >
+        ><div style={{ marginLeft: 'auto' }}>
+  {/* outros botões/... */}
+  {/* Contadores “live” */}
+  {/* LiveCounters é SERVER, por isso usa-o num ponto server do header,
+     ou cria um wrapper server no layout e posiciona aqui */}
+  <LiveCounters />
+</div>
           <svg width="18" height="18" viewBox="0 0 24 24">
             <path
               d="M18 8a6 6 0 10-12 0c0 7-3 7-3 7h18s-3 0-3-7"

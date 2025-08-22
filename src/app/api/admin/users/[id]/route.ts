@@ -1,52 +1,35 @@
+// src/app/api/admin/approvals/[id]/route.ts
 import { NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import prisma from '@/lib/prisma';
+import { Status } from '@prisma/client';
+import { revalidateTag } from 'next/cache';
 
-function json(msg: string, status = 400) {
-  return NextResponse.json({ error: msg }, { status });
+function isAdmin(role: unknown) {
+  return String(role ?? '').toUpperCase() === 'ADMIN';
 }
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  const me = (session as any)?.user;
-
-  if (!me) return json('Unauthorized', 401);
-  const myRole = me.role || me.type;
-  if (myRole !== 'ADMIN') return json('Forbidden', 403);
-
-  const targetId = params.id;
-  const body = await req.json().catch(() => ({} as any));
-  const { name, role, status } = body as {
-    name?: string;
-    role?: 'ADMIN' | 'TRAINER' | 'CLIENT';
-    status?: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
-  };
-
-  // 🚫 Auto-rebaixamento/desativação
-  if (targetId === me.id) {
-    if (role && role !== 'ADMIN') {
-      return json('Não pode alterar o seu próprio papel para algo diferente de ADMIN.');
-    }
-    if (status && status !== 'ACTIVE') {
-      return json('Não pode desativar/suspender a sua própria conta.');
-    }
+  if (!session || !isAdmin((session.user as any)?.role)) {
+    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
 
-  const data: any = {};
-  if (typeof name === 'string') data.name = name;
-  if (role) data.role = role;
-  if (status) data.status = status;
+  const { action } = (await req.json()) as { action: 'approve' | 'suspend' };
+  if (!['approve', 'suspend'].includes(action))
+    return NextResponse.json({ error: 'invalid_action' }, { status: 400 });
 
-  if (Object.keys(data).length === 0) {
-    return json('Nada para atualizar.');
-  }
+  const status = action === 'approve' ? Status.ACTIVE : Status.SUSPENDED;
 
   const updated = await prisma.user.update({
-    where: { id: targetId },
-    data,
-    select: { id: true, name: true, email: true, role: true, status: true, updatedAt: true },
+    where: { id: params.id },
+    data: { status },
+    select: { id: true, status: true },
   });
+
+  // Notifica todas as páginas/tagged fetches
+  revalidateTag('dashboard:counters');
 
   return NextResponse.json(updated);
 }

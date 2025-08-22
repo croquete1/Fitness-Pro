@@ -1,13 +1,14 @@
 'use client';
 
 import SidebarBase, { Ico } from './SidebarBase';
+import Image from 'next/image';
 
 export default function SidebarPT() {
   return (
     <SidebarBase
       brand={
         <>
-          <img className="logo" src="/logo.svg" alt="" width={28} height={28} />
+          <img className="logo" src="/logo.png" alt="" width={28} height={28} />
         </>
       }
       groups={[

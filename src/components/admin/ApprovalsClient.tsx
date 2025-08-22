@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useOptimistic, useTransition } from 'react';
+import { useToast } from '@/components/ui/Toaster';
+import { useRouter } from 'next/navigation';
 
 type Row = {
   id: string;
@@ -17,15 +19,24 @@ export default function ApprovalsClient({ initial }: { initial: Row[] }) {
     initial,
     (state, payload) => state.filter(r => r.id !== payload.id)
   );
-
+  const { push } = useToast();
+  const router = useRouter();
   async function act(id: string, action: 'approve' | 'suspend') {
     start(async () => {
-      setRows({ id }); // otimista: remove da lista
-      await fetch(`/api/admin/approvals/${id}`, {
+      setRows({ id }); // otimista
+      const res = await fetch(`/api/admin/approvals/${id}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ action }),
       });
+      if (res.ok) {
+        push({
+          title: action === 'approve' ? 'Conta aprovada' : 'Conta suspensa',
+          variant: action === 'approve' ? 'success' : 'error',
+        });
+      } else {
+        push({ title: 'Falhou a ação', variant: 'error' });
+      }
     });
   }
 
@@ -49,7 +60,7 @@ export default function ApprovalsClient({ initial }: { initial: Row[] }) {
             </thead>
             <tbody>
               {rows.map(r => (
-                <tr key={r.id} style={{ borderTop: '1px solid var(--border)' }}>
+                <tr key={r.id} className="row-in" style={{ borderTop: '1px solid var(--border)' }}>
                   <td style={{ padding: 8 }}>{r.name ?? '—'}</td>
                   <td style={{ padding: 8 }}>{r.email ?? '—'}</td>
                   <td style={{ padding: 8 }}>{r.role}</td>
@@ -77,6 +88,13 @@ export default function ApprovalsClient({ initial }: { initial: Row[] }) {
               ))}
             </tbody>
           </table>
+          <style jsx global>{`
+            .row-in { animation: row-in 180ms cubic-bezier(.2,.8,.2,1); }
+            @keyframes row-in {
+              from { opacity: 0; transform: translateY(4px); }
+              to { opacity: 1; transform: translateY(0); }
+            }
+          `}</style>
         </div>
       )}
     </div>
