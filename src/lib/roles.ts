@@ -14,14 +14,16 @@ export const DB_TO_APP: Record<DbRole, AppRole> = {
   CLIENT: 'client',
 };
 
-/** Normaliza qualquer role (maiúsculas/minúsculas) para o slug da app. */
-export function toAppRole(role?: string | null): AppRole {
-  const r = (role || '').toString().trim();
+/** Aceita qualquer coisa (inclusive `unknown`) e normaliza para o slug da app. */
+export function toAppRole(role?: unknown): AppRole {
+  const r = String(role ?? '').trim();
   switch (r) {
+    // já em formato app
     case 'admin':
     case 'pt':
     case 'client':
-      return r;
+      return r as AppRole;
+    // enum do DB
     case 'ADMIN':
       return 'admin';
     case 'TRAINER':
@@ -33,50 +35,39 @@ export function toAppRole(role?: string | null): AppRole {
   }
 }
 
-/** Converte para o enum usado no prisma/DB. */
-export function toDbRole(role?: string | null): DbRole {
+/** Converte para o enum usado no prisma/DB. Também aceita `unknown`. */
+export function toDbRole(role?: unknown): DbRole {
   return APP_TO_DB[toAppRole(role)];
 }
 
-/** Alias: muitas páginas usam `normalizeRole` — mantém igual a `toAppRole`. */
-export function normalizeRole(role?: string | null): AppRole {
+/** Alias antigo usado em várias páginas. */
+export function normalizeRole(role?: unknown): AppRole {
   return toAppRole(role);
 }
 
-export function isAdmin(role?: string | null): boolean  { return toAppRole(role) === 'admin'; }
-export function isPT(role?: string | null): boolean     { return toAppRole(role) === 'pt'; }
-export function isClient(role?: string | null): boolean { return toAppRole(role) === 'client'; }
+export function isAdmin(role?: unknown): boolean  { return toAppRole(role) === 'admin'; }
+export function isPT(role?: unknown): boolean     { return toAppRole(role) === 'pt'; }
+export function isClient(role?: unknown): boolean { return toAppRole(role) === 'client'; }
 
 // ---------- Faturação: admin sempre; PT só se estiver numa allowlist ----------
-
-/** User flexível (session.user, etc.) */
 export type AnyUser = {
   id?: string | null;
   email?: string | null;
   role?: AppRole | DbRole | string | null;
 };
 
-/** Utilitário para ler listas CSV das env vars no Vercel. */
 function parseCsvEnv(name: string): string[] {
   const raw = process.env[name];
   if (!raw) return [];
-  return raw
-    .split(/[,\s]+/)
-    .map(s => s.trim())
-    .filter(Boolean);
+  return raw.split(/[,\s]+/).map(s => s.trim()).filter(Boolean);
 }
 
 const ALLOWLIST_PT_IDS    = parseCsvEnv('BILLING_PT_IDS');    // ex: "clu_123,clu_456"
 const ALLOWLIST_PT_EMAILS = parseCsvEnv('BILLING_PT_EMAILS'); // ex: "joao@ex.com,maria@ex.com"
 
-/**
- * PT pode aceder à Faturação apenas se:
- *  - for admin (sempre true), OU
- *  - role for 'pt' E id/email estiver nas allowlists.
- * Clientes nunca.
- */
+/** Admin: sempre. PT: só se estiver nas allowlists. Cliente: nunca. */
 export function isBillingAllowedForPT(user: AnyUser | null | undefined): boolean {
-  const role = toAppRole(user?.role as any);
+  const role = toAppRole(user?.role);
   if (role === 'admin') return true;
   if (role !== 'pt') return false;
 
@@ -86,7 +77,7 @@ export function isBillingAllowedForPT(user: AnyUser | null | undefined): boolean
   if (id && ALLOWLIST_PT_IDS.includes(id)) return true;
   if (email && ALLOWLIST_PT_EMAILS.includes(email)) return true;
 
-  // Fallback local opcional (mantém vazio ou preenche para dev local)
+  // Fallback local opcional
   const LOCAL_ALLOWLIST_IDS: string[] = [];
   const LOCAL_ALLOWLIST_EMAILS: string[] = [];
   if (id && LOCAL_ALLOWLIST_IDS.includes(id)) return true;
@@ -95,9 +86,8 @@ export function isBillingAllowedForPT(user: AnyUser | null | undefined): boolean
   return false;
 }
 
-/** Helper genérico caso quiseres usar noutros sítios. */
 export function hasBillingAccess(user: AnyUser | null | undefined): boolean {
-  const role = toAppRole(user?.role as any);
+  const role = toAppRole(user?.role);
   if (role === 'admin') return true;
   if (role === 'pt') return isBillingAllowedForPT(user);
   return false;
