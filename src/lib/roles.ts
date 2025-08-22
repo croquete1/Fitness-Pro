@@ -1,16 +1,36 @@
-export type RoleKey = 'admin' | 'pt' | 'client';
+// src/lib/roles.ts
 
-export function normalizeRole(input?: string | null): RoleKey {
-  if (!input) return 'client';
-  const v = input.toUpperCase();
-  if (v === 'ADMIN') return 'admin';
-  if (v === 'TRAINER' || v === 'PT') return 'pt';
-  return 'client';
+/** Papel canónico usado na app (igual ao enum da BD/Prisma) */
+export type AppRole = 'ADMIN' | 'TRAINER' | 'CLIENT';
+
+/** Entradas possíveis vindas de sessão/clients (minúsculas, PT, etc) */
+export type SessionRole =
+  | 'admin' | 'pt' | 'client'
+  | 'ADMIN' | 'TRAINER' | 'CLIENT'
+  | string | undefined | null;
+
+/**
+ * Normaliza qualquer valor de role para o formato canónico da app.
+ * - 'admin'  -> 'ADMIN'
+ * - 'pt'     -> 'TRAINER'
+ * - 'trainer'-> 'TRAINER'
+ * - 'client' -> 'CLIENT'
+ * - undefined/null/qualquer outro -> 'CLIENT'
+ */
+export function toAppRole(input: SessionRole): AppRole {
+  if (!input) return 'CLIENT';
+  const v = String(input).trim().toUpperCase();
+  if (v === 'ADMIN') return 'ADMIN';
+  if (v === 'TRAINER' || v === 'PT') return 'TRAINER';
+  return 'CLIENT';
 }
 
-export function isBillingAllowedForPT(user?: { id?: string | null; email?: string | null }): boolean {
-  if (!user) return false;
-  const allowedId = process.env.NEXT_PUBLIC_BILLING_PT_ID;
-  const allowedEmail = process.env.NEXT_PUBLIC_BILLING_PT_EMAIL;
-  return (!!allowedId && user.id === allowedId) || (!!allowedEmail && user.email === allowedEmail);
+/** Helpers convenientes */
+export const isAdmin   = (r?: SessionRole) => toAppRole(r) === 'ADMIN';
+export const isTrainer = (r?: SessionRole) => toAppRole(r) === 'TRAINER';
+export const isClient  = (r?: SessionRole) => toAppRole(r) === 'CLIENT';
+
+/** Extrai e normaliza a role a partir de um objecto qualquer (ex.: session.user) */
+export function ensureRole(obj: any): AppRole {
+  return toAppRole(obj?.role);
 }
