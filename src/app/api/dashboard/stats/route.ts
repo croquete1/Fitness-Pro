@@ -26,7 +26,7 @@ export async function GET() {
 
     const [clients, trainers, admins, sessionsNext7] = await Promise.all([
       prisma.user.count({ where: { role: Role.CLIENT } }),
-      prisma.user.count({ where: { role: Role.PT } }),
+      prisma.user.count({ where: { role: Role.TRAINER } }),
       prisma.user.count({ where: { role: Role.ADMIN } }),
       prisma.session.count({
         where: { scheduledAt: { gte: today, lt: in7 } },
