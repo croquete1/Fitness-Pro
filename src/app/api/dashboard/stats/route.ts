@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import prisma, { Role } from '@/lib/prisma'; // Role vem de @prisma/client
+import prisma from '@/lib/prisma';
+import { Role } from '@prisma/client'; // <-- fix
 
-// util simples para “hoje” (00:00) e +7 dias
 function startOfToday() {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
@@ -20,26 +20,18 @@ export async function GET() {
     const today = startOfToday();
     const in7 = addDays(today, 7);
 
-    // ⚠️ Usa os ENUNS do Prisma: ADMIN / TRAINER / CLIENT
     const [clients, trainers, admins, sessionsNext7] = await Promise.all([
       prisma.user.count({ where: { role: Role.CLIENT } }),
       prisma.user.count({ where: { role: Role.TRAINER } }),
       prisma.user.count({ where: { role: Role.ADMIN } }),
       prisma.session.count({
-        where: {
-          // usa o campo certo do teu schema (deixei 'scheduledAt' por ser o que tinhas nos logs)
-          scheduledAt: { gte: today, lt: in7 },
-        },
+        // use your real datetime field; keeping scheduledAt based on your schema
+        where: { scheduledAt: { gte: today, lt: in7 } },
       }),
     ]);
 
-    return NextResponse.json({
-      clients,
-      trainers,
-      admins,
-      sessionsNext7,
-    });
-  } catch (e: any) {
+    return NextResponse.json({ clients, trainers, admins, sessionsNext7 });
+  } catch (e) {
     console.error('stats error:', e);
     return NextResponse.json({ error: 'stats_failed' }, { status: 500 });
   }
