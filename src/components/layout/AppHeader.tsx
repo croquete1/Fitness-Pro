@@ -1,153 +1,72 @@
-"use client";
+'use client';
 
-import React from "react";
-import { signOut } from "next-auth/react";
-import HeaderSearch from "./HeaderSearch";
-import LiveCounters from '@/components/header/LiveCounters';
+import React from 'react';
+import { useSidebar } from './SidebarProvider';
+import { useSession } from 'next-auth/react';
 
-/**
- * Header: pesquisa à esquerda, ações à direita.
- * 🔔 Notificações (placeholder), 🌗 alternador de tema, ⎋ terminar sessão.
- * ⚠️ Sem botão de compactar/expandir — esse existe apenas na Sidebar.
- */
-export default function AppHeader() {
-  const [theme, setTheme] = React.useState<"light" | "dark">("light");
-
-  React.useEffect(() => {
+function useThemeToggle() {
+  return React.useCallback(() => {
     try {
-      const saved = localStorage.getItem("theme");
-      if (saved === "dark" || saved === "light") {
-        setTheme(saved);
-        document.documentElement.setAttribute("data-theme", saved);
-      } else {
-        const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches;
-        const initial = prefersDark ? "dark" : "light";
-        setTheme(initial);
-        document.documentElement.setAttribute("data-theme", initial);
-      }
-    } catch {
-      /* noop */
-    }
+      const root = document.documentElement;
+      const cur = root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+      const next = cur === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+    } catch {}
   }, []);
+}
 
-  function toggleTheme() {
-    const next: "light" | "dark" = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    try {
-      localStorage.setItem("theme", next);
-    } catch {
-      /* noop */
-    }
-    document.documentElement.setAttribute("data-theme", next);
-  }
+export default function AppHeader() {
+  const { data: session } = useSession();
+  const { collapsed, pinned, toggleCollapsed, togglePinned } = useSidebar();
+  const toggleTheme = useThemeToggle();
 
-  function handleSignOut() {
-    void signOut({ callbackUrl: "/" });
-  }
+  const name = (session?.user as any)?.name ?? '—';
+  const role = ((session?.user as any)?.role ?? '').toString().toUpperCase();
 
   return (
     <header
-      role="banner"
       style={{
-        position: "sticky",
+        position: 'sticky',
         top: 0,
-        zIndex: 50,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 12,
-        height: 56,
-        padding: "0 12px",
-        borderBottom: "1px solid var(--border, #e5e5e5)",
-        background: "var(--header-bg, #fff)",
-        backdropFilter: "saturate(120%) blur(6px)",
+        zIndex: 10,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '10px 12px',
+        background: 'var(--header-bg)',
+        backdropFilter: 'saturate(140%) blur(8px)',
+        borderBottom: '1px solid var(--border)',
       }}
     >
-      {/* Esquerda: apenas pesquisa (sem toggle) */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1 }}>
-        <HeaderSearch />
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button className="btn icon" onClick={toggleCollapsed} title={collapsed ? 'Expandir sidebar' : 'Compactar sidebar'}>
+          {collapsed ? '➡️' : '⬅️'}
+        </button>
+        <button className="btn icon" onClick={togglePinned} title={pinned ? 'Desafixar sidebar' : 'Afixar sidebar'}>
+          {pinned ? '📌' : '📍'}
+        </button>
+        <button className="btn icon" onClick={toggleTheme} title="Alternar tema">
+          🌓
+        </button>
       </div>
 
-      {/* Direita: ações */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        {/* Notificações (placeholder) */}
-        <button
-          type="button"
-          title="Notificações"
-          aria-label="Notificações"
-          onClick={() => console.log("Abrir notificações")}
-          style={btnStyle}
-        ><div style={{ marginLeft: 'auto' }}>
-  {/* outros botões/... */}
-  {/* Contadores “live” */}
-  {/* LiveCounters é SERVER, por isso usa-o num ponto server do header,
-     ou cria um wrapper server no layout e posiciona aqui */}
-  <LiveCounters />
-</div>
-          <svg width="18" height="18" viewBox="0 0 24 24">
-            <path
-              d="M18 8a6 6 0 10-12 0c0 7-3 7-3 7h18s-3 0-3-7"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-            <path d="M13.73 21a2 2 0 01-3.46 0" fill="none" stroke="currentColor" strokeWidth="2" />
-          </svg>
-        </button>
-
-        {/* Tema */}
-        <button
-          type="button"
-          onClick={toggleTheme}
-          title={theme === "dark" ? "Mudar para tema claro" : "Mudar para tema escuro"}
-          aria-label="Alternar tema"
-          style={btnStyle}
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div
+          aria-hidden
+          style={{
+            width: 28, height: 28, borderRadius: '50%',
+            background: 'var(--hover)', display: 'grid', placeItems: 'center',
+            fontSize: 12, fontWeight: 700, border: '1px solid var(--border)'
+          }}
         >
-          {theme === "dark" ? (
-            <svg width="18" height="18" viewBox="0 0 24 24">
-              <path
-                d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              />
-            </svg>
-          ) : (
-            <svg width="18" height="18" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" strokeWidth="2" />
-              <path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l-1.5-1.5M20.5 20.5L19 19M5 19l-1.5 1.5M20.5 3.5L19 5" stroke="currentColor" strokeWidth="2" />
-            </svg>
-          )}
-        </button>
-
-        {/* Terminar sessão */}
-        <button
-          type="button"
-          onClick={handleSignOut}
-          title="Terminar sessão"
-          aria-label="Terminar sessão"
-          style={btnStyle}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24">
-            <path d="M10 17l5-5-5-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            <path d="M15 12H3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            <path d="M21 21V3" fill="none" stroke="currentColor" strokeWidth="2" />
-          </svg>
-        </button>
+          {(name || '?').slice(0, 1).toUpperCase()}
+        </div>
+        <div style={{ lineHeight: 1.1 }}>
+          <div style={{ fontWeight: 600 }}>{name}</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>{role || '—'}</div>
+        </div>
       </div>
     </header>
   );
 }
-
-const btnStyle: React.CSSProperties = {
-  height: 36,
-  width: 36,
-  borderRadius: 8,
-  border: "1px solid var(--border, #dcdcdc)",
-  background: "var(--btn-bg, #fff)",
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  cursor: "pointer",
-};

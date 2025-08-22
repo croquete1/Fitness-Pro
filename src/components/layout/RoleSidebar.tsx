@@ -1,4 +1,3 @@
-// src/components/layout/RoleSidebar.tsx
 'use client';
 
 import { usePathname } from 'next/navigation';
@@ -6,31 +5,23 @@ import { useSession } from 'next-auth/react';
 import SidebarAdmin from '@/components/layout/SidebarAdmin';
 import SidebarPT from '@/components/layout/SidebarPT';
 import SidebarClient from '@/components/layout/SidebarClient';
-
-type RoleKey = 'admin' | 'pt' | 'client';
-
-function toAppRole(input?: unknown): RoleKey {
-  if (typeof input !== 'string') return 'client';
-  const v = input.toUpperCase();
-  if (v === 'ADMIN') return 'admin';
-  if (v === 'TRAINER' || v === 'PT') return 'pt';
-  if (v === 'CLIENT') return 'client';
-  // também aceitar os slugs já normalizados
-  if (input === 'admin' || input === 'pt' || input === 'client') return input;
-  return 'client';
-}
+import { toAppRole, type AppRole } from '@/lib/roles';
 
 export default function RoleSidebar() {
-  const pathname = usePathname();
+  const pathname = usePathname() || '';
   const { data: session, status } = useSession();
 
-  // papel “forçado” pelo path – útil enquanto a sessão carrega
-  const roleFromPath: RoleKey =
-    pathname.startsWith('/dashboard/admin') ? 'admin' :
-    pathname.startsWith('/dashboard/pt')    ? 'pt'    :
-    pathname.startsWith('/dashboard/client')? 'client': 'client';
+  // 1) Fallback imediato pelo caminho (evita “salto” visual enquanto a sessão carrega)
+  const roleFromPath: AppRole =
+    pathname.startsWith('/dashboard/admin') ? 'admin'
+    : pathname.startsWith('/dashboard/pt') ? 'pt'
+    : 'client';
 
-  const role: RoleKey = status === 'loading' ? roleFromPath : toAppRole((session?.user as any)?.role);
+  // 2) Quando a sessão estiver disponível, usamos a role “real”
+  const roleFromSession: AppRole = toAppRole((session?.user as any)?.role);
+
+  // 3) Efetiva: sessão se autenticado; senão, fallback do path
+  const role: AppRole = status === 'authenticated' ? roleFromSession : roleFromPath;
 
   if (role === 'admin') return <SidebarAdmin />;
   if (role === 'pt') return <SidebarPT />;
