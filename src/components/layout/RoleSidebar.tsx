@@ -6,6 +6,7 @@ import SidebarAdmin from '@/components/layout/SidebarAdmin';
 import SidebarPT from '@/components/layout/SidebarPT';
 import SidebarClient from '@/components/layout/SidebarClient';
 
+
 type RoleKey = 'admin' | 'pt' | 'client';
 
 function normalizeRole(input?: string | null): RoleKey {

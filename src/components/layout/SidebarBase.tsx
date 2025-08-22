@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Pin, PinOff, ChevronsLeft, ChevronsRight } from 'lucide-react';
-import { useSidebar } from '@/components/layout/SidebarProvider';
+import { useSidebar } from '@/components/layout/SidebarWrapper';
 import Image from 'next/image';
 
 export type Item = { href: string; label: string; icon: React.ReactNode; exact?: boolean };
