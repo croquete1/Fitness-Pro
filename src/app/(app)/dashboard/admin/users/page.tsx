@@ -1,10 +1,10 @@
 export const dynamic = 'force-dynamic';
 
-export default function AdminUsersPage() {
+export default function UsersPage() {
   return (
     <div style={{ padding: 16 }}>
       <h1>Utilizadores</h1>
-      <p>Lista de utilizadores — placeholder.</p>
+      <p>Gestão de utilizadores (stub).</p>
     </div>
   );
 }
