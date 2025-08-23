@@ -50,7 +50,7 @@
 
 /* ---------- FLYOUT (FIXED) ---------- */
 .fp-sb-flyout {
-  position: fixed;         /* fora do grid, colado à esquerda */
+  position: fixed;
   left: 0;
   top: 0;
   height: 100vh;
@@ -58,7 +58,8 @@
   transform: translateX(0);
   will-change: transform, box-shadow;
   transition: transform 260ms cubic-bezier(.2,.8,.2,1), box-shadow 200ms ease;
-  z-index: 9999;           /* acima do header e do conteúdo */
+  z-index: 200;               /* antes era ~60; sobe para ficar acima do header */
+  pointer-events: auto;       /* garante cliques */
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
   overflow: hidden;

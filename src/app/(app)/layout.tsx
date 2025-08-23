@@ -1,11 +1,11 @@
 // src/app/(app)/layout.tsx
-import Script from 'next/script';
-import AppHeader from '@/components/layout/AppHeader';
-import RoleSidebar from '@/components/layout/RoleSidebar';
-import AppProviders from '@/components/layout/AppProviders';
-import './theme.css';
+import Script from "next/script";
+import AppHeader from "@/components/layout/AppHeader";
+import RoleSidebar from "@/components/layout/RoleSidebar";
+import AppProviders from "@/components/layout/AppProviders";
+import "./theme.css";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -15,7 +15,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 (function () {
   try {
     var root = document.documentElement;
-    // tema
     var theme = localStorage.getItem("theme");
     if (theme === "dark" || theme === "light") {
       root.setAttribute("data-theme", theme);
@@ -23,12 +22,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
       root.setAttribute("data-theme", prefersDark ? "dark" : "light");
     }
-    // sidebar
     var collapsed = localStorage.getItem("fp:sb:collapsed");
     var pinned    = localStorage.getItem("fp:sb:pinned");
     root.setAttribute("data-sb-collapsed", collapsed === "1" ? "1" : "0");
     root.setAttribute("data-sb-pinned",    pinned === "1" ? "1" : "0");
-    // coluna do grid
+
     var cs = getComputedStyle(root);
     var w  = cs.getPropertyValue("--sb-width").trim();
     var wc = cs.getPropertyValue("--sb-width-collapsed").trim();
@@ -41,33 +39,33 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <body
         style={{
           margin: 0,
-          minHeight: '100vh',
-          display: 'grid',
-          gridTemplateColumns: 'var(--sb-col, var(--sb-width)) 1fr',
-          gridTemplateRows: 'auto 1fr',
+          minHeight: "100vh",
+          display: "grid",
+          gridTemplateColumns: "var(--sb-col, var(--sb-width)) 1fr",
+          gridTemplateRows: "auto 1fr",
           gridTemplateAreas: `"sidebar header" "sidebar main"`,
         }}
       >
         <AppProviders>
-          {/* Placeholder de coluna para o grid (não intercepta o rato) */}
+          {/* Placeholder do grid. Pointer-events: none para não competir com a flyout fixa */}
           <aside
             style={{
-              gridArea: 'sidebar',
+              gridArea: "sidebar",
               minHeight: 0,
-              borderRight: '1px solid var(--border)',
-              pointerEvents: 'none', // <- essencial: o hover/click é da flyout fixa
-              position: 'relative',
+              borderRight: "1px solid var(--border)",
+              pointerEvents: "none",
+              position: "relative",
               zIndex: 0,
             }}
           >
             <RoleSidebar />
           </aside>
 
-          <div style={{ gridArea: 'header', position: 'relative', zIndex: 20 }}>
+          <div style={{ gridArea: "header", position: "relative", zIndex: 20 }}>
             <AppHeader />
           </div>
 
-          <main id="app-content" style={{ gridArea: 'main', minWidth: 0, minHeight: 0, padding: 16 }}>
+          <main id="app-content" style={{ gridArea: "main", minWidth: 0, minHeight: 0, padding: 16 }}>
             {children}
           </main>
         </AppProviders>
