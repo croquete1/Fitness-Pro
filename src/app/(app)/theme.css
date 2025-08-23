@@ -5,10 +5,11 @@
 :root {
   --sb-peek-delay: 220ms;
 
-  /* (opcional) cores base para manter o resto do tema a funcionar */
+  /* dimensões padrão */
   --sb-width: 264px;
   --sb-width-collapsed: 72px;
 
+  /* tema claro */
   --bg: #f7f9fc;
   --text: #0e1116;
   --muted: #6b7280;
@@ -42,7 +43,7 @@
 .app-header {
   position: sticky;
   top: 0;
-  z-index: 20; /* sidebar usa 9999 */
+  z-index: 40; /* a flyout fica acima disto */
   background: var(--header-bg);
   border-bottom: 1px solid var(--border);
   backdrop-filter: blur(6px);
@@ -57,38 +58,39 @@
   width: var(--sb-width);
   transform: translateX(0);
   will-change: transform, box-shadow;
-  transition: transform 260ms cubic-bezier(.2,.8,.2,1), box-shadow 200ms ease;
-  z-index: 200;               /* antes era ~60; sobe para ficar acima do header */
-  pointer-events: auto;       /* garante cliques */
+  transition: transform 240ms cubic-bezier(.2,.8,.2,1), box-shadow 160ms ease;
+  z-index: 9999; /* acima de tudo da app */
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
   overflow: hidden;
+  pointer-events: auto; /* garante cliques mesmo com aside placeholder sem eventos */
+}
+/* Sidebar afixada e compacta: encolher a própria flyout */
+html[data-sb-pinned="1"][data-sb-collapsed="1"] .fp-sb-flyout {
+  width: var(--sb-width-collapsed);
 }
 
-/* COLAPSADA + NÃO afixada: mostra só um “slice” */
-html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout {
+/* Desafixada: mostra só o “slice” (peek fechado) */
+html[data-sb-pinned="0"] .fp-sb-flyout {
   transform: translateX(calc(var(--sb-width-collapsed) - var(--sb-width)));
   box-shadow: none;
 }
 
-/* PEEK (hover/focus) */
-html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:hover,
-html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:focus-within {
+/* Peek (hover/focus) quando desafixada */
+html[data-sb-pinned="0"] .fp-sb-flyout:hover,
+html[data-sb-pinned="0"] .fp-sb-flyout:focus-within {
   transform: translateX(0);
-  box-shadow: 0 10px 40px rgba(0,0,0,.20), 0 1px 0 rgba(0,0,0,.07) inset;
-  transition:
-    transform 220ms cubic-bezier(.2,.8,.2,1) var(--sb-peek-delay),
-    box-shadow 200ms ease var(--sb-peek-delay);
+  box-shadow: 0 12px 50px rgba(0,0,0,.2), 0 1px 0 rgba(0,0,0,.06) inset;
 }
 
-/* AFIXADA: fica aberta */
+/* Afixada: sempre aberta */
 html[data-sb-pinned="1"] .fp-sb-flyout {
   transform: translateX(0);
   box-shadow: none;
 }
 
 /* ---------- HEAD ---------- */
-.fp-sb-head{
+.fp-sb-head {
   position: sticky;
   top: 0;
   z-index: 2;
@@ -99,20 +101,20 @@ html[data-sb-pinned="1"] .fp-sb-flyout {
   padding: 10px 12px;
   background: var(--sidebar-bg);
 }
-.fp-sb-brand{ display:flex; align-items:center; gap:10px; color:var(--text); text-decoration:none; }
-.fp-sb-brand .logo{ border-radius:8px; width:28px; height:28px; }
-.brand-text{ display:grid; line-height:1.1; }
-.brand-name{ font-weight:800; }
-.brand-sub{ font-size:11px; color: var(--muted); }
+.fp-sb-brand { display:flex; align-items:center; gap:10px; color:var(--text); text-decoration:none; }
+.fp-sb-brand .logo { border-radius:8px; width:28px; height:28px; }
+.brand-text { display:grid; line-height:1.1; }
+.brand-name { font-weight:800; }
+.brand-sub { font-size:11px; color: var(--muted); }
 
-.fp-sb-actions{ display:flex; gap:8px; }
-.btn.icon{
+.fp-sb-actions { display:flex; gap:8px; }
+.btn.icon {
   width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center;
   border-radius:10px; border:1px solid var(--border); background:var(--btn-bg);
   transition: transform 100ms ease, background 120ms ease, border-color 120ms ease;
 }
-.btn.icon:hover{ background:var(--hover); border-color:var(--border-strong); }
-.btn.icon:active{ transform: translateY(1px); }
+.btn.icon:hover { background:var(--hover); border-color:var(--border-strong); }
+.btn.icon:active { transform: translateY(1px); }
 
 /* ---------- NAV ---------- */
 .fp-nav {
@@ -144,70 +146,71 @@ html[data-sb-pinned="1"] .fp-sb-flyout {
 .nav-icon { width:18px; height:18px; display:inline-flex; align-items:center; justify-content:center; }
 .nav-label { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
-/* ---------- ESCONDER TEXTO QUANDO COLAPSADA (sem hover) ---------- */
-html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:not(:hover):not(:focus-within) .nav-section,
-html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:not(:hover):not(:focus-within) .nav-label,
-html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:not(:hover):not(:focus-within) .brand-text {
+/* ---------- Condições de colapso/peek ---------- */
+
+/* (A) Desafixada + sem hover/focus: esconder textos e centrar ícones */
+html[data-sb-pinned="0"] .fp-sb-flyout:not(:hover):not(:focus-within) .nav-section,
+html[data-sb-pinned="0"] .fp-sb-flyout:not(:hover):not(:focus-within) .nav-label,
+html[data-sb-pinned="0"] .fp-sb-flyout:not(:hover):not(:focus-within) .brand-text {
   opacity: 0; visibility: hidden; pointer-events: none;
   width: 0; max-width: 0;
 }
-
-/* Centrar itens quando “fechada” e sem hover */
-html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:not(:hover):not(:focus-within) .nav-item,
-html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:not(:hover):not(:focus-within) .fp-sb-brand {
-  justify-content: center;
-  padding: 10px;
+html[data-sb-pinned="0"] .fp-sb-flyout:not(:hover):not(:focus-within) .nav-item,
+html[data-sb-pinned="0"] .fp-sb-flyout:not(:hover):not(:focus-within) .fp-sb-brand {
+  justify-content: center; padding: 10px;
 }
 
-/* Ao “peek”, volta tudo ao normal */
-html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:hover .nav-section,
-html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:hover .nav-label,
-html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:hover .brand-text,
-html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:focus-within .nav-section,
-html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:focus-within .nav-label,
-html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:focus-within .brand-text {
-  opacity: 1; visibility: visible;
-  width: auto; max-width: none;
+/* (B) Afixada + colapsada: esconder textos SEM depender do hover */
+html[data-sb-pinned="1"][data-sb-collapsed="1"] .fp-sb-flyout .nav-section,
+html[data-sb-pinned="1"][data-sb-collapsed="1"] .fp-sb-flyout .nav-label,
+html[data-sb-pinned="1"][data-sb-collapsed="1"] .fp-sb-flyout .brand-text {
+  opacity: 0; visibility: hidden; pointer-events: none;
+  width: 0; max-width: 0;
+}
+html[data-sb-pinned="1"][data-sb-collapsed="1"] .fp-sb-flyout .nav-item,
+html[data-sb-pinned="1"][data-sb-collapsed="1"] .fp-sb-flyout .fp-sb-brand {
+  justify-content: center; padding: 10px;
+}
+
+/* (C) Ao “peek” (hover/focus quando desafixada), volta tudo ao normal */
+html[data-sb-pinned="0"] .fp-sb-flyout:hover .nav-section,
+html[data-sb-pinned="0"] .fp-sb-flyout:hover .nav-label,
+html[data-sb-pinned="0"] .fp-sb-flyout:hover .brand-text,
+html[data-sb-pinned="0"] .fp-sb-flyout:focus-within .nav-section,
+html[data-sb-pinned="0"] .fp-sb-flyout:focus-within .nav-label,
+html[data-sb-pinned="0"] .fp-sb-flyout:focus-within .brand-text {
+  opacity: 1; visibility: visible; width: auto; max-width: none;
   transition: opacity 140ms ease var(--sb-peek-delay);
 }
-html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:hover .nav-item,
-html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:hover .fp-sb-brand,
-html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:focus-within .nav-item,
-html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:focus-within .fp-sb-brand {
-  justify-content: flex-start;
-  padding: 10px 12px;
+html[data-sb-pinned="0"] .fp-sb-flyout:hover .nav-item,
+html[data-sb-pinned="0"] .fp-sb-flyout:hover .fp-sb-brand,
+html[data-sb-pinned="0"] .fp-sb-flyout:focus-within .nav-item,
+html[data-sb-pinned="0"] .fp-sb-flyout:focus-within .fp-sb-brand {
+  justify-content: flex-start; padding: 10px 12px;
 }
 
-/* Dark: brilho no peek (BLOCO CORRIGIDO) */
-:root[data-theme="dark"] html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:hover,
-:root[data-theme="dark"] html[data-sb-collapsed="1"][data-sb-pinned="0"] .fp-sb-flyout:focus-within {
-  box-shadow: 0 12px 50px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.04) inset;
-/* A flyout deve aceitar cliques independentemente do aside */
-.fp-sb-flyout { pointer-events: auto; }
-
-/* Modo "peek" activado pelo peeker (data-sb-peek="1") */
-html[data-sb-collapsed="1"][data-sb-pinned="0"][data-sb-peek="1"] .fp-sb-flyout {
+/* (D) Modo “peek” activado por um peeker programático (data-sb-peek="1") */
+html[data-sb-pinned="0"][data-sb-peek="1"] .fp-sb-flyout {
   transform: translateX(0);
   box-shadow: 0 10px 40px rgba(0,0,0,.20), 0 1px 0 rgba(0,0,0,.07) inset;
   transition:
     transform 220ms cubic-bezier(.2,.8,.2,1) var(--sb-peek-delay),
     box-shadow 200ms ease var(--sb-peek-delay);
 }
-
-html[data-sb-collapsed="1"][data-sb-pinned="0"][data-sb-peek="1"] .fp-sb-flyout .nav-section,
-html[data-sb-collapsed="1"][data-sb-pinned="0"][data-sb-peek="1"] .fp-sb-flyout .nav-label,
-html[data-sb-collapsed="1"][data-sb-pinned="0"][data-sb-peek="1"] .fp-sb-flyout .brand-text {
+html[data-sb-pinned="0"][data-sb-peek="1"] .fp-sb-flyout .nav-section,
+html[data-sb-pinned="0"][data-sb-peek="1"] .fp-sb-flyout .nav-label,
+html[data-sb-pinned="0"][data-sb-peek="1"] .fp-sb-flyout .brand-text {
   opacity: 1; visibility: visible; width: auto; max-width: none;
   transition: opacity 140ms ease var(--sb-peek-delay);
 }
-
-html[data-sb-collapsed="1"][data-sb-pinned="0"][data-sb-peek="1"] .fp-sb-flyout .nav-item,
-html[data-sb-collapsed="1"][data-sb-pinned="0"][data-sb-peek="1"] .fp-sb-flyout .fp-sb-brand {
+html[data-sb-pinned="0"][data-sb-peek="1"] .fp-sb-flyout .nav-item,
+html[data-sb-pinned="0"][data-sb-peek="1"] .fp-sb-flyout .fp-sb-brand {
   justify-content: flex-start; padding: 10px 12px;
 }
 
-/* Garantir que nada da app "cobre" a barra lateral */
-.app-header { z-index: 20; }
-.fp-sb-flyout { z-index: 9999; }
-
+/* Dark: brilho mais forte no peek */
+:root[data-theme="dark"] html[data-sb-pinned="0"] .fp-sb-flyout:hover,
+:root[data-theme="dark"] html[data-sb-pinned="0"] .fp-sb-flyout:focus-within,
+:root[data-theme="dark"] html[data-sb-pinned="0"][data-sb-peek="1"] .fp-sb-flyout {
+  box-shadow: 0 12px 50px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.04) inset;
 }

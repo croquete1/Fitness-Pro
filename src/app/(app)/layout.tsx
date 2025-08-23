@@ -30,7 +30,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     var cs = getComputedStyle(root);
     var w  = cs.getPropertyValue("--sb-width").trim();
     var wc = cs.getPropertyValue("--sb-width-collapsed").trim();
-    root.style.setProperty("--sb-col", (pinned === "1" ? w : wc) || w);
+    root.style.setProperty("--sb-col", (collapsed === "1" ? wc : w) || w);
+
   } catch (e) {}
 })();
         `}</Script>
