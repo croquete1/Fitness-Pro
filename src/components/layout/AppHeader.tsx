@@ -4,11 +4,8 @@
 import React from 'react';
 import Link from 'next/link';
 import { signOut } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
 
 export default function AppHeader() {
-  const router = useRouter();
-
   return (
     <header
       className="app-header"
@@ -21,10 +18,10 @@ export default function AppHeader() {
         alignItems: 'center',
         gap: 8,
         padding: '10px 12px',
-        zIndex: 20, // intencionalmente abaixo da sidebar (z-index 200)
+        zIndex: 20, // fica abaixo da sidebar (que está com z-index 200)
       }}
     >
-      {/* Aqui podes ter a tua search, etc.  */}
+      {/* espaço para search ou breadcrumbs, se quiseres */}
 
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
         {/* Notificações */}
@@ -40,9 +37,7 @@ export default function AppHeader() {
         {/* Terminar sessão */}
         <button
           className="btn"
-          onClick={async () => {
-            await signOut({ callbackUrl: '/login' });
-          }}
+          onClick={() => signOut({ callbackUrl: '/login' })}
           title="Terminar sessão"
         >
           Sair
