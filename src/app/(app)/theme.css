@@ -3,11 +3,8 @@
   --sb-peek-delay:220ms;
   --sb-width:264px;
   --sb-width-collapsed:72px;
-
-  /* altura visual do header (se o teu for diferente, ajusta) */
   --header-h:64px;
 
-  /* tema claro */
   --bg:#f7f9fc; --text:#0e1116; --muted:#6b7280;
   --border:#e5e7eb; --border-strong:#d1d5db;
   --hover:#f1f5f9; --active:#eef2ff;
@@ -24,12 +21,12 @@
   --card-bg:#0e151d; --btn-bg:#0e151d;
 }
 
-/* Fallback de --sb-col para o grid (enquanto o provider não hidrata) */
+/* Valor seguro de --sb-col antes da hidratação */
 html[data-sb-pinned="1"][data-sb-collapsed="1"]{ --sb-col:var(--sb-width-collapsed); }
 html[data-sb-pinned="1"][data-sb-collapsed="0"]{ --sb-col:var(--sb-width); }
 html[data-sb-pinned="0"]{ --sb-col:var(--sb-width-collapsed); }
 
-/* Header */
+/* Header nunca deve “tampar” a flyout */
 .app-header{
   position:sticky; top:0; z-index:40;
   min-height:var(--header-h);
@@ -48,13 +45,15 @@ html[data-sb-pinned="0"]{ --sb-col:var(--sb-width-collapsed); }
     transform 240ms cubic-bezier(.2,.8,.2,1),
     width 220ms cubic-bezier(.2,.8,.2,1),
     box-shadow 160ms ease;
-  z-index:60;                         /* abaixo de modais, acima do header */
+  /* muito acima de tudo (evita stacking contexts do header ou containers) */
+  z-index:9999;
   background:var(--sidebar-bg);
   border-right:1px solid var(--border);
-  overflow:hidden; pointer-events:auto;
+  overflow:hidden;
+  pointer-events:auto;
 }
 
-/* DESAFIXADA (unpinned): fica “em fatia” e abre no hover */
+/* DESAFIXADA (unpinned): fatia + abre no hover */
 html[data-sb-pinned="0"] .fp-sb-flyout{
   transform:translateX(calc(var(--sb-width-collapsed) - var(--sb-width)));
   box-shadow:none;
@@ -65,7 +64,7 @@ html[data-sb-pinned="0"] .fp-sb-flyout:focus-within{
   box-shadow:0 12px 50px rgba(0,0,0,.20), 0 1px 0 rgba(0,0,0,.06) inset;
 }
 
-/* AFIXADA (pinned): aberta; se colapsada encolhe e expande no hover */
+/* AFIXADA (pinned): aberta; se colapsada, encolhe e expande no hover */
 html[data-sb-pinned="1"] .fp-sb-flyout{ transform:translateX(0); box-shadow:none; }
 html[data-sb-pinned="1"][data-sb-collapsed="1"] .fp-sb-flyout{ width:var(--sb-width-collapsed); }
 html[data-sb-pinned="1"][data-sb-collapsed="1"] .fp-sb-flyout:hover,
@@ -96,7 +95,7 @@ html[data-sb-pinned="1"][data-sb-collapsed="1"] .fp-sb-flyout:focus-within{
 .btn.icon:hover{ background:var(--hover); border-color:var(--border-strong); }
 .btn.icon:active{ transform:translateY(1px); }
 
-/* Esconde as ações quando colapsada para não “cortar” ícones, e mostra no hover */
+/* Esconde os botões quando colapsada e sem hover (evita “icones cortados”) */
 html[data-sb-collapsed="1"] .fp-sb-flyout:not(:hover):not(:focus-within) .fp-sb-actions{
   opacity:0; pointer-events:none;
 }
@@ -140,7 +139,7 @@ html[data-sb-collapsed="1"] .fp-sb-flyout:hover .fp-sb-brand{
   justify-content:flex-start; padding:10px 12px;
 }
 
-/* Dark: brilho */
+/* Dark: brilho no peek */
 :root[data-theme="dark"] html[data-sb-pinned="0"] .fp-sb-flyout:hover,
 :root[data-theme="dark"] html[data-sb-pinned="1"][data-sb-collapsed="1"] .fp-sb-flyout:hover{
   box-shadow:0 12px 50px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.04) inset;
