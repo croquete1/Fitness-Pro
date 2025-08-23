@@ -1,8 +1,9 @@
 // src/app/(app)/layout.tsx
 import Script from "next/script";
+import AppProviders from "@/components/layout/AppProviders";
 import AppHeader from "@/components/layout/AppHeader";
 import RoleSidebar from "@/components/layout/RoleSidebar";
-import AppProviders from "@/components/layout/AppProviders";
+import SidebarHoverPeeker from "@/components/layout/SidebarHoverPeeker";
 import "./theme.css";
 
 export const dynamic = "force-dynamic";
@@ -11,10 +12,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-PT" suppressHydrationWarning>
       <head>
+        {/* Inicializa theme + estado da sidebar ANTES de pintar */}
         <Script id="init-preferences" strategy="beforeInteractive">{`
 (function () {
   try {
     var root = document.documentElement;
+    // tema
     var theme = localStorage.getItem("theme");
     if (theme === "dark" || theme === "light") {
       root.setAttribute("data-theme", theme);
@@ -22,53 +25,35 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
       root.setAttribute("data-theme", prefersDark ? "dark" : "light");
     }
+    // sidebar
     var collapsed = localStorage.getItem("fp:sb:collapsed");
     var pinned    = localStorage.getItem("fp:sb:pinned");
     root.setAttribute("data-sb-collapsed", collapsed === "1" ? "1" : "0");
     root.setAttribute("data-sb-pinned",    pinned === "1" ? "1" : "0");
-
+    // largura atual da coluna usada pelo header/main
     var cs = getComputedStyle(root);
     var w  = cs.getPropertyValue("--sb-width").trim();
     var wc = cs.getPropertyValue("--sb-width-collapsed").trim();
-    root.style.setProperty("--sb-col", (collapsed === "1" ? wc : w) || w);
-
+    root.style.setProperty("--sb-col", (pinned === "1" ? (collapsed === "1" ? wc : w) : wc) || w);
   } catch (e) {}
 })();
         `}</Script>
       </head>
 
-      <body
-        style={{
-          margin: 0,
-          minHeight: "100vh",
-          display: "grid",
-          gridTemplateColumns: "var(--sb-col, var(--sb-width)) 1fr",
-          gridTemplateRows: "auto 1fr",
-          gridTemplateAreas: `"sidebar header" "sidebar main"`,
-        }}
-      >
+      <body className="app-shell">
         <AppProviders>
-          {/* Placeholder do grid. Pointer-events: none para não competir com a flyout fixa */}
-          <aside
-            style={{
-              gridArea: "sidebar",
-              minHeight: 0,
-              borderRight: "1px solid var(--border)",
-              pointerEvents: "none",
-              position: "relative",
-              zIndex: 0,
-            }}
-          >
-            <RoleSidebar />
-          </aside>
+          {/* Sidebar FIXED (única) */}
+          <RoleSidebar />
+          {/* Zona de hover para “peek” quando não está afixada */}
+          <SidebarHoverPeeker />
 
-          <div style={{ gridArea: "header", position: "relative", zIndex: 20 }}>
+          {/* Header com a classe que o CSS espera */}
+          <header className="app-header">
             <AppHeader />
-          </div>
+          </header>
 
-          <main id="app-content" style={{ gridArea: "main", minWidth: 0, minHeight: 0, padding: 16 }}>
-            {children}
-          </main>
+          {/* Conteúdo: também recua com --sb-col */}
+          <main id="app-content">{children}</main>
         </AppProviders>
       </body>
     </html>

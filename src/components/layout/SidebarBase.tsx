@@ -21,31 +21,21 @@ export default function SidebarBase({ brand, groups }: Props) {
 
   return (
     <aside className="fp-sb-flyout" aria-label="Sidebar">
-      <div className="fp-sb-head">
-        <a href="/dashboard" className="fp-sb-brand" aria-label="Início">
-          {brand}
-        </a>
-        <div className="fp-sb-actions">
-          <button
-            className="btn icon"
-            type="button"
-            onClick={togglePinned}
-            title={pinned ? 'Desafixar (auto-ocultar)' : 'Afixar'}
-            aria-pressed={pinned}
-          >
-            {pinned ? <Pin size={18} /> : <PinOff size={18} />}
-          </button>
-          <button
-            className="btn icon"
-            type="button"
-            onClick={toggleCollapsed}
-            title={collapsed ? 'Expandir' : 'Compactar'}
-            aria-pressed={collapsed}
-          >
-            {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
-          </button>
-        </div>
-      </div>
+// dentro do return do SidebarBase
+<div className="fp-sb-head">
+  <a href="/dashboard" className="fp-sb-brand" aria-label="Início">
+    {brand}
+  </a>
+  <div className="fp-sb-actions">
+    <button className="btn icon" onClick={togglePinned} aria-pressed={pinned} title={pinned ? "Desafixar" : "Afixar"}>
+      {pinned ? "📌" : "📍"}
+    </button>
+    <button className="btn icon" onClick={toggleCollapsed} aria-pressed={collapsed} title={collapsed ? "Expandir" : "Compactar"}>
+      {collapsed ? "➡️" : "⬅️"}
+    </button>
+  </div>
+</div>
+
 
       <nav className="fp-nav">
         {groups.map((g, idx) => (

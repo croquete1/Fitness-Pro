@@ -1,48 +1,34 @@
-// src/components/layout/AppHeader.tsx
 'use client';
 
-import React from 'react';
-import Link from 'next/link';
-import { signOut } from 'next-auth/react';
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useSidebar } from "./SidebarProvider";
 
 export default function AppHeader() {
+  const router = useRouter();
+  const { /* opcional: podes usar aqui alguma ação */ } = useSidebar();
+
   return (
-    <header
-      className="app-header"
-      style={{
-        position: 'sticky',
-        top: 0,
-        background: 'var(--bg)',
-        borderBottom: '1px solid var(--border)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '10px 12px',
-        zIndex: 20, // fica abaixo da sidebar (que está com z-index 200)
-      }}
-    >
-      {/* espaço para search ou breadcrumbs, se quiseres */}
+    <div className="header-inner">
+      <div className="left">
+        {/* Search */}
+        <div className="search">
+          <input
+            type="search"
+            placeholder="Pesquisar..."
+            aria-label="Pesquisar"
+          />
+        </div>
+      </div>
 
-      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div className="right">
         {/* Notificações */}
-        <Link
-          href="/dashboard/notifications"
-          className="btn icon"
-          title="Notificações"
-          aria-label="Notificações"
-        >
-          🔔
-        </Link>
-
-        {/* Terminar sessão */}
-        <button
-          className="btn"
-          onClick={() => signOut({ callbackUrl: '/login' })}
-          title="Terminar sessão"
-        >
+        <button className="btn icon" aria-label="Notificações" title="Notificações">🔔</button>
+        {/* Sair */}
+        <button className="btn" onClick={() => router.push("/api/auth/signout")}>
           Sair
         </button>
       </div>
-    </header>
+    </div>
   );
 }
