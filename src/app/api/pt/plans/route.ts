@@ -2,7 +2,8 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireUser } from "@/lib/authz";
-import { logAudit, logPlanChange, shallowPlanDiff } from "@/lib/logs";
+import { logPlanChange, shallowPlanDiff } from '@/lib/audit';
+
 import { AuditKind, Role } from "@prisma/client";
 
 export async function GET(req: Request) {

@@ -1,86 +1,90 @@
 // src/lib/logs.ts
-import prisma from "@/lib/prisma";
-import { AuditKind } from "@prisma/client";
+import prisma from '@/lib/prisma';
+import { headers } from 'next/headers';
+import { AuditKind, PlanAction } from '@prisma/client';
 
-function clientIp(req?: Request) {
-  const xf = req?.headers.get("x-forwarded-for");
-  return xf?.split(",")[0]?.trim() || undefined;
-}
-function userAgent(req?: Request) {
-  return req?.headers.get("user-agent") || undefined;
-}
+/* ========= AUDIT LOGS ========= */
 
-type AuditInput = {
+export type AuditParams = {
   actorId?: string | null;
-  kind: AuditKind;
+  kind: AuditKind;                 // <- OBRIGATÓRIO
   message: string;
   targetType?: string | null;
   targetId?: string | null;
-  diff?: any;
-  req?: Request;
+  diff?: unknown;
+  ip?: string | null;              // opcional (coluna ip)
+  userAgent?: string | null;       // opcional (coluna user_agent)
 };
 
-export async function logAudit(input: AuditInput) {
-  const { actorId, kind, message, targetId, targetType, diff, req } = input;
-  try {
-    await prisma.auditLog.create({
-      data: {
-        actorId: actorId ?? undefined,
-        kind,
-        message,
-        targetId: targetId ?? undefined,
-        targetType: targetType ?? undefined,
-        diff: diff ?? undefined,
-        ip: clientIp(req),
-        userAgent: userAgent(req),
-      },
-    });
-  } catch (e) {
-    // não falha a request se logging falhar
-    console.error("auditLog error:", e);
-  }
+export async function logAudit(p: AuditParams) {
+  const {
+    actorId = null,
+    kind,
+    message,
+    targetType = null,
+    targetId = null,
+    diff,
+    ip = null,
+    userAgent = null,
+  } = p;
+
+  await prisma.auditLog.create({
+    data: {
+      actorId,
+      kind,
+      message,
+      targetType,
+      targetId,
+      diff: (diff as any) ?? undefined,
+      ip,
+      userAgent,
+    },
+  });
 }
 
-type PlanChangeInput = {
+/** IP/User-Agent de cabeçalhos (Vercel/Edge) */
+export function getReqMeta() {
+  const h = headers();
+  const ua = h.get('user-agent') ?? null;
+  const cf = h.get('cf-connecting-ip');
+  const realIp = h.get('x-real-ip');
+  const xff = h.get('x-forwarded-for');
+  const ip = (cf ?? realIp ?? (xff ? xff.split(',')[0].trim() : '') ?? '') || null;
+  return { ip, userAgent: ua };
+}
+
+/* ========= DIFERENÇAS DE PLANOS ========= */
+
+export function shallowPlanDiff(prev: any, next: any) {
+  const out: Record<string, { from: any; to: any }> = {};
+  const keys = new Set([...Object.keys(prev ?? {}), ...Object.keys(next ?? {})]);
+  for (const k of keys) {
+    const a = prev?.[k];
+    const b = next?.[k];
+    if (JSON.stringify(a) !== JSON.stringify(b)) out[k] = { from: a, to: b };
+  }
+  return out;
+}
+
+/* ========= LOG DE ALTERAÇÕES DE TRAINING PLAN ========= */
+
+export type PlanChangeParams = {
   planId: string;
   actorId?: string | null;
-  changeType: "CREATE" | "UPDATE" | "DELETE";
-  diff?: any;
-  snapshot?: any;
+  changeType: string | PlanAction;
+  diff?: unknown;
+  snapshot?: unknown;
 };
 
-export async function logPlanChange(input: PlanChangeInput) {
-  const { planId, actorId, changeType, diff, snapshot } = input;
-  try {
-    await prisma.trainingPlanChange.create({
-      data: {
-        planId,
-        actorId: actorId ?? undefined,
-        changeType,
-        diff: diff ?? undefined,
-        snapshot: snapshot ?? undefined,
-      },
-    });
-  } catch (e) {
-    console.error("planChangeLog error:", e);
-  }
-}
-
-/** diff raso (title, notes, status, exercises) */
-export function shallowPlanDiff(
-  before?: { title?: any; notes?: any; status?: any; exercises?: any },
-  after?: { title?: any; notes?: any; status?: any; exercises?: any }
-) {
-  const keys = ["title", "notes", "status", "exercises"] as const;
-  const delta: Record<string, { from: any; to: any }> = {};
-  for (const k of keys) {
-    const fromV = before?.[k];
-    const toV = after?.[k];
-    const changed =
-      typeof fromV === "object" || typeof toV === "object"
-        ? JSON.stringify(fromV) !== JSON.stringify(toV)
-        : fromV !== toV;
-    if (changed) delta[k] = { from: fromV ?? null, to: toV ?? null };
-  }
-  return Object.keys(delta).length ? delta : null;
+export async function logPlanChange(p: PlanChangeParams) {
+  const { planId, actorId = null, changeType, diff, snapshot } = p;
+  await prisma.trainingPlanChange.create({
+    data: {
+      planId,
+      actorId,
+      changeType: typeof changeType === 'string' ? changeType : String(changeType),
+      diff: (diff as any) ?? undefined,
+      snapshot: (snapshot as any) ?? undefined,
+    },
+  });
 }

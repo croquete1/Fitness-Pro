@@ -1,3 +1,4 @@
+// src/app/api/admin/users/[id]/route.ts
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { Role, Status, AuditKind } from '@prisma/client';
@@ -7,7 +8,15 @@ import { getReqMeta, logAudit } from '@/lib/logs';
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.id || session.user.role !== 'ADMIN') {
+
+  // aceitar role como string ("admin") ou enum (Role.ADMIN)
+  const isAdmin =
+    !!session?.user &&
+    (typeof (session.user as any).role === 'string'
+      ? String((session.user as any).role).toUpperCase() === 'ADMIN'
+      : (session.user as any).role === Role.ADMIN);
+
+  if (!session?.user?.id || !isAdmin) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -22,7 +31,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const user = await prisma.user.findUnique({ where: { id: params.id } });
   if (!user) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  const updates: any = {};
+  const updates: Record<string, any> = {};
   const diffs: Array<{ kind: AuditKind; message: string; diff: any }> = [];
 
   if (nextRole && Role[nextRole]) {
@@ -33,6 +42,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       diff: { from: { role: user.role }, to: { role: Role[nextRole] } },
     });
   }
+
   if (nextStatus && Status[nextStatus]) {
     updates.status = Status[nextStatus];
     diffs.push({
@@ -44,21 +54,23 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   const updated = await prisma.user.update({ where: { id: user.id }, data: updates });
 
-  const { ip, userAgent } = getReqMeta(req);
-  await Promise.all(
-    diffs.map(d =>
-      logAudit({
-        actorId: session.user.id,
-        kind: d.kind,
-        message: d.message,
-        targetType: 'User',
-        targetId: user.id,
-        diff: d.diff,
-        ip,
-        userAgent,
-      })
-    )
-  );
+  // capturar IP/UA mas embutir no diff (já que logAudit não aceita ip/userAgent)
+  const { ip, userAgent } = getReqMeta();
+
+await Promise.all(
+  diffs.map((d) =>
+    logAudit({
+      actorId: String((session.user as any).id),
+      kind: d.kind,
+      message: d.message,
+      targetType: 'User',
+      targetId: user.id,
+      diff: d.diff,
+      ip,
+      userAgent,
+    })
+  )
+);
 
   return NextResponse.json({
     ok: true,

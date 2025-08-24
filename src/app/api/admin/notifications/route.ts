@@ -45,27 +45,27 @@ export async function GET(req: Request) {
     // Normalização p/ UI de toasts
     const out = await Promise.all(
       rows.map(async (r) => {
-        let title = r.action;
+        let title = r.message;
         let body = "";
         let href = "/dashboard";
 
-        if (r.action === "USER_REGISTERED") {
+        if (r.message === "USER_REGISTERED") {
           title = "Novo registo";
-          const email = (r.meta as any)?.email;
-          const wantsTrainer = !!(r.meta as any)?.wantsTrainer;
+          const email = (r.diff as any)?.email;
+          const wantsTrainer = !!(r.diff as any)?.wantsTrainer;
           body = email ? email + (wantsTrainer ? " · pretende ser PT" : "") : "";
           href = "/dashboard/admin/approvals";
         }
-        if (r.action === "CLIENT_ASSIGNED_TO_TRAINER") {
+        if (r.message === "CLIENT_ASSIGNED_TO_TRAINER") {
           title = "Cliente atribuído";
-          const clientName = (r.meta as any)?.clientName || (r.meta as any)?.clientEmail || "Cliente";
+          const clientName = (r.diff as any)?.clientName || (r.diff as any)?.clientEmail || "Cliente";
           body = `${clientName} foi atribuído a ti.`;
           href = "/dashboard/pt/clients";
         }
 
         return {
           id: r.id,
-          action: r.action,
+          action: r.message,
           createdAt: r.createdAt,
           title,
           body,

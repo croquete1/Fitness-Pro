@@ -1,33 +1,16 @@
 // src/app/api/admin/plan-changes/route.ts
-import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { requireUser } from "@/lib/authz";
-import { Role } from "@prisma/client";
+import prisma from '@/lib/prisma';
+import { requireAdmin } from '@/lib/authz';
+import { NextResponse } from 'next/server';
 
-export async function GET(req: Request) {
-  const { user, error } = await requireUser([Role.ADMIN]);
+export async function GET() {
+  const { error } = await requireAdmin();
   if (error) return error;
 
-  const url = new URL(req.url);
-  const take = Math.min(Number(url.searchParams.get("take") || 50), 200);
-  const cursor = url.searchParams.get("cursor") || undefined;
-  const planId = url.searchParams.get("planId") || undefined;
-  const actorId = url.searchParams.get("actorId") || undefined;
-
-  const where = {
-    ...(planId ? { planId } : {}),
-    ...(actorId ? { actorId } : {}),
-  };
-
-  const data = await prisma.trainingPlanChange.findMany({
-    where,
-    take: take + 1,
-    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-    orderBy: { createdAt: "desc" },
+  const rows = await prisma.trainingPlanChange.findMany({
+    orderBy: { createdAt: 'desc' },
+    take: 200,
   });
 
-  const nextCursor = data.length > take ? data[take].id : null;
-  if (nextCursor) data.pop();
-
-  return NextResponse.json({ data, nextCursor });
+  return NextResponse.json({ data: rows });
 }

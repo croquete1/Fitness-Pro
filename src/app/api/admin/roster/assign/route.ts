@@ -55,16 +55,12 @@ export async function POST(req: Request) {
     await prisma.auditLog.create({
       data: {
         actorId,
-        action: "CLIENT_ASSIGNED_TO_TRAINER",
+        message: "CLIENT_ASSIGNED_TO_TRAINER",
         target: trainerId, // <- o "destinatário" da notificação é o trainer
-        meta: {
+        diff: {
           assignedId: assigned.id,
           trainerId,
-          trainerEmail: trainer.email,
-          trainerName: trainer.name,
           clientId,
-          clientEmail: client.email,
-          clientName: client.name,
         },
       },
     });

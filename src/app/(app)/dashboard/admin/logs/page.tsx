@@ -82,7 +82,7 @@ export default async function AdminLogsPage({ searchParams }: { searchParams: Se
                   <td style={{ padding:8 }}>{a.targetType ?? '—'}{a.targetId ? `#${a.targetId}` : ''}</td>
                   <td style={{ padding:8 }}>
                     <pre style={{ margin:0, whiteSpace:'pre-wrap', maxWidth:520, overflow:'auto' }}>
-                      {JSON.stringify(a.diff ?? a.meta ?? null, null, 2)}
+                      {JSON.stringify(a.diff ?? null, null, 2)}
                     </pre>
                   </td>
                 </tr>

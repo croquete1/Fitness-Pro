@@ -1,45 +1,39 @@
 // src/app/api/admin/approvals/[id]/route.ts
-import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { logAudit } from '@/lib/audit';
-import { Status } from '@prisma/client';
+import { requireAdmin } from '@/lib/authz';
+import { logAudit } from '@/lib/logs';
+import { AuditKind, Status } from '@prisma/client';
+import { NextResponse } from 'next/server';
 
-export async function PATCH(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const session = await getServerSession(authOptions);
-    const actorId = (session?.user as any)?.id as string | undefined;
+export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  const { error, user } = await requireAdmin();
+  if (error) return error;
 
-    const { action } = await req.json();
-    if (!['approve', 'suspend'].includes(action)) {
-      return NextResponse.json({ error: 'ação inválida' }, { status: 400 });
-    }
-
-    const newStatus = action === 'approve' ? Status.ACTIVE : Status.SUSPENDED;
-
-    const user = await prisma.user.update({
-      where: { id: params.id },
-      data: { status: newStatus },
-      select: { id: true, email: true, name: true, role: true, status: true },
-    });
-
-await logAudit({
-  actorId: adminUser.id,
-  kind: AuditKind.ACCOUNT_STATUS_CHANGE,
-  message: action === "approve" ? "ACCOUNT_APPROVAL" : "ACCOUNT_STATUS_CHANGE",
-  targetType: "User",
-  targetId: user.id,
-  diff: { statusFrom: prev.status, statusTo: next.status },
-  req,
-});
-
-    return NextResponse.json({ ok: true });
-  } catch (e) {
-    console.error(e);
-    return NextResponse.json({ error: 'server_error' }, { status: 500 });
+  const { action } = await req.json().catch(() => ({} as any));
+  if (!['approve', 'suspend'].includes(action)) {
+    return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   }
+
+  const updated = await prisma.user.update({
+    where: { id: params.id },
+    data: {
+      status: action === 'approve' ? Status.ACTIVE : Status.SUSPENDED,
+    },
+    select: { id: true, email: true, status: true, role: true },
+  });
+
+  // usar actorId no log (deixa de ser "unused")
+  await logAudit({
+    actorId: user?.id ?? null,
+    kind: action === 'approve' ? AuditKind.ACCOUNT_APPROVAL : AuditKind.ACCOUNT_STATUS_CHANGE,
+    message:
+      action === 'approve'
+        ? `Aprovou conta ${updated.email}`
+        : `Alterou status da conta ${updated.email} para ${updated.status}`,
+    targetType: 'user',
+    targetId: updated.id,
+    diff: { action, status: updated.status },
+  });
+
+  return NextResponse.json({ ok: true });
 }

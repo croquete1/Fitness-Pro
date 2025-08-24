@@ -1,5 +1,4 @@
 // src/app/(app)/dashboard/admin/roles/page.tsx
-import { requireAdmin } from '@/lib/authz'; // se já tiveres; senão remove a linha
 import Link from 'next/link';
 
 export default async function Page() {
