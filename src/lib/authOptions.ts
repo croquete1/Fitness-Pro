@@ -1,60 +1,70 @@
+// src/lib/authOptions.ts
 import type { NextAuthOptions } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { prisma } from "@/lib/prisma";
-import { compare } from "bcryptjs";
-import { Role, Status } from "@prisma/client";
+import { PrismaAdapter } from "@auth/prisma-adapter";
+import prisma from "@/lib/prisma";
+import bcrypt from "bcryptjs";
 
-// Aceita hashes $2y$ (pgcrypto/PHP) e $2b$/$2a$ (bcryptjs)
-function normalizeBcrypt(hash: string) {
-  if (!hash) return hash;
-  if (hash.startsWith("$2y$")) return hash.replace("$2y$", "$2a$");
-  return hash;
-}
-
-// Tolerância temporária a bases antigas com 'APPROVED'
-function normalizeStatus(s: string | Status): Status {
-  const v = String(s).toUpperCase();
-  if (v === "APPROVED") return Status.ACTIVE;
-  if (v === "REJECTED") return Status.SUSPENDED;
-  if (v === "ACTIVE") return Status.ACTIVE;
-  if (v === "PENDING") return Status.PENDING;
-  return Status.SUSPENDED;
-}
+const isProd = process.env.NODE_ENV === "production";
+const prefix = isProd ? "__Secure-" : ""; // em prod precisa de HTTPS
 
 export const authOptions: NextAuthOptions = {
+  // Se usas sessions via DB troca para { strategy: 'database' }
   session: { strategy: "jwt" },
-  pages: { signIn: "/login" },
+  secret: process.env.NEXTAUTH_SECRET,
+  trustHost: true, // importante em Vercel e para domínios dinâmicos
+
+  // Cookies “compatíveis” com mobile: __Secure- só em HTTPS
+  cookies: {
+    sessionToken: {
+      name: `${prefix}next-auth.session-token`,
+      options: { httpOnly: true, sameSite: "lax", path: "/", secure: isProd },
+    },
+    callbackUrl: {
+      name: `${prefix}next-auth.callback-url`,
+      options: { sameSite: "lax", path: "/", secure: isProd },
+    },
+    csrfToken: {
+      name: `${prefix}next-auth.csrf-token`,
+      options: { httpOnly: false, sameSite: "lax", path: "/", secure: isProd },
+    },
+    state: {
+      name: `${prefix}next-auth.state`,
+      options: { sameSite: "lax", path: "/", secure: isProd },
+    },
+  },
+
+  adapter: PrismaAdapter(prisma) as any,
 
   providers: [
     Credentials({
-      name: "Credenciais",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Palavra-passe", type: "password" },
-      },
-      async authorize(credentials) {
-        const email = credentials?.email?.trim().toLowerCase();
-        const password = credentials?.password ?? "";
-        if (!email || !password) return null;
+      name: "credentials",
+      credentials: { email: {}, password: {} },
+      async authorize(creds) {
+        const email = creds?.email?.toLowerCase();
+        const pass = creds?.password ?? "";
+        if (!email || !pass) return null;
 
         const user = await prisma.user.findUnique({ where: { email } });
         if (!user) return null;
 
-        const status = normalizeStatus(user.status as any);
-        if (status === Status.PENDING || status === Status.SUSPENDED) {
-          // Isto faz o NextAuth falhar o sign-in (mostra erro amigável na UI)
-          throw new Error(status);
-        }
+        const hash =
+          (user as any).passwordHash ??
+          (user as any).password ??
+          (user as any).hashedPassword ??
+          null;
+        if (!hash) return null;
 
-        const ok = await compare(password, normalizeBcrypt(user.passwordHash));
+        const ok = await bcrypt.compare(pass, String(hash));
         if (!ok) return null;
 
+        // devolve os campos que queres disponíveis na session/jwt
         return {
           id: user.id,
           email: user.email,
           name: user.name ?? user.email,
-          role: user.role as Role,
-          status,
+          role: user.role,
+          status: user.status,
         } as any;
       },
     }),
@@ -70,7 +80,7 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     async session({ session, token }) {
-      if (session.user) {
+      if (token?.id) {
         (session.user as any).id = token.id;
         (session.user as any).role = token.role;
         (session.user as any).status = token.status;
@@ -78,4 +88,7 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
+
+  // opcional: ajuda a diagnosticar em dev
+  debug: !isProd,
 };
