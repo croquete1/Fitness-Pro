@@ -1,33 +1,18 @@
-// src/app/api/admin/approvals/route.ts
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import prisma from '@/lib/prisma';
-import { Status } from '@prisma/client';
-
-function isAdmin(role: unknown) {
-  const v = String(role ?? '').toUpperCase();
-  return v === 'ADMIN';
-}
+import { NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
+import { requireAdmin } from "@/lib/guards";
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (!session || !isAdmin((session.user as any)?.role)) {
-    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  try {
+    await requireAdmin();
+    const rows = await prisma.user.findMany({
+      where: { status: "PENDING" },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, name: true, email: true, role: true, status: true, createdAt: true },
+    });
+    return NextResponse.json(rows);
+  } catch (e) {
+    const code = (e as Error).message === "UNAUTHORIZED" ? 401 : 500;
+    return NextResponse.json({ error: "Unauthorized" }, { status: code });
   }
-
-  const users = await prisma.user.findMany({
-    where: { status: Status.PENDING },
-    orderBy: { createdAt: 'asc' },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      status: true,
-      createdAt: true,
-    },
-  });
-
-  return NextResponse.json({ users });
 }

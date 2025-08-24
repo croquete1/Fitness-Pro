@@ -1,95 +1,102 @@
+// src/app/api/pt/plans/[id]/route.ts
 import { NextResponse } from "next/server";
-import prismaAny from "@/lib/prisma";
-import { appendPlanHistory, writeEvent, upsertPlanAssignment } from "@/lib/events";
+import prisma from "@/lib/prisma";
+import { requireUser } from "@/lib/authz";
+import { logAudit, logPlanChange, shallowPlanDiff } from "@/lib/logs";
+import { AuditKind, Role } from "@prisma/client";
 
-const prisma: any =
-  (prismaAny as any).prisma ??
-  (prismaAny as any).default ??
-  prismaAny;
-
-const PLAN_MODELS = ["plan", "Plan", "trainingPlan", "TrainingPlan"];
-function firstModel(cands: string[]) {
-  for (const n of cands) {
-    const m = (prisma as any)[n];
-    if (m?.findUnique) return n;
-  }
-  return null;
+async function canAccessPlan(planId: string, userId: string, isAdmin: boolean) {
+  if (isAdmin) return true;
+  const plan = await prisma.trainingPlan.findUnique({ where: { id: planId } });
+  if (!plan) return false;
+  return plan.trainerId === userId;
 }
 
-export async function GET(_req: Request, ctx: { params: { id: string } }) {
-  // (mesma versão que já te enviei; mantida para não partir nada)
-  const id = ctx.params.id;
-  const model = firstModel(PLAN_MODELS);
-  if (!model) return NextResponse.json({ error: "Plan model not found" }, { status: 500 });
+export async function GET(_req: Request, { params }: { params: { id: string } }) {
+  const { user, error } = await requireUser([Role.TRAINER, Role.ADMIN]);
+  if (error) return error;
 
-  let plan = null;
-  try { plan = await (prisma as any)[model].findUnique({ where: { id } }); }
-  catch {
-    const n = Number(id);
-    if (!Number.isNaN(n)) plan = await (prisma as any)[model].findUnique({ where: { id: n } }).catch(() => null);
-  }
+  const plan = await prisma.trainingPlan.findUnique({ where: { id: params.id } });
   if (!plan) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  return NextResponse.json({ data: plan });
+  const ok = await canAccessPlan(params.id, user.id, user.role === "ADMIN");
+  if (!ok) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  return NextResponse.json(plan);
 }
 
-async function getSession() {
-  try {
-    const { getServerSession } = await import("next-auth");
-    // @ts-ignore
-    const auth = await import("@/lib/auth");
-    return await getServerSession((auth as any).authOptions ?? (auth as any).default ?? (auth as any));
-  } catch { return null; }
+export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  const { user, error } = await requireUser([Role.TRAINER, Role.ADMIN]);
+  if (error) return error;
+
+  const ok = await canAccessPlan(params.id, user.id, user.role === "ADMIN");
+  if (!ok) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const before = await prisma.trainingPlan.findUnique({ where: { id: params.id } });
+  if (!before) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const body = await req.json().catch(() => ({}));
+  const { title, notes, exercises, status } = body || {};
+
+  const updated = await prisma.trainingPlan.update({
+    where: { id: params.id },
+    data: {
+      ...(title !== undefined ? { title } : {}),
+      ...(notes !== undefined ? { notes } : {}),
+      ...(exercises !== undefined ? { exercises } : {}),
+      ...(status !== undefined ? { status } : {}),
+    },
+  });
+
+  await logPlanChange({
+    planId: updated.id,
+    actorId: user.id,
+    changeType: "UPDATE",
+    diff: shallowPlanDiff(before, updated),
+    snapshot: updated,
+  });
+
+  await logAudit({
+    actorId: user.id,
+    kind: AuditKind.ACCOUNT_STATUS_CHANGE,
+    message: `PLAN_UPDATE ${updated.id}`,
+    targetType: "TrainingPlan",
+    targetId: updated.id,
+    diff: shallowPlanDiff(before, updated),
+    req,
+  });
+
+  return NextResponse.json(updated);
 }
 
-// PATCH /api/pt/plans/:id
-// body: campos a alterar; se mudar clientId/trainerId, regista ASSIGNED
-export async function PATCH(req: Request, ctx: { params: { id: string } }) {
-  const id = ctx.params.id;
-  const model = firstModel(PLAN_MODELS);
-  if (!model) return NextResponse.json({ error: "Plan model not found" }, { status: 500 });
+export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+  const { user, error } = await requireUser([Role.TRAINER, Role.ADMIN]);
+  if (error) return error;
 
-  const body = await req.json().catch(() => ({} as any));
-  const session = await getSession();
-  const actorId = (session as any)?.user?.id ?? null;
+  const ok = await canAccessPlan(params.id, user.id, user.role === "ADMIN");
+  if (!ok) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  // obter estado anterior para diffs simples
-  const prev = await (prisma as any)[model].findUnique({ where: { id } }).catch(() => null);
+  const before = await prisma.trainingPlan.findUnique({ where: { id: params.id } });
+  if (!before) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  try {
-    const updated = await (prisma as any)[model].update({ where: { id }, data: body });
+  await prisma.trainingPlan.delete({ where: { id: params.id } });
 
-    // ► EVENTO DE UPDATE
-    await writeEvent({ type: "PLAN_UPDATED", actorId, planId: updated.id, trainerId: updated.trainerId ?? null, userId: updated.clientId ?? null });
-    await appendPlanHistory(String(updated.id), { kind: "PLAN_UPDATED", text: "Plano alterado", by: actorId });
+  await logPlanChange({
+    planId: before.id,
+    actorId: user.id,
+    changeType: "DELETE",
+    snapshot: before,
+  });
 
-    // ► Se mudou atribuição (cliente/PT), regista também ASSIGNED
-    const changedClient = typeof body.clientId !== "undefined" && body.clientId !== prev?.clientId;
-    const changedTrainer = typeof body.trainerId !== "undefined" && body.trainerId !== prev?.trainerId;
+  await logAudit({
+    actorId: user.id,
+    kind: AuditKind.ACCOUNT_STATUS_CHANGE,
+    message: `PLAN_DELETE ${before.id}`,
+    targetType: "TrainingPlan",
+    targetId: before.id,
+    diff: null,
+    req,
+  });
 
-    if (changedClient || changedTrainer) {
-      await upsertPlanAssignment({
-        planId: String(updated.id),
-        clientId: body.clientId ?? updated.clientId ?? null,
-        trainerId: body.trainerId ?? updated.trainerId ?? null,
-      });
-      await writeEvent({
-        type: "PLAN_ASSIGNED",
-        actorId,
-        planId: updated.id,
-        userId: body.clientId ?? updated.clientId ?? null,
-        trainerId: body.trainerId ?? updated.trainerId ?? null,
-      });
-      await appendPlanHistory(String(updated.id), {
-        kind: "PLAN_ASSIGNED",
-        text: "Atribuição atualizada",
-        by: actorId,
-        extra: { clientId: body.clientId ?? updated.clientId ?? null, trainerId: body.trainerId ?? updated.trainerId ?? null },
-      });
-    }
-
-    return NextResponse.json({ data: updated });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Update failed" }, { status: 400 });
-  }
+  return NextResponse.json({ ok: true });
 }

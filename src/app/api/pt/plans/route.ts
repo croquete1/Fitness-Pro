@@ -1,65 +1,83 @@
+// src/app/api/pt/plans/route.ts
 import { NextResponse } from "next/server";
-import prismaAny from "@/lib/prisma";
-import { appendPlanHistory, upsertPlanAssignment, writeEvent } from "@/lib/events";
+import prisma from "@/lib/prisma";
+import { requireUser } from "@/lib/authz";
+import { logAudit, logPlanChange, shallowPlanDiff } from "@/lib/logs";
+import { AuditKind, Role } from "@prisma/client";
 
-const prisma: any =
-  (prismaAny as any).prisma ??
-  (prismaAny as any).default ??
-  prismaAny;
+export async function GET(req: Request) {
+  const { user, error } = await requireUser([Role.TRAINER, Role.ADMIN]);
+  if (error) return error;
 
-const PLAN_MODELS = ["plan", "Plan", "trainingPlan", "TrainingPlan"];
-function firstModel(cands: string[]) {
-  for (const n of cands) {
-    const m = (prisma as any)[n];
-    if (m?.create) return n;
-  }
-  return null;
-}
+  const url = new URL(req.url);
+  const clientId = url.searchParams.get("clientId") || undefined;
+  const take = Math.min(Number(url.searchParams.get("take") || 20), 100);
+  const cursor = url.searchParams.get("cursor") || undefined;
 
-async function getSession() {
-  try {
-    const { getServerSession } = await import("next-auth");
-    // @ts-ignore
-    const auth = await import("@/lib/auth");
-    return await getServerSession((auth as any).authOptions ?? (auth as any).default ?? (auth as any));
-  } catch { return null; }
-}
-
-// POST /api/pt/plans
-// body: { title, status?, trainerId?, clientId?, content?, meta? }
-export async function POST(req: Request) {
-  const body = await req.json().catch(() => ({} as any));
-  const model = firstModel(PLAN_MODELS);
-  if (!model) return NextResponse.json({ error: "Plan model not found" }, { status: 500 });
-
-  const session = await getSession();
-  const actorId = (session as any)?.user?.id ?? null;
-
-  const data: any = {
-    title: body.title ?? `Plano ${new Date().toLocaleDateString()}`,
-    status: body.status ?? "ACTIVE",
-    trainerId: body.trainerId ?? null,
-    clientId: body.clientId ?? null,
-    content: body.content ?? null,
-    meta: body.meta ?? {},
+  const where = {
+    ...(clientId ? { clientId } : {}),
+    ...(user.role === "TRAINER" ? { trainerId: user.id } : {}), // trainer vê só os seus
   };
 
-  let created: any;
-  try {
-    created = await (prisma as any)[model].create({ data });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Create failed" }, { status: 400 });
+  const data = await prisma.trainingPlan.findMany({
+    where,
+    take: take + 1,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    orderBy: { createdAt: "desc" },
+  });
+
+  const nextCursor = data.length > take ? data[take].id : null;
+  if (nextCursor) data.pop();
+
+  return NextResponse.json({ data, nextCursor });
+}
+
+export async function POST(req: Request) {
+  const { user, error } = await requireUser([Role.TRAINER, Role.ADMIN]);
+  if (error) return error;
+
+  const body = await req.json().catch(() => ({}));
+  const { clientId, title, notes, exercises, status } = body || {};
+
+  if (!clientId || !title || exercises == null) {
+    return NextResponse.json({ error: "clientId, title e exercises são obrigatórios" }, { status: 400 });
   }
 
-  // ► EVENTOS & HISTORY
-  await writeEvent({ type: "PLAN_CREATED", actorId, trainerId: data.trainerId, userId: data.clientId, planId: created.id });
-  await appendPlanHistory(String(created.id), { kind: "PLAN_CREATED", text: `Plano de treino criado`, by: actorId });
+  // se for TRAINER, força trainerId = user.id
+  const trainerId = user.role === "TRAINER" ? user.id : body.trainerId ?? user.id;
 
-  if (data.clientId) {
-    await upsertPlanAssignment({ planId: String(created.id), clientId: data.clientId, trainerId: data.trainerId ?? null });
-    await writeEvent({ type: "PLAN_ASSIGNED", actorId, trainerId: data.trainerId, userId: data.clientId, planId: created.id });
-    await appendPlanHistory(String(created.id), { kind: "PLAN_ASSIGNED", text: `Atribuído ao cliente`, by: actorId, extra: { clientId: data.clientId } });
-  }
+  // valida se o client existe
+  const client = await prisma.user.findUnique({ where: { id: clientId } });
+  if (!client) return NextResponse.json({ error: "Cliente inválido" }, { status: 404 });
 
-  return NextResponse.json({ data: created });
+  const created = await prisma.trainingPlan.create({
+    data: {
+      trainerId,
+      clientId,
+      title,
+      notes: notes ?? null,
+      exercises,
+      status: status ?? "ACTIVE",
+    },
+  });
+
+  await logPlanChange({
+    planId: created.id,
+    actorId: user.id,
+    changeType: "CREATE",
+    diff: shallowPlanDiff(undefined, created),
+    snapshot: created,
+  });
+
+  await logAudit({
+    actorId: user.id,
+    kind: AuditKind.ACCOUNT_STATUS_CHANGE, // usa um dos existentes; podes criar outro se quiseres
+    message: `PLAN_CREATE ${created.id}`,
+    targetType: "TrainingPlan",
+    targetId: created.id,
+    diff: { clientId, title, status },
+    req,
+  });
+
+  return NextResponse.json(created, { status: 201 });
 }

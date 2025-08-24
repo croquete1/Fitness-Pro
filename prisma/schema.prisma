@@ -5,11 +5,11 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  url       = env("DATABASE_URL")  // pooled em runtime
+  directUrl = env("DIRECT_URL")    // SEM pool para CLI (migrate/pull)
 }
 
-/** ENUNS — ATENÇÃO: ESTES NOMES/TEXTOS TÊM DE BATER COM A BD **/
+/** ===== ENUNS ===== */
 enum Role {
   ADMIN
   TRAINER
@@ -21,7 +21,7 @@ enum Status {
   PENDING
   ACTIVE
   SUSPENDED
-  @@map("UserStatus") // este enum mapeia para o enum Postgres "UserStatus"
+  @@map("UserStatus")
 }
 
 enum SessionStatus {
@@ -33,7 +33,20 @@ enum SessionStatus {
   @@map("SessionStatus")
 }
 
-/** MODELOS (iguais ao que já tens) **/
+/* ===== Enums para auditoria/planos ===== */
+enum AuditKind {
+  ACCOUNT_APPROVAL
+  ACCOUNT_STATUS_CHANGE
+  ACCOUNT_ROLE_CHANGE
+}
+
+enum PlanAction {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+/** ================= MODELOS ================= */
 model User {
   id           String   @id @default(uuid()) @db.Uuid
   email        String   @unique @db.Citext
@@ -44,13 +57,27 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
+  // sessões
   trainerSessions Session[] @relation("TrainerSessions")
   clientSessions  Session[] @relation("ClientSessions")
 
+  // relação PT-Cliente (FALTAVA o lado oposto)
   trainerClientsAsTrainer TrainerClient[] @relation("TrainerClients_trainer")
   trainerClientsAsClient  TrainerClient[] @relation("TrainerClients_client")
 
+  // planos
+  trainingPlansAsTrainer TrainingPlan[] @relation("TrainingPlanTrainer")
+  trainingPlansAsClient  TrainingPlan[] @relation("TrainingPlanClient")
+
+  // auditoria
   auditLogs AuditLog[]
+
+  // logs genéricos de alterações de planos
+  planChangesAsTrainer PlanChangeLog[] @relation("PlanChangeTrainer")
+  planChangesAsClient  PlanChangeLog[] @relation("PlanChangeClient")
+
+  // autor de alterações de TrainingPlan (FALTAVA o lado oposto)
+  trainingPlanChangesAuthored TrainingPlanChange[] @relation("TPCActor")
 
   @@index([role])
   @@index([status])
@@ -91,18 +118,47 @@ model TrainerClient {
   @@map("trainer_clients")
 }
 
+/* ===== AuditLog (compatível com tua tabela) ===== */
 model AuditLog {
-  id        String   @id @default(uuid()) @db.Uuid
-  actorId   String?  @db.Uuid @map("actor_id")
-  action    String
-  target    String?
-  meta      Json?
-  createdAt DateTime @default(now()) @map("created_at")
+  id         String    @id @default(uuid()) @db.Uuid
+  actorId    String?   @db.Uuid @map("actor_id")
+
+  kind       AuditKind @default(ACCOUNT_STATUS_CHANGE)
+  message    String    @map("action")
+  target     String?
+  targetId   String?   @map("target_id")
+  targetType String?   @map("target_type")
+  diff       Json?     @map("meta")
+  ip         String?   @map("ip")
+  userAgent  String?   @map("user_agent")
+
+  createdAt  DateTime  @default(now()) @map("created_at")
 
   actor User? @relation(fields: [actorId], references: [id])
 
   @@index([actorId])
+  @@index([kind, createdAt])
+  @@index([targetType, targetId])
   @@map("audit_logs")
+}
+
+/* ===== Logs genéricos de alterações de planos ===== */
+model PlanChangeLog {
+  id        String     @id @default(uuid()) @db.Uuid
+  planId    String
+  trainerId String     @db.Uuid @map("trainer_id")
+  clientId  String     @db.Uuid @map("client_id")
+  action    PlanAction
+  diff      Json?
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  trainer   User       @relation("PlanChangeTrainer", fields: [trainerId], references: [id])
+  client    User       @relation("PlanChangeClient",  fields: [clientId],  references: [id])
+
+  @@index([planId, createdAt],    map: "plan_change_plan_idx")
+  @@index([trainerId, createdAt], map: "plan_change_trainer_idx")
+  @@index([clientId, createdAt],  map: "plan_change_client_idx")
+  @@map("plan_change_logs")
 }
 
 model Notification {
@@ -118,4 +174,45 @@ model Notification {
   @@index([targetUserId])
   @@index([targetRole])
   @@map("notifications")
+}
+
+/* ===== Tabela de planos (relações explícitas) ===== */
+model TrainingPlan {
+  id         String   @id @default(uuid()) @db.Uuid
+  trainerId  String   @db.Uuid @map("trainer_id")
+  clientId   String   @db.Uuid @map("client_id")
+  title      String
+  notes      String?
+  exercises  Json
+  status     String   @default("ACTIVE")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  trainer User @relation("TrainingPlanTrainer", fields: [trainerId], references: [id])
+  client  User @relation("TrainingPlanClient",  fields: [clientId],  references: [id])
+
+  changes TrainingPlanChange[]
+
+  @@index([trainerId], map: "training_plans_trainer_idx")
+  @@index([clientId],  map: "training_plans_client_idx")
+  @@index([status],    map: "training_plans_status_idx")
+  @@map("training_plans")
+}
+
+model TrainingPlanChange {
+  id         String   @id @default(uuid()) @db.Uuid
+  planId     String   @db.Uuid @map("plan_id")
+  actorId    String?  @db.Uuid @map("actor_id")
+  changeType String
+  diff       Json?
+  snapshot   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  plan  TrainingPlan @relation(fields: [planId], references: [id])
+  actor User?        @relation("TPCActor", fields: [actorId], references: [id]) // nome da relação adicionado
+
+  @@index([planId],    map: "tpc_plan_idx")
+  @@index([actorId],   map: "tpc_actor_idx")
+  @@index([createdAt], map: "tpc_created_idx")
+  @@map("training_plan_changes")
 }
