@@ -2,6 +2,8 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
+import { AuditKind } from "@prisma/client";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,7 +38,8 @@ export async function POST(req: Request) {
 
     // Heurística simples para intenção PT
     const referer = (req.headers.get("referer") || "").toLowerCase();
-    const wantsTrainer = /\/register\/trainer/.test(referer) || `${body.role}`.toUpperCase() === "TRAINER";
+    const wantsTrainer =
+      /\/register\/trainer/.test(referer) || `${body.role}`.toUpperCase() === "TRAINER";
 
     // Validação
     if (!isEmail(email)) {
@@ -77,23 +80,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "CREATE_FAILED" }, { status: 500 });
     }
 
-    // 🚩 Audit log: novo registo (usado para notificações no Admin)
+    // 🚩 Audit log: novo registo (compatível com o teu schema atual)
     try {
-      await prisma.auditLog.create({
-        data: {
-          actorId: null,
-          action: "USER_REGISTERED",
-          target: created.id,
-          meta: {
-            email,
-            name: created.name ?? null,
-            wantsTrainer,
-            referer,
-          },
+      await logAudit({
+        kind: AuditKind.ACCOUNT_STATUS_CHANGE,
+        message: "USER_REGISTERED",
+        actorId: null,            // registo iniciado sem sessão
+        targetType: "User",
+        targetId: created.id,
+        diff: {
+          email: created.email,
+          name: created.name ?? null,
+          wantsTrainer,
+          referer,
         },
       });
     } catch (e) {
-      console.warn("[register] auditLog falhou:", e);
+      console.warn("[register] audit log falhou:", e);
     }
 
     return NextResponse.json(
