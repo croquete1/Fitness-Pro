@@ -62,7 +62,7 @@ export default function SidebarAdmin() {
       title: 'FATURAÇÃO',
       items: [
         // rota existente de pagamentos
-        { label: 'Pagamentos', href: '/dashboard/payments', icon: <Ic.Receipt /> },
+        { label: 'Pagamentos', href: '/dashboard/billing', icon: <Ic.Receipt /> },
       ],
     },
   ];

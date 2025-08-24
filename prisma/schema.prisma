@@ -129,8 +129,6 @@ model AuditLog {
   targetId   String?   @map("target_id")
   targetType String?   @map("target_type")
   diff       Json?     @map("meta")
-  ip         String?   @map("ip")
-  userAgent  String?   @map("user_agent")
 
   createdAt  DateTime  @default(now()) @map("created_at")
 

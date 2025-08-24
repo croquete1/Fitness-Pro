@@ -1,70 +1,72 @@
-// src/lib/authOptions.ts
+// src/lib/authOptions.ts (NextAuth v4)
 import type { NextAuthOptions } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { PrismaAdapter } from "@auth/prisma-adapter";
 import prisma from "@/lib/prisma";
-import bcrypt from "bcryptjs";
+import { compare } from "bcryptjs";
+import { Role, Status } from "@prisma/client";
 
-const isProd = process.env.NODE_ENV === "production";
-const prefix = isProd ? "__Secure-" : ""; // em prod precisa de HTTPS
+function normalizeBcrypt(hash: string) {
+  if (!hash) return hash as any;
+  return hash.startsWith("$2y$") ? hash.replace("$2y$", "$2a$") : hash;
+}
+function normalizeStatus(s: string | Status): Status {
+  const v = String(s).toUpperCase();
+  if (v === "APPROVED") return Status.ACTIVE;
+  if (v === "REJECTED") return Status.SUSPENDED;
+  if (v === "ACTIVE") return Status.ACTIVE;
+  if (v === "PENDING") return Status.PENDING;
+  return Status.SUSPENDED;
+}
 
 export const authOptions: NextAuthOptions = {
-  // Se usas sessions via DB troca para { strategy: 'database' }
   session: { strategy: "jwt" },
-  secret: process.env.NEXTAUTH_SECRET,
-  trustHost: true, // importante em Vercel e para domínios dinâmicos
+  pages: { signIn: "/login" },
 
-  // Cookies “compatíveis” com mobile: __Secure- só em HTTPS
+  // Cookie estável no mobile
   cookies: {
     sessionToken: {
-      name: `${prefix}next-auth.session-token`,
-      options: { httpOnly: true, sameSite: "lax", path: "/", secure: isProd },
-    },
-    callbackUrl: {
-      name: `${prefix}next-auth.callback-url`,
-      options: { sameSite: "lax", path: "/", secure: isProd },
-    },
-    csrfToken: {
-      name: `${prefix}next-auth.csrf-token`,
-      options: { httpOnly: false, sameSite: "lax", path: "/", secure: isProd },
-    },
-    state: {
-      name: `${prefix}next-auth.state`,
-      options: { sameSite: "lax", path: "/", secure: isProd },
+      name:
+        process.env.NODE_ENV === "production"
+          ? "__Secure-next-auth.session-token"
+          : "next-auth.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
     },
   },
 
-  adapter: PrismaAdapter(prisma) as any,
-
   providers: [
     Credentials({
-      name: "credentials",
-      credentials: { email: {}, password: {} },
+      name: "Credenciais",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
       async authorize(creds) {
-        const email = creds?.email?.toLowerCase();
-        const pass = creds?.password ?? "";
-        if (!email || !pass) return null;
+        const email = creds?.email?.trim().toLowerCase();
+        const password = creds?.password ?? "";
+        if (!email || !password) return null;
 
         const user = await prisma.user.findUnique({ where: { email } });
         if (!user) return null;
 
-        const hash =
-          (user as any).passwordHash ??
-          (user as any).password ??
-          (user as any).hashedPassword ??
-          null;
-        if (!hash) return null;
+        const status = normalizeStatus(user.status as any);
+        if (status === Status.PENDING || status === Status.SUSPENDED) {
+          throw new Error(status); // bloqueia login se não for ACTIVE
+        }
 
-        const ok = await bcrypt.compare(pass, String(hash));
+        const ok = await compare(password, normalizeBcrypt((user as any).passwordHash));
         if (!ok) return null;
 
-        // devolve os campos que queres disponíveis na session/jwt
         return {
           id: user.id,
           email: user.email,
           name: user.name ?? user.email,
-          role: user.role,
-          status: user.status,
+          role: user.role as Role,
+          status,
         } as any;
       },
     }),
@@ -80,7 +82,7 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     async session({ session, token }) {
-      if (token?.id) {
+      if (session.user) {
         (session.user as any).id = token.id;
         (session.user as any).role = token.role;
         (session.user as any).status = token.status;
@@ -88,7 +90,4 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
-
-  // opcional: ajuda a diagnosticar em dev
-  debug: !isProd,
 };

@@ -1,8 +1,9 @@
+// src/app/api/pt/plans/[id]/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireUser } from "@/lib/authz";
-import { logPlanChange, shallowPlanDiff } from "@/lib/audit";
-import { Role, type Prisma } from "@prisma/client";
+import { logPlanChange, shallowPlanDiff } from "@/lib/planLog";
+import { Role } from "@prisma/client";
 
 // Verifica se o utilizador pode aceder ao plano
 async function canAccessPlan(planId: string, userId: string, isAdmin: boolean) {
@@ -43,30 +44,24 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (!ok) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json().catch(() => ({} as any));
-
-  const updates: Prisma.TrainingPlanUpdateInput = {};
+  const updates: Record<string, any> = {};
   if (typeof body.title === "string") updates.title = body.title;
   if (typeof body.notes === "string" || body.notes === null) updates.notes = body.notes ?? null;
-  if (body.exercises !== undefined) {
-    // apenas aceitar objeto/array; evita gravar string acidental
-    if (typeof body.exercises === "object") updates.exercises = body.exercises as object;
-  }
+  if (body.exercises !== undefined) updates.exercises = body.exercises; // JSON
   if (typeof body.status === "string") updates.status = body.status;
 
   if (!Object.keys(updates).length) {
     return NextResponse.json({ error: "Nada para atualizar" }, { status: 400 });
   }
 
-  const next = {
-    title: (updates.title as string) ?? before.title,
-    notes: ("notes" in updates ? (updates.notes as string | null) : before.notes),
-    exercises: ("exercises" in updates ? (updates.exercises as object) : (before.exercises as object)),
-    status: (updates.status as string) ?? before.status,
-  };
-
   const diff = shallowPlanDiff(
     { title: before.title, notes: before.notes, exercises: before.exercises, status: before.status },
-    next
+    {
+      title: updates.title ?? before.title,
+      notes: "notes" in updates ? updates.notes : before.notes,
+      exercises: "exercises" in updates ? updates.exercises : before.exercises,
+      status: updates.status ?? before.status,
+    }
   );
 
   const updated = await prisma.trainingPlan.update({
@@ -78,7 +73,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   await logPlanChange({
     planId: updated.id,
     actorId: user.id!,
-    changeType: "UPDATE",
+    changeType: "update", // <- minúsculas
     diff,
     snapshot: {
       id: updated.id,
@@ -115,7 +110,7 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
   await logPlanChange({
     planId: updated.id,
     actorId: user.id!,
-    changeType: "DELETE",
+    changeType: "delete", // <- minúsculas
     diff: { from: { status: before.status }, to: { status: "DELETED" } },
     snapshot: {
       id: updated.id,

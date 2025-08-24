@@ -1,70 +1,69 @@
 // src/app/api/pt/plans/route.ts
-import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { requireUser } from "@/lib/authz";
-import { Role, AuditKind } from "@prisma/client";
-import { logAudit, logPlanChange } from "@/lib/audit"; // <- IMPORT NECESSÁRIO
+import { NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
+import { requireUser } from '@/lib/authz';
+import { logPlanChange } from '@/lib/planLog';
+import { Role } from '@prisma/client';
 
-// Lista planos do utilizador (trainer vê os seus, admin pode ver por query, cliente vê os seus)
-export async function GET(req: Request) {
-  const { user, error } = await requireUser([Role.TRAINER, Role.ADMIN, Role.CLIENT]);
-  if (error) return error;
+// GET /api/pt/plans  -> listar planos visíveis ao utilizador
+export async function GET() {
+  const guard = await requireUser([Role.ADMIN, Role.TRAINER, Role.CLIENT]);
+  if ('error' in guard) return guard.error;
+  const { user } = guard;
 
-  const { searchParams } = new URL(req.url);
-  const clientId = searchParams.get("clientId") ?? undefined;
-  const where =
-    user.role === "ADMIN"
-      ? { ...(clientId ? { clientId } : {}) }
-      : user.role === "TRAINER"
-      ? { trainerId: user.id, ...(clientId ? { clientId } : {}) }
-      : { clientId: user.id };
-
-  const plans = await prisma.trainingPlan.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-  });
-
-  return NextResponse.json({ plans });
-}
-
-// Cria plano (trainer/admin)
-export async function POST(req: Request) {
-  const { user, error } = await requireUser([Role.TRAINER, Role.ADMIN]);
-  if (error) return error;
-
-  const body = await req.json().catch(() => ({}));
-  const { clientId, title, notes, exercises } = body ?? {};
-  if (!clientId || !title) {
-    return NextResponse.json({ error: "clientId e title são obrigatórios" }, { status: 400 });
+  if (user.role === Role.ADMIN) {
+    const plans = await prisma.trainingPlan.findMany({ orderBy: { createdAt: 'desc' } });
+    return NextResponse.json(plans);
   }
 
-  const created = await prisma.trainingPlan.create({
+  if (user.role === Role.TRAINER) {
+    const plans = await prisma.trainingPlan.findMany({
+      where: {
+        OR: [{ trainerId: user.id }, { clientId: user.id }],
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    return NextResponse.json(plans);
+  }
+
+  // CLIENT
+  const plans = await prisma.trainingPlan.findMany({
+    where: { clientId: user.id },
+    orderBy: { createdAt: 'desc' },
+  });
+  return NextResponse.json(plans);
+}
+
+// POST /api/pt/plans  -> criar plano (PT/Admin)
+export async function POST(req: Request) {
+  const guard = await requireUser([Role.ADMIN, Role.TRAINER]);
+  if ('error' in guard) return guard.error;
+  const { user } = guard;
+
+  const body = await req.json().catch(() => ({} as any));
+  const { clientId, title, notes, exercises, status } = body || {};
+
+  if (!clientId || !title) {
+    return NextResponse.json({ error: 'clientId e title são obrigatórios' }, { status: 400 });
+  }
+
+  const plan = await prisma.trainingPlan.create({
     data: {
-      trainerId: user.id,
-      clientId,
-      title,
-      notes: notes ?? null,
-      exercises: exercises ?? [],
+      trainerId: user.id!,
+      clientId: String(clientId),
+      title: String(title),
+      notes: typeof notes === 'string' ? notes : null,
+      exercises: exercises ?? {},
+      status: typeof status === 'string' ? status : 'ACTIVE',
     },
   });
 
-  // log de alteração de plano
   await logPlanChange({
-    planId: created.id,
-    actorId: user.id,
-    changeType: "CREATE",
-    snapshot: created,
+    planId: plan.id,
+    actorId: user.id!,
+    changeType: 'create',         // <- minúsculas, conforme o tipo definido
+    snapshot: plan as any,
   });
 
-  // audit trail geral
-  await logAudit({
-    actorId: user.id,
-    kind: AuditKind.ACCOUNT_STATUS_CHANGE, // usa um dos teus enums existentes
-    message: `PLAN_CREATE ${created.id}`,
-    targetType: "TrainingPlan",
-    targetId: created.id,
-    diff: { after: created },
-  });
-
-  return NextResponse.json({ ok: true, plan: created });
+  return NextResponse.json(plan, { status: 201 });
 }

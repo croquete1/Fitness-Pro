@@ -1,55 +1,70 @@
 // src/lib/logs.ts
-import prisma from '@/lib/prisma';
-import { headers } from 'next/headers';
-import { AuditKind, PlanAction } from '@prisma/client';
+import prisma from "@/lib/prisma";
+import { headers as nextHeaders } from "next/headers";
+import type { AuditKind } from "@prisma/client";
 
 /* ========= AUDIT LOGS ========= */
 
 export type AuditParams = {
   actorId?: string | null;
-  kind: AuditKind;                 // <- OBRIGATÓRIO
-  message: string;
+  kind: AuditKind;            // obrigatório
+  /** Preferir `message`. `action` é aceito como alias retrocompatível. */
+  message?: string;
+  action?: string;
+
   targetType?: string | null;
   targetId?: string | null;
   diff?: unknown;
-  ip?: string | null;              // opcional (coluna ip)
-  userAgent?: string | null;       // opcional (coluna user_agent)
+
+  /** Aceites mas IGNORADOS (a BD não tem estas colunas). */
+  ip?: string | null;
+  userAgent?: string | null;
 };
 
 export async function logAudit(p: AuditParams) {
   const {
     actorId = null,
     kind,
-    message,
     targetType = null,
     targetId = null,
     diff,
-    ip = null,
-    userAgent = null,
   } = p;
+
+  const message = (p.message ?? p.action ?? "").toString();
 
   await prisma.auditLog.create({
     data: {
       actorId,
       kind,
-      message,
+      message,                        // Prisma mapeia para coluna "action"
       targetType,
       targetId,
-      diff: (diff as any) ?? undefined,
-      ip,
-      userAgent,
+      diff: (diff as any) ?? undefined, // Prisma mapeia para coluna "meta"
+      // NÃO enviar ip/userAgent — colunas não existem na BD atual
     },
   });
 }
 
-/** IP/User-Agent de cabeçalhos (Vercel/Edge) */
-export function getReqMeta() {
-  const h = headers();
-  const ua = h.get('user-agent') ?? null;
-  const cf = h.get('cf-connecting-ip');
-  const realIp = h.get('x-real-ip');
-  const xff = h.get('x-forwarded-for');
-  const ip = (cf ?? realIp ?? (xff ? xff.split(',')[0].trim() : '') ?? '') || null;
+/** IP/User-Agent de cabeçalhos.
+ *  Pode ser chamado com `req` (route handler) ou sem argumentos (usa next/headers). */
+export function getReqMeta(req?: Request | { headers?: Headers | Record<string, any> }) {
+  const h =
+    (req?.headers &&
+      (typeof (req.headers as any).get === "function"
+        ? (req.headers as any)
+        : {
+            get: (k: string) =>
+              (req.headers as any)[k] ??
+              (req.headers as any)[k.toLowerCase()],
+          })) ||
+    nextHeaders();
+
+  const ua = h?.get?.("user-agent") ?? undefined;
+  const cf = h?.get?.("cf-connecting-ip") as string | undefined;
+  const realIp = h?.get?.("x-real-ip") as string | undefined;
+  const xff = h?.get?.("x-forwarded-for") as string | undefined;
+
+  const ip = cf || realIp || (xff ? xff.split(",")[0].trim() : undefined);
   return { ip, userAgent: ua };
 }
 
@@ -71,18 +86,21 @@ export function shallowPlanDiff(prev: any, next: any) {
 export type PlanChangeParams = {
   planId: string;
   actorId?: string | null;
-  changeType: string | PlanAction;
+  /** aceita 'create' | 'update' | 'delete' (ou qualquer string); normalizamos para lowercase */
+  changeType: string;
   diff?: unknown;
   snapshot?: unknown;
 };
 
 export async function logPlanChange(p: PlanChangeParams) {
-  const { planId, actorId = null, changeType, diff, snapshot } = p;
+  const { planId, actorId = null, diff, snapshot } = p;
+  const changeType = String(p.changeType).toLowerCase(); // garante 'create'|'update'|'delete'
+
   await prisma.trainingPlanChange.create({
     data: {
       planId,
       actorId,
-      changeType: typeof changeType === 'string' ? changeType : String(changeType),
+      changeType,
       diff: (diff as any) ?? undefined,
       snapshot: (snapshot as any) ?? undefined,
     },
