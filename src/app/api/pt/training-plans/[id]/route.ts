@@ -48,7 +48,6 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const current = await prisma.trainingPlan.findUnique({ where: { id: params.id } });
   if (!current) return NextResponse.json({ error: 'not_found' }, { status: 404 });
 
-  // Só TRAINER dono ou ADMIN
   if (!(await canAccess(user, current)) || !(role === Role.TRAINER || role === Role.ADMIN)) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
@@ -57,7 +56,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const data: Record<string, any> = {};
   if (typeof body.title === 'string') data.title = body.title;
   if (typeof body.notes === 'string' || body.notes === null) data.notes = body.notes ?? null;
-  if (body.exercises !== undefined) data.exercises = body.exercises; // JSON
+  if (body.exercises !== undefined) data.exercises = body.exercises;
   if (typeof body.status === 'string') data.status = body.status;
 
   if (!Object.keys(data).length) {
@@ -69,21 +68,19 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     data,
   });
 
-  // Audit genérico (compatível com a API nova)
   await logAudit({
     actorId: user.id!,
-    kind: AuditKind.ACCOUNT_STATUS_CHANGE, // a usar um kind existente; criaremos um KIND específico se necessário
+    kind: AuditKind.ACCOUNT_STATUS_CHANGE,
     message: 'PLAN_UPDATE',
     targetType: 'TrainingPlan',
     targetId: updated.id,
     diff: { changed: Object.keys(data) },
   });
 
-  // Log de alterações de plano (histórico detalhado)
   await logPlanChange({
     planId: updated.id,
     actorId: user.id!,
-    changeType: 'UPDATE',
+    changeType: 'update', // <-- minúsculas
     diff: { before: current, after: updated },
     snapshot: updated,
   });
@@ -100,12 +97,10 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
   const current = await prisma.trainingPlan.findUnique({ where: { id: params.id } });
   if (!current) return NextResponse.json({ error: 'not_found' }, { status: 404 });
 
-  // Só TRAINER dono ou ADMIN
   if (!(await canAccess(user, current)) || !(role === Role.TRAINER || role === Role.ADMIN)) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
 
-  // Hard delete (mantendo snapshot nos logs)
   await prisma.trainingPlan.delete({ where: { id: params.id } });
 
   await logAudit({
@@ -120,7 +115,7 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
   await logPlanChange({
     planId: params.id,
     actorId: user.id!,
-    changeType: 'DELETE',
+    changeType: 'delete', // <-- minúsculas
     snapshot: current,
   });
 
