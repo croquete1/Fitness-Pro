@@ -214,3 +214,143 @@ html[data-sb-collapsed="1"] .fp-sb-flyout:hover .fp-sb-brand{
 :root[data-theme="dark"] html[data-sb-pinned="0"][data-sb-peek="1"] .fp-sb-flyout{
   box-shadow: 0 12px 50px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.04) inset;
 }
+/* ===== Utilidades para tabelas/admin ===== */
+.table-actions{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+/* Editor inline do EditUserButton (quando o formulário abre) */
+.inline-editor{
+  margin-top:10px;
+  padding:12px;
+  background:var(--card-bg);
+  border:1px solid var(--border);
+  border-radius:12px;
+
+  display:grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr auto; /* nome, email, role, status, ações */
+  gap:10px;
+}
+.inline-editor label{
+  font-size:12px;
+  color:var(--muted);
+}
+.inline-editor input,
+.inline-editor select{
+  height:36px;
+  padding:8px 10px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:var(--btn-bg);
+}
+.inline-editor .actions{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+/* Normalização de botões "soltos" (sem mexer nos .btn.icon que já tens) */
+.btn{
+  border:1px solid var(--border);
+  background:var(--btn-bg);
+  border-radius:10px;
+  transition: background 120ms ease, border-color 120ms ease, transform 100ms ease;
+}
+.btn:hover{ background:var(--hover); border-color:var(--border-strong); }
+.btn:active{ transform: translateY(1px); }
+
+/* ===== Badges de Role/Estado: um toque de cor sem perder o look ===== */
+.badge{
+  display:inline-flex; align-items:center; gap:6px;
+  height:26px; padding:0 10px; border-radius:999px;
+  border:1px solid var(--border);
+  background:var(--hover);
+  font-size:12px; font-weight:600; letter-spacing:.2px;
+}
+
+/* Cores (light/dark amigáveis, usando alfa) */
+.badge--role-admin{
+  color:#6d28d9; background:rgba(124,58,237,.10); border-color:rgba(124,58,237,.25);
+}
+.badge--role-trainer{
+  color:#2563eb; background:rgba(37,99,235,.10); border-color:rgba(37,99,235,.25);
+}
+.badge--role-client{
+  color:#0f766e; background:rgba(15,118,110,.10); border-color:rgba(15,118,110,.25);
+}
+
+.badge--status-active{
+  color:#166534; background:rgba(22,101,52,.10); border-color:rgba(22,101,52,.25);
+}
+.badge--status-pending{
+  color:#92400e; background:rgba(146,64,14,.10); border-color:rgba(146,64,14,.25);
+}
+.badge--status-suspended{
+  color:#b91c1c; background:rgba(185,28,28,.10); border-color:rgba(185,28,28,.25);
+}
+/* ====== ACCENTS (light) ====== */
+:root{
+  --primary:#4f46e5; /* indigo-600 */
+  --success:#059669; /* emerald-600 */
+  --warning:#d97706; /* amber-600 */
+  --danger:#dc2626;  /* red-600 */
+  --info:#0ea5e9;    /* sky-500 */
+
+  --primary-weak:#eef2ff;
+  --success-weak:#ecfdf5;
+  --warning-weak:#fffbeb;
+  --danger-weak:#fef2f2;
+  --info-weak:#f0f9ff;
+}
+:root[data-theme="dark"]{
+  --primary:#818cf8;
+  --success:#34d399;
+  --warning:#fbbf24;
+  --danger:#f87171;
+  --info:#38bdf8;
+
+  --primary-weak:#11153a;
+  --success-weak:#0b2c22;
+  --warning-weak:#2d2006;
+  --danger-weak:#301212;
+  --info-weak:#0b2330;
+}
+
+/* ====== BADGE (pill) ====== */
+.badge{
+  display:inline-flex; align-items:center; gap:6px;
+  font-weight:700; font-size:12px; line-height:1;
+  padding:6px 10px; border-radius:999px;
+  border:1px solid var(--border);
+  background:var(--hover); color:var(--text);
+}
+.badge svg{ width:14px; height:14px }
+.badge--primary{ border-color:color-mix(in oklab, var(--primary) 35%, var(--border));
+  background:var(--primary-weak); color:var(--primary); }
+.badge--success{ border-color:color-mix(in oklab, var(--success) 35%, var(--border));
+  background:var(--success-weak); color:var(--success); }
+.badge--warning{ border-color:color-mix(in oklab, var(--warning) 35%, var(--border));
+  background:var(--warning-weak); color:var(--warning); }
+.badge--danger{ border-color:color-mix(in oklab, var(--danger) 35%, var(--border));
+  background:var(--danger-weak); color:var(--danger); }
+.badge--info{ border-color:color-mix(in oklab, var(--info) 35%, var(--border));
+  background:var(--info-weak); color:var(--info); }
+
+/* mini botões “chip” para toolbars/filters */
+.btn.chip{
+  height:32px; padding:0 10px; border-radius:999px;
+  background:var(--btn-bg); border:1px solid var(--border);
+}
+.btn.chip[aria-pressed="true"]{
+  border-color:var(--primary); color:var(--primary); background:var(--primary-weak);
+}
+
+/* header compacto de card */
+.card-head{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:12px; margin-bottom:12px;
+}
+.toolbar{ display:flex; flex-wrap:wrap; gap:8px; }

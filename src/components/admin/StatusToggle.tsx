@@ -1,3 +1,4 @@
+// src/components/admin/StatusToggle.tsx
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -5,18 +6,12 @@ import { useTransition } from 'react';
 
 type Status = 'ACTIVE' | 'SUSPENDED' | 'PENDING';
 
-export default function StatusToggle({
-  user,
-}: {
-  user: { id: string; status: Status };
-}) {
+export default function StatusToggle({ user }: { user: { id: string; status: Status } }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  const next =
-    user.status === 'ACTIVE'
-      ? ('SUSPENDED' as Status)
-      : ('ACTIVE' as Status);
+  const next = user.status === 'ACTIVE' ? ('SUSPENDED' as Status) : ('ACTIVE' as Status);
+  const label = user.status === 'ACTIVE' ? 'Suspender' : 'Ativar';
 
   async function onToggle() {
     const res = await fetch(`/api/admin/users/${user.id}`, {
@@ -24,30 +19,26 @@ export default function StatusToggle({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: next }),
     });
-
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       alert(err?.error || 'Erro ao atualizar o estado');
       return;
     }
-
     startTransition(() => router.refresh());
   }
-
-  const label = user.status === 'ACTIVE' ? 'Suspender' : 'Ativar';
 
   return (
     <button
       onClick={onToggle}
       disabled={isPending}
-      title={label}
+      className="btn"
       style={{
+        height: 32,
+        lineHeight: '20px',
         padding: '6px 10px',
-        borderRadius: 10,
-        border: '1px solid var(--border)',
-        background: 'var(--btn-bg)',
-        cursor: isPending ? 'default' : 'pointer',
-        opacity: isPending ? 0.7 : 1,
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
       }}
     >
       {isPending ? '...' : label}
