@@ -42,12 +42,3 @@ UI: CSS Modules/SCSS (com suporte opcional para Tailwind, se ativado)
 
 Hospedagem: Vercel
 
-Nota: O projeto funciona sem Tailwind. Se quiseres Tailwind + shadcn/ui, ativa conforme indicado abaixo.
-
-✅ Requisitos
-
-Node.js ≥ 18
-
-Base de dados (PostgreSQL recomendado)
-
-Conta Vercel (opcional, para deploy)
