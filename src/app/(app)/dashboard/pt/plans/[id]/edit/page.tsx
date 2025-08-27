@@ -8,7 +8,7 @@ import { authOptions } from '@/lib/auth';
 import { Role } from '@prisma/client';
 import { redirect } from 'next/navigation';
 import { createServerClient } from '@/lib/supabaseServer';
-import PlanEditor from '@/components/plans/PlanEditor';
+import PlanEditor from '@/components/plan/PlanEditor';
 
 async function getPlanViaSupabase(id: string) {
   const sb = createServerClient();

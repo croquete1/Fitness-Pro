@@ -1,205 +1,212 @@
-// src/components/plans/PlanEditor.tsx
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
-import ToastHost from '@/components/ui/ToastHost';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 type Exercise = {
   id?: string;
-  name?: string;
+  name: string;
   sets?: number;
-  reps?: string | number;
-  weight?: string | number;
-  tempo?: string;
-  rest?: string;
+  reps?: string;   // ex: "8–12"
+  weight?: string; // ex: "20 kg" ou "RPE 8"
   notes?: string;
 };
 
-type Plan = {
-  id: string;
-  title: string;
-  notes: string | null;
-  exercises: Exercise[];
-  status: string;
-  trainerId: string | null;
-  clientId: string | null;
-};
+type PlanEditorProps = {
+  initial?: Partial<{
+    title: string;
+    notes: string;
+    status: string; // ACTIVE | DRAFT | SUSPENDED | DELETED …
+    exercises: Exercise[];
+  }>;
+  trainerId?: string;
+  clientId?: string;
 
-export default function PlanEditor({ initialPlan }: { initialPlan: Plan }) {
-  const router = useRouter();
-  const [title, setTitle] = useState(initialPlan.title ?? '');
-  const [notes, setNotes] = useState(initialPlan.notes ?? '');
-  const [status, setStatus] = useState(initialPlan.status ?? 'ACTIVE');
-  const [exs, setExs] = useState<Exercise[]>(Array.isArray(initialPlan.exercises) ? initialPlan.exercises : []);
+  saveUrl?: string;                  // opcional: o componente faz o fetch
+  method?: 'POST' | 'PUT' | 'PATCH';
+  onSubmit?: (data: any) => Promise<void> | void; // alternativa manual
+} & Record<string, any>;
+
+export default function PlanEditor({
+  initial,
+  trainerId,
+  clientId,
+  saveUrl,
+  method,
+  onSubmit,
+  ...rest
+}: PlanEditorProps) {
+  const [title, setTitle] = useState(initial?.title ?? '');
+  const [notes, setNotes] = useState(initial?.notes ?? '');
+  const [status, setStatus] = useState(initial?.status ?? 'ACTIVE');
+  const [exercises, setExercises] = useState<Exercise[]>(
+    initial?.exercises?.length ? initial.exercises : [{ name: '', sets: 3, reps: '10', weight: '', notes: '' }]
+  );
   const [saving, setSaving] = useState(false);
-  const [toastOk, setToastOk] = useState<string>();
-  const [toastErr, setToastErr] = useState<string>();
-  const [isPending, startTransition] = useTransition();
+  const [err, setErr] = useState<string | null>(null);
+  const [ok, setOk] = useState(false);
 
-  const empty = useMemo(() => exs.length === 0, [exs.length]);
-
+  function updateExercise(i: number, patch: Partial<Exercise>) {
+    setExercises((prev) => prev.map((e, idx) => (idx === i ? { ...e, ...patch } : e)));
+  }
   function addExercise() {
-    setExs((arr) => [...arr, { name: '', sets: 3, reps: '10-12', weight: '', tempo: '', rest: '60s', notes: '' }]);
+    setExercises((prev) => [...prev, { name: '', sets: 3, reps: '10', weight: '', notes: '' }]);
   }
   function removeExercise(i: number) {
-    setExs((arr) => arr.filter((_, idx) => idx !== i));
-  }
-  function moveExercise(i: number, dir: -1 | 1) {
-    setExs((arr) => {
-      const j = i + dir;
-      if (j < 0 || j >= arr.length) return arr;
-      const clone = arr.slice();
-      const tmp = clone[i]; clone[i] = clone[j]; clone[j] = tmp;
-      return clone;
-    });
-  }
-  function patchExercise(i: number, field: keyof Exercise, value: any) {
-    setExs((arr) => arr.map((e, idx) => (idx === i ? { ...e, [field]: value } : e)));
+    setExercises((prev) => prev.filter((_, idx) => idx !== i));
   }
 
-  async function onSave() {
-    setSaving(true); setToastErr(undefined); setToastOk(undefined);
+  async function handleSave(e?: React.FormEvent) {
+    e?.preventDefault();
+    setSaving(true);
+    setErr(null);
+    setOk(false);
+
+    const payload = {
+      trainerId: trainerId ?? null,
+      clientId: clientId ?? null,
+      title,
+      notes: notes || null,
+      status,
+      exercises,
+    };
+
     try {
-      const res = await fetch(`/api/sb/plans/${initialPlan.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, notes, status, exercises: exs }),
-      });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(j?.error || 'Falha ao guardar');
-      setToastOk('Alterações guardadas com sucesso.');
-      // refresh da página de leitura
-      startTransition(() => router.replace(`/dashboard/pt/plans/${initialPlan.id}?saved=1`));
+      if (saveUrl) {
+        const res = await fetch(saveUrl, {
+          method: method ?? (initial ? 'PATCH' : 'POST'),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          throw new Error(j?.error || `HTTP ${res.status}`);
+        }
+      } else if (onSubmit) {
+        await onSubmit(payload);
+      } else {
+        console.warn('[PlanEditor] Nenhum saveUrl/onSubmit fornecido:', payload);
+      }
+      setOk(true);
     } catch (e: any) {
-      setToastErr(e?.message || 'Erro ao guardar');
+      setErr(e?.message || 'Erro ao guardar');
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <div className="card" style={{ padding: 12, display: 'grid', gap: 12 }}>
-      <ToastHost success={toastOk} error={toastErr} />
-
-      {/* Cabeçalho / estado */}
-      <div className="grid md:grid-cols-2 gap-3">
-        <label className="grid gap-1">
-          <span className="text-sm text-gray-600">Título</span>
+    <form onSubmit={handleSave} {...rest}>
+      <div className="grid gap-4" style={{ maxWidth: 900 }}>
+        <div className="grid gap-1">
+          <label className="text-sm text-gray-600">Título do plano</label>
           <input
             className="rounded-lg border p-2"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Ex.: Push/Pull/Legs — Bloco A"
+            placeholder="Ex.: Hipertrofia Full-Body"
+            required
           />
-        </label>
-
-        <label className="grid gap-1">
-          <span className="text-sm text-gray-600">Estado</span>
-          <select className="rounded-lg border p-2" value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="ACTIVE">ACTIVE</option>
-            <option value="PAUSED">PAUSED</option>
-            <option value="DELETED">DELETED</option>
-          </select>
-        </label>
-      </div>
-
-      {/* Notas do plano */}
-      <label className="grid gap-1">
-        <span className="text-sm text-gray-600">Notas do plano</span>
-        <textarea
-          className="rounded-lg border p-2 min-h-[100px]"
-          value={notes ?? ''}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="Observações gerais, frequência semanal, RPE alvo, etc."
-        />
-      </label>
-
-      {/* Exercícios */}
-      <div className="card" style={{ padding: 12 }}>
-        <div className="flex items-center justify-between">
-          <div className="text-muted">Exercícios</div>
-          <button className="btn chip" onClick={addExercise} type="button">+ Adicionar exercício</button>
         </div>
 
-        {empty ? (
-          <div className="mt-3 flex items-center gap-2 text-gray-600">
-            <span style={{ fontSize: 18 }}>🗒️</span>
-            Ainda não existem exercícios neste plano.
-          </div>
-        ) : (
-          <div className="mt-3 grid gap-3">
-            {exs.map((ex, i) => (
-              <div key={i} className="rounded-xl border p-3 grid gap-3">
-                <div className="flex items-center justify-between">
-                  <strong className="text-sm">Exercício #{i + 1}</strong>
-                  <div className="flex items-center gap-2">
-                    <button className="btn chip" type="button" onClick={() => moveExercise(i, -1)} aria-label="Mover acima">↑</button>
-                    <button className="btn chip" type="button" onClick={() => moveExercise(i, +1)} aria-label="Mover abaixo">↓</button>
-                    <button className="btn chip" type="button" onClick={() => removeExercise(i)} aria-label="Remover">Remover</button>
-                  </div>
-                </div>
+        <div className="grid gap-1">
+          <label className="text-sm text-gray-600">Notas gerais do plano</label>
+          <textarea
+            className="rounded-lg border p-2"
+            rows={4}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Observações gerais, recomendações, etc."
+          />
+        </div>
 
-                <div className="grid md:grid-cols-2 gap-3">
-                  <label className="grid gap-1">
-                    <span className="text-sm text-gray-600">Nome</span>
-                    <input className="rounded-lg border p-2" value={ex.name ?? ''} onChange={(e) => patchExercise(i, 'name', e.target.value)} placeholder="Supino inclinado com barra" />
-                  </label>
-                  <label className="grid gap-1">
-                    <span className="text-sm text-gray-600">Séries</span>
-                    <input className="rounded-lg border p-2" type="number" min={1}
-                      value={Number(ex.sets ?? 3)}
-                      onChange={(e) => patchExercise(i, 'sets', Number(e.target.value))}
-                    />
-                  </label>
-                </div>
+        <div className="grid gap-1">
+          <label className="text-sm text-gray-600">Estado</label>
+          <select
+            className="rounded-lg border p-2"
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+          >
+            <option value="ACTIVE">ACTIVE</option>
+            <option value="DRAFT">DRAFT</option>
+            <option value="SUSPENDED">SUSPENDED</option>
+            <option value="DELETED">DELETED</option>
+          </select>
+        </div>
 
-                <div className="grid md:grid-cols-3 gap-3">
-                  <label className="grid gap-1">
-                    <span className="text-sm text-gray-600">Reps</span>
-                    <input className="rounded-lg border p-2" value={String(ex.reps ?? '')}
-                      onChange={(e) => patchExercise(i, 'reps', e.target.value)} placeholder="8-10"
-                    />
-                  </label>
-                  <label className="grid gap-1">
-                    <span className="text-sm text-gray-600">Peso</span>
-                    <input className="rounded-lg border p-2" value={String(ex.weight ?? '')}
-                      onChange={(e) => patchExercise(i, 'weight', e.target.value)} placeholder="30 kg / 70%"
-                    />
-                  </label>
-                  <label className="grid gap-1">
-                    <span className="text-sm text-gray-600">Tempo</span>
-                    <input className="rounded-lg border p-2" value={ex.tempo ?? ''} onChange={(e) => patchExercise(i, 'tempo', e.target.value)} placeholder="3-1-1-0" />
-                  </label>
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-3">
-                  <label className="grid gap-1">
-                    <span className="text-sm text-gray-600">Descanso</span>
-                    <input className="rounded-lg border p-2" value={ex.rest ?? ''} onChange={(e) => patchExercise(i, 'rest', e.target.value)} placeholder="90s" />
-                  </label>
-                  <label className="grid gap-1">
-                    <span className="text-sm text-gray-600">Notas do exercício</span>
-                    <input className="rounded-lg border p-2" value={ex.notes ?? ''} onChange={(e) => patchExercise(i, 'notes', e.target.value)} placeholder="Cotovelo junto ao tronco; manter escápulas." />
-                  </label>
+        <div className="grid gap-2">
+          <div className="text-sm text-gray-600">Exercícios</div>
+          {exercises.map((ex, i) => (
+            <div key={i} className="grid gap-2 rounded-xl border p-3">
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  className="rounded-lg border p-2"
+                  placeholder="Ex.: Agachamento livre"
+                  value={ex.name}
+                  onChange={(e) => updateExercise(i, { name: e.target.value })}
+                  required
+                />
+                <div className="grid grid-cols-3 gap-2">
+                  <input
+                    className="rounded-lg border p-2"
+                    type="number"
+                    min={1}
+                    placeholder="Séries"
+                    value={ex.sets ?? ''}
+                    onChange={(e) => updateExercise(i, { sets: parseInt(e.target.value || '0', 10) })}
+                  />
+                  <input
+                    className="rounded-lg border p-2"
+                    placeholder="Reps (ex.: 8–12)"
+                    value={ex.reps ?? ''}
+                    onChange={(e) => updateExercise(i, { reps: e.target.value })}
+                  />
+                  <input
+                    className="rounded-lg border p-2"
+                    placeholder="Peso/RPE"
+                    value={ex.weight ?? ''}
+                    onChange={(e) => updateExercise(i, { weight: e.target.value })}
+                  />
                 </div>
               </div>
-            ))}
+              <textarea
+                className="rounded-lg border p-2"
+                rows={2}
+                placeholder="Notas do exercício (técnica, tempo, progressão, etc.)"
+                value={ex.notes ?? ''}
+                onChange={(e) => updateExercise(i, { notes: e.target.value })}
+              />
+              <div className="flex items-center justify-end">
+                <button
+                  type="button"
+                  className="btn icon"
+                  onClick={() => removeExercise(i)}
+                  aria-label="Remover exercício"
+                >
+                  🗑️
+                </button>
+              </div>
+            </div>
+          ))}
+          <div>
+            <button type="button" className="btn" onClick={addExercise}>
+              + Adicionar exercício
+            </button>
           </div>
-        )}
-      </div>
+        </div>
 
-      <div className="flex items-center justify-end gap-2">
-        <button className="btn chip" type="button" onClick={() => history.back()} disabled={saving || isPending}>Cancelar</button>
-        <button
-          className="rounded-lg border bg-black/90 px-3 py-2 text-white disabled:opacity-60"
-          type="button"
-          onClick={onSave}
-          disabled={saving || isPending}
-        >
-          {saving ? 'A guardar…' : 'Guardar alterações'}
-        </button>
+        {err && <p className="text-sm text-red-600">{err}</p>}
+        {ok && <p className="text-sm text-green-600">Plano guardado com sucesso.</p>}
+
+        <div className="mt-2 flex items-center gap-2">
+          <button
+            type="submit"
+            className="rounded-lg border bg-black/90 px-3 py-2 text-white disabled:opacity-60"
+            disabled={saving}
+          >
+            {saving ? 'A guardar…' : initial ? 'Atualizar plano' : 'Criar plano'}
+          </button>
+        </div>
       </div>
-    </div>
+    </form>
   );
 }
