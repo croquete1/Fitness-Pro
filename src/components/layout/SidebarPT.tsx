@@ -43,6 +43,15 @@ export default function SidebarPT() {
         { label: 'Dashboard', href: '/dashboard/pt', icon: <Ic.Home /> },
       ],
     },
+    {
+      title: 'Clientes',
+      items: [
+        // NOVO: carteira
+        { label: 'Clientes', href: '/dashboard/pt/clients', icon: <Ic.Users /> },
+    // NOVO: planos
+       { label: 'Planos de treino', href: '/dashboard/pt/plans', icon: <Ic.Receipt /> },
+  ],
+},
   ];
 
   // Faturação só se permitido (admin ou PT em allowlist)

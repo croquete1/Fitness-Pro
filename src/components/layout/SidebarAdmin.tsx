@@ -51,13 +51,16 @@ export default function SidebarAdmin() {
       items: [{ label: 'Dashboard', href: '/dashboard', icon: <Ic.Home /> }],
     },
     {
-      title: 'ADMINISTRAÇÃO',
-      items: [
-        { label: 'Aprovações', href: '/dashboard/admin/approvals', icon: <Ic.CheckSquare /> },
-        { label: 'Utilizadores', href: '/dashboard/admin/users', icon: <Ic.Users /> },
-        { label: 'Registos', href: '/dashboard/admin/logs', icon: <Ic.Receipt /> },
-      ],
-    },
+  title: 'Administração',
+  items: [
+    { label: 'Aprovações', href: '/dashboard/admin/approvals', icon: <Ic.CheckSquare /> },
+    { label: 'Utilizadores', href: '/dashboard/admin/users', icon: <Ic.Users /> },
+    // NOVO: carteira
+    { label: 'Clientes & Pacotes', href: '/dashboard/admin/clients', icon: <Ic.Receipt /> },
+    // NOVO: planos
+    { label: 'Planos de treino', href: '/dashboard/pt/plans', icon: <Ic.Home /> },
+  ],
+},
     {
       title: 'FATURAÇÃO',
       items: [
