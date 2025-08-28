@@ -1,3 +1,4 @@
+// src/components/packages/PackageEditor.tsx
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -8,18 +9,20 @@ export type PackageInitial = Partial<{
   clientId: string;
   planId: string | null;
 
-  // Campos “base”
+  // Base
   packageName: string;
   sessionsPerWeek: number;
   durationWeeks: number;
   priceMonthly: number; // €
-  startDate: string;     // ISO (YYYY-MM-DD)
+  startDate: string;     // YYYY-MM-DD
+  endDate: string;       // YYYY-MM-DD (opcional)
+  status: string;        // livre (mantemos compat)
   notes: string | null;
 
-  // Extras (compat Supabase / páginas já existentes)
-  sessionsTotal: number; // total de sessões contratadas
-  sessionsUsed: number;  // já usadas
-  priceCents: number;    // preço mensal em cêntimos
+  // Extras/compat
+  sessionsTotal: number;
+  sessionsUsed: number;
+  priceCents: number;
 }>;
 
 type PackageEditorProps = {
@@ -37,7 +40,7 @@ export default function PackageEditor({
   onClose,
   onSaved,
 }: PackageEditorProps) {
-  // IDs (não editáveis visualmente, mas úteis no PATCH)
+  // IDs (não expostos ao utilizador, salvo caso admin criar)
   const [id] = useState(initial.id ?? '');
   const [trainerId, setTrainerId] = useState(initial.trainerId ?? '');
   const [clientId, setClientId] = useState(initial.clientId ?? '');
@@ -46,7 +49,6 @@ export default function PackageEditor({
   // Campos do pacote
   const [packageName, setPackageName] = useState(initial.packageName ?? '');
 
-  // Se não vier sessionsPerWeek, inferimos a partir de sessionsTotal/durationWeeks
   const inferredSPW = useMemo(() => {
     if (initial.sessionsPerWeek != null) return initial.sessionsPerWeek;
     if (initial.sessionsTotal != null && initial.durationWeeks) {
@@ -59,7 +61,6 @@ export default function PackageEditor({
   const [sessionsPerWeek, setSessionsPerWeek] = useState<number>(inferredSPW);
   const [durationWeeks, setDurationWeeks] = useState<number>(initial.durationWeeks ?? 4);
 
-  // Se vier priceCents, preferimos calcular priceMonthly a partir daí
   const initialMonthly = useMemo(() => {
     if (initial.priceMonthly != null) return initial.priceMonthly;
     if (initial.priceCents != null) return Math.round(initial.priceCents) / 100;
@@ -68,9 +69,10 @@ export default function PackageEditor({
 
   const [priceMonthly, setPriceMonthly] = useState<number>(initialMonthly);
   const [startDate, setStartDate] = useState(initial.startDate ?? '');
+  const [endDate, setEndDate] = useState(initial.endDate ?? '');
+  const [status, setStatus] = useState(initial.status ?? '');
   const [notes, setNotes] = useState(initial.notes ?? '');
 
-  // Extras que podem existir no registo
   const [sessionsUsed] = useState<number>(initial.sessionsUsed ?? 0);
 
   const [saving, setSaving] = useState(false);
@@ -80,10 +82,10 @@ export default function PackageEditor({
     setSaving(true);
     setErr(null);
 
-    // Derivados: total de sessões + preço em cêntimos
-    const sessionsTotal = sessionsPerWeek > 0 && durationWeeks > 0
-      ? sessionsPerWeek * durationWeeks
-      : undefined;
+    const sessionsTotal =
+      sessionsPerWeek > 0 && durationWeeks > 0
+        ? sessionsPerWeek * durationWeeks
+        : undefined;
 
     const priceCents = Math.round((Number(priceMonthly) || 0) * 100);
 
@@ -94,17 +96,19 @@ export default function PackageEditor({
       packageName,
       sessionsPerWeek,
       durationWeeks,
-      // enviamos os dois para o endpoint ser “tolerante”
+      // enviamos os dois para o backend poder aceitar qualquer um
       priceMonthly,
       priceCents,
       sessionsTotal,
-      // manter o histórico do que já foi usado se existir (opcional)
       sessionsUsed: Number.isFinite(sessionsUsed) ? sessionsUsed : undefined,
       startDate: startDate || null,
+      endDate: endDate || null,
+      status: status || null,
       notes: notes || null,
     };
 
-    const url = mode === 'edit' && id ? `/api/sb/packages/${id}` : `/api/sb/packages`;
+    const url =
+      mode === 'edit' && id ? `/api/sb/packages/${id}` : `/api/sb/packages`;
     const method = mode === 'edit' && id ? 'PATCH' : 'POST';
 
     const res = await fetch(url, {
@@ -153,7 +157,7 @@ export default function PackageEditor({
               className="rounded-lg border p-2"
               value={String(planId ?? '')}
               onChange={(e) => setPlanId(e.target.value)}
-              placeholder="uuid do plano (se existir)"
+              placeholder="uuid do plano"
             />
           </label>
         </div>
@@ -203,15 +207,35 @@ export default function PackageEditor({
         </label>
       </div>
 
-      <label className="grid gap-1">
-        <span className="text-sm text-gray-600">Data de início</span>
-        <input
-          type="date"
-          className="rounded-lg border p-2"
-          value={startDate ?? ''}
-          onChange={(e) => setStartDate(e.target.value)}
-        />
-      </label>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <label className="grid gap-1">
+          <span className="text-sm text-gray-600">Início</span>
+          <input
+            type="date"
+            className="rounded-lg border p-2"
+            value={startDate ?? ''}
+            onChange={(e) => setStartDate(e.target.value)}
+          />
+        </label>
+        <label className="grid gap-1">
+          <span className="text-sm text-gray-600">Fim (opcional)</span>
+          <input
+            type="date"
+            className="rounded-lg border p-2"
+            value={endDate ?? ''}
+            onChange={(e) => setEndDate(e.target.value)}
+          />
+        </label>
+        <label className="grid gap-1">
+          <span className="text-sm text-gray-600">Estado (texto)</span>
+          <input
+            className="rounded-lg border p-2"
+            value={status ?? ''}
+            onChange={(e) => setStatus(e.target.value)}
+            placeholder="ex.: active, paused…"
+          />
+        </label>
+      </div>
 
       <label className="grid gap-1">
         <span className="text-sm text-gray-600">Notas</span>
@@ -228,11 +252,7 @@ export default function PackageEditor({
 
       <div className="mt-2 flex items-center justify-end gap-2">
         {onClose && (
-          <button
-            className="rounded-lg border px-3 py-2"
-            onClick={onClose}
-            disabled={saving}
-          >
+          <button className="rounded-lg border px-3 py-2" onClick={onClose} disabled={saving}>
             Cancelar
           </button>
         )}
