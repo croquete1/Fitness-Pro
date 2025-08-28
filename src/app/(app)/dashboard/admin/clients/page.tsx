@@ -39,7 +39,6 @@ export default async function Page() {
       <div className="flex items-center justify-between">
         <h1 style={{ margin: 0 }}>Clientes & Pacotes</h1>
         {/* Admin: editor de criação (pode setar trainerId manualmente) */}
-        {/* @ts-expect-error */}
         <PackageEditor admin mode="create" onClose={() => {}} />
       </div>
 
@@ -68,7 +67,6 @@ export default async function Page() {
                 <td style={{padding:8}}>{p.start_date || '—'} {p.end_date ? `→ ${p.end_date}` : ''}</td>
                 <td style={{padding:8}}><span className="chip">{p.status}</span></td>
                 <td style={{padding:8}}>
-                  {/* @ts-expect-error */}
                   <PackageEditor admin mode="edit" initial={{
                     id: p.id,
                     trainerId: p.trainer_id,
