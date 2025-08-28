@@ -1,184 +1,58 @@
 'use client';
 
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  PropsWithChildren,
-} from 'react';
-import * as ReactDOM from 'react-dom';
-import { CheckCircle, Info, AlertTriangle, XCircle, X } from 'lucide-react';
+import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 
-type ToastVariant = 'success' | 'info' | 'warning' | 'error';
-export type ToastOptions = {
-  id?: string;
-  title?: string;
-  description?: string;
-  variant?: ToastVariant;
-  duration?: number; // ms (default 3500)
-  action?: { label: string; onClick: () => void };
+type ToastKind = 'ok' | 'err' | 'info';
+export type Toast = { id: string; text: string; kind?: ToastKind; ms?: number };
+
+type Ctx = {
+  push: (t: Omit<Toast, 'id'>) => void;
+  remove: (id: string) => void;
 };
 
-type ToastItem = Required<ToastOptions> & { id: string; leaving: boolean };
-
-type ToastContextValue = {
-  show: (opts: ToastOptions) => string;
-  success: (msg: string, opts?: Omit<ToastOptions, 'description' | 'variant'>) => string;
-  info: (msg: string, opts?: Omit<ToastOptions, 'description' | 'variant'>) => string;
-  warning: (msg: string, opts?: Omit<ToastOptions, 'description' | 'variant'>) => string;
-  error: (msg: string, opts?: Omit<ToastOptions, 'description' | 'variant'>) => string;
-  dismiss: (id: string) => void;
-  clear: () => void;
-};
-
-const ToastContext = createContext<ToastContextValue | null>(null);
+const ToastCtx = createContext<Ctx | null>(null);
 
 export function useToast() {
-  const ctx = useContext(ToastContext);
-  if (!ctx) throw new Error('useToast must be used within <ToastProvider>');
+  const ctx = useContext(ToastCtx);
+  if (!ctx) throw new Error('useToast must be used inside <ToastProvider/>');
   return ctx;
 }
 
-function ToastIcon({ variant }: { variant: ToastVariant }) {
-  const props = { size: 18, 'aria-hidden': true } as const;
-  if (variant === 'success') return <CheckCircle {...props} />;
-  if (variant === 'warning') return <AlertTriangle {...props} />;
-  if (variant === 'error') return <XCircle {...props} />;
-  return <Info {...props} />;
-}
+export default function ToastProvider({ children }: { children: React.ReactNode }) {
+  const [items, setItems] = useState<Toast[]>([]);
 
-function ToastCard({
-  t,
-  onClose,
-}: {
-  t: ToastItem;
-  onClose: (id: string) => void;
-}) {
-  return (
-    <div
-      className="fp-toast"
-      data-variant={t.variant}
-      data-state={t.leaving ? 'leave' : 'enter'}
-      role="status"
-      aria-live="polite"
-      style={{ ['--dur' as any]: `${t.duration}ms` }}
-    >
-      <div className="fp-toast-icon">
-        <ToastIcon variant={t.variant} />
-      </div>
-
-      <div className="fp-toast-content">
-        {t.title && <div className="fp-toast-title">{t.title}</div>}
-        {t.description && <div className="fp-toast-desc">{t.description}</div>}
-        {t.action && (
-          <button
-            className="fp-toast-action"
-            onClick={() => {
-              try { t.action!.onClick(); } finally { onClose(t.id); }
-            }}
-          >
-            {t.action.label}
-          </button>
-        )}
-        <div className="fp-toast-progress" />
-      </div>
-
-      <button
-        className="fp-toast-close"
-        aria-label="Fechar"
-        onClick={() => onClose(t.id)}
-        title="Fechar"
-      >
-        <X size={16} />
-      </button>
-    </div>
-  );
-}
-
-export default function ToastProvider({ children }: PropsWithChildren) {
-  const [toasts, setToasts] = useState<ToastItem[]>([]);
-  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
-
-  const createId = () => Math.random().toString(36).slice(2, 9);
-
-  const scheduleAutoDismiss = useCallback((id: string, ms: number) => {
-    if (timers.current.has(id)) clearTimeout(timers.current.get(id)!);
-    const tm = setTimeout(() => {
-      // trigger leave anim first
-      setToasts(prev => prev.map(t => (t.id === id ? { ...t, leaving: true } : t)));
-      setTimeout(() => {
-        setToasts(prev => prev.filter(t => t.id !== id));
-        timers.current.delete(id);
-      }, 170); // deve combinar com a duração de saída no CSS
-    }, ms);
-    timers.current.set(id, tm);
+  const remove = useCallback((id: string) => {
+    setItems((xs) => xs.filter((x) => x.id !== id));
   }, []);
 
-  const show = useCallback((opts: ToastOptions) => {
-    const id = opts.id ?? createId();
-    const item: ToastItem = {
-      id,
-      title: opts.title ?? '',
-      description: opts.description ?? '',
-      variant: opts.variant ?? 'info',
-      duration: Math.max(1500, opts.duration ?? 3500),
-      action: opts.action ?? (undefined as any),
-      leaving: false,
-    };
-    setToasts(prev => [item, ...prev]);
-    scheduleAutoDismiss(id, item.duration);
-    return id;
-  }, [scheduleAutoDismiss]);
+  const push = useCallback((t: Omit<Toast, 'id'>) => {
+    const id = crypto.randomUUID();
+    const toast: Toast = { id, kind: 'ok', ms: 3000, ...t };
+    setItems((xs) => [...xs, toast]);
+    // auto-dismiss
+    const ms = toast.ms ?? 3000;
+    if (ms > 0) setTimeout(() => remove(id), ms);
+  }, [remove]);
 
-  const dismiss = useCallback((id: string) => {
-    setToasts(prev => prev.map(t => (t.id === id ? { ...t, leaving: true } : t)));
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-      if (timers.current.has(id)) clearTimeout(timers.current.get(id)!);
-      timers.current.delete(id);
-    }, 170);
-  }, []);
-
-  const clear = useCallback(() => {
-    [...timers.current.values()].forEach(clearTimeout);
-    timers.current.clear();
-    setToasts([]);
-  }, []);
-
-  useEffect(() => () => clear(), [clear]);
-
-  const api: ToastContextValue = useMemo(() => ({
-    show,
-    success: (msg, o) => show({ ...o, title: msg, variant: 'success' }),
-    info:    (msg, o) => show({ ...o, title: msg, variant: 'info' }),
-    warning: (msg, o) => show({ ...o, title: msg, variant: 'warning' }),
-    error:   (msg, o) => show({ ...o, title: msg, variant: 'error' }),
-    dismiss,
-    clear,
-  }), [show, dismiss, clear]);
-
-  const host = (
-    <div className="fp-toast-host" aria-live="polite" aria-atomic="false">
-      {toasts.map(t => (
-        <ToastCard key={t.id} t={t} onClose={dismiss} />
-      ))}
-    </div>
-  );
-
-  // portal para o <body> (SSR-safe)
-  const portal =
-    typeof document !== 'undefined'
-      ? ReactDOM.createPortal(host, document.body)
-      : host;
+  const value = useMemo<Ctx>(() => ({ push, remove }), [push, remove]);
 
   return (
-    <ToastContext.Provider value={api}>
+    <ToastCtx.Provider value={value}>
       {children}
-      {portal}
-    </ToastContext.Provider>
+      {/* Viewport */}
+      <div className="fixed right-4 top-4 z-[10000] flex flex-col gap-2">
+        {items.map((t) => (
+          <div
+            key={t.id}
+            className={`rounded-xl px-3 py-2 shadow-lg text-white ${
+              t.kind === 'err' ? 'bg-red-600' : t.kind === 'info' ? 'bg-blue-600' : 'bg-green-600'
+            }`}
+            role="status"
+          >
+            {t.text}
+          </div>
+        ))}
+      </div>
+    </ToastCtx.Provider>
   );
 }

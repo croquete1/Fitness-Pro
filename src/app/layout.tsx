@@ -1,6 +1,7 @@
 // src/app/layout.tsx  (ROOT LAYOUT – minimalista e estável)
 import "./globals.css";
 import type { Metadata } from "next";
+import ToastProvider from '@/components/ui/ToastProvider';
 
 export const metadata: Metadata = {
   title: "Fitness Pro",
@@ -29,7 +30,15 @@ export default function RootLayout({
       </head>
       {/* Mantém simples: nada de Sidebar/Providers aqui.
           O login renderiza normalmente; o shell completo fica no layout de (app)/dashboard */}
-      <body data-auth-root>{children}</body>
+      <body data-auth-root>{children}
+    export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="pt">
+      <body>
+        <ToastProvider>
+          {children}
+        </ToastProvider>
+      </body>
     </html>
   );
 }
