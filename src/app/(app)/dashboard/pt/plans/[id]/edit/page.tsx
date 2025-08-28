@@ -1,7 +1,7 @@
 // src/app/(app)/dashboard/pt/plans/[id]/edit/page.tsx
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import dynamicClient from 'next/dynamic'; // <-- RENOMEADO
+import dynamicClient from 'next/dynamic'; // <- import renomeado
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { Role } from '@prisma/client';
@@ -11,7 +11,6 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const fetchCache = 'force-no-store';
 
-// Client component (editor) carregado no cliente
 const PlanEditor = dynamicClient(() => import('@/components/plan/PlanEditor'), { ssr: false });
 
 type SBPlan = {
@@ -74,7 +73,6 @@ export default async function Page({ params }: { params: { id: string } }) {
       </div>
 
       <div className="card" style={{ padding: 12 }}>
-        {/* @ts-expect-error Client component */}
         <PlanEditor mode="edit" initial={initial} />
       </div>
     </div>
