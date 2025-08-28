@@ -16,8 +16,18 @@ const Ic = {
   ),
   Receipt: () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-      <path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3z" stroke="currentColor" strokeWidth="2"/>
-      <path d="M9 7h6M9 11h6M9 15h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+      <path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3z" stroke="currentColor" strokeWidth="2" />
+      <path d="M9 7h6M9 11h6M9 15h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  ),
+  Users: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      {/* user 1 */}
+      <circle cx="9" cy="8" r="3" stroke="currentColor" strokeWidth="2" />
+      <path d="M3 18c0-3 3-5 6-5s6 2 6 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      {/* user 2 (traseiro) */}
+      <circle cx="17" cy="9" r="2.5" stroke="currentColor" strokeWidth="2" />
+      <path d="M14.5 18c.4-2.2 2.4-3.7 4.5-3.7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   ),
 };
@@ -39,19 +49,16 @@ export default function SidebarPT() {
     {
       title: 'Geral',
       items: [
-        // rota PT (já existe no teu repo)
         { label: 'Dashboard', href: '/dashboard/pt', icon: <Ic.Home /> },
       ],
     },
     {
       title: 'Clientes',
       items: [
-        // NOVO: carteira
         { label: 'Clientes', href: '/dashboard/pt/clients', icon: <Ic.Users /> },
-    // NOVO: planos
-       { label: 'Planos de treino', href: '/dashboard/pt/plans', icon: <Ic.Receipt /> },
-  ],
-},
+        { label: 'Planos de treino', href: '/dashboard/pt/plans', icon: <Ic.Receipt /> },
+      ],
+    },
   ];
 
   // Faturação só se permitido (admin ou PT em allowlist)
