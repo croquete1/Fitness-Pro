@@ -1,75 +1,66 @@
 // src/app/(app)/dashboard/pt/plans/[id]/edit/page.tsx
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import dynamicClient from 'next/dynamic'; // <- import renomeado
+import NextDynamic from 'next/dynamic';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { Role } from '@prisma/client';
+import { Role, Status } from '@prisma/client';
 import { createServerClient } from '@/lib/supabaseServer';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const fetchCache = 'force-no-store';
 
-const PlanEditor = dynamicClient(() => import('@/components/plan/PlanEditor'), { ssr: false });
+// Carrega o editor no cliente
+const PlanEditor = NextDynamic(() => import('@/components/plan/PlanEditor'), { ssr: false });
 
-type SBPlan = {
-  id: string;
-  title: string | null;
-  notes: string | null;
-  status: string | null;
-  exercises: any | null;
-  trainer_id: string;
-  client_id: string;
-  updated_at: string | null;
-  created_at: string | null;
-};
-
-async function getPlan(id: string): Promise<SBPlan | null> {
-  const sb = createServerClient();
-  const { data, error } = await sb.from('training_plans').select('*').eq('id', id).single();
-  if (error) return null;
-  return data as SBPlan;
+function toStatus(v: unknown): Status {
+  const s = String(v ?? '').toUpperCase();
+  if (s === 'ACTIVE') return Status.ACTIVE;
+  if (s === 'PENDING') return Status.PENDING;
+  if (s === 'SUSPENDED') return Status.SUSPENDED;
+  // fallback seguro
+  return Status.PENDING;
 }
 
 export default async function Page({ params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   const me = session?.user as any;
   if (!me?.id) redirect('/login');
-  if (me.role !== Role.TRAINER && me.role !== Role.ADMIN) redirect('/dashboard');
+  if (![Role.ADMIN, Role.TRAINER].includes(me.role)) redirect('/dashboard');
 
-  const plan = await getPlan(params.id);
-  if (!plan) {
-    return (
-      <div style={{ padding: 16 }}>
-        <h1>Editar plano</h1>
-        <div className="card" style={{ padding: 12 }}>
-          <div className="badge-danger">Plano não encontrado.</div>
-          <div style={{ marginTop: 8 }}>
-            <Link href="/dashboard/pt/plans" className="btn">Voltar</Link>
-          </div>
-        </div>
-      </div>
-    );
+  const sb = createServerClient();
+  const { data: plan, error } = await sb
+    .from('training_plans')
+    .select('*')
+    .eq('id', params.id)
+    .single();
+
+  if (error || !plan) {
+    redirect('/dashboard/pt/plans'); // não encontrado
   }
 
+  // Verificação de acesso (admin tem sempre acesso; PT só ao que é dele)
+  if (me.role === Role.TRAINER && plan.trainer_id !== me.id) {
+    redirect('/dashboard/pt/plans');
+  }
+
+  // Converte o status string -> enum Status (tipagem do PlanEditor)
   const initial = {
-    id: plan.id,
-    trainerId: plan.trainer_id,
-    clientId: plan.client_id,
-    title: plan.title ?? '',
-    notes: plan.notes,
-    status: plan.status ?? 'ACTIVE',
-    exercises: plan.exercises ?? [],
-    updatedAt: plan.updated_at ?? null,
-    createdAt: plan.created_at ?? null,
+    id: plan.id as string,
+    trainerId: plan.trainer_id as string,
+    clientId: plan.client_id as string,
+    title: (plan.title ?? '') as string,
+    notes: (plan.notes ?? '') as string,
+    status: toStatus(plan.status), // <-- FIX DE TIPOS
+    exercises: plan.exercises as any,
+    updatedAt: plan.updated_at as string,
+    createdAt: plan.created_at as string,
   };
 
   return (
     <div style={{ padding: 16, display: 'grid', gap: 12 }}>
       <div className="flex items-center justify-between">
         <h1 style={{ margin: 0 }}>Editar plano</h1>
-        <Link href="/dashboard/pt/plans" className="btn ghost">← Voltar</Link>
       </div>
 
       <div className="card" style={{ padding: 12 }}>
