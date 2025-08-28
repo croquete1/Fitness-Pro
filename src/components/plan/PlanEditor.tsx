@@ -1,212 +1,275 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
-type Exercise = {
-  id?: string;
+type Status = 'ACTIVE' | 'PENDING' | 'SUSPENDED';
+type Mode = 'create' | 'edit';
+
+export type Exercise = {
+  id?: string;          // local id (ui)
   name: string;
   sets?: number;
-  reps?: string;   // ex: "8–12"
-  weight?: string; // ex: "20 kg" ou "RPE 8"
-  notes?: string;
+  reps?: string | number;
+  rest?: string;
+  weight?: string | number; // anotação de peso
+  notes?: string;           // anotação por exercício
 };
 
-type PlanEditorProps = {
-  initial?: Partial<{
-    title: string;
-    notes: string;
-    status: string; // ACTIVE | DRAFT | SUSPENDED | DELETED …
-    exercises: Exercise[];
-  }>;
-  trainerId?: string;
-  clientId?: string;
-
-  saveUrl?: string;                  // opcional: o componente faz o fetch
-  method?: 'POST' | 'PUT' | 'PATCH';
-  onSubmit?: (data: any) => Promise<void> | void; // alternativa manual
-} & Record<string, any>;
+type InitialPlan = {
+  id?: string;
+  trainerId: string;
+  clientId: string;
+  title: string;
+  notes: string | null;
+  status: Status;
+  exercises: Exercise[];
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
 
 export default function PlanEditor({
+  mode,
   initial,
-  trainerId,
-  clientId,
-  saveUrl,
-  method,
-  onSubmit,
-  ...rest
-}: PlanEditorProps) {
-  const [title, setTitle] = useState(initial?.title ?? '');
-  const [notes, setNotes] = useState(initial?.notes ?? '');
-  const [status, setStatus] = useState(initial?.status ?? 'ACTIVE');
-  const [exercises, setExercises] = useState<Exercise[]>(
-    initial?.exercises?.length ? initial.exercises : [{ name: '', sets: 3, reps: '10', weight: '', notes: '' }]
-  );
+  onSaved,
+}: {
+  mode: Mode;
+  initial: InitialPlan;
+  onSaved?: (plan: any) => void;
+}) {
+  const [title, setTitle] = useState(initial.title ?? '');
+  const [status, setStatus] = useState<Status>(initial.status ?? 'ACTIVE');
+  const [notes, setNotes] = useState<string>(initial.notes ?? '');
+  const [exercises, setExercises] = useState<Exercise[]>(initial.exercises ?? []);
   const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const [ok, setOk] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  function updateExercise(i: number, patch: Partial<Exercise>) {
-    setExercises((prev) => prev.map((e, idx) => (idx === i ? { ...e, ...patch } : e)));
+  // Toasts simples
+  const [toast, setToast] = useState<{ id: number; text: string; kind?: 'ok' | 'err' } | null>(null);
+  const toastId = useRef(0);
+  function showToast(text: string, kind: 'ok' | 'err' = 'ok') {
+    setToast({ id: ++toastId.current, text, kind });
+    const id = toastId.current;
+    setTimeout(() => setToast((t) => (t && t.id === id ? null : t)), 3000);
   }
+
+  // Helpers de exercícios
   function addExercise() {
-    setExercises((prev) => [...prev, { name: '', sets: 3, reps: '10', weight: '', notes: '' }]);
+    setExercises((xs) => [
+      ...xs,
+      { id: crypto.randomUUID(), name: '', sets: 3, reps: '10-12', rest: '60-90s', weight: '', notes: '' },
+    ]);
   }
-  function removeExercise(i: number) {
-    setExercises((prev) => prev.filter((_, idx) => idx !== i));
+  function updateExercise(idx: number, patch: Partial<Exercise>) {
+    setExercises((xs) => xs.map((x, i) => (i === idx ? { ...x, ...patch } : x)));
+  }
+  function removeExercise(idx: number) {
+    setExercises((xs) => xs.filter((_, i) => i !== idx));
   }
 
-  async function handleSave(e?: React.FormEvent) {
-    e?.preventDefault();
-    setSaving(true);
-    setErr(null);
-    setOk(false);
-
-    const payload = {
-      trainerId: trainerId ?? null,
-      clientId: clientId ?? null,
+  const dirtyPayload = useMemo(
+    () => ({
+      trainerId: initial.trainerId,
+      clientId: initial.clientId,
       title,
       notes: notes || null,
       status,
       exercises,
-    };
+    }),
+    [initial.trainerId, initial.clientId, title, notes, status, exercises],
+  );
 
+  // Guardar (manual + usado no autosave)
+  async function persist(showOkToast = true) {
+    setSaving(true);
+    setError(null);
     try {
-      if (saveUrl) {
-        const res = await fetch(saveUrl, {
-          method: method ?? (initial ? 'PATCH' : 'POST'),
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        if (!res.ok) {
-          const j = await res.json().catch(() => ({}));
-          throw new Error(j?.error || `HTTP ${res.status}`);
-        }
-      } else if (onSubmit) {
-        await onSubmit(payload);
-      } else {
-        console.warn('[PlanEditor] Nenhum saveUrl/onSubmit fornecido:', payload);
+      const url =
+        mode === 'create'
+          ? '/api/pt/plans'
+          : `/api/pt/plans/${encodeURIComponent(String(initial.id))}`;
+      const method = mode === 'create' ? 'POST' : 'PATCH';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dirtyPayload),
+      });
+
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = j?.error || 'Falha a guardar';
+        setError(msg);
+        showToast(msg, 'err');
+        return;
       }
-      setOk(true);
+      setLastSavedAt(new Date());
+      if (showOkToast) showToast(mode === 'create' ? 'Plano criado' : 'Alterações guardadas', 'ok');
+
+      // Se for criação, bloqueia auto-save duplicado e atualiza id/local
+      if (mode === 'create' && j?.plan?.id) {
+        history.replaceState(null, '', `/dashboard/pt/plans/${j.plan.id}/edit`);
+      }
+      onSaved?.(j.plan ?? j.data ?? null);
     } catch (e: any) {
-      setErr(e?.message || 'Erro ao guardar');
+      const msg = e?.message || 'Erro de rede';
+      setError(msg);
+      showToast(msg, 'err');
     } finally {
       setSaving(false);
     }
   }
 
+  // Auto-save (apenas em modo edit)
+  useEffect(() => {
+    if (mode !== 'edit') return;
+    const handle = setTimeout(() => {
+      void persist(false);
+    }, 900); // debounce 900ms
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, title, notes, status, exercises]);
+
   return (
-    <form onSubmit={handleSave} {...rest}>
-      <div className="grid gap-4" style={{ maxWidth: 900 }}>
-        <div className="grid gap-1">
-          <label className="text-sm text-gray-600">Título do plano</label>
+    <div className="grid gap-4">
+      {/* Toast simples */}
+      {toast && (
+        <div
+          className={`fixed right-4 bottom-4 z-[10000] rounded-xl px-3 py-2 shadow-lg ${
+            toast.kind === 'err' ? 'bg-red-600 text-white' : 'bg-green-600 text-white'
+          }`}
+        >
+          {toast.text}
+        </div>
+      )}
+
+      <div className="grid gap-2 md:grid-cols-2">
+        <label className="grid gap-1">
+          <span className="text-sm text-gray-600">Título</span>
           <input
             className="rounded-lg border p-2"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Ex.: Hipertrofia Full-Body"
-            required
+            placeholder="Peito e tríceps — Semana 1"
           />
-        </div>
+        </label>
 
-        <div className="grid gap-1">
-          <label className="text-sm text-gray-600">Notas gerais do plano</label>
-          <textarea
-            className="rounded-lg border p-2"
-            rows={4}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Observações gerais, recomendações, etc."
-          />
-        </div>
-
-        <div className="grid gap-1">
-          <label className="text-sm text-gray-600">Estado</label>
+        <label className="grid gap-1">
+          <span className="text-sm text-gray-600">Estado</span>
           <select
             className="rounded-lg border p-2"
             value={status}
-            onChange={(e) => setStatus(e.target.value)}
+            onChange={(e) => setStatus(e.target.value as Status)}
           >
             <option value="ACTIVE">ACTIVE</option>
-            <option value="DRAFT">DRAFT</option>
+            <option value="PENDING">PENDING</option>
             <option value="SUSPENDED">SUSPENDED</option>
-            <option value="DELETED">DELETED</option>
           </select>
-        </div>
+        </label>
+      </div>
 
-        <div className="grid gap-2">
-          <div className="text-sm text-gray-600">Exercícios</div>
-          {exercises.map((ex, i) => (
-            <div key={i} className="grid gap-2 rounded-xl border p-3">
-              <div className="grid grid-cols-2 gap-3">
+      <label className="grid gap-1">
+        <span className="text-sm text-gray-600">Notas do plano</span>
+        <textarea
+          className="rounded-lg border p-2 min-h-[90px]"
+          value={notes ?? ''}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Notas gerais, foco técnico, RIR, etc."
+        />
+      </label>
+
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">Exercícios</h3>
+        <button className="btn primary" onClick={addExercise}>+ Adicionar exercício</button>
+      </div>
+
+      <div className="grid gap-3">
+        {exercises.map((ex, idx) => (
+          <div key={ex.id ?? idx} className="rounded-xl border p-3">
+            <div className="grid gap-2 md:grid-cols-3">
+              <label className="grid gap-1">
+                <span className="text-sm text-gray-600">Nome</span>
                 <input
                   className="rounded-lg border p-2"
-                  placeholder="Ex.: Agachamento livre"
                   value={ex.name}
-                  onChange={(e) => updateExercise(i, { name: e.target.value })}
-                  required
+                  onChange={(e) => updateExercise(idx, { name: e.target.value })}
+                  placeholder="Supino inclinado com halteres"
                 />
-                <div className="grid grid-cols-3 gap-2">
-                  <input
-                    className="rounded-lg border p-2"
-                    type="number"
-                    min={1}
-                    placeholder="Séries"
-                    value={ex.sets ?? ''}
-                    onChange={(e) => updateExercise(i, { sets: parseInt(e.target.value || '0', 10) })}
-                  />
-                  <input
-                    className="rounded-lg border p-2"
-                    placeholder="Reps (ex.: 8–12)"
-                    value={ex.reps ?? ''}
-                    onChange={(e) => updateExercise(i, { reps: e.target.value })}
-                  />
-                  <input
-                    className="rounded-lg border p-2"
-                    placeholder="Peso/RPE"
-                    value={ex.weight ?? ''}
-                    onChange={(e) => updateExercise(i, { weight: e.target.value })}
-                  />
-                </div>
-              </div>
-              <textarea
-                className="rounded-lg border p-2"
-                rows={2}
-                placeholder="Notas do exercício (técnica, tempo, progressão, etc.)"
-                value={ex.notes ?? ''}
-                onChange={(e) => updateExercise(i, { notes: e.target.value })}
-              />
-              <div className="flex items-center justify-end">
-                <button
-                  type="button"
-                  className="btn icon"
-                  onClick={() => removeExercise(i)}
-                  aria-label="Remover exercício"
-                >
-                  🗑️
-                </button>
-              </div>
+              </label>
+              <label className="grid gap-1">
+                <span className="text-sm text-gray-600">Séries</span>
+                <input
+                  className="rounded-lg border p-2"
+                  type="number"
+                  value={ex.sets ?? ''}
+                  onChange={(e) => updateExercise(idx, { sets: Number(e.target.value || 0) })}
+                  placeholder="3"
+                />
+              </label>
+              <label className="grid gap-1">
+                <span className="text-sm text-gray-600">Reps</span>
+                <input
+                  className="rounded-lg border p-2"
+                  value={ex.reps ?? ''}
+                  onChange={(e) => updateExercise(idx, { reps: e.target.value })}
+                  placeholder="8–10"
+                />
+              </label>
             </div>
-          ))}
-          <div>
-            <button type="button" className="btn" onClick={addExercise}>
-              + Adicionar exercício
-            </button>
+
+            <div className="grid gap-2 md:grid-cols-3 mt-2">
+              <label className="grid gap-1">
+                <span className="text-sm text-gray-600">Descanso</span>
+                <input
+                  className="rounded-lg border p-2"
+                  value={ex.rest ?? ''}
+                  onChange={(e) => updateExercise(idx, { rest: e.target.value })}
+                  placeholder="60–90s"
+                />
+              </label>
+              <label className="grid gap-1">
+                <span className="text-sm text-gray-600">Peso (anotação)</span>
+                <input
+                  className="rounded-lg border p-2"
+                  value={ex.weight ?? ''}
+                  onChange={(e) => updateExercise(idx, { weight: e.target.value })}
+                  placeholder="22.5kg"
+                />
+              </label>
+            </div>
+
+            <label className="grid gap-1 mt-2">
+              <span className="text-sm text-gray-600">Notas do exercício</span>
+              <textarea
+                className="rounded-lg border p-2 min-h-[70px]"
+                value={ex.notes ?? ''}
+                onChange={(e) => updateExercise(idx, { notes: e.target.value })}
+                placeholder="Amplitude controlada, 2s excêntrico, 1s pausa no fundo…"
+              />
+            </label>
+
+            <div className="mt-2 flex justify-end">
+              <button className="btn danger ghost" onClick={() => removeExercise(idx)}>
+                Remover
+              </button>
+            </div>
           </div>
-        </div>
+        ))}
+      </div>
 
-        {err && <p className="text-sm text-red-600">{err}</p>}
-        {ok && <p className="text-sm text-green-600">Plano guardado com sucesso.</p>}
+      {error && <div className="text-sm text-red-600">{error}</div>}
 
-        <div className="mt-2 flex items-center gap-2">
-          <button
-            type="submit"
-            className="rounded-lg border bg-black/90 px-3 py-2 text-white disabled:opacity-60"
-            disabled={saving}
-          >
-            {saving ? 'A guardar…' : initial ? 'Atualizar plano' : 'Criar plano'}
-          </button>
+      <div className="flex items-center justify-end gap-2">
+        <button className="btn" onClick={() => history.back()} disabled={saving}>
+          Cancelar
+        </button>
+        <button className="btn primary" onClick={() => persist(true)} disabled={saving}>
+          {saving ? 'A guardar…' : 'Guardar'}
+        </button>
+        <div className="text-xs text-gray-500">
+          {lastSavedAt ? `Guardado às ${lastSavedAt.toLocaleTimeString()}` : '—'}
         </div>
       </div>
-    </form>
+    </div>
   );
 }
