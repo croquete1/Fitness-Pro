@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 export type PackageInitial = Partial<{
   id: string;
@@ -8,12 +8,18 @@ export type PackageInitial = Partial<{
   clientId: string;
   planId: string | null;
 
+  // Campos “base”
   packageName: string;
   sessionsPerWeek: number;
   durationWeeks: number;
-  priceMonthly: number;
-  startDate: string;   // ISO date (YYYY-MM-DD)
+  priceMonthly: number; // €
+  startDate: string;     // ISO (YYYY-MM-DD)
   notes: string | null;
+
+  // Extras (compat Supabase / páginas já existentes)
+  sessionsTotal: number; // total de sessões contratadas
+  sessionsUsed: number;  // já usadas
+  priceCents: number;    // preço mensal em cêntimos
 }>;
 
 type PackageEditorProps = {
@@ -39,11 +45,33 @@ export default function PackageEditor({
 
   // Campos do pacote
   const [packageName, setPackageName] = useState(initial.packageName ?? '');
-  const [sessionsPerWeek, setSessionsPerWeek] = useState<number>(initial.sessionsPerWeek ?? 1);
+
+  // Se não vier sessionsPerWeek, inferimos a partir de sessionsTotal/durationWeeks
+  const inferredSPW = useMemo(() => {
+    if (initial.sessionsPerWeek != null) return initial.sessionsPerWeek;
+    if (initial.sessionsTotal != null && initial.durationWeeks) {
+      const v = Math.round(initial.sessionsTotal / initial.durationWeeks);
+      return Number.isFinite(v) && v > 0 ? v : 1;
+    }
+    return 1;
+  }, [initial.sessionsPerWeek, initial.sessionsTotal, initial.durationWeeks]);
+
+  const [sessionsPerWeek, setSessionsPerWeek] = useState<number>(inferredSPW);
   const [durationWeeks, setDurationWeeks] = useState<number>(initial.durationWeeks ?? 4);
-  const [priceMonthly, setPriceMonthly] = useState<number>(initial.priceMonthly ?? 0);
+
+  // Se vier priceCents, preferimos calcular priceMonthly a partir daí
+  const initialMonthly = useMemo(() => {
+    if (initial.priceMonthly != null) return initial.priceMonthly;
+    if (initial.priceCents != null) return Math.round(initial.priceCents) / 100;
+    return 0;
+  }, [initial.priceMonthly, initial.priceCents]);
+
+  const [priceMonthly, setPriceMonthly] = useState<number>(initialMonthly);
   const [startDate, setStartDate] = useState(initial.startDate ?? '');
   const [notes, setNotes] = useState(initial.notes ?? '');
+
+  // Extras que podem existir no registo
+  const [sessionsUsed] = useState<number>(initial.sessionsUsed ?? 0);
 
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -52,6 +80,13 @@ export default function PackageEditor({
     setSaving(true);
     setErr(null);
 
+    // Derivados: total de sessões + preço em cêntimos
+    const sessionsTotal = sessionsPerWeek > 0 && durationWeeks > 0
+      ? sessionsPerWeek * durationWeeks
+      : undefined;
+
+    const priceCents = Math.round((Number(priceMonthly) || 0) * 100);
+
     const payload = {
       trainerId,
       clientId,
@@ -59,14 +94,17 @@ export default function PackageEditor({
       packageName,
       sessionsPerWeek,
       durationWeeks,
+      // enviamos os dois para o endpoint ser “tolerante”
       priceMonthly,
+      priceCents,
+      sessionsTotal,
+      // manter o histórico do que já foi usado se existir (opcional)
+      sessionsUsed: Number.isFinite(sessionsUsed) ? sessionsUsed : undefined,
       startDate: startDate || null,
       notes: notes || null,
     };
 
-    // Mantive endpoints genéricos — ajusta se os teus forem outros
-    const url =
-      mode === 'edit' && id ? `/api/sb/packages/${id}` : `/api/sb/packages`;
+    const url = mode === 'edit' && id ? `/api/sb/packages/${id}` : `/api/sb/packages`;
     const method = mode === 'edit' && id ? 'PATCH' : 'POST';
 
     const res = await fetch(url, {
@@ -89,7 +127,6 @@ export default function PackageEditor({
 
   return (
     <div className="grid gap-3">
-      {/* Só mostra estes selects quando for admin ou no modo create */}
       {(admin || mode === 'create') && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <label className="grid gap-1">
