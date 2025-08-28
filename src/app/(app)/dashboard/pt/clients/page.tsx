@@ -1,4 +1,4 @@
-// src/app/(app)/dashboard/admin/clients/page.tsx
+// src/app/(app)/dashboard/pt/clients/page.tsx
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
@@ -10,12 +10,14 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const fetchCache = 'force-no-store';
 
-async function listAllPackages() {
+async function listPackagesByTrainer(trainerId: string) {
   const sb = createServerClient();
   const { data, error } = await sb
     .from('client_packages')
     .select('*')
+    .eq('trainer_id', trainerId)
     .order('created_at', { ascending: false });
+
   return error ? [] : (data ?? []);
 }
 
@@ -31,19 +33,21 @@ async function usersByIds(ids: string[]) {
 export default async function Page() {
   const session = await getServerSession(authOptions);
   const me = session?.user as any;
-  if (!me?.id) redirect('/login');
-  if (me.role !== Role.ADMIN) redirect('/dashboard');
 
-  const pkgs = await listAllPackages();
+  if (!me?.id) redirect('/login');
+  // Permitimos TRAINER e ADMIN verem esta área
+  if (me.role !== Role.TRAINER && me.role !== Role.ADMIN) redirect('/dashboard');
+
+  const pkgs = await listPackagesByTrainer(me.id);
   const ids = [...new Set(pkgs.flatMap((p: any) => [p.client_id, p.trainer_id]))];
   const mapUsers = await usersByIds(ids);
 
   return (
     <div style={{ padding: 16, display: 'grid', gap: 12 }}>
       <div className="flex items-center justify-between">
-        <h1 style={{ margin: 0 }}>Clientes &amp; Pacotes</h1>
-        {/* Admin: criar novo pacote (sem callbacks server→client) */}
-        <PackageEditor admin mode="create" />
+        <h1 style={{ margin: 0 }}>Minha carteira</h1>
+        {/* Criar novo pacote para este treinador (sem callbacks server→client) */}
+        <PackageEditor mode="create" initial={{ trainerId: me.id }} />
       </div>
 
       <div className="card" style={{ padding: 12 }}>
@@ -84,7 +88,6 @@ export default async function Page() {
                 </td>
                 <td style={{ padding: 8 }}>
                   <PackageEditor
-                    admin
                     mode="edit"
                     initial={{
                       id: p.id,
@@ -96,13 +99,21 @@ export default async function Page() {
                       sessionsUsed: p.sessions_used,
                       priceCents: p.price_cents,
                       startDate: p.start_date,
-                      // NOTE: 'endDate' e 'status' foram removidos porque não existem no tipo esperado.
+                      // NOTA: não passamos endDate/status porque não fazem parte do tipo do PackageEditor
                       notes: p.notes,
                     }}
                   />
                 </td>
               </tr>
             ))}
+
+            {!pkgs.length && (
+              <tr>
+                <td colSpan={8} style={{ padding: 16, opacity: 0.7 }}>
+                  Ainda não tens clientes/pacotes — usa o botão “Criar pacote” no topo.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

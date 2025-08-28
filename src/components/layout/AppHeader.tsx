@@ -1,80 +1,101 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
-import { useSidebar } from './SidebarProvider';
+import { useEffect, useState } from 'react';
+import { signOut } from 'next-auth/react';
 
 export default function AppHeader() {
   const router = useRouter();
-  const { /* disponível se quiseres ligar algo da sidebar */ } = useSidebar();
-
-  // -------- Pesquisa --------
   const [q, setQ] = useState('');
-  function onSearchSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const term = q.trim();
-    router.push(`/dashboard/search?q=${encodeURIComponent(term)}`);
-  }
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [showLogout, setShowLogout] = useState(false);
 
-  // -------- Tema (light/dark) --------
-  type Theme = 'light' | 'dark';
-  const preferred = useMemo<Theme>(() => {
-    if (typeof window === 'undefined') return 'light';
-    const saved = localStorage.getItem('theme');
-    if (saved === 'light' || saved === 'dark') return saved;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  // tema persistido
+  useEffect(() => {
+    const saved = (typeof window !== 'undefined' && localStorage.getItem('theme')) as 'light' | 'dark' | null;
+    const initial = saved ?? (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    setTheme(initial);
+    document.documentElement.dataset.theme = initial;
   }, []);
 
-  const [theme, setTheme] = useState<Theme>(preferred);
-
-  // aplica no load
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    try { localStorage.setItem('theme', theme); } catch {}
+    document.documentElement.dataset.theme = theme;
+    if (typeof window !== 'undefined') localStorage.setItem('theme', theme);
   }, [theme]);
 
-  // garante que no 1º render também fica certo (SSR -> CSR)
-  useEffect(() => {
-    setTheme(preferred);
-  }, [preferred]);
-
-  const isDark = theme === 'dark';
-  const toggleTheme = () => setTheme(isDark ? 'light' : 'dark');
+  const onSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const v = q.trim();
+    if (!v) return;
+    // adapta para a tua rota de pesquisa (se existir)
+    router.push(`/dashboard/search?q=${encodeURIComponent(v)}`);
+  };
 
   return (
-    <div className="header-inner">
-      <div className="left">
-        {/* Search */}
-        <form className="search" role="search" aria-label="Pesquisar" onSubmit={onSearchSubmit}>
-          <input
-            type="search"
-            placeholder="Pesquisar..."
-            aria-label="Pesquisar"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-          <button type="submit" className="btn">Pesquisar</button>
-        </form>
+    <>
+      <div className="header-inner">
+        <div className="left">
+          {/* Search */}
+          <form className="search" onSubmit={onSearch} role="search" aria-label="Pesquisar">
+            <input
+              type="search"
+              placeholder="Pesquisar…"
+              aria-label="Pesquisar"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          </form>
+        </div>
+
+        <div className="right">
+          {/* Toggle tema */}
+          <button
+            className="btn icon"
+            aria-label="Alternar tema"
+            title="Alternar tema"
+            onClick={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}
+          >
+            {theme === 'light' ? '🌞' : '🌙'}
+          </button>
+
+          {/* Notificações */}
+          <button className="btn icon" aria-label="Notificações" title="Notificações">🔔</button>
+
+          {/* Sair (com confirmação) */}
+          <button className="btn" onClick={() => setShowLogout(true)}>
+            Sair
+          </button>
+        </div>
       </div>
 
-      <div className="right" style={{ display:'flex', alignItems:'center', gap:8 }}>
-        {/* Toggle de tema */}
-        <button
-          className="btn icon"
-          type="button"
-          onClick={toggleTheme}
-          aria-label={isDark ? 'Mudar para tema claro' : 'Mudar para tema escuro'}
-          title={isDark ? 'Tema claro' : 'Tema escuro'}
+      {/* Modal de confirmação de logout */}
+      {showLogout && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[10000] grid place-items-center bg-black/30 p-4"
+          onClick={(e) => e.currentTarget === e.target && setShowLogout(false)}
         >
-          {isDark ? '☀️' : '🌙'}
-        </button>
-
-        {/* Notificações */}
-        <button className="btn icon" aria-label="Notificações" title="Notificações">🔔</button>
-
-        {/* Sair (anchor para garantir GET no endpoint do NextAuth) */}
-        <a className="btn" href="/api/auth/signout?callbackUrl=/login">Sair</a>
-      </div>
-    </div>
+          <div className="w-full max-w-sm rounded-2xl border bg-white p-4 shadow-xl">
+            <h3 className="mb-2 text-lg font-semibold">Terminar sessão?</h3>
+            <p className="text-sm opacity-80">
+              Vais sair da tua conta. Queres continuar?
+            </p>
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button className="btn ghost" onClick={() => setShowLogout(false)}>
+                Cancelar
+              </button>
+              <button
+                className="btn danger"
+                onClick={() => signOut({ callbackUrl: '/login' })}
+              >
+                Terminar sessão
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
