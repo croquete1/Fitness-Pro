@@ -1,76 +1,59 @@
-"use client";
+'use client';
 
-import { signOut } from "next-auth/react";
-import { useState } from "react";
+import { useState } from 'react';
+import { signOut } from 'next-auth/react';
 
-type Variant = "chip" | "link";
+export default function SignOutConfirmButton() {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-export default function SignOutButton({
-  label = "Terminar sessão",
-  variant = "chip",
-}: {
-  label?: string;
-  variant?: Variant;
-}) {
-  const [loading, setLoading] = useState(false);
-
-  const onClick = async () => {
+  async function doSignOut() {
+    setBusy(true);
     try {
-      setLoading(true);
-      await signOut({ callbackUrl: "/login" });
+      await signOut({ callbackUrl: '/login' });
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
-  };
-
-  if (variant === "link") {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        disabled={loading}
-        aria-label="Terminar sessão"
-        title="Terminar sessão"
-        style={{
-          background: "transparent",
-          border: "none",
-          padding: 0,
-          margin: 0,
-          cursor: loading ? "not-allowed" : "pointer",
-          color: "var(--muted)",
-          textDecoration: "none",
-          fontSize: ".9rem",
-        }}
-      >
-        {loading ? "A sair..." : label}
-      </button>
-    );
   }
 
-  // Variante "chip" (usada no Header)
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={loading}
-      aria-label="Terminar sessão"
-      title="Terminar sessão"
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: ".5rem",
-        background: "transparent",
-        border: "1px solid var(--border)",
-        borderRadius: "999px",
-        padding: ".4rem .7rem",
-        cursor: loading ? "not-allowed" : "pointer",
-        opacity: loading ? 0.7 : 1,
-      }}
-    >
-      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
-        <path d="M10 17l1.4-1.4L8.8 13H21v-2H8.8l2.6-2.6L10 7l-5 5 5 5zM4 5h6V3H4c-1.1 0-2 .9-2 2v14a2 2 0 002 2h6v-2H4V5z" />
-      </svg>
-      <span>{loading ? "A sair..." : label}</span>
-    </button>
+    <>
+      <button className="btn" onClick={() => setOpen(true)} aria-haspopup="dialog">
+        Sair
+      </button>
+
+      {open && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[10000] grid place-items-center bg-black/30 p-4"
+          onClick={(e) => e.currentTarget === e.target && setOpen(false)}
+        >
+          <div className="w-full max-w-sm rounded-2xl border bg-white p-4 shadow-xl">
+            <h3 className="mb-2 text-base font-semibold">Terminar sessão?</h3>
+            <p className="text-sm text-gray-600">
+              Vais sair da tua conta. Queres mesmo continuar?
+            </p>
+
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                className="btn"
+                onClick={() => setOpen(false)}
+                disabled={busy}
+              >
+                Cancelar
+              </button>
+              <button
+                className="rounded-lg border bg-black/90 px-3 py-2 text-white disabled:opacity-60"
+                onClick={doSignOut}
+                disabled={busy}
+              >
+                {busy ? 'A sair…' : 'Terminar sessão'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

@@ -1,43 +1,32 @@
-// src/app/layout.tsx  (ROOT LAYOUT – minimalista e estável)
-import "./globals.css";
-import type { Metadata } from "next";
+// src/app/layout.tsx
+import type { Metadata } from 'next';
+import './globals.css';
 import ToastProvider from '@/components/ui/ToastProvider';
 
 export const metadata: Metadata = {
-  title: "Fitness Pro",
-  description: "Plataforma de gestão Fitness Pro",
+  title: 'Fitness Pro',
+  description: 'Dashboard Fitness Pro',
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+const themeInitScript = `
+(function(){
+  try {
+    var t = localStorage.getItem('theme');
+    if (!t) { t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; }
+    document.documentElement.dataset.theme = t;
+  } catch (e) {}
+})();
+`;
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt" suppressHydrationWarning>
       <head>
-        {/* Inicializa o tema MUITO cedo para evitar “flash” e sem depender de nenhum provider */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              try {
-                var t = localStorage.getItem('fp:theme');
-                if (t) document.documentElement.setAttribute('data-theme', t);
-              } catch(e) {}
-            `,
-          }}
-        />
+        {/* Inicializa tema cedo para evitar FOUC */}
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      {/* Mantém simples: nada de Sidebar/Providers aqui.
-          O login renderiza normalmente; o shell completo fica no layout de (app)/dashboard */}
-      <body data-auth-root>{children}
-    export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="pt">
       <body>
-        <ToastProvider>
-          {children}
-        </ToastProvider>
+        <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
   );

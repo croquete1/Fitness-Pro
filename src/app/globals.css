@@ -211,3 +211,71 @@ html[data-sb-collapsed="1"] .fp-sidebar::after {
   transform: rotate(35deg);
   transition: transform 200ms ease;
 }
+/* ----- tema & cores base ----- */
+:root {
+  --bg: #f8fafc;
+  --text: #111827;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --card: #ffffff;
+  --header-bg: rgba(255, 255, 255, 0.78);
+  --accent: #7c3aed;   /* roxo */
+  --accent-2: #06b6d4; /* ciano */
+}
+:root[data-theme="dark"] {
+  --bg: #0b0f19;
+  --text: #f3f4f6;
+  --muted: #9ca3af;
+  --border: #1f2937;
+  --card: #0f1626;
+  --header-bg: rgba(16, 24, 40, 0.55);
+  --accent: #8b5cf6;
+  --accent-2: #22d3ee;
+}
+
+body { background: var(--bg); color: var(--text); }
+
+/* Cards, badges, chips (um pouco mais colorido) */
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; }
+.badge, .chip {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #fff; border: 0; padding: 2px 8px; border-radius: 999px; font-size: 12px;
+}
+
+/* ----- header layout ----- */
+.app-header {
+  position: sticky; top: 0; z-index: 50;
+  background: var(--header-bg);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+}
+.app-header-inner {
+  display: grid;
+  grid-template-columns: 240px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+}
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand-name { font-weight: 700; letter-spacing: .2px; }
+
+/* Pesquisa centrada */
+.search-wrap { display: flex; align-items: center; width: 100%; }
+.search-input {
+  width: 100%; height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 999px; padding: 0 12px;
+  background: var(--card); color: var(--text);
+  outline: none;
+}
+.search-input::placeholder { color: var(--muted); }
+
+/* Ações à direita */
+.actions { display: flex; align-items: center; gap: 8px; }
+
+/* Botões básicos (caso já não existam) */
+.btn { border: 1px solid var(--border); background: var(--card); color: var(--text);
+  padding: 6px 10px; border-radius: 10px; cursor: pointer; }
+.btn.icon { padding: 6px 8px; border-radius: 10px; }
+.btn:hover { filter: brightness(0.98); }
+.btn:active { transform: translateY(0.5px); }
