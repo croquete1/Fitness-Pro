@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
-import SignOutButton from "@/components/auth/SignOutButton";
+import SignOutButton from "@/components/auth/SignOutConfirmButton";
 
 export default async function AdminHeader() {
   const session = await getServerSession(authOptions);

@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import ThemeToggle from "@/components/layout/ThemeToggle";
-import SignOutButton from "@/components/auth/SignOutButton";
+import SignOutButton from "@/components/auth/SignOutConfirmButton";
 
 export default function Header() {
   const { data } = useSession();

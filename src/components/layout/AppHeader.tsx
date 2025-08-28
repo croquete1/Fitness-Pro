@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import SignOutConfirmButton from '@/components/auth/SignOutConfirmButton';
+import SignOutConfirmButton from '../auth/SignOutConfirmButton';
 
 export default function AppHeader() {
   const router = useRouter();
