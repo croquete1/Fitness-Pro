@@ -24,6 +24,7 @@ export default async function Page({ params }: { params: { id: string } }) {
   // RBAC simples
   if (me.role === Role.TRAINER && plan.trainer_id !== me.id) redirect('/dashboard/pt/plans');
   if (me.role === Role.CLIENT && plan.client_id !== me.id) redirect('/dashboard');
+  if (me.role !== Role.ADMIN && me.role !== Role.TRAINER) redirect('/dashboard');
 
   const created = plan.created_at ? new Date(plan.created_at).toLocaleString() : '—';
   const viewed  = plan.viewed_at  ? new Date(plan.viewed_at).toLocaleString()  : '—';

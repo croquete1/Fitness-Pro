@@ -5,7 +5,7 @@ import AppHeader from "@/components/layout/AppHeader";
 import RoleSidebar from "@/components/layout/RoleSidebar";
 import SidebarHoverPeeker from "@/components/layout/SidebarHoverPeeker";
 import "./theme.css";
-
+import ClientProviders from '@/components/ui/ClientProviders'; 
 export const dynamic = "force-dynamic";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -51,7 +51,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <header className="app-header">
             <AppHeader />
           </header>
-
+            <ClientProviders>
+            {children}
+            </ClientProviders>
           {/* Conteúdo: também recua com --sb-col */}
           <main id="app-content">{children}</main>
         </AppProviders>

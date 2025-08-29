@@ -24,7 +24,8 @@ export default async function Page() {
   const session = await getServerSession(authOptions);
   const me = session?.user as unknown as Me;
   if (!me?.id) redirect('/login');
-  if (![Role.ADMIN, Role.TRAINER].includes(me.role)) redirect('/dashboard');
+  if (me.role !== Role.ADMIN && me.role !== Role.TRAINER) redirect('/dashboard');
+
 
   const rows = await listPlans(me);
 

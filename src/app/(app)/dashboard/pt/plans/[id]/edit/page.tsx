@@ -18,7 +18,8 @@ export default async function Page({ params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   const me = session?.user as unknown as Me;
   if (!me?.id) redirect('/login');
-  if (![Role.ADMIN, Role.TRAINER].includes(me.role)) redirect('/dashboard');
+  if (me.role !== Role.ADMIN && me.role !== Role.TRAINER) redirect('/dashboard');
+
 
   const sb = createServerClient();
   const { data: plan, error } = await sb.from('training_plans').select('*').eq('id', params.id).single();

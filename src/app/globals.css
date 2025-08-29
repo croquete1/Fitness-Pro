@@ -284,3 +284,25 @@ body { background: var(--bg); color: var(--text); }
   from { transform: rotate(0deg) } 
   to { transform: rotate(360deg) } 
 }
+.toast-viewport{
+  position: fixed; right: 16px; bottom: 16px; z-index: 99999;
+  display: grid; gap: 8px;
+}
+.toast{
+  display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center;
+  min-width: 260px; max-width: 420px; padding: 10px 12px;
+  border: 1px solid var(--border); background: var(--card-bg); color: var(--text);
+  border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,.12);
+}
+.toast-msg{ font-size: 14px; }
+.toast-action{
+  border: 1px solid var(--border); background: var(--btn-bg);
+  border-radius: 999px; padding: 4px 10px; font-weight: 600;
+}
+.toast-action:hover{ background: var(--hover); }
+.toast-close{
+  width: 28px; height: 28px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--btn-bg);
+}
+.toast-close:hover{ background: var(--hover); }
+

@@ -1,222 +1,180 @@
-/* eslint-disable @next/next/no-img-element */
 'use client';
-
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Status } from '@prisma/client';
-import ExercisePicker from '@/components/plan/ExercisePicker';
+import { useToast } from '@/components/ui/Toast';
+// Se tiveres estes componentes no teu projeto:
 import UserSelect from '@/components/users/UserSelect';
-import { useToast } from '@/components/ui/ToastProvider';
+import ExercisePicker from '@/components/plan/ExercisePicker';
 
-export type PlanExercise = {
-  id?: string;
-  exerciseId: string;
-  name: string;
-  mediaUrl?: string | null;
-  muscleImageUrl?: string | null;
-  primaryMuscle?: string | null;
-  equipment?: string | null;
-  sets?: number | null;
-  reps?: string | number | null;
-  load?: string | null;
-  rest?: string | null;
-  notes?: string | null;
-  order?: number;
-};
+type PlanStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED' | string;
 
 export type InitialPlan = {
   id?: string;
   trainerId: string;
-  clientId?: string | null;
+  clientId: string;
   title: string;
   notes: string;
-  status: Status;
-  exercises: PlanExercise[];
+  status: PlanStatus;
+  exercises: any[];
 };
 
-const TEMPLATES: Array<{ name: string; rows: Omit<PlanExercise, 'order'>[] }> = [
+type Props = {
+  mode: 'create' | 'edit';
+  admin?: boolean;
+  initial: InitialPlan;
+  onSaved?: (planId: string) => void;
+};
+
+type Template = {
+  id: string; name: string; tags: string[];
+  // para exemplo simples: dias com “exercícios” placeholders (o PT pode depois trocar no picker)
+  days: Array<{ day: number; items: Array<{ name: string; sets?: number; reps?: string }> }>;
+};
+
+const TEMPLATES: Template[] = [
   {
-    name: 'Full Body (iniciante)',
-    rows: [
-      { exerciseId: 'tpl-squat', name: 'Back Squat', sets: 3, reps: '8-10', rest: '90s', load: '', notes: '', primaryMuscle: 'Quadríceps', equipment: 'Barbell', mediaUrl: '', muscleImageUrl: '' },
-      { exerciseId: 'tpl-bench', name: 'Bench Press', sets: 3, reps: '6-8',  rest: '120s', load: '', notes: '', primaryMuscle: 'Peito',      equipment: 'Barbell', mediaUrl: '', muscleImageUrl: '' },
-      { exerciseId: 'tpl-row',   name: 'Seated Row',  sets: 3, reps: '10-12', rest: '90s',  load: '', notes: '', primaryMuscle: 'Dorsal',     equipment: 'Machine', mediaUrl: '', muscleImageUrl: '' },
+    id: 'hipertrofia-4',
+    name: 'Hipertrofia — 4 dias',
+    tags: ['hipertrofia','4 dias'],
+    days: [
+      { day: 1, items: [{ name: 'Supino reto', sets: 4, reps: '8-10' }, { name: 'Remada curvada', sets: 4, reps: '8-10' }] },
+      { day: 2, items: [{ name: 'Agachamento', sets: 4, reps: '6-8' }, { name: 'Leg press', sets: 3, reps: '10-12' }] },
+      { day: 3, items: [{ name: 'Desenvolvimento ombro', sets: 4, reps: '8-10' }, { name: 'Elevação lateral', sets: 3, reps: '12-15' }] },
+      { day: 4, items: [{ name: 'Terra romeno', sets: 4, reps: '6-8' }, { name: 'Gêmeos em pé', sets: 4, reps: '12-15' }] },
     ],
   },
   {
-    name: 'Push (peito/ombro/tríceps)',
-    rows: [
-      { exerciseId: 'tpl-incline', name: 'Incline DB Press', sets: 4, reps: '8-10', rest: '90s', load: '', notes: '', primaryMuscle: 'Peito',    equipment: 'Dumbbells', mediaUrl: '', muscleImageUrl: '' },
-      { exerciseId: 'tpl-ohp',     name: 'Overhead Press',    sets: 4, reps: '6-8',  rest: '120s', load: '', notes: '', primaryMuscle: 'Ombros',  equipment: 'Barbell',   mediaUrl: '', muscleImageUrl: '' },
-      { exerciseId: 'tpl-fly',     name: 'Cable Fly',         sets: 3, reps: '12-15',rest: '60s',  load: '', notes: '', primaryMuscle: 'Peito',    equipment: 'Cable',     mediaUrl: '', muscleImageUrl: '' },
-    ],
-  },
-  {
-    name: 'Pull (costas/bíceps)',
-    rows: [
-      { exerciseId: 'tpl-pulldown', name: 'Lat Pulldown', sets: 4, reps: '8-12', rest: '90s', load: '', notes: '', primaryMuscle: 'Dorsal', equipment: 'Cable', mediaUrl: '', muscleImageUrl: '' },
-      { exerciseId: 'tpl-row2',     name: 'Bent-over Row', sets: 4, reps: '6-8', rest: '120s', load: '', notes: '', primaryMuscle: 'Dorsal', equipment: 'Barbell', mediaUrl: '', muscleImageUrl: '' },
-      { exerciseId: 'tpl-curl',     name: 'EZ-Bar Curl',  sets: 3, reps: '10-12', rest: '60s', load: '', notes: '', primaryMuscle: 'Bíceps', equipment: 'EZ Bar', mediaUrl: '', muscleImageUrl: '' },
+    id: 'corte-3',
+    name: 'Cut — 3 dias (full-body)',
+    tags: ['cut','3 dias','full-body'],
+    days: [
+      { day: 1, items: [{ name: 'Agachamento', sets: 3, reps: '10' }, { name: 'Supino inclinado', sets: 3, reps: '10' }] },
+      { day: 2, items: [{ name: 'Levantamento terra', sets: 3, reps: '8' }, { name: 'Barra fixa', sets: 3, reps: 'amrap' }] },
+      { day: 3, items: [{ name: 'Press militar', sets: 3, reps: '10' }, { name: 'Afundos paralelas', sets: 3, reps: 'amrap' }] },
     ],
   },
 ];
 
-export default function PlanEditor({
-  mode,
-  initial,
-  admin,
-}: {
-  mode: 'create' | 'edit';
-  initial: InitialPlan;
-  admin?: boolean;
-}) {
-  const router = useRouter();
-  const { success, error: toastError, info } = useToast();
-
-  const [status, setStatus] = useState<Status>(() => (initial?.status ?? 'ACTIVE') as Status);
-  const [title, setTitle] = useState(initial?.title ?? '');
-  const [notes, setNotes] = useState(initial?.notes ?? '');
-  const [trainerId, setTrainerId] = useState<string>(initial?.trainerId || '');
-  const [clientId, setClientId] = useState<string>(initial?.clientId || '');
-
-  const [rows, setRows] = useState<PlanExercise[]>(
-    (initial?.exercises ?? []).map((r, i) => ({
-      ...r,
-      mediaUrl: r.mediaUrl ?? (r as any).media_url ?? null,
-      muscleImageUrl: r.muscleImageUrl ?? (r as any).muscle_image_url ?? null,
-      order: r.order ?? i,
-    }))
+function Spinner() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" className="animate-spin" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" opacity=".2" />
+      <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" strokeWidth="4" fill="none" />
+    </svg>
   );
-  const [saving, setSaving] = useState(false);
+}
 
-  // pickers/modals
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [templatesOpen, setTemplatesOpen] = useState(false);
-  const [previewOpen, setPreviewOpen] = useState(false);
+export default function PlanEditor({ mode, admin, initial, onSaved }: Props) {
+  const router = useRouter();
+  const { push } = useToast();
 
-  // Drag & Drop
-  const [dragIdx, setDragIdx] = useState<number | null>(null);
-  const [overIdx, setOverIdx] = useState<number | null>(null);
+  const [trainerId, setTrainerId] = useState(initial.trainerId);
+  const [clientId, setClientId]   = useState(initial.clientId);
+  const [title, setTitle]         = useState(initial.title ?? '');
+  const [notes, setNotes]         = useState(initial.notes ?? '');
+  const [status, setStatus]       = useState<PlanStatus>(initial.status ?? 'DRAFT');
+  const [exercises, setExercises] = useState<any[]>(initial.exercises ?? []);
+  const [saving, setSaving]       = useState(false);
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
 
-  const canSave = useMemo(() => title.trim().length >= 2 && !!trainerId, [title, trainerId]);
+  // “Zona do lixo” para arrastar e remover
+  const binRef = useRef<HTMLDivElement | null>(null);
 
-  function addExercise(ex: { id: string; name: string; media_url?: string | null; muscle_image_url?: string | null; primary_muscle?: string | null; equipment?: string | null; }) {
-    setRows((prev) => [
-      ...prev,
-      {
-        exerciseId: ex.id,
-        name: ex.name,
-        mediaUrl: ex.media_url || null,
-        muscleImageUrl: ex.muscle_image_url || null,
-        primaryMuscle: ex.primary_muscle || null,
-        equipment: ex.equipment || null,
-        sets: 3,
-        reps: '10-12',
-        rest: '60-90s',
-        load: null,
-        notes: null,
-        order: prev.length,
-      },
-    ]);
-    info('Exercício adicionado');
+  function addExercise(item: any) {
+    setExercises((s) => [...s, { ...item }]);
+  }
+  function removeExercise(idx: number) {
+    setExercises(s => s.filter((_, i) => i !== idx));
   }
 
-  function removeRow(idx: number) {
-    setRows((prev) => prev.filter((_, i) => i !== idx).map((r, i) => ({ ...r, order: i })));
-  }
-
-  function move(idx: number, dir: -1 | 1) {
-    setRows((prev) => {
-      const next = [...prev];
-      const j = idx + dir;
-      if (j < 0 || j >= next.length) return prev;
-      const [a, b] = [next[idx], next[j]];
-      next[idx] = { ...b, order: idx };
-      next[j] = { ...a, order: j };
-      return next;
+  // Reorder: acessível (setas) + drag & drop nativo
+  function moveUp(idx: number) {
+    if (idx <= 0) return;
+    setExercises(s => {
+      const arr = [...s]; const t = arr[idx-1]; arr[idx-1] = arr[idx]; arr[idx] = t; return arr;
     });
   }
-
-  function update(idx: number, patch: Partial<PlanExercise>) {
-    setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
-  }
-
-  function applyTemplate(t: (typeof TEMPLATES)[number]) {
-    const templ = t.rows.map((r, i) => ({ ...r, order: i }));
-    setRows(templ);
-    setTemplatesOpen(false);
-    info(`Template “${t.name}” aplicado`);
+  function moveDown(idx: number) {
+    setExercises(s => {
+      if (idx >= s.length - 1) return s;
+      const arr = [...s]; const t = arr[idx+1]; arr[idx+1] = arr[idx]; arr[idx] = t; return arr;
+    });
   }
 
   // Drag handlers
-  function onDragStart(e: React.DragEvent, i: number) {
-    setDragIdx(i);
-    e.dataTransfer.setData('text/plain', String(i));
+  function onDragStart(e: React.DragEvent, idx: number) {
+    setDraggingIndex(idx);
+    e.dataTransfer.setData('text/plain', String(idx));
     e.dataTransfer.effectAllowed = 'move';
   }
-  function onDragOver(e: React.DragEvent, i: number) {
+  function onDragOverRow(e: React.DragEvent, overIdx: number) {
     e.preventDefault();
-    setOverIdx(i);
-  }
-  function onDrop(e: React.DragEvent, i: number) {
-    e.preventDefault();
-    const from = dragIdx ?? Number(e.dataTransfer.getData('text/plain') || -1);
-    const to = i;
-    setDragIdx(null);
-    setOverIdx(null);
-    if (from < 0 || from === to) return;
-
-    setRows((prev) => {
-      const next = [...prev];
-      const [row] = next.splice(from, 1);
-      next.splice(to, 0, row);
-      return next.map((r, idx) => ({ ...r, order: idx }));
+    const from = draggingIndex;
+    if (from == null || from === overIdx) return;
+    // reorder live enquanto arrastas
+    setExercises(s => {
+      const arr = [...s];
+      const [moved] = arr.splice(from, 1);
+      arr.splice(overIdx, 0, moved);
+      return arr;
     });
+    setDraggingIndex(overIdx);
   }
   function onDragEnd() {
-    setDragIdx(null);
-    setOverIdx(null);
+    setDraggingIndex(null);
+  }
+
+  // Drop no “lixo” para remover
+  function onDragOverBin(e: React.DragEvent) {
+    e.preventDefault();
+  }
+  function onDropBin(e: React.DragEvent) {
+    e.preventDefault();
+    const from = Number(e.dataTransfer.getData('text/plain'));
+    if (Number.isFinite(from)) removeExercise(from);
+    setDraggingIndex(null);
+  }
+
+  // Aplicar template
+  function applyTemplate(t: Template) {
+    // Mantém trainer/client/title; substitui exercícios e notas
+    const templNotes = `Template: ${t.name} (${t.tags.join(', ')})`;
+    const templItems = t.days.flatMap(d =>
+      d.items.map(it => ({
+        name: it.name, sets: it.sets ?? 3, reps: it.reps ?? '10-12', day: d.day
+      }))
+    );
+    setNotes(n => (n ? n + '\n\n' : '') + templNotes);
+    setExercises(templItems);
+    push({ message: `Modelo “${t.name}” aplicado.` });
   }
 
   async function onSave() {
-    if (!canSave || saving) return;
-
-    const exercisesPayload = rows.map((row) => {
-      const { id: _omit, ...r } = row;
-      return r;
-    });
-
-    const payload = {
-      trainerId,
-      clientId: clientId || null,
-      title: title.trim(),
-      notes: notes ?? '',
-      status,
-      exercises: exercisesPayload,
-    };
-
+    if (!trainerId || !clientId) {
+      push({ message: 'Seleciona Treinador e Cliente antes de guardar.' });
+      return;
+    }
+    setSaving(true);
     try {
-      setSaving(true);
+      const payload = { trainerId, clientId, title, notes, status, exercises };
       const res = await fetch(
-        mode === 'create' ? '/api/pt/plans' : `/api/pt/plans/${initial.id}`,
-        {
-          method: mode === 'create' ? 'POST' : 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        }
+        mode === 'edit' && initial.id ? `/api/pt/plans/${initial.id}` : '/api/pt/plans',
+        { method: mode === 'edit' ? 'PATCH' : 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }
       );
-      if (!res.ok) throw new Error(await res.text());
-      const j = await res.json();
-      success(mode === 'create' ? 'Plano criado.' : 'Alterações guardadas.');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const planId = data?.plan?.id ?? initial.id;
 
-      if (mode === 'create') {
-        router.replace(`/dashboard/pt/plans/${j.plan?.id || j.id}/edit`);
-      } else {
-        router.refresh();
-      }
-    } catch (e: any) {
-      console.error(e);
-      toastError('Não foi possível guardar o plano', { message: e?.message?.slice(0, 160) });
+      push({
+        message: 'Plano guardado.',
+        actionLabel: 'Abrir',
+        onAction: () => router.push(`/dashboard/pt/plans/${planId}/edit`)
+      });
+
+      onSaved?.(planId);
+      router.refresh();
+    } catch (e) {
+      push({ message: 'Falha ao guardar o plano.' });
     } finally {
       setSaving(false);
     }
@@ -224,278 +182,109 @@ export default function PlanEditor({
 
   return (
     <div className="grid gap-3">
+      {/* Linha superior: selects + título/status + templates */}
       <div className="card" style={{ padding: 12 }}>
-        <div className="grid" style={{ gridTemplateColumns: '1fr auto', gap: 12 }}>
-          <div className="grid gap-2">
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Título do plano (ex.: Hipertrofia — 4 dias)"
-              className="input"
-              style={{ height: 40, border: '1px solid var(--border)', borderRadius: 10, padding: '0 12px', background: 'var(--btn-bg)', color: 'var(--text)' }}
-            />
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Notas gerais (progressão, RPE, dias/semana, etc.)"
-              rows={3}
-              className="input"
-              style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, background: 'var(--btn-bg)', color: 'var(--text)' }}
-            />
-            <div className="flex items-center gap-8">
-              <label className="text-sm opacity-75">
-                Estado:{' '}
-                <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value as Status)}
-                  className="input"
-                  style={{ height: 34, border: '1px solid var(--border)', borderRadius: 8, padding: '0 10px', background: 'var(--btn-bg)', color: 'var(--text)' }}
-                >
-                  <option value={Status.ACTIVE}>ACTIVE</option>
-                  <option value={Status.PENDING}>PENDING</option>
-                  <option value={Status.SUSPENDED}>SUSPENDED</option>
+        <div className="grid" style={{ gap: 8 }}>
+          <div className="grid" style={{ gridTemplateColumns: admin ? '1fr 1fr' : '1fr', gap: 8 }}>
+            {admin && (
+              <>
+                <div>
+                  <label className="block text-xs opacity-70 mb-1">Treinador</label>
+                  <UserSelect role="TRAINER" value={trainerId} onChange={setTrainerId} placeholder="Escolher PT…" />
+                </div>
+                <div>
+                  <label className="block text-xs opacity-70 mb-1">Cliente</label>
+                  <UserSelect role="CLIENT" value={clientId} onChange={setClientId} placeholder="Escolher cliente…" />
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="grid" style={{ gridTemplateColumns: '1fr 180px 200px', gap: 8 }}>
+            <div>
+              <label className="block text-xs opacity-70 mb-1">Título</label>
+              <input className="input" value={title} onChange={e=>setTitle(e.target.value)} placeholder="Ex.: ABC 4x/semana" />
+            </div>
+            <div>
+              <label className="block text-xs opacity-70 mb-1">Estado</label>
+              <select className="input" value={status} onChange={e=>setStatus(e.target.value)}>
+                <option value="DRAFT">Rascunho</option>
+                <option value="ACTIVE">Ativo</option>
+                <option value="ARCHIVED">Arquivado</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs opacity-70 mb-1">Modelos</label>
+              <div className="flex gap-2">
+                <select className="input" onChange={(e) => {
+                  const t = TEMPLATES.find(x => x.id === e.target.value);
+                  if (t) applyTemplate(t);
+                }}>
+                  <option value="">— Escolhe um —</option>
+                  {TEMPLATES.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </select>
-              </label>
+              </div>
             </div>
           </div>
 
-          <div className="grid gap-2 content-start">
-            {admin && (
-              <>
-                <UserSelect
-                  label="Treinador"
-                  role="TRAINER"
-                  value={trainerId}
-                  onChange={(id) => setTrainerId(id || '')}
-                  placeholder="Escolhe o treinador…"
-                />
-                <UserSelect
-                  label="Cliente (opcional)"
-                  role="CLIENT"
-                  value={clientId || ''}
-                  onChange={(id) => setClientId(id || '')}
-                  placeholder="Escolhe o cliente…"
-                />
-              </>
-            )}
+          <div>
+            <label className="block text-xs opacity-70 mb-1">Notas</label>
+            <textarea className="input" rows={3} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Diretrizes, RPE, observações…" />
+          </div>
 
-            <div className="flex items-center gap-2">
-              <button className="btn chip" type="button" onClick={() => setTemplatesOpen(true)}>Templates</button>
-              <button className="btn chip" type="button" onClick={() => setPickerOpen(true)}>+ Adicionar exercício</button>
-              <button className="btn chip" type="button" onClick={() => setPreviewOpen(true)}>Pré-visualizar</button>
-            </div>
-
-            <button className="btn primary" disabled={!canSave || saving} onClick={onSave}>
-              {saving ? 'A guardar…' : mode === 'create' ? 'Criar plano' : 'Guardar alterações'}
+          <div className="flex items-center gap-8">
+            <ExercisePicker onPick={addExercise} />
+            <button className="btn primary" onClick={onSave} disabled={saving}>
+              {saving ? (<><Spinner />&nbsp;A guardar…</>) : 'Guardar'}
             </button>
           </div>
         </div>
       </div>
 
+      {/* Lista de exercícios */}
       <div className="card" style={{ padding: 12 }}>
-        <table className="table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left', padding: 8, width: 32 }} />
-              <th style={{ textAlign: 'left', padding: 8 }}>Exercício</th>
-              <th style={{ textAlign: 'left', padding: 8, width: 90 }}>Séries</th>
-              <th style={{ textAlign: 'left', padding: 8, width: 120 }}>Reps</th>
-              <th style={{ textAlign: 'left', padding: 8, width: 120 }}>Carga</th>
-              <th style={{ textAlign: 'left', padding: 8, width: 110 }}>Descanso</th>
-              <th style={{ textAlign: 'left', padding: 8 }}>Notas</th>
-              <th style={{ width: 160 }} />
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 ? (
-              <tr>
-                <td colSpan={8} style={{ padding: 12 }}>
-                  <div className="text-muted">Ainda sem exercícios — usa “Adicionar exercício” ou “Templates”.</div>
-                </td>
-              </tr>
-            ) : (
-              rows.map((r, i) => (
-                <tr
-                  key={`${r.exerciseId}-${i}`}
-                  style={{
-                    borderTop: '1px solid var(--border)',
-                    background: overIdx === i ? 'var(--hover)' : 'transparent',
-                  }}
-                  onDragOver={(e) => onDragOver(e, i)}
-                  onDrop={(e) => onDrop(e, i)}
-                >
-                  <td style={{ padding: 8 }}>
-                    <button
-                      className="btn chip"
-                      draggable
-                      onDragStart={(e) => onDragStart(e, i)}
-                      onDragEnd={onDragEnd}
-                      title="Arrastar para reordenar"
-                      type="button"
-                    >
-                      ↕
-                    </button>
-                  </td>
-                  <td style={{ padding: 8 }}>
-                    <div className="flex items-center gap-2">
-                      <div className="w-[72px] h-[40px] rounded-lg overflow-hidden border bg-[var(--hover)] grid place-items-center">
-                        {r.mediaUrl ? (
-                          <img src={r.mediaUrl} alt={r.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                        ) : <span className="text-xs opacity-60">sem media</span>}
-                      </div>
-                      <div>
-                        <div className="font-semibold">{r.name}</div>
-                        <div className="text-xs opacity-70">{r.primaryMuscle || '—'} {r.equipment ? `• ${r.equipment}` : ''}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td style={{ padding: 8 }}>
-                    <input
-                      type="number"
-                      min={1}
-                      value={r.sets ?? 3}
-                      onChange={(e) => update(i, { sets: Number(e.target.value) || 0 })}
-                      className="input"
-                      style={{ width: 80, height: 34, border: '1px solid var(--border)', borderRadius: 8, padding: '0 8px', background: 'var(--btn-bg)', color: 'var(--text)' }}
-                    />
-                  </td>
-                  <td style={{ padding: 8 }}>
-                    <input
-                      value={String(r.reps ?? '')}
-                      onChange={(e) => update(i, { reps: e.target.value })}
-                      placeholder="10-12"
-                      className="input"
-                      style={{ width: 110, height: 34, border: '1px solid var(--border)', borderRadius: 8, padding: '0 8px', background: 'var(--btn-bg)', color: 'var(--text)' }}
-                    />
-                  </td>
-                  <td style={{ padding: 8 }}>
-                    <input
-                      value={r.load ?? ''}
-                      onChange={(e) => update(i, { load: e.target.value })}
-                      placeholder="40kg / RPE 8"
-                      className="input"
-                      style={{ width: 110, height: 34, border: '1px solid var(--border)', borderRadius: 8, padding: '0 8px', background: 'var(--btn-bg)', color: 'var(--text)' }}
-                    />
-                  </td>
-                  <td style={{ padding: 8 }}>
-                    <input
-                      value={r.rest ?? ''}
-                      onChange={(e) => update(i, { rest: e.target.value })}
-                      placeholder="60-90s"
-                      className="input"
-                      style={{ width: 100, height: 34, border: '1px solid var(--border)', borderRadius: 8, padding: '0 8px', background: 'var(--btn-bg)', color: 'var(--text)' }}
-                    />
-                  </td>
-                  <td style={{ padding: 8 }}>
-                    <input
-                      value={r.notes ?? ''}
-                      onChange={(e) => update(i, { notes: e.target.value })}
-                      placeholder="Notas…"
-                      className="input"
-                      style={{ width: '100%', height: 34, border: '1px solid var(--border)', borderRadius: 8, padding: '0 8px', background: 'var(--btn-bg)', color: 'var(--text)' }}
-                    />
-                  </td>
-                  <td style={{ padding: 8 }}>
-                    <div className="table-actions">
-                      <button className="btn chip" type="button" onClick={() => move(i, -1)} disabled={i === 0}>↑</button>
-                      <button className="btn chip" type="button" onClick={() => move(i, +1)} disabled={i === rows.length - 1}>↓</button>
-                      <button className="btn chip" type="button" onClick={() => removeRow(i)}>Remover</button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+        <div className="flex items-center justify-between mb-2">
+          <h3 style={{ margin: 0 }}>Exercícios</h3>
+          <div ref={binRef}
+               onDragOver={onDragOverBin}
+               onDrop={onDropBin}
+               className="btn"
+               title="Arrasta aqui para remover"
+               style={{ background:'var(--hover)' }}>
+            🗑️ Remover por arrastar
+          </div>
+        </div>
+
+        {exercises.length === 0 ? (
+          <div className="text-muted">Ainda não adicionaste exercícios.</div>
+        ) : (
+          <ul className="grid" style={{ gap: 8, listStyle: 'none', padding: 0, margin: 0 }}>
+            {exercises.map((ex, i) => (
+              <li key={i}
+                  draggable
+                  onDragStart={(e)=>onDragStart(e, i)}
+                  onDragOver={(e)=>onDragOverRow(e, i)}
+                  onDragEnd={onDragEnd}
+                  className="grid"
+                  style={{ gridTemplateColumns:'1fr auto', gap:8, border:'1px solid var(--border)', borderRadius:12, padding:8, background:'var(--card-bg)'}}>
+                <div>
+                  <div className="font-semibold">{ex.name ?? `Exercício #${i+1}`}</div>
+                  <div className="text-sm opacity-80">
+                    {ex.sets ? `${ex.sets} séries` : null}
+                    {ex.reps ? ` · ${ex.reps} reps` : null}
+                    {typeof ex.day === 'number' ? ` · Dia ${ex.day}` : null}
+                  </div>
+                </div>
+                <div className="table-actions">
+                  <button className="btn chip" onClick={()=>moveUp(i)} aria-label="Mover para cima">↑</button>
+                  <button className="btn chip" onClick={()=>moveDown(i)} aria-label="Mover para baixo">↓</button>
+                  <button className="btn chip" onClick={()=>removeExercise(i)} aria-label="Remover">Remover</button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
-
-      {/* Exercise Picker */}
-      <ExercisePicker
-        open={pickerOpen}
-        onClose={() => setPickerOpen(false)}
-        onPick={addExercise}
-      />
-
-      {/* Templates (popover simples) */}
-      {templatesOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-[10000] grid place-items-center bg-black/30 p-4"
-          onClick={(e) => e.currentTarget === e.target && setTemplatesOpen(false)}
-        >
-          <div className="w-full max-w-md rounded-2xl border bg-white p-4 shadow-xl">
-            <h3 className="mb-2 text-lg font-semibold">Templates rápidos</h3>
-            <div className="grid gap-2">
-              {TEMPLATES.map((t) => (
-                <button key={t.name} className="btn" onClick={() => applyTemplate(t)}>{t.name}</button>
-              ))}
-            </div>
-            <div className="mt-3 text-right">
-              <button className="btn ghost" onClick={() => setTemplatesOpen(false)}>Fechar</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Preview modal */}
-      {previewOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-[10000] grid place-items-center bg-black/30 p-4"
-          onClick={(e) => e.currentTarget === e.target && setPreviewOpen(false)}
-        >
-          <div className="w-full max-w-3xl rounded-2xl border bg-white p-5 shadow-xl">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold m-0">Pré-visualização</h3>
-              <button className="btn ghost" onClick={() => setPreviewOpen(false)}>Fechar</button>
-            </div>
-            <div className="mt-3">
-              <div className="mb-2">
-                <div className="text-xl font-bold">{title || 'Plano sem título'}</div>
-                <div className="text-sm opacity-75">{notes || '—'}</div>
-                <div className="mt-1 text-xs"><span className="chip">Status: {status}</span></div>
-              </div>
-              <div className="grid gap-2">
-                {rows.length === 0 ? (
-                  <div className="text-muted">Ainda sem exercícios.</div>
-                ) : (
-                  rows.map((r, i) => (
-                    <div key={`${r.exerciseId}-${i}`} className="rounded-xl border p-3">
-                      <div className="flex gap-3 items-center">
-                        <div className="w-[96px] h-[56px] rounded-lg overflow-hidden border bg-[var(--hover)] grid place-items-center">
-                          {r.mediaUrl ? (
-                            <img src={r.mediaUrl} alt={r.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                          ) : <span className="text-xs opacity-60">sem media</span>}
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-semibold">{i + 1}. {r.name}</div>
-                          <div className="text-xs opacity-70">
-                            {r.primaryMuscle || '—'} {r.equipment ? `• ${r.equipment}` : ''}
-                          </div>
-                          <div className="text-sm mt-1">
-                            <span className="chip">Séries: {r.sets ?? '—'}</span>{' '}
-                            <span className="chip">Reps: {r.reps ?? '—'}</span>{' '}
-                            <span className="chip">Descanso: {r.rest ?? '—'}</span>{' '}
-                            {r.load ? <span className="chip">Carga: {r.load}</span> : null}
-                          </div>
-                          {r.notes ? <div className="text-xs mt-1 opacity-80">Notas: {r.notes}</div> : null}
-                        </div>
-                        {r.muscleImageUrl ? (
-                          <div className="hidden md:block w-[120px] h-[72px] rounded-lg overflow-hidden border bg-[var(--hover)]">
-                            <img src={r.muscleImageUrl} alt="Músculos" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
