@@ -1,198 +1,175 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { useToast } from '@/components/ui/ToastProvider';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import ExercisePicker from './ExercisePicker';
+import { toast } from '@/components/ui/Toasts';
 
-type Status = 'ACTIVE' | 'PENDING' | 'SUSPENDED';
-type Mode = 'create' | 'edit';
+type Exercise = { id: string; name: string; media_url?: string | null; muscle_image_url?: string | null };
 
-export type Exercise = {
-  id?: string;
-  name: string;
-  sets?: number;
-  reps?: string | number;
-  rest?: string;
-  weight?: string | number;
-  notes?: string;
-};
-
-type InitialPlan = {
+type Initial = {
   id?: string;
   trainerId: string;
   clientId: string;
   title: string;
-  notes: string | null;
-  status: Status;
-  exercises: Exercise[];
-  createdAt?: string | null;
-  updatedAt?: string | null;
+  notes: string;
+  status: string;       // mantemos string para não chocar com enums do projeto
+  exercises: Exercise[] // podes evoluir para um array com sets/reps/tempo, etc.
 };
 
 export default function PlanEditor({
   mode,
   initial,
-  onSaved,
 }: {
-  mode: Mode;
-  initial: InitialPlan;
-  onSaved?: (plan: any) => void;
+  mode: 'create' | 'edit';
+  initial: Initial;
 }) {
-  const { push } = useToast();
-
-  const [title, setTitle] = useState(initial.title ?? '');
-  const [status, setStatus] = useState<Status>(initial.status ?? 'ACTIVE');
-  const [notes, setNotes] = useState<string>(initial.notes ?? '');
-  const [exercises, setExercises] = useState<Exercise[]>(initial.exercises ?? []);
+  const router = useRouter();
+  const [form, setForm] = useState<Initial>(initial);
   const [saving, setSaving] = useState(false);
-  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const isEdit = mode === 'edit';
 
-  function addExercise() {
-    setExercises((xs) => [
-      ...xs,
-      { id: crypto.randomUUID(), name: '', sets: 3, reps: '10-12', rest: '60-90s', weight: '', notes: '' },
-    ]);
+  function addExercise(ex: Exercise) {
+    setForm((f) => ({ ...f, exercises: [...f.exercises, ex] }));
+    toast('Exercício adicionado');
   }
-  function updateExercise(idx: number, patch: Partial<Exercise>) {
-    setExercises((xs) => xs.map((x, i) => (i === idx ? { ...x, ...patch } : x)));
-  }
-  function removeExercise(idx: number) {
-    setExercises((xs) => xs.filter((_, i) => i !== idx));
+  function removeExercise(index: number) {
+    setForm((f) => ({ ...f, exercises: f.exercises.filter((_, i) => i !== index) }));
   }
 
-  const payload = useMemo(
-    () => ({
-      trainerId: initial.trainerId,
-      clientId: initial.clientId,
-      title,
-      notes: notes || null,
-      status,
-      exercises,
-    }),
-    [initial.trainerId, initial.clientId, title, notes, status, exercises],
-  );
-
-  async function persist(showOkToast = true) {
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
     setSaving(true);
-    setError(null);
     try {
-      const url = mode === 'create' ? '/api/pt/plans' : `/api/pt/plans/${encodeURIComponent(String(initial.id))}`;
-      const method = mode === 'create' ? 'POST' : 'PATCH';
+      const payload = {
+        trainerId: form.trainerId,
+        clientId: form.clientId || null,
+        title: form.title,
+        notes: form.notes || null,
+        status: form.status || 'draft',
+        exercises: form.exercises,
+      };
 
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const j = await res.json().catch(() => ({}));
+      const res = await fetch(
+        isEdit ? `/api/pt/plans/${form.id}` : '/api/pt/plans',
+        {
+          method: isEdit ? 'PATCH' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }
+      );
+
       if (!res.ok) {
-        const msg = j?.error || 'Falha a guardar';
-        setError(msg);
-        push({ text: msg, kind: 'err' });
+        const j = await res.json().catch(() => ({}));
+        toast(j?.error || 'Erro ao guardar', 'err');
         return;
       }
-      setLastSavedAt(new Date());
-      if (showOkToast) push({ text: mode === 'create' ? 'Plano criado' : 'Alterações guardadas' });
 
-      // se for criação, atualiza URL para /edit
-      if (mode === 'create' && j?.plan?.id) {
-        history.replaceState(null, '', `/dashboard/pt/plans/${j.plan.id}/edit`);
-      }
-      onSaved?.(j.plan ?? j.data ?? null);
-    } catch (e: any) {
-      const msg = e?.message || 'Erro de rede';
-      setError(msg);
-      push({ text: msg, kind: 'err' });
+      toast(isEdit ? 'Plano atualizado' : 'Plano criado');
+      router.push('/dashboard/pt/plans');
+      router.refresh();
+    } catch {
+      toast('Erro ao guardar', 'err');
     } finally {
       setSaving(false);
     }
   }
 
-  // Auto-save (apenas 'edit')
-  useEffect(() => {
-    if (mode !== 'edit') return;
-    const handle = setTimeout(() => { void persist(false); }, 900);
-    return () => clearTimeout(handle);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, title, notes, status, exercises]);
-
   return (
-    <div className="grid gap-4">
-      <div className="grid gap-2 md:grid-cols-2">
-        <label className="grid gap-1">
-          <span className="text-sm text-gray-600">Título</span>
-          <input className="rounded-lg border p-2" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Peito e tríceps — Semana 1" />
-        </label>
-        <label className="grid gap-1">
-          <span className="text-sm text-gray-600">Estado</span>
-          <select className="rounded-lg border p-2" value={status} onChange={(e) => setStatus(e.target.value as Status)}>
-            <option value="ACTIVE">ACTIVE</option>
-            <option value="PENDING">PENDING</option>
-            <option value="SUSPENDED">SUSPENDED</option>
+    <form onSubmit={onSubmit} className="grid" style={{ gap: 12 }}>
+      <div className="card" style={{ padding: 12, display: 'grid', gap: 10 }}>
+        <div style={{ display: 'grid', gap: 8 }}>
+          <label>Título</label>
+          <input
+            value={form.title}
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
+            placeholder="Ex.: Plano Hipertrofia — 4 dias"
+            className="input"
+            style={{ height: 38, border: '1px solid var(--border)', borderRadius: 10, padding: '0 12px', background: 'var(--btn-bg)', color: 'var(--text)' }}
+            required
+          />
+        </div>
+
+        <div style={{ display: 'grid', gap: 8 }}>
+          <label>Cliente (opcional)</label>
+          <input
+            value={form.clientId}
+            onChange={(e) => setForm({ ...form, clientId: e.target.value })}
+            placeholder="ID do cliente (ou deixa vazio)"
+            className="input"
+            style={{ height: 38, border: '1px solid var(--border)', borderRadius: 10, padding: '0 12px', background: 'var(--btn-bg)', color: 'var(--text)' }}
+          />
+        </div>
+
+        <div style={{ display: 'grid', gap: 8 }}>
+          <label>Notas</label>
+          <textarea
+            value={form.notes}
+            onChange={(e) => setForm({ ...form, notes: e.target.value })}
+            rows={4}
+            className="input"
+            style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, background: 'var(--btn-bg)', color: 'var(--text)' }}
+          />
+        </div>
+
+        <div style={{ display: 'grid', gap: 8 }}>
+          <label>Estado</label>
+          <select
+            value={form.status}
+            onChange={(e) => setForm({ ...form, status: e.target.value })}
+            className="input"
+            style={{ height: 38, border: '1px solid var(--border)', borderRadius: 10, padding: '0 12px', background: 'var(--btn-bg)', color: 'var(--text)' }}
+          >
+            <option value="draft">Rascunho</option>
+            <option value="active">Ativo</option>
+            <option value="archived">Arquivado</option>
           </select>
-        </label>
+        </div>
       </div>
 
-      <label className="grid gap-1">
-        <span className="text-sm text-gray-600">Notas do plano</span>
-        <textarea className="rounded-lg border p-2 min-h-[90px]" value={notes ?? ''} onChange={(e) => setNotes(e.target.value)} placeholder="Notas gerais, foco técnico, RIR, etc." />
-      </label>
+      {/* Picker de exercícios */}
+      <ExercisePicker onSelect={addExercise} />
 
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Exercícios</h3>
-        <button className="btn primary" onClick={addExercise}>+ Adicionar exercício</button>
-      </div>
-
-      <div className="grid gap-3">
-        {exercises.map((ex, idx) => (
-          <div key={ex.id ?? idx} className="rounded-xl border p-3">
-            <div className="grid gap-2 md:grid-cols-3">
-              <label className="grid gap-1">
-                <span className="text-sm text-gray-600">Nome</span>
-                <input className="rounded-lg border p-2" value={ex.name} onChange={(e) => updateExercise(idx, { name: e.target.value })} placeholder="Supino inclinado com halteres" />
-              </label>
-              <label className="grid gap-1">
-                <span className="text-sm text-gray-600">Séries</span>
-                <input className="rounded-lg border p-2" type="number" value={ex.sets ?? ''} onChange={(e) => updateExercise(idx, { sets: Number(e.target.value || 0) })} placeholder="3" />
-              </label>
-              <label className="grid gap-1">
-                <span className="text-sm text-gray-600">Reps</span>
-                <input className="rounded-lg border p-2" value={ex.reps ?? ''} onChange={(e) => updateExercise(idx, { reps: e.target.value })} placeholder="8–10" />
-              </label>
-            </div>
-
-            <div className="grid gap-2 md:grid-cols-3 mt-2">
-              <label className="grid gap-1">
-                <span className="text-sm text-gray-600">Descanso</span>
-                <input className="rounded-lg border p-2" value={ex.rest ?? ''} onChange={(e) => updateExercise(idx, { rest: e.target.value })} placeholder="60–90s" />
-              </label>
-              <label className="grid gap-1">
-                <span className="text-sm text-gray-600">Peso (anotação)</span>
-                <input className="rounded-lg border p-2" value={ex.weight ?? ''} onChange={(e) => updateExercise(idx, { weight: e.target.value })} placeholder="22.5kg" />
-              </label>
-            </div>
-
-            <label className="grid gap-1 mt-2">
-              <span className="text-sm text-gray-600">Notas do exercício</span>
-              <textarea className="rounded-lg border p-2 min-h-[70px]" value={ex.notes ?? ''} onChange={(e) => updateExercise(idx, { notes: e.target.value })} placeholder="Amplitude controlada, 2s excêntrico, 1s pausa…" />
-            </label>
-
-            <div className="mt-2 flex justify-end">
-              <button className="btn danger ghost" onClick={() => removeExercise(idx)}>Remover</button>
-            </div>
+      {/* Lista do plano */}
+      <div className="card" style={{ padding: 12 }}>
+        <h3 style={{ marginTop: 0 }}>Exercícios do plano</h3>
+        {form.exercises.length === 0 ? (
+          <div className="text-muted">Ainda não adicionaste exercícios.</div>
+        ) : (
+          <div style={{ display: 'grid', gap: 10 }}>
+            {form.exercises.map((ex, i) => (
+              <div key={`${ex.id}-${i}`} className="card" style={{ padding: 10 }}>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                  <div style={{ width: 72, height: 72, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                    {ex.media_url ? (
+                      <img src={ex.media_url} alt="" width={72} height={72} style={{ objectFit: 'cover', width: '100%', height: '100%' }} />
+                    ) : (
+                      <div className="text-muted" style={{ fontSize: 12, padding: 8 }}>Sem imagem</div>
+                    )}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <strong>{ex.name}</strong>
+                    <div>
+                      {ex.muscle_image_url ? (
+                        <img src={ex.muscle_image_url} alt="músculos" width={160} height={80} style={{ objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }} />
+                      ) : (
+                        <span className="text-muted" style={{ fontSize: 12 }}>Sem diagrama muscular</span>
+                      )}
+                    </div>
+                  </div>
+                  <button type="button" className="btn chip" onClick={() => removeExercise(i)}>Remover</button>
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
 
-      {error && <div className="text-sm text-red-600">{error}</div>}
-
-      <div className="flex items-center justify-end gap-2">
-        <button className="btn" onClick={() => history.back()} disabled={saving}>Cancelar</button>
-        <button className="btn primary" onClick={() => persist(true)} disabled={saving}>
-          {saving ? 'A guardar…' : 'Guardar'}
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <button type="submit" className="btn primary" disabled={saving}>
+          {saving ? 'A guardar…' : isEdit ? 'Guardar alterações' : 'Criar plano'}
         </button>
-        <div className="text-xs text-gray-500">{lastSavedAt ? `Guardado às ${lastSavedAt.toLocaleTimeString()}` : '—'}</div>
       </div>
-    </div>
+    </form>
   );
 }

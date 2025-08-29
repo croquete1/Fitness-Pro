@@ -9,7 +9,7 @@ export default function AppHeader() {
   const [q, setQ] = useState('');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
-  // tema inicial
+  // tema inicial a partir do dataset (layout) ou prefers-color-scheme
   useEffect(() => {
     const current =
       (document.documentElement.dataset.theme as 'light' | 'dark' | undefined) ||
@@ -17,10 +17,10 @@ export default function AppHeader() {
     setTheme(current);
   }, []);
 
-  // aplica/persiste tema
+  // aplica + persiste
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    try { localStorage.setItem('theme', theme); } catch {}
+    localStorage.setItem('theme', theme);
   }, [theme]);
 
   function onSearch(e: React.FormEvent) {
@@ -32,35 +32,20 @@ export default function AppHeader() {
 
   return (
     <header className="app-header">
-      <div className="app-header-inner" style={{ gap: 12 }}>
-        {/* Pesquisa centrada (sem logo no header) */}
-        <form
-          onSubmit={onSearch}
-          role="search"
-          aria-label="Pesquisar"
-          style={{ flex: 1, display: 'flex' }}
-        >
+      <div className="header-inner">
+        {/* Pesquisa (à esquerda / centro, ocupa o espaço) */}
+        <form className="search" onSubmit={onSearch} role="search" aria-label="Pesquisar">
           <input
             type="search"
             placeholder="Pesquisar…"
             aria-label="Pesquisar"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            style={{
-              width: '100%',
-              height: 38,
-              padding: '0 12px',
-              border: '1px solid var(--border)',
-              borderRadius: 10,
-              background: 'var(--card-bg)',
-              color: 'var(--text)',
-              outline: 'none',
-            }}
           />
         </form>
 
-        {/* Ações à direita */}
-        <div className="actions" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {/* Ações encostadas à direita */}
+        <div className="actions" style={{ marginLeft: 'auto', display: 'inline-flex', gap: 8 }}>
           <button
             className="btn icon"
             aria-label="Alternar tema"
@@ -74,6 +59,7 @@ export default function AppHeader() {
             🔔
           </button>
 
+          {/* Sair com confirmação (modal centrado) */}
           <SignOutConfirmButton />
         </div>
       </div>
