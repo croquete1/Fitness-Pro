@@ -9,7 +9,7 @@ import { Role } from '@prisma/client';
 import { redirect } from 'next/navigation';
 import dynamicImport from 'next/dynamic';
 
-const PlanEditor = dynamicImport(() => import('@/components/plans/PlanEditor'), { ssr: false });
+const PlanEditor = dynamicImport(() => import('@/components/plan/PlanEditor'), { ssr: false });
 
 type Me = { id: string; role: Role };
 
