@@ -1,85 +1,67 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
-type User = { id: string; name: string | null; email: string | null; role: string; phone?: string | null; };
-
-export default function UserSelect({
-  label,
-  role,                 // 'TRAINER' | 'CLIENT' | undefined
-  value,
-  onChange,
-  placeholder = 'Procurar por nome, email ou telefone…',
-}: {
+type Props = {
   label?: string;
-  role?: 'TRAINER' | 'CLIENT';
-  value?: string | null;
-  onChange: (id: string | null, user?: User) => void;
+  role?: 'ADMIN' | 'TRAINER' | 'CLIENT';
+  value?: string;
+  onChange: (id?: string) => void;
   placeholder?: string;
-}) {
+};
+
+export default function UserSelect({ label, role, value, onChange, placeholder }: Props) {
   const [q, setQ] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [opts, setOpts] = useState<User[]>([]);
+  const [opts, setOpts] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
 
-  const qs = useMemo(() => q.trim(), [q]);
-
   useEffect(() => {
+    const s = q.trim();
+    if (s.length < 2) { setOpts([]); return; }
     let abort = false;
     const run = async () => {
-      if (qs.length < 2) { setOpts([]); return; }
-      setLoading(true);
       try {
-        const url = `/api/users/search?q=${encodeURIComponent(qs)}${role ? `&role=${role}` : ''}`;
-        const res = await fetch(url);
+        const res = await fetch(`/api/users/search?role=${encodeURIComponent(role || '')}&q=${encodeURIComponent(s)}`);
         const j = await res.json();
-        if (!abort) setOpts(j.users ?? []);
+        if (!abort) setOpts(j.users || []);
       } catch {
         if (!abort) setOpts([]);
-      } finally {
-        if (!abort) setLoading(false);
       }
     };
-    const t = setTimeout(run, 250);
+    const t = setTimeout(run, 200);
     return () => { abort = true; clearTimeout(t); };
-  }, [qs, role]);
+  }, [q, role]);
 
   return (
-    <div style={{ position: 'relative' }}>
-      {label ? <label style={{ display: 'block', marginBottom: 6 }}>{label}</label> : null}
-      <input
-        value={q}
-        onChange={(e) => { setQ(e.target.value); setOpen(true); }}
-        onFocus={() => setOpen(true)}
-        placeholder={placeholder}
-        className="input"
-        style={{ height: 38, border: '1px solid var(--border)', borderRadius: 10, padding: '0 12px', background: 'var(--btn-bg)', color: 'var(--text)', width: '100%' }}
-      />
-      {open && (qs.length >= 2) && (
-        <div
-          role="listbox"
-          className="card"
-          style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 50, maxHeight: 300, overflow: 'auto', padding: 6 }}
-        >
-          {loading ? (
-            <div className="text-muted" style={{ padding: 8 }}>A procurar…</div>
-          ) : opts.length === 0 ? (
-            <div className="text-muted" style={{ padding: 8 }}>Sem resultados</div>
-          ) : (
-            opts.map((u) => (
+    <div className="grid gap-1">
+      {label && <label className="text-sm opacity-75">{label}</label>}
+      <div className="relative">
+        <input
+          value={q}
+          onChange={(e) => { setQ(e.target.value); setOpen(true); }}
+          placeholder={placeholder || 'Pesquisar…'}
+          className="input"
+          style={{ width: '100%', height: 38, border: '1px solid var(--border)', borderRadius: 10, padding: '0 12px', background: 'var(--btn-bg)', color: 'var(--text)' }}
+        />
+        {open && opts.length > 0 && (
+          <div className="absolute z-10 mt-1 w-full rounded-xl border bg-[var(--card-bg)] shadow">
+            {opts.map((u) => (
               <button
                 key={u.id}
                 type="button"
-                className="nav-item"
-                style={{ width: '100%', justifyContent: 'flex-start' }}
-                onClick={() => { onChange(u.id, u); setQ(u.name || u.email || u.id); setOpen(false); }}
+                className="w-full text-left px-3 py-2 hover:bg-[var(--hover)]"
+                onClick={() => { onChange(u.id); setQ(u.name || u.email || u.id); setOpen(false); }}
               >
-                <div className="nav-label" style={{ fontWeight: 600 }}>{u.name ?? '—'}</div>
-                <div className="text-muted" style={{ marginLeft: 6 }}>{u.email ?? '—'}</div>
+                <div className="font-medium">{u.name || '—'}</div>
+                <div className="text-xs opacity-70">{u.email}</div>
               </button>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {value && (
+        <div className="text-xs opacity-70">Selecionado: <code>{value}</code></div>
       )}
     </div>
   );

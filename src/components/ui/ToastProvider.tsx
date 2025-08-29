@@ -1,58 +1,120 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 'use client';
 
-import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 
-type ToastKind = 'ok' | 'err' | 'info';
-export type Toast = { id: string; text: string; kind?: ToastKind; ms?: number };
-
-type Ctx = {
-  push: (t: Omit<Toast, 'id'>) => void;
-  remove: (id: string) => void;
+type ToastKind = 'success' | 'error' | 'info';
+type ToastItem = {
+  id: string;
+  kind: ToastKind;
+  title: string;
+  message?: string;
+  duration?: number; // ms
 };
 
-const ToastCtx = createContext<Ctx | null>(null);
+type ToastAPI = {
+  show: (kind: ToastKind, title: string, opts?: { message?: string; duration?: number }) => void;
+  success: (title: string, opts?: { message?: string; duration?: number }) => void;
+  error: (title: string, opts?: { message?: string; duration?: number }) => void;
+  info: (title: string, opts?: { message?: string; duration?: number }) => void;
+};
+
+const ToastCtx = createContext<ToastAPI | null>(null);
 
 export function useToast() {
   const ctx = useContext(ToastCtx);
-  if (!ctx) throw new Error('useToast must be used inside <ToastProvider/>');
+  if (!ctx) throw new Error('useToast must be used within <ToastProvider>.');
   return ctx;
 }
 
 export default function ToastProvider({ children }: { children: React.ReactNode }) {
-  const [items, setItems] = useState<Toast[]>([]);
+  const [list, setList] = useState<ToastItem[]>([]);
+  const timers = useRef<Record<string, any>>({});
 
   const remove = useCallback((id: string) => {
-    setItems((xs) => xs.filter((x) => x.id !== id));
+    setList((prev) => prev.filter((t) => t.id !== id));
+    const t = timers.current[id];
+    if (t) {
+      clearTimeout(t);
+      delete timers.current[id];
+    }
   }, []);
 
-  const push = useCallback((t: Omit<Toast, 'id'>) => {
-    const id = crypto.randomUUID();
-    const toast: Toast = { id, kind: 'ok', ms: 3000, ...t };
-    setItems((xs) => [...xs, toast]);
-    // auto-dismiss
-    const ms = toast.ms ?? 3000;
-    if (ms > 0) setTimeout(() => remove(id), ms);
-  }, [remove]);
+  const show = useCallback<ToastAPI['show']>((kind, title, opts) => {
+    const id = Math.random().toString(36).slice(2);
+    const item: ToastItem = {
+      id,
+      kind,
+      title,
+      message: opts?.message,
+      duration: opts?.duration ?? 3500,
+    };
+    setList((prev) => [...prev, item]);
 
-  const value = useMemo<Ctx>(() => ({ push, remove }), [push, remove]);
+    timers.current[id] = setTimeout(() => remove(id), item.duration);
+  }, []);
+
+  const api = useMemo<ToastAPI>(
+    () => ({
+      show,
+      success: (title, opts) => show('success', title, opts),
+      error: (title, opts) => show('error', title, opts),
+      info: (title, opts) => show('info', title, opts),
+    }),
+    []
+  );
 
   return (
-    <ToastCtx.Provider value={value}>
+    <ToastCtx.Provider value={api}>
       {children}
+
       {/* Viewport */}
-      <div className="fixed right-4 top-4 z-[10000] flex flex-col gap-2">
-        {items.map((t) => (
-          <div
-            key={t.id}
-            className={`rounded-xl px-3 py-2 shadow-lg text-white ${
-              t.kind === 'err' ? 'bg-red-600' : t.kind === 'info' ? 'bg-blue-600' : 'bg-green-600'
-            }`}
-            role="status"
-          >
-            {t.text}
+      <div className="fp-toast-viewport" aria-live="polite" aria-atomic="true">
+        {list.map((t) => (
+          <div key={t.id} className={`fp-toast fp-toast--${t.kind}`} role="status">
+            <div className="fp-toast-title">{t.title}</div>
+            {t.message ? <div className="fp-toast-msg">{t.message}</div> : null}
+            <button className="fp-toast-x" onClick={() => remove(t.id)} aria-label="Fechar">×</button>
           </div>
         ))}
       </div>
+
+      {/* styles (scoped) */}
+      <style jsx global>{`
+        .fp-toast-viewport{
+          position: fixed;
+          z-index: 99999;
+          right: 16px;
+          bottom: 16px;
+          display: grid;
+          gap: 10px;
+          max-width: min(420px, calc(100vw - 32px));
+        }
+        .fp-toast{
+          position: relative;
+          border: 1px solid var(--border);
+          background: var(--card-bg);
+          color: var(--text);
+          border-radius: 12px;
+          padding: 10px 36px 10px 12px;
+          box-shadow: 0 10px 35px rgba(0,0,0,.18);
+          animation: fp-toast-in .2s ease;
+        }
+        .fp-toast--success{ border-color: color-mix(in srgb, var(--success) 40%, var(--border)); }
+        .fp-toast--error{   border-color: color-mix(in srgb, var(--danger)  40%, var(--border)); }
+        .fp-toast--info{    border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); }
+        .fp-toast-title{ font-weight: 700; font-size: 14px; }
+        .fp-toast-msg{ font-size: 12px; opacity: .8; margin-top: 2px; }
+        .fp-toast-x{
+          position: absolute; right: 6px; top: 4px;
+          width: 28px; height: 28px; border-radius: 8px;
+          border: 1px solid var(--border); background: var(--btn-bg);
+        }
+        @keyframes fp-toast-in{
+          from { transform: translateY(6px); opacity: 0; }
+          to   { transform: translateY(0);   opacity: 1; }
+        }
+      `}</style>
     </ToastCtx.Provider>
   );
 }

@@ -1,40 +1,39 @@
+// src/app/api/users/search/route.ts
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { Role } from '@prisma/client';
 import { createServerClient } from '@/lib/supabaseServer';
 
-export const dynamic = 'force-dynamic';
+const esc = (s: string) => `%${s.replace(/[%_]/g, (m) => '\\' + m)}%`;
+const onlyDigits = (s: string) => s.replace(/\D/g, '');
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
-  const me = session?.user as any;
-  if (!me?.id) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  if (!session?.user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   const url = new URL(req.url);
   const q = (url.searchParams.get('q') || '').trim();
-  const role = url.searchParams.get('role') as 'TRAINER' | 'CLIENT' | null;
-
-  if (q.length < 2) return NextResponse.json({ users: [] });
-
-  const esc = (s: string) => `%${s.replace(/[%_]/g, (m) => '\\' + m)}%`;
-  const qLike = esc(q);
-  const digits = q.replace(/\D/g, '');
+  const role = (url.searchParams.get('role') || '').trim().toUpperCase();
 
   const sb = createServerClient();
-  let query = sb.from('users').select('id,name,email,role,phone').or(
-    [
-      `name.ilike.${qLike}`,
-      `email.ilike.${qLike}`,
-      digits ? `phone.ilike.%${digits}%` : '',
-      digits ? `phone_number.ilike.%${digits}%` : '',
-    ].filter(Boolean).join(',')
-  ).limit(10);
+  const allowed = new Set(['ADMIN', 'TRAINER', 'CLIENT']);
 
-  if (role) query = query.eq('role', role);
+  let query = sb.from('users').select('id,name,email,role,phone,phone_number').limit(20);
+  if (allowed.has(role)) query = query.eq('role', role);
 
-  // Se for TRAINER e a pedir CLIENTES, opcionalmente poderíamos restringir aos seus clientes.
-  // (mantemos amplo para já; se quiseres, coloco o filtro pelos teus clientes)
+  const ors: string[] = [];
+  if (q.length >= 2) {
+    const like = esc(q);
+    const digits = onlyDigits(q);
+    ors.push(`name.ilike.${like}`, `email.ilike.${like}`);
+    if (digits) {
+      ors.push(`phone.ilike.%${digits}%`, `phone_number.ilike.%${digits}%`);
+    }
+  }
+  if (ors.length) query = query.or(ors.join(','));
+
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

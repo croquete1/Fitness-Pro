@@ -2,6 +2,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import ToastProvider from '@/components/ui/ToastProvider';
+import ClientProviders from '@/components/ClientProviders';
 
 export const metadata: Metadata = {
   title: 'Fitness Pro',
@@ -26,7 +27,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body>
-        <ToastProvider>{children}</ToastProvider>
+        <ClientProviders>
+          <ToastProvider>{children}</ToastProvider>
+        </ClientProviders>
       </body>
     </html>
   );
