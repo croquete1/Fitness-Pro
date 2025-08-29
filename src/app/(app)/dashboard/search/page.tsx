@@ -1,82 +1,160 @@
-import { createServerClient } from '@/lib/supabaseServer';
-
+// src/app/(app)/dashboard/search/page.tsx
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const fetchCache = 'force-no-store';
 
-async function doSearch(q: string) {
-  const sb = createServerClient();
-  const like = `%${q}%`;
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { redirect } from 'next/navigation';
+import { createServerClient } from '@/lib/supabaseServer';
 
-  const [users, plans, packages] = await Promise.all([
-    sb.from('users')
+function like(q: string) {
+  // escapa % e _ para não “partir” o ilike
+  return `%${q.replace(/[%_]/g, (m) => '\\' + m)}%`;
+}
+
+async function searchAll(q: string) {
+  const sb = createServerClient();
+  const qLike = like(q);
+
+  const [plans, users, packages] = await Promise.all([
+    sb
+      .from('training_plans')
+      .select('id,title,notes,status,updated_at,trainer_id,client_id')
+      .or(`title.ilike.${qLike},notes.ilike.${qLike}`)
+      .order('updated_at', { ascending: false })
+      .limit(10),
+    sb
+      .from('users')
       .select('id,name,email,role')
-      .or(`name.ilike.${like},email.ilike.${like}`),
-    sb.from('training_plans')
-      .select('id,title,status,client_id,trainer_id,updated_at')
-      .ilike('title', like),
-    sb.from('client_packages')
-      .select('id,package_name,status,client_id,trainer_id')
-      .ilike('package_name', like),
+      .or(`name.ilike.${qLike},email.ilike.${qLike}`)
+      .limit(10),
+    sb
+      .from('client_packages')
+      .select('id,package_name,notes,status,client_id,trainer_id,start_date,end_date')
+      .or(`package_name.ilike.${qLike},notes.ilike.${qLike}`)
+      .order('start_date', { ascending: false })
+      .limit(10),
   ]);
 
   return {
-    users: users.data ?? [],
     plans: plans.data ?? [],
+    users: users.data ?? [],
     packages: packages.data ?? [],
   };
 }
 
 export default async function Page({ searchParams }: { searchParams: { q?: string } }) {
-  const q = (searchParams?.q ?? '').toString().trim();
-  const results = q ? await doSearch(q) : { users: [], plans: [], packages: [] };
+  const session = await getServerSession(authOptions);
+  if (!session?.user) redirect('/login');
+
+  const q = (searchParams?.q ?? '').trim();
+  const results = q.length >= 2 ? await searchAll(q) : { plans: [], users: [], packages: [] };
 
   return (
     <div style={{ padding: 16, display: 'grid', gap: 12 }}>
-      <h1>Resultados de “{q || '—'}”</h1>
+      <h1 style={{ margin: 0 }}>Pesquisa</h1>
 
-      {!q ? (
-        <div className="card" style={{ padding:12 }}><div className="text-gray-600">Escreve algo na pesquisa acima.</div></div>
-      ) : (
+      <div className="card" style={{ padding: 12 }}>
+        <div className="text-muted" style={{ fontSize: 12 }}>
+          {q ? (
+            <>
+              Resultados para <strong>“{q}”</strong>
+            </>
+          ) : (
+            <>Escreve algo na caixa de pesquisa acima (mín. 2 caracteres).</>
+          )}
+        </div>
+      </div>
+
+      {!!q && (
         <>
-          <div className="card" style={{ padding:12 }}>
-            <h3 style={{ marginTop:0 }}>Utilizadores</h3>
-            {results.users.length === 0 ? <div className="text-gray-600">Sem resultados.</div> : (
-              <ul style={{ margin:0, paddingLeft:18 }}>
-                {results.users.map((u:any) => (
-                  <li key={u.id}>
-                    {u.name || u.email} — <span className="chip">{u.role}</span>
-                  </li>
-                ))}
-              </ul>
+          {/* Planos */}
+          <div className="card" style={{ padding: 12 }}>
+            <h3 style={{ marginTop: 0 }}>Planos de treino</h3>
+            {results.plans.length === 0 ? (
+              <div className="text-muted">Sem resultados.</div>
+            ) : (
+              <table className="table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Título</th>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Estado</th>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Atualizado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {results.plans.map((p: any) => (
+                    <tr key={p.id} style={{ borderTop: '1px solid var(--border)' }}>
+                      <td style={{ padding: 8 }}>{p.title ?? `Plano #${p.id}`}</td>
+                      <td style={{ padding: 8 }}>
+                        <span className="chip">{p.status}</span>
+                      </td>
+                      <td style={{ padding: 8 }}>
+                        {p.updated_at ? new Date(p.updated_at).toLocaleString() : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
           </div>
 
-          <div className="card" style={{ padding:12 }}>
-            <h3 style={{ marginTop:0 }}>Planos</h3>
-            {results.plans.length === 0 ? <div className="text-gray-600">Sem resultados.</div> : (
-              <ul style={{ margin:0, paddingLeft:18 }}>
-                {results.plans.map((p:any) => (
-                  <li key={p.id}>
-                    <a className="btn chip" href={`/dashboard/pt/plans/${p.id}`}>{p.title || `Plano #${p.id}`}</a>
-                    &nbsp; <span className="badge">{p.status}</span>
-                  </li>
-                ))}
-              </ul>
+          {/* Utilizadores */}
+          <div className="card" style={{ padding: 12 }}>
+            <h3 style={{ marginTop: 0 }}>Utilizadores</h3>
+            {results.users.length === 0 ? (
+              <div className="text-muted">Sem resultados.</div>
+            ) : (
+              <table className="table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Nome</th>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Email</th>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Role</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {results.users.map((u: any) => (
+                    <tr key={u.id} style={{ borderTop: '1px solid var(--border)' }}>
+                      <td style={{ padding: 8 }}>{u.name ?? '—'}</td>
+                      <td style={{ padding: 8 }}>{u.email}</td>
+                      <td style={{ padding: 8 }}>{u.role}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
           </div>
 
-          <div className="card" style={{ padding:12 }}>
-            <h3 style={{ marginTop:0 }}>Pacotes</h3>
-            {results.packages.length === 0 ? <div className="text-gray-600">Sem resultados.</div> : (
-              <ul style={{ margin:0, paddingLeft:18 }}>
-                {results.packages.map((p:any) => (
-                  <li key={p.id}>
-                    {p.package_name} — <a className="btn chip" href={`/dashboard/admin/clients`}>abrir lista</a>
-                    &nbsp; <span className="badge">{p.status}</span>
-                  </li>
-                ))}
-              </ul>
+          {/* Pacotes */}
+          <div className="card" style={{ padding: 12 }}>
+            <h3 style={{ marginTop: 0 }}>Clientes &amp; Pacotes</h3>
+            {results.packages.length === 0 ? (
+              <div className="text-muted">Sem resultados.</div>
+            ) : (
+              <table className="table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Pacote</th>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Estado</th>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Período</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {results.packages.map((p: any) => (
+                    <tr key={p.id} style={{ borderTop: '1px solid var(--border)' }}>
+                      <td style={{ padding: 8 }}>{p.package_name}</td>
+                      <td style={{ padding: 8 }}>
+                        <span className="chip">{p.status}</span>
+                      </td>
+                      <td style={{ padding: 8 }}>
+                        {p.start_date || '—'} {p.end_date ? <>→ {p.end_date}</> : null}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
           </div>
         </>

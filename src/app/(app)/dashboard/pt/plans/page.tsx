@@ -1,88 +1,90 @@
 // src/app/(app)/dashboard/pt/plans/page.tsx
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { redirect } from 'next/navigation';
 import { Role } from '@prisma/client';
 import { createServerClient } from '@/lib/supabaseServer';
-import { toStatus, statusLabel } from '@/lib/status';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const fetchCache = 'force-no-store';
 
+type SBPlanRow = {
+  id: string;
+  trainer_id: string;
+  client_id: string;
+  title: string | null;
+  notes: string | null;
+  status: string;
+  updated_at: string | null;
+  created_at: string | null;
+};
+
 export default async function Page() {
   const session = await getServerSession(authOptions);
   const me = session?.user as any;
   if (!me?.id) redirect('/login');
-  if (![Role.ADMIN, Role.TRAINER].includes(me.role)) redirect('/dashboard');
+
+  // PERMITIR ADMIN & TRAINER
+  if (![Role.ADMIN, Role.TRAINER].includes(me.role)) {
+    redirect('/dashboard');
+  }
 
   const sb = createServerClient();
-  let rows: any[] = [];
+  let data: SBPlanRow[] = [];
+
   if (me.role === Role.ADMIN) {
-    const { data } = await sb.from('training_plans').select('*').order('updated_at', { ascending: false });
-    rows = data ?? [];
+    const { data: all } = await sb.from('training_plans').select('*').order('updated_at', { ascending: false });
+    data = all ?? [];
   } else {
-    const { data } = await sb
+    const { data: mine } = await sb
       .from('training_plans')
       .select('*')
       .eq('trainer_id', me.id)
       .order('updated_at', { ascending: false });
-    rows = data ?? [];
+    data = mine ?? [];
   }
-
-  const plans = rows.map((p) => ({
-    id: String(p.id),
-    title: String(p.title ?? ''),
-    trainerId: String(p.trainer_id ?? ''),
-    clientId: String(p.client_id ?? ''),
-    status: toStatus(p.status),
-    updatedAt: p.updated_at as string | null,
-    createdAt: p.created_at as string | null,
-  }));
 
   return (
     <div style={{ padding: 16, display: 'grid', gap: 12 }}>
       <div className="flex items-center justify-between">
         <h1 style={{ margin: 0 }}>Planos de treino</h1>
-        <Link href="/dashboard/pt/plans/new" className="btn primary">Novo plano</Link>
+        <Link className="btn primary" href="/dashboard/pt/plans/new">Novo plano</Link>
       </div>
 
       <div className="card" style={{ padding: 12 }}>
-        {plans.length === 0 ? (
+        {data.length === 0 ? (
           <div className="empty">
-            <div className="empty-icon">📝</div>
-            <div className="empty-title">Ainda não tens planos</div>
-            <div className="empty-sub">Cria o primeiro plano para um cliente.</div>
-            <Link href="/dashboard/pt/plans/new" className="btn primary">Criar plano</Link>
+            <div className="empty-icon">📄</div>
+            <div className="empty-title">Ainda não há planos</div>
+            <div className="empty-sub">Clica em “Novo plano” para começares.</div>
           </div>
         ) : (
-          <table className="table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+          <table className="table">
             <thead>
               <tr>
-                <th className="th">Título</th>
-                <th className="th">Cliente</th>
-                <th className="th">Estado</th>
-                <th className="th">Atualizado</th>
-                <th className="th" />
+                <th style={{textAlign:'left',padding:8}}>Título</th>
+                <th style={{textAlign:'left',padding:8}}>Trainer</th>
+                <th style={{textAlign:'left',padding:8}}>Cliente</th>
+                <th style={{textAlign:'left',padding:8}}>Estado</th>
+                <th style={{textAlign:'left',padding:8}}>Atualizado</th>
+                <th />
               </tr>
             </thead>
             <tbody>
-              {plans.map((p) => (
-                <tr key={p.id} className="tr">
-                  <td className="td">{p.title || `Plano #${p.id.slice(0, 6)}`}</td>
-                  <td className="td mono">{p.clientId || '—'}</td>
-                  <td className="td">
-                    <span className={`chip ${p.status === 'ACTIVE' ? 'chip-success' : p.status === 'PENDING' ? 'chip-warn' : 'chip-danger'}`}>
-                      {statusLabel(p.status)}
-                    </span>
+              {data.map((p) => (
+                <tr key={p.id} style={{ borderTop:'1px solid var(--border)' }}>
+                  <td style={{padding:8}}>{p.title || `Plano #${p.id}`}</td>
+                  <td style={{padding:8}} className="mono">{p.trainer_id}</td>
+                  <td style={{padding:8}} className="mono">{p.client_id}</td>
+                  <td style={{padding:8}}>
+                    <span className="chip">{p.status}</span>
                   </td>
-                  <td className="td">{p.updatedAt ? new Date(p.updatedAt).toLocaleString() : '—'}</td>
-                  <td className="td">
-                    <div className="row-actions">
-                      <Link href={`/dashboard/pt/plans/${p.id}`} className="btn ghost">Abrir</Link>
-                      <Link href={`/dashboard/pt/plans/${p.id}/edit`} className="btn">Editar</Link>
-                    </div>
+                  <td style={{padding:8}}>{p.updated_at ? new Date(p.updated_at).toLocaleString() : '—'}</td>
+                  <td style={{padding:8}} className="row-actions">
+                    <Link className="btn" href={`/dashboard/pt/plans/${p.id}/edit`}>Editar</Link>
+                    <Link className="btn" href={`/dashboard/pt/plans/${p.id}`}>Ver</Link>
                   </td>
                 </tr>
               ))}

@@ -12,7 +12,10 @@ export const fetchCache = 'force-no-store';
 
 async function listAllPackages() {
   const sb = createServerClient();
-  const { data, error } = await sb.from('client_packages').select('*').order('created_at', { ascending: false });
+  const { data, error } = await sb
+    .from('client_packages')
+    .select('*')
+    .order('created_at', { ascending: false });
   return error ? [] : (data ?? []);
 }
 async function usersByIds(ids: string[]) {
@@ -38,8 +41,9 @@ export default async function Page() {
     <div style={{ padding: 16, display: 'grid', gap: 12 }}>
       <div className="flex items-center justify-between">
         <h1 style={{ margin: 0 }}>Clientes & Pacotes</h1>
-        {/* Admin: editor de criação (pode setar trainerId manualmente) */}
-        <PackageEditor admin mode="create" onClose={() => {}} />
+
+        {/* NUNCA passar funções a Client Components a partir de Server Components */}
+        <PackageEditor admin mode="create" />
       </div>
 
       <div className="card" style={{ padding: 12 }}>
@@ -67,20 +71,25 @@ export default async function Page() {
                 <td style={{padding:8}}>{p.start_date || '—'} {p.end_date ? `→ ${p.end_date}` : ''}</td>
                 <td style={{padding:8}}><span className="chip">{p.status}</span></td>
                 <td style={{padding:8}}>
-                  <PackageEditor admin mode="edit" initial={{
-                    id: p.id,
-                    trainerId: p.trainer_id,
-                    clientId: p.client_id,
-                    planId: p.plan_id,
-                    packageName: p.package_name,
-                    sessionsTotal: p.sessions_total,
-                    sessionsUsed: p.sessions_used,
-                    priceCents: p.price_cents,
-                    startDate: p.start_date,
-                    endDate: p.end_date,
-                    status: p.status,
-                    notes: p.notes,
-                  }} onClose={() => {}} />
+                  {/* Também sem onClose */}
+                  <PackageEditor
+                    admin
+                    mode="edit"
+                    initial={{
+                      id: p.id,
+                      trainerId: p.trainer_id,
+                      clientId: p.client_id,
+                      planId: p.plan_id,
+                      packageName: p.package_name,
+                      sessionsTotal: p.sessions_total,
+                      sessionsUsed: p.sessions_used,
+                      priceCents: p.price_cents,
+                      startDate: p.start_date,
+                      endDate: p.end_date,
+                      status: p.status,
+                      notes: p.notes,
+                    }}
+                  />
                 </td>
               </tr>
             ))}
