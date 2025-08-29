@@ -1,7 +1,7 @@
 'use client';
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useToast } from '@/components/ui/Toast';
+import { useToast } from '@/components/ui/Toasts';
 // Se tiveres estes componentes no teu projeto:
 import UserSelect from '@/components/users/UserSelect';
 import ExercisePicker from '@/components/plan/ExercisePicker';
