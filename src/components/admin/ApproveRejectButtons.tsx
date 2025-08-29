@@ -2,11 +2,28 @@
 
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
-import * as ReactDOM from 'react-dom';
+import { createRoot } from 'react-dom/client';
+
+function Spinner() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="16"
+      height="16"
+      style={{ marginRight: 6, animation: 'spin 1s linear infinite' }}
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" opacity="0.2" />
+      <path d="M22 12a10 10 0 0 0-10-10" fill="none" stroke="currentColor" />
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+    </svg>
+  );
+}
 
 function Toast({ msg, kind }: { msg: string; kind: 'ok' | 'err' }) {
   return (
     <div
+      role="status"
       style={{
         padding: '10px 12px',
         borderRadius: 10,
@@ -31,26 +48,13 @@ function showToast(msg: string, kind: 'ok' | 'err' = 'ok') {
   host.style.top = '16px';
   host.style.right = '16px';
   document.body.appendChild(host);
-  ReactDOM.render(<Toast msg={msg} kind={kind} />, host);
+
+  const root = createRoot(host);
+  root.render(<Toast msg={msg} kind={kind} />);
   setTimeout(() => {
-    ReactDOM.unmountComponentAtNode(host);
+    root.unmount();
     host.remove();
   }, 2200);
-}
-
-function Spinner() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="16"
-      height="16"
-      style={{ marginRight: 6, animation: 'spin 1s linear infinite' }}
-    >
-      <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" opacity="0.2" />
-      <path d="M22 12a10 10 0 0 0-10-10" fill="none" stroke="currentColor" />
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-    </svg>
-  );
 }
 
 export default function ApproveRejectButtons({ id }: { id: string }) {
