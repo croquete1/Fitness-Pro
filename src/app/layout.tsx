@@ -2,7 +2,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import ToastProvider from '@/components/ui/ToastProvider';
-import ClientProviders from '@/components/ClientProviders';
+import ClientProviders from '@/components/ui/ClientProviders';
 
 export const metadata: Metadata = {
   title: 'Fitness Pro',
