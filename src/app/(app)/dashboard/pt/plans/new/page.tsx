@@ -33,7 +33,7 @@ export default async function Page() {
       <div className="card" style={{ padding: 12 }}>
         <h1 style={{ marginTop: 0 }}>Novo plano</h1>
         {/* TS dos projetos varia, por isso passo como any para evitar conflito de tipos */}
-        <PlanEditor mode="create" initial={initial as any} />
+        <PlanEditor mode="create" initial={initial as any} admin={me.role === Role.ADMIN} />
       </div>
     </div>
   );

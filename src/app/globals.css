@@ -279,3 +279,8 @@ body { background: var(--bg); color: var(--text); }
 .btn.icon { padding: 6px 8px; border-radius: 10px; }
 .btn:hover { filter: brightness(0.98); }
 .btn:active { transform: translateY(0.5px); }
+
+@keyframes fp-spin { 
+  from { transform: rotate(0deg) } 
+  to { transform: rotate(360deg) } 
+}

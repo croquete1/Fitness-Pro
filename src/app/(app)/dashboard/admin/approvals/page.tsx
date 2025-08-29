@@ -63,7 +63,7 @@ export default async function AdminApprovalsPage() {
             {rows.map((r) => (
               <tr key={r.id} style={{ borderTop: '1px solid var(--border)' }}>
                 <td style={{ padding: 8 }}>
-                  <Link href={`/dashboard/users/${r.id}`} className="link">
+                  <Link href={`/dashboard/users/${r.id}`} className="btn chip">
                     {r.name ?? '—'}
                   </Link>
                 </td>

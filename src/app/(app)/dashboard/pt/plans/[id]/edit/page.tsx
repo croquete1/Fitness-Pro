@@ -10,7 +10,7 @@ import { redirect } from 'next/navigation';
 import { createServerClient } from '@/lib/supabaseServer';
 import dynamicImport from 'next/dynamic';
 
-const PlanEditor = dynamicImport(() => import('@/components/plans/PlanEditor'), { ssr: false });
+const PlanEditor = dynamicImport(() => import('@/components/plan/PlanEditor'), { ssr: false });
 
 type Me = { id: string; role: Role };
 
@@ -42,7 +42,7 @@ export default async function Page({ params }: { params: { id: string } }) {
       <div className="card" style={{ padding: 12 }}>
         <h1 style={{ marginTop: 0 }}>Editar plano</h1>
         {/* Passo como any para evitar choques de tipos do teu projeto */}
-        <PlanEditor mode="edit" initial={initial as any} />
+        <PlanEditor mode="edit" initial={initial as any} admin={me.role === Role.ADMIN} />
       </div>
     </div>
   );

@@ -3,7 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import ExercisePicker from './ExercisePicker';
-import { toast } from '@/components/ui/Toasts';
+import { toast } from '@/components/ui/toast';
+import Spinner from '@/components/ui/Spinner';
 
 type Exercise = { id: string; name: string; media_url?: string | null; muscle_image_url?: string | null };
 
@@ -13,16 +14,18 @@ type Initial = {
   clientId: string;
   title: string;
   notes: string;
-  status: string;       // mantemos string para não chocar com enums do projeto
-  exercises: Exercise[] // podes evoluir para um array com sets/reps/tempo, etc.
+  status: string;
+  exercises: Exercise[];
 };
 
 export default function PlanEditor({
   mode,
   initial,
+  admin = false,           // <— NOVO: ADMIN pode trocar trainerId
 }: {
   mode: 'create' | 'edit';
   initial: Initial;
+  admin?: boolean;
 }) {
   const router = useRouter();
   const [form, setForm] = useState<Initial>(initial);
@@ -50,14 +53,11 @@ export default function PlanEditor({
         exercises: form.exercises,
       };
 
-      const res = await fetch(
-        isEdit ? `/api/pt/plans/${form.id}` : '/api/pt/plans',
-        {
-          method: isEdit ? 'PATCH' : 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        }
-      );
+      const res = await fetch(isEdit ? `/api/pt/plans/${form.id}` : '/api/pt/plans', {
+        method: isEdit ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
 
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
@@ -78,6 +78,21 @@ export default function PlanEditor({
   return (
     <form onSubmit={onSubmit} className="grid" style={{ gap: 12 }}>
       <div className="card" style={{ padding: 12, display: 'grid', gap: 10 }}>
+        {admin && (
+          <div style={{ display: 'grid', gap: 8 }}>
+            <label>Treinador (ID)</label>
+            <input
+              value={form.trainerId}
+              onChange={(e) => setForm({ ...form, trainerId: e.target.value })}
+              placeholder="ID do treinador responsável"
+              className="input"
+              style={{ height: 38, border: '1px solid var(--border)', borderRadius: 10, padding: '0 12px', background: 'var(--btn-bg)', color: 'var(--text)' }}
+              required
+            />
+            <small className="text-muted">No próximo passo podemos trocar por um selector por nome.</small>
+          </div>
+        )}
+
         <div style={{ display: 'grid', gap: 8 }}>
           <label>Título</label>
           <input
@@ -95,7 +110,7 @@ export default function PlanEditor({
           <input
             value={form.clientId}
             onChange={(e) => setForm({ ...form, clientId: e.target.value })}
-            placeholder="ID do cliente (ou deixa vazio)"
+            placeholder="ID do cliente (podes deixar vazio)"
             className="input"
             style={{ height: 38, border: '1px solid var(--border)', borderRadius: 10, padding: '0 12px', background: 'var(--btn-bg)', color: 'var(--text)' }}
           />
@@ -165,8 +180,9 @@ export default function PlanEditor({
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-        <button type="submit" className="btn primary" disabled={saving}>
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
+        <button type="submit" className="btn primary" disabled={saving} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          {saving ? <Spinner /> : null}
           {saving ? 'A guardar…' : isEdit ? 'Guardar alterações' : 'Criar plano'}
         </button>
       </div>
