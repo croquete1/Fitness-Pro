@@ -83,7 +83,7 @@ export default async function AdminApprovalsPage() {
                 </td>
                 <td style={{ padding: 8 }}>{new Date(r.createdAt).toLocaleString()}</td>
                 <td style={{ padding: 8 }}>
-                  <ApproveRejectButtons id={r.id} />
+                  <ApproveRejectButtons userId={r.id} />
                 </td>
               </tr>
             ))}
