@@ -1,3 +1,4 @@
+// src/components/layout/Hotkeys.tsx
 'use client';
 
 import { useEffect } from 'react';
@@ -13,8 +14,6 @@ export default function Hotkeys() {
       return tag === 'input' || tag === 'textarea' || tag === 'select' || el.isContentEditable;
     };
 
-    let seq: string[] = [];
-
     const focusSearch = () => {
       const input =
         (document.getElementById('global-search') as HTMLInputElement) ||
@@ -26,31 +25,30 @@ export default function Hotkeys() {
       }
     };
 
+    let seq: string[] = [];
+
     const onKeyDown = (e: KeyboardEvent) => {
       const tgt = e.target as HTMLElement;
       if (isTypingInField(tgt)) return;
 
       const k = e.key.toLowerCase();
 
-      // "/" foca logo a pesquisa
+      // "/" foca a pesquisa
       if (k === '/') {
         e.preventDefault();
         focusSearch();
         return;
       }
 
-      // "?" abre ajuda (vai para dashboard com query para tal, sem depender de UI extra)
+      // "?" abre “ajuda”
       if (k === '?' || (k === '/' && e.shiftKey)) {
         e.preventDefault();
         router.push('/dashboard?help=shortcuts');
         return;
       }
 
-      // Sequências "g s", "g a", "g p", "g d"
-      if (k === 'g') {
-        seq = ['g'];
-        return;
-      }
+      // sequências "g s", "g a", "g p", "g d"
+      if (k === 'g') { seq = ['g']; return; }
       if (seq[0] === 'g') {
         seq.push(k);
         const second = seq[1];
