@@ -1,39 +1,71 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function Hotkeys() {
   const router = useRouter();
-  const lastG = useRef<number>(0);
 
   useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      // Ignore quando a pessoa está a escrever num input/textarea/contenteditable
-      const el = e.target as HTMLElement | null;
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+    const isTypingInField = (el: any) => {
+      if (!el) return false;
+      const tag = (el.tagName || '').toLowerCase();
+      return tag === 'input' || tag === 'textarea' || tag === 'select' || el.isContentEditable;
+    };
 
-      // / ou Cmd/Ctrl+K -> focar pesquisa
-      if (e.key === '/' || ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k')) {
-        const box = document.getElementById('global-search-input') as HTMLInputElement | null;
-        if (box) { e.preventDefault(); box.focus(); box.select(); }
+    let seq: string[] = [];
+
+    const focusSearch = () => {
+      const input =
+        (document.getElementById('global-search') as HTMLInputElement) ||
+        (document.querySelector('header input[type="search"]') as HTMLInputElement) ||
+        (document.querySelector('.app-header .search-input') as HTMLInputElement);
+      if (input) {
+        input.focus();
+        input.select?.();
+      }
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      const tgt = e.target as HTMLElement;
+      if (isTypingInField(tgt)) return;
+
+      const k = e.key.toLowerCase();
+
+      // "/" foca logo a pesquisa
+      if (k === '/') {
+        e.preventDefault();
+        focusSearch();
         return;
       }
 
-      // navegação em duas teclas: g + (p|u|a|d)
-      const now = Date.now();
-      if (e.key.toLowerCase() === 'g') { lastG.current = now; return; }
-      if (now - lastG.current < 800) {
-        const k = e.key.toLowerCase();
-        if (k === 'p') router.push('/dashboard/pt/plans');
-        if (k === 'u') router.push('/dashboard/users');
-        if (k === 'a') router.push('/dashboard/admin/approvals');
-        if (k === 'd') router.push('/dashboard');
-        lastG.current = 0;
+      // "?" abre ajuda (vai para dashboard com query para tal, sem depender de UI extra)
+      if (k === '?' || (k === '/' && e.shiftKey)) {
+        e.preventDefault();
+        router.push('/dashboard?help=shortcuts');
+        return;
       }
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+
+      // Sequências "g s", "g a", "g p", "g d"
+      if (k === 'g') {
+        seq = ['g'];
+        return;
+      }
+      if (seq[0] === 'g') {
+        seq.push(k);
+        const second = seq[1];
+        seq = [];
+        if (second === 's') { e.preventDefault(); focusSearch(); return; }
+        if (second === 'a') { e.preventDefault(); router.push('/dashboard/admin/approvals'); return; }
+        if (second === 'p') { e.preventDefault(); router.push('/dashboard/pt/plans'); return; }
+        if (second === 'd') { e.preventDefault(); router.push('/dashboard'); return; }
+      }
+
+      if (k === 'escape') (document.activeElement as HTMLElement)?.blur?.();
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
   }, [router]);
 
   return null;

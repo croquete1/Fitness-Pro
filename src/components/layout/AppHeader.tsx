@@ -36,7 +36,8 @@ export default function AppHeader() {
         {/* Pesquisa (à esquerda / centro, ocupa o espaço) */}
         <form className="search" onSubmit={onSearch} role="search" aria-label="Pesquisar">
           <input
-            id="global-search-input"
+            id="global-search"
+            className="search-input"
             type="search"
             placeholder="Pesquisar…"
             aria-label="Pesquisar"
