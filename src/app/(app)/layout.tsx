@@ -1,22 +1,23 @@
-// src/app/(app)/layout.tsx
 import Script from "next/script";
 import AppProviders from "@/components/layout/AppProviders";
 import AppHeader from "@/components/layout/AppHeader";
 import RoleSidebar from "@/components/layout/RoleSidebar";
 import SidebarHoverPeeker from "@/components/layout/SidebarHoverPeeker";
+import ClientProviders from "@/components/ui/ClientProviders";
 import "./theme.css";
-import ClientProviders from '@/components/ui/ClientProviders'; 
+
 export const dynamic = "force-dynamic";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-PT" suppressHydrationWarning>
       <head>
-        {/* Inicializa theme + estado da sidebar ANTES de pintar */}
+        {/* Inicializa tema + estado da sidebar ANTES de pintar */}
         <Script id="init-preferences" strategy="beforeInteractive">{`
 (function () {
   try {
     var root = document.documentElement;
+
     // tema
     var theme = localStorage.getItem("theme");
     if (theme === "dark" || theme === "light") {
@@ -25,37 +26,46 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
       root.setAttribute("data-theme", prefersDark ? "dark" : "light");
     }
-    // sidebar
+
+    // sidebar (defaults: pinned=1, collapsed=0)
     var collapsed = localStorage.getItem("fp:sb:collapsed");
     var pinned    = localStorage.getItem("fp:sb:pinned");
-    root.setAttribute("data-sb-collapsed", collapsed === "1" ? "1" : "0");
-    root.setAttribute("data-sb-pinned",    pinned === "1" ? "1" : "0");
+    var c = collapsed === "1" ? "1" : "0";
+    var p = pinned === "0" ? "0" : "1";
+    root.setAttribute("data-sb-collapsed", c);
+    root.setAttribute("data-sb-pinned",    p);
+
     // largura atual da coluna usada pelo header/main
     var cs = getComputedStyle(root);
     var w  = cs.getPropertyValue("--sb-width").trim();
     var wc = cs.getPropertyValue("--sb-width-collapsed").trim();
-    root.style.setProperty("--sb-col", (pinned === "1" ? (collapsed === "1" ? wc : w) : wc) || w);
+    root.style.setProperty("--sb-col", (p === "1" ? (c === "1" ? wc : w) : wc) || w);
   } catch (e) {}
 })();
         `}</Script>
       </head>
 
       <body className="app-shell">
+        {/* Providers globais (NextAuth, Toasts, etc.) */}
         <AppProviders>
-          {/* Sidebar FIXED (única) */}
-          <RoleSidebar />
-          {/* Zona de hover para “peek” quando não está afixada */}
-          <SidebarHoverPeeker />
+          <ClientProviders>
+            {/* Sidebar fixa única */}
+            <RoleSidebar />
+            {/* Peek ao passar o rato quando não está afixada */}
+            <SidebarHoverPeeker />
 
-          {/* Header com a classe que o CSS espera */}
-          <header className="app-header">
-            <AppHeader />
-          </header>
-            <ClientProviders>
-            {children}
-            </ClientProviders>
-          {/* Conteúdo: também recua com --sb-col */}
-          <main id="app-content">{children}</main>
+            {/* Header com o wrapper esperado pelo CSS */}
+            <header className="app-header">
+              <div className="header-inner">
+                <AppHeader />
+              </div>
+            </header>
+
+            {/* Conteúdo principal: recua com --sb-col */}
+            <main id="app-content" role="main">
+              {children}
+            </main>
+          </ClientProviders>
         </AppProviders>
       </body>
     </html>

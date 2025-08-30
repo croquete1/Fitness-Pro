@@ -1,13 +1,8 @@
 'use client';
-import { Toasts } from '@/components/ui';
-import React from 'react';
+
+import { ToastProvider } from './Toasts';
 
 export default function ClientProviders({ children }: { children: React.ReactNode }) {
-  return (
-    <>
-          {children} 
-           <Toasts />
-
-    </>
-  );
+  // Aqui podes acrescentar outros providers no futuro (Theme, Query, etc.)
+  return <ToastProvider>{children}</ToastProvider>;
 }

@@ -1,6 +1,5 @@
 export const dynamic = "force-dynamic";
 
-import React from "react";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/sessions";
 import { toAppRole } from "@/lib/roles";
@@ -23,17 +22,21 @@ function fmtDateTimeISO(iso: string) {
   const d = new Date(iso);
   try {
     return d.toLocaleString("pt-PT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
-  } catch { return iso.replace("T", " ").slice(0, 16); }
+  } catch {
+    return iso.replace("T", " ").slice(0, 16);
+  }
 }
 
 function sparklinePoints(data: TrendPoint[], w = 200, h = 48, pad = 2) {
   const max = Math.max(1, ...data.map((d) => d.sessions));
   const step = (w - pad * 2) / Math.max(1, data.length - 1);
-  return data.map((d, i) => {
-    const x = pad + i * step;
-    const y = pad + (h - pad * 2) * (1 - d.sessions / max);
-    return `${x},${y}`;
-  }).join(" ");
+  return data
+    .map((d, i) => {
+      const x = pad + i * step;
+      const y = pad + (h - pad * 2) * (1 - d.sessions / max);
+      return `${x},${y}`;
+    })
+    .join(" ");
 }
 
 export default async function DashboardPage() {

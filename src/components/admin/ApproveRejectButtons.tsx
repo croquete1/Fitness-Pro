@@ -1,52 +1,41 @@
 'use client';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useToast } from '@/components/ui/Toast';
+
+import { useState, useTransition } from 'react';
+import { useToast } from '@/components/ui/Toasts';
 
 export default function ApproveRejectButtons({ userId }: { userId: string }) {
-  const router = useRouter();
-  const { push } = useToast();
-  const [loading, setLoading] = useState<'approve' | 'reject' | null>(null);
+  const { success, error } = useToast();
+  const [pending, start] = useTransition();
+  const [busy, setBusy] = useState<'approve' | 'reject' | null>(null);
 
-  async function action(op: 'approve' | 'reject') {
-    setLoading(op);
+  async function act(op: 'approve' | 'reject') {
+    setBusy(op);
     try {
       const res = await fetch(`/api/admin/approvals/${userId}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ op }).toString(),
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ op }),
       });
-      if (!res.ok) throw new Error(String(res.status));
-
-      // Undo = operação contrária
-      const undoOp = op === 'approve' ? 'reject' : 'approve';
-      push({
-        message: op === 'approve' ? 'Conta aprovada.' : 'Pedido rejeitado.',
-        actionLabel: 'Desfazer',
-        onAction: async () => {
-          await fetch(`/api/admin/approvals/${userId}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({ op: undoOp }).toString(),
-          });
-          router.refresh();
-        },
+      if (!res.ok) throw new Error(await res.text());
+      success(op === 'approve' ? 'Conta aprovada com sucesso.' : 'Pedido rejeitado.');
+      start(() => {
+        // Refaz o route segment (rsc revalidate)
+        if (typeof window !== 'undefined') location.reload();
       });
-      router.refresh();
-    } catch {
-      push({ message: 'Não foi possível concluir a ação.' });
+    } catch (e: any) {
+      error(e?.message || 'Falha ao atualizar aprovação.');
     } finally {
-      setLoading(null);
+      setBusy(null);
     }
   }
 
   return (
     <div className="table-actions">
-      <button className="btn chip" disabled={loading !== null} onClick={()=>action('approve')}>
-        {loading === 'approve' ? 'A aprovar…' : 'Aprovar'}
+      <button className="btn chip" disabled={pending || busy === 'approve'} onClick={() => act('approve')}>
+        {busy === 'approve' ? 'A aprovar…' : 'Aprovar'}
       </button>
-      <button className="btn chip" disabled={loading !== null} onClick={()=>action('reject')}>
-        {loading === 'reject' ? 'A rejeitar…' : 'Rejeitar'}
+      <button className="btn chip" disabled={pending || busy === 'reject'} onClick={() => act('reject')}>
+        {busy === 'reject' ? 'A rejeitar…' : 'Rejeitar'}
       </button>
     </div>
   );

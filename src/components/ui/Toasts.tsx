@@ -1,84 +1,75 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useState } from 'react';
 
-/** Tipos de toast suportados */
-export type ToastKind = 'success' | 'error' | 'info' | 'warning';
+type ToastType = 'info' | 'success' | 'warning' | 'error';
 
 export type ToastItem = {
   id: string;
-  kind: ToastKind;
+  title?: string;
   message: string;
-  /** ms (default 3200) */
-  duration?: number;
+  type?: ToastType;
+  duration?: number; // ms (default 3500). 0 = não auto-dispensa
 };
 
-type Listener = (item: ToastItem) => void;
+type ToastAPI = {
+  show: (t: Omit<ToastItem, 'id'>) => void;
+  success: (message: string, opts?: Omit<ToastItem, 'id' | 'type'>) => void;
+  error: (message: string, opts?: Omit<ToastItem, 'id' | 'type'>) => void;
+  info: (message: string, opts?: Omit<ToastItem, 'id' | 'type'>) => void;
+  warning: (message: string, opts?: Omit<ToastItem, 'id' | 'type'>) => void;
+  dismiss: (id: string) => void;
+};
 
-const listeners = new Set<Listener>();
+const Ctx = createContext<ToastAPI | null>(null);
 
-/** API global para disparar toasts a partir de QUALQUER componente client */
-export function showToast(
-  input: Omit<ToastItem, 'id'> & { id?: string }
-) {
-  const item: ToastItem = {
-    id: input.id ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    kind: input.kind ?? 'info',
-    message: input.message,
-    duration: input.duration ?? 3200,
-  };
-  for (const l of listeners) l(item);
+export function useToast() {
+  const ctx = useContext(Ctx);
+  if (!ctx) throw new Error('useToast must be used inside <ToastProvider>');
+  return ctx;
 }
 
-/** Contêiner visual que renderiza os toasts — montar APENAS uma vez */
-export function Toasts() {
+export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([]);
 
-  useEffect(() => {
-    const onAdd: Listener = (toast) => {
-      setItems((prev) => [...prev, toast]);
-      // auto-dismiss
-      const t = setTimeout(() => {
-        setItems((prev) => prev.filter((i) => i.id !== toast.id));
-      }, toast.duration ?? 3200);
-      // limpar timeout no unmount
-      return () => clearTimeout(t);
-    };
-
-    listeners.add(onAdd);
-    return () => {
-      listeners.delete(onAdd);
-    };
+  const dismiss = useCallback((id: string) => {
+    setItems((s) => s.filter((i) => i.id !== id));
   }, []);
 
+  const show = useCallback((t: Omit<ToastItem, 'id'>) => {
+    const id = Math.random().toString(36).slice(2);
+    const entry: ToastItem = { id, duration: 3500, ...t };
+    setItems((s) => [...s, entry]);
+    if (entry.duration && entry.duration > 0) {
+      setTimeout(() => dismiss(id), entry.duration);
+    }
+  }, [dismiss]);
+
+  const api: ToastAPI = {
+    show,
+    success: (message, opts) => show({ message, type: 'success', ...opts }),
+    error:   (message, opts) => show({ message, type: 'error', ...opts }),
+    info:    (message, opts) => show({ message, type: 'info', ...opts }),
+    warning: (message, opts) => show({ message, type: 'warning', ...opts }),
+    dismiss,
+  };
+
   return (
-    <div
-      aria-live="polite"
-      aria-atomic="true"
-      className="fixed bottom-4 right-4 z-[99999] grid gap-2 w-[min(92vw,380px)]"
-    >
-      {items.map((t) => (
-        <div
-          key={t.id}
-          className="rounded-xl border px-3 py-2 shadow-lg"
-          style={{
-            background: 'var(--card-bg)',
-            borderColor: 'var(--border)',
-          }}
-          role="status"
-        >
-          <div
-            className="text-sm font-medium"
-            style={{ color: `var(--text)` }}
+    <Ctx.Provider value={api}>
+      {children}
+      <div className="toast-viewport" aria-live="polite" aria-atomic="true">
+        {items.map((t) => (
+          <button
+            key={t.id}
+            className={`toast toast--${t.type ?? 'info'}`}
+            onClick={() => dismiss(t.id)}
+            title="Fechar"
           >
-            {t.kind === 'success' && '✅ '}
-            {t.kind === 'error' && '⛔ '}
-            {t.kind === 'info' && 'ℹ️ '}
-            {t.kind === 'warning' && '⚠️ '}
-            {t.message}
-          </div>
-        </div>
-      ))}
-    </div>
+            {t.title && <div className="toast-title">{t.title}</div>}
+            <div className="toast-msg">{t.message}</div>
+          </button>
+        ))}
+      </div>
+    </Ctx.Provider>
   );
 }

@@ -315,4 +315,30 @@ body { background: var(--bg); color: var(--text); }
 }
 
 .btn:disabled{ opacity:.6; cursor: not-allowed; }
+/* ===== Toasts ===== */
+.toast-viewport{
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  display: grid;
+  gap: 8px;
+  z-index: 100000; /* acima do header e sidebar */
+}
+.toast{
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text);
+  box-shadow: 0 8px 28px rgba(0,0,0,.08);
+  cursor: pointer;
+}
+.toast-title{ font-weight: 700; margin-bottom: 2px; }
+.toast-msg{ opacity: .95; }
+
+/* cores por tipo */
+.toast--success{ border-color: color-mix(in srgb, var(--success) 40%, var(--border)); }
+.toast--warning{ border-color: color-mix(in srgb, var(--warning) 40%, var(--border)); }
+.toast--error  { border-color: color-mix(in srgb, var(--danger)  40%, var(--border)); }
 
