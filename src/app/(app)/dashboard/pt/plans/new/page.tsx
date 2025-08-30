@@ -1,15 +1,14 @@
-// Criar novo plano (ADMIN e TRAINER)
+// src/app/(app)/dashboard/pt/plans/new/page.tsx
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const fetchCache = 'force-no-store';
 
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { Role } from '@prisma/client';
-import { redirect } from 'next/navigation';
-import dynamicImport from 'next/dynamic';
-
-const PlanEditor = dynamicImport(() => import('@/components/plan/PlanEditor'), { ssr: false });
+import PlanEditor from '@/components/plan/PlanEditor';
 
 type Me = { id: string; role: Role };
 
@@ -17,23 +16,29 @@ export default async function Page() {
   const session = await getServerSession(authOptions);
   const me = session?.user as unknown as Me;
   if (!me?.id) redirect('/login');
-  if (![Role.ADMIN, Role.TRAINER].includes(me.role)) redirect('/dashboard');
+
+  // ✅ Corrigido: evitar includes, usar comparação explícita
+  if (me.role !== Role.ADMIN && me.role !== Role.TRAINER) redirect('/dashboard');
 
   const initial = {
-    trainerId: me.id,
+    trainerId: me.role === Role.TRAINER ? me.id : '',
     clientId: '',
     title: '',
     notes: '',
-    status: 'draft',
+    status: 'DRAFT' as any, // ajusta se tiveres enum próprio no editor
     exercises: [] as any[],
   };
 
   return (
     <div style={{ padding: 16, display: 'grid', gap: 12 }}>
+      <div className="flex items-center justify-between">
+        <h1 style={{ margin: 0 }}>Novo plano</h1>
+        <Link className="btn" href="/dashboard/pt/plans">Voltar</Link>
+      </div>
+
       <div className="card" style={{ padding: 12 }}>
-        <h1 style={{ marginTop: 0 }}>Novo plano</h1>
-        {/* TS dos projetos varia, por isso passo como any para evitar conflito de tipos */}
-        <PlanEditor mode="create" initial={initial as any} admin={me.role === Role.ADMIN} />
+        {/* PlanEditor é Client Component */}
+        <PlanEditor mode="create" initial={initial} />
       </div>
     </div>
   );
