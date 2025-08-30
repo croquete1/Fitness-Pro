@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import ToastProvider from '@/components/ui/ToastProvider';
 import ClientProviders from '@/components/ui/ClientProviders';
+import Hotkeys from '@/components/layout/Hotkeys';
 
 export const metadata: Metadata = {
   title: 'Fitness Pro',

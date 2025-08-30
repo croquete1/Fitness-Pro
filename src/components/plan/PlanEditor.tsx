@@ -10,7 +10,8 @@ import React, {
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Status } from '@prisma/client';
-import { showToast } from '@/components/ui/Toasts';
+import { showToast, useToast } from '@/components/ui/Toasts';
+import UserSelect from '@/components/users/UserSelect';
 
 /* ================== Tipos ================== */
 type Exercise = {
@@ -30,11 +31,14 @@ type Exercise = {
 type InitialPlan = {
   trainerId: string;
   clientId: string;
+  trainerName?: string | null;
+  clientName?: string | null;
   title: string;
   notes: string;
   status: Status;
   exercises: Exercise[];
 };
+
 
 type Mode = 'create' | 'edit';
 
@@ -276,6 +280,14 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin: _adm
   const [status, setStatus] = useState<Status>(initial.status ?? 'PENDING');
   const [exercises, setExercises] = useState<Exercise[]>(initial.exercises ?? []);
   const [busy, setBusy] = useState(false);
+  // user select state
+  const toast = useToast?.();
+  const [trainer, setTrainer] = useState<{id:string;name?:string|null;email?:string|null} | null>(
+    initial.trainerId ? ({ id: initial.trainerId, name: (initial as any).trainerName } as any) : null
+  );
+  const [client, setClient] = useState<{id:string;name?:string|null;email?:string|null} | null>(
+    initial.clientId ? ({ id: initial.clientId, name: (initial as any).clientName } as any) : null
+  );
 
   // “Zona do lixo” para arrastar e remover
   const binRef = useRef<HTMLDivElement | null>(null);
@@ -394,21 +406,24 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin: _adm
             </select>
           </div>
 
-          {/* Treinador */}
-          <UserTypeahead
-            label="Treinador"
-            role="TRAINER"
-            value={trainerId}
-            onChange={(u) => setTrainerId(u.id)}
-          />
+          <div style={{ display:'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <UserSelect
+              label="Treinador"
+              role="TRAINER"
+              value={trainer}
+              onChange={(v) => { setTrainer(v); setTrainerId(v?.id ?? initial.trainerId); }}
+              placeholder="Pesquisar treinador…"
+              disabled={!_admin}
+            />
 
-          {/* Cliente */}
-          <UserTypeahead
-            label="Cliente"
-            role="CLIENT"
-            value={clientId}
-            onChange={(u) => setClientId(u.id)}
-          />
+            <UserSelect
+              label="Cliente"
+              role="CLIENT"
+              value={client}
+              onChange={(v) => { setClient(v); setClientId(v?.id ?? initial.clientId); }}
+              placeholder="Pesquisar cliente…"
+            />
+          </div>
         </div>
 
         <div className="grid gap-2 mt-3">

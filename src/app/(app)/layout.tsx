@@ -4,6 +4,7 @@ import AppHeader from "@/components/layout/AppHeader";
 import RoleSidebar from "@/components/layout/RoleSidebar";
 import SidebarHoverPeeker from "@/components/layout/SidebarHoverPeeker";
 import ClientProviders from "@/components/ui/ClientProviders";
+import Hotkeys from "@/components/layout/Hotkeys";
 import "./theme.css";
 
 export const dynamic = "force-dynamic";
@@ -60,6 +61,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <AppHeader />
               </div>
             </header>
+
+            <Hotkeys />
 
             {/* Conteúdo principal: recua com --sb-col */}
             <main id="app-content" role="main">

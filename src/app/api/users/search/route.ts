@@ -1,41 +1,44 @@
-// src/app/api/users/search/route.ts
-export const dynamic = 'force-dynamic';
-
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { createServerClient } from '@/lib/supabaseServer';
+import prisma from '@/lib/prisma';
+import { Role } from '@prisma/client';
 
-const esc = (s: string) => `%${s.replace(/[%_]/g, (m) => '\\' + m)}%`;
-const onlyDigits = (s: string) => s.replace(/\D/g, '');
+function onlyDigits(s: string) { return s.replace(/\D/g, ''); }
 
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  const { searchParams } = new URL(req.url);
+  const q = (searchParams.get('q') || '').trim();
+  const roleStr = (searchParams.get('role') || '').toUpperCase();
+  const role = (['ADMIN','TRAINER','CLIENT'] as const).includes(roleStr as any)
+    ? (roleStr as keyof typeof Role)
+    : undefined;
 
-  const url = new URL(req.url);
-  const q = (url.searchParams.get('q') || '').trim();
-  const role = (url.searchParams.get('role') || '').trim().toUpperCase();
+  if (q.length < 2) return NextResponse.json({ users: [] });
 
-  const sb = createServerClient();
-  const allowed = new Set(['ADMIN', 'TRAINER', 'CLIENT']);
+  const digits = onlyDigits(q);
+  const where: any = {
+    AND: [
+      role ? { role } : {},
+      {
+        OR: [
+          { name:  { contains: q, mode: 'insensitive' } },
+          { email: { contains: q, mode: 'insensitive' } },
+          ...(digits.length >= 3
+            ? [
+                { phone:        { contains: digits } },
+                { phoneNumber:  { contains: digits } },
+              ]
+            : []),
+        ],
+      },
+    ],
+  };
 
-  let query = sb.from('users').select('id,name,email,role,phone,phone_number').limit(20);
-  if (allowed.has(role)) query = query.eq('role', role);
+  const users = await prisma.user.findMany({
+    where,
+    select: { id: true, name: true, email: true, role: true, phone: true, phoneNumber: true },
+    take: 15,
+    orderBy: { name: 'asc' },
+  });
 
-  const ors: string[] = [];
-  if (q.length >= 2) {
-    const like = esc(q);
-    const digits = onlyDigits(q);
-    ors.push(`name.ilike.${like}`, `email.ilike.${like}`);
-    if (digits) {
-      ors.push(`phone.ilike.%${digits}%`, `phone_number.ilike.%${digits}%`);
-    }
-  }
-  if (ors.length) query = query.or(ors.join(','));
-
-  const { data, error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  return NextResponse.json({ users: data ?? [] });
+  return NextResponse.json({ users });
 }
