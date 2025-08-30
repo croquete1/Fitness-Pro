@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/Toasts';
 // Se tiveres estes componentes no teu projeto:
@@ -233,7 +233,11 @@ export default function PlanEditor({ mode, admin, initial, onSaved }: Props) {
           </div>
 
           <div className="flex items-center gap-8">
-            <ExercisePicker onPick={addExercise} />
+            <ExercisePicker
+              open={true}
+              onClose={() => {}}
+              onPick={addExercise}
+            />
             <button className="btn primary" onClick={onSave} disabled={saving}>
               {saving ? (<><Spinner />&nbsp;A guardar…</>) : 'Guardar'}
             </button>
