@@ -3,8 +3,7 @@
 import { useMemo } from "react";
 import { useMe } from "@/hooks/useMe";
 import { usePoll } from "@/hooks/usePoll";
-import { useAlerts } from "@/hooks/useAlerts";
-import { Toasts, showToast } from "@/components/ui";
+import React from 'react';
 
 type Stats = {
   clients?: number;
@@ -16,7 +15,7 @@ type Stats = {
 
 function greeting() {
   const h = new Date().getHours();
-  if (h >= 5 && h < 12) return "Bom dia";
+  if (h >= 6 && h < 12) return "Bom dia";
   if (h >= 12 && h < 19) return "Boa tarde";
   if (h >= 19 && h <= 23) return "Boa noite";
   return "Boa madrugada";
@@ -25,7 +24,7 @@ function greeting() {
 export default function DashboardClient() {
   const { user } = useMe();
   const { data: stats } = usePoll<Stats>("/api/dashboard/stats", { intervalMs: 30000 });
-  const { alerts, dismiss } = useAlerts();
+
 
   const s: Stats = stats ?? {};
   const hello = useMemo(() => `${greeting()}, ${user?.name ?? "Admin"} 👋`, [user?.name]);
@@ -72,8 +71,7 @@ export default function DashboardClient() {
           </div>
         </div>
       </div>
-
-      <Toasts />
+    
     </div>
   );
 }

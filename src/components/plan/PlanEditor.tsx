@@ -43,6 +43,7 @@ type Props = {
   initial: InitialPlan;
   /** só no modo edit */
   planId?: string;
+  admin?: boolean;
   /** callback opcional, p/ fechar modal ou navegar */
   onSaved?: (id: string) => void;
 };
@@ -99,7 +100,6 @@ function useUserSearch(role: 'TRAINER' | 'CLIENT') {
 function UserTypeahead({
   label,
   role,
-  value,
   onChange,
 }: {
   label: string;
@@ -266,7 +266,7 @@ function ExercisePicker({
 }
 
 /* ================== PlanEditor ================== */
-export default function PlanEditor({ mode, initial, planId, onSaved }: Props) {
+export default function PlanEditor({ mode, initial, planId, onSaved, admin: _admin = false }: Props) {
   const router = useRouter();
 
   const [trainerId, setTrainerId] = useState(initial.trainerId);
