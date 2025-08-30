@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { useMe } from "@/hooks/useMe";
 import { usePoll } from "@/hooks/usePoll";
 import { useAlerts } from "@/hooks/useAlerts";
-import { Toasts } from "@/components/ui";
+import { Toasts, showToast } from "@/components/ui";
 
 type Stats = {
   clients?: number;
@@ -73,7 +73,7 @@ export default function DashboardClient() {
         </div>
       </div>
 
-      <Toasts items={alerts} onDismiss={dismiss} />
+      <Toasts />
     </div>
   );
 }

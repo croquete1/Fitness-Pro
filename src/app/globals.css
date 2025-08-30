@@ -305,4 +305,14 @@ body { background: var(--bg); color: var(--text); }
   border: 1px solid var(--border); background: var(--btn-bg);
 }
 .toast-close:hover{ background: var(--hover); }
+/* Spinner genérico para LoadingButton */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner{
+  display:inline-block; width:1em; height:1em;
+  border:2px solid var(--border); border-top-color: var(--text);
+  border-radius:50%; animation: spin 900ms linear infinite;
+  vertical-align:-2px;
+}
+
+.btn:disabled{ opacity:.6; cursor: not-allowed; }
 

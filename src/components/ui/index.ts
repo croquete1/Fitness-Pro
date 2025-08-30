@@ -1,1 +1,1 @@
-export { default as Toasts, showToast } from './Toasts';
+export { Toasts, showToast } from './Toasts';

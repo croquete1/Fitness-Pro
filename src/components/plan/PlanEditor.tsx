@@ -1,294 +1,585 @@
 'use client';
-import { useRef, useState } from 'react';
+
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { useToast } from '@/components/ui/Toasts';
-// Se tiveres estes componentes no teu projeto:
-import UserSelect from '@/components/users/UserSelect';
-import ExercisePicker from '@/components/plan/ExercisePicker';
+import { Status } from '@prisma/client';
+import { showToast } from '@/components/ui/Toasts';
 
-type PlanStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED' | string;
+/* ================== Tipos ================== */
+type Exercise = {
+  id: string;
+  name: string;
+  /**
+   * URL de média do exercício (gif/video/png) – pode ser local (/exercises/xxx.gif) ou remota.
+   */
+  mediaUrl?: string;
+  /** imagem/diagrama de músculos */
+  muscleUrl?: string;
+  sets?: number;
+  reps?: number;
+  notes?: string;
+};
 
-export type InitialPlan = {
-  id?: string;
+type InitialPlan = {
   trainerId: string;
   clientId: string;
   title: string;
   notes: string;
-  status: PlanStatus;
-  exercises: any[];
+  status: Status;
+  exercises: Exercise[];
 };
+
+type Mode = 'create' | 'edit';
 
 type Props = {
-  mode: 'create' | 'edit';
-  admin?: boolean;
+  mode: Mode;
   initial: InitialPlan;
-  onSaved?: (planId: string) => void;
+  /** só no modo edit */
+  planId?: string;
+  /** callback opcional, p/ fechar modal ou navegar */
+  onSaved?: (id: string) => void;
 };
 
-type Template = {
-  id: string; name: string; tags: string[];
-  // para exemplo simples: dias com “exercícios” placeholders (o PT pode depois trocar no picker)
-  days: Array<{ day: number; items: Array<{ name: string; sets?: number; reps?: string }> }>;
-};
+/* ================== Utils ================== */
+function debounce<F extends (...args: any[]) => void>(fn: F, ms = 300) {
+  let t: ReturnType<typeof setTimeout> | null = null;
+  return (...args: Parameters<F>) => {
+    if (t) clearTimeout(t);
+    t = setTimeout(() => fn(...args), ms);
+  };
+}
 
-const TEMPLATES: Template[] = [
-  {
-    id: 'hipertrofia-4',
-    name: 'Hipertrofia — 4 dias',
-    tags: ['hipertrofia','4 dias'],
-    days: [
-      { day: 1, items: [{ name: 'Supino reto', sets: 4, reps: '8-10' }, { name: 'Remada curvada', sets: 4, reps: '8-10' }] },
-      { day: 2, items: [{ name: 'Agachamento', sets: 4, reps: '6-8' }, { name: 'Leg press', sets: 3, reps: '10-12' }] },
-      { day: 3, items: [{ name: 'Desenvolvimento ombro', sets: 4, reps: '8-10' }, { name: 'Elevação lateral', sets: 3, reps: '12-15' }] },
-      { day: 4, items: [{ name: 'Terra romeno', sets: 4, reps: '6-8' }, { name: 'Gêmeos em pé', sets: 4, reps: '12-15' }] },
-    ],
-  },
-  {
-    id: 'corte-3',
-    name: 'Cut — 3 dias (full-body)',
-    tags: ['cut','3 dias','full-body'],
-    days: [
-      { day: 1, items: [{ name: 'Agachamento', sets: 3, reps: '10' }, { name: 'Supino inclinado', sets: 3, reps: '10' }] },
-      { day: 2, items: [{ name: 'Levantamento terra', sets: 3, reps: '8' }, { name: 'Barra fixa', sets: 3, reps: 'amrap' }] },
-      { day: 3, items: [{ name: 'Press militar', sets: 3, reps: '10' }, { name: 'Afundos paralelas', sets: 3, reps: 'amrap' }] },
-    ],
-  },
-];
+/* ================== Autocomplete de Utilizadores ================== */
+type UserLite = { id: string; name: string; email?: string };
 
-function Spinner() {
+function useUserSearch(role: 'TRAINER' | 'CLIENT') {
+  const [q, setQ] = useState('');
+  const [items, setItems] = useState<UserLite[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // pedir ao server (route: /api/users/search?role=TRAINER|CLIENT&q=xxx)
+  const fetcher = useMemo(
+    () =>
+      debounce(async (term: string) => {
+        if (!term || term.trim().length < 2) {
+          setItems([]);
+          return;
+        }
+        try {
+          setLoading(true);
+          const res = await fetch(
+            `/api/users/search?role=${encodeURIComponent(role)}&q=${encodeURIComponent(term.trim())}`,
+            { cache: 'no-store' }
+          );
+          const data = (await res.json()) as UserLite[];
+          setItems(Array.isArray(data) ? data : []);
+        } catch {
+          // silencioso
+        } finally {
+          setLoading(false);
+        }
+      }, 300),
+    [role]
+  );
+
+  useEffect(() => {
+    fetcher(q);
+  }, [q, fetcher]);
+
+  return { q, setQ, items, loading };
+}
+
+function UserTypeahead({
+  label,
+  role,
+  value,
+  onChange,
+}: {
+  label: string;
+  role: 'TRAINER' | 'CLIENT';
+  value?: string;
+  onChange: (user: UserLite) => void;
+}) {
+  const { q, setQ, items, loading } = useUserSearch(role);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    setOpen(items.length > 0 && q.trim().length >= 2);
+  }, [items, q]);
+
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" className="animate-spin" aria-hidden="true">
-      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" opacity=".2" />
-      <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" strokeWidth="4" fill="none" />
-    </svg>
+    <div className="grid gap-1" style={{ position: 'relative' }}>
+      <label className="text-xs opacity-70">{label}</label>
+      <input
+        className="h-10 rounded-lg border px-3"
+        style={{ background: 'var(--btn-bg)', borderColor: 'var(--border)' }}
+        placeholder={`Procurar ${role === 'TRAINER' ? 'treinador' : 'cliente'}…`}
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        onFocus={() => setOpen(items.length > 0)}
+      />
+      {loading && (
+        <div className="text-xs opacity-70">A procurar…</div>
+      )}
+
+      {open && (
+        <div
+          className="absolute z-20 w-full rounded-xl border shadow-lg"
+          style={{
+            top: '100%',
+            marginTop: 6,
+            background: 'var(--card-bg)',
+            borderColor: 'var(--border)',
+            maxHeight: 280,
+            overflow: 'auto',
+          }}
+          onMouseDown={(e) => e.preventDefault()}
+        >
+          {items.length === 0 ? (
+            <div className="p-3 text-sm opacity-70">Sem resultados…</div>
+          ) : (
+            items.map((it) => (
+              <button
+                key={it.id}
+                className="w-full text-left px-3 py-2 hover:bg-[var(--hover)]"
+                onClick={() => {
+                  onChange(it);
+                  setQ(it.name || it.email || it.id);
+                  setOpen(false);
+                }}
+              >
+                <div className="text-sm font-medium">{it.name ?? '—'}</div>
+                <div className="text-xs opacity-70">{it.email ?? it.id}</div>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
-export default function PlanEditor({ mode, admin, initial, onSaved }: Props) {
+/* ================== Picker de Exercícios ================== */
+type ExerciseLite = {
+  id: string;
+  name: string;
+  mediaUrl?: string;
+  muscleUrl?: string;
+};
+
+function useExerciseSearch() {
+  const [q, setQ] = useState('');
+  const [items, setItems] = useState<ExerciseLite[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const fetcher = useMemo(
+    () =>
+      debounce(async (term: string) => {
+        if (!term || term.trim().length < 2) {
+          setItems([]);
+          return;
+        }
+        try {
+          setLoading(true);
+          const res = await fetch(`/api/exercises?q=${encodeURIComponent(term.trim())}`, {
+            cache: 'no-store',
+          });
+          // Espera-se um array [{id,name,mediaUrl,muscleUrl}]
+          const data = (await res.json()) as ExerciseLite[];
+          setItems(Array.isArray(data) ? data : []);
+        } catch {
+          // silencioso
+        } finally {
+          setLoading(false);
+        }
+      }, 300),
+    []
+  );
+
+  useEffect(() => {
+    fetcher(q);
+  }, [q, fetcher]);
+
+  return { q, setQ, items, loading };
+}
+
+function ExercisePicker({
+  onPick,
+}: {
+  onPick: (ex: ExerciseLite) => void;
+}) {
+  const { q, setQ, items, loading } = useExerciseSearch();
+
+  return (
+    <div className="grid gap-2">
+      <div className="grid gap-1">
+        <label className="text-xs opacity-70">Adicionar exercício</label>
+        <input
+          className="h-10 rounded-lg border px-3"
+          style={{ background: 'var(--btn-bg)', borderColor: 'var(--border)' }}
+          placeholder="Pesquisar exercício por nome…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+      </div>
+
+      {loading && <div className="text-xs opacity-70">A procurar…</div>}
+
+      {items.length > 0 && (
+        <div
+          className="grid gap-2"
+          style={{ maxHeight: 280, overflow: 'auto' }}
+        >
+          {items.map((it) => (
+            <button
+              key={it.id}
+              className="flex items-center gap-3 rounded-xl border p-2 text-left hover:bg-[var(--hover)]"
+              style={{ borderColor: 'var(--border)', background: 'var(--card-bg)' }}
+              onClick={() => onPick(it)}
+            >
+              <div className="relative h-12 w-12 overflow-hidden rounded-lg border" style={{ borderColor: 'var(--border)' }}>
+                <Image
+                  src={it.mediaUrl || '/exercise-placeholder.png'}
+                  alt=""
+                  fill
+                  sizes="48px"
+                  style={{ objectFit: 'cover' }}
+                />
+              </div>
+              <div className="grid">
+                <div className="text-sm font-medium">{it.name}</div>
+                <div className="text-xs opacity-70">{it.id}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ================== PlanEditor ================== */
+export default function PlanEditor({ mode, initial, planId, onSaved }: Props) {
   const router = useRouter();
-  const { push } = useToast();
 
   const [trainerId, setTrainerId] = useState(initial.trainerId);
-  const [clientId, setClientId]   = useState(initial.clientId);
-  const [title, setTitle]         = useState(initial.title ?? '');
-  const [notes, setNotes]         = useState(initial.notes ?? '');
-  const [status, setStatus]       = useState<PlanStatus>(initial.status ?? 'DRAFT');
-  const [exercises, setExercises] = useState<any[]>(initial.exercises ?? []);
-  const [saving, setSaving]       = useState(false);
-  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+  const [clientId, setClientId] = useState(initial.clientId);
+  const [title, setTitle] = useState(initial.title);
+  const [notes, setNotes] = useState(initial.notes);
+  const [status, setStatus] = useState<Status>(initial.status ?? 'PENDING');
+  const [exercises, setExercises] = useState<Exercise[]>(initial.exercises ?? []);
+  const [busy, setBusy] = useState(false);
 
   // “Zona do lixo” para arrastar e remover
   const binRef = useRef<HTMLDivElement | null>(null);
 
-  function addExercise(item: any) {
-    setExercises((s) => [...s, { ...item }]);
-  }
-  function removeExercise(idx: number) {
-    setExercises(s => s.filter((_, i) => i !== idx));
+  const canSave = useMemo(() => {
+    return trainerId && clientId && title.trim().length >= 3 && exercises.length > 0 && !busy;
+  }, [trainerId, clientId, title, exercises.length, busy]);
+
+  function addExercise(item: ExerciseLite) {
+    setExercises((s) => [
+      ...s,
+      {
+        id: item.id,
+        name: item.name,
+        mediaUrl: item.mediaUrl,
+        muscleUrl: item.muscleUrl,
+        sets: 3,
+        reps: 10,
+        notes: '',
+      },
+    ]);
+    showToast({ kind: 'success', message: `Adicionado: ${item.name}` });
   }
 
-  // Reorder: acessível (setas) + drag & drop nativo
-  function moveUp(idx: number) {
-    if (idx <= 0) return;
-    setExercises(s => {
-      const arr = [...s]; const t = arr[idx-1]; arr[idx-1] = arr[idx]; arr[idx] = t; return arr;
-    });
-  }
-  function moveDown(idx: number) {
-    setExercises(s => {
-      if (idx >= s.length - 1) return s;
-      const arr = [...s]; const t = arr[idx+1]; arr[idx+1] = arr[idx]; arr[idx] = t; return arr;
-    });
-  }
+  const removeExercise = useCallback((idx: number) => {
+    setExercises((s) => s.filter((_, i) => i !== idx));
+  }, []);
 
-  // Drag handlers
-  function onDragStart(e: React.DragEvent, idx: number) {
-    setDraggingIndex(idx);
-    e.dataTransfer.setData('text/plain', String(idx));
-    e.dataTransfer.effectAllowed = 'move';
-  }
-  function onDragOverRow(e: React.DragEvent, overIdx: number) {
-    e.preventDefault();
-    const from = draggingIndex;
-    if (from == null || from === overIdx) return;
-    // reorder live enquanto arrastas
-    setExercises(s => {
-      const arr = [...s];
-      const [moved] = arr.splice(from, 1);
-      arr.splice(overIdx, 0, moved);
+  const moveExercise = useCallback((from: number, to: number) => {
+    setExercises((s) => {
+      const arr = s.slice();
+      const [it] = arr.splice(from, 1);
+      arr.splice(to, 0, it);
       return arr;
     });
-    setDraggingIndex(overIdx);
-  }
-  function onDragEnd() {
-    setDraggingIndex(null);
-  }
+  }, []);
 
-  // Drop no “lixo” para remover
-  function onDragOverBin(e: React.DragEvent) {
+  async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-  }
-  function onDropBin(e: React.DragEvent) {
-    e.preventDefault();
-    const from = Number(e.dataTransfer.getData('text/plain'));
-    if (Number.isFinite(from)) removeExercise(from);
-    setDraggingIndex(null);
-  }
+    if (!canSave) return;
 
-  // Aplicar template
-  function applyTemplate(t: Template) {
-    // Mantém trainer/client/title; substitui exercícios e notas
-    const templNotes = `Template: ${t.name} (${t.tags.join(', ')})`;
-    const templItems = t.days.flatMap(d =>
-      d.items.map(it => ({
-        name: it.name, sets: it.sets ?? 3, reps: it.reps ?? '10-12', day: d.day
-      }))
-    );
-    setNotes(n => (n ? n + '\n\n' : '') + templNotes);
-    setExercises(templItems);
-    push({ message: `Modelo “${t.name}” aplicado.` });
-  }
-
-  async function onSave() {
-    if (!trainerId || !clientId) {
-      push({ message: 'Seleciona Treinador e Cliente antes de guardar.' });
-      return;
-    }
-    setSaving(true);
     try {
-      const payload = { trainerId, clientId, title, notes, status, exercises };
-      const res = await fetch(
-        mode === 'edit' && initial.id ? `/api/pt/plans/${initial.id}` : '/api/pt/plans',
-        { method: mode === 'edit' ? 'PATCH' : 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }
-      );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const planId = data?.plan?.id ?? initial.id;
+      setBusy(true);
+      const payload = {
+        trainerId,
+        clientId,
+        title: title.trim(),
+        notes,
+        status,
+        exercises,
+      };
 
-      push({
-        message: 'Plano guardado.',
-        actionLabel: 'Abrir',
-        onAction: () => router.push(`/dashboard/pt/plans/${planId}/edit`)
-      });
+      let res: Response;
+      if (mode === 'create') {
+        res = await fetch('/api/pt/plans', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      } else {
+        if (!planId) throw new Error('planId em falta');
+        res = await fetch(`/api/pt/plans/${encodeURIComponent(planId)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      }
 
-      onSaved?.(planId);
-      router.refresh();
-    } catch (e) {
-      push({ message: 'Falha ao guardar o plano.' });
+      if (!res.ok) {
+        const msg = await res.text().catch(() => '');
+        throw new Error(msg || `Falha ao ${mode === 'create' ? 'criar' : 'guardar'} o plano`);
+      }
+
+      const data = await res.json().catch(() => ({}));
+      const id = data?.id ?? planId;
+
+      showToast({ kind: 'success', message: 'Plano guardado com sucesso!' });
+
+      // callback ou navegação
+      if (onSaved && id) onSaved(id);
+      else router.push('/dashboard/pt'); // volta à área do PT/Admin
+    } catch (err: any) {
+      showToast({ kind: 'error', message: err?.message ?? 'Erro ao guardar o plano' });
     } finally {
-      setSaving(false);
+      setBusy(false);
     }
   }
 
   return (
-    <div className="grid gap-3">
-      {/* Linha superior: selects + título/status + templates */}
+    <form onSubmit={handleSave} className="grid gap-4">
+      {/* Cabeçalho */}
       <div className="card" style={{ padding: 12 }}>
-        <div className="grid" style={{ gap: 8 }}>
-          <div className="grid" style={{ gridTemplateColumns: admin ? '1fr 1fr' : '1fr', gap: 8 }}>
-            {admin && (
-              <>
-                <div>
-                  <label className="block text-xs opacity-70 mb-1">Treinador</label>
-                  <UserSelect role="TRAINER" value={trainerId} onChange={setTrainerId} placeholder="Escolher PT…" />
-                </div>
-                <div>
-                  <label className="block text-xs opacity-70 mb-1">Cliente</label>
-                  <UserSelect role="CLIENT" value={clientId} onChange={setClientId} placeholder="Escolher cliente…" />
-                </div>
-              </>
-            )}
-          </div>
-
-          <div className="grid" style={{ gridTemplateColumns: '1fr 180px 200px', gap: 8 }}>
-            <div>
-              <label className="block text-xs opacity-70 mb-1">Título</label>
-              <input className="input" value={title} onChange={e=>setTitle(e.target.value)} placeholder="Ex.: ABC 4x/semana" />
-            </div>
-            <div>
-              <label className="block text-xs opacity-70 mb-1">Estado</label>
-              <select className="input" value={status} onChange={e=>setStatus(e.target.value)}>
-                <option value="DRAFT">Rascunho</option>
-                <option value="ACTIVE">Ativo</option>
-                <option value="ARCHIVED">Arquivado</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs opacity-70 mb-1">Modelos</label>
-              <div className="flex gap-2">
-                <select className="input" onChange={(e) => {
-                  const t = TEMPLATES.find(x => x.id === e.target.value);
-                  if (t) applyTemplate(t);
-                }}>
-                  <option value="">— Escolhe um —</option>
-                  {TEMPLATES.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs opacity-70 mb-1">Notas</label>
-            <textarea className="input" rows={3} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Diretrizes, RPE, observações…" />
-          </div>
-
-          <div className="flex items-center gap-8">
-            <ExercisePicker
-              open={true}
-              onClose={() => {}}
-              onPick={addExercise}
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-2">
+            <label className="text-xs opacity-70">Título</label>
+            <input
+              className="h-10 rounded-lg border px-3"
+              style={{ background: 'var(--btn-bg)', borderColor: 'var(--border)' }}
+              placeholder="Ex.: Plano Hipertrofia A/B"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
             />
-            <button className="btn primary" onClick={onSave} disabled={saving}>
-              {saving ? (<><Spinner />&nbsp;A guardar…</>) : 'Guardar'}
-            </button>
           </div>
+
+          <div className="grid gap-2">
+            <label className="text-xs opacity-70">Estado</label>
+            <select
+              className="h-10 rounded-lg border px-3"
+              style={{ background: 'var(--btn-bg)', borderColor: 'var(--border)' }}
+              value={status}
+              onChange={(e) => setStatus(e.target.value as Status)}
+            >
+              <option value="PENDING">PENDING</option>
+              <option value="ACTIVE">ACTIVE</option>
+              <option value="SUSPENDED">SUSPENDED</option>
+            </select>
+          </div>
+
+          {/* Treinador */}
+          <UserTypeahead
+            label="Treinador"
+            role="TRAINER"
+            value={trainerId}
+            onChange={(u) => setTrainerId(u.id)}
+          />
+
+          {/* Cliente */}
+          <UserTypeahead
+            label="Cliente"
+            role="CLIENT"
+            value={clientId}
+            onChange={(u) => setClientId(u.id)}
+          />
+        </div>
+
+        <div className="grid gap-2 mt-3">
+          <label className="text-xs opacity-70">Notas</label>
+          <textarea
+            className="min-h-[90px] rounded-lg border px-3 py-2"
+            style={{ background: 'var(--btn-bg)', borderColor: 'var(--border)' }}
+            placeholder="Observações, indicações de carga, RIR, etc."
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+          />
         </div>
       </div>
 
-      {/* Lista de exercícios */}
-      <div className="card" style={{ padding: 12 }}>
-        <div className="flex items-center justify-between mb-2">
-          <h3 style={{ margin: 0 }}>Exercícios</h3>
-          <div ref={binRef}
-               onDragOver={onDragOverBin}
-               onDrop={onDropBin}
-               className="btn"
-               title="Arrasta aqui para remover"
-               style={{ background:'var(--hover)' }}>
-            🗑️ Remover por arrastar
-          </div>
+      {/* Picker + Lista de exercícios */}
+      <div className="grid gap-3 md:grid-cols-[360px,1fr]">
+        <div className="card" style={{ padding: 12 }}>
+          <ExercisePicker onPick={addExercise} />
         </div>
 
-        {exercises.length === 0 ? (
-          <div className="text-muted">Ainda não adicionaste exercícios.</div>
-        ) : (
-          <ul className="grid" style={{ gap: 8, listStyle: 'none', padding: 0, margin: 0 }}>
-            {exercises.map((ex, i) => (
-              <li key={i}
-                  draggable
-                  onDragStart={(e)=>onDragStart(e, i)}
-                  onDragOver={(e)=>onDragOverRow(e, i)}
-                  onDragEnd={onDragEnd}
-                  className="grid"
-                  style={{ gridTemplateColumns:'1fr auto', gap:8, border:'1px solid var(--border)', borderRadius:12, padding:8, background:'var(--card-bg)'}}>
-                <div>
-                  <div className="font-semibold">{ex.name ?? `Exercício #${i+1}`}</div>
-                  <div className="text-sm opacity-80">
-                    {ex.sets ? `${ex.sets} séries` : null}
-                    {ex.reps ? ` · ${ex.reps} reps` : null}
-                    {typeof ex.day === 'number' ? ` · Dia ${ex.day}` : null}
+        <div className="card" style={{ padding: 12 }}>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="m-0">Exercícios</h3>
+            <div
+              ref={binRef}
+              title="Arrasta aqui para remover"
+              className="rounded-lg border px-2 py-1 text-sm opacity-80"
+              style={{ borderColor: 'var(--border)', background: 'var(--hover)' }}
+            >
+              🗑️ Remover
+            </div>
+          </div>
+
+          {exercises.length === 0 ? (
+            <div className="text-sm opacity-70">Ainda sem exercícios. Procura à esquerda e adiciona.</div>
+          ) : (
+            <div className="grid gap-2">
+              {exercises.map((ex, idx) => (
+                <div
+                  key={`${ex.id}-${idx}`}
+                  className="grid gap-3 rounded-xl border p-2 md:grid-cols-[64px,1fr,auto]"
+                  style={{ borderColor: 'var(--border)', background: 'var(--card-bg)' }}
+                >
+                  <div className="relative h-16 w-16 overflow-hidden rounded-lg border" style={{ borderColor: 'var(--border)' }}>
+                    <Image
+                      src={ex.mediaUrl || '/exercise-placeholder.png'}
+                      alt=""
+                      fill
+                      sizes="64px"
+                      style={{ objectFit: 'cover' }}
+                    />
                   </div>
+
+                  <div className="grid gap-2">
+                    <div className="text-sm font-semibold">{ex.name}</div>
+                    <div className="grid gap-2 md:grid-cols-3">
+                      <label className="grid gap-1 text-xs">
+                        <span className="opacity-70">Séries</span>
+                        <input
+                          type="number"
+                          min={1}
+                          className="h-9 rounded-lg border px-2"
+                          style={{ background: 'var(--btn-bg)', borderColor: 'var(--border)' }}
+                          value={ex.sets ?? 3}
+                          onChange={(e) =>
+                            setExercises((s) => {
+                              const clone = s.slice();
+                              clone[idx] = { ...clone[idx], sets: Number(e.target.value) || 0 };
+                              return clone;
+                            })
+                          }
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-xs">
+                        <span className="opacity-70">Repetições</span>
+                        <input
+                          type="number"
+                          min={1}
+                          className="h-9 rounded-lg border px-2"
+                          style={{ background: 'var(--btn-bg)', borderColor: 'var(--border)' }}
+                          value={ex.reps ?? 10}
+                          onChange={(e) =>
+                            setExercises((s) => {
+                              const clone = s.slice();
+                              clone[idx] = { ...clone[idx], reps: Number(e.target.value) || 0 };
+                              return clone;
+                            })
+                          }
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-xs md:col-span-1">
+                        <span className="opacity-70">Notas</span>
+                        <input
+                          className="h-9 rounded-lg border px-2"
+                          style={{ background: 'var(--btn-bg)', borderColor: 'var(--border)' }}
+                          value={ex.notes ?? ''}
+                          onChange={(e) =>
+                            setExercises((s) => {
+                              const clone = s.slice();
+                              clone[idx] = { ...clone[idx], notes: e.target.value };
+                              return clone;
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-center">
+                    <button
+                      type="button"
+                      className="btn icon"
+                      title="Mover para cima"
+                      onClick={() => idx > 0 && moveExercise(idx, idx - 1)}
+                    >
+                      ⬆️
+                    </button>
+                    <button
+                      type="button"
+                      className="btn icon"
+                      title="Mover para baixo"
+                      onClick={() =>
+                        idx < exercises.length - 1 && moveExercise(idx, idx + 1)
+                      }
+                    >
+                      ⬇️
+                    </button>
+                    <button
+                      type="button"
+                      className="btn icon"
+                      title="Remover"
+                      onClick={() => removeExercise(idx)}
+                    >
+                      ✖
+                    </button>
+                  </div>
+
+                  {/* preview de músculos (opcional) */}
+                  {ex.muscleUrl && (
+                    <div className="md:col-span-3">
+                      <div className="relative mt-1 h-28 w-full overflow-hidden rounded-lg border" style={{ borderColor: 'var(--border)' }}>
+                        <Image
+                          src={ex.muscleUrl}
+                          alt="Músculos trabalhados"
+                          fill
+                          sizes="100vw"
+                          style={{ objectFit: 'cover' }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="table-actions">
-                  <button className="btn chip" onClick={()=>moveUp(i)} aria-label="Mover para cima">↑</button>
-                  <button className="btn chip" onClick={()=>moveDown(i)} aria-label="Mover para baixo">↓</button>
-                  <button className="btn chip" onClick={()=>removeExercise(i)} aria-label="Remover">Remover</button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+
+      {/* Ações */}
+      <div className="flex items-center justify-end gap-2">
+        <button
+          type="submit"
+          className="btn primary"
+          disabled={!canSave}
+          title={!canSave ? 'Preenche os campos e adiciona exercícios' : 'Guardar'}
+        >
+          {busy ? 'A guardar…' : mode === 'create' ? 'Criar plano' : 'Guardar alterações'}
+        </button>
+      </div>
+    </form>
   );
 }
