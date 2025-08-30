@@ -1,8 +1,7 @@
 // src/app/(app)/dashboard/users/[id]/page.tsx
 import prisma from '@/lib/prisma';
-import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { Role, Status } from '@prisma/client';
+import { Role } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +10,7 @@ export default async function UserShowPage({ params }: { params: { id: string } 
 
   const u = await prisma.user.findUnique({
     where: { id },
-    // remove 'phone' do select — não existe no modelo
+    // sem 'phone' — não existe no modelo
     select: { id: true, name: true, email: true, role: true, status: true, createdAt: true },
   });
 

@@ -19,7 +19,7 @@ type Ctx = {
 
 const Ctx = createContext<Ctx | null>(null);
 
-/** Hook seguro: devolve no-ops se não houver provider (evita “useToast must be used inside …”). */
+/** Hook seguro (no-op sem provider) */
 export function useToasts(): Ctx {
   const ctx = useContext(Ctx);
   if (!ctx) {
@@ -36,7 +36,12 @@ export function useToasts(): Ctx {
   return ctx;
 }
 
-/** Helper global para disparar toasts a partir de qualquer sítio (incl. fora do React). */
+/** Alias para compatibilidade com componentes que importam `useToast` */
+export function useToast() {
+  return useToasts();
+}
+
+/** Helper global */
 export function showToast(a: Alert) {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent<Alert>('app:toast', { detail: a }));
