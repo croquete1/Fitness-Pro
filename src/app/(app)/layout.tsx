@@ -18,7 +18,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 (function () {
   try {
     var root = document.documentElement;
-
     // tema
     var theme = localStorage.getItem("theme");
     if (theme === "dark" || theme === "light") {
@@ -27,45 +26,41 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
       root.setAttribute("data-theme", prefersDark ? "dark" : "light");
     }
-
-    // sidebar (defaults: pinned=1, collapsed=0)
+    // sidebar
     var collapsed = localStorage.getItem("fp:sb:collapsed");
     var pinned    = localStorage.getItem("fp:sb:pinned");
-    var c = collapsed === "1" ? "1" : "0";
-    var p = pinned === "0" ? "0" : "1";
-    root.setAttribute("data-sb-collapsed", c);
-    root.setAttribute("data-sb-pinned",    p);
-
+    root.setAttribute("data-sb-collapsed", collapsed === "1" ? "1" : "0");
+    root.setAttribute("data-sb-pinned",    pinned === "1" ? "1" : "0");
     // largura atual da coluna usada pelo header/main
     var cs = getComputedStyle(root);
     var w  = cs.getPropertyValue("--sb-width").trim();
     var wc = cs.getPropertyValue("--sb-width-collapsed").trim();
-    root.style.setProperty("--sb-col", (p === "1" ? (c === "1" ? wc : w) : wc) || w);
+    root.style.setProperty("--sb-col", (pinned === "1" ? (collapsed === "1" ? wc : w) : wc) || w);
   } catch (e) {}
 })();
         `}</Script>
       </head>
 
       <body className="app-shell">
-        {/* Providers globais (NextAuth, Toasts, etc.) */}
         <AppProviders>
           <ClientProviders>
-            {/* Sidebar fixa única */}
+            {/* Sidebar FIXED (única) */}
             <RoleSidebar />
-            {/* Peek ao passar o rato quando não está afixada */}
+            {/* Zona de hover para “peek” quando não está afixada */}
             <SidebarHoverPeeker />
 
-            {/* Header com o wrapper esperado pelo CSS */}
+            {/* Header no formato que o CSS espera */}
             <header className="app-header">
               <div className="header-inner">
                 <AppHeader />
               </div>
             </header>
 
+            {/* Atalhos globais */}
             <Hotkeys />
 
-            {/* Conteúdo principal: recua com --sb-col */}
-            <main id="app-content" role="main">
+            {/* UM único main que recua com --sb-col */}
+            <main id="app-content" className="app-main">
               {children}
             </main>
           </ClientProviders>
