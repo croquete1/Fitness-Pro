@@ -6,9 +6,7 @@ import RoleSidebar from "@/components/layout/RoleSidebar";
 import SidebarHoverPeeker from "@/components/layout/SidebarHoverPeeker";
 import ToastsProvider from "@/components/ui/Toasts";
 
-// ⚠️ Importa o CSS que realmente existe neste diretório:
-// (o erro era "Module not found: './globals.css'")
-// Mantém o teu theme.css aqui.
+// CSS do tema (certifica-te que existe)
 import "./theme.css";
 
 export const dynamic = "force-dynamic";
@@ -46,7 +44,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </head>
 
       <body className="app-shell">
-        {/* Provider de toasts a envolver tudo (corrige “useToast must be used…” ) */}
+        {/* Provider de toasts a envolver tudo */}
         <ToastsProvider>
           <AppProviders>
             {/* Sidebar fixa (única) */}
@@ -54,7 +52,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             {/* Zona de hover para “peek” quando não está afixada */}
             <SidebarHoverPeeker />
 
-            {/* Header */}
+            {/* Header fixo */}
             <header className="app-header">
               <AppHeader />
             </header>

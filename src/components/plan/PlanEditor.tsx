@@ -1,3 +1,4 @@
+// src/components/plan/PlanEditor.tsx
 'use client';
 
 import React, {
@@ -10,16 +11,14 @@ import React, {
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Status } from '@prisma/client';
-import { showToast, useToast } from '@/components/ui/Toasts';
+import { useToast } from '@/components/ui/Toasts';
 import UserSelect from '@/components/users/UserSelect';
 
 /* ================== Tipos ================== */
 type Exercise = {
   id: string;
   name: string;
-  /**
-   * URL de média do exercício (gif/video/png) – pode ser local (/exercises/xxx.gif) ou remota.
-   */
+  /** URL de média do exercício (gif/video/png) */
   mediaUrl?: string;
   /** imagem/diagrama de músculos */
   muscleUrl?: string;
@@ -38,7 +37,6 @@ type InitialPlan = {
   status: Status;
   exercises: Exercise[];
 };
-
 
 type Mode = 'create' | 'edit';
 
@@ -214,11 +212,7 @@ function useExerciseSearch() {
   return { q, setQ, items, loading };
 }
 
-function ExercisePicker({
-  onPick,
-}: {
-  onPick: (ex: ExerciseLite) => void;
-}) {
+function ExercisePicker({ onPick }: { onPick: (ex: ExerciseLite) => void }) {
   const { q, setQ, items, loading } = useExerciseSearch();
 
   return (
@@ -237,10 +231,7 @@ function ExercisePicker({
       {loading && <div className="text-xs opacity-70">A procurar…</div>}
 
       {items.length > 0 && (
-        <div
-          className="grid gap-2"
-          style={{ maxHeight: 280, overflow: 'auto' }}
-        >
+        <div className="grid gap-2" style={{ maxHeight: 280, overflow: 'auto' }}>
           {items.map((it) => (
             <button
               key={it.id}
@@ -270,7 +261,13 @@ function ExercisePicker({
 }
 
 /* ================== PlanEditor ================== */
-export default function PlanEditor({ mode, initial, planId, onSaved, admin: _admin = false }: Props) {
+export default function PlanEditor({
+  mode,
+  initial,
+  planId,
+  onSaved,
+  admin: _admin = false,
+}: Props) {
   const router = useRouter();
 
   const [trainerId, setTrainerId] = useState(initial.trainerId);
@@ -280,8 +277,17 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin: _adm
   const [status, setStatus] = useState<Status>(initial.status ?? 'PENDING');
   const [exercises, setExercises] = useState<Exercise[]>(initial.exercises ?? []);
   const [busy, setBusy] = useState(false);
+
+  // Toast context (seguro para várias implementações)
+  const toastCtx = (useToast?.() as any) || null;
+  const notify = useCallback((payload: { kind?: string; message: string; title?: string }) => {
+    if (!toastCtx) return;
+    if (typeof toastCtx === 'function') { toastCtx(payload); return; }
+    if (toastCtx.push) { toastCtx.push(payload); return; }
+    if (toastCtx.show) { toastCtx.show(payload); return; }
+  }, [toastCtx]);
+
   // user select state
-  const toast = useToast?.();
   const [trainer, setTrainer] = useState<{id:string;name?:string|null;email?:string|null} | null>(
     initial.trainerId ? ({ id: initial.trainerId, name: (initial as any).trainerName } as any) : null
   );
@@ -309,7 +315,7 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin: _adm
         notes: '',
       },
     ]);
-    showToast({ kind: 'success', message: `Adicionado: ${item.name}` });
+    notify({ kind: 'success', message: `Adicionado: ${item.name}` });
   }
 
   const removeExercise = useCallback((idx: number) => {
@@ -364,13 +370,13 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin: _adm
       const data = await res.json().catch(() => ({}));
       const id = data?.id ?? planId;
 
-      showToast({ kind: 'success', message: 'Plano guardado com sucesso!' });
+      notify({ kind: 'success', message: 'Plano guardado com sucesso!' });
 
       // callback ou navegação
       if (onSaved && id) onSaved(id);
-      else router.push('/dashboard/pt'); // volta à área do PT/Admin
+      else router.push('/dashboard/pt');
     } catch (err: any) {
-      showToast({ kind: 'error', message: err?.message ?? 'Erro ao guardar o plano' });
+      notify({ kind: 'error', message: err?.message ?? 'Erro ao guardar o plano' });
     } finally {
       setBusy(false);
     }
