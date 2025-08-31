@@ -1,4 +1,3 @@
-// src/components/plan/PlanEditor.tsx
 'use client';
 
 import React, {
@@ -11,14 +10,16 @@ import React, {
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Status } from '@prisma/client';
-import { useToast } from '@/components/ui/Toasts';
+import { showToast } from '@/components/ui/Toasts';
 import UserSelect from '@/components/users/UserSelect';
 
 /* ================== Tipos ================== */
 type Exercise = {
   id: string;
   name: string;
-  /** URL de média do exercício (gif/video/png) */
+  /**
+   * URL de média do exercício (gif/video/png) – pode ser local (/exercises/xxx.gif) ou remota.
+   */
   mediaUrl?: string;
   /** imagem/diagrama de músculos */
   muscleUrl?: string;
@@ -57,115 +58,6 @@ function debounce<F extends (...args: any[]) => void>(fn: F, ms = 300) {
     if (t) clearTimeout(t);
     t = setTimeout(() => fn(...args), ms);
   };
-}
-
-/* ================== Autocomplete de Utilizadores ================== */
-type UserLite = { id: string; name: string; email?: string };
-
-function useUserSearch(role: 'TRAINER' | 'CLIENT') {
-  const [q, setQ] = useState('');
-  const [items, setItems] = useState<UserLite[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  // pedir ao server (route: /api/users/search?role=TRAINER|CLIENT&q=xxx)
-  const fetcher = useMemo(
-    () =>
-      debounce(async (term: string) => {
-        if (!term || term.trim().length < 2) {
-          setItems([]);
-          return;
-        }
-        try {
-          setLoading(true);
-          const res = await fetch(
-            `/api/users/search?role=${encodeURIComponent(role)}&q=${encodeURIComponent(term.trim())}`,
-            { cache: 'no-store' }
-          );
-          const data = (await res.json()) as UserLite[];
-          setItems(Array.isArray(data) ? data : []);
-        } catch {
-          // silencioso
-        } finally {
-          setLoading(false);
-        }
-      }, 300),
-    [role]
-  );
-
-  useEffect(() => {
-    fetcher(q);
-  }, [q, fetcher]);
-
-  return { q, setQ, items, loading };
-}
-
-function UserTypeahead({
-  label,
-  role,
-  onChange,
-}: {
-  label: string;
-  role: 'TRAINER' | 'CLIENT';
-  value?: string;
-  onChange: (user: UserLite) => void;
-}) {
-  const { q, setQ, items, loading } = useUserSearch(role);
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    setOpen(items.length > 0 && q.trim().length >= 2);
-  }, [items, q]);
-
-  return (
-    <div className="grid gap-1" style={{ position: 'relative' }}>
-      <label className="text-xs opacity-70">{label}</label>
-      <input
-        className="h-10 rounded-lg border px-3"
-        style={{ background: 'var(--btn-bg)', borderColor: 'var(--border)' }}
-        placeholder={`Procurar ${role === 'TRAINER' ? 'treinador' : 'cliente'}…`}
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        onFocus={() => setOpen(items.length > 0)}
-      />
-      {loading && (
-        <div className="text-xs opacity-70">A procurar…</div>
-      )}
-
-      {open && (
-        <div
-          className="absolute z-20 w-full rounded-xl border shadow-lg"
-          style={{
-            top: '100%',
-            marginTop: 6,
-            background: 'var(--card-bg)',
-            borderColor: 'var(--border)',
-            maxHeight: 280,
-            overflow: 'auto',
-          }}
-          onMouseDown={(e) => e.preventDefault()}
-        >
-          {items.length === 0 ? (
-            <div className="p-3 text-sm opacity-70">Sem resultados…</div>
-          ) : (
-            items.map((it) => (
-              <button
-                key={it.id}
-                className="w-full text-left px-3 py-2 hover:bg-[var(--hover)]"
-                onClick={() => {
-                  onChange(it);
-                  setQ(it.name || it.email || it.id);
-                  setOpen(false);
-                }}
-              >
-                <div className="text-sm font-medium">{it.name ?? '—'}</div>
-                <div className="text-xs opacity-70">{it.email ?? it.id}</div>
-              </button>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  );
 }
 
 /* ================== Picker de Exercícios ================== */
@@ -212,7 +104,11 @@ function useExerciseSearch() {
   return { q, setQ, items, loading };
 }
 
-function ExercisePicker({ onPick }: { onPick: (ex: ExerciseLite) => void }) {
+function ExercisePicker({
+  onPick,
+}: {
+  onPick: (ex: ExerciseLite) => void;
+}) {
   const { q, setQ, items, loading } = useExerciseSearch();
 
   return (
@@ -231,7 +127,10 @@ function ExercisePicker({ onPick }: { onPick: (ex: ExerciseLite) => void }) {
       {loading && <div className="text-xs opacity-70">A procurar…</div>}
 
       {items.length > 0 && (
-        <div className="grid gap-2" style={{ maxHeight: 280, overflow: 'auto' }}>
+        <div
+          className="grid gap-2"
+          style={{ maxHeight: 280, overflow: 'auto' }}
+        >
           {items.map((it) => (
             <button
               key={it.id}
@@ -261,13 +160,7 @@ function ExercisePicker({ onPick }: { onPick: (ex: ExerciseLite) => void }) {
 }
 
 /* ================== PlanEditor ================== */
-export default function PlanEditor({
-  mode,
-  initial,
-  planId,
-  onSaved,
-  admin: _admin = false,
-}: Props) {
+export default function PlanEditor({ mode, initial, planId, onSaved, admin: _admin = false }: Props) {
   const router = useRouter();
 
   const [trainerId, setTrainerId] = useState(initial.trainerId);
@@ -278,16 +171,6 @@ export default function PlanEditor({
   const [exercises, setExercises] = useState<Exercise[]>(initial.exercises ?? []);
   const [busy, setBusy] = useState(false);
 
-  // Toast context (seguro para várias implementações)
-  const toastCtx = (useToast?.() as any) || null;
-  const notify = useCallback((payload: { kind?: string; message: string; title?: string }) => {
-    if (!toastCtx) return;
-    if (typeof toastCtx === 'function') { toastCtx(payload); return; }
-    if (toastCtx.push) { toastCtx.push(payload); return; }
-    if (toastCtx.show) { toastCtx.show(payload); return; }
-  }, [toastCtx]);
-
-  // user select state
   const [trainer, setTrainer] = useState<{id:string;name?:string|null;email?:string|null} | null>(
     initial.trainerId ? ({ id: initial.trainerId, name: (initial as any).trainerName } as any) : null
   );
@@ -315,7 +198,7 @@ export default function PlanEditor({
         notes: '',
       },
     ]);
-    notify({ kind: 'success', message: `Adicionado: ${item.name}` });
+    showToast({ kind: 'success', message: `Adicionado: ${item.name}` });
   }
 
   const removeExercise = useCallback((idx: number) => {
@@ -370,13 +253,13 @@ export default function PlanEditor({
       const data = await res.json().catch(() => ({}));
       const id = data?.id ?? planId;
 
-      notify({ kind: 'success', message: 'Plano guardado com sucesso!' });
+      showToast({ kind: 'success', message: 'Plano guardado com sucesso!' });
 
       // callback ou navegação
       if (onSaved && id) onSaved(id);
-      else router.push('/dashboard/pt');
+      else router.push('/dashboard/pt'); // volta à área do PT/Admin
     } catch (err: any) {
-      notify({ kind: 'error', message: err?.message ?? 'Erro ao guardar o plano' });
+      showToast({ kind: 'error', message: err?.message ?? 'Erro ao guardar o plano' });
     } finally {
       setBusy(false);
     }
