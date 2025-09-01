@@ -11,11 +11,18 @@ export default function ApproveRejectButtons({ userId }: { userId: string }) {
   const [busy, setBusy] = useState<Busy>(null);
 
   function notify(kind: 'success' | 'error', message: string) {
+    // Alguns projetos tipam como { type, message }, outros { kind, message }.
+    // Para ficar à prova de bala, normalizamos para { type, message }.
     try {
-      // API estável no teu projeto
-      showToast({ kind, message });
+      const push = showToast as unknown as (arg: any, ...rest: any[]) => void;
+      push({ type: kind, message });
     } catch {
-      // silencioso caso o provider não esteja montado por algum motivo
+      try {
+        const pushAlt = showToast as unknown as (arg: any, ...rest: any[]) => void;
+        pushAlt({ kind, message });
+      } catch {
+        if (typeof window !== 'undefined') alert(message);
+      }
     }
   }
 
