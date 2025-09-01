@@ -28,7 +28,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const user = await prisma.user.update({ where: { id }, data });
 
   // Auditoria segura — targetType NUNCA falta
-  await LogAudit({
+  await logAudit({
     actorId: me.id,
     kind: body.status ? AuditKind.ACCOUNT_STATUS_CHANGE :
           body.role   ? AuditKind.ACCOUNT_ROLE_CHANGE   :
