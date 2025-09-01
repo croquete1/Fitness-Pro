@@ -68,7 +68,7 @@ export async function PATCH(req: Request) {
       actorId: session.user.id,
       kind,
       message: "Atualização de conta",
-      targetType: "User",
+      targetType: "USER",
       targetId: id,
       diff: {
         before,
