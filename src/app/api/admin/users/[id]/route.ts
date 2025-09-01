@@ -1,68 +1,44 @@
-import { NextResponse } from 'next/server';
+// src/app/api/admin/users/[id]/route.ts
+import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { requireAdmin } from '@/lib/authz';
-import { Role, Status, AuditKind } from '@prisma/client';
-import { logAudit } from '@/lib/logs';
+import { AuditKind, Role, Status } from '@prisma/client';
+import { getSessionUser } from '@/lib/sessions';
+import { auditLog } from '@/lib/audit';
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const guard = await requireAdmin();
-  if ('error' in guard) return guard.error;
-  const admin = guard.user;
+function isAdmin(role: unknown) {
+  return role === 'ADMIN' || role === Role.ADMIN;
+}
 
-  const payload = await req.json().catch(() => ({} as any));
-  const data: Partial<{
-    name: string;
-    email: string;
-    role: Role;
-    status: Status;
-  }> = {};
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  const me = await getSessionUser();
+  if (!me || !isAdmin(me.role)) return new NextResponse('Forbidden', { status: 403 });
 
-  if (typeof payload.name === 'string') data.name = payload.name.trim();
-  if (typeof payload.email === 'string') data.email = payload.email.trim().toLowerCase();
-  if (typeof payload.role === 'string' && payload.role in Role) data.role = payload.role as Role;
-  if (typeof payload.status === 'string' && payload.status in Status) data.status = payload.status as Status;
+  const id = params.id;
+  const body = await req.json().catch(() => ({}));
 
-  if (Object.keys(data).length === 0) {
-    return NextResponse.json({ error: 'Nada para atualizar' }, { status: 400 });
-  }
+  // Recolha de campos permitidos
+  const data: Partial<{ status: Status; role: Role; name: string }> = {};
+  if (body.status) data.status = body.status as Status;
+  if (body.role)   data.role   = body.role   as Role;
+  if (body.name)   data.name   = String(body.name);
 
-  const before = await prisma.user.findUnique({
-    where: { id: params.id },
-    select: { name: true, email: true, role: true, status: true },
+  const before = await prisma.user.findUnique({ where: { id }, select: { role: true, status: true, email: true, name: true } });
+  if (!before) return new NextResponse('Not found', { status: 404 });
+
+  const user = await prisma.user.update({ where: { id }, data });
+
+  // Auditoria segura — targetType NUNCA falta
+  await auditLog({
+    actorId: me.id,
+    kind: body.status ? AuditKind.ACCOUNT_STATUS_CHANGE :
+          body.role   ? AuditKind.ACCOUNT_ROLE_CHANGE   :
+                        AuditKind.ACCOUNT_APPROVAL,
+    message: 'Admin atualizou conta do utilizador',
+    targetType: 'USER',
+    targetId: user.id,
+    target: user.email ?? user.name ?? user.id,
+    diff: { before, after: data },
   });
-  if (!before) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  try {
-    const updated = await prisma.user.update({ where: { id: params.id }, data });
-
-    await logAudit({
-      actorId: admin.id!,
-      kind:
-        'role' in data
-          ? AuditKind.ACCOUNT_ROLE_CHANGE
-          : AuditKind.ACCOUNT_STATUS_CHANGE,
-      message: 'user.update',
-      targetType: 'User',
-      targetId: params.id,
-      diff: { before, after: { ...before, ...data } },
-    });
-
-    return NextResponse.json({
-      ok: true,
-      user: {
-        id: updated.id,
-        name: updated.name,
-        email: updated.email,
-        role: updated.role,
-        status: updated.status,
-      },
-    });
-  } catch (e: any) {
-    // conflito de email único
-    if (e?.code === 'P2002') {
-      return NextResponse.json({ error: 'EMAIL_UNIQUE' }, { status: 409 });
-    }
-    console.error('[users.patch]', e);
-    return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
-  }
+  return NextResponse.json(user);
 }
