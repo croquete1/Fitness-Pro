@@ -1,108 +1,172 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
-type Item = { id: string; name?: string | null; email?: string | null };
+type UserLite = { id: string; name?: string | null; email?: string | null };
+
 type Props = {
   label: string;
-  role?: 'ADMIN' | 'TRAINER' | 'CLIENT';
-  value: Item | null;
-  onChange: (v: Item | null) => void;
+  role: 'TRAINER' | 'CLIENT';
+  value: UserLite | null;
+  onChange: (v: UserLite | null) => void;
   placeholder?: string;
   disabled?: boolean;
 };
 
-export default function UserSelect({ label, role, value, onChange, placeholder, disabled }: Props) {
-  const [q, setQ] = useState('');
+export default function UserSelect({
+  label,
+  role,
+  value,
+  onChange,
+  placeholder = 'Pesquisar…',
+  disabled = false,
+}: Props) {
+  const [q, setQ] = useState<string>(value?.name || value?.email || '');
+  const [items, setItems] = useState<UserLite[]>([]);
   const [open, setOpen] = useState(false);
-  const [items, setItems] = useState<Item[]>([]);
+  const [loading, setLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
-  const boxRef = useRef<HTMLDivElement | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
 
-  const hint = value ? `${value.name || '—'}${value.email ? ` · ${value.email}` : ''}` : '';
-
+  // fecha dropdown ao clicar fora
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
-      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
+      if (!wrapRef.current) return;
+      if (!wrapRef.current.contains(e.target as Node)) setOpen(false);
     }
     document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);
   }, []);
 
+  // pesquisa debounced
   useEffect(() => {
-    if (q.trim().length < 2) { setItems([]); return; }
-    abortRef.current?.abort();
-    const ctrl = new AbortController();
-    abortRef.current = ctrl;
+    if (disabled) return;
 
-    const t = setTimeout(async () => {
-      const url = `/api/users/search?q=${encodeURIComponent(q)}${role ? `&role=${role}` : ''}`;
-      const res = await fetch(url, { signal: ctrl.signal, cache: 'no-store' });
-      if (!res.ok) return;
-      const { users } = await res.json();
-      setItems(users);
-      setOpen(true);
-    }, 240);
+    // se já existe selecionado e o texto corresponde, não pesquisar
+    if ((value?.name && q === value.name) || (value?.email && q === value.email)) {
+      setItems([]);
+      setOpen(false);
+      return;
+    }
 
-    return () => clearTimeout(t);
-  }, [q, role]);
+    // cancelar anteriores
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (abortRef.current) abortRef.current.abort();
+
+    const term = q.trim();
+    if (term.length < 2) {
+      setItems([]);
+      setOpen(false);
+      return;
+    }
+
+    timerRef.current = setTimeout(async () => {
+      try {
+        setLoading(true);
+        const ctrl = new AbortController();
+        abortRef.current = ctrl;
+
+        const res = await fetch(
+          `/api/users/search?role=${encodeURIComponent(role)}&q=${encodeURIComponent(term)}`,
+          { cache: 'no-store', signal: ctrl.signal }
+        );
+        const data = (await res.json()) as UserLite[] | { error?: string };
+        if (!res.ok) throw new Error((data as any)?.error || 'Falha na pesquisa');
+
+        const arr = Array.isArray(data) ? data : [];
+        setItems(arr);
+        setOpen(arr.length > 0);
+      } catch {
+        // silencioso
+        setItems([]);
+        setOpen(false);
+      } finally {
+        setLoading(false);
+        abortRef.current = null;
+      }
+    }, 300);
+
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      if (abortRef.current) abortRef.current.abort();
+    };
+  }, [q, role, value, disabled]);
+
+  function selectItem(u: UserLite) {
+    onChange(u);
+    setQ(u.name || u.email || u.id);
+    setOpen(false);
+  }
+
+  function clearSelection() {
+    onChange(null);
+    setQ('');
+    setItems([]);
+    setOpen(false);
+  }
 
   return (
-    <div ref={boxRef} style={{ position: 'relative', display: 'grid', gap: 6 }}>
-      <label style={{ fontSize: 12, color: 'var(--muted)' }}>{label}</label>
+    <div className="grid gap-1" ref={wrapRef} style={{ position: 'relative' }}>
+      <label className="text-xs opacity-70">{label}</label>
 
-      {value ? (
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <div className="chip" title={hint}>{hint || 'Selecionado'}</div>
-          <button type="button" className="btn chip" onClick={() => onChange(null)}>Trocar</button>
-        </div>
-      ) : (
+      {/* Campo */}
+      <div className="relative">
         <input
-          type="search"
-          className="input"
-          placeholder={placeholder || 'Procurar por nome/email/telefone…'}
+          className="h-10 w-full rounded-lg border px-3 pr-20"
+          style={{ background: 'var(--btn-bg)', borderColor: 'var(--border)' }}
+          placeholder={placeholder}
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          onFocus={() => q.length >= 2 && setOpen(true)}
+          onFocus={() => items.length > 0 && setOpen(true)}
           disabled={disabled}
+          aria-autocomplete="list"
+          aria-expanded={open}
+          aria-controls="user-select-list"
         />
-      )}
-
-      {open && items.length > 0 && (
+        {/* Ações à direita do input */}
         <div
-          style={{
-            position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
-            background: 'var(--card-bg)', border: '1px solid var(--border)',
-            borderRadius: 12, marginTop: 6, maxHeight: 260, overflow: 'auto',
-          }}
-          role="listbox"
+          style={{ position: 'absolute', right: 6, top: 0, bottom: 0, display: 'flex', alignItems: 'center', gap: 6 }}
         >
-          {items.map((it) => (
+          {loading && <span className="text-xs opacity-70">a procurar…</span>}
+          {!!value && !disabled && (
             <button
-              key={it.id}
               type="button"
-              onClick={() => { onChange(it); setQ(''); setOpen(false); }}
-              className="nav-item"
-              style={{ width: '100%', textAlign: 'left' }}
+              className="btn icon"
+              title="Limpar seleção"
+              aria-label="Limpar seleção"
+              onClick={clearSelection}
             >
-              <div style={{ display: 'grid' }}>
-                <strong>{it.name || '—'}</strong>
-                <span className="text-muted" style={{ fontSize: 12 }}>{it.email || '—'}</span>
-              </div>
+              ✖
             </button>
-          ))}
+          )}
         </div>
-      )}
+      </div>
 
-      {open && q.length >= 2 && items.length === 0 && (
+      {/* Dropdown */}
+      {open && !disabled && (
         <div
-          style={{
-            position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
-            background: 'var(--card-bg)', border: '1px solid var(--border)',
-            borderRadius: 12, marginTop: 6, padding: 10, color: 'var(--muted)',
-          }}
+          id="user-select-list"
+          role="listbox"
+          className="absolute z-20 w-full overflow-auto rounded-xl border bg-[var(--card-bg)] shadow-lg"
+          style={{ borderColor: 'var(--border)', top: '100%', marginTop: 6, maxHeight: 280 }}
+          onMouseDown={(e) => e.preventDefault()}
         >
-          Sem resultados.
+          {items.length === 0 ? (
+            <div className="p-3 text-sm opacity-70">Sem resultados…</div>
+          ) : (
+            items.map((it) => (
+              <button
+                key={it.id}
+                role="option"
+                className="w-full px-3 py-2 text-left hover:bg-[var(--hover)]"
+                onClick={() => selectItem(it)}
+              >
+                <div className="text-sm font-medium">{it.name ?? '—'}</div>
+                <div className="text-xs opacity-70">{it.email ?? it.id}</div>
+              </button>
+            ))
+          )}
         </div>
       )}
     </div>
