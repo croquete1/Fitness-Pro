@@ -1,97 +1,159 @@
-// src/components/client/AnthropometryForm.tsx
 'use client';
 
 import { useState } from 'react';
-
-// Notas de UX: sem dependências de toast para não quebrar build.
-// Fazemos dispatch de um CustomEvent('app:toast') se o teu provider estiver a escutar.
-// Caso não exista provider, usamos alert() como fallback.
-function notify(kind: 'success' | 'error' | 'info', message: string) {
-  try {
-    window.dispatchEvent(new CustomEvent('app:toast', { detail: { kind, message } }));
-  } catch {}
-  if (kind !== 'success') alert(message);
-}
+import { useRouter } from 'next/navigation';
 
 type Props = {
   clientId: string;
-  canEdit: boolean; // PT/Admin
+  canEdit?: boolean; // ← agora opcional
 };
 
-export default function AnthropometryForm({ clientId, canEdit }: Props) {
+type Num = number | '' | null;
+
+export default function AnthropometryForm({ clientId, canEdit = false }: Props) {
+  const router = useRouter();
+
   const [date, setDate] = useState<string>(new Date().toISOString().slice(0, 10));
-  const [height_cm, setHeight] = useState<string>('');
-  const [weight_kg, setWeight] = useState<string>('');
-  const [body_fat_pct, setBf] = useState<string>('');
-  const [chest_cm, setChest] = useState<string>('');
-  const [waist_cm, setWaist] = useState<string>('');
-  const [hip_cm, setHip] = useState<string>('');
-  const [thigh_cm, setThigh] = useState<string>('');
-  const [arm_cm, setArm] = useState<string>('');
-  const [calf_cm, setCalf] = useState<string>('');
-  const [shoulders_cm, setShoulders] = useState<string>('');
-  const [neck_cm, setNeck] = useState<string>('');
+  const [height_cm, setHeight] = useState<Num>('');
+  const [weight_kg, setWeight] = useState<Num>('');
+  const [body_fat_pct, setBodyFat] = useState<Num>('');
+  const [chest_cm, setChest] = useState<Num>('');
+  const [waist_cm, setWaist] = useState<Num>('');
+  const [hip_cm, setHip] = useState<Num>('');
+  const [thigh_cm, setThigh] = useState<Num>('');
+  const [arm_cm, setArm] = useState<Num>('');
+  const [calf_cm, setCalf] = useState<Num>('');
+  const [shoulders_cm, setShoulders] = useState<Num>('');
+  const [neck_cm, setNeck] = useState<Num>('');
   const [notes, setNotes] = useState<string>('');
+
   const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+
+  function toNum(n: Num) {
+    if (n === '' || n == null) return null;
+    const v = Number(n);
+    return Number.isFinite(v) ? v : null;
+    }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!canEdit) return;
+    if (!canEdit || busy) return;
 
+    setMsg(null);
     setBusy(true);
     try {
+      const payload = {
+        clientId,
+        date,
+        height_cm: toNum(height_cm),
+        weight_kg: toNum(weight_kg),
+        body_fat_pct: toNum(body_fat_pct),
+        chest_cm: toNum(chest_cm),
+        waist_cm: toNum(waist_cm),
+        hip_cm: toNum(hip_cm),
+        thigh_cm: toNum(thigh_cm),
+        arm_cm: toNum(arm_cm),
+        calf_cm: toNum(calf_cm),
+        shoulders_cm: toNum(shoulders_cm),
+        neck_cm: toNum(neck_cm),
+        notes: notes.trim() || null,
+      };
+
       const res = await fetch('/api/anthropometry', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientId,
-          date,
-          height_cm, weight_kg, body_fat_pct,
-          chest_cm, waist_cm, hip_cm, thigh_cm,
-          arm_cm, calf_cm, shoulders_cm, neck_cm,
-          notes,
-        }),
+        body: JSON.stringify(payload),
       });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data as any)?.error || 'Erro ao guardar avaliação');
 
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || 'Erro ao gravar avaliação.');
-
-      notify('success', 'Avaliação gravada com sucesso!');
-      // Limpa apenas campos “rápidos”
+      setMsg({ kind: 'ok', text: 'Avaliação guardada com sucesso.' });
+      // limpa alguns campos rápidos
+      setWeight('');
+      setWaist('');
+      setBodyFat('');
       setNotes('');
+      router.refresh(); // atualiza histórico ao lado
     } catch (err: any) {
-      notify('error', err?.message ?? 'Erro ao gravar avaliação.');
+      setMsg({ kind: 'err', text: err?.message || 'Falha ao guardar avaliação' });
     } finally {
       setBusy(false);
     }
   }
 
+  const disabled = !canEdit || busy;
+
   return (
     <form onSubmit={onSubmit} className="card" style={{ padding: 12, display: 'grid', gap: 12 }}>
       <div className="flex items-center justify-between">
         <h3 style={{ margin: 0 }}>Nova avaliação antropométrica</h3>
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className="h-9 rounded-lg border px-2"
-          style={{ borderColor: 'var(--border)', background: 'var(--btn-bg)' }}
-          disabled={!canEdit}
-        />
+        <div className="text-xs opacity-70">{canEdit ? 'PT/Admin' : 'Só leitura'}</div>
       </div>
 
-      <div className="grid" style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
-        <Field label="Altura (cm)" value={height_cm} setValue={setHeight} disabled={!canEdit} />
-        <Field label="Peso (kg)" value={weight_kg} setValue={setWeight} disabled={!canEdit} />
-        <Field label="Gordura (%)" value={body_fat_pct} setValue={setBf} disabled={!canEdit} />
-        <Field label="Peito (cm)" value={chest_cm} setValue={setChest} disabled={!canEdit} />
-        <Field label="Cintura (cm)" value={waist_cm} setValue={setWaist} disabled={!canEdit} />
-        <Field label="Anca (cm)" value={hip_cm} setValue={setHip} disabled={!canEdit} />
-        <Field label="Coxa (cm)" value={thigh_cm} setValue={setThigh} disabled={!canEdit} />
-        <Field label="Braço (cm)" value={arm_cm} setValue={setArm} disabled={!canEdit} />
-        <Field label="Panturrilha (cm)" value={calf_cm} setValue={setCalf} disabled={!canEdit} />
-        <Field label="Ombros (cm)" value={shoulders_cm} setValue={setShoulders} disabled={!canEdit} />
-        <Field label="Pescoço (cm)" value={neck_cm} setValue={setNeck} disabled={!canEdit} />
+      {msg && (
+        <div
+          className="rounded-md border px-3 py-2 text-sm"
+          style={{
+            borderColor: msg.kind === 'ok' ? 'var(--ok)' : 'var(--danger)',
+            background: msg.kind === 'ok' ? 'rgba(22,163,74,.08)' : 'rgba(239,68,68,.08)',
+            color: msg.kind === 'ok' ? 'var(--ok)' : 'var(--danger)',
+          }}
+        >
+          {msg.text}
+        </div>
+      )}
+
+      <div className="grid gap-3 md:grid-cols-5">
+        <Field label="Data">
+          <input type="date" className="h-10 rounded-lg border px-3"
+            style={{ background: 'var(--btn-bg)', borderColor: 'var(--border)' }}
+            value={date} onChange={(e) => setDate(e.target.value)} disabled={disabled} />
+        </Field>
+
+        <Field label="Altura (cm)">
+          <NumInput value={height_cm} onChange={setHeight} disabled={disabled} />
+        </Field>
+
+        <Field label="Peso (kg)">
+          <NumInput value={weight_kg} onChange={setWeight} disabled={disabled} />
+        </Field>
+
+        <Field label="Gordura %">
+          <NumInput value={body_fat_pct} onChange={setBodyFat} disabled={disabled} />
+        </Field>
+
+        <Field label="Cintura (cm)">
+          <NumInput value={waist_cm} onChange={setWaist} disabled={disabled} />
+        </Field>
+
+        <Field label="Peito (cm)">
+          <NumInput value={chest_cm} onChange={setChest} disabled={disabled} />
+        </Field>
+
+        <Field label="Anca (cm)">
+          <NumInput value={hip_cm} onChange={setHip} disabled={disabled} />
+        </Field>
+
+        <Field label="Coxa (cm)">
+          <NumInput value={thigh_cm} onChange={setThigh} disabled={disabled} />
+        </Field>
+
+        <Field label="Braço (cm)">
+          <NumInput value={arm_cm} onChange={setArm} disabled={disabled} />
+        </Field>
+
+        <Field label="Panturrilha (cm)">
+          <NumInput value={calf_cm} onChange={setCalf} disabled={disabled} />
+        </Field>
+
+        <Field label="Ombros (cm)">
+          <NumInput value={shoulders_cm} onChange={setShoulders} disabled={disabled} />
+        </Field>
+
+        <Field label="Pescoço (cm)">
+          <NumInput value={neck_cm} onChange={setNeck} disabled={disabled} />
+        </Field>
       </div>
 
       <div className="grid gap-1">
@@ -99,15 +161,15 @@ export default function AnthropometryForm({ clientId, canEdit }: Props) {
         <textarea
           className="min-h-[80px] rounded-lg border px-3 py-2"
           style={{ background: 'var(--btn-bg)', borderColor: 'var(--border)' }}
-          placeholder="Observações da avaliação física…"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          disabled={!canEdit}
+          disabled={disabled}
+          placeholder="Observações da avaliação (perímetro medido, protocolo, etc.)"
         />
       </div>
 
-      <div className="flex justify-end">
-        <button className="btn primary" type="submit" disabled={!canEdit || busy}>
+      <div className="flex items-center justify-end">
+        <button type="submit" className="btn primary" disabled={disabled}>
           {busy ? 'A guardar…' : 'Guardar avaliação'}
         </button>
       </div>
@@ -115,20 +177,34 @@ export default function AnthropometryForm({ clientId, canEdit }: Props) {
   );
 }
 
-function Field({
-  label, value, setValue, disabled,
-}: { label: string; value: string; setValue: (v: string) => void; disabled?: boolean }) {
+/* ——— helpers UI ——— */
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="grid gap-1 text-xs">
       <span className="opacity-70">{label}</span>
-      <input
-        inputMode="decimal"
-        className="h-9 rounded-lg border px-2"
-        style={{ background: 'var(--btn-bg)', borderColor: 'var(--border)' }}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        disabled={disabled}
-      />
+      {children}
     </label>
+  );
+}
+
+function NumInput({
+  value, onChange, disabled,
+}: { value: Num; onChange: (v: Num) => void; disabled?: boolean }) {
+  return (
+    <input
+      inputMode="decimal"
+      className="h-10 rounded-lg border px-3"
+      style={{ background: 'var(--btn-bg)', borderColor: 'var(--border)' }}
+      value={value === null ? '' : value}
+      onChange={(e) => {
+        const v = e.target.value;
+        if (v === '') return onChange('');
+        const n = Number(v.replace(',', '.'));
+        onChange(Number.isFinite(n) ? n : '');
+      }}
+      disabled={disabled}
+      placeholder="—"
+    />
   );
 }
