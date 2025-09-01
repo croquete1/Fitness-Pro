@@ -51,6 +51,40 @@ export default function PTWalletView({ meId, isAdmin = false }: { meId: string; 
     );
   }, [rows, q]);
 
+  // ---- ações ligadas às rotas + toasts locais --------------------------
+
+  async function assignClient(trainerId?: string, clientId?: string) {
+    if (!trainerId || !clientId) return;
+    try {
+      const res = await fetch('/api/admin/trainer-clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trainerId, clientId }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      okToast('Cliente atribuído ao PT.');
+      load();
+    } catch (e) {
+      errToast('Falhou atribuição. Verifica permissões e IDs.');
+    }
+  }
+
+  async function toggleStatus(packageId: string, status?: string | null) {
+    const next = status === 'active' ? 'paused' : 'active';
+    try {
+      const res = await fetch(`/api/pt/packages/${encodeURIComponent(packageId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: next }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      okToast(next === 'active' ? 'Pacote ativado.' : 'Pacote pausado.');
+      load();
+    } catch (e) {
+      errToast('Não foi possível alterar o estado.');
+    }
+  }
+
   return (
     <div style={{ display: 'grid', gap: 12 }}>
       {/* Toolbar */}
@@ -105,7 +139,7 @@ export default function PTWalletView({ meId, isAdmin = false }: { meId: string; 
                 display: 'grid',
                 gap: 10,
                 width: '100%',
-                maxWidth: 460, // torna “cards” responsivos: mobile ocupa 100%, desktop 2-3 por linha
+                maxWidth: 460,
                 borderRadius: 12,
               }}
             >
@@ -280,29 +314,25 @@ function Sparkline({ data }: { data: number[] }) {
   );
 }
 
-/* ---------- ações (liga às tuas APIs reais) ---------- */
+/* ---------- toasts locais (sem dependências do teu provider) ---------- */
 
-async function assignClient(trainerId?: string, clientId?: string) {
-  if (!trainerId || !clientId) return;
-  try {
-    await fetch('/api/admin/trainer-clients', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ trainerId, clientId }),
-    });
-    // depois do POST, ideal: refresh (aqui apenas fica o hook load() no parent)
-  } catch {}
-}
+function okToast(msg: string)  { makeToast(msg, 'ok'); }
+function errToast(msg: string) { makeToast(msg, 'error'); }
 
-async function toggleStatus(packageId: string, status?: string | null) {
-  const next = status === 'active' ? 'paused' : 'active';
-  try {
-    await fetch(`/api/pt/packages/${encodeURIComponent(packageId)}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: next }),
-    });
-  } catch {}
+function makeToast(msg: string, kind: 'ok' | 'error') {
+  if (typeof document === 'undefined') return;
+  const el = document.createElement('div');
+  el.textContent = msg;
+  Object.assign(el.style, {
+    position: 'fixed', left: '50%', transform: 'translateX(-50%)',
+    bottom: '16px', padding: '10px 14px', borderRadius: '10px',
+    color: kind === 'ok' ? '#065f46' : '#991b1b',
+    background: kind === 'ok' ? 'rgba(16,185,129,.15)' : 'rgba(239,68,68,.15)',
+    border: `1px solid ${kind === 'ok' ? '#10b98122' : '#ef444422'}`,
+    zIndex: 9999, fontSize: '14px', backdropFilter: 'saturate(180%) blur(6px)',
+  } as React.CSSProperties);
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2200);
 }
 
 /* ---------- estilos inline reutilizáveis ---------- */
