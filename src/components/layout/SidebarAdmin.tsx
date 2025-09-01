@@ -59,6 +59,9 @@ export default function SidebarAdmin() {
     { label: 'Clientes & Pacotes', href: '/dashboard/admin/clients', icon: <Ic.Receipt /> },
     // NOVO: planos
     { label: 'Planos de treino', href: '/dashboard/pt/plans', icon: <Ic.Home /> },
+{isAdmin(toAppRole((user as any).role)) && (
+  <li><a className="nav-link" href="/dashboard/admin/plans">Planos (Admin)</a></li>
+)
   ],
 },
     {
