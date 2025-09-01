@@ -1,49 +1,64 @@
-// src/app/api/anthropometry/route.ts
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import prisma from '@/lib/prisma';
 import { getSessionUser } from '@/lib/sessions';
-
-function num(v: any) {
-  const n = parseFloat(v);
-  return Number.isFinite(n) ? n : null;
-}
+import { toAppRole } from '@/lib/roles';
 
 export async function POST(req: Request) {
-  try {
-    const me = await getSessionUser();
-    if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const user = await getSessionUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const body = await req.json();
+  const role = toAppRole((user as any).role); // 'admin' | 'pt' | 'client'
+  const body = await req.json();
 
-    const payload = {
-      client_id: String(body.clientId),
-      created_by_id: String(me.id),
-      date: body.date ? String(body.date) : new Date().toISOString().slice(0, 10),
+  const {
+    clientId,
+    date, // 'YYYY-MM-DD'
+    height_cm,
+    weight_kg,
+    body_fat_pct,
+    chest_cm,
+    waist_cm,
+    hip_cm,
+    thigh_cm,
+    arm_cm,
+    calf_cm,
+    shoulders_cm,
+    neck_cm,
+    notes,
+  } = body ?? {};
 
-      height_cm: num(body.height_cm),
-      weight_kg: num(body.weight_kg),
-      body_fat_pct: num(body.body_fat_pct),
-      chest_cm: num(body.chest_cm),
-      waist_cm: num(body.waist_cm),
-      hip_cm: num(body.hip_cm),
-      thigh_cm: num(body.thigh_cm),
-      arm_cm: num(body.arm_cm),
-      calf_cm: num(body.calf_cm),
-      shoulders_cm: num(body.shoulders_cm),
-      neck_cm: num(body.neck_cm),
-      notes: body.notes ? String(body.notes) : null,
-    };
-
-    const { data, error } = await supabaseAdmin
-      .from('anthropometry')
-      .insert(payload)
-      .select()
-      .single();
-
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-
-    return NextResponse.json(data);
-  } catch (err: any) {
-    return NextResponse.json({ error: err?.message ?? 'Unexpected error' }, { status: 500 });
+  if (!clientId || !date) {
+    return NextResponse.json({ error: 'clientId e date são obrigatórios' }, { status: 400 });
   }
+
+  // Permissões: admin, o próprio cliente, ou PT com vínculo ao cliente
+  if (role !== 'admin' && user.id !== clientId) {
+    const link = await prisma.$queryRaw<{ ok: boolean }[]>`
+      select true as ok
+      from trainer_clients
+      where trainer_id = ${user.id}::uuid and client_id = ${clientId}::uuid
+      limit 1
+    `;
+    const allowed = Array.isArray(link) && link.length > 0;
+    if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const rows = await prisma.$queryRaw<{ id: string }[]>`
+    insert into anthropometry (
+      client_id, created_by_id, date,
+      height_cm, weight_kg, body_fat_pct,
+      chest_cm, waist_cm, hip_cm,
+      thigh_cm, arm_cm, calf_cm,
+      shoulders_cm, neck_cm, notes
+    ) values (
+      ${clientId}::uuid, ${user.id}::uuid, ${date}::date,
+      ${height_cm}, ${weight_kg}, ${body_fat_pct},
+      ${chest_cm}, ${waist_cm}, ${hip_cm},
+      ${thigh_cm}, ${arm_cm}, ${calf_cm},
+      ${shoulders_cm}, ${neck_cm}, ${notes}
+    )
+    returning id
+  `;
+
+  return NextResponse.json({ id: rows?.[0]?.id ?? null }, { status: 201 });
 }
