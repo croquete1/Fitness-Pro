@@ -1,36 +1,28 @@
-// src/app/api/admin/trainer-clients/route.ts
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/guards';
 import prisma from '@/lib/prisma';
-import { getSessionUser } from '@/lib/sessions';
-import { Role } from '@prisma/client';
-import { auditLog } from '@/lib/audit';
+import { logAudit } from '@/lib/audit';
+import { AuditKind } from '@prisma/client';
 
-function isAdminOrTrainer(r: unknown) {
-  return r === 'ADMIN' || r === Role.ADMIN || r === 'TRAINER' || r === Role.TRAINER;
-}
+export async function POST(req: Request) {
+  const me = await requireAdmin();
+  const { trainerId, clientId } = await req.json();
 
-export async function POST(req: NextRequest) {
-  const me = await getSessionUser();
-  if (!me || !isAdminOrTrainer(me.role)) return new NextResponse('Forbidden', { status: 403 });
+  if (!trainerId || !clientId) return new NextResponse('Bad Request', { status: 400 });
 
-  const { trainerId, clientId } = await req.json().catch(() => ({}));
-  if (!trainerId || !clientId) return new NextResponse('Missing trainerId/clientId', { status: 400 });
-
-  // cria se não existir (par único)
   const link = await prisma.trainerClient.upsert({
     where: { trainerId_clientId: { trainerId, clientId } },
-    update: {},
     create: { trainerId, clientId },
+    update: {},
     select: { id: true, trainerId: true, clientId: true },
   });
 
-  await auditLog({
+  await logAudit({
     actorId: me.id,
-    kind: 'ACCOUNT_APPROVAL',           // ou outro que prefiras
-    message: 'Vínculo Trainer ⇄ Cliente criado',
+    kind: AuditKind.ACCOUNT_ROLE_CHANGE,
+    message: 'Atribuição de cliente ao PT',
     targetType: 'TRAINER_CLIENT',
     targetId: link.id,
-    target: `${link.trainerId} ⇄ ${link.clientId}`,
     diff: { trainerId, clientId },
   });
 
