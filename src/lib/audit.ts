@@ -2,7 +2,7 @@
 import prisma from '@/lib/prisma';
 import { AuditKind } from '@prisma/client';
 
-/** Tipos de alvo que suportamos nos logs (maiusc. para bater com o código já existente) */
+/** Tipos de alvo suportados nos logs (MAIÚSCULAS) */
 export type AuditTargetType =
   | 'USER'
   | 'TRAINING_PLAN'
@@ -16,8 +16,8 @@ export type LogAuditInput = {
   message: string;                // descrição humana
   targetType?: AuditTargetType | null; // categoria do alvo (opcional)
   targetId?: string | null;       // id do alvo (opcional)
-  target?: string | null;         // rótulo do alvo (ex: email/nome) — OPCIONAL
-  diff?: unknown;                 // qualquer metadado/dif (JSON)
+  target?: string | null;         // rótulo do alvo (ex: email/nome) — opcional
+  diff?: unknown;                 // metadados/diff (JSON)
 };
 
 /** Escreve um registo de auditoria */
@@ -32,8 +32,11 @@ export async function logAudit(input: LogAuditInput) {
       targetType: targetType ?? null,
       targetId: targetId ?? null,
       target: target ?? null,
-      // No Prisma, Json aceita undefined para “não gravar” e null para “gravar null”
+      // Json aceita undefined (não grava) ou null (grava null)
       diff: diff === undefined ? undefined : (diff as any),
     },
   });
 }
+
+/** Alias para retrocompatibilidade com imports antigos */
+export { logAudit as auditLog };
