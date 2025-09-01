@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 
 type UserLite = { id: string; name?: string | null; email?: string | null };
 
@@ -28,6 +28,7 @@ export default function UserSelect({
   const abortRef = useRef<AbortController | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
+  const listId = useId();
 
   // fecha dropdown ao clicar fora
   useEffect(() => {
@@ -43,14 +44,12 @@ export default function UserSelect({
   useEffect(() => {
     if (disabled) return;
 
-    // se já existe selecionado e o texto corresponde, não pesquisar
     if ((value?.name && q === value.name) || (value?.email && q === value.email)) {
       setItems([]);
       setOpen(false);
       return;
     }
 
-    // cancelar anteriores
     if (timerRef.current) clearTimeout(timerRef.current);
     if (abortRef.current) abortRef.current.abort();
 
@@ -78,7 +77,6 @@ export default function UserSelect({
         setItems(arr);
         setOpen(arr.length > 0);
       } catch {
-        // silencioso
         setItems([]);
         setOpen(false);
       } finally {
@@ -120,9 +118,10 @@ export default function UserSelect({
           onChange={(e) => setQ(e.target.value)}
           onFocus={() => items.length > 0 && setOpen(true)}
           disabled={disabled}
+          role="combobox"
           aria-autocomplete="list"
           aria-expanded={open}
-          aria-controls="user-select-list"
+          aria-controls={listId}
         />
         {/* Ações à direita do input */}
         <div
@@ -146,7 +145,7 @@ export default function UserSelect({
       {/* Dropdown */}
       {open && !disabled && (
         <div
-          id="user-select-list"
+          id={listId}
           role="listbox"
           className="absolute z-20 w-full overflow-auto rounded-xl border bg-[var(--card-bg)] shadow-lg"
           style={{ borderColor: 'var(--border)', top: '100%', marginTop: 6, maxHeight: 280 }}
@@ -159,6 +158,7 @@ export default function UserSelect({
               <button
                 key={it.id}
                 role="option"
+                aria-selected="false"
                 className="w-full px-3 py-2 text-left hover:bg-[var(--hover)]"
                 onClick={() => selectItem(it)}
               >
