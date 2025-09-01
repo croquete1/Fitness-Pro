@@ -56,34 +56,10 @@ model User {
   status       Status   @default(PENDING)
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
-
-model Anthropometry {
-  id           String   @id @default(cuid())
-  clientId     String
-  client       User     @relation(fields: [clientId], references: [id])
-  createdById  String
-  createdBy    User     @relation("AnthroCreatedBy", fields: [createdById], references: [id])
-  date         DateTime @default(now())
-  // Medidas principais
-  heightCm     Float?   // altura opcional (guarda na 1ª avaliação ou quando mudar)
-  weightKg     Float?
-  bodyFatPct   Float?   // % gordura
-  chestCm      Float?
-  waistCm      Float?
-  hipCm        Float?
-  thighCm      Float?
-  armCm        Float?
-  calfCm       Float?
-  shouldersCm  Float?
-  neckCm       Float?
-  notes        String?
-
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
 }
 
 // Opcional: índice para listagens por cliente
-@@index([clientId, date(sort: Desc)])
+@@index([clientId, date(sort: Desc)]){
 
 
   // sessões
