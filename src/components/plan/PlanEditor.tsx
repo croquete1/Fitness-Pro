@@ -193,8 +193,8 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin: _adm
         notes: '',
       },
     ]);
-    // <- importante: usar "type" em vez de "kind"
-    showToast({ type: 'success', message: `Adicionado: ${item.name}` });
+    // usar o shape correto do Alert: { type, text }
+    showToast({ type: 'success', text: `Adicionado: ${item.name}` });
   }
 
   const removeExercise = useCallback((idx: number) => {
@@ -249,13 +249,13 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin: _adm
       const data = await res.json().catch(() => ({}));
       const id = data?.id ?? planId;
 
-      showToast({ type: 'success', message: 'Plano guardado com sucesso!' });
+      showToast({ type: 'success', text: 'Plano guardado com sucesso!' });
 
       // callback ou navegação
       if (onSaved && id) onSaved(id);
       else router.push('/dashboard/pt'); // volta à área do PT/Admin
     } catch (err: any) {
-      showToast({ type: 'error', message: err?.message ?? 'Erro ao guardar o plano' });
+      showToast({ type: 'error', text: err?.message ?? 'Erro ao guardar o plano' });
     } finally {
       setBusy(false);
     }
