@@ -56,32 +56,27 @@ model User {
   status       Status   @default(PENDING)
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
-}
 
-// Opcional: índice para listagens por cliente
-@@index([clientId, date(sort: Desc)]){
-
-
-  // sessões
+  // sessões (back-relations)
   trainerSessions Session[] @relation("TrainerSessions")
   clientSessions  Session[] @relation("ClientSessions")
 
-  // relação PT-Cliente (FALTAVA o lado oposto)
+  // relação PT-Cliente (back-relations)
   trainerClientsAsTrainer TrainerClient[] @relation("TrainerClients_trainer")
   trainerClientsAsClient  TrainerClient[] @relation("TrainerClients_client")
 
-  // planos
+  // planos (back-relations)
   trainingPlansAsTrainer TrainingPlan[] @relation("TrainingPlanTrainer")
   trainingPlansAsClient  TrainingPlan[] @relation("TrainingPlanClient")
 
-  // auditoria
+  // auditoria (back-relation)
   auditLogs AuditLog[]
 
-  // logs genéricos de alterações de planos
+  // logs genéricos de alterações de planos (back-relations)
   planChangesAsTrainer PlanChangeLog[] @relation("PlanChangeTrainer")
   planChangesAsClient  PlanChangeLog[] @relation("PlanChangeClient")
 
-  // autor de alterações de TrainingPlan (FALTAVA o lado oposto)
+  // autor de alterações de TrainingPlanChange (back-relation)
   trainingPlanChangesAuthored TrainingPlanChange[] @relation("TPCActor")
 
   @@index([role])
@@ -92,7 +87,7 @@ model User {
 model Session {
   id          String        @id @default(uuid()) @db.Uuid
   trainerId   String        @map("trainer_id") @db.Uuid
-  clientId    String        @map("client_id") @db.Uuid
+  clientId    String        @map("client_id")  @db.Uuid
   scheduledAt DateTime      @map("scheduled_at")
   status      SessionStatus @default(pendente)
   notes       String?
@@ -100,10 +95,10 @@ model Session {
   updatedAt   DateTime      @updatedAt @map("updated_at")
 
   trainer User @relation("TrainerSessions", fields: [trainerId], references: [id])
-  client  User @relation("ClientSessions", fields: [clientId], references: [id])
+  client  User @relation("ClientSessions",  fields: [clientId],  references: [id])
 
-  @@index([trainerId], map: "sessions_trainer_idx")
-  @@index([clientId], map: "sessions_client_idx")
+  @@index([trainerId],   map: "sessions_trainer_idx")
+  @@index([clientId],    map: "sessions_client_idx")
   @@index([scheduledAt], map: "sessions_scheduled_idx")
   @@map("sessions")
 }
@@ -212,7 +207,7 @@ model TrainingPlanChange {
   createdAt  DateTime @default(now()) @map("created_at")
 
   plan  TrainingPlan @relation(fields: [planId], references: [id])
-  actor User?        @relation("TPCActor", fields: [actorId], references: [id]) // nome da relação adicionado
+  actor User?        @relation("TPCActor", fields: [actorId], references: [id])
 
   @@index([planId],    map: "tpc_plan_idx")
   @@index([actorId],   map: "tpc_actor_idx")

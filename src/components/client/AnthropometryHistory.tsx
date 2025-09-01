@@ -7,7 +7,7 @@ type Row = {
   id: string;
   client_id: string;
   created_by_id: string | null;
-  date: string; // ISO date
+  date: string; // ISO date (YYYY-MM-DD ou ISO completo)
   height_cm: number | null;
   weight_kg: number | null;
   body_fat_pct: number | null;
@@ -30,6 +30,8 @@ export default function AnthropometryHistory({ clientId }: Props) {
   const [items, setItems] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [showBigChart, setShowBigChart] = useState(false);
+  const [from, setFrom] = useState<string>(''); // YYYY-MM-DD
+  const [to, setTo] = useState<string>('');     // YYYY-MM-DD
 
   useEffect(() => {
     let alive = true;
@@ -49,13 +51,30 @@ export default function AnthropometryHistory({ clientId }: Props) {
     return () => { alive = false; };
   }, [clientId]);
 
+  /** --- filtro por datas (cliente) --- */
+  const filtered = useMemo(() => {
+    if (!from && !to) return items;
+
+    const fromD = from ? toDateStart(from) : null;
+    const toD   = to   ? toDateEnd(to)     : null;
+
+    return items.filter(r => {
+      const d = safeDate(r.date);
+      if (!d) return false;
+      if (fromD && d < fromD) return false;
+      if (toD   && d > toD)   return false;
+      return true;
+    });
+  }, [items, from, to]);
+
+  /** --- séries para gráficos (ordem cronológica) --- */
   const trendWeight = useMemo(
-    () => items.slice().reverse().map(r => ({ x: r.date, y: r.weight_kg ?? null })),
-    [items]
+    () => filtered.slice().reverse().map(r => ({ x: r.date, y: r.weight_kg ?? null })),
+    [filtered]
   );
   const trendWaist  = useMemo(
-    () => items.slice().reverse().map(r => ({ x: r.date, y: r.waist_cm ?? null })),
-    [items]
+    () => filtered.slice().reverse().map(r => ({ x: r.date, y: r.waist_cm ?? null })),
+    [filtered]
   );
 
   function exportCSV() {
@@ -65,8 +84,8 @@ export default function AnthropometryHistory({ clientId }: Props) {
     ];
     const lines = [
       headers.join(','),
-      ...items
-        .slice() // já vem desc por data
+      ...filtered
+        .slice()
         .reverse() // export cronológico
         .map(r => [
           safe(r.date),
@@ -88,12 +107,37 @@ export default function AnthropometryHistory({ clientId }: Props) {
 
   return (
     <div className="card" style={{ padding: 12, display: 'grid', gap: 12 }}>
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <h3 style={{ margin: 0 }}>Histórico antropométrico</h3>
-        <div className="flex items-center gap-8">
-          <Sparkline title="Peso (kg)" data={trendWeight} width={160} height={40} goodWhen="down" />
-          <Sparkline title="Cintura (cm)" data={trendWaist} width={160} height={40} goodWhen="down" />
-          <div className="flex items-center gap-6">
+
+        <div className="flex items-center gap-8 flex-wrap">
+          {/* filtros de datas */}
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              className="h-9 rounded-lg border px-2"
+              style={{ background: 'var(--btn-bg)', borderColor: 'var(--border)' }}
+              value={from}
+              onChange={e => setFrom(e.target.value)}
+              aria-label="De"
+            />
+            <span className="text-xs opacity-70">até</span>
+            <input
+              type="date"
+              className="h-9 rounded-lg border px-2"
+              style={{ background: 'var(--btn-bg)', borderColor: 'var(--border)' }}
+              value={to}
+              onChange={e => setTo(e.target.value)}
+              aria-label="Até"
+            />
+          </div>
+
+          {/* mini-sparklines */}
+          <Sparkline title="Peso (kg)"    data={trendWeight} width={160} height={40} goodWhen="down" />
+          <Sparkline title="Cintura (cm)" data={trendWaist}  width={160} height={40} goodWhen="down" />
+
+          {/* ações */}
+          <div className="flex items-center gap-3">
             <button className="btn" onClick={() => setShowBigChart(s => !s)}>
               {showBigChart ? 'Ocultar gráfico' : 'Ver gráfico'}
             </button>
@@ -105,8 +149,8 @@ export default function AnthropometryHistory({ clientId }: Props) {
       {showBigChart && (
         <BigChart
           series={[
-            { name: 'Peso (kg)',  data: trendWeight, color: 'var(--danger)', goodWhen: 'down' },
-            { name: 'Cintura (cm)', data: trendWaist,  color: 'var(--danger)', goodWhen: 'down' },
+            { name: 'Peso (kg)',    data: trendWeight, color: 'var(--ok)',     goodWhen: 'down' },
+            { name: 'Cintura (cm)', data: trendWaist,  color: 'var(--ok)',     goodWhen: 'down' },
           ]}
           height={220}
         />
@@ -114,7 +158,7 @@ export default function AnthropometryHistory({ clientId }: Props) {
 
       {loading ? (
         <div className="text-sm opacity-70">A carregar…</div>
-      ) : items.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="text-sm opacity-70">Sem avaliações registadas.</div>
       ) : (
         <div className="overflow-x-auto">
@@ -136,21 +180,21 @@ export default function AnthropometryHistory({ clientId }: Props) {
               </tr>
             </thead>
             <tbody>
-              {items.map((r, i) => {
-                const prev = items[i + 1]; // a lista está desc
+              {filtered.map((r, i) => {
+                const prev = filtered[i + 1]; // a lista está desc
                 return (
                   <tr key={r.id} className="text-sm hover:bg-[var(--hover)]">
                     <td className="p-2 whitespace-nowrap">{fmtDate(r.date)}</td>
                     <td className="p-2">{val(r.weight_kg)} <Delta now={r.weight_kg} prev={prev?.weight_kg} goodWhen="down" unit="kg" /></td>
-                    <td className="p-2">{val(r.waist_cm)} <Delta now={r.waist_cm} prev={prev?.waist_cm} goodWhen="down" unit="cm" /></td>
+                    <td className="p-2">{val(r.waist_cm)}  <Delta now={r.waist_cm}  prev={prev?.waist_cm}  goodWhen="down" unit="cm" /></td>
                     <td className="p-2">{val(r.body_fat_pct)} <Delta now={r.body_fat_pct} prev={prev?.body_fat_pct} goodWhen="down" unit="%" /></td>
-                    <td className="p-2">{val(r.chest_cm)} <Delta now={r.chest_cm} prev={prev?.chest_cm} goodWhen="up" unit="cm" /></td>
-                    <td className="p-2">{val(r.hip_cm)} <Delta now={r.hip_cm} prev={prev?.hip_cm} goodWhen="down" unit="cm" /></td>
-                    <td className="p-2">{val(r.thigh_cm)} <Delta now={r.thigh_cm} prev={prev?.thigh_cm} goodWhen="up" unit="cm" /></td>
-                    <td className="p-2">{val(r.arm_cm)} <Delta now={r.arm_cm} prev={prev?.arm_cm} goodWhen="up" unit="cm" /></td>
-                    <td className="p-2">{val(r.calf_cm)} <Delta now={r.calf_cm} prev={prev?.calf_cm} goodWhen="up" unit="cm" /></td>
+                    <td className="p-2">{val(r.chest_cm)}  <Delta now={r.chest_cm}  prev={prev?.chest_cm}  goodWhen="up" unit="cm" /></td>
+                    <td className="p-2">{val(r.hip_cm)}    <Delta now={r.hip_cm}    prev={prev?.hip_cm}    goodWhen="down" unit="cm" /></td>
+                    <td className="p-2">{val(r.thigh_cm)}  <Delta now={r.thigh_cm}  prev={prev?.thigh_cm}  goodWhen="up" unit="cm" /></td>
+                    <td className="p-2">{val(r.arm_cm)}    <Delta now={r.arm_cm}    prev={prev?.arm_cm}    goodWhen="up" unit="cm" /></td>
+                    <td className="p-2">{val(r.calf_cm)}   <Delta now={r.calf_cm}   prev={prev?.calf_cm}   goodWhen="up" unit="cm" /></td>
                     <td className="p-2">{val(r.shoulders_cm)} <Delta now={r.shoulders_cm} prev={prev?.shoulders_cm} goodWhen="up" unit="cm" /></td>
-                    <td className="p-2">{val(r.neck_cm)} <Delta now={r.neck_cm} prev={prev?.neck_cm} goodWhen="down" unit="cm" /></td>
+                    <td className="p-2">{val(r.neck_cm)}   <Delta now={r.neck_cm}   prev={prev?.neck_cm}   goodWhen="down" unit="cm" /></td>
                     <td className="p-2">{r.notes ?? ''}</td>
                   </tr>
                 );
@@ -179,6 +223,18 @@ function safe(s: any) {
 }
 function csvEscape(s: string) {
   return /[",\n]/.test(s) ? `"${s.replaceAll('"','""')}"` : s;
+}
+function safeDate(iso: string): Date | null {
+  const d = new Date(iso);
+  return Number.isFinite(d.getTime()) ? d : null;
+}
+function toDateStart(yyyyMmDd: string) {
+  const d = new Date(`${yyyyMmDd}T00:00:00`);
+  return d;
+}
+function toDateEnd(yyyyMmDd: string) {
+  const d = new Date(`${yyyyMmDd}T23:59:59.999`);
+  return d;
 }
 
 function Delta({
@@ -214,7 +270,7 @@ function Sparkline({
     const min = Math.min(...vals);
     const max = Math.max(...vals);
     const pad = 2;
-    const stepX = (width - pad * 2) / (data.length - 1 || 1);
+    const stepX = (width - pad * 2) / Math.max(1, data.length - 1);
     return data.map((d, i) => {
       const x = pad + i * stepX;
       const ratio = (d.y == null || max === min) ? 0.5 : (d.y - min) / (max - min);
@@ -223,7 +279,8 @@ function Sparkline({
     }).join(' ');
   }, [data, width, height]);
 
-  const color = goodWhen === 'down' ? 'var(--danger)' : 'var(--ok)';
+  // ↓ Para métricas “boas quando descem”, usar verde
+  const color = goodWhen === 'down' ? 'var(--ok)' : 'var(--danger)';
 
   return (
     <div className="grid gap-1" style={{ minWidth: width }}>
@@ -249,7 +306,7 @@ function BigChart({
   const all = series.flatMap(s => s.data.map(d => d.y).filter((v): v is number => v != null));
   const min = all.length ? Math.min(...all) : 0;
   const max = all.length ? Math.max(...all) : 1;
-  const n = Math.max(...series.map(s => s.data.length));
+  const n = Math.max(...series.map(s => s.data.length), 1);
   const stepX = (width - pad * 2) / Math.max(1, n - 1);
 
   function pathFor(data: { x: string; y: number | null }[]) {

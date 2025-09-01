@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import AnthropometryForm from '@/components/client/AnthropometryForm';
 import AnthropometryHistory from '@/components/client/AnthropometryHistory';
+import AnthropometryEvolutionWidget from '@/components/client/AnthropometryEvolutionWidget';
 import { getSessionUser } from '@/lib/sessions';
 import { Role } from '@prisma/client';
 import prisma from '@/lib/prisma';
@@ -57,6 +58,7 @@ export default async function UserShowPage({ params }: { params: { id: string } 
 
       {/* 🔽 Histórico (todos vêem) */}
       <AnthropometryHistory clientId={u.id} />
+      <AnthropometryEvolutionWidget clientId={u.id} />
     </div>
   );
 }
