@@ -1,3 +1,4 @@
+// src/components/plan/PlanEditor.tsx
 'use client';
 
 import React, {
@@ -17,9 +18,7 @@ import UserSelect from '@/components/users/UserSelect';
 type Exercise = {
   id: string;
   name: string;
-  /**
-   * URL de média do exercício (gif/video/png) – pode ser local (/exercises/xxx.gif) ou remota.
-   */
+  /** URL de média do exercício (gif/video/png) – pode ser local (/exercises/xxx.gif) ou remota. */
   mediaUrl?: string;
   /** imagem/diagrama de músculos */
   muscleUrl?: string;
@@ -104,11 +103,7 @@ function useExerciseSearch() {
   return { q, setQ, items, loading };
 }
 
-function ExercisePicker({
-  onPick,
-}: {
-  onPick: (ex: ExerciseLite) => void;
-}) {
+function ExercisePicker({ onPick }: { onPick: (ex: ExerciseLite) => void }) {
   const { q, setQ, items, loading } = useExerciseSearch();
 
   return (
@@ -127,10 +122,7 @@ function ExercisePicker({
       {loading && <div className="text-xs opacity-70">A procurar…</div>}
 
       {items.length > 0 && (
-        <div
-          className="grid gap-2"
-          style={{ maxHeight: 280, overflow: 'auto' }}
-        >
+        <div className="grid gap-2" style={{ maxHeight: 280, overflow: 'auto' }}>
           {items.map((it) => (
             <button
               key={it.id}
@@ -138,7 +130,10 @@ function ExercisePicker({
               style={{ borderColor: 'var(--border)', background: 'var(--card-bg)' }}
               onClick={() => onPick(it)}
             >
-              <div className="relative h-12 w-12 overflow-hidden rounded-lg border" style={{ borderColor: 'var(--border)' }}>
+              <div
+                className="relative h-12 w-12 overflow-hidden rounded-lg border"
+                style={{ borderColor: 'var(--border)' }}
+              >
                 <Image
                   src={it.mediaUrl || '/exercise-placeholder.png'}
                   alt=""
@@ -171,10 +166,10 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin: _adm
   const [exercises, setExercises] = useState<Exercise[]>(initial.exercises ?? []);
   const [busy, setBusy] = useState(false);
 
-  const [trainer, setTrainer] = useState<{id:string;name?:string|null;email?:string|null} | null>(
+  const [trainer, setTrainer] = useState<{ id: string; name?: string | null; email?: string | null } | null>(
     initial.trainerId ? ({ id: initial.trainerId, name: (initial as any).trainerName } as any) : null
   );
-  const [client, setClient] = useState<{id:string;name?:string|null;email?:string|null} | null>(
+  const [client, setClient] = useState<{ id: string; name?: string | null; email?: string | null } | null>(
     initial.clientId ? ({ id: initial.clientId, name: (initial as any).clientName } as any) : null
   );
 
@@ -198,7 +193,8 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin: _adm
         notes: '',
       },
     ]);
-    showToast({ kind: 'success', message: `Adicionado: ${item.name}` });
+    // <- importante: usar "type" em vez de "kind"
+    showToast({ type: 'success', message: `Adicionado: ${item.name}` });
   }
 
   const removeExercise = useCallback((idx: number) => {
@@ -253,13 +249,13 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin: _adm
       const data = await res.json().catch(() => ({}));
       const id = data?.id ?? planId;
 
-      showToast({ kind: 'success', message: 'Plano guardado com sucesso!' });
+      showToast({ type: 'success', message: 'Plano guardado com sucesso!' });
 
       // callback ou navegação
       if (onSaved && id) onSaved(id);
       else router.push('/dashboard/pt'); // volta à área do PT/Admin
     } catch (err: any) {
-      showToast({ kind: 'error', message: err?.message ?? 'Erro ao guardar o plano' });
+      showToast({ type: 'error', message: err?.message ?? 'Erro ao guardar o plano' });
     } finally {
       setBusy(false);
     }
@@ -295,12 +291,15 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin: _adm
             </select>
           </div>
 
-          <div style={{ display:'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <UserSelect
               label="Treinador"
               role="TRAINER"
               value={trainer}
-              onChange={(v) => { setTrainer(v); setTrainerId(v?.id ?? initial.trainerId); }}
+              onChange={(v) => {
+                setTrainer(v);
+                setTrainerId(v?.id ?? initial.trainerId);
+              }}
               placeholder="Pesquisar treinador…"
               disabled={!_admin}
             />
@@ -309,7 +308,10 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin: _adm
               label="Cliente"
               role="CLIENT"
               value={client}
-              onChange={(v) => { setClient(v); setClientId(v?.id ?? initial.clientId); }}
+              onChange={(v) => {
+                setClient(v);
+                setClientId(v?.id ?? initial.clientId);
+              }}
               placeholder="Pesquisar cliente…"
             />
           </div>
@@ -356,7 +358,10 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin: _adm
                   className="grid gap-3 rounded-xl border p-2 md:grid-cols-[64px,1fr,auto]"
                   style={{ borderColor: 'var(--border)', background: 'var(--card-bg)' }}
                 >
-                  <div className="relative h-16 w-16 overflow-hidden rounded-lg border" style={{ borderColor: 'var(--border)' }}>
+                  <div
+                    className="relative h-16 w-16 overflow-hidden rounded-lg border"
+                    style={{ borderColor: 'var(--border)' }}
+                  >
                     <Image
                       src={ex.mediaUrl || '/exercise-placeholder.png'}
                       alt=""
@@ -436,9 +441,7 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin: _adm
                       type="button"
                       className="btn icon"
                       title="Mover para baixo"
-                      onClick={() =>
-                        idx < exercises.length - 1 && moveExercise(idx, idx + 1)
-                      }
+                      onClick={() => idx < exercises.length - 1 && moveExercise(idx, idx + 1)}
                     >
                       ⬇️
                     </button>
@@ -455,7 +458,10 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin: _adm
                   {/* preview de músculos (opcional) */}
                   {ex.muscleUrl && (
                     <div className="md:col-span-3">
-                      <div className="relative mt-1 h-28 w-full overflow-hidden rounded-lg border" style={{ borderColor: 'var(--border)' }}>
+                      <div
+                        className="relative mt-1 h-28 w-full overflow-hidden rounded-lg border"
+                        style={{ borderColor: 'var(--border)' }}
+                      >
                         <Image
                           src={ex.muscleUrl}
                           alt="Músculos trabalhados"
