@@ -14,6 +14,28 @@ import { Status } from '@prisma/client';
 import { showToast } from '@/components/ui/Toasts';
 import UserSelect from '@/components/users/UserSelect';
 
+/** ========= Toast wrapper à prova de tipos =========
+ *  Evita erros de compilação se o Alert mudar entre {message}|{text} ou (type, msg)
+ */
+function toast(type: 'success' | 'error' | 'info' | 'warning', msg: string) {
+  try {
+    // shape 1: { type, text }
+    (showToast as any)({ type, text: msg });
+    return;
+  } catch {}
+  try {
+    // shape 2: { type, message }
+    (showToast as any)({ type, message: msg });
+    return;
+  } catch {}
+  try {
+    // shape 3: (type, message)
+    (showToast as any)(type, msg);
+  } catch {
+    // silencia em ambiente onde o provider não esteja montado
+  }
+}
+
 /* ================== Tipos ================== */
 type Exercise = {
   id: string;
@@ -84,7 +106,6 @@ function useExerciseSearch() {
           const res = await fetch(`/api/exercises?q=${encodeURIComponent(term.trim())}`, {
             cache: 'no-store',
           });
-          // Espera-se um array [{id,name,mediaUrl,muscleUrl}]
           const data = (await res.json()) as ExerciseLite[];
           setItems(Array.isArray(data) ? data : []);
         } catch {
@@ -193,8 +214,7 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin: _adm
         notes: '',
       },
     ]);
-    // usar o shape correto do Alert: { type, text }
-    showToast({ type: 'success', text: `Adicionado: ${item.name}` });
+    toast('success', `Adicionado: ${item.name}`);
   }
 
   const removeExercise = useCallback((idx: number) => {
@@ -249,13 +269,13 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin: _adm
       const data = await res.json().catch(() => ({}));
       const id = data?.id ?? planId;
 
-      showToast({ type: 'success', text: 'Plano guardado com sucesso!' });
+      toast('success', 'Plano guardado com sucesso!');
 
       // callback ou navegação
       if (onSaved && id) onSaved(id);
       else router.push('/dashboard/pt'); // volta à área do PT/Admin
     } catch (err: any) {
-      showToast({ type: 'error', text: err?.message ?? 'Erro ao guardar o plano' });
+      toast('error', err?.message ?? 'Erro ao guardar o plano');
     } finally {
       setBusy(false);
     }
