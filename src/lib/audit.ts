@@ -1,37 +1,27 @@
 // src/lib/audit.ts
 import prisma from '@/lib/prisma';
-import type { AuditKind } from '@prisma/client';
+import { AuditKind } from '@prisma/client';
 
-export type AuditParams = {
+type TargetType = 'USER' | 'TRAINER_CLIENT' | 'TRAINING_PLAN' | 'AUTH';
+
+export async function auditLog(opts: {
   actorId?: string | null;
   kind: AuditKind;
-
-  // preferir "message"; "action" fica para retrocompat
-  message?: string;
-  action?: string;
-
-  targetType?: string | null;
-  targetId?: string | null;
-  target?: string | null;
-
-  diff?: unknown; // payload (diferenças, contexto, etc.)
-};
-
-export async function logAudit(params: AuditParams) {
-  const message = params.message ?? params.action ?? '';
-
-  await prisma.auditLog.create({
+  message: string;           // texto curto do que aconteceu
+  targetType: TargetType;    // <- NUNCA null
+  targetId?: string | null;  // id do alvo, quando existir
+  target?: string | null;    // texto do alvo (email/nome/etc.)
+  diff?: unknown;            // payload opcional
+}) {
+  return prisma.auditLog.create({
     data: {
-      actorId: params.actorId ?? null,
-      kind: params.kind,
-      message,                           // mapeia para coluna "action" via @map no schema
-      targetType: params.targetType ?? null,
-      targetId: params.targetId ?? null,
-      target: params.target ?? null,
-      diff: (params.diff ?? null) as any // mapeia para coluna "meta" via @map no schema
+      actorId:   opts.actorId ?? null,
+      kind:      opts.kind,
+      message:   opts.message,     // @map("action") no Prisma
+      target:    opts.target ?? null,
+      targetId:  opts.targetId ?? null,
+      targetType: opts.targetType, // <- OBRIGATÓRIO
+      diff:      (opts.diff ?? null) as any,
     },
   });
 }
-
-// re-export para compat com imports existentes
-export { logPlanChange, shallowPlanDiff } from './planLog';
