@@ -14,30 +14,17 @@ type WalletRow = {
   price_per_month_eur?: number | null;
   start_date?: string | null;
   end_date?: string | null;
-  status_text?: string | null; // ex.: active, paused, ended
+  status_text?: string | null; // active | paused | ended
   notes?: string | null;
-
-  // dados de assiduidade (se já tiveres numa view/endpoint)
-  attendance?: {
-    done: number;   // sessões realizadas na janela
-    total: number;  // sessões previstas na janela
-    spark?: number[]; // série curta para sparkline (últimas n semanas)
-  };
+  attendance?: { done: number; total: number; spark?: number[] };
 };
 
-export default function PTWalletView({
-  meId,
-  isAdmin = false,
-}: {
-  meId: string;
-  isAdmin?: boolean;
-}) {
+export default function PTWalletView({ meId, isAdmin = false }: { meId: string; isAdmin?: boolean }) {
   const [trainerId, setTrainerId] = useState<string>(meId);
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<WalletRow[]>([]);
   const [q, setQ] = useState('');
 
-  // fetch carteira (ajusta o endpoint para o teu real)
   async function load() {
     setLoading(true);
     try {
@@ -52,10 +39,7 @@ export default function PTWalletView({
     }
   }
 
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trainerId]);
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [trainerId]);
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -63,30 +47,32 @@ export default function PTWalletView({
     return rows.filter(r =>
       (r.client_name ?? '').toLowerCase().includes(s) ||
       (r.package_name ?? '').toLowerCase().includes(s) ||
-      r.client_id?.toLowerCase().includes(s)
+      (r.client_id ?? '').toLowerCase().includes(s)
     );
   }, [rows, q]);
 
   return (
-    <div className="wallet">
-      {/* Filtros / Admin target */}
-      <div className="toolbar">
+    <div style={{ display: 'grid', gap: 12 }}>
+      {/* Toolbar */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', padding: 8 }}>
         <input
           className="input"
           placeholder="Procurar (cliente, pacote, id)…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           aria-label="Pesquisar carteira"
+          style={inputStyle}
         />
         {isAdmin && (
-          <div className="admin-pt">
-            <label className="label">Trainer ID</label>
+          <div style={{ display: 'grid', gap: 4 }}>
+            <label style={{ fontSize: 12, opacity: .7 }}>Trainer ID</label>
             <input
               className="input"
               value={trainerId}
               onChange={(e) => setTrainerId(e.target.value.trim())}
               placeholder="uuid do PT"
               aria-label="Trainer ID (Admin)"
+              style={inputStyle}
             />
           </div>
         )}
@@ -96,89 +82,249 @@ export default function PTWalletView({
 
       {/* Lista */}
       {loading ? (
-        <div className="muted">A carregar…</div>
+        <div className="text-muted">A carregar…</div>
       ) : filtered.length === 0 ? (
-        <div className="muted">Sem pacotes/clients nesta carteira.</div>
+        <div className="text-muted">Sem pacotes/clients nesta carteira.</div>
       ) : (
-        <ul className="grid">
+        <ul
+          style={{
+            listStyle: 'none',
+            padding: 0,
+            margin: 0,
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 10,
+          }}
+        >
           {filtered.map((r) => (
-            <li key={r.id} className="card item">
-              <header className="item-head">
-                <div className="who">
-                  <div className="avatar">{initials(r.client_name ?? 'C')}</div>
-                  <div className="who-names">
-                    <div className="client">{r.client_name ?? `Cliente ${r.client_id?.slice(0,6)}`}</div>
-                    <div className="pkg">{r.package_name ?? 'Pacote'}</div>
+            <li
+              key={r.id}
+              className="card"
+              style={{
+                padding: 12,
+                display: 'grid',
+                gap: 10,
+                width: '100%',
+                maxWidth: 460, // torna “cards” responsivos: mobile ocupa 100%, desktop 2-3 por linha
+                borderRadius: 12,
+              }}
+            >
+              {/* Cabeçalho */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', minWidth: 0 }}>
+                  <div style={avatarStyle}>{initials(r.client_name ?? 'C')}</div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, lineHeight: 1.2 }}>{r.client_name ?? `Cliente ${r.client_id?.slice(0,6)}`}</div>
+                    <div style={{ fontSize: 12, opacity: .75, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {r.package_name ?? 'Pacote'}
+                    </div>
                   </div>
                 </div>
                 <StatusChip status={r.status_text} />
-              </header>
+              </div>
 
-              <div className="meta">
+              {/* Meta */}
+              <div
+                style={{
+                  display: 'grid',
+                  gap: 6,
+                  gridTemplateColumns: 'repeat(2, minmax(0,1fr))',
+                }}
+              >
                 <Meta label="Sessões/sem" value={num(r.sessions_per_week)} />
                 <Meta label="Duração" value={r.duration_weeks ? `${r.duration_weeks} sem` : '—'} />
                 <Meta label="Preço/mês" value={money(r.price_per_month_eur)} />
-                <Meta label="Período" value={period(r.start_date, r.end_date)} grow />
+                <Meta label="Período" value={period(r.start_date, r.end_date)} />
               </div>
 
+              {/* Assiduidade */}
               <Attendance row={r} />
 
-              <footer className="actions">
+              {/* Ações */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
                 <button className="btn chip" onClick={() => assignClient(r.trainer_id, r.client_id)}>Atribuir cliente</button>
                 <button className="btn chip" onClick={() => toggleStatus(r.id, r.status_text)}>
                   {r.status_text === 'active' ? 'Pausar' : 'Ativar'}
                 </button>
                 <Link className="btn chip" href={`/dashboard/pt/plans?client=${r.client_id}`}>Ver planos</Link>
-              </footer>
+              </div>
             </li>
           ))}
         </ul>
       )}
+    </div>
+  );
+}
 
-      <style jsx>{`
-        .wallet { display: grid; gap: 12px; }
-        .toolbar {
-          display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
-          padding: 8px;
-        }
-        .input {
-          border: 1px solid var(--border);
-          background: var(--card, #fff);
-          border-radius: 8px;
-          padding: 8px 10px;
-          font-size: 14px;
-          min-width: 220px;
-        }
-        .label { font-size: 12px; opacity: .7; }
-        .admin-pt { display: grid; gap: 4px; }
-        .grid {
-          list-style: none; padding: 0; margin: 0;
-          display: grid; gap: 10px;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
-        @media (max-width: 1100px) {
-          .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        }
-        @media (max-width: 768px) {
-          .grid { grid-template-columns: 1fr; }
-        }
-        .item { padding: 12px; display: grid; gap: 10px; }
-        .item-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-        .who { display: flex; gap: 10px; align-items: center; min-width: 0; }
-        .avatar {
-          width: 36px; height: 36px; border-radius: 50%;
-          display: grid; place-items: center; font-weight: 700;
-          background: radial-gradient(100% 100% at 30% 20%, #eee, #ddd);
-          color: #333; border: 1px solid #00000010;
-          flex: 0 0 auto;
-        }
-        .who-names { min-width: 0; }
-        .client { font-weight: 600; }
-        .pkg { font-size: 12px; opacity: .7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .meta { display: grid; gap: 6px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-        @media (max-width: 768px) { .meta { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-        .meta-item {
-          display: grid; gap: 4px; padding: 8px; border: 1px dashed var(--border);
-          border-radius: 10px; background: var(--hover, #f9fafb);
-        }
-        .meta-label { font-size
+/* ---------- UI helpers ---------- */
+
+function Meta({ label, value }: { label: string; value: string }) {
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gap: 4,
+        padding: 8,
+        border: '1px dashed var(--border)',
+        borderRadius: 10,
+        background: 'var(--hover, #f9fafb)',
+      }}
+    >
+      <div style={{ fontSize: 11, opacity: .65 }}>{label}</div>
+      <div style={{ fontWeight: 600, fontSize: 13 }}>{value}</div>
+    </div>
+  );
+}
+
+function StatusChip({ status }: { status?: string | null }) {
+  const s = (status ?? 'active').toLowerCase();
+  const map: Record<string, { fg: string; bg: string; text: string }> = {
+    active:  { fg: 'var(--ok, #16a34a)',     bg: 'rgba(22,163,74,.10)',  text: 'ATIVO' },
+    paused:  { fg: 'var(--warn, #f59e0b)',   bg: 'rgba(245,158,11,.12)', text: 'PAUSADO' },
+    ended:   { fg: 'var(--danger, #ef4444)', bg: 'rgba(239,68,68,.10)',  text: 'TERMINADO' },
+  };
+  const c = map[s] ?? map.active;
+  return (
+    <span className="chip" style={{ color: c.fg, background: c.bg, borderColor: c.fg + '33', fontWeight: 600 }}>
+      {c.text}
+    </span>
+  );
+}
+
+function initials(name: string) {
+  const p = name.trim().split(/\s+/).slice(0, 2).map(s => s[0]?.toUpperCase() ?? '').join('');
+  return p || 'C';
+}
+function num(n?: number | null) { return n == null ? '—' : String(n); }
+function money(v?: number | null) { return v == null ? '—' : new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(v); }
+function period(a?: string | null, b?: string | null) {
+  const A = a ? new Date(a).toLocaleDateString('pt-PT') : '—';
+  const B = b ? new Date(b).toLocaleDateString('pt-PT') : '…';
+  return `${A} — ${B}`;
+}
+
+/* ---------- Attendance (progress + sparkline) ---------- */
+
+function Attendance({ row }: { row: WalletRow }) {
+  const att = row.attendance;
+  const done = att?.done ?? 0;
+  const total = Math.max(att?.total ?? 0, done);
+  const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+  const spark = (att?.spark ?? []).slice(-16);
+
+  return (
+    <div style={{ display: 'grid', gap: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ fontSize: 12, opacity: .7 }}>Assiduidade</div>
+        <div
+          style={{
+            padding: '2px 8px',
+            borderRadius: 999,
+            fontSize: 12,
+            fontWeight: 700,
+            color: 'var(--ok, #16a34a)',
+            background: 'rgba(22,163,74,.10)',
+            border: '1px solid #16a34a22',
+          }}
+        >
+          {pct}%
+        </div>
+      </div>
+
+      <Progress value={pct} />
+      <Sparkline data={spark} />
+      <div style={{ fontSize: 12, opacity: .6 }}>{done}/{total} sessões nesta janela</div>
+    </div>
+  );
+}
+
+function Progress({ value }: { value: number }) {
+  const v = Math.max(0, Math.min(100, Math.round(value)));
+  return (
+    <div
+      role="progressbar"
+      aria-valuenow={v}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-label={`Progresso ${v}%`}
+      style={{ height: 10, borderRadius: 999, background: 'var(--hover, #f1f5f9)', overflow: 'hidden' }}
+    >
+      <div
+        style={{
+          width: `${v}%`,
+          height: '100%',
+          background: 'linear-gradient(90deg, #10b981, #16a34a)',
+          transition: 'width .2s ease',
+        }}
+      />
+    </div>
+  );
+}
+
+function Sparkline({ data }: { data: number[] }) {
+  if (!data.length) return null;
+  const width = 160, height = 40, pad = 2;
+  const min = Math.min(...data), max = Math.max(...data);
+  const step = (width - pad * 2) / Math.max(1, data.length - 1);
+  const pts = data.map((y, i) => {
+    const ratio = max === min ? 0.5 : (y - min) / (max - min);
+    const X = pad + i * step;
+    const Y = height - pad - ratio * (height - pad * 2);
+    return `${X},${Y}`;
+  }).join(' ');
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} aria-label="Tendência de assiduidade">
+      <polyline points={pts} fill="none" stroke="currentColor" strokeWidth="2" opacity="0.8" />
+    </svg>
+  );
+}
+
+/* ---------- ações (liga às tuas APIs reais) ---------- */
+
+async function assignClient(trainerId?: string, clientId?: string) {
+  if (!trainerId || !clientId) return;
+  try {
+    await fetch('/api/admin/trainer-clients', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trainerId, clientId }),
+    });
+    // depois do POST, ideal: refresh (aqui apenas fica o hook load() no parent)
+  } catch {}
+}
+
+async function toggleStatus(packageId: string, status?: string | null) {
+  const next = status === 'active' ? 'paused' : 'active';
+  try {
+    await fetch(`/api/pt/packages/${encodeURIComponent(packageId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: next }),
+    });
+  } catch {}
+}
+
+/* ---------- estilos inline reutilizáveis ---------- */
+
+const inputStyle: React.CSSProperties = {
+  border: '1px solid var(--border)',
+  background: 'var(--card, #fff)',
+  borderRadius: 8,
+  padding: '8px 10px',
+  fontSize: 14,
+  minWidth: 220,
+};
+
+const avatarStyle: React.CSSProperties = {
+  width: 36,
+  height: 36,
+  borderRadius: '50%',
+  display: 'grid',
+  placeItems: 'center',
+  fontWeight: 700,
+  background: 'radial-gradient(100% 100% at 30% 20%, #eee, #ddd)',
+  color: '#333',
+  border: '1px solid #00000010',
+  flex: '0 0 auto',
+};
