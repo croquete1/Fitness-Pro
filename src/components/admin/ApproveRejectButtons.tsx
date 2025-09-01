@@ -1,40 +1,69 @@
+// src/components/admin/ApproveRejectButtons.tsx
 'use client';
 
 import { useState, useTransition } from 'react';
 import { useToast } from '@/components/ui/Toasts';
 
-export default function ApproveRejectButtons({ userId }: { userId: string }) {
-  const { success, error } = useToast();
-  const [pending, start] = useTransition();
-  const [busy, setBusy] = useState<'approve' | 'reject' | null>(null);
+type Busy = 'approve' | 'reject' | null;
 
-  async function act(op: 'approve' | 'reject') {
-    setBusy(op);
+export default function ApproveRejectButtons({ userId }: { userId: string }) {
+  // API nova: o hook devolve { push({ kind:'success'|'error'|'info', message }) }
+  const { push } = (useToast?.() ?? { push: (_: any) => {} });
+  const [pending, start] = useTransition();
+  const [busy, setBusy] = useState<Busy>(null);
+
+  function notify(kind: 'success' | 'error', message: string) {
     try {
-      const res = await fetch(`/api/admin/approvals/${userId}`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ op }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      success(op === 'approve' ? 'Conta aprovada com sucesso.' : 'Pedido rejeitado.');
-      start(() => {
-        // Refaz o route segment (rsc revalidate)
-        if (typeof window !== 'undefined') location.reload();
-      });
-    } catch (e: any) {
-      error(e?.message || 'Falha ao atualizar aprovação.');
-    } finally {
-      setBusy(null);
+      push({ kind, message });
+    } catch {
+      // silencioso (caso o provider não esteja montado por algum motivo)
     }
   }
 
+  async function doAction(action: 'approve' | 'reject') {
+    setBusy(action);
+    start(async () => {
+      try {
+        const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/${action}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (!res.ok) {
+          const txt = await res.text().catch(() => '');
+          throw new Error(txt || 'Falha no pedido');
+        }
+        notify('success', action === 'approve' ? 'Conta aprovada' : 'Conta rejeitada');
+      } catch (err: any) {
+        notify('error', err?.message || 'Ocorreu um erro');
+      } finally {
+        setBusy(null);
+      }
+    });
+  }
+
+  const disabled = pending || busy !== null;
+
   return (
-    <div className="table-actions">
-      <button className="btn chip" disabled={pending || busy === 'approve'} onClick={() => act('approve')}>
+    <div className="inline-flex gap-2">
+      <button
+        type="button"
+        className="btn success"
+        disabled={disabled}
+        onClick={() => doAction('approve')}
+        aria-busy={busy === 'approve' || undefined}
+        title="Aprovar conta"
+      >
         {busy === 'approve' ? 'A aprovar…' : 'Aprovar'}
       </button>
-      <button className="btn chip" disabled={pending || busy === 'reject'} onClick={() => act('reject')}>
+
+      <button
+        type="button"
+        className="btn danger"
+        disabled={disabled}
+        onClick={() => doAction('reject')}
+        aria-busy={busy === 'reject' || undefined}
+        title="Rejeitar conta"
+      >
         {busy === 'reject' ? 'A rejeitar…' : 'Rejeitar'}
       </button>
     </div>
