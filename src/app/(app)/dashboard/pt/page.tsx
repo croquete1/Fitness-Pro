@@ -18,7 +18,6 @@ export default async function Page() {
   if (!me?.id) redirect('/login');
   if (me.role !== Role.ADMIN && me.role !== Role.TRAINER) redirect('/dashboard');
 
-  // Mantemos a página server-side (auth/redirect) e delegamos UI e data-fetch no client child
   return (
     <div style={{ padding: 12, display: 'grid', gap: 12 }}>
       <div
@@ -43,12 +42,6 @@ export default async function Page() {
       <div className="card" style={{ padding: 8 }}>
         <PTWalletView meId={me.id} isAdmin={me.role === Role.ADMIN} />
       </div>
-
-      <style jsx>{`
-        @media (max-width: 768px) {
-          h1 { font-size: 16px; }
-        }
-      `}</style>
     </div>
   );
 }
