@@ -5,8 +5,16 @@ import { requireAdmin } from '@/lib/guards';
 import { logAudit } from '@/lib/audit';
 import { AuditKind } from '@prisma/client';
 
+/** Extrai o id do utilizador a partir de diferentes formatos (user ou session). */
+function resolveActorId(me: unknown): string | null {
+  if (!me) return null;
+  const anyMe = me as { id?: unknown; user?: { id?: unknown } };
+  if (typeof anyMe.id === 'string') return anyMe.id;
+  if (anyMe.user && typeof anyMe.user.id === 'string') return anyMe.user.id;
+  return null;
+}
+
 export async function POST(req: Request) {
-  // Em alguns projetos requireAdmin() devolve um Session; noutros, o próprio user.
   const me = await requireAdmin();
 
   const body = await req.json().catch(() => ({}));
@@ -25,13 +33,7 @@ export async function POST(req: Request) {
     select: { id: true, trainerId: true, clientId: true },
   });
 
-  // Extrair actorId de forma robusta (session.user.id ou id direto)
-  const actorId =
-    // @ts-expect-error — compat múltiplos formatos
-    (me?.id as string | undefined) ??
-    // @ts-expect-error — compat Session
-    (me?.user?.id as string | undefined) ??
-    null;
+  const actorId = resolveActorId(me);
 
   await logAudit({
     actorId,
