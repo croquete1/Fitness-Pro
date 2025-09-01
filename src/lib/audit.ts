@@ -2,41 +2,38 @@
 import prisma from '@/lib/prisma';
 import { AuditKind } from '@prisma/client';
 
-/** Alvos possíveis na auditoria — sempre UPPERCASE */
+/** Tipos de alvo que suportamos nos logs (maiusc. para bater com o código já existente) */
 export type AuditTargetType =
   | 'USER'
   | 'TRAINING_PLAN'
   | 'TRAINER_CLIENT'
-  | 'PACKAGE'
-  | 'OTHER';
+  | 'ANTHROPOMETRY';
 
-type LogAuditInput = {
-  actorId?: string | null;
-  kind: AuditKind;
-  message: string;
-  targetType: AuditTargetType;   // <- obrigatório (evita P2011)
-  targetId?: string | null;
-  diff?: unknown;
+/** Payload aceite pelo utilitário de auditoria */
+export type LogAuditInput = {
+  actorId?: string | null;        // quem executou a ação
+  kind: AuditKind;                // tipo (enum Prisma)
+  message: string;                // descrição humana
+  targetType?: AuditTargetType | null; // categoria do alvo (opcional)
+  targetId?: string | null;       // id do alvo (opcional)
+  target?: string | null;         // rótulo do alvo (ex: email/nome) — OPCIONAL
+  diff?: unknown;                 // qualquer metadado/dif (JSON)
 };
 
-/** Função única para registar auditoria (tolerante a erro). */
-export async function logAudit(input: LogAuditInput): Promise<void> {
-  try {
-    await prisma.auditLog.create({
-      data: {
-        actorId: input.actorId ?? null,
-        kind: input.kind,
-        message: input.message,
-        targetType: input.targetType,
-        targetId: input.targetId ?? null,
-        diff: (input.diff ?? null) as any,
-      },
-    });
-  } catch (err) {
-    // Não bloquear requests por falha de log
-    console.error('[audit] failed', err);
-  }
-}
+/** Escreve um registo de auditoria */
+export async function logAudit(input: LogAuditInput) {
+  const { actorId, kind, message, targetType, targetId, target, diff } = input;
 
-/** Alias para compatibilidade com imports antigos: `import { auditLog } from '@/lib/audit'` */
-export const auditLog = logAudit;
+  await prisma.auditLog.create({
+    data: {
+      actorId: actorId ?? null,
+      kind,
+      message,
+      targetType: targetType ?? null,
+      targetId: targetId ?? null,
+      target: target ?? null,
+      // No Prisma, Json aceita undefined para “não gravar” e null para “gravar null”
+      diff: diff === undefined ? undefined : (diff as any),
+    },
+  });
+}
