@@ -1,77 +1,33 @@
-/* eslint-disable @next/next/no-img-element */
+m// src/components/layout/SidebarAdmin.tsx
 'use client';
 
-import React from 'react';
-import SidebarBase, { NavGroup } from './SidebarBase';
+import * as React from 'react';
+import * as Ic from '@/components/ui/Icons'; // adapta ao teu path real de ícones
+import { toAppRole, isAdmin } from '@/lib/roles';
 
-// Ícones leves (inline SVG)
-const Ic = {
-  Home: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M3 10.5 12 3l9 7.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      <path d="M5 10v10h14V10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  ),
-  CheckSquare: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="2" />
-      <path d="M8 12l3 3 5-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  ),
-  Users: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="9" cy="8" r="3" stroke="currentColor" strokeWidth="2" />
-      <path d="M15 11a3 3 0 1 0 0-6" stroke="currentColor" strokeWidth="2" />
-      <path d="M3 19c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="currentColor" strokeWidth="2" />
-      <path d="M21 19c0-2.21-1.343-4.105-3.25-4.778" stroke="currentColor" strokeWidth="2" />
-    </svg>
-  ),
-  Receipt: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3z" stroke="currentColor" strokeWidth="2" />
-      <path d="M9 7h6M9 11h6M9 15h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  ),
-};
+type NavItem = { label: string; href: string; icon?: React.ReactNode };
 
-export default function SidebarAdmin() {
-  const brand = (
-    <>
-      <img className="logo" src="/logo.png" alt="" width={28} height={28} />
-      <span className="brand-text">
-        <span className="brand-name">Fitness Pro</span>
-        <span className="brand-sub">Admin</span>
-      </span>
-    </>
-  );
+export default function SidebarAdmin({ user }: { user: { role: unknown } }) {
+  const role = toAppRole((user as any)?.role);
 
-  const groups: NavGroup[] = [
-    {
-      title: 'GERAL',
-      items: [{ label: 'Dashboard', href: '/dashboard', icon: <Ic.Home /> }],
-    },
-    {
-  title: 'Administração',
-  items: [
-    { label: 'Aprovações', href: '/dashboard/admin/approvals', icon: <Ic.CheckSquare /> },
-    { label: 'Utilizadores', href: '/dashboard/admin/users', icon: <Ic.Users /> },
-    // NOVO: carteira
+  const nav: NavItem[] = [
     { label: 'Clientes & Pacotes', href: '/dashboard/admin/clients', icon: <Ic.Receipt /> },
-    // NOVO: planos
-    { label: 'Planos de treino', href: '/dashboard/pt/plans', icon: <Ic.Home /> },
-{isAdmin(toAppRole((user as any).role)) && (
-  <li><a className="nav-link" href="/dashboard/admin/plans">Planos (Admin)</a></li>
-)
-  ],
-},
-    {
-      title: 'FATURAÇÃO',
-      items: [
-        // rota existente de pagamentos
-        { label: 'Pagamentos', href: '/dashboard/billing', icon: <Ic.Receipt /> },
-      ],
-    },
+    { label: 'Planos de treino',   href: '/dashboard/pt/plans',      icon: <Ic.Home /> },
+    // Admin extra (usa spread condicional em vez de JSX solto)
+    ...(isAdmin(role) ? [{ label: 'Planos (Admin)', href: '/dashboard/admin/plans', icon: <Ic.Home /> }] : []),
   ];
 
-  return <SidebarBase brand={brand} groups={groups} />;
+  return (
+    <nav aria-label="Admin">
+      <ul className="sidebar-list">
+        {nav.map((i) => (
+          <li key={i.href}>
+            <a className="nav-link" href={i.href}>
+              {i.icon} <span>{i.label}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
 }
