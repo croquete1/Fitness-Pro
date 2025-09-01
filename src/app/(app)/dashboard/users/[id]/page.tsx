@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 import Link from 'next/link';
 import prisma from '@/lib/prisma';
 import { getSessionUser } from '@/lib/sessions';
-import { toAppRole } from '@/lib/roles';
+import { toAppRole, isAdmin, isTrainer } from '@/lib/roles';
 import { Role } from '@prisma/client';
 import AnthropometryForm from '@/components/client/AnthropometryForm';
 import AnthropometryHistory from '@/components/client/AnthropometryHistory';
@@ -12,8 +12,8 @@ export default async function UserShowPage({ params }: { params: { id: string } 
   const id = params.id;
 
   const viewer = await getSessionUser();
-  const viewerRole = viewer ? toAppRole((viewer as any).role) : null; // 'admin' | 'pt' | 'client' | null
-  const canEdit = viewerRole === 'admin' || viewerRole === 'pt';
+const viewerRole = viewer ? toAppRole((viewer as any).role) : null; // 'ADMIN' | 'TRAINER' | 'CLIENT' | null
+const canEdit = viewerRole ? (isAdmin(viewerRole) || isTrainer(viewerRole)) : false;
 
   const u = await prisma.user.findUnique({
     where: { id },
