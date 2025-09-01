@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { AuditKind, Role, Status } from '@prisma/client';
 import { getSessionUser } from '@/lib/sessions';
-import { auditLog } from '@/lib/audit';
+import { logAudit } from '@/lib/audit';
 
 function isAdmin(role: unknown) {
   return role === 'ADMIN' || role === Role.ADMIN;
@@ -28,7 +28,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const user = await prisma.user.update({ where: { id }, data });
 
   // Auditoria segura — targetType NUNCA falta
-  await auditLog({
+  await LogAudit({
     actorId: me.id,
     kind: body.status ? AuditKind.ACCOUNT_STATUS_CHANGE :
           body.role   ? AuditKind.ACCOUNT_ROLE_CHANGE   :
