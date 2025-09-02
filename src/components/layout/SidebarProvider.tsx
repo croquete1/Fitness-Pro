@@ -1,29 +1,20 @@
-// src/components/layout/SidebarProvider.tsx
 'use client';
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
-type SidebarCtx = {
-  // abertura “temporária” (ex.: mobile drawer)
+export type SidebarCtx = {
+  /** Mobile drawer aberto/fechado */
   open: boolean;
   setOpen: (v: boolean) => void;
-  toggle: () => void;
+  openSidebar: () => void;
+  closeSidebar: () => void;
 
-  // estado “colapsado” (mini sidebar)
+  /** Estado de colapso (desktop) */
   collapsed: boolean;
-  setCollapsed: (v: boolean) => void;
   toggleCollapsed: () => void;
 
-  // estado “fixo/pinado” (sidebar sempre aberta em desktop)
+  /** Estado “fixo” (desktop): sidebar fica sempre visível */
   pinned: boolean;
-  setPinned: (v: boolean) => void;
   togglePinned: () => void;
 };
 
@@ -34,51 +25,40 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [pinned, setPinned] = useState(false);
 
-  // hidratar de localStorage (só no cliente)
+  // Persistência leve no browser
   useEffect(() => {
     try {
-      const c = localStorage.getItem('sidebar:collapsed');
-      if (c !== null) setCollapsed(c === '1' || c === 'true');
-      const p = localStorage.getItem('sidebar:pinned');
-      if (p !== null) setPinned(p === '1' || p === 'true');
+      const c = localStorage.getItem('sb_collapsed');
+      const p = localStorage.getItem('sb_pinned');
+      if (c) setCollapsed(c === '1');
+      if (p) setPinned(p === '1');
     } catch {}
   }, []);
 
-  const toggle = useCallback(() => setOpen(v => !v), []);
-
-  const toggleCollapsed = useCallback(() => {
-    setCollapsed(prev => {
-      const next = !prev;
-      try {
-        localStorage.setItem('sidebar:collapsed', next ? '1' : '0');
-      } catch {}
-      return next;
+  const toggleCollapsed = () =>
+    setCollapsed((v) => {
+      try { localStorage.setItem('sb_collapsed', v ? '0' : '1'); } catch {}
+      return !v;
     });
-  }, []);
 
-  const togglePinned = useCallback(() => {
-    setPinned(prev => {
-      const next = !prev;
-      try {
-        localStorage.setItem('sidebar:pinned', next ? '1' : '0');
-      } catch {}
-      return next;
+  const togglePinned = () =>
+    setPinned((v) => {
+      try { localStorage.setItem('sb_pinned', v ? '0' : '1'); } catch {}
+      return !v;
     });
-  }, []);
 
   const value = useMemo<SidebarCtx>(
     () => ({
       open,
       setOpen,
-      toggle,
+      openSidebar: () => setOpen(true),
+      closeSidebar: () => setOpen(false),
       collapsed,
-      setCollapsed,
       toggleCollapsed,
       pinned,
-      setPinned,
       togglePinned,
     }),
-    [open, collapsed, pinned, toggle, toggleCollapsed, togglePinned]
+    [open, collapsed, pinned]
   );
 
   return <SidebarContext.Provider value={value}>{children}</SidebarContext.Provider>;
@@ -90,5 +70,5 @@ export function useSidebar() {
   return ctx;
 }
 
-// default export para suportar `import SidebarProvider from './SidebarProvider'`
+// Para compatibilidade com imports existentes
 export default SidebarProvider;
