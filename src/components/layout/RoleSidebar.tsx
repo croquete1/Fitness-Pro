@@ -1,3 +1,4 @@
+// src/components/layout/RoleSidebar.tsx
 'use client';
 
 import { useMemo } from 'react';
@@ -8,13 +9,22 @@ import SidebarAdmin from './SidebarAdmin';
 import SidebarPT from './SidebarPT';
 import SidebarClient from './SidebarClient';
 
-import { toAppRole } from '@/lib/roles';
 import type { AppRole } from '@/lib/roles';
 
-/** Converte o pathname para um AppRole válido (em MAIÚSCULAS). */
+/** Normaliza qualquer valor para um AppRole válido do teu tipo. */
+function normalizeToAppRole(r: unknown): AppRole | null {
+  if (!r) return null;
+  const s = String(r).toUpperCase();
+  if (s === 'ADMIN') return 'ADMIN';
+  if (s === 'PT' || s === 'TRAINER') return 'TRAINER';
+  if (s === 'CLIENT' || s === 'USER') return 'CLIENT';
+  return null;
+}
+
+/** Fallback imediato pelo pathname enquanto a sessão carrega. */
 function roleFromPathname(pathname: string): AppRole {
   if (pathname.startsWith('/dashboard/admin')) return 'ADMIN';
-  if (pathname.startsWith('/dashboard/pt')) return 'PT';
+  if (pathname.startsWith('/dashboard/pt')) return 'TRAINER';
   return 'CLIENT';
 }
 
@@ -22,19 +32,17 @@ export default function RoleSidebar() {
   const pathname = usePathname();
   const { data } = useSession();
 
-  // Fallback imediato pelo caminho (evita "salto" visual antes de a sessão carregar)
   const fallbackRole = useMemo<AppRole>(() => roleFromPathname(pathname), [pathname]);
 
-  // Quando a sessão existir, preferimos o role real do utilizador
+  // Preferimos o role real quando a sessão existir; caso contrário usamos o fallback pelo caminho
   const effectiveRole = useMemo<AppRole>(() => {
-    const sessionRole = toAppRole((data?.user as any)?.role);
-    return sessionRole ?? fallbackRole;
+    return normalizeToAppRole((data?.user as any)?.role) ?? fallbackRole;
   }, [data?.user, fallbackRole]);
 
   switch (effectiveRole) {
     case 'ADMIN':
       return <SidebarAdmin />;
-    case 'PT':
+    case 'TRAINER':
       return <SidebarPT />;
     default:
       return <SidebarClient />;
