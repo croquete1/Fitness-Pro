@@ -7,14 +7,15 @@ export type AuditKind =
   | 'ACCOUNT_APPROVAL'
   | 'EXERCISE_PUBLISH'
   | 'EXERCISE_UNPUBLISH'
-  | 'PLAN_UPDATE';
+  | 'PLAN_UPDATE'
+  | 'TRAINING_PLAN_CLONE'; // ✅ adicionado
 
 export type AuditTargetType =
   | 'USER'
   | 'EXERCISE'
   | 'TRAINING_PLAN'
   | 'PACKAGE'
-  | 'TRAINER_CLIENT'; // <- adicionado
+  | 'TRAINER_CLIENT'; // já tínhamos adicionado
 
 type AuditEntry = {
   actorId: string;
