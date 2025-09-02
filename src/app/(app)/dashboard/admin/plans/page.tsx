@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/sessions';
 import { toAppRole, isAdmin } from '@/lib/roles';
 import { createServerClient } from '@/lib/supabaseServer';
-import AdminPlanForm from '@/components/plans/AdminPlanForm';
+import AdminPlanForm from '@/components/plan/AdminPlanForm'; // <- caminho certo
 
 type PlanRow = {
   id: string;
@@ -18,7 +18,6 @@ type PlanRow = {
 
 async function listAdminTemplates(): Promise<PlanRow[]> {
   const sb = createServerClient();
-  // “Template” = sem trainer nem client; fica disponível para atribuir a PTs
   const { data, error } = await sb
     .from('training_plans')
     .select('id,title,status,updated_at,trainer_id,client_id')
@@ -59,54 +58,20 @@ export default async function AdminPlansPage() {
         {templates.length === 0 ? (
           <div style={{ color: 'var(--muted)' }}>Ainda não tens templates.</div>
         ) : (
-          <div
-            style={{
-              display: 'grid',
-              gap: 8,
-              gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-            }}
-          >
+          <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
             {templates.map((p) => (
-              <div
-                key={p.id}
-                className="card"
-                style={{ padding: 12, border: '1px solid var(--border)' }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'baseline',
-                    justifyContent: 'space-between',
-                    gap: 8,
-                  }}
-                >
-                  <div style={{ fontWeight: 600 }}>
-                    {p.title || `Template #${p.id.slice(0, 6)}`}
-                  </div>
+              <div key={p.id} className="card" style={{ padding: 12, border: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+                  <div style={{ fontWeight: 600 }}>{p.title || `Template #${p.id.slice(0, 6)}`}</div>
                   <span className="chip">{p.status || 'ACTIVE'}</span>
                 </div>
                 <div style={{ marginTop: 6, color: 'var(--muted)', fontSize: 12 }}>
-                  Atualizado:{' '}
-                  {p.updated_at
-                    ? new Date(p.updated_at).toLocaleString('pt-PT')
-                    : '—'}
+                  Atualizado: {p.updated_at ? new Date(p.updated_at).toLocaleString('pt-PT') : '—'}
                 </div>
 
                 <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                  <a
-                    className="btn chip"
-                    href={`/dashboard/pt/plans/${p.id}/edit`}
-                    title="Editar no editor de planos"
-                  >
-                    Editar
-                  </a>
-                  <a
-                    className="btn"
-                    href={`/dashboard/pt/plans/new?from=${p.id}`}
-                    title="Clonar para um PT"
-                  >
-                    Clonar p/ PT
-                  </a>
+                  <a className="btn chip" href={`/dashboard/pt/plans/${p.id}/edit`}>Editar</a>
+                  <a className="btn" href={`/dashboard/pt/plans/new?from=${p.id}`}>Clonar p/ PT</a>
                 </div>
               </div>
             ))}
