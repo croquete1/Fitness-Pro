@@ -1,31 +1,24 @@
 // src/components/layout/SidebarProvider.tsx
 'use client';
 
-import { createContext, useContext, useState, ReactNode, useCallback } from 'react';
+import { createContext, useCallback, useContext, useState } from 'react';
 
-type Ctx = {
-  isOpen: boolean;
-  open: () => void;
-  close: () => void;
+type SidebarCtx = {
+  open: boolean;
   toggle: () => void;
+  setOpen: (v: boolean) => void;
 };
 
-const SidebarCtx = createContext<Ctx | null>(null);
+const Ctx = createContext<SidebarCtx | null>(null);
 
-export function SidebarProvider({ children }: { children: ReactNode }) {
-  const [isOpen, setOpen] = useState(false);
-  const open = useCallback(() => setOpen(true), []);
-  const close = useCallback(() => setOpen(false), []);
+export function SidebarProvider({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
   const toggle = useCallback(() => setOpen(v => !v), []);
-
-  return <SidebarCtx.Provider value={{ isOpen, open, close, toggle }}>{children}</SidebarCtx.Provider>;
+  return <Ctx.Provider value={{ open, toggle, setOpen }}>{children}</Ctx.Provider>;
 }
 
 export function useSidebar() {
-  const ctx = useContext(SidebarCtx);
-  if (!ctx) {
-    // evita crash se usado fora do provider
-    return { isOpen: false, open: () => {}, close: () => {}, toggle: () => {} } as Ctx;
-  }
+  const ctx = useContext(Ctx);
+  if (!ctx) throw new Error('useSidebar must be used inside <SidebarProvider>');
   return ctx;
 }
