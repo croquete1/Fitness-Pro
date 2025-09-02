@@ -1,29 +1,42 @@
 'use client';
 
+import { useMemo } from 'react';
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import SidebarAdmin from '@/components/layout/SidebarAdmin';
-import SidebarPT from '@/components/layout/SidebarPT';
-import SidebarClient from '@/components/layout/SidebarClient';
-import { toAppRole, type AppRole } from '@/lib/roles';
+
+import SidebarAdmin from './SidebarAdmin';
+import SidebarPT from './SidebarPT';
+import SidebarClient from './SidebarClient';
+
+import { toAppRole } from '@/lib/roles';
+import type { AppRole } from '@/lib/roles';
+
+/** Converte o pathname para um AppRole válido (em MAIÚSCULAS). */
+function roleFromPathname(pathname: string): AppRole {
+  if (pathname.startsWith('/dashboard/admin')) return 'ADMIN';
+  if (pathname.startsWith('/dashboard/pt')) return 'PT';
+  return 'CLIENT';
+}
 
 export default function RoleSidebar() {
-  const pathname = usePathname() || '';
-  const { data: session, status } = useSession();
+  const pathname = usePathname();
+  const { data } = useSession();
 
-  // 1) Fallback imediato pelo caminho (evita “salto” visual enquanto a sessão carrega)
-  const roleFromPath: AppRole =
-    pathname.startsWith('/dashboard/admin') ? 'admin'
-    : pathname.startsWith('/dashboard/pt') ? 'pt'
-    : 'client';
+  // Fallback imediato pelo caminho (evita "salto" visual antes de a sessão carregar)
+  const fallbackRole = useMemo<AppRole>(() => roleFromPathname(pathname), [pathname]);
 
-  // 2) Quando a sessão estiver disponível, usamos a role “real”
-  const roleFromSession: AppRole = toAppRole((session?.user as any)?.role);
+  // Quando a sessão existir, preferimos o role real do utilizador
+  const effectiveRole = useMemo<AppRole>(() => {
+    const sessionRole = toAppRole((data?.user as any)?.role);
+    return sessionRole ?? fallbackRole;
+  }, [data?.user, fallbackRole]);
 
-  // 3) Efetiva: sessão se autenticado; senão, fallback do path
-  const role: AppRole = status === 'authenticated' ? roleFromSession : roleFromPath;
-
-  if (role === 'admin') return <SidebarAdmin />;
-  if (role === 'pt') return <SidebarPT />;
-  return <SidebarClient />;
+  switch (effectiveRole) {
+    case 'ADMIN':
+      return <SidebarAdmin />;
+    case 'PT':
+      return <SidebarPT />;
+    default:
+      return <SidebarClient />;
+  }
 }
