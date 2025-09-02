@@ -1,4 +1,4 @@
-// src/components/plans/AdminPlanForm.tsx
+// src/components/plan/AdminPlanForm.tsx
 'use client';
 
 import * as React from 'react';
@@ -50,23 +50,12 @@ export default function AdminPlanForm() {
         />
       </label>
 
-      <button
-        className="btn primary"
-        disabled={saving}
-        style={{ width: '100%', padding: '10px 12px' }}
-      >
+      <button className="btn primary" disabled={saving} style={{ width: '100%', padding: '10px 12px' }}>
         {saving ? 'A criar…' : 'Criar template'}
       </button>
 
       {msg && (
-        <div
-          role="status"
-          style={{
-            marginTop: 4,
-            fontSize: 13,
-            color: msg.includes('✅') ? 'var(--fg)' : 'var(--danger, #c00)',
-          }}
-        >
+        <div role="status" style={{ marginTop: 4, fontSize: 13, color: msg.includes('✅') ? 'var(--fg)' : 'var(--danger, #c00)' }}>
           {msg}
         </div>
       )}
