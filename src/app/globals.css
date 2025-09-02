@@ -341,4 +341,23 @@ body { background: var(--bg); color: var(--text); }
 .toast--success{ border-color: color-mix(in srgb, var(--success) 40%, var(--border)); }
 .toast--warning{ border-color: color-mix(in srgb, var(--warning) 40%, var(--border)); }
 .toast--error  { border-color: color-mix(in srgb, var(--danger)  40%, var(--border)); }
+:root{
+  --sidebar-w: 260px;
+  --header-h: 56px;
+}
 
+/* quando está colapsada */
+html[data-sidebar="collapsed"]{
+  --sidebar-w: 68px;
+}
+
+/* esconde labels quando colapsada */
+html[data-sidebar="collapsed"] .sb-label{ display:none; }
+
+/* content wrapper e header alinhados à sidebar */
+.app-shell{ padding-left: var(--sidebar-w); transition: padding-left .18s ease; }
+.app-header{
+  position: sticky; top:0; z-index: 30; height: var(--header-h);
+  display:flex; align-items:center; gap:10px; padding: 0 12px;
+  border-bottom: 1px solid var(--border); background: var(--card, #fff);
+}
