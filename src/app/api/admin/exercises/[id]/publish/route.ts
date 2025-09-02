@@ -1,39 +1,51 @@
-// src/app/api/admin/exercises/[id]/publish/route.ts
 import { NextResponse } from 'next/server';
 import { getSessionUser } from '@/lib/sessions';
-import { toAppRole, isAdmin } from '@/lib/roles';
+import { toAppRole } from '@/lib/roles';
 import { createServerClient } from '@/lib/supabaseServer';
 import { logAudit } from '@/lib/audit';
-import { AuditKind, AuditTargetType } from '@prisma/client';
+import { AuditKind } from '@prisma/client';
 
+// Publica um exercício (flag published = true) no catálogo global
 export async function PATCH(_: Request, { params }: { params: { id: string } }) {
-  const user = await getSessionUser();
-  const role = user ? toAppRole((user as any).role) : null;
-  if (!user?.id || !role || !isAdmin(role)) return new NextResponse('Unauthorized', { status: 401 });
+  try {
+    const me = await getSessionUser();
+    if (!me?.id) return new NextResponse('Unauthorized', { status: 401 });
+    if (toAppRole(me.role) !== 'ADMIN') return new NextResponse('Forbidden', { status: 403 });
 
-  const id = params.id;
-  const sb = createServerClient();
+    const id = params.id;
+    const sb = createServerClient();
 
-  const { data: before, error: e1 } = await sb.from('exercises').select('id,published').eq('id', id).single();
-  if (e1 || !before) return new NextResponse('Exercício não encontrado', { status: 404 });
+    // Lê estado atual (para dif)
+    const { data: before, error: readErr } = await sb
+      .from('exercises')
+      .select('id, title, published')
+      .eq('id', id)
+      .single();
 
-  const { data: after, error: e2 } = await sb
-    .from('exercises')
-    .update({ published: !before.published })
-    .eq('id', id)
-    .select('id,published')
-    .single();
+    if (readErr || !before) return new NextResponse('Not Found', { status: 404 });
 
-  if (e2 || !after) return new NextResponse(e2?.message || 'Falha ao atualizar', { status: 500 });
+    // Atualiza para publicado
+    const { data: after, error: upErr } = await sb
+      .from('exercises')
+      .update({ published: true })
+      .eq('id', id)
+      .select('id, title, published')
+      .single();
 
-  await logAudit({
-    actorId: user.id,
-    kind: AuditKind.EXERCISE_PUBLISH_TOGGLE,
-    message: after.published ? 'Publicou exercício' : 'Despublicou exercício',
-    targetType: AuditTargetType.EXERCISE,
-    targetId: id,
-    diff: { before, after },
-  });
+    if (upErr || !after) return new NextResponse('DB Error', { status: 500 });
 
-  return NextResponse.json(after);
+    await logAudit({
+      actorId: me.id,
+      kind: AuditKind.ACCOUNT_STATUS_CHANGE, // usa um kind existente no teu enum
+      message: 'Exercício publicado no catálogo global',
+      targetType: 'EXERCISE',
+      targetId: id,
+      diff: { before, after },
+    });
+
+    return NextResponse.json(after);
+  } catch (e) {
+    console.error('[exercises.publish] ', e);
+    return new NextResponse('Server Error', { status: 500 });
+  }
 }
