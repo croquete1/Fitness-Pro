@@ -1,18 +1,8 @@
-// src/components/layout/AppProviders.tsx (excerto)
+// src/components/layout/AppProviders.tsx
 'use client';
-import React from 'react';
-import { SessionProvider } from 'next-auth/react';
-import SidebarProvider from './SidebarProvider';
-import Toaster from '@/components/ui/Toaster';
+
+import { SidebarProvider } from './SidebarProvider';
 
 export default function AppProviders({ children }: { children: React.ReactNode }) {
-  return (
-    <SessionProvider>
-      <SidebarProvider>
-        <Toaster>
-          {children}
-        </Toaster>
-      </SidebarProvider>
-    </SessionProvider>
-  );
+  return <SidebarProvider>{children}</SidebarProvider>;
 }
