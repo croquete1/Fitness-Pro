@@ -1,143 +1,120 @@
-import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-import { getSessionUser } from '@/lib/sessions';
-import { toAppRole } from '@/lib/roles';
+// src/app/api/users/[id]/anthropometry/route.tsx
+import { NextResponse } from "next/server";
+import { getSessionUser } from "@/lib/sessions";
+import { toAppRole } from "@/lib/roles";
+import { createServerClient } from "@/lib/supabaseServer";
 
-type Row = {
-  id: string;
-  client_id: string;
-  created_by_id: string | null;
-  date: string;
-  height_cm: number | null;
-  weight_kg: number | null;
-  body_fat_pct: number | null;
-  chest_cm: number | null;
-  waist_cm: number | null;
-  hip_cm: number | null;
-  thigh_cm: number | null;
-  arm_cm: number | null;
-  calf_cm: number | null;
-  shoulders_cm: number | null;
-  neck_cm: number | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-};
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-// GET: histórico do utilizador :id
+/** Lê o body como JSON, com fallback seguro */
+async function readBody(req: Request): Promise<Record<string, any>> {
+  try {
+    const json = await req.json();
+    if (json && typeof json === "object") return json as Record<string, any>;
+  } catch {}
+  return {};
+}
+
+/** Guarda de permissões:
+ *  - ADMIN: tudo
+ *  - o próprio cliente: pode ver/alterar o seu registo
+ *  - PT: precisa de vínculo em trainer_clients
+ */
+async function ensureAccess(me: { id: string; role?: any }, clientId: string) {
+  const role = toAppRole((me as any).role) ?? "CLIENT";
+  if (role === "ADMIN") return true;
+  if (me.id === clientId) return true;
+
+  const supabase = createServerClient();
+  const { data: link, error } = await supabase
+    .from("trainer_clients")
+    .select("id")
+    .eq("trainer_id", me.id)
+    .eq("client_id", clientId)
+    .maybeSingle();
+
+  if (error || !link) return false;
+  return true;
+}
+
 export async function GET(
   _req: Request,
   { params }: { params: { id: string } }
 ) {
-  const clientId = params.id;
+  try {
+    const me = await getSessionUser();
+    if (!me) return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
 
-  const me = await getSessionUser();
-  if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const clientId = params.id;
+    if (!clientId)
+      return NextResponse.json({ ok: false, error: "MISSING_CLIENT_ID" }, { status: 400 });
 
-  const role = toAppRole((me as any).role); // 'admin' | 'pt' | 'client'
+    const allowed = await ensureAccess(me, clientId);
+    if (!allowed) return NextResponse.json({ ok: false, error: "FORBIDDEN" }, { status: 403 });
 
-  // Permissões: admin, o próprio cliente, ou PT com vínculo ao cliente
-  if (role !== 'admin' && me.id !== clientId) {
-    const link = await prisma.$queryRaw<{ ok: boolean }[]>`
-      select true as ok
-      from trainer_clients
-      where trainer_id = ${me.id}::uuid and client_id = ${clientId}::uuid
-      limit 1
-    `;
-    const allowed = Array.isArray(link) && link.length > 0;
-    if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    const supabase = createServerClient();
+    const { data, error } = await supabase
+      .from("anthropometry")
+      .select("*")
+      .eq("client_id", clientId)
+      .order("measured_at", { ascending: false });
+
+    if (error) {
+      console.error("[anthropometry][GET] supabase error:", error);
+      return NextResponse.json({ ok: false, error: "DB_ERROR" }, { status: 500 });
+    }
+
+    return NextResponse.json({ ok: true, data: data ?? [] });
+  } catch (e: any) {
+    console.error("[anthropometry][GET] 500:", e?.message ?? e);
+    return NextResponse.json({ ok: false, error: "INTERNAL_ERROR" }, { status: 500 });
   }
-
-  const rows = await prisma.$queryRaw<Row[]>`
-    select
-      id,
-      client_id,
-      created_by_id,
-      to_char(date, 'YYYY-MM-DD') as date,
-      height_cm,
-      weight_kg,
-      body_fat_pct,
-      chest_cm,
-      waist_cm,
-      hip_cm,
-      thigh_cm,
-      arm_cm,
-      calf_cm,
-      shoulders_cm,
-      neck_cm,
-      notes,
-      to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at,
-      to_char(updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as updated_at
-    from anthropometry
-    where client_id = ${clientId}::uuid
-    order by date desc, created_at desc
-    limit 200
-  `;
-
-  return NextResponse.json(rows ?? []);
 }
 
-// POST: cria nova avaliação para o utilizador :id
 export async function POST(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const clientId = params.id;
+  try {
+    const me = await getSessionUser();
+    if (!me) return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
 
-  const me = await getSessionUser();
-  if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const clientId = params.id;
+    if (!clientId)
+      return NextResponse.json({ ok: false, error: "MISSING_CLIENT_ID" }, { status: 400 });
 
-  const role = toAppRole((me as any).role); // 'admin' | 'pt' | 'client'
-  const body = await req.json();
+    const allowed = await ensureAccess(me, clientId);
+    if (!allowed) return NextResponse.json({ ok: false, error: "FORBIDDEN" }, { status: 403 });
 
-  const {
-    date, // 'YYYY-MM-DD'
-    height_cm,
-    weight_kg,
-    body_fat_pct,
-    chest_cm,
-    waist_cm,
-    hip_cm,
-    thigh_cm,
-    arm_cm,
-    calf_cm,
-    shoulders_cm,
-    neck_cm,
-    notes,
-  } = body ?? {};
+    const body = await readBody(req);
+    // Campos típicos (ajusta aos nomes reais da tua tabela)
+    const payload: Record<string, any> = {
+      client_id: clientId,
+      height_cm: body.height_cm ?? null,
+      weight_kg: body.weight_kg ?? null,
+      fat_pct: body.fat_pct ?? null,
+      muscle_kg: body.muscle_kg ?? null,
+      measured_at: body.measured_at ?? new Date().toISOString(),
+      notes: body.notes ?? null,
+      created_by: me.id,
+    };
 
-  if (!date) {
-    return NextResponse.json({ error: 'date é obrigatório (YYYY-MM-DD)' }, { status: 400 });
+    const supabase = createServerClient();
+    const { data, error } = await supabase
+      .from("anthropometry")
+      .insert(payload)
+      .select("*")
+      .single();
+
+    if (error) {
+      console.error("[anthropometry][POST] supabase error:", error);
+      return NextResponse.json({ ok: false, error: "DB_ERROR" }, { status: 500 });
+    }
+
+    return NextResponse.json({ ok: true, data }, { status: 201 });
+  } catch (e: any) {
+    console.error("[anthropometry][POST] 500:", e?.message ?? e);
+    return NextResponse.json({ ok: false, error: "INTERNAL_ERROR" }, { status: 500 });
   }
-
-  // Permissões: admin, o próprio cliente, ou PT com vínculo ao cliente
-  if (role !== 'admin' && me.id !== clientId) {
-    const link = await prisma.$queryRaw<{ ok: boolean }[]>`
-      select true as ok
-      from trainer_clients
-      where trainer_id = ${me.id}::uuid and client_id = ${clientId}::uuid
-      limit 1
-    `;
-    const allowed = Array.isArray(link) && link.length > 0;
-    if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
-
-  const ins = await prisma.$queryRaw<{ id: string }[]>`
-    insert into anthropometry (
-      client_id, created_by_id, date,
-      height_cm, weight_kg, body_fat_pct,
-      chest_cm, waist_cm, hip_cm,
-      thigh_cm, arm_cm, calf_cm,
-      shoulders_cm, neck_cm, notes
-    ) values (
-      ${clientId}::uuid, ${me.id}::uuid, ${date}::date,
-      ${height_cm}, ${weight_kg}, ${body_fat_pct},
-      ${chest_cm}, ${waist_cm}, ${hip_cm},
-      ${thigh_cm}, ${arm_cm}, ${calf_cm},
-      ${shoulders_cm}, ${neck_cm}, ${notes}
-    )
-    returning id
-  `;
-
-  return NextResponse.json({ id: ins?.[0]?.id ?? null }, { status: 201 });
 }
