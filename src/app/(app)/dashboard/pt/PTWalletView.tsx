@@ -70,21 +70,20 @@ export default function PTWalletView({ meId, isAdmin = false }: { meId: string; 
   }
 
   async function toggleStatus(packageId: string, status?: string | null) {
-    const next = status === 'active' ? 'active' : 'paused' /* default toggle to paused when not active */;
-    const desired = status === 'active' ? 'paused' : 'active';
-    try {
-      const res = await fetch(`/api/pt/packages/${encodeURIComponent(packageId)}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: desired }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      okToast(desired === 'active' ? 'Pacote ativado.' : 'Pacote pausado.');
-      load();
-    } catch {
-      errToast('Não foi possível alterar o estado.');
-    }
+  const desired = status === 'active' ? 'paused' : 'active';
+  try {
+    const res = await fetch(`/api/pt/packages/${encodeURIComponent(packageId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: desired }),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    okToast(desired === 'active' ? 'Pacote ativado.' : 'Pacote pausado.');
+    load();
+  } catch {
+    errToast('Não foi possível alterar o estado.');
   }
+}
 
   return (
     <div style={{ display: 'grid', gap: 12 }}>
