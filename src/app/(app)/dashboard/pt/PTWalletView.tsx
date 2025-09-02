@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import * as React from 'react';
 
 type WalletRow = {
   id: string;
@@ -20,12 +20,12 @@ type WalletRow = {
 };
 
 export default function PTWalletView({ meId, isAdmin = false }: { meId: string; isAdmin?: boolean }) {
-  const [trainerId, setTrainerId] = useState<string>(meId);
-  const [loading, setLoading] = useState(true);
-  const [rows, setRows] = useState<WalletRow[]>([]);
-  const [q, setQ] = useState('');
+  const [trainerId, setTrainerId] = React.useState<string>(meId);
+  const [loading, setLoading] = React.useState(true);
+  const [rows, setRows] = React.useState<WalletRow[]>([]);
+  const [q, setQ] = React.useState('');
 
-  async function load() {
+  const load = React.useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`/api/pt/wallet?trainer=${encodeURIComponent(trainerId)}`, { cache: 'no-store' });
@@ -37,11 +37,11 @@ export default function PTWalletView({ meId, isAdmin = false }: { meId: string; 
     } finally {
       setLoading(false);
     }
-  }
+  }, [trainerId]);
 
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [trainerId]);
+  React.useEffect(() => { load(); }, [load]);
 
-  const filtered = useMemo(() => {
+  const filtered = React.useMemo(() => {
     const s = q.trim().toLowerCase();
     if (!s) return rows;
     return rows.filter(r =>
@@ -70,17 +70,18 @@ export default function PTWalletView({ meId, isAdmin = false }: { meId: string; 
   }
 
   async function toggleStatus(packageId: string, status?: string | null) {
-    const next = status === 'active' ? 'paused' : 'active';
+    const next = status === 'active' ? 'active' : 'paused' /* default toggle to paused when not active */;
+    const desired = status === 'active' ? 'paused' : 'active';
     try {
       const res = await fetch(`/api/pt/packages/${encodeURIComponent(packageId)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: next }),
+        body: JSON.stringify({ status: desired }),
       });
       if (!res.ok) throw new Error(await res.text());
-      okToast(next === 'active' ? 'Pacote ativado.' : 'Pacote pausado.');
+      okToast(desired === 'active' ? 'Pacote ativado.' : 'Pacote pausado.');
       load();
-    } catch (e) {
+    } catch {
       errToast('Não foi possível alterar o estado.');
     }
   }
@@ -314,7 +315,7 @@ function Sparkline({ data }: { data: number[] }) {
   );
 }
 
-/* ---------- toasts locais (sem dependências do teu provider) ---------- */
+/* ---------- toasts locais ---------- */
 
 function okToast(msg: string)  { makeToast(msg, 'ok'); }
 function errToast(msg: string) { makeToast(msg, 'error'); }
@@ -335,7 +336,7 @@ function makeToast(msg: string, kind: 'ok' | 'error') {
   setTimeout(() => el.remove(), 2200);
 }
 
-/* ---------- estilos inline reutilizáveis ---------- */
+/* ---------- estilos inline ---------- */
 
 const inputStyle: React.CSSProperties = {
   border: '1px solid var(--border)',
