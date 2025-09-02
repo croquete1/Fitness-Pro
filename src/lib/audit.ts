@@ -1,30 +1,49 @@
 // src/lib/audit.ts
-import prisma from '@/lib/prisma';
-import { AuditKind, AuditTargetType } from '@prisma/client';
+import { createServerClient } from '@/lib/supabaseServer';
+
+export type AuditKind =
+  | 'ACCOUNT_ROLE_CHANGE'
+  | 'ACCOUNT_STATUS_CHANGE'
+  | 'DATA_UPDATE'
+  | 'TRAINING_PLAN_CREATE'
+  | 'TRAINING_PLAN_CLONE'
+  | 'EXERCISE_PUBLISH_TOGGLE';
+
+export type AuditTargetType =
+  | 'USER'
+  | 'TRAINER_CLIENT'
+  | 'TRAINING_PLAN'
+  | 'EXERCISE'
+  | 'PACKAGE'
+  | 'OTHER';
 
 export type LogAuditInput = {
-  actorId: string | null;           // aceita null/anon
+  actorId: string;
   kind: AuditKind;
-  message: string;
-  targetType: AuditTargetType;      // usa SEMPRE enum em MAIÚSCULAS
-  targetId: string | null;
-  diff?: unknown;
+  message?: string;
+  targetType?: AuditTargetType;
+  targetId?: string | null;
+  target?: string | null;
+  diff?: any;
+  meta?: Record<string, any>;
 };
 
 export async function logAudit(input: LogAuditInput) {
   try {
-    await prisma.auditLog.create({
-      data: {
-        actorId: input.actorId,
-        kind: input.kind,
-        message: input.message,
-        targetType: input.targetType,
-        targetId: input.targetId,
-        diff: input.diff as any,
-      },
+    const supabase = createServerClient();
+    // Ajusta os nomes das colunas à tua tabela real de auditoria
+    await supabase.from('audit_logs').insert({
+      actor_id: input.actorId,
+      kind: input.kind,
+      message: input.message ?? null,
+      target_type: input.targetType ?? null,
+      target_id: input.targetId ?? null,
+      target: input.target ?? null,
+      diff: input.diff ?? null,
+      meta: input.meta ?? null,
     });
-  } catch (err) {
+  } catch (e) {
     // Nunca falhar build por causa de auditoria
-    console.error('[audit] create failed:', err);
+    console.error('logAudit failed:', e);
   }
 }
