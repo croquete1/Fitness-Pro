@@ -1,31 +1,12 @@
-"use client";
+// src/components/dashboard/AdminCountCard.tsx
+import clsx from 'clsx';
 
-import React from "react";
-import { usePoll } from "@/hooks/usePoll";
-
-type Counts = { pending: number; active: number; suspended: number };
-
-export default function AdminCountCard() {
-  const { data, error } = usePoll<Counts>("/api/admin/approvals/count", {
-    intervalMs: 30000,
-    immediate: true,
-    enabled: true,
-    parse: async (r) => await r.json(),
-  });
-
-  const pending = data?.pending ?? 0;
-  const active = data?.active ?? 0;
-  const suspended = data?.suspended ?? 0;
-
+type Props = { title: string; value: number | string; className?: string };
+export default function AdminCountCard({ title, value, className }: Props) {
   return (
-    <div className="card" style={{ padding: 16, borderRadius: 12 }}>
-      <div style={{ fontWeight: 700, marginBottom: 8 }}>Aprovações</div>
-      {error && <div className="badge-danger">Falha ao carregar</div>}
-      <div style={{ display: "flex", gap: 12 }}>
-        <span className="badge">Pendentes: {pending}</span>
-        <span className="badge">Ativos: {active}</span>
-        <span className="badge">Suspensos: {suspended}</span>
-      </div>
+    <div className={clsx('rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4', className)}>
+      <div className="text-xs text-neutral-500 mb-1">{title}</div>
+      <div className="text-[clamp(20px,5.5vw,32px)] font-extrabold leading-none">{value}</div>
     </div>
   );
 }
