@@ -10,6 +10,7 @@ export const AUDIT_KINDS = {
   PLAN_UPDATE: 'PLAN_UPDATE',
   TRAINING_PLAN_CLONE: 'TRAINING_PLAN_CLONE',
   EXERCISE_PUBLISH: 'EXERCISE_PUBLISH',
+  EXERCISE_UNPUBLISH: 'EXERCISE_UNPUBLISH', // ⬅️ ADICIONADO
 } as const;
 export type AuditKind = typeof AUDIT_KINDS[keyof typeof AUDIT_KINDS];
 
@@ -17,7 +18,7 @@ export type AuditKind = typeof AUDIT_KINDS[keyof typeof AUDIT_KINDS];
 export const AUDIT_TARGET_TYPES = {
   USER: 'USER',
   TRAINING_PLAN: 'TRAINING_PLAN',
-  TRAINER_CLIENT_LINK: 'TRAINER_CLIENT_LINK', // ligação PT <-> cliente
+  TRAINER_CLIENT_LINK: 'TRAINER_CLIENT_LINK',
   EXERCISE: 'EXERCISE',
 } as const;
 export type AuditTargetType =
@@ -33,7 +34,6 @@ export type AuditEntry = {
   diff?: Record<string, any> | null;
 };
 
-/** Envia o registo para a tabela audit_logs (ignora erros para não quebrar a request) */
 export async function logAudit(entry: AuditEntry) {
   try {
     const sb = createServerClient();
