@@ -5,7 +5,6 @@ import * as React from 'react';
 type Props = {
   id: string;
   published: boolean;
-  // callback opcional para atualizar lista/estado do pai
   onChange?: (next: boolean) => void;
 };
 
@@ -16,10 +15,11 @@ export default function PublishToggle({ id, published, onChange }: Props) {
   async function toggle() {
     try {
       setBusy(true);
-      const path = isOn
-        ? `/api/admin/exercises/${id}/unpublish`
-        : `/api/admin/exercises/${id}/publish`;
-      const res = await fetch(path, { method: 'PATCH' });
+      const res = await fetch(`/api/admin/exercises/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ published: !isOn }),
+      });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setIsOn(!isOn);
       onChange?.(!isOn);
@@ -38,20 +38,15 @@ export default function PublishToggle({ id, published, onChange }: Props) {
       className="btn chip"
       aria-pressed={isOn}
       title={isOn ? 'Remover do catálogo' : 'Publicar no catálogo'}
-      style={{
-        display: 'inline-flex',
-        gap: 8,
-        alignItems: 'center',
-        opacity: busy ? 0.6 : 1,
-      }}
+      style={{ display: 'inline-flex', gap: 8, alignItems: 'center', opacity: busy ? 0.6 : 1 }}
     >
       <span
         style={{
           width: 10,
           height: 10,
           borderRadius: 999,
-          background: isOn ? '#10b981' : '#9ca3af', // verde / cinza
-          boxShadow: '0 0 0 3px rgba(16,185,129,0.15)',
+          background: isOn ? '#10b981' : '#9ca3af',
+          boxShadow: isOn ? '0 0 0 3px rgba(16,185,129,0.15)' : '0 0 0 3px rgba(156,163,175,0.15)',
         }}
         aria-hidden
       />
