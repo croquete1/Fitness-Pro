@@ -1,61 +1,42 @@
+import ClientProfileClient from './profile.client';
+import { createServerClient } from '@/lib/supabaseServer';
+import { notFound } from 'next/navigation';
+
 export const dynamic = 'force-dynamic';
 
-import Link from 'next/link';
-import prisma from '@/lib/prisma';
-import { getSessionUser } from '@/lib/sessions';
-import { toAppRole, isAdmin, isTrainer } from '@/lib/roles';
-import { Role } from '@prisma/client';
-import AnthropometryForm from '@/components/client/AnthropometryForm';
-import AnthropometryHistory from '@/components/client/AnthropometryHistory';
+export default async function ClientProfilePage({ params }: { params: { id: string } }) {
+  const supabase = createServerClient();
 
-export default async function UserShowPage({ params }: { params: { id: string } }) {
-  const id = params.id;
+  const { data: user } = await supabase
+    .from('users_view')
+    .select('id,name,email,role,status,createdAt')
+    .eq('id', params.id)
+    .single();
 
-  const viewer = await getSessionUser();
-const viewerRole = viewer ? toAppRole((viewer as any).role) : null; // 'ADMIN' | 'TRAINER' | 'CLIENT' | null
-const canEdit = viewerRole ? (isAdmin(viewerRole) || isTrainer(viewerRole)) : false;
+  if (!user) notFound();
 
-  const u = await prisma.user.findUnique({
-    where: { id },
-    select: { id: true, name: true, email: true, role: true, status: true, createdAt: true },
-  });
+  // PTs disponíveis (para dropdown)
+  const { data: trainers } = await supabase
+    .from('users_view')
+    .select('id,name,email')
+    .eq('role', 'TRAINER')
+    .order('name', { ascending: true });
 
-  if (!u) {
-    return <div className="card" style={{ padding: 16 }}>Utilizador não encontrado.</div>;
-  }
+  // vínculo atual
+  const { data: link } = await supabase
+    .from('trainer_clients')
+    .select('id,trainer_id,client_id')
+    .eq('client_id', params.id)
+    .maybeSingle();
 
   return (
-    <div className="card" style={{ padding: 16, display: 'grid', gap: 12 }}>
-      <h1 style={{ margin: 0 }}>{u.name ?? 'Utilizador'}</h1>
-
-      <div className="grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <div className="card" style={{ padding: 12 }}>
-          <div><strong>Email:</strong> {u.email}</div>
-          <div><strong>Telefone:</strong> —</div>
-          <div><strong>Role:</strong> <span className="chip">{u.role}</span></div>
-          <div><strong>Estado:</strong> <span className="chip">{u.status}</span></div>
-          <div><strong>Criado:</strong> {new Date(u.createdAt).toLocaleString('pt-PT')}</div>
-        </div>
-
-        <div className="card" style={{ padding: 12 }}>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {u.role !== Role.CLIENT && (
-              <Link className="btn chip" href={`/dashboard/pt?user=${u.id}`}>Ver planos de treino</Link>
-            )}
-            <Link className="btn chip" href={`/dashboard/search?q=${encodeURIComponent(u.email ?? u.name ?? '')}`}>
-              Procurar relacionados
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* Antropometria */}
-      <div className="grid" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
-        {canEdit && (
-          <AnthropometryForm clientId={u.id} canEdit={canEdit} />
-        )}
-        <AnthropometryHistory clientId={u.id} />
-      </div>
-    </div>
+    <ClientProfileClient
+      user={{
+        id: user.id, name: user.name ?? null, email: user.email,
+        role: user.role, status: user.status, createdAt: user.createdAt ?? null
+      }}
+      trainers={(trainers ?? []).map(t => ({ id: t.id, name: t.name ?? t.email }))}
+      currentTrainerId={link?.trainer_id ?? null}
+    />
   );
 }
