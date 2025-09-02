@@ -361,3 +361,27 @@ html[data-sidebar="collapsed"] .sb-label{ display:none; }
   display:flex; align-items:center; gap:10px; padding: 0 12px;
   border-bottom: 1px solid var(--border); background: var(--card, #fff);
 }
+:root {
+  --sidebar-w: 260px;
+  --header-h: 56px;
+  --border: #e5e7eb;
+}
+
+/* quando colapsada (controlado pelo RoleSidebar) */
+html[data-sidebar="collapsed"] { --sidebar-w: 68px; }
+
+/* esconde labels quando colapsada */
+html[data-sidebar="collapsed"] .sb-label { display: none; }
+
+/* content wrapper e header alinhados à sidebar */
+.app-shell { padding-left: var(--sidebar-w); transition: padding-left .18s ease; }
+.app-header {
+  position: sticky; top: 0; z-index: 30; height: var(--header-h);
+  display: flex; align-items: center; gap: 10px; padding: 0 12px;
+  border-bottom: 1px solid var(--border); background: #fff;
+}
+
+/* botões/chips básicos (caso não tenhas) */
+.btn { border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; background:#fff; }
+.btn.chip { padding: 4px 6px; }
+
