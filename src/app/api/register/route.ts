@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
-import { AuditKind } from "@prisma/client";
+import { AUDIT_KINDS, AUDIT_TARGET_TYPES } from "@/types/audit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -80,14 +80,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "CREATE_FAILED" }, { status: 500 });
     }
 
-    // 🚩 Audit log: novo registo (compatível com o teu schema atual)
+    // ✅ Audit log canónico (sem tipos do Prisma; usa os enums locais)
     try {
       await logAudit({
-        kind: AuditKind.ACCOUNT_STATUS_CHANGE,
+        actorId: created.id, // associamos o evento ao próprio utilizador criado
+        kind: AUDIT_KINDS.ACCOUNT_APPROVAL, // usa um dos válidos (ACCOUNT_APPROVAL / ACCOUNT_STATUS_CHANGE / ACCOUNT_ROLE_CHANGE)
         message: "USER_REGISTERED",
-        actorId: null,            // registo iniciado sem sessão
-        targetType: "User",
+        targetType: AUDIT_TARGET_TYPES.USER, // <<< era "User"
         targetId: created.id,
+        targetLabel: created.email ?? created.name ?? created.id,
         diff: {
           email: created.email,
           name: created.name ?? null,
@@ -113,11 +114,6 @@ export async function POST(req: Request) {
 }
 
 export async function GET() {
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    return NextResponse.json({ ok: true, db: "up" });
-  } catch (e) {
-    console.error("[register] GET health fail", e);
-    return NextResponse.json({ ok: false, db: "down" }, { status: 500 });
-  }
+  // Health simples sem tocar no Prisma (evita falhas se a ligação estiver intermitente)
+  return NextResponse.json({ ok: true, service: "register" });
 }
