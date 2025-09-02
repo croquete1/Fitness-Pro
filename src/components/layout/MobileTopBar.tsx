@@ -1,21 +1,21 @@
 // src/components/layout/MobileTopBar.tsx
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
+import { useSidebar } from './SidebarProvider';
 
 type Props = {
   title?: string;
+  /** opcional — se quiseres sobrepor o toggle vindo de fora */
   onToggleSidebar?: () => void;
 };
 
 export default function MobileTopBar({ title = 'Dashboard', onToggleSidebar }: Props) {
-  // fallback no caso de não receberes o onToggleSidebar via layout
-  const [fakeOpen, setFakeOpen] = useState(false);
+  const { toggle } = useSidebar(); // ✅ vem do provider
 
-  const toggle = () => {
+  const handleToggle = () => {
     if (onToggleSidebar) onToggleSidebar();
-    else setFakeOpen(v => !v);
+    else toggle();
   };
 
   return (
@@ -29,7 +29,7 @@ export default function MobileTopBar({ title = 'Dashboard', onToggleSidebar }: P
       role="banner"
     >
       <button
-        onClick={toggle}
+        onClick={handleToggle}
         aria-label="Abrir menu"
         className="
           -ml-1 inline-flex h-9 w-9 items-center justify-center rounded-lg
@@ -49,7 +49,6 @@ export default function MobileTopBar({ title = 'Dashboard', onToggleSidebar }: P
       </Link>
 
       <div className="ml-auto flex items-center gap-2">
-        {/* Espaço para uma ação rápida (ex.: criar) */}
         <Link
           href="/dashboard/admin/users"
           className="
