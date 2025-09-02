@@ -2,8 +2,7 @@
 import { createServerClient } from '@/lib/supabaseServer';
 
 /**
- * Enums “case-safe” para evitar dependência do Prisma.
- * Mantém os nomes que já usas no projeto.
+ * Enums “case-safe” independentes do Prisma
  */
 export const AUDIT_KINDS = {
   ACCOUNT_STATUS_CHANGE: 'ACCOUNT_STATUS_CHANGE',
@@ -13,11 +12,10 @@ export const AUDIT_KINDS = {
   EXERCISE_PUBLISH: 'EXERCISE_PUBLISH',
   EXERCISE_UNPUBLISH: 'EXERCISE_UNPUBLISH',
 
-  TRAINING_PLAN_CREATE: 'TRAINING_PLAN_CREATE', // ✅ ADICIONADO
+  TRAINING_PLAN_CREATE: 'TRAINING_PLAN_CREATE',
   TRAINING_PLAN_CLONE: 'TRAINING_PLAN_CLONE',
-  TRAINING_PLAN_UPDATE: 'TRAINING_PLAN_UPDATE', // opcional, caso uses noutros pontos
+  TRAINING_PLAN_UPDATE: 'TRAINING_PLAN_UPDATE',
 } as const;
-
 export type AuditKind = typeof AUDIT_KINDS[keyof typeof AUDIT_KINDS];
 
 export const AUDIT_TARGET_TYPES = {
@@ -25,8 +23,8 @@ export const AUDIT_TARGET_TYPES = {
   EXERCISE: 'EXERCISE',
   TRAINING_PLAN: 'TRAINING_PLAN',
   TRAINER_CLIENT: 'TRAINER_CLIENT',
+  PACKAGE: 'PACKAGE', // ✅ ADICIONADO: resolve o erro do build
 } as const;
-
 export type AuditTargetType =
   typeof AUDIT_TARGET_TYPES[keyof typeof AUDIT_TARGET_TYPES];
 
@@ -42,9 +40,6 @@ export type AuditEntry = {
 export async function logAudit(entry: AuditEntry): Promise<void> {
   try {
     const supabase = createServerClient();
-
-    // Tenta inserir na tabela canónica "audit_logs".
-    // Se a tua tabela tiver outro nome, ajusta aqui uma única vez.
     const { error } = await supabase.from('audit_logs').insert({
       actor_id: entry.actorId,
       kind: entry.kind,
@@ -56,8 +51,7 @@ export async function logAudit(entry: AuditEntry): Promise<void> {
     });
 
     if (error) {
-      // Fallback simples para não “rebentar” a app caso tabela não exista.
-      console.warn('[audit] insert falhou, fallback para console:', error.message);
+      console.warn('[audit] insert falhou; a registar no console:', error.message);
       console.info('[audit] entry:', entry);
     }
   } catch (err) {
