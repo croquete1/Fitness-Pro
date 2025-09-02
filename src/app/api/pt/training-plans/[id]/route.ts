@@ -108,13 +108,13 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   // Audit (corrigido: usar 'TRAINING_PLAN' em vez de 'TrainingPlan' e kind de plano)
   await logAudit({
-    actorId: user.id,
-    kind: 'PLAN_UPDATE',
-    message: 'PT/ADMIN atualizou plano de treino',
-    targetType: 'TRAINING_PLAN', // <<< antes estava "TrainingPlan" (string inválida)
-    targetId: updated.id,
-    diff: { before: { title: before.title, is_published: before.is_published }, after: { title: updated.title, is_published: updated.is_published } },
-  });
+  actorId: user.id,
+  kind: AUDIT_KINDS.TRAINING_PLAN_UPDATE, // ← antes era 'PLAN_UPDATE'
+  message: 'PT/ADMIN atualizou plano de treino',
+  targetType: AUDIT_TARGET_TYPES.TRAINING_PLAN,
+  targetId: String(updated.id),
+  diff: { changed: Object.keys(data) }, // ajusta se usares outro nome para o payload
+});
 
   return NextResponse.json(updated);
 }
