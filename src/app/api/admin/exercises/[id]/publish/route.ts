@@ -18,7 +18,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   const { data: before } = await supabase
     .from('exercises')
-    .select('id, published')
+    .select('id, name, published')
     .eq('id', id)
     .single();
 
