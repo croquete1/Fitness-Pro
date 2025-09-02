@@ -1,39 +1,48 @@
 // src/app/api/admin/training-plans/route.ts
 import { NextResponse } from 'next/server';
 import { getSessionUser } from '@/lib/sessions';
-import { toAppRole, isAdmin } from '@/lib/roles';
+import { toAppRole } from '@/lib/roles';
 import { createServerClient } from '@/lib/supabaseServer';
 import { logAudit } from '@/lib/audit';
-import { AuditKind, AuditTargetType } from '@prisma/client';
 
 export async function POST(req: Request) {
   const user = await getSessionUser();
-  const role = user ? toAppRole((user as any).role) : null;
-  if (!user?.id || !role || !isAdmin(role)) return new NextResponse('Unauthorized', { status: 401 });
+  if (!user) return new NextResponse('Unauthorized', { status: 401 });
+  if (toAppRole(user.role) !== 'ADMIN') return new NextResponse('Forbidden', { status: 403 });
 
-  let body: any = {};
-  try { body = await req.json(); } catch { return new NextResponse('Bad Request', { status: 400 }); }
+  const body = await req.json().catch(() => ({}));
+  const name = (body?.name ?? '').trim();
+  if (!name) return new NextResponse('Bad Request: name', { status: 400 });
 
-  const title = String(body?.title ?? '').trim();
-  if (!title) return new NextResponse('Título obrigatório', { status: 400 });
+  const description = (body?.description ?? null) as string | null;
+  const tags = Array.isArray(body?.tags) ? body.tags : null;
+  const publish = !!body?.publish;
 
-  const sb = createServerClient();
-  const { data, error } = await sb
+  const supabase = createServerClient();
+
+  // Ajusta nomes/colunas à tua tabela real `training_plans`
+  const { data, error } = await supabase
     .from('training_plans')
-    .insert([{ title, status: 'ACTIVE', trainer_id: null, client_id: null }])
-    .select('id,title,status,updated_at,trainer_id,client_id')
+    .insert({
+      name,
+      description,
+      tags,
+      created_by: user.id,
+      is_published: publish,
+    })
+    .select()
     .single();
 
-  if (error) return new NextResponse(error.message || 'Erro ao criar template', { status: 500 });
+  if (error) return new NextResponse(error.message, { status: 500 });
 
   await logAudit({
     actorId: user.id,
-    kind: AuditKind.TRAINING_PLAN_CREATE,
-    message: 'Criação de template de plano',
-    targetType: AuditTargetType.TRAINING_PLAN,
-    targetId: data.id,
+    kind: 'TRAINING_PLAN_CREATE',
+    message: 'Criação de plano de treino',
+    targetType: 'TRAINING_PLAN',
+    targetId: data?.id ?? null,
     diff: { after: data },
   });
 
-  return NextResponse.json(data);
+  return NextResponse.json(data ?? { ok: true });
 }
