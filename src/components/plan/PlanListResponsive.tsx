@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import type { PlanRow } from '@/app/(app)/dashboard/pt/plans/page'; // ajusta o path se precisares
+import type { PlanRow } from '@/types/plan';
 
 function fmtDate(d?: string | null) {
   if (!d) return '—';
