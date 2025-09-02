@@ -1,91 +1,130 @@
 'use client';
 
-import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Pin, PinOff, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { ReactNode } from 'react';
 import { useSidebar } from './SidebarProvider';
 
-export type NavItem = { label: string; href: string; icon?: React.ReactNode };
-export type NavGroup = { title?: string; items: NavItem[] };
+type NavItem = {
+  href: string;
+  label: string;
+  icon?: ReactNode;
+  /** paths adicionais que contam como “ativo” (ex.: /users/123) */
+  match?: string[];
+};
+type NavGroup = { label?: string; items: NavItem[] };
 
-type Props = { brand?: React.ReactNode; groups: NavGroup[] };
+type Props = {
+  brand?: ReactNode;
+  groups: NavGroup[];
+};
+
+function isMatch(pathname: string, href: string, extra?: string[]) {
+  const clean = (s: string) => s.replace(/\/+$/, '');
+  const p = clean(pathname);
+  const h = clean(href);
+  if (p === h || p.startsWith(h + '/')) return true;
+  return (extra || []).some((m) => (p === clean(m) || p.startsWith(clean(m) + '/')));
+}
 
 export default function SidebarBase({ brand, groups }: Props) {
   const pathname = usePathname();
-  const { collapsed, pinned, toggleCollapsed, togglePinned } = useSidebar();
-
-  // -------- calcular "o" link ativo (o mais específico) --------
-  const norm = (s: string) => s.replace(/\/+$/, ''); // remove trailing slash
-  const path = norm(pathname);
-
-  const itemsFlat = React.useMemo(
-    () => groups.flatMap((g) => g.items),
-    [groups]
-  );
-
-  const bestHref = React.useMemo(() => {
-    let best = '';
-    for (const it of itemsFlat) {
-      const h = norm(it.href);
-      const matches =
-        path === h || (h !== '' && path.startsWith(h + '/')); // exige limite "/"
-      if (matches && h.length > best.length) best = h;
-    }
-    return best; // string vazia = nenhum ativo
-  }, [itemsFlat, path]);
+  const { open, closeSidebar, collapsed, toggleCollapsed, pinned } = useSidebar();
 
   return (
-    <aside className="fp-sb-flyout" aria-label="Sidebar">
-      <div className="fp-sb-head">
-        <Link href="/dashboard" className="fp-sb-brand" aria-label="Início">
-          {brand}
-        </Link>
+    <>
+      {/* Overlay mobile */}
+      {open && (
+        <button
+          aria-label="Fechar menu"
+          onClick={closeSidebar}
+          className="fixed inset-0 z-40 bg-black/30 md:hidden"
+        />
+      )}
 
-        <div className="fp-sb-actions">
-          <button
-            className="btn icon"
-            type="button"
-            onClick={togglePinned}
-            title={pinned ? 'Desafixar (auto-ocultar)' : 'Afixar'}
-            aria-pressed={pinned}
-          >
-            {pinned ? <Pin size={16} /> : <PinOff size={16} />}
-          </button>
+      <aside
+        className={[
+          'fixed z-50 inset-y-0 left-0',
+          'bg-white dark:bg-neutral-950 border-r border-neutral-200 dark:border-neutral-800',
+          'transition-transform md:transition-[width] will-change-transform',
+          'w-[260px] md:w-[260px]',
+          collapsed ? 'md:w-[76px]' : 'md:w-[260px]',
+          open ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
+        ].join(' ')}
+        role="navigation"
+        aria-label="Admin sidebar"
+      >
+        {/* Header / Brand */}
+        <div className="flex items-center gap-2 px-3 h-14 border-b border-neutral-200 dark:border-neutral-800">
+          <div className="flex-1 min-w-0">{brand}</div>
 
+          {/* Botão colapsar (desktop) */}
           <button
-            className="btn icon"
-            type="button"
             onClick={toggleCollapsed}
-            title={collapsed ? 'Expandir' : 'Compactar'}
-            aria-pressed={collapsed}
+            aria-label={collapsed ? 'Expandir sidebar' : 'Colapsar sidebar'}
+            className="hidden md:inline-flex h-8 w-8 items-center justify-center rounded-full
+                       border border-neutral-200 dark:border-neutral-800
+                       bg-white dark:bg-neutral-900"
+            title="Colapsar"
           >
-            {collapsed ? <ChevronsRight size={16} /> : <ChevronsLeft size={16} />}
+            {/* chevron */}
+            <svg width="18" height="18" viewBox="0 0 24 24">
+              <path
+                d={collapsed ? 'M10 6l6 6-6 6' : 'M14 6l-6 6 6 6'}
+                stroke="currentColor"
+                strokeWidth="1.8"
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
           </button>
         </div>
-      </div>
 
-      <nav className="fp-nav">
-        {groups.map((g, idx) => (
-          <div key={idx} className="nav-group">
-            {g.title ? <div className="nav-section">{g.title}</div> : null}
-            {g.items.map((it) => {
-              const active = norm(it.href) === bestHref; // <- só 1 fica ativo
-              return (
-                <Link
-                  key={it.href}
-                  href={it.href}
-                  className="nav-item"
-                  data-active={active ? 'true' : 'false'}
+        {/* Navegação */}
+        <nav className="py-3 space-y-2 overflow-y-auto h-[calc(100vh-56px)]">
+          {groups.map((g, gi) => (
+            <div key={gi}>
+              {g.label && (
+                <div
+                  className={[
+                    'px-4 text-[11px] uppercase tracking-wide mb-2 text-neutral-500',
+                    collapsed ? 'opacity-0 md:opacity-0' : '',
+                  ].join(' ')}
                 >
-                  {it.icon ? <span className="nav-icon">{it.icon}</span> : null}
-                  <span className="nav-label">{it.label}</span>
-                </Link>
-              );
-            })}
-          </div>
-        ))}
-      </nav>
-    </aside>
+                  {g.label}
+                </div>
+              )}
+              <ul className="px-2 space-y-1">
+                {g.items.map((it, ii) => {
+                  const active = isMatch(pathname, it.href, it.match);
+                  return (
+                    <li key={ii}>
+                      <Link
+                        href={it.href}
+                        className={[
+                          'flex items-center gap-3 rounded-lg px-3 h-10',
+                          active
+                            ? 'bg-neutral-100 dark:bg-neutral-800 font-medium'
+                            : 'hover:bg-neutral-50 dark:hover:bg-neutral-900',
+                        ].join(' ')}
+                      >
+                        <span className="shrink-0">{it.icon}</span>
+                        <span className={collapsed ? 'hidden md:hidden' : 'truncate'}>
+                          {it.label}
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </nav>
+      </aside>
+
+      {/* Empurrar o conteúdo quando a sidebar está presente (desktop) */}
+      <div className={['hidden md:block', collapsed ? 'w-[76px]' : 'w-[260px]'] .join(' ')} />
+    </>
   );
 }
