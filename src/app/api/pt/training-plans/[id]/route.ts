@@ -1,123 +1,120 @@
 // src/app/api/pt/training-plans/[id]/route.ts
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { logAudit } from '@/lib/audit';
-import { logPlanChange } from '@/lib/planLog';
-import { Role, AuditKind } from '@prisma/client';
+import { getSessionUser } from '@/lib/sessions';
+import { toAppRole } from '@/lib/roles';
+import { createServerClient } from '@/lib/supabaseServer';
+import { logAudit } from '@/lib/audit'; // <- usa o nosso audit (sem Prisma)
 
-type SessionUser = { id?: string; role?: Role | string } | null | undefined;
-type PlanLite = { trainerId: string; clientId: string };
+/** Campos permitidos no update do plano (ajusta conforme o teu schema) */
+type PlanUpdate = Partial<{
+  title: string;
+  description: string | null;
+  is_published: boolean;
+  blocks: unknown;          // JSON de exercícios/estruturas
+  notes: string | null;
+}>;
 
-function asRole(v: unknown): Role | undefined {
-  if (v === 'ADMIN' || v === 'TRAINER' || v === 'CLIENT') return v as Role;
-  return undefined;
-}
+type TrainingPlanRow = {
+  id: string;
+  trainer_id: string | null;
+  client_id: string | null;
+  title: string;
+  description?: string | null;
+  is_published?: boolean | null;
+  blocks?: unknown;
+  notes?: string | null;
+  updated_at?: string;
+};
 
-async function canAccess(user: SessionUser, plan: PlanLite) {
-  if (!user?.id) return false;
-  const role = asRole(user.role);
-  if (role === Role.ADMIN) return true;
-  if (role === Role.TRAINER && plan.trainerId === user.id) return true;
-  if (role === Role.CLIENT && plan.clientId === user.id) return true;
+async function canEditPlan(userId: string, role: ReturnType<typeof toAppRole>, plan: TrainingPlanRow) {
+  if (role === 'ADMIN') return true;
+  if (role === 'TRAINER' && plan.trainer_id === userId) return true;
   return false;
 }
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  const user = session?.user as SessionUser;
-  if (!user?.id) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+// GET: devolve o plano (se tiver acesso)
+export async function GET(_: Request, { params }: { params: { id: string } }) {
+  const user = await getSessionUser();
+  if (!user) return new NextResponse('Unauthorized', { status: 401 });
 
-  const plan = await prisma.trainingPlan.findUnique({ where: { id: params.id } });
-  if (!plan) return NextResponse.json({ error: 'not_found' }, { status: 404 });
+  const supabase = createServerClient();
+  const { data: plan, error } = await supabase
+    .from('training_plans')
+    .select('id, trainer_id, client_id, title, description, is_published, blocks, notes, updated_at')
+    .eq('id', params.id)
+    .maybeSingle<TrainingPlanRow>();
 
-  if (!(await canAccess(user, plan))) {
-    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  if (error) return new NextResponse(error.message, { status: 500 });
+  if (!plan) return new NextResponse('Not Found', { status: 404 });
+
+  const role = toAppRole((user as any).role);
+  if (!(await canEditPlan(user.id, role, plan))) {
+    return new NextResponse('Forbidden', { status: 403 });
   }
 
-  return NextResponse.json({ plan });
+  return NextResponse.json(plan);
 }
 
+// PATCH: atualiza campos do plano (PT dono ou ADMIN)
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  const user = session?.user as SessionUser;
-  const role = asRole(user?.role);
-  if (!user?.id) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  const user = await getSessionUser();
+  if (!user) return new NextResponse('Unauthorized', { status: 401 });
 
-  const current = await prisma.trainingPlan.findUnique({ where: { id: params.id } });
-  if (!current) return NextResponse.json({ error: 'not_found' }, { status: 404 });
+  const id = params.id;
+  if (!id) return new NextResponse('Missing id', { status: 400 });
 
-  if (!(await canAccess(user, current)) || !(role === Role.TRAINER || role === Role.ADMIN)) {
-    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  const supabase = createServerClient();
+
+  // Carrega plano atual para verificar permissões e capturar "before"
+  const { data: before, error: loadErr } = await supabase
+    .from('training_plans')
+    .select('id, trainer_id, client_id, title, description, is_published, blocks, notes, updated_at')
+    .eq('id', id)
+    .maybeSingle<TrainingPlanRow>();
+
+  if (loadErr) return new NextResponse(loadErr.message, { status: 500 });
+  if (!before) return new NextResponse('Not Found', { status: 404 });
+
+  const role = toAppRole((user as any).role);
+  if (!(await canEditPlan(user.id, role, before))) {
+    return new NextResponse('Forbidden', { status: 403 });
   }
 
-  const body = await req.json().catch(() => ({} as any));
-  const data: Record<string, any> = {};
+  // Sanitiza o body para só aceitar campos permitidos
+  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const data: PlanUpdate = {};
   if (typeof body.title === 'string') data.title = body.title;
-  if (typeof body.notes === 'string' || body.notes === null) data.notes = body.notes ?? null;
-  if (body.exercises !== undefined) data.exercises = body.exercises;
-  if (typeof body.status === 'string') data.status = body.status;
+  if (typeof body.description === 'string' || body.description === null) data.description = body.description as any;
+  if (typeof body.is_published === 'boolean') data.is_published = body.is_published as boolean;
+  if (body.blocks !== undefined) data.blocks = body.blocks;
+  if (typeof body.notes === 'string' || body.notes === null) data.notes = body.notes as any;
 
-  if (!Object.keys(data).length) {
-    return NextResponse.json({ error: 'nada_para_atualizar' }, { status: 400 });
+  if (Object.keys(data).length === 0) {
+    return new NextResponse('No valid fields to update', { status: 400 });
   }
 
-  const updated = await prisma.trainingPlan.update({
-    where: { id: params.id },
-    data,
-  });
+  // Atualiza
+  const { data: updated, error: upErr } = await supabase
+    .from('training_plans')
+    .update(data)
+    .eq('id', id)
+    .select('id, trainer_id, client_id, title, description, is_published, blocks, notes, updated_at')
+    .maybeSingle<TrainingPlanRow>();
 
+  if (upErr) return new NextResponse(upErr.message, { status: 500 });
+  if (!updated) return new NextResponse('Not Found', { status: 404 });
+
+  // Audit (corrigido: usar 'TRAINING_PLAN' em vez de 'TrainingPlan' e kind de plano)
   await logAudit({
-    actorId: user.id!,
-    kind: AuditKind.ACCOUNT_STATUS_CHANGE,
-    message: 'PLAN_UPDATE',
-    targetType: 'TrainingPlan',
+    actorId: user.id,
+    kind: 'PLAN_UPDATE',
+    message: 'PT/ADMIN atualizou plano de treino',
+    targetType: 'TRAINING_PLAN', // <<< antes estava "TrainingPlan" (string inválida)
     targetId: updated.id,
-    diff: { changed: Object.keys(data) },
+    diff: { before: { title: before.title, is_published: before.is_published }, after: { title: updated.title, is_published: updated.is_published } },
   });
 
-  await logPlanChange({
-    planId: updated.id,
-    actorId: user.id!,
-    changeType: 'update', // <-- minúsculas
-    diff: { before: current, after: updated },
-    snapshot: updated,
-  });
-
-  return NextResponse.json({ plan: updated });
-}
-
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  const user = session?.user as SessionUser;
-  const role = asRole(user?.role);
-  if (!user?.id) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-
-  const current = await prisma.trainingPlan.findUnique({ where: { id: params.id } });
-  if (!current) return NextResponse.json({ error: 'not_found' }, { status: 404 });
-
-  if (!(await canAccess(user, current)) || !(role === Role.TRAINER || role === Role.ADMIN)) {
-    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
-  }
-
-  await prisma.trainingPlan.delete({ where: { id: params.id } });
-
-  await logAudit({
-    actorId: user.id!,
-    kind: AuditKind.ACCOUNT_STATUS_CHANGE,
-    message: 'PLAN_DELETE',
-    targetType: 'TrainingPlan',
-    targetId: params.id,
-    diff: { clientId: current.clientId, trainerId: current.trainerId },
-  });
-
-  await logPlanChange({
-    planId: params.id,
-    actorId: user.id!,
-    changeType: 'delete', // <-- minúsculas
-    snapshot: current,
-  });
-
-  return NextResponse.json({ ok: true });
+  return NextResponse.json(updated);
 }
