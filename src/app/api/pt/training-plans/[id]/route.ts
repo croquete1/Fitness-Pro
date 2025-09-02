@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server';
 import { getSessionUser } from '@/lib/sessions';
 import { toAppRole } from '@/lib/roles';
 import { createServerClient } from '@/lib/supabaseServer';
-import { logAudit } from '@/lib/audit'; // <- usa o nosso audit (sem Prisma)
+import { logAudit, AUDIT_KINDS, AUDIT_TARGET_TYPES } from '@/lib/audit';
 
 /** Campos permitidos no update do plano (ajusta conforme o teu schema) */
 type PlanUpdate = Partial<{
