@@ -4,6 +4,7 @@ import { createServerClient } from '@/lib/supabaseServer';
 export type AuditKind =
   | 'ACCOUNT_ROLE_CHANGE'
   | 'ACCOUNT_STATUS_CHANGE'
+  | 'ACCOUNT_APPROVAL'        // <— adicionado para corrigir o erro do Vercel
   | 'DATA_UPDATE'
   | 'TRAINING_PLAN_CREATE'
   | 'TRAINING_PLAN_CLONE'
@@ -31,7 +32,6 @@ export type LogAuditInput = {
 export async function logAudit(input: LogAuditInput) {
   try {
     const supabase = createServerClient();
-    // Ajusta os nomes das colunas à tua tabela real de auditoria
     await supabase.from('audit_logs').insert({
       actor_id: input.actorId,
       kind: input.kind,
@@ -43,7 +43,7 @@ export async function logAudit(input: LogAuditInput) {
       meta: input.meta ?? null,
     });
   } catch (e) {
-    // Nunca falhar build por causa de auditoria
+    // não rebentar build por causa de audit
     console.error('logAudit failed:', e);
   }
 }
