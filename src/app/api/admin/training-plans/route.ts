@@ -3,45 +3,49 @@ import { NextResponse } from 'next/server';
 import { getSessionUser } from '@/lib/sessions';
 import { toAppRole } from '@/lib/roles';
 import { createServerClient } from '@/lib/supabaseServer';
-import { logAudit } from '@/lib/audit';
+import { logAudit, AUDIT_KINDS, AUDIT_TARGET_TYPES } from '@/lib/audit';
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
-  const user = await getSessionUser();
-  if (!user) return new NextResponse('Unauthorized', { status: 401 });
-
-  const role = toAppRole((user as any).role);
-  if (role !== 'ADMIN') return new NextResponse('Forbidden', { status: 403 });
-
-  const body = await req.json().catch(() => ({}));
-  const name: string = body?.name?.trim();
-  const description: string = body?.description ?? '';
-  const payload = {
-    name,
-    description,
-    // se tiveres mais campos: exercises, visibility, etc.
-  };
-  if (!name) return new NextResponse('Bad Request (name)', { status: 400 });
-
-  const supabase = createServerClient();
-  const { data, error } = await supabase
-    .from('training_plans')
-    .insert(payload)
-    .select()
-    .single();
-
-  if (error || !data?.id) {
-    console.error('[training-plans:create] supabase error', error);
-    return new NextResponse('Failed to create', { status: 500 });
+  const me = await getSessionUser();
+  if (!me) return new NextResponse('Unauthorized', { status: 401 });
+  if (toAppRole((me as any).role) !== 'ADMIN') {
+    return new NextResponse('Forbidden', { status: 403 });
   }
 
+  const supabase = createServerClient();
+  const body = await req.json().catch(() => ({} as any));
+
+  // cria o plano (ajusta os campos ao teu schema)
+  const payload = {
+    title: body?.title ?? 'Novo plano',
+    client_id: body?.clientId ?? null,
+    trainer_id: body?.trainerId ?? me.id,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data: created, error } = await supabase
+    .from('training_plans')
+    .insert(payload)
+    .select('id, title, client_id, trainer_id')
+    .single();
+
+  if (error || !created) {
+    return NextResponse.json({ ok: false, error: 'CREATE_FAILED' }, { status: 500 });
+  }
+
+  // ✅ Audit SEM strings “cruas”
   await logAudit({
-    actorId: user.id,
-    kind: 'TRAINING_PLAN_CREATE',      // ✅ agora permitido pelo tipo
+    actorId: me.id,
+    kind: AUDIT_KINDS.TRAINING_PLAN_CREATE,              // <<< era string solta
     message: 'Criação de plano de treino',
-    targetType: 'TRAINING_PLAN',
-    targetId: String(data.id),         // ✅ garante string
-    diff: { payload },
+    targetType: AUDIT_TARGET_TYPES.TRAINING_PLAN,
+    targetId: String(created.id),                        // garante string
+    diff: { plan: { id: created.id, title: created.title } },
   });
 
-  return NextResponse.json(data);
+  return NextResponse.json({ ok: true, data: created }, { status: 201 });
 }
