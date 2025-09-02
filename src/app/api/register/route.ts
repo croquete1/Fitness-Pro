@@ -80,15 +80,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "CREATE_FAILED" }, { status: 500 });
     }
 
-    // ✅ Audit log canónico (sem tipos do Prisma; usa os enums locais)
+    // Audit log canónico (usa enums locais; sem 'targetLabel')
     try {
       await logAudit({
-        actorId: created.id, // associamos o evento ao próprio utilizador criado
-        kind: AUDIT_KINDS.ACCOUNT_APPROVAL, // usa um dos válidos (ACCOUNT_APPROVAL / ACCOUNT_STATUS_CHANGE / ACCOUNT_ROLE_CHANGE)
+        actorId: null, // registo sem sessão ativa
+        kind: AUDIT_KINDS.ACCOUNT_APPROVAL,
         message: "USER_REGISTERED",
-        targetType: AUDIT_TARGET_TYPES.USER, // <<< era "User"
+        targetType: AUDIT_TARGET_TYPES.USER, // <<< maiúsculas corretas
         targetId: created.id,
-        targetLabel: created.email ?? created.name ?? created.id,
         diff: {
           email: created.email,
           name: created.name ?? null,
@@ -114,6 +113,6 @@ export async function POST(req: Request) {
 }
 
 export async function GET() {
-  // Health simples sem tocar no Prisma (evita falhas se a ligação estiver intermitente)
+  // Health simples (não toca em DB para evitar falhas intermitentes no build)
   return NextResponse.json({ ok: true, service: "register" });
 }
