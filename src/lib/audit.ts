@@ -1,49 +1,53 @@
 // src/lib/audit.ts
 import { createServerClient } from '@/lib/supabaseServer';
 
+/** Tipos de evento suportados no audit log */
 export type AuditKind =
-  | 'ACCOUNT_ROLE_CHANGE'
   | 'ACCOUNT_STATUS_CHANGE'
-  | 'ACCOUNT_APPROVAL'        // <— adicionado para corrigir o erro do Vercel
-  | 'DATA_UPDATE'
-  | 'TRAINING_PLAN_CREATE'
-  | 'TRAINING_PLAN_CLONE'
-  | 'EXERCISE_PUBLISH_TOGGLE';
+  | 'ACCOUNT_ROLE_CHANGE'
+  | 'ACCOUNT_APPROVAL'
+  // planos de treino
+  | 'PLAN_CREATE'
+  | 'PLAN_UPDATE'
+  | 'PLAN_CLONE'
+  | 'PLAN_PUBLISH'
+  // catálogo de exercícios
+  | 'EXERCISE_PUBLISH'
+  | 'EXERCISE_UNPUBLISH';
 
+/** Alvos possíveis do audit */
 export type AuditTargetType =
   | 'USER'
-  | 'TRAINER_CLIENT'
   | 'TRAINING_PLAN'
   | 'EXERCISE'
   | 'PACKAGE'
-  | 'OTHER';
+  | 'WALLET';
 
-export type LogAuditInput = {
+/** Payload padrão para registos de auditoria */
+export type AuditLogEntry = {
   actorId: string;
   kind: AuditKind;
-  message?: string;
-  targetType?: AuditTargetType;
+  message: string;
+  targetType: AuditTargetType;
   targetId?: string | null;
-  target?: string | null;
-  diff?: any;
-  meta?: Record<string, any>;
+  diff?: unknown;
+  context?: unknown;
 };
 
-export async function logAudit(input: LogAuditInput) {
+/** Regista o evento no Supabase (tabela: audit_logs) */
+export async function logAudit(entry: AuditLogEntry): Promise<void> {
+  const supabase = createServerClient();
   try {
-    const supabase = createServerClient();
     await supabase.from('audit_logs').insert({
-      actor_id: input.actorId,
-      kind: input.kind,
-      message: input.message ?? null,
-      target_type: input.targetType ?? null,
-      target_id: input.targetId ?? null,
-      target: input.target ?? null,
-      diff: input.diff ?? null,
-      meta: input.meta ?? null,
+      actor_id: entry.actorId,
+      kind: entry.kind,
+      message: entry.message,
+      target_type: entry.targetType,
+      target_id: entry.targetId ?? null,
+      diff: entry.diff ?? null,
+      context: entry.context ?? null,
     });
-  } catch (e) {
-    // não rebentar build por causa de audit
-    console.error('logAudit failed:', e);
+  } catch {
+    // Audit nunca deve rebentar a request principal.
   }
 }
