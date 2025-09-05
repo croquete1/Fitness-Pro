@@ -1,31 +1,33 @@
-export const runtime = 'nodejs';
+// src/app/api/notifications/mark-read/route.ts
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { supabaseAdmin } from '@/lib/supabaseServer';
-
-type Body = { ids: string[] };
+import { createServerClient } from '@/lib/supabaseServer';
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return new NextResponse('Unauthorized', { status: 401 });
+  const userId = (session as any)?.user?.id as string | undefined;
+  if (!userId) return new NextResponse('Unauthorized', { status: 401 });
 
-  let body: Body;
-  try { body = await req.json(); } catch { return new NextResponse('Invalid JSON', { status: 400 }); }
+  const body = await req.json().catch(() => ({})) as { ids?: string[]; all?: boolean; status?: 'all'|'unread'|'read' };
+  const sb = createServerClient();
 
-  const ids = Array.isArray(body?.ids) ? [...new Set(body.ids.filter(Boolean))] : [];
-  if (ids.length === 0) return new NextResponse('No ids', { status: 400 });
+  if (body.all) {
+    let q = sb.from('notifications').update({ read: true }).eq('user_id', userId);
+    if (body.status === 'unread' || !body.status) q = q.eq('read', false); // por padrão só marca por ler
+    const { error } = await q;
+    if (error) return new NextResponse(error.message, { status: 500 });
+    return NextResponse.json({ ok: true });
+  }
 
-  const user_id = String(session.user.id);
-  const rows = ids.map((notification_id) => ({ user_id, notification_id }));
+  const ids = (body.ids ?? []).filter(Boolean);
+  if (ids.length === 0) return new NextResponse('Bad Request', { status: 400 });
 
-  const supabase = supabaseAdmin();
-  const { error } = await supabase
-    .from('notification_reads')
-    .upsert(rows, { onConflict: 'user_id,notification_id' });
-
+  const { error } = await sb.from('notifications').update({ read: true }).in('id', ids).eq('user_id', userId);
   if (error) return new NextResponse(error.message, { status: 500 });
-  return NextResponse.json({ ok: true, marked: ids.length });
+
+  return NextResponse.json({ ok: true, updated: ids.length });
 }

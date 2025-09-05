@@ -1,43 +1,46 @@
 // src/app/api/notifications/subscribe/route.ts
-export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { supabaseAdmin } from '@/lib/supabaseServer';
-import { toAppRole } from '@/lib/roles';
-
-type Sub = { endpoint: string; keys: { p256dh: string; auth: string } };
+import { createServerClient } from '@/lib/supabaseServer';
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return new NextResponse('Unauthorized', { status: 401 });
+  const userId = (session as any)?.user?.id as string | undefined;
+  if (!userId) return new NextResponse('Unauthorized', { status: 401 });
 
-  let body: { subscription: Sub; role?: string | null };
-  try { body = await req.json(); } catch { return new NextResponse('Invalid JSON', { status: 400 }); }
+  const body = await req.json().catch(() => ({}));
+  const sub = body?.subscription;
 
-  const { subscription } = body;
-  if (!subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth)
-    return new NextResponse('Bad subscription', { status: 400 });
+  const endpoint = sub?.endpoint as string | undefined;
+  const p256dh = sub?.keys?.p256dh as string | undefined;
+  const auth = sub?.keys?.auth as string | undefined;
+  if (!endpoint || !p256dh || !auth) return new NextResponse('Bad Request', { status: 400 });
 
-  const user_id = String(session.user.id);
-  const role = toAppRole((session.user as any).role) ?? null;
+  const sb = createServerClient();
 
-  const supabase = supabaseAdmin();
-  const { error } = await supabase
+  // Tabela: push_subscriptions (ver SQL mais abaixo)
+  const { error } = await sb
     .from('push_subscriptions')
-    .upsert(
-      {
-        user_id,
-        role: role === 'PT' ? 'TRAINER' : role, // alinhado com DB enum
-        endpoint: subscription.endpoint,
-        p256dh: subscription.keys.p256dh,
-        auth: subscription.keys.auth,
-      },
-      { onConflict: 'endpoint' }
-    );
+    .upsert({ user_id: userId, endpoint, p256dh, auth }, { onConflict: 'endpoint' });
 
   if (error) return new NextResponse(error.message, { status: 500 });
+  return NextResponse.json({ ok: true });
+}
+
+export async function DELETE(req: Request) {
+  const session = await getServerSession(authOptions);
+  const userId = (session as any)?.user?.id as string | undefined;
+  if (!userId) return new NextResponse('Unauthorized', { status: 401 });
+
+  const body = await req.json().catch(() => ({}));
+  const endpoint = body?.endpoint as string | undefined;
+  if (!endpoint) return new NextResponse('Bad Request', { status: 400 });
+
+  const sb = createServerClient();
+  await sb.from('push_subscriptions').delete().eq('endpoint', endpoint).eq('user_id', userId);
   return NextResponse.json({ ok: true });
 }
