@@ -1,17 +1,16 @@
-// src/components/layout/MobileTopBar.tsx
 'use client';
 
-import Link from 'next/link';
-import { useSidebar } from './SidebarProvider';
+import React from 'react';
+import { useSidebar } from './SidebarContext';
+import ThemeToggle from '@/components/ui/ThemeToggle';
 
 type Props = {
   title?: string;
-  /** opcional — se quiseres sobrepor o toggle vindo de fora */
   onToggleSidebar?: () => void;
 };
 
 export default function MobileTopBar({ title = 'Dashboard', onToggleSidebar }: Props) {
-  const { toggle } = useSidebar(); // ✅ vem do provider
+  const { toggle } = useSidebar(); // ✅ agora existe no contexto
 
   const handleToggle = () => {
     if (onToggleSidebar) onToggleSidebar();
@@ -20,45 +19,36 @@ export default function MobileTopBar({ title = 'Dashboard', onToggleSidebar }: P
 
   return (
     <div
-      className="
-        md:hidden sticky top-[env(safe-area-inset-top)] z-40
-        bg-white/80 dark:bg-neutral-900/70 backdrop-blur
-        border-b border-neutral-200 dark:border-neutral-800
-        px-4 pt-[env(safe-area-inset-top)] h-[56px] flex items-center gap-3
-      "
-      role="banner"
+      className="card"
+      style={{
+        padding: 12,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 8,
+        position: 'sticky',
+        top: 0,
+        zIndex: 10,
+        backdropFilter: 'saturate(180%) blur(6px)',
+      }}
     >
       <button
         onClick={handleToggle}
-        aria-label="Abrir menu"
-        className="
-          -ml-1 inline-flex h-9 w-9 items-center justify-center rounded-lg
-          border border-neutral-200 dark:border-neutral-800
-          hover:bg-neutral-50 dark:hover:bg-neutral-800
-          active:scale-[.98] transition
-        "
+        aria-label="Abrir/fechar menu"
+        style={{
+          padding: '8px 10px',
+          borderRadius: 8,
+          border: '1px solid rgba(0,0,0,0.2)',
+          background: 'transparent',
+          cursor: 'pointer',
+        }}
       >
-        {/* ícone hambúrguer */}
-        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        </svg>
+        ☰
       </button>
 
-      <Link href="/dashboard/admin" className="font-semibold tracking-tight text-base">
-        {title}
-      </Link>
+      <h1 style={{ margin: 0, fontSize: 18, flex: 1, textAlign: 'center' }}>{title}</h1>
 
-      <div className="ml-auto flex items-center gap-2">
-        <Link
-          href="/dashboard/admin/users"
-          className="
-            h-9 px-3 rounded-lg border border-neutral-200 dark:border-neutral-800
-            text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800
-          "
-        >
-          Utilizadores
-        </Link>
-      </div>
+      <ThemeToggle />
     </div>
   );
 }

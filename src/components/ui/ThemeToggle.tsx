@@ -1,54 +1,41 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
+import React from 'react';
 
-type Theme = "light" | "dark";
+function getInitial(): 'light' | 'dark' {
+  if (typeof window === 'undefined') return 'light';
+  const saved = window.localStorage.getItem('theme');
+  if (saved === 'dark' || saved === 'light') return saved;
+  // preferências do SO
+  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+    ? 'dark'
+    : 'light';
+}
 
 export default function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>("light");
+  const [theme, setTheme] = React.useState<'light' | 'dark'>(getInitial);
 
-  useEffect(() => {
-    try {
-      const stored = (localStorage.getItem("theme") as Theme | null) ?? null;
-      const attr = document.documentElement.getAttribute("data-theme") as Theme | null;
-      const initial: Theme = stored ?? attr ?? "light";
-      setTheme(initial);
-      document.documentElement.setAttribute("data-theme", initial);
-    } catch {}
-  }, []);
-
-  const toggle = () => {
-    setTheme(prev => {
-      const next: Theme = prev === "dark" ? "light" : "dark";
-      try {
-        localStorage.setItem("theme", next);
-        document.documentElement.setAttribute("data-theme", next);
-      } catch {}
-      return next;
-    });
-  };
+  React.useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.dataset.theme = theme;
+      window.localStorage.setItem('theme', theme);
+    }
+  }, [theme]);
 
   return (
     <button
-      type="button"
+      onClick={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}
       aria-label="Alternar tema"
-      onClick={toggle}
-      className="pill"
+      title="Alternar tema"
       style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        padding: "6px 10px",
-        background: "var(--bg)",
-        border: "1px solid var(--border)",
+        padding: '8px 10px',
+        borderRadius: 8,
+        border: '1px solid rgba(0,0,0,0.2)',
+        background: 'transparent',
+        cursor: 'pointer',
       }}
     >
-      <span aria-hidden style={{ fontSize: 14 }}>
-        {theme === "dark" ? "🌙" : "☀️"}
-      </span>
-      <span className="text-muted" style={{ fontSize: 12 }}>
-        {theme === "dark" ? "Escuro" : "Claro"}
-      </span>
+      {theme === 'light' ? '🌞' : '🌙'}
     </button>
   );
 }

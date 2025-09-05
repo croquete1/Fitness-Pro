@@ -1,16 +1,11 @@
+// next.config.mjs
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-
-  // (exemplos úteis – adapte conforme precisar)
-  experimental: {
-    // appDir: true, // App Router já é padrão quando usa /app
-  },
-  images: {
-    remotePatterns: [
-      // { protocol: 'https', hostname: '…' }
-    ],
-  },
+  experimental: { typedRoutes: true },
+  // Não usar "export": precisamos de server para rotas /api
+  // Se quiseres imagem menor para Docker/Node:
+  output: 'standalone',
 };
 
 export default nextConfig;

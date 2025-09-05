@@ -1,51 +1,36 @@
-/* eslint-disable @next/next/no-img-element */
+// src/components/layout/SidebarClient.tsx
 'use client';
 
 import React from 'react';
-import SidebarBase, { NavGroup } from './SidebarBase';
+import SidebarBase, { type SidebarItem } from './SidebarBase';
 
-// Ícones (SVG inline)
-const Ic = {
-  Home: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-      <path d="M3 10.5 12 3l9 7.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      <path d="M5 10v10h14V10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  ),
-  Receipt: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-      <path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3z" stroke="currentColor" strokeWidth="2"/>
-      <path d="M9 7h6M9 11h6M9 15h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-    </svg>
-  ),
-};
-
-export default function SidebarClient() {
-  const brand = (
-    <>
-      <img className="logo" src="/logo.png" alt="" width={28} height={28} />
-      <span className="brand-text">
-        <span className="brand-name">Fitness Pro</span>
-        <span className="brand-sub">Cliente</span>
-      </span>
-    </>
-  );
-
-  const groups: NavGroup[] = [
-    {
-      title: 'Geral',
-      items: [
-        { label: 'Dashboard', href: '/dashboard', icon: <Ic.Home /> },
-      ],
-    },
-    {
-      title: 'Faturação',
-      items: [
-        // clientes veem o que pagaram (planos/avaliações) nesta rota
-        { label: 'Pagamentos', href: '/dashboard/billing', icon: <Ic.Receipt /> },
-      ],
-    },
+export default function SidebarClient({ userLabel }: { userLabel: string }) {
+  const items: SidebarItem[] = [
+    { href: '/dashboard',         label: 'Início',     icon: <span aria-hidden>🏠</span>, activePrefix: '/dashboard' },
+    { href: '/dashboard/search',  label: 'Pesquisar',  icon: <span aria-hidden>🔎</span>, activePrefix: '/dashboard/search' },
+    // Se já tiveres outras rotas de cliente, adiciona-as aqui:
+    // { href: '/dashboard/client/plans', label: 'Planos', icon: <span aria-hidden>📝</span>, activePrefix: '/dashboard/client/plans' },
+    // { href: '/dashboard/client/sessions', label: 'Sessões', icon: <span aria-hidden>📅</span>, activePrefix: '/dashboard/client/sessions' },
   ];
 
-  return <SidebarBase brand={brand} groups={groups} />;
+  const header = (
+    <div className="fp-sb-head">
+      <div className="fp-sb-brand">
+        <button className="logo" aria-label="Fitness Pro">💪</button>
+        <div>
+          <div className="brand-name" style={{ fontWeight: 800 }}>Fitness Pro</div>
+          <div
+            className="small text-muted"
+            title={userLabel}
+            style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+          >
+            {userLabel}
+          </div>
+        </div>
+      </div>
+      <div className="fp-sb-actions" />
+    </div>
+  );
+
+  return <SidebarBase items={items} header={header} />;
 }

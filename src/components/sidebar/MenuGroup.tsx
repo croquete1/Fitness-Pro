@@ -1,66 +1,75 @@
-"use client";
+// src/components/sidebar/MenuGroup.tsx
+'use client';
 
-import React from "react";
-import Link from "next/link";
+import React from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import type { Route } from 'next';
+import type { UrlObject } from 'url';
+import type { NavItem as SharedNavItem, Href } from '@/components/layout/navTypes';
 
-/**
- * Se já tens estes tipos noutro ficheiro, podes trocar 'any' por esses tipos.
- * Usei 'any' aqui para não criar conflitos com o teu modelo atual.
- */
-type Role = any;
-
-type MenuItem = {
-  kind: "item";
-  href: string;
-  label: string;
-  icon?: React.ReactNode;
-  roles?: Role[];
-  activeExact?: boolean;
-};
-
-type MenuGroupT = {
-  kind: "group";
-  label: string;
-  icon?: React.ReactNode;
-  roles?: Role[];
-  items: MenuItem[];
-};
+export type MenuItem = SharedNavItem;
 
 type Props = {
-  group: MenuGroupT;
-  pathname: string;
-  role?: Role; // <- ADICIONADA
+  title?: string;
+  items: MenuItem[];
+  onNavigate?: () => void;
 };
 
-export default function MenuGroup({ group, pathname, role }: Props) {
-  // Se o grupo tiver restrição de roles, filtra pela role do utilizador
-  const groupVisible = !group.roles || (role && group.roles.includes(role));
-  if (!groupVisible) return null;
+function toPath(href: Href): string {
+  if (typeof href === 'string') return href;
+  const obj = href as UrlObject;
+  return typeof obj.pathname === 'string' ? obj.pathname : '/';
+}
 
-  const items = (group.items || []).filter(
-    (it) => !it.roles || (role && it.roles.includes(role))
-  );
+export default function MenuGroup({ title, items, onNavigate }: Props) {
+  const pathname = usePathname() || '/';
+
+  const isActive = (item: MenuItem) => {
+    const current = pathname;
+    const target = toPath(item.href);
+
+    if (item.activePrefix) {
+      const arr = Array.isArray(item.activePrefix) ? item.activePrefix : [item.activePrefix];
+      if (arr.some((p) => current.startsWith(p))) return true;
+    }
+    return current === target || current.startsWith(target + '/');
+  };
 
   return (
     <div className="nav-group">
-      <div className="nav-group-trigger" role="button" tabIndex={0} aria-label={group.label}>
-        <span className="nav-icon">{group.icon}</span>
-        <span className="nav-label">{group.label}</span>
-        <span className="nav-caret">▾</span>
-      </div>
+      {title && <div className="nav-section">{title}</div>}
 
-      <div className="nav-sublist">
+      <div className="nav-sublist" style={{ display: 'grid', gap: 6 }}>
         {items.map((it) => {
-          const active = it.activeExact ? pathname === it.href : pathname.startsWith(it.href);
+          const href =
+            typeof it.href === 'string'
+              ? (it.href as Route) // ✅ typed routes ok
+              : (it.href as UrlObject);
+
+          const active = isActive(it);
+          const key = String((it.href as any)?.pathname ?? it.href);
+
           return (
             <Link
-              key={it.href}
-              href={it.href}
+              key={key}
+              href={href}
+              onClick={onNavigate}
               className="nav-subitem"
-              data-active={active ? "true" : "false"}
+              data-active={active ? 'true' : 'false'}
+              aria-current={active ? 'page' : undefined}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '24px 1fr auto',
+                alignItems: 'center',
+                gap: 10,
+                padding: '8px 10px',
+                borderRadius: 10,
+              }}
             >
               <span className="nav-icon">{it.icon}</span>
               <span className="nav-label">{it.label}</span>
+              {it.badge && <span>{it.badge}</span>}
             </Link>
           );
         })}

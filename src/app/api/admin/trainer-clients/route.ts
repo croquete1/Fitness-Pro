@@ -1,64 +1,56 @@
-import { NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabaseServer';
-import { getSessionUser } from '@/lib/auth';
-import { logAudit, AUDIT_KINDS, AUDIT_TARGET_TYPES } from '@/lib/audit';
-
-export const dynamic = 'force-dynamic';
+// src/app/api/admin/trainer-clients/route.ts
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
-export async function GET(req: Request) {
-  const supabase = createServerClient();
-  const { searchParams } = new URL(req.url);
-  const clientId = searchParams.get('clientId');
-  if (!clientId) return NextResponse.json([], { status: 200 });
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { supabaseAdmin } from '@/lib/supabaseServer';
+import { isPT, toAppRole } from '@/lib/roles';
 
-  const { data: links, error } = await supabase
-    .from('trainer_clients')
-    .select('id,trainer_id,client_id,created_at,trainer:trainer_id (id,name,email)')
-    .eq('client_id', clientId);
-
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-  return NextResponse.json(links ?? []);
-}
+type LinkBody = { trainerId: string; clientId: string };
 
 export async function POST(req: Request) {
-  const user = await getSessionUser();
-  if (!user) return NextResponse.json({ ok: false, error: 'UNAUTHORIZED' }, { status: 401 });
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) return new NextResponse('Unauthorized', { status: 401 });
 
-  const supabase = createServerClient();
-  const body = await req.json().catch(() => ({} as any));
-  const trainerId = String(body.trainerId ?? '');
-  const clientId = String(body.clientId ?? '');
+  const role = toAppRole((session.user as any).role);
+  if (!role) return new NextResponse('Forbidden', { status: 403 });
 
-  if (!clientId) return NextResponse.json({ ok: false, error: 'MISSING_CLIENT_ID' }, { status: 400 });
+  let body: LinkBody;
+  try { body = await req.json(); } catch { return new NextResponse('Invalid JSON', { status: 400 }); }
+  if (!body.trainerId || !body.clientId) return new NextResponse('Missing ids', { status: 400 });
 
-  // apaga vínculo anterior e, se existir trainerId, cria novo
-  const del = await supabase.from('trainer_clients').delete().eq('client_id', clientId);
-  if (del.error) return NextResponse.json({ ok: false, error: del.error.message }, { status: 500 });
+  if (isPT(role) && String(session.user.id) !== body.trainerId) return new NextResponse('Forbidden', { status: 403 });
 
-  let linkId: string | null = null;
+  const supabase = supabaseAdmin();
+  const { error } = await supabase
+    .from('trainer_clients')
+    .upsert({ trainer_id: body.trainerId, client_id: body.clientId }, { onConflict: 'trainer_id,client_id' });
 
-  if (trainerId) {
-    const ins = await supabase
-      .from('trainer_clients')
-      .insert({ trainer_id: trainerId, client_id: clientId })
-      .select('id')
-      .single();
-    if (ins.error) return NextResponse.json({ ok: false, error: ins.error.message }, { status: 500 });
-    linkId = ins.data.id as string;
-  }
+  if (error) return new NextResponse(error.message, { status: 500 });
+  return NextResponse.json({ ok: true });
+}
 
-  // audit seguro (sem enums “novos”)
-  try {
-    await logAudit({
-      kind: AUDIT_KINDS.ACCOUNT_ROLE_CHANGE,
-      message: trainerId ? 'TRAINER_ASSIGNED' : 'TRAINER_UNASSIGNED',
-      actorId: user.id,
-      targetType: AUDIT_TARGET_TYPES.USER,
-      targetId: clientId,
-      diff: { trainerId: trainerId || null, linkId },
-    });
-  } catch { /* silencia para não falhar build */ }
+export async function DELETE(req: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) return new NextResponse('Unauthorized', { status: 401 });
 
-  return NextResponse.json({ ok: true, linkId });
+  const role = toAppRole((session.user as any).role);
+  if (!role) return new NextResponse('Forbidden', { status: 403 });
+
+  let body: LinkBody;
+  try { body = await req.json(); } catch { return new NextResponse('Invalid JSON', { status: 400 }); }
+  if (!body.trainerId || !body.clientId) return new NextResponse('Missing ids', { status: 400 });
+
+  if (isPT(role) && String(session.user.id) !== body.trainerId) return new NextResponse('Forbidden', { status: 403 });
+
+  const supabase = supabaseAdmin();
+  const { error } = await supabase
+    .from('trainer_clients')
+    .delete()
+    .match({ trainer_id: body.trainerId, client_id: body.clientId });
+
+  if (error) return new NextResponse(error.message, { status: 500 });
+  return NextResponse.json({ ok: true });
 }

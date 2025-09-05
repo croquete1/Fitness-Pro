@@ -1,63 +1,61 @@
 // src/app/(app)/dashboard/admin/users/page.tsx
+export const dynamic = 'force-dynamic';
+
+import { Suspense } from 'react';
 import prisma from '@/lib/prisma';
+import UsersClientView from './UsersClientView';
+import type { AppRole, DbRole } from '@/lib/roles';
+import { dbRoleToAppRole, toAppRole } from '@/lib/roles';
+import PageHeader from '@/components/ui/PageHeader';
+import Toolbar from '@/components/ui/Toolbar';
+import Card, { CardContent } from '@/components/ui/Card';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { Role } from '@prisma/client';
 import { redirect } from 'next/navigation';
 
-import EditUserButton from '@/components/admin/EditUserButton';
-import StatusToggle from '@/components/admin/StatusToggle';
+type UiUser = {
+  id: string;
+  name: string | null;
+  email: string;
+  role: AppRole;
+  status: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
+  createdAt: string;
+};
 
-export default async function AdminUsersPage() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user as any).role !== Role.ADMIN) {
-    redirect('/login');
-  }
-
-  const users = await prisma.user.findMany({
+async function getUsers(): Promise<UiUser[]> {
+  const rows = await prisma.user.findMany({
+    select: { id: true, name: true, email: true, role: true, status: true, createdAt: true },
     orderBy: { createdAt: 'desc' },
-    select: { id:true, name:true, email:true, role:true, status:true, createdAt:true },
   });
+  return rows.map((u) => ({
+    id: u.id,
+    name: u.name,
+    email: u.email,
+    role: (dbRoleToAppRole(u.role as DbRole) ?? 'CLIENT') as AppRole,
+    status: u.status as UiUser['status'],
+    createdAt: u.createdAt.toISOString(),
+  }));
+}
+
+export default async function Page() {
+  const session = await getServerSession(authOptions);
+  const role = toAppRole(session?.user?.role);
+  if (!session?.user?.id) redirect('/login');
+  if (role !== 'ADMIN') redirect('/dashboard');
+
+  const users = await getUsers();
 
   return (
-    <div className="card" style={{ padding:16 }}>
-      <h1>Utilizadores</h1>
-
-      <table className="table" style={{ width:'100%', borderCollapse:'separate', borderSpacing:0 }}>
-        <thead>
-          <tr>
-            <th style={{textAlign:'left',padding:8}}>Nome</th>
-            <th style={{textAlign:'left',padding:8}}>Email</th>
-            <th style={{textAlign:'left',padding:8}}>Role</th>
-            <th style={{textAlign:'left',padding:8}}>Estado</th>
-            <th style={{textAlign:'left',padding:8}}>Criado</th>
-            <th style={{textAlign:'left',padding:8}}>Ações</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {users.map(u => (
-            <tr key={u.id} style={{ borderTop:'1px solid var(--border)' }}>
-              <td style={{padding:8}}>{u.name ?? '—'}</td>
-              <td style={{padding:8}}>{u.email}</td>
-              <td style={{padding:8}}>
-                <span className={`badge badge--role-${String(u.role).toLowerCase()}`}>{u.role}</span>
-              </td>
-              <td style={{padding:8}}>
-                <span className={`badge badge--status-${String(u.status).toLowerCase()}`}>{u.status}</span>
-              </td>
-              <td style={{padding:8}}>{new Date(u.createdAt).toLocaleString()}</td>
-
-              <td style={{padding:8}}>
-                <div className="table-actions">
-                  <EditUserButton user={u as any} />
-                  <StatusToggle user={{ id: u.id, status: u.status as any }} />
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div style={{ display: 'grid', gap: 12 }}>
+      <PageHeader title="👥 Utilizadores" subtitle="Gestão de contas da plataforma." />
+      <Toolbar right={<div style={{ opacity: 0.8, fontSize: 14 }}>Total: {users.length}</div>} />
+      <Card>
+        <CardContent>
+          <Suspense fallback={<div style={{ padding: 12 }}>A carregar utilizadores…</div>}>
+            <UsersClientView users={users} />
+          </Suspense>
+        </CardContent>
+      </Card>
     </div>
   );
 }

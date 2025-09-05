@@ -1,5 +1,6 @@
+// src/app/login/LoginClient.tsx
 "use client";
-
+import type { Route } from 'next';
 import React, { useState } from "react";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
@@ -33,7 +34,6 @@ export default function LoginClient() {
     <div
       className="auth-wrap"
       style={{
-        // centra SEM depender de CSS externo
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -48,7 +48,7 @@ export default function LoginClient() {
         aria-labelledby="auth-title"
         style={{
           width: "min(520px, 92vw)",
-          background: "var(--panel)",
+          background: "var(--card)",
           border: "1px solid var(--border)",
           borderRadius: 14,
           boxShadow: "0 20px 40px rgba(0,0,0,.06)",
@@ -110,7 +110,7 @@ export default function LoginClient() {
                 border: "1px solid var(--border)",
                 borderRadius: 10,
                 padding: "10px 12px",
-                background: "var(--panel)",
+                background: "var(--card)",
               }}
             >
               {show ? "Esconder" : "Mostrar"}
@@ -135,17 +135,7 @@ export default function LoginClient() {
           </button>
 
           {err && (
-            <div
-              className="badge-danger"
-              role="alert"
-              style={{
-                background: "color-mix(in oklab, var(--danger) 15%, transparent)",
-                border: "1px solid color-mix(in oklab, var(--danger) 40%, var(--border))",
-                color: "var(--danger)",
-                borderRadius: 10,
-                padding: "8px 10px",
-              }}
-            >
+            <div className="badge-danger" role="alert" style={{ borderRadius: 10, padding: "8px 10px" }}>
               {err}
             </div>
           )}
@@ -160,10 +150,10 @@ export default function LoginClient() {
               marginTop: 4,
             }}
           >
-            <Link href="/login/forgot" className="btn link">
+            <Link href={'/login/forgot' as Route} className="btn link">
               Esqueceste-te da palavra-passe?
             </Link>
-            <Link href="/register" className="btn link">
+            <Link href={'/register' as Route} className="btn link">
               Registar
             </Link>
           </div>

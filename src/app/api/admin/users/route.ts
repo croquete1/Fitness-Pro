@@ -1,85 +1,44 @@
 // src/app/api/admin/users/route.ts
-import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { requireAdmin } from "@/lib/guards";
-import { Role, Status, AuditKind } from "@prisma/client";
-import { logAudit } from "@/lib/audit";
+// GET /api/admin/users?role=CLIENT|TRAINER|ADMIN&q=andre&page=1&pageSize=20
+import { NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
+import { getSessionUser } from '@/lib/auth';
+import { toAppRole } from '@/lib/roles';
 
-export async function PATCH(req: Request) {
-  try {
-    const session = await requireAdmin(); // deve lançar "UNAUTHORIZED"/"FORBIDDEN" se falhar
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
-    const body = await req.json().catch(() => ({}));
-    const id = typeof body?.id === "string" ? body.id.trim() : "";
-    if (!id) {
-      return NextResponse.json({ error: "ID em falta" }, { status: 400 });
-    }
-
-    // Validar e mapear enums
-    const nextRoleKey = body?.role as keyof typeof Role | undefined;
-    const nextStatusKey = body?.status as keyof typeof Status | undefined;
-
-    const delta: Partial<{ role: Role; status: Status }> = {};
-    if (nextRoleKey) {
-      if (!(nextRoleKey in Role)) {
-        return NextResponse.json({ error: "Role inválida" }, { status: 400 });
-      }
-      delta.role = Role[nextRoleKey];
-    }
-    if (nextStatusKey) {
-      if (!(nextStatusKey in Status)) {
-        return NextResponse.json({ error: "Status inválido" }, { status: 400 });
-      }
-      delta.status = Status[nextStatusKey];
-    }
-
-    if (!delta.role && !delta.status) {
-      return NextResponse.json({ error: "Nada para atualizar" }, { status: 400 });
-    }
-
-    // Estado anterior (para diff)
-    const before = await prisma.user.findUnique({
-      where: { id },
-      select: { role: true, status: true },
-    });
-    if (!before) {
-      return NextResponse.json({ error: "Utilizador não encontrado" }, { status: 404 });
-    }
-
-    // Atualizar
-    const updated = await prisma.user.update({
-      where: { id },
-      data: delta,
-      select: { id: true, role: true, status: true },
-    });
-
-    // Qual o tipo de audit
-    const changedRole = Boolean(delta.role);
-    const changedStatus = Boolean(delta.status);
-    const kind =
-      changedRole && changedStatus
-        ? AuditKind.ACCOUNT_ROLE_CHANGE // usamos o mesmo tipo; o diff mostra os dois campos
-        : changedRole
-        ? AuditKind.ACCOUNT_ROLE_CHANGE
-        : AuditKind.ACCOUNT_STATUS_CHANGE;
-
-    // Registo de auditoria
-    await logAudit({
-      actorId: session.user.id,
-      kind,
-      message: "Atualização de conta",
-      targetType: "USER",
-      targetId: id,
-      diff: {
-        before,
-        after: { role: updated.role, status: updated.status },
-      },
-    });
-
-    return NextResponse.json({ ok: true, user: updated });
-  } catch (e) {
-    const msg = (e as Error)?.message || "";
-    const code = msg === "UNAUTHORIZED" ? 401 : msg === "FORBIDDEN" ? 403 : 500;
-    return NextResponse.json({ error: code === 500 ? "Erro interno" : msg }, { status: code });
+export async function GET(req: Request) {
+  const me = await getSessionUser();
+  if (!me || toAppRole((me as any).role) !== 'ADMIN') {
+    return new NextResponse('Forbidden', { status: 403 });
   }
+
+  const url = new URL(req.url);
+  const q = (url.searchParams.get('q') ?? '').trim();
+  const role = (url.searchParams.get('role') ?? '').toUpperCase();
+  const page = Math.max(1, Number(url.searchParams.get('page') ?? 1));
+  const pageSize = Math.min(50, Math.max(5, Number(url.searchParams.get('pageSize') ?? 20)));
+
+  const where: any = {};
+  if (q) {
+    where.OR = [
+      { name: { contains: q, mode: 'insensitive' } },
+      { email: { contains: q, mode: 'insensitive' } },
+    ];
+  }
+  if (role === 'CLIENT' || role === 'TRAINER' || role === 'ADMIN') where.role = role;
+
+  const [items, total] = await Promise.all([
+    prisma.user.findMany({
+      where,
+      orderBy: [{ createdAt: 'desc' }],
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: { id: true, name: true, email: true, role: true, status: true, createdAt: true },
+    }),
+    prisma.user.count({ where }),
+  ]);
+
+  return NextResponse.json({ ok: true, items, total, page, pageSize });
 }

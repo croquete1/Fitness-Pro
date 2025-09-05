@@ -6,17 +6,19 @@ export const fetchCache = 'force-no-store';
 import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { Role } from '@prisma/client';
+import { toAppRole } from '@/lib/roles';
 import PTWalletView from './PTWalletView';
-
-type Me = { id: string; role: Role };
 
 export default async function Page() {
   const session = await getServerSession(authOptions);
-  const me = session?.user as unknown as Me;
+  const user = session?.user;
 
-  if (!me?.id) redirect('/login');
-  if (me.role !== Role.ADMIN && me.role !== Role.TRAINER) redirect('/dashboard');
+  if (!user || !user.id) {
+    redirect('/login');
+  }
+
+  const role = toAppRole(user.role);
+  if (!role || (role !== 'ADMIN' && role !== 'PT')) redirect('/dashboard');
 
   return (
     <div style={{ padding: 12, display: 'grid', gap: 12 }}>
@@ -34,13 +36,13 @@ export default async function Page() {
           backdropFilter: 'saturate(180%) blur(6px)',
         }}
       >
-        <h1 style={{ margin: 0, fontSize: 18 }}>
-          {me.role === Role.TRAINER ? 'Minha carteira' : 'Carteira (Admin)'}
+        <h1>
+          {role === 'PT' ? 'Minha carteira' : 'Carteira (Admin)'}
         </h1>
       </div>
 
       <div className="card" style={{ padding: 8 }}>
-        <PTWalletView meId={me.id} isAdmin={me.role === Role.ADMIN} />
+        <PTWalletView meId={user.id} isAdmin={role === 'ADMIN'} />
       </div>
     </div>
   );

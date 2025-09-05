@@ -1,115 +1,51 @@
 // src/lib/roles.ts
-import { Role } from '@prisma/client';
+export type DbRole = 'ADMIN' | 'TRAINER' | 'CLIENT';
+export type AppRole = 'ADMIN' | 'PT' | 'CLIENT';
 
-/**
- * Papel "de aplicação" — simples string literal, útil para componentes e guards.
- * Mantém paridade com o enum Prisma Role, mas tolera aliases vindos da sessão.
- */
-export type AppRole = 'ADMIN' | 'TRAINER' | 'CLIENT';
+// Aliases aceites em runtime → role canónica da App
+const ROLE_ALIASES: Record<string, AppRole> = {
+  // Admin
+  ADMIN: 'ADMIN', Admin: 'ADMIN', admin: 'ADMIN',
 
-/**
- * Normaliza um valor qualquer (string/enum) para o enum Prisma Role.
- * Aceita aliases em qualquer casing (ex: 'pt', 'coach', 'user', 'aluno').
- * Retorna null se não conseguir mapear.
- */
-export function normalizeRole(input: unknown): Role | null {
-  if (!input) return null;
+  // Trainer/PT
+  TRAINER: 'PT', Trainer: 'PT', trainer: 'PT',
+  PT: 'PT', Pt: 'PT', pt: 'PT',
 
-  // Já é o enum Prisma Role?
-  if (Object.values(Role).includes(input as Role)) {
-    return input as Role;
-  }
+  // Client
+  CLIENT: 'CLIENT', Client: 'CLIENT', client: 'CLIENT',
+};
 
-  if (typeof input === 'string') {
-    const v = input.trim().toUpperCase();
-    switch (v) {
-      case 'ADMIN':
-        return Role.ADMIN;
-      case 'TRAINER':
-      case 'PT':
-      case 'COACH':
-        return Role.TRAINER;
-      case 'CLIENT':
-      case 'USER':
-      case 'CUSTOMER':
-      case 'ALUNO':
-      case 'STUDENT':
-        return Role.CLIENT;
-      default:
-        return null;
-    }
-  }
+// ---- Normalização (UI/App) ----
+export function toAppRole(input: unknown): AppRole | null {
+  if (input == null) return null;
+  const key = String(input).trim();
+  return ROLE_ALIASES[key] ?? null;
+}
 
+// Compatibilidade: alguns módulos usam "normalizeRole"
+export const normalizeRole = toAppRole;
+
+// ---- Converters DB <-> App ----
+export function dbRoleToAppRole(input: DbRole | string): AppRole | null {
+  if (input == null) return null;
+  const v = String(input).trim().toUpperCase();
+  if (v === 'TRAINER') return 'PT';
+  if (v === 'ADMIN') return 'ADMIN';
+  if (v === 'CLIENT') return 'CLIENT';
+  return toAppRole(input);
+}
+
+export function appRoleToDbRole(input: AppRole | string): DbRole | null {
+  if (input == null) return null;
+  const v = String(input).trim().toUpperCase();
+  if (v === 'ADMIN') return 'ADMIN';
+  if (v === 'CLIENT') return 'CLIENT';
+  if (v === 'PT' || v === 'TRAINER') return 'TRAINER';
   return null;
 }
 
-/**
- * Converte um valor qualquer para AppRole (ADMIN | TRAINER | CLIENT).
- * Útil em componentes que esperam strings simples e não o enum Prisma.
- */
-export function toAppRole(input: unknown): AppRole | null {
-  const r = normalizeRole(input);
-  if (!r) return null;
-  switch (r) {
-    case Role.ADMIN:
-      return 'ADMIN';
-    case Role.TRAINER:
-      return 'TRAINER';
-    case Role.CLIENT:
-      return 'CLIENT';
-    default:
-      return null;
-  }
-}
-
-/** Helpers booleanos diretos */
-export function isAdmin(input: unknown): boolean {
-  const r = normalizeRole(input);
-  return r === Role.ADMIN;
-}
-
-export function isTrainer(input: unknown): boolean {
-  const r = normalizeRole(input);
-  return r === Role.TRAINER;
-}
-
-export function isClient(input: unknown): boolean {
-  const r = normalizeRole(input);
-  return r === Role.CLIENT;
-}
-
-/**
- * Quem pode gerir/alocar clientes (PT e ADMIN).
- * Aceita Role (Prisma), AppRole (string) ou string arbitrária (ex: da sessão).
- */
-export function canManageClients(input: unknown): boolean {
-  const r = normalizeRole(input);
-  return r === Role.ADMIN || r === Role.TRAINER;
-}
-
-/**
- * Quem tem acesso a faturação/pagamentos (normalmente ADMIN e TRAINER).
- * Exportada porque é usada pela SidebarPT e afins.
- */
-export function hasBillingAccess(input: unknown): boolean {
-  const r = normalizeRole(input);
-  return r === Role.ADMIN || r === Role.TRAINER;
-}
-
-/**
- * Quem tem acesso a funcionalidades de treinador (treinos, planos, carteira).
- */
-export function hasTrainerFeatures(input: unknown): boolean {
-  const r = normalizeRole(input);
-  return r === Role.ADMIN || r === Role.TRAINER;
-}
-
-/**
- * Cast seguro para Role (Prisma). Lança erro se não conseguir mapear.
- * Útil em rotas/API onde prefiras "fail fast".
- */
-export function assertPrismaRole(input: unknown): Role {
-  const r = normalizeRole(input);
-  if (!r) throw new Error('Invalid role');
-  return r;
-}
+// ---- Type guards ----
+export const isAdmin   = (r: unknown) => toAppRole(r) === 'ADMIN';
+export const isPT      = (r: unknown) => toAppRole(r) === 'PT';
+export const isTrainer = (r: unknown) => toAppRole(r) === 'PT';   // alias para compatibilidade
+export const isClient  = (r: unknown) => toAppRole(r) === 'CLIENT';

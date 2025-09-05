@@ -1,67 +1,42 @@
 // src/app/(app)/layout.tsx
-import Script from "next/script";
-import AppProviders from "@/components/layout/AppProviders";
-import AppHeader from "@/components/layout/AppHeader";
-import RoleSidebar from "@/components/layout/RoleSidebar";
-import SidebarHoverPeeker from "@/components/layout/SidebarHoverPeeker";
-import ToastsProvider from "@/components/ui/Toasts";
+export const dynamic = 'force-dynamic';
 
-// CSS do tema (certifica-te que existe)
-import "./theme.css";
+import React from 'react';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { toAppRole } from '@/lib/roles';
+import type { AppRole } from '@/lib/roles';
 
-export const dynamic = "force-dynamic";
+import SidebarProvider from '@/components/layout/SidebarProvider';
+import RoleSidebar from '@/components/layout/RoleSidebar';
+import SidebarHoverPeeker from '@/components/layout/SidebarHoverPeeker';
+import AppProviders from '@/components/layout/AppProviders';
+import AppHeader from '@/components/layout/AppHeader';
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  const session = await getServerSession(authOptions);
+  const role = (toAppRole(session?.user?.role) ?? 'CLIENT') as AppRole;
+  const userLabel = (session?.user?.name ?? session?.user?.email ?? 'Utilizador') as string;
+
   return (
-    <html lang="pt-PT" suppressHydrationWarning>
-      <head>
-        {/* Inicializa theme + estado da sidebar ANTES de pintar */}
-        <Script id="init-preferences" strategy="beforeInteractive">{`
-(function () {
-  try {
-    var root = document.documentElement;
-    // tema
-    var theme = localStorage.getItem("theme");
-    if (theme === "dark" || theme === "light") {
-      root.setAttribute("data-theme", theme);
-    } else {
-      var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-      root.setAttribute("data-theme", prefersDark ? "dark" : "light");
-    }
-    // sidebar
-    var collapsed = localStorage.getItem("fp:sb:collapsed");
-    var pinned    = localStorage.getItem("fp:sb:pinned");
-    root.setAttribute("data-sb-collapsed", collapsed === "1" ? "1" : "0");
-    root.setAttribute("data-sb-pinned",    pinned === "1" ? "1" : "0");
-    // largura atual da coluna usada pelo header/main
-    var cs = getComputedStyle(root);
-    var w  = cs.getPropertyValue("--sb-width").trim();
-    var wc = cs.getPropertyValue("--sb-width-collapsed").trim();
-    root.style.setProperty("--sb-col", (pinned === "1" ? (collapsed === "1" ? wc : w) : wc) || w);
-  } catch (e) {}
-})();
-        `}</Script>
-      </head>
+    <SidebarProvider>
+      <AppProviders>
+        <div
+          className="fp-shell"
+          style={{ display: 'grid', gridTemplateColumns: '280px 1fr', minHeight: '100vh' }}
+        >
+          <aside>
+            <RoleSidebar role={role} userLabel={userLabel} />
+          </aside>
 
-      <body className="app-shell">
-        {/* Provider de toasts a envolver tudo */}
-        <ToastsProvider>
-          <AppProviders>
-            {/* Sidebar fixa (única) */}
-            <RoleSidebar />
-            {/* Zona de hover para “peek” quando não está afixada */}
-            <SidebarHoverPeeker />
+          <div className="app-shell fp-main" style={{ minWidth: 0 }}>
+            <AppHeader />
+            <div className="fp-content">{children}</div>
+          </div>
+        </div>
 
-            {/* Header fixo */}
-            <header className="app-header">
-              <AppHeader />
-            </header>
-
-            {/* Conteúdo recuado pela sidebar */}
-            <main id="app-content">{children}</main>
-          </AppProviders>
-        </ToastsProvider>
-      </body>
-    </html>
+        <SidebarHoverPeeker />
+      </AppProviders>
+    </SidebarProvider>
   );
 }

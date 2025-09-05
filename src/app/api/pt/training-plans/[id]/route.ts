@@ -1,120 +1,134 @@
 // src/app/api/pt/training-plans/[id]/route.ts
-export const dynamic = 'force-dynamic';
-
 import { NextResponse } from 'next/server';
-import { getSessionUser } from '@/lib/sessions';
-import { toAppRole } from '@/lib/roles';
-import { createServerClient } from '@/lib/supabaseServer';
-import { logAudit, AUDIT_KINDS, AUDIT_TARGET_TYPES } from '@/lib/audit';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import prisma from '@/lib/prisma';
+import type { AppRole } from '@/lib/roles';
+import { toAppRole, isAdmin, isPT } from '@/lib/roles';
 
-/** Campos permitidos no update do plano (ajusta conforme o teu schema) */
-type PlanUpdate = Partial<{
-  title: string;
-  description: string | null;
-  is_published: boolean;
-  blocks: unknown;          // JSON de exercícios/estruturas
-  notes: string | null;
-}>;
+type PlanStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
 
+// Shape canónico do plano (camelCase do Prisma)
 type TrainingPlanRow = {
   id: string;
-  trainer_id: string | null;
-  client_id: string | null;
+  trainerId: string;
+  clientId: string;
   title: string;
-  description?: string | null;
-  is_published?: boolean | null;
-  blocks?: unknown;
-  notes?: string | null;
-  updated_at?: string;
+  status: PlanStatus | string;
+  updatedAt: Date;
 };
 
-async function canEditPlan(userId: string, role: ReturnType<typeof toAppRole>, plan: TrainingPlanRow) {
-  if (role === 'ADMIN') return true;
-  if (role === 'TRAINER' && plan.trainer_id === userId) return true;
+function canViewPlan(userId: string, role: AppRole, plan: TrainingPlanRow) {
+  if (isAdmin(role)) return true;
+  if (isPT(role) && plan.trainerId === userId) return true; // PT só vê planos que treinam
+  // Cliente pode ver o seu próprio plano — se fizeres GET autenticado para clientes
+  if (role === 'CLIENT' && plan.clientId === userId) return true;
   return false;
 }
 
-// GET: devolve o plano (se tiver acesso)
-export async function GET(_: Request, { params }: { params: { id: string } }) {
-  const user = await getSessionUser();
-  if (!user) return new NextResponse('Unauthorized', { status: 401 });
-
-  const supabase = createServerClient();
-  const { data: plan, error } = await supabase
-    .from('training_plans')
-    .select('id, trainer_id, client_id, title, description, is_published, blocks, notes, updated_at')
-    .eq('id', params.id)
-    .maybeSingle<TrainingPlanRow>();
-
-  if (error) return new NextResponse(error.message, { status: 500 });
-  if (!plan) return new NextResponse('Not Found', { status: 404 });
-
-  const role = toAppRole((user as any).role);
-  if (!(await canEditPlan(user.id, role, plan))) {
-    return new NextResponse('Forbidden', { status: 403 });
-  }
-
-  return NextResponse.json(plan);
+function canEditPlan(userId: string, role: AppRole, plan: TrainingPlanRow) {
+  if (isAdmin(role)) return true;
+  // 🔧 Corrigido: usar 'PT' (role da App), não 'TRAINER'
+  if (isPT(role) && plan.trainerId === userId) return true;
+  return false;
 }
 
-// PATCH: atualiza campos do plano (PT dono ou ADMIN)
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const user = await getSessionUser();
-  if (!user) return new NextResponse('Unauthorized', { status: 401 });
+async function getSessionUser() {
+  const session = await getServerSession(authOptions);
+  const rawUser = session?.user;
+  if (!rawUser?.id) return null;
 
-  const id = params.id;
-  if (!id) return new NextResponse('Missing id', { status: 400 });
+  const role = toAppRole((rawUser as any).role);
+  if (!role) return null;
 
-  const supabase = createServerClient();
+  return { id: String(rawUser.id), role };
+}
 
-  // Carrega plano atual para verificar permissões e capturar "before"
-  const { data: before, error: loadErr } = await supabase
-    .from('training_plans')
-    .select('id, trainer_id, client_id, title, description, is_published, blocks, notes, updated_at')
-    .eq('id', id)
-    .maybeSingle<TrainingPlanRow>();
+/** GET: obter um plano de treino (admin, PT do plano, ou cliente dono do plano) */
+export async function GET(_req: Request, { params }: { params: { id: string } }) {
+  const me = await getSessionUser();
+  if (!me) return new NextResponse('Unauthorized', { status: 401 });
 
-  if (loadErr) return new NextResponse(loadErr.message, { status: 500 });
-  if (!before) return new NextResponse('Not Found', { status: 404 });
+  const plan = await prisma.trainingPlan.findUnique({
+    where: { id: params.id },
+    select: {
+      id: true,
+      trainerId: true,
+      clientId: true,
+      title: true,
+      status: true,
+      updatedAt: true,
+    },
+  });
 
-  const role = toAppRole((user as any).role);
-  if (!(await canEditPlan(user.id, role, before))) {
+  if (!plan) return new NextResponse('Not found', { status: 404 });
+
+  if (!canViewPlan(me.id, me.role, plan)) {
     return new NextResponse('Forbidden', { status: 403 });
   }
 
-  // Sanitiza o body para só aceitar campos permitidos
-  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
-  const data: PlanUpdate = {};
-  if (typeof body.title === 'string') data.title = body.title;
-  if (typeof body.description === 'string' || body.description === null) data.description = body.description as any;
-  if (typeof body.is_published === 'boolean') data.is_published = body.is_published as boolean;
-  if (body.blocks !== undefined) data.blocks = body.blocks;
-  if (typeof body.notes === 'string' || body.notes === null) data.notes = body.notes as any;
+  // Serializar datas para ISO
+  return NextResponse.json({
+    ...plan,
+    updatedAt: plan.updatedAt.toISOString(),
+  });
+}
+
+/** PATCH: atualizar um plano (admin ou PT dono do plano) */
+export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  const me = await getSessionUser();
+  if (!me) return new NextResponse('Unauthorized', { status: 401 });
+
+  const plan = await prisma.trainingPlan.findUnique({
+    where: { id: params.id },
+    select: {
+      id: true,
+      trainerId: true,
+      clientId: true,
+      title: true,
+      status: true,
+      updatedAt: true,
+    },
+  });
+  if (!plan) return new NextResponse('Not found', { status: 404 });
+
+  if (!canEditPlan(me.id, me.role, plan)) {
+    return new NextResponse('Forbidden', { status: 403 });
+  }
+
+  // Corpo minimal (sem zod para evitar deps): aceita title/status
+  let body: Partial<{ title: string; status: PlanStatus }>;
+  try {
+    body = await req.json();
+  } catch {
+    return new NextResponse('Invalid JSON body', { status: 400 });
+  }
+
+  const data: Record<string, unknown> = {};
+  if (typeof body.title === 'string' && body.title.trim()) data.title = body.title.trim();
+  if (body.status && ['DRAFT', 'ACTIVE', 'ARCHIVED'].includes(body.status)) {
+    data.status = body.status;
+  }
 
   if (Object.keys(data).length === 0) {
     return new NextResponse('No valid fields to update', { status: 400 });
   }
 
-  // Atualiza
-  const { data: updated, error: upErr } = await supabase
-    .from('training_plans')
-    .update(data)
-    .eq('id', id)
-    .select('id, trainer_id, client_id, title, description, is_published, blocks, notes, updated_at')
-    .maybeSingle<TrainingPlanRow>();
+  const updated = await prisma.trainingPlan.update({
+    where: { id: params.id },
+    data,
+    select: {
+      id: true,
+      trainerId: true,
+      clientId: true,
+      title: true,
+      status: true,
+      updatedAt: true,
+    },
+  });
 
-  if (upErr) return new NextResponse(upErr.message, { status: 500 });
-  if (!updated) return new NextResponse('Not Found', { status: 404 });
-
-  // Audit (corrigido: usar 'TRAINING_PLAN' em vez de 'TrainingPlan' e kind de plano)
-  await logAudit({
-  actorId: user.id,
-  kind: AUDIT_KINDS.TRAINING_PLAN_UPDATE, // ← antes era 'PLAN_UPDATE'
-  message: 'PT/ADMIN atualizou plano de treino',
-  targetType: AUDIT_TARGET_TYPES.TRAINING_PLAN,
-  targetId: String(updated.id),
-  diff: { changed: Object.keys(data) }, // ajusta se usares outro nome para o payload
-});
-
-  return NextResponse.json(updated);
+  return NextResponse.json({
+    ...updated,
+    updatedAt: updated.updatedAt.toISOString(),
+  });
 }

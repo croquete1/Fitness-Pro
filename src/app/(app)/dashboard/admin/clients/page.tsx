@@ -1,101 +1,105 @@
 // src/app/(app)/dashboard/admin/clients/page.tsx
+export const dynamic = 'force-dynamic';
+
+import prisma from '@/lib/prisma';
+import PageHeader from '@/components/ui/PageHeader';
+import Toolbar from '@/components/ui/Toolbar';
+import Card, { CardContent } from '@/components/ui/Card';
+import Badge from '@/components/ui/Badge';
+import Link from 'next/link';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { toAppRole } from '@/lib/roles';
 import { redirect } from 'next/navigation';
-import { Role } from '@prisma/client';
-import { createServerClient } from '@/lib/supabaseServer';
-import PackageEditor from '@/components/packages/PackageEditor';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-export const fetchCache = 'force-no-store';
+type Row = {
+  id: string;
+  name: string | null;
+  email: string;
+  status: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
+  createdAt: string;
+};
 
-async function listAllPackages() {
-  const sb = createServerClient();
-  const { data, error } = await sb
-    .from('client_packages')
-    .select('*')
-    .order('created_at', { ascending: false });
-  return error ? [] : (data ?? []);
-}
-async function usersByIds(ids: string[]) {
-  if (!ids.length) return {};
-  const sb = createServerClient();
-  const { data } = await sb.from('users').select('id,name,email').in('id', ids);
-  const map: Record<string, any> = {};
-  for (const u of (data ?? [])) map[u.id] = u;
-  return map;
-}
-
-export default async function Page() {
+export default async function AdminClientsPage() {
   const session = await getServerSession(authOptions);
-  const me = session?.user as any;
-  if (!me?.id) redirect('/login');
-  if (me.role !== Role.ADMIN) redirect('/dashboard');
+  if (!session?.user?.id) redirect('/login');
+  if (toAppRole(session.user.role) !== 'ADMIN') redirect('/dashboard');
 
-  const pkgs = await listAllPackages();
-  const ids = [...new Set(pkgs.flatMap((p: any) => [p.client_id, p.trainer_id]))];
-  const mapUsers = await usersByIds(ids);
+  const rowsRaw = await prisma.user.findMany({
+    where: { role: 'CLIENT' },
+    select: { id: true, name: true, email: true, status: true, createdAt: true },
+    orderBy: { createdAt: 'desc' },
+    take: 200,
+  });
+
+  const rows: Row[] = rowsRaw.map((u) => ({
+    id: u.id,
+    name: u.name,
+    email: u.email,
+    status: u.status as Row['status'],
+    createdAt: u.createdAt.toISOString(),
+  }));
 
   return (
-    <div style={{ padding: 16, display: 'grid', gap: 12 }}>
-      <div className="flex items-center justify-between">
-        <h1 style={{ margin: 0 }}>Clientes & Pacotes</h1>
-
-        {/* NUNCA passar funções a Client Components a partir de Server Components */}
-        <PackageEditor admin mode="create" />
-      </div>
-
-      <div className="card" style={{ padding: 12 }}>
-        <table className="table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
-          <thead>
-            <tr>
-              <th style={{textAlign:'left',padding:8}}>Trainer</th>
-              <th style={{textAlign:'left',padding:8}}>Cliente</th>
-              <th style={{textAlign:'left',padding:8}}>Pacote</th>
-              <th style={{textAlign:'left',padding:8}}>Sessões</th>
-              <th style={{textAlign:'left',padding:8}}>Preço</th>
-              <th style={{textAlign:'left',padding:8}}>Período</th>
-              <th style={{textAlign:'left',padding:8}}>Estado</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {pkgs.map((p: any) => (
-              <tr key={p.id} style={{ borderTop:'1px solid var(--border)' }}>
-                <td style={{padding:8}}>{mapUsers[p.trainer_id]?.name || mapUsers[p.trainer_id]?.email || p.trainer_id}</td>
-                <td style={{padding:8}}>{mapUsers[p.client_id]?.name || mapUsers[p.client_id]?.email || p.client_id}</td>
-                <td style={{padding:8}}>{p.package_name}</td>
-                <td style={{padding:8}}>{p.sessions_used}/{p.sessions_total}</td>
-                <td style={{padding:8}}>{(p.price_cents/100).toFixed(2)} €</td>
-                <td style={{padding:8}}>{p.start_date || '—'} {p.end_date ? `→ ${p.end_date}` : ''}</td>
-                <td style={{padding:8}}><span className="chip">{p.status}</span></td>
-                <td style={{padding:8}}>
-                  {/* Também sem onClose */}
-                  <PackageEditor
-                    admin
-                    mode="edit"
-                    initial={{
-                      id: p.id,
-                      trainerId: p.trainer_id,
-                      clientId: p.client_id,
-                      planId: p.plan_id,
-                      packageName: p.package_name,
-                      sessionsTotal: p.sessions_total,
-                      sessionsUsed: p.sessions_used,
-                      priceCents: p.price_cents,
-                      startDate: p.start_date,
-                      endDate: p.end_date,
-                      status: p.status,
-                      notes: p.notes,
-                    }}
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+    <div style={{ display: 'grid', gap: 12 }}>
+      <PageHeader title="🧑‍🤝‍🧑 Clientes" subtitle="Lista de clientes registados." />
+      <Toolbar right={<div style={{ opacity: 0.8, fontSize: 14 }}>Total: {rows.length}</div>} />
+      <Card>
+        <CardContent>
+          {rows.length === 0 ? (
+            <div style={{ opacity: 0.7 }}>Sem clientes.</div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead style={{ textAlign: 'left' }}>
+                  <tr>
+                    <th style={{ padding: 8 }}>Nome</th>
+                    <th style={{ padding: 8 }}>Email</th>
+                    <th style={{ padding: 8 }}>Estado</th>
+                    <th style={{ padding: 8 }}>Criado</th>
+                    <th style={{ padding: 8 }} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => (
+                    <tr key={r.id} style={{ borderTop: '1px solid rgba(0,0,0,0.08)' }}>
+                      <td style={{ padding: 8, fontWeight: 600 }}>{r.name ?? '—'}</td>
+                      <td style={{ padding: 8 }}>{r.email}</td>
+                      <td style={{ padding: 8 }}>
+                        <Badge
+                          variant={
+                            r.status === 'ACTIVE'
+                              ? 'success'
+                              : r.status === 'PENDING'
+                              ? 'warning'
+                              : 'neutral'
+                          }
+                        >
+                          {r.status}
+                        </Badge>
+                      </td>
+                      <td style={{ padding: 8 }}>{new Date(r.createdAt).toLocaleString()}</td>
+                      <td style={{ padding: 8 }}>
+                        <Link
+                          href={`/dashboard/admin/clients/${r.id}`}
+                          style={{
+                            textDecoration: 'none',
+                            border: '1px solid rgba(0,0,0,0.15)',
+                            padding: '6px 10px',
+                            borderRadius: 8,
+                          }}
+                        >
+                          Abrir
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

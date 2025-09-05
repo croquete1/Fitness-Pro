@@ -1,129 +1,98 @@
 // src/components/auth/LoginForm.tsx
-"use client";
+'use client';
 
-import { useState, useMemo, FormEvent } from "react";
-import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { signIn } from 'next-auth/react';
+import Link from 'next/link';
+import type { Route } from 'next';
 
-type Props = {
-  error?: string;
-  callbackUrl?: string;
-};
-
-function mapErrorMessage(err?: string) {
-  if (!err) return undefined;
-  // Mapeamento simples para não mostrar erros internos/Prisma
-  if (err === "CredentialsSignin") return "Credenciais inválidas.";
-  if (err === "AccessDenied") return "Acesso negado.";
-  if (/Invalid|not found|enum|column|database/i.test(err))
-    return "Ocorreu um erro ao iniciar sessão.";
-  try {
-    const decoded = decodeURIComponent(err);
-    if (decoded.length > 120) return "Não foi possível iniciar sessão.";
-    return decoded;
-  } catch {
-    return "Não foi possível iniciar sessão.";
-  }
-}
-
-export default function LoginForm({ error, callbackUrl = "/dashboard" }: Props) {
+export default function LoginForm() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPwd, setShowPwd] = useState(false);
+  const [email, setEmail] = useState('');
+  const [pw, setPw] = useState('');
+  const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [formError, setFormError] = useState<string | undefined>(undefined);
+  const [err, setErr] = useState<string | null>(null);
 
-  const initialError = useMemo(() => mapErrorMessage(error), [error]);
+  const callbackUrl = '/dashboard' as Route; // alvo por omissão
+  const canSubmit = email.trim().length > 0 && pw.length > 0 && !loading;
 
-  async function onSubmit(e: FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setFormError(undefined);
+    if (!canSubmit) return;
+    setErr(null);
     setLoading(true);
 
-    // redirect: false para tratar feedback sem recarregar
-    const res = (await signIn("credentials", {
+    // usamos redirect:false para controlar a navegação e manter typedRoutes
+    const res = await signIn('credentials', {
       email,
-      password,
+      password: pw,
       redirect: false,
-      callbackUrl,
-    })) as unknown as { error?: string; url?: string | null };
+      callbackUrl, // ainda assim passamos para NextAuth saber o alvo
+    });
 
-    if (res?.error) {
-      setFormError(mapErrorMessage(res.error));
-      setLoading(false);
+    setLoading(false);
+
+    if (!res) {
+      setErr('Ocorreu um problema. Tenta novamente.');
+      return;
+    }
+    if (res.error) {
+      setErr('Credenciais inválidas.');
       return;
     }
 
-    // sucesso → redireciona
-    router.push(res?.url || callbackUrl);
+    // se NextAuth devolveu URL (pode vir com origem completa), extraímos o pathname
+    const target: Route = res.url
+      ? (new URL(res.url, globalThis.location?.origin ?? 'http://localhost').pathname as Route)
+      : callbackUrl;
+
+    router.push(target);
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
-      {(initialError || formError) && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {formError || initialError}
-        </div>
-      )}
+    <form onSubmit={onSubmit} className="auth-fields" style={{ display: 'grid', gap: 12 }}>
+      <label className="auth-label" htmlFor="lemail">Email</label>
+      <input
+        id="lemail"
+        type="email"
+        placeholder="o.teu@email.com"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        required
+        className="auth-input"
+      />
 
-      <div className="space-y-2">
-        <label htmlFor="email" className="text-sm font-medium text-slate-800">
-          Email
-        </label>
+      <label className="auth-label" htmlFor="lpw">Palavra-passe</label>
+      <div className="auth-password" style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8 }}>
         <input
-          id="email"
-          type="email"
+          id="lpw"
+          type={show ? 'text' : 'password'}
+          value={pw}
+          onChange={(e) => setPw(e.target.value)}
           required
-          autoComplete="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none ring-0 placeholder:text-slate-400 hover:border-slate-400 focus:border-slate-900"
-          placeholder="o.teu@email.com"
+          className="auth-input"
         />
+        <button
+          type="button"
+          className="btn"
+          onClick={() => setShow((v) => !v)}
+          aria-pressed={show}
+        >
+          {show ? 'Esconder' : 'Mostrar'}
+        </button>
       </div>
 
-      <div className="space-y-2">
-        <label htmlFor="password" className="text-sm font-medium text-slate-800">
-          Palavra-passe
-        </label>
-        <div className="relative">
-          <input
-            id="password"
-            type={showPwd ? "text" : "password"}
-            required
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 pr-10 text-sm outline-none ring-0 placeholder:text-slate-400 hover:border-slate-400 focus:border-slate-900"
-            placeholder="••••••••"
-          />
-          <button
-            type="button"
-            onClick={() => setShowPwd((v) => !v)}
-            className="absolute inset-y-0 right-2 my-auto inline-flex h-8 items-center justify-center rounded-md px-2 text-xs text-slate-600 hover:bg-slate-100"
-            aria-label={showPwd ? "Ocultar palavra-passe" : "Mostrar palavra-passe"}
-          >
-            {showPwd ? "Ocultar" : "Mostrar"}
-          </button>
-        </div>
-      </div>
+      {err && <div className="badge-danger" role="alert">{err}</div>}
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="inline-flex w-full items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {loading ? "A entrar..." : "Entrar"}
+      <button type="submit" className="btn primary" disabled={!canSubmit}>
+        {loading ? 'A entrar…' : 'Entrar'}
       </button>
 
-      <div className="text-center">
-        <a
-          href="/forgot-password"
-          className="text-xs text-slate-600 underline decoration-slate-300 underline-offset-4 hover:text-slate-800"
-        >
-          Esqueceste-te da palavra-passe?
-        </a>
+      <div className="auth-actions" style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+        <Link href={'/login/forgot' as Route} className="btn link">Esqueceste-te da palavra-passe?</Link>
+        <Link href={'/register' as Route} className="btn link">Registar</Link>
       </div>
     </form>
   );

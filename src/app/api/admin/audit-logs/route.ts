@@ -1,16 +1,9 @@
-// src/app/api/admin/audit-logs/route.ts
-import prisma from '@/lib/prisma';
-import { requireAdmin } from '@/lib/authz';
-import { NextResponse } from 'next/server';
+export const dynamic = 'force-dynamic';
 
-export async function GET() {
-  const { error } = await requireAdmin();
-  if (error) return error;
-
-  const logs = await prisma.auditLog.findMany({
-    orderBy: { createdAt: 'desc' },
-    take: 200,
+export async function POST(req: Request) {
+  const body = await req.json().catch(() => ({}));
+  try { console.log('[AUDIT]', body); } catch {}
+  return new Response(JSON.stringify({ ok: true }), {
+    headers: { 'Content-Type': 'application/json' },
   });
-
-  return NextResponse.json({ data: logs });
 }

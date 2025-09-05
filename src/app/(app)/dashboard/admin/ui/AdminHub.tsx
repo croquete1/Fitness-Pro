@@ -1,45 +1,99 @@
-"use client";
+// src/app/(app)/dashboard/admin/ui/AdminHub.tsx
+'use client';
 
-import Link from "next/link";
-import { usePoll } from "@/hooks/usePoll";
+import React from 'react';
+import Link from 'next/link';
+import type { Route } from 'next';
 
-const Card = (props: { href: string; title: string; desc?: string; icon: React.ReactNode; kpi?: string | number }) => (
-  <Link href={props.href} className="card" style={{
-    padding: 16, borderRadius: 16, display:"grid", gap:8, border:"1px solid var(--border)",
-    transition:"transform .05s ease, box-shadow .15s ease"
-  }}>
-    <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-      {props.icon}
-      <div style={{ fontWeight:800 }}>{props.title}</div>
-      {props.kpi !== undefined && <span className="badge" style={{ marginLeft:"auto" }}>{props.kpi}</span>}
+type CardProps = {
+  href: Route;
+  title: string;
+  desc?: string;
+  icon: React.ReactNode;
+  kpi?: string | number;
+};
+
+const Card: React.FC<CardProps> = ({ href, title, desc, icon, kpi }) => (
+  <Link
+    href={href}
+    className="card"
+    style={{
+      padding: 16,
+      borderRadius: 16,
+      display: 'grid',
+      gap: 8,
+      border: '1px solid var(--border)',
+      transition: 'transform .05s ease, box-shadow .15s ease',
+      background: 'var(--card)',
+      textDecoration: 'none',
+      color: 'inherit',
+    }}
+  >
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <span style={{ fontSize: 22, lineHeight: 1 }}>{icon}</span>
+      <div style={{ fontWeight: 700, fontSize: 16 }}>{title}</div>
+      {kpi !== undefined && (
+        <div
+          style={{
+            marginLeft: 'auto',
+            padding: '2px 8px',
+            borderRadius: 999,
+            background:
+              'linear-gradient(135deg, var(--accent, #7c3aed), var(--accent-2, #06b6d4))',
+            color: '#fff',
+            fontSize: 12,
+            fontWeight: 700,
+          }}
+        >
+          {kpi}
+        </div>
+      )}
     </div>
-    {props.desc && <div className="text-muted" style={{ fontSize:13 }}>{props.desc}</div>}
+    {!!desc && (
+      <div style={{ color: 'var(--muted-fg)', fontSize: 13, lineHeight: 1.35 }}>{desc}</div>
+    )}
   </Link>
 );
 
 export default function AdminHub() {
-  const { data: approvals } = usePoll<{pending:number, active:number, suspended:number}>("/api/admin/approvals/count", { intervalMs: 30000 });
-  const { data: notifs } = usePoll<any[]>("/api/admin/notifications?limit=8", { intervalMs: 45000 });
+  const cards: CardProps[] = [
+    {
+      href: '/dashboard/admin/users' as Route,
+      title: 'Utilizadores',
+      desc: 'Gerir contas, estados e exportações',
+      icon: '👥',
+    },
+    {
+      href: '/dashboard/admin/approvals' as Route,
+      title: 'Aprovações',
+      desc: 'Rever e aprovar inscrições pendentes',
+      icon: '✅',
+    },
+    {
+      href: '/dashboard/admin/exercises' as Route,
+      title: 'Exercícios',
+      desc: 'Catálogo de exercícios e publicação',
+      icon: '🏋️',
+    },
+    {
+      href: '/dashboard/admin/plans' as Route,
+      title: 'Planos',
+      desc: 'Biblioteca de planos de treino',
+      icon: '📚',
+    },
+  ];
 
   return (
-    <div style={{ padding: 16, display:"grid", gap:16 }}>
-      <h1 style={{ margin:0 }}>Administração</h1>
-      <div style={{ display:"grid", gap:16, gridTemplateColumns:"repeat(auto-fit, minmax(260px, 1fr))" }}>
-        <Card href="/dashboard/admin/approvals" title="Aprovações" kpi={approvals?.pending ?? "—"}
-              icon={<span className="badge-success">✅</span>} desc="Pedidos de conta pendentes."/>
-        <Card href="/dashboard/admin/users" title="Utilizadores" icon={<span className="badge">🧑‍💼</span>}
-              desc="Gestão de contas e perfis."/>
-        <Card href="/dashboard/admin/exercises" title="Exercícios" icon={<span className="badge">🏋️</span>}
-              desc="Base de exercícios."/>
-        <Card href="/dashboard/admin/plans" title="Planos (Admin)" icon={<span className="badge">🗂️</span>}
-              desc="Templates e planos globais."/>
-        <Card href="/dashboard/admin/schedule" title="Escala/Equipa" icon={<span className="badge">👥</span>}
-              desc="Atribuições e turnos."/>
-        <Card href="/dashboard/system/health" title="Sistema" icon={<span className="badge">🖥️</span>}
-              desc="Estado do sistema."/>
-        <Card href="/dashboard/system/logs" title="Logs" icon={<span className="badge-danger">🧾</span>}
-              kpi={Array.isArray(notifs) ? notifs.length : "—"} desc="Auditoria e eventos."/>
-      </div>
+    <div
+      style={{
+        display: 'grid',
+        gap: 12,
+        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+      }}
+    >
+      {cards.map((c) => (
+        <Card key={c.title} {...c} />
+      ))}
     </div>
   );
 }

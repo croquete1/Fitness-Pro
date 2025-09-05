@@ -1,4 +1,6 @@
-/* ===== Reset básico / tokens ===== */
+/* ================================ */
+/* ========== RESET BASE ========== */
+/* ================================ */
 *,
 *::before,
 *::after { box-sizing: border-box; }
@@ -9,44 +11,84 @@ body {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
 }
 
-/* --------- Design tokens --------- */
+/* =================================== */
+/* ========== DESIGN TOKENS ========== */
+/* =================================== */
 :root {
+  /* Base */
   --bg: #f7f9fc;
-  --card: #ffffff;
   --fg: #0f172a;
   --muted-fg: #5b677a;
   --border: #e8ecf2;
+
+  /* Card / Header */
+  --card: #ffffff;
+  --card-bg: var(--card);
+  --header-bg: rgba(255,255,255,0.78);
+
+  /* Acentos */
   --primary: #3b82f6;
   --primary-600: #2563eb;
+  --accent: #7c3aed;
+  --accent-2: #06b6d4;
+
+  /* Estado (badges/toasts) */
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger:  #ef4444;
+  --info:    #3b82f6;
+
+  /* Botões */
+  --btn-bg: var(--card);
+  --hover: #eef2f7;
+
+  /* Focus ring */
   --ring: 0 0 0 3px rgba(59,130,246,.3);
 
+  /* Sidebar */
   --sidebar-bg: #ffffff;
   --sidebar-fg: #0f172a;
   --sidebar-muted: #7b8797;
   --sidebar-hover: #eef2f7;
   --sidebar-active: #e5eeff;
 
+  /* Raio e sombra */
   --radius: 12px;
   --shadow-1: 0 2px 8px rgba(15,23,42,.06), 0 1px 3px rgba(15,23,42,.04);
 
-  /* sidebar layout */
-  --sb-collapsed: 64px;   /* coluna icons */
-  --sb-expanded: 260px;   /* aberta */
+  /* Layout Sidebar (expand/colapse) */
+  --sb-collapsed: 64px;
+  --sb-expanded: 260px;
   --sb-ease: cubic-bezier(.18,.9,.22,1);
-  --sb-dur: 560ms;        /* + suave */
+  --sb-dur: 560ms;
 
-  /* largura aplicada já no arranque (ajustada pelo boot script) */
+  /* Largura efetiva (pode ser alterada em runtime) */
   --sb-w: var(--sb-expanded);
+
+  /* Compat App Shell */
+  --sidebar-w: var(--sb-w);
+  --header-h: 56px;
 }
-html[data-sb-collapsed="1"] { --sb-w: var(--sb-collapsed); }
+
+/* Alternador por atributo (compat com 2 abordagens) */
+html[data-sb-collapsed="1"],
+html[data-sidebar="collapsed"] { --sb-w: var(--sb-collapsed); --sidebar-w: var(--sb-collapsed); }
+
 [data-auth-root] { min-height: 100dvh; }
 
+/* =============================== */
+/* ========== DARK MODE ========== */
+/* =============================== */
 [data-theme="dark"] {
   --bg: #0d1117;
-  --card: #0f141b;
   --fg: #e5e7eb;
   --muted-fg: #a7b1c2;
   --border: #1f2a37;
+
+  --card: #0f141b;
+  --card-bg: var(--card);
+  --header-bg: rgba(16, 24, 40, 0.55);
+
   --primary: #60a5fa;
   --primary-600: #3b82f6;
 
@@ -55,9 +97,14 @@ html[data-sb-collapsed="1"] { --sb-w: var(--sb-collapsed); }
   --sidebar-muted: #9aa6b2;
   --sidebar-hover: #141b23;
   --sidebar-active: #182230;
+
+  --accent: #8b5cf6;
+  --accent-2: #22d3ee;
 }
 
-/* ----- fundo com leve vinheta ----- */
+/* ================================ */
+/* ========== BACKGROUND ========== */
+/* ================================ */
 body {
   color: var(--fg);
   background:
@@ -66,32 +113,50 @@ body {
     var(--bg);
 }
 
-/* ===== Elementos genéricos ===== */
+/* ================================== */
+/* ========== ELEMENTARES =========== */
+/* ================================== */
 a { color: inherit; text-decoration: none; }
 button { border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
 input, select, textarea {
-  color: inherit; background: var(--card); border: 1px solid var(--border);
+  color: inherit; background: var(--card-bg); border: 1px solid var(--border);
   border-radius: 10px; padding: 10px 12px; outline: none;
 }
 input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-color: var(--primary); }
 
-/* ===== Botões ===== */
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 14px; border-radius: 12px; }
-.btn.primary { background: var(--primary); color: #fff; }
+/* ============================== */
+/* ========== BOTÕES ============ */
+/* ============================== */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 8px; padding: 10px 14px; border-radius: 12px;
+  border: 1px solid var(--border); background: var(--btn-bg); color: var(--fg);
+}
+.btn:hover { filter: brightness(0.98); }
+.btn:active { transform: translateY(0.5px); }
+.btn:disabled{ opacity:.6; cursor: not-allowed; }
+
+.btn.primary { background: var(--primary); color: #fff; border-color: var(--primary-600); }
 .btn.primary:hover { background: var(--primary-600); }
-.btn.ghost { background: transparent; }
+
+.btn.ghost   { background: transparent; }
 .btn.ghost:hover { background: var(--sidebar-hover); }
+
 .btn.icon { padding: 8px; border-radius: 10px; width: 36px; height: 36px; }
 .btn.icon:hover { background: var(--sidebar-hover); }
 
-/* ===== App Shell ===== */
+.btn.chip { padding: 4px 6px; border-radius: 999px; }
+
+/* ================================ */
+/* ========== APP SHELL =========== */
+/* ================================ */
 .fp-shell {
   display: grid;
   min-height: 100dvh;
   grid-template-columns: var(--sb-w) minmax(0, 1fr);
 }
-.fp-content { min-width: 0; width: 100%; }
-.fp-main  { min-width: 0; width: 100%; padding: 24px; }
+.fp-main, .fp-content { min-width: 0; width: 100%; }
+.fp-main  { padding: 24px; }
 
 /* Header */
 .fp-header {
@@ -105,7 +170,17 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
   padding: 10px 16px;
 }
 
-/* ===== Sidebar ===== */
+/* Compat classes (RoleSidebar/app-shell) */
+.app-shell { padding-left: var(--sidebar-w); transition: padding-left .18s ease; }
+.app-header {
+  position: sticky; top:0; z-index: 30; height: var(--header-h);
+  display:flex; align-items:center; gap:10px; padding: 0 12px;
+  border-bottom: 1px solid var(--border); background: var(--card-bg);
+}
+
+/* ================================= */
+/* ========== SIDEBAR ============== */
+/* ================================= */
 .fp-sidebar {
   width: var(--sb-w);
   background: var(--sidebar-bg);
@@ -117,7 +192,7 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
   overflow: visible;
 }
 
-/* Cabeçalho */
+/* Cabeçalho sidebar */
 .fp-sb-head { display: grid; grid-template-columns: 1fr auto; align-items: center; padding: 10px; gap: 8px; min-height: 56px; }
 .fp-sb-brand { display: flex; align-items: center; gap: 10px; }
 .fp-sb-brand .logo {
@@ -144,51 +219,70 @@ input:focus, select:focus, textarea:focus { box-shadow: var(--ring); border-colo
 .nav-icon svg { width: 20px; height: 20px; }
 .nav-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* ===== Rail (encolhida): esconder labels/sections e centralizar ícones ===== */
-html[data-sb-collapsed="1"] .fp-sidebar .nav-label   { display: none; }
-html[data-sb-collapsed="1"] .fp-sidebar .nav-section { display: none; }
-html[data-sb-collapsed="1"] .fp-sidebar .fp-nav      { gap: 0; padding: 10px 6px; }
-html[data-sb-collapsed="1"] .fp-sidebar .nav-group   { gap: 4px; }
-html[data-sb-collapsed="1"] .fp-sidebar .nav-item    { grid-template-columns: 1fr; justify-items: center; padding: 10px 0; border-radius: 14px; }
+/* Rail (colapsada) */
+html[data-sb-collapsed="1"] .fp-sidebar .nav-label,
+html[data-sidebar="collapsed"] .fp-sidebar .nav-label { display: none; }
+html[data-sb-collapsed="1"] .fp-sidebar .nav-section,
+html[data-sidebar="collapsed"] .fp-sidebar .nav-section { display: none; }
+html[data-sb-collapsed="1"] .fp-sidebar .fp-nav,
+html[data-sidebar="collapsed"] .fp-sidebar .fp-nav { gap: 0; padding: 10px 6px; }
+html[data-sb-collapsed="1"] .fp-sidebar .nav-group,
+html[data-sidebar="collapsed"] .fp-sidebar .nav-group { gap: 4px; }
+html[data-sb-collapsed="1"] .fp-sidebar .nav-item,
+html[data-sidebar="collapsed"] .fp-sidebar .nav-item { grid-template-columns: 1fr; justify-items: center; padding: 10px 0; border-radius: 14px; }
 
-/* ===== Rail → ABRIR AO PASSAR O RATO (overlay, sem empurrar a página) ===== */
-html[data-sb-collapsed="1"] .fp-sidebar:hover {
+/* Rail → abrir ao hover (overlay) */
+html[data-sb-collapsed="1"] .fp-sidebar:hover,
+html[data-sidebar="collapsed"] .fp-sidebar:hover {
   width: var(--sb-expanded);
   box-shadow: 0 18px 60px rgba(15, 23, 42, .22);
   z-index: 60;
 }
-html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section { display: block; }
-html[data-sb-collapsed="1"] .fp-sidebar:hover .fp-nav      { gap: 8px; padding: 8px; }
-html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-group   { gap: 6px; }
-html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-item    { grid-template-columns: 24px 1fr; justify-items: start; padding: 9px 10px; border-radius: 12px; }
-html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-label   { display: block; }
+html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section,
+html[data-sidebar="collapsed"] .fp-sidebar:hover .nav-section { display: block; }
+html[data-sb-collapsed="1"] .fp-sidebar:hover .fp-nav,
+html[data-sidebar="collapsed"] .fp-sidebar:hover .fp-nav { gap: 8px; padding: 8px; }
+html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-group,
+html[data-sidebar="collapsed"] .fp-sidebar:hover .nav-group { gap: 6px; }
+html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-item,
+html[data-sidebar="collapsed"] .fp-sidebar:hover .nav-item { grid-template-columns: 24px 1fr; justify-items: start; padding: 9px 10px; border-radius: 12px; }
+html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-label,
+html[data-sidebar="collapsed"] .fp-sidebar:hover .nav-label { display: block; }
 
-/* ampliar ligeiramente a “zona quente” para facilitar o hover */
-html[data-sb-collapsed="1"] .fp-sidebar::after {
+/* ampliar zona quente (hover) */
+html[data-sb-collapsed="1"] .fp-sidebar::after,
+html[data-sidebar="collapsed"] .fp-sidebar::after {
   content: ""; position: absolute; top: 0; right: -12px; width: 12px; height: 100%;
 }
 
-/* ===== Header: esconder qualquer toggle/pin da sidebar no header (defensivo) ===== */
+/* Header: esconder toggles duplicados dentro do header (defensivo) */
 .fp-header .btn-toggle,
 .fp-header .btn-pin,
 .fp-header [data-role="sb-toggle"],
 .fp-header [data-role="sb-pin"],
 .btn-toggle--header,
-.btn-pin--header {
-  display: none !important;
-}
+.btn-pin--header { display: none !important; }
 
-/* ===== Cartões / Dashboard ===== */
+/* ================================== */
+/* ========== CARDS/BADGES ========== */
+/* ================================== */
 .card {
-  background: var(--card);
+  background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-1);
 }
 
-/* ===== Auth (login) ===== */
+.badge, .chip {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #fff; border: 0; padding: 2px 8px; border-radius: 999px; font-size: 12px;
+}
+
+/* ================================= */
+/* ============ AUTH =============== */
+/* ================================= */
 .auth-wrap { display: grid; place-items: center; min-height: 100dvh; padding: 20px; }
-.auth-card { width: min(560px, 92vw); background: var(--card); border: 1px solid var(--border); border-radius: 20px; box-shadow: var(--shadow-1); padding: 18px; }
+.auth-card { width: min(560px, 92vw); background: var(--card-bg); border: 1px solid var(--border); border-radius: 20px; box-shadow: var(--shadow-1); padding: 18px; }
 .auth-header { display: grid; grid-template-columns: 40px 1fr; gap: 10px; align-items: center; margin-bottom: 10px; }
 .auth-title { font-weight: 800; font-size: 20px; }
 .auth-fields { display: grid; gap: 10px; }
@@ -200,129 +294,21 @@ html[data-sb-collapsed="1"] .fp-sidebar::after {
 .small { font-size: 13px; }
 .auth-actions { display: flex; justify-content: space-between; gap: 8px; }
 
-/* ===== Icons antigos (emoji) + feedback do pin ===== */
-.nav-emoji {
-  font-size: 18px;
-  line-height: 1;
-  width: 24px;
-  text-align: center;
-}
-.btn-pin.is-pinned svg {
-  transform: rotate(35deg);
-  transition: transform 200ms ease;
-}
-/* ----- tema & cores base ----- */
-:root {
-  --bg: #f8fafc;
-  --text: #111827;
-  --muted: #6b7280;
-  --border: #e5e7eb;
-  --card: #ffffff;
-  --header-bg: rgba(255, 255, 255, 0.78);
-  --accent: #7c3aed;   /* roxo */
-  --accent-2: #06b6d4; /* ciano */
-}
-:root[data-theme="dark"] {
-  --bg: #0b0f19;
-  --text: #f3f4f6;
-  --muted: #9ca3af;
-  --border: #1f2937;
-  --card: #0f1626;
-  --header-bg: rgba(16, 24, 40, 0.55);
-  --accent: #8b5cf6;
-  --accent-2: #22d3ee;
-}
+/* ===================================== */
+/* ========== ICONS & PIN FX =========== */
+/* ===================================== */
+.nav-emoji { font-size: 18px; line-height: 1; width: 24px; text-align: center; }
+.btn-pin.is-pinned svg { transform: rotate(35deg); transition: transform 200ms ease; }
 
-body { background: var(--bg); color: var(--text); }
-
-/* Cards, badges, chips (um pouco mais colorido) */
-.card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; }
-.badge, .chip {
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  color: #fff; border: 0; padding: 2px 8px; border-radius: 999px; font-size: 12px;
-}
-
-/* ----- header layout ----- */
-.app-header {
-  position: sticky; top: 0; z-index: 50;
-  background: var(--header-bg);
-  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--border);
-}
-.app-header-inner {
-  display: grid;
-  grid-template-columns: 240px 1fr auto;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 16px;
-}
-.brand { display: flex; align-items: center; gap: 10px; }
-.brand-name { font-weight: 700; letter-spacing: .2px; }
-
-/* Pesquisa centrada */
-.search-wrap { display: flex; align-items: center; width: 100%; }
-.search-input {
-  width: 100%; height: 36px;
-  border: 1px solid var(--border);
-  border-radius: 999px; padding: 0 12px;
-  background: var(--card); color: var(--text);
-  outline: none;
-}
-.search-input::placeholder { color: var(--muted); }
-
-/* Ações à direita */
-.actions { display: flex; align-items: center; gap: 8px; }
-
-/* Botões básicos (caso já não existam) */
-.btn { border: 1px solid var(--border); background: var(--card); color: var(--text);
-  padding: 6px 10px; border-radius: 10px; cursor: pointer; }
-.btn.icon { padding: 6px 8px; border-radius: 10px; }
-.btn:hover { filter: brightness(0.98); }
-.btn:active { transform: translateY(0.5px); }
-
-@keyframes fp-spin { 
-  from { transform: rotate(0deg) } 
-  to { transform: rotate(360deg) } 
-}
-.toast-viewport{
-  position: fixed; right: 16px; bottom: 16px; z-index: 99999;
-  display: grid; gap: 8px;
-}
-.toast{
-  display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center;
-  min-width: 260px; max-width: 420px; padding: 10px 12px;
-  border: 1px solid var(--border); background: var(--card-bg); color: var(--text);
-  border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,.12);
-}
-.toast-msg{ font-size: 14px; }
-.toast-action{
-  border: 1px solid var(--border); background: var(--btn-bg);
-  border-radius: 999px; padding: 4px 10px; font-weight: 600;
-}
-.toast-action:hover{ background: var(--hover); }
-.toast-close{
-  width: 28px; height: 28px; border-radius: 10px;
-  border: 1px solid var(--border); background: var(--btn-bg);
-}
-.toast-close:hover{ background: var(--hover); }
-/* Spinner genérico para LoadingButton */
+/* =================================== */
+/* ========== TOASTS/SPINNER ========= */
+/* =================================== */
+@keyframes fp-spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
 @keyframes spin { to { transform: rotate(360deg); } }
-.spinner{
-  display:inline-block; width:1em; height:1em;
-  border:2px solid var(--border); border-top-color: var(--text);
-  border-radius:50%; animation: spin 900ms linear infinite;
-  vertical-align:-2px;
-}
 
-.btn:disabled{ opacity:.6; cursor: not-allowed; }
-/* ===== Toasts ===== */
 .toast-viewport{
-  position: fixed;
-  top: 16px;
-  right: 16px;
-  display: grid;
-  gap: 8px;
-  z-index: 100000; /* acima do header e sidebar */
+  position: fixed; right: 16px; bottom: 16px; z-index: 100000;
+  display: grid; gap: 8px;
 }
 .toast{
   text-align: left;
@@ -330,58 +316,19 @@ body { background: var(--bg); color: var(--text); }
   border-radius: 12px;
   border: 1px solid var(--border);
   background: var(--card-bg);
-  color: var(--text);
+  color: var(--fg);
   box-shadow: 0 8px 28px rgba(0,0,0,.08);
   cursor: pointer;
 }
 .toast-title{ font-weight: 700; margin-bottom: 2px; }
 .toast-msg{ opacity: .95; }
-
-/* cores por tipo */
 .toast--success{ border-color: color-mix(in srgb, var(--success) 40%, var(--border)); }
 .toast--warning{ border-color: color-mix(in srgb, var(--warning) 40%, var(--border)); }
 .toast--error  { border-color: color-mix(in srgb, var(--danger)  40%, var(--border)); }
-:root{
-  --sidebar-w: 260px;
-  --header-h: 56px;
+
+.spinner{
+  display:inline-block; width:1em; height:1em;
+  border:2px solid var(--border); border-top-color: var(--fg);
+  border-radius:50%; animation: spin 900ms linear infinite;
+  vertical-align:-2px;
 }
-
-/* quando está colapsada */
-html[data-sidebar="collapsed"]{
-  --sidebar-w: 68px;
-}
-
-/* esconde labels quando colapsada */
-html[data-sidebar="collapsed"] .sb-label{ display:none; }
-
-/* content wrapper e header alinhados à sidebar */
-.app-shell{ padding-left: var(--sidebar-w); transition: padding-left .18s ease; }
-.app-header{
-  position: sticky; top:0; z-index: 30; height: var(--header-h);
-  display:flex; align-items:center; gap:10px; padding: 0 12px;
-  border-bottom: 1px solid var(--border); background: var(--card, #fff);
-}
-:root {
-  --sidebar-w: 260px;
-  --header-h: 56px;
-  --border: #e5e7eb;
-}
-
-/* quando colapsada (controlado pelo RoleSidebar) */
-html[data-sidebar="collapsed"] { --sidebar-w: 68px; }
-
-/* esconde labels quando colapsada */
-html[data-sidebar="collapsed"] .sb-label { display: none; }
-
-/* content wrapper e header alinhados à sidebar */
-.app-shell { padding-left: var(--sidebar-w); transition: padding-left .18s ease; }
-.app-header {
-  position: sticky; top: 0; z-index: 30; height: var(--header-h);
-  display: flex; align-items: center; gap: 10px; padding: 0 12px;
-  border-bottom: 1px solid var(--border); background: #fff;
-}
-
-/* botões/chips básicos (caso não tenhas) */
-.btn { border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; background:#fff; }
-.btn.chip { padding: 4px 6px; }
-
