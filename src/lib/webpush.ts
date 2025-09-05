@@ -1,27 +1,18 @@
 // src/lib/webpush.ts
-import webpush from 'web-push';
+import webpushLib from 'web-push';
 
-let configured = false;
+export const webpush = webpushLib;
 
-export function ensureWebPush(): { ok: true } | { ok: false; reason: string } {
-  if (configured) return { ok: true };
-
-  const pub = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || process.env.VAPID_PUBLIC_KEY;
-  const priv = process.env.VAPID_PRIVATE_KEY;
-  const contact = process.env.VAPID_CONTACT || 'mailto:support@example.com';
-
-  if (!pub || !priv) {
-    return { ok: false, reason: 'VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY em falta' };
+/** Só configura quando for chamado (evita erro em build) */
+export function ensureWebPush():
+  | { ok: true }
+  | { ok: false; reason: string } {
+  const pub = process.env.WEB_PUSH_PUBLIC_KEY;
+  const priv = process.env.WEB_PUSH_PRIVATE_KEY;
+  const mail = process.env.WEB_PUSH_CONTACT_EMAIL;
+  if (!pub || !priv || !mail) {
+    return { ok: false, reason: 'Missing WEB_PUSH_* envs' };
   }
-  try {
-    webpush.setVapidDetails(contact, pub, priv);
-    configured = true;
-    return { ok: true };
-  } catch (e: any) {
-    return { ok: false, reason: e?.message || 'Falha a configurar web-push' };
-  }
+  webpush.setVapidDetails(`mailto:${mail}`, pub, priv);
+  return { ok: true };
 }
-
-export { webpush };
-export const PUBLIC_VAPID_KEY =
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || process.env.VAPID_PUBLIC_KEY || '';
