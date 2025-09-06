@@ -8,6 +8,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { createServerClient } from '@/lib/supabaseServer';
 import FolgaForm from './FolgaForm';
+import EditFolgaButton from './EditFolgaButton';
 
 export default async function FolgasPage() {
   const session = await getServerSession(authOptions);
@@ -49,7 +50,7 @@ export default async function FolgasPage() {
                 <th style={{ textAlign: 'left', padding: 8 }}>Título</th>
                 <th style={{ textAlign: 'left', padding: 8 }}>Início</th>
                 <th style={{ textAlign: 'left', padding: 8 }}>Fim</th>
-                <th />
+                <th style={{ textAlign: 'right', padding: 8 }}>Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -58,19 +59,25 @@ export default async function FolgasPage() {
                   <td style={{ padding: 8 }}>{b.title || 'Folga'}</td>
                   <td style={{ padding: 8 }}>{new Date(b.start_at).toLocaleString('pt-PT')}</td>
                   <td style={{ padding: 8 }}>{new Date(b.end_at).toLocaleString('pt-PT')}</td>
-                  <td style={{ padding: 8, textAlign: 'right' }}>
-                    <form action={`/api/pt/folgas/${b.id}`} method="post" onSubmit={(e) => e.preventDefault()}>
-                      <button
-                        className="btn chip"
-                        onClick={async () => {
-                          if (!confirm('Apagar esta folga?')) return;
-                          await fetch(`/api/pt/folgas/${b.id}`, { method: 'DELETE' });
-                          location.reload();
-                        }}
-                      >
-                        🗑️ Apagar
-                      </button>
-                    </form>
+                  <td style={{ padding: 8, textAlign: 'right', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                    <EditFolgaButton
+                      id={b.id}
+                      initial={{
+                        title: b.title ?? 'Folga',
+                        start: b.start_at,
+                        end: b.end_at,
+                      }}
+                    />
+                    <button
+                      className="btn chip"
+                      onClick={async () => {
+                        if (!confirm('Anular esta folga?')) return;
+                        await fetch(`/api/pt/folgas/${b.id}`, { method: 'DELETE' });
+                        location.reload();
+                      }}
+                    >
+                      ❌ Anular
+                    </button>
                   </td>
                 </tr>
               ))}
