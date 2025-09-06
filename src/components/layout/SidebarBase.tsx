@@ -1,78 +1,72 @@
-// src/components/layout/SidebarBase.tsx
 'use client';
 
-import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import type { Route } from 'next';
 import type { UrlObject } from 'url';
-import type { NavItem as SharedNavItem, Href } from './navTypes';
+import type { Route } from 'next';
+import React from 'react';
 
-export type SidebarItem = SharedNavItem; // alias p/ compatibilidade
-
-type Props = {
-  items: SidebarItem[];
-  onNavigate?: () => void;
-  header?: React.ReactNode;
-  footer?: React.ReactNode;
+export type NavItem = {
+  href: Route | UrlObject;
+  label: string;
+  icon?: React.ReactNode;
+  kpi?: string | number;
 };
 
-function toPath(href: Href): string {
-  if (typeof href === 'string') return href;
-  const obj = href as UrlObject;
-  return typeof obj.pathname === 'string' ? obj.pathname : '/';
-}
-
-export default function SidebarBase({ items, onNavigate, header, footer }: Props) {
-  const pathname = usePathname() || '/';
-
-  const isActive = (href: Href, activePrefix?: string | string[]) => {
-    const current = pathname;
-    const target = toPath(href);
-
-    if (activePrefix) {
-      const arr = Array.isArray(activePrefix) ? activePrefix : [activePrefix];
-      if (arr.some((p) => current.startsWith(p))) return true;
-    }
-    return current === target || current.startsWith(String(target) + '/');
-  };
-
+export default function SidebarBase({
+  items,
+  userLabel,
+  onNavigate,
+}: {
+  items: NavItem[];
+  userLabel: string;
+  onNavigate?: () => void;
+}) {
   return (
-    <nav className="fp-sidebar" aria-label="Navegação">
-      {header}
-      <div className="fp-nav">
-        {items.map((item) => {
-          const href =
-            typeof item.href === 'string'
-              ? (item.href as Route) // ✅ typed routes ok
-              : (item.href as UrlObject);
-
-          const key = String((item.href as any)?.pathname ?? item.href);
-
-          return (
-            <div key={key} style={{ marginBottom: 6 }}>
-              <Link
-                href={href}
-                onClick={onNavigate}
-                className="nav-item"
-                data-active={isActive(item.href, item.activePrefix) ? 'true' : 'false'}
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '24px 1fr',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: '9px 10px',
-                  borderRadius: 12,
-                }}
-              >
-                <span className="nav-icon">{item.icon}</span>
-                <span className="nav-label">{item.label}</span>
-              </Link>
-            </div>
-          );
-        })}
+    <aside
+      className="sidebar"
+      style={{
+        padding: 12,
+        display: 'grid',
+        gap: 8,
+        borderRight: '1px solid var(--border)',
+        background: 'var(--sidebar-bg)',
+      }}
+    >
+      <div
+        className="user"
+        style={{ fontWeight: 700, padding: '6px 8px', borderRadius: 8, background: 'var(--sidebar-active)' }}
+      >
+        {userLabel}
       </div>
-      {footer}
-    </nav>
+
+      <nav className="nav" style={{ display: 'grid', gap: 6 }}>
+        {items.map((it) => (
+          <div key={typeof it.href === 'string' ? it.href : (it.href as UrlObject).pathname} style={{ marginBottom: 2 }}>
+            <Link
+              href={it.href}
+              onClick={onNavigate}
+              className="nav-item"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '8px 10px',
+                borderRadius: 10,
+                border: '1px solid var(--border)',
+                background: 'var(--panel)',
+              }}
+            >
+              <span aria-hidden>{it.icon ?? '•'}</span>
+              <span style={{ flex: 1 }}>{it.label}</span>
+              {typeof it.kpi !== 'undefined' && (
+                <span className="chip" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                  {it.kpi}
+                </span>
+              )}
+            </Link>
+          </div>
+        ))}
+      </nav>
+    </aside>
   );
 }
