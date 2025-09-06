@@ -24,13 +24,18 @@ export default function SchedulerClient({
   const [anchor, setAnchor] = React.useState<{ x: number; y: number } | null>(null);
   const [draft, setDraft] = React.useState<null | { startIso: string; durationMin: number }>(null);
 
+  const [mode, setMode] = React.useState<'session'|'folga'>('session');
+  // sessão
   const [clientId, setClientId] = React.useState('');
   const [locationId, setLocationId] = React.useState<string | null>(null);
   const [notes, setNotes] = React.useState('');
+  // folga
+  const [fullDay, setFullDay] = React.useState(false);
+  const [folgaTitle, setFolgaTitle] = React.useState('Folga');
+
   const [busy, setBusy] = React.useState<null | 'checking' | 'saving'>(null);
   const [error, setError] = React.useState<string | null>(null);
 
-  // meta (clientes + locais)
   React.useEffect(() => {
     let mounted = true;
     (async () => {
@@ -46,11 +51,14 @@ export default function SchedulerClient({
     setAnchor(p.anchor);
     setError(null);
     setBusy(null);
+    setMode('session');
+    setFullDay(false);
   }, []);
 
   const closeMenu = React.useCallback(() => {
     setDraft(null); setAnchor(null); setError(null); setBusy(null);
     setClientId(''); setLocationId(null); setNotes('');
+    setFullDay(false); setFolgaTitle('Folga');
   }, []);
 
   const selectedLocationName = React.useMemo(
@@ -77,14 +85,14 @@ export default function SchedulerClient({
       const msg =
         t === 'overlap' ? 'Já tens uma sessão nesse intervalo.' :
         t === 'buffer' ? `Respeita o intervalo mínimo (${data?.bufferMin} min).` :
-        t === 'block'  ? 'Estás indisponível nesse período.' :
+        t === 'block'  ? 'Estás de folga nesse período.' :
         'Conflito com outro evento.';
       return { ok: false, msg };
     }
     return { ok: true };
   }, [draft, meta.defaultBuffer, selectedLocationName]);
 
-  const save = React.useCallback(async () => {
+  const saveSession = React.useCallback(async () => {
     if (!draft) return;
     if (!clientId) { setError('Escolhe o cliente.'); return; }
 
@@ -108,9 +116,32 @@ export default function SchedulerClient({
     if (res.status === 409) { setError(await res.text()); return; }
     if (!res.ok) { setError('Não foi possível criar a sessão.'); return; }
 
-    // sucesso → refresca
     window.location.reload();
   }, [draft, clientId, selectedLocationName, notes, check]);
+
+  const saveFolga = React.useCallback(async () => {
+    if (!draft) return;
+    setBusy('saving'); setError(null);
+
+    const start = new Date(draft.startIso);
+    let from = start;
+    let to = new Date(start.getTime() + draft.durationMin * 60_000);
+
+    if (fullDay) {
+      from = new Date(start); from.setHours(0,0,0,0);
+      to   = new Date(start); to.setHours(23,59,59,999);
+    }
+
+    const res = await fetch('/api/pt/folgas', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ start: from.toISOString(), end: to.toISOString(), title: folgaTitle || 'Folga' }),
+    });
+    setBusy(null);
+
+    if (!res.ok) { setError(await res.text()); return; }
+    window.location.reload();
+  }, [draft, fullDay, folgaTitle]);
 
   return (
     <>
@@ -126,49 +157,85 @@ export default function SchedulerClient({
       {draft && anchor && (
         <div
           role="dialog"
-          aria-label="Nova sessão"
+          aria-label="Nova entrada"
           style={{
             position: 'fixed', left: anchor.x + 12, top: anchor.y + 12,
-            width: 320, maxWidth: '96vw', background: 'var(--card)', color: 'var(--text)',
+            width: 360, maxWidth: '96vw', background: 'var(--card)', color: 'var(--text)',
             border: '1px solid var(--border)', borderRadius: 12,
             boxShadow: '0 18px 60px rgba(0,0,0,.20)', zIndex: 1000, padding: 12,
           }}
         >
-          <div style={{ fontWeight: 800, marginBottom: 6 }}>
-            Nova sessão — {new Date(draft.startIso).toLocaleString('pt-PT')}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+            <button className={`btn chip${mode === 'session' ? ' primary' : ''}`} onClick={() => setMode('session')}>Sessão</button>
+            <button className={`btn chip${mode === 'folga' ? ' primary' : ''}`} onClick={() => setMode('folga')}>Folga</button>
           </div>
 
-          <div style={{ display: 'grid', gap: 8 }}>
-            <label className="small text-muted">Cliente</label>
-            <select value={clientId} onChange={(e) => setClientId(e.target.value)}>
-              <option value="">— escolher —</option>
-              {meta.clients.map(c => (
-                <option key={c.id} value={c.id}>{c.name ?? c.email}</option>
-              ))}
-            </select>
+          {mode === 'session' ? (
+            <div style={{ display: 'grid', gap: 8 }}>
+              <div style={{ fontWeight: 800 }}>
+                {new Date(draft.startIso).toLocaleString('pt-PT')} • {draft.durationMin} min
+              </div>
 
-            <label className="small text-muted">Local (opcional)</label>
-            <select value={locationId ?? ''} onChange={(e) => setLocationId(e.target.value || null)}>
-              <option value="">— nenhum —</option>
-              {meta.locations.map(l => (
-                <option key={l.id} value={l.id}>
-                  {l.name}{typeof l.travel_min === 'number' ? ` (+${l.travel_min}m)` : ''}
-                </option>
-              ))}
-            </select>
+              <label className="small text-muted">Cliente</label>
+              <select value={clientId} onChange={(e) => setClientId(e.target.value)}>
+                <option value="">— escolher —</option>
+                {meta.clients.map(c => (
+                  <option key={c.id} value={c.id}>{c.name ?? c.email}</option>
+                ))}
+              </select>
 
-            <label className="small text-muted">Notas</label>
-            <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
+              <label className="small text-muted">Local (opcional)</label>
+              <select value={locationId ?? ''} onChange={(e) => setLocationId(e.target.value || null)}>
+                <option value="">— nenhum —</option>
+                {meta.locations.map(l => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}{typeof l.travel_min === 'number' ? ` (+${l.travel_min}m)` : ''}
+                  </option>
+                ))}
+              </select>
 
-            {!!error && <div className="badge-danger" role="alert">{error}</div>}
+              <label className="small text-muted">Notas</label>
+              <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
 
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button className="btn chip" onClick={closeMenu}>Cancelar</button>
-              <button className="btn primary" onClick={save} disabled={busy !== null}>
-                {busy === 'saving' ? 'A guardar…' : 'Criar sessão'}
-              </button>
+              {!!error && <div className="badge-danger" role="alert">{error}</div>}
+
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <button className="btn chip" onClick={closeMenu}>Cancelar</button>
+                <button className="btn primary" onClick={saveSession} disabled={busy !== null}>
+                  {busy === 'saving' ? 'A guardar…' : 'Criar sessão'}
+                </button>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div style={{ display: 'grid', gap: 8 }}>
+              <div style={{ fontWeight: 800 }}>
+                {new Date(draft.startIso).toLocaleDateString('pt-PT')}
+              </div>
+
+              <label className="small text-muted">Título (opcional)</label>
+              <input value={folgaTitle} onChange={(e) => setFolgaTitle(e.target.value)} />
+
+              <label className="small text-muted">
+                <input type="checkbox" checked={fullDay} onChange={(e) => setFullDay(e.target.checked)} style={{ marginRight: 6 }} />
+                Dia inteiro
+              </label>
+
+              {!fullDay && (
+                <div className="small text-muted">
+                  Folga de <strong>{draft.durationMin} min</strong> a partir de {new Date(draft.startIso).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}.
+                </div>
+              )}
+
+              {!!error && <div className="badge-danger" role="alert">{error}</div>}
+
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <button className="btn chip" onClick={closeMenu}>Cancelar</button>
+                <button className="btn primary" onClick={saveFolga} disabled={busy !== null}>
+                  {busy === 'saving' ? 'A guardar…' : 'Guardar folga'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </>

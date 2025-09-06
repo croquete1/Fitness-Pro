@@ -9,9 +9,9 @@ type PersonalBlock = { id?: string; start: string; end: string; title?: string }
 type Props = {
   weekStartIso: string;
   sessions: CalSession[];
-  blocks?: PersonalBlock[];      // indisponibilidades
+  blocks?: PersonalBlock[];      // FOLGAS (indisponibilidades)
   bufferMin?: number;            // base
-  compact?: boolean;             // agora é usado p/ densidade
+  compact?: boolean;             // densidade
   onRequestCreate?: (p: {
     startIso: string; durationMin: number;
     anchor: { x: number; y: number };
@@ -44,7 +44,8 @@ export default function WeekCalendar({
   function begin(dayIdx: number, slot: number, e: React.MouseEvent) {
     setSel({ dayIdx, a: slot, b: slot, anchor: { x: e.clientX, y: e.clientY } });
   }
-  function move(slot: number, e: React.MouseEvent) {
+  // ✅ ‘e’ não é usado – prefixo _e para satisfazer o ESLint
+  function move(slot: number, _e: React.MouseEvent) {
     setSel((s) => (s ? { ...s, b: slot } : s));
   }
   function end() {
@@ -77,7 +78,7 @@ export default function WeekCalendar({
 
       return (
         <div key={b.id ?? `${i}-${b.start}`}
-          title={b.title ?? 'Indisponível'}
+          title={b.title ?? 'Folga'}
           style={{
             position: 'absolute', left: 4, right: 4, top, height: h,
             background: 'repeating-linear-gradient(135deg, #cbd5e1 0 8px, #e2e8f0 8px 16px)',
