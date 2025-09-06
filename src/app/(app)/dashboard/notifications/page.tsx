@@ -43,7 +43,7 @@ export default function NotificationsCenterPage() {
         <button
           className="btn chip"
           onClick={async () => {
-            await fetch('/api/notifications/mark-read', { method: 'POST' });
+            await fetch('/api/notifications/mark-all-read', { method: 'POST' });
             load();
           }}
         >

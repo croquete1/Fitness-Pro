@@ -9,12 +9,13 @@ export async function POST() {
   if (!user?.id) return new NextResponse('Unauthorized', { status: 401 });
 
   const sb = createServerClient();
+
+  // marcar todas como lidas para este utilizador
   const { error } = await sb
     .from('notifications')
     .update({ read: true })
-    .eq('user_id', user.id)
-    .select('*', { count: 'exact', head: true });
-  if (error) return new NextResponse(error.message, { status: 500 });
+    .eq('user_id', user.id);
 
+  if (error) return new NextResponse(error.message, { status: 500 });
   return NextResponse.json({ ok: true });
 }
