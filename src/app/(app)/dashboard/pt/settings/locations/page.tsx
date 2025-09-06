@@ -4,15 +4,31 @@ export const revalidate = 0;
 export const fetchCache = 'force-no-store';
 
 import React from 'react';
-
-async function getLocations() {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL ?? ''}/api/pt/locations`, { cache: 'no-store' });
-  if (!res.ok) return { items: [] as any[] };
-  return res.json();
-}
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { createServerClient } from '@/lib/supabaseServer';
+import LocationForm from './LocationForm';
 
 export default async function LocationsPage() {
-  const { items } = await getLocations();
+  const session = await getServerSession(authOptions);
+  const meId = (session as any)?.user?.id as string | undefined;
+
+  if (!meId) {
+    return (
+      <div style={{ padding: 16 }}>
+        <div className="badge-danger">Não autenticado.</div>
+      </div>
+    );
+  }
+
+  const sb = createServerClient();
+  const { data } = await sb
+    .from('trainer_locations')
+    .select('id,name,travel_min')
+    .eq('trainer_id', meId)
+    .order('name', { ascending: true });
+
+  const items = data ?? [];
 
   return (
     <div style={{ padding: 16, display: 'grid', gap: 12 }}>
@@ -32,7 +48,7 @@ export default async function LocationsPage() {
             <thead>
               <tr>
                 <th style={{ textAlign: 'left', padding: 8 }}>Nome</th>
-                <th style={{ textAlign: 'left', padding: 8 }}>Deslocação</th>
+                <th style={{ textAlign: 'left', padding: 8 }}>Deslocação típica</th>
                 <th />
               </tr>
             </thead>
@@ -60,42 +76,5 @@ export default async function LocationsPage() {
         )}
       </div>
     </div>
-  );
-}
-
-// --- Client form
-'use client';
-function LocationForm() {
-  const [name, setName] = React.useState('');
-  const [travel, setTravel] = React.useState<number>(10);
-  const [busy, setBusy] = React.useState(false);
-  const [err, setErr] = React.useState<string | null>(null);
-
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setErr(null); setBusy(true);
-    const res = await fetch('/api/pt/locations', {
-      method: 'POST',
-      headers: { 'content-type':'application/json' },
-      body: JSON.stringify({ name: name.trim(), travel_min: travel }),
-    });
-    setBusy(false);
-    if (!res.ok) { setErr(await res.text()); return; }
-    location.reload();
-  }
-
-  return (
-    <form onSubmit={onSubmit} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto', gap: 8, alignItems: 'end' }}>
-      <div>
-        <label className="small text-muted">Nome</label>
-        <input value={name} onChange={(e) => setName(e.target.value)} required />
-      </div>
-      <div>
-        <label className="small text-muted">Deslocação típica (min)</label>
-        <input type="number" value={travel} min={0} onChange={(e) => setTravel(Number(e.target.value))} />
-      </div>
-      <button type="submit" className="btn primary" disabled={busy || !name.trim()}>{busy ? 'A guardar…' : 'Adicionar'}</button>
-      {!!err && <div className="badge-danger" role="alert" style={{ gridColumn: '1 / -1' }}>{err}</div>}
-    </form>
   );
 }

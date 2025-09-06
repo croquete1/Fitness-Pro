@@ -4,15 +4,30 @@ export const revalidate = 0;
 export const fetchCache = 'force-no-store';
 
 import React from 'react';
-
-async function getFolgas() {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL ?? ''}/api/pt/folgas`, { cache: 'no-store' });
-  if (!res.ok) return { items: [] as any[] };
-  return res.json();
-}
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { createServerClient } from '@/lib/supabaseServer';
+import FolgaForm from './FolgaForm';
 
 export default async function FolgasPage() {
-  const { items } = await getFolgas();
+  const session = await getServerSession(authOptions);
+  const meId = (session as any)?.user?.id as string | undefined;
+  if (!meId) {
+    return (
+      <div style={{ padding: 16 }}>
+        <div className="badge-danger">Não autenticado.</div>
+      </div>
+    );
+  }
+
+  const sb = createServerClient();
+  const { data } = await sb
+    .from('trainer_blocks')
+    .select('id,start_at,end_at,title')
+    .eq('trainer_id', meId)
+    .order('start_at', { ascending: false });
+
+  const items = data ?? [];
 
   return (
     <div style={{ padding: 16, display: 'grid', gap: 12 }}>
@@ -64,79 +79,5 @@ export default async function FolgasPage() {
         )}
       </div>
     </div>
-  );
-}
-
-// --- Client form (inline para simplicidade)
-'use client';
-function FolgaForm() {
-  const [date, setDate] = React.useState(() => new Date().toISOString().slice(0,10));
-  const [allDay, setAllDay] = React.useState(true);
-  const [start, setStart] = React.useState('09:00');
-  const [end, setEnd] = React.useState('18:00');
-  const [title, setTitle] = React.useState('Folga');
-  const [busy, setBusy] = React.useState(false);
-  const [err, setErr] = React.useState<string | null>(null);
-
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setErr(null);
-    setBusy(true);
-    const day = new Date(date);
-    const startAt = new Date(day);
-    const endAt   = new Date(day);
-
-    if (allDay) {
-      startAt.setHours(0,0,0,0);
-      endAt.setHours(23,59,59,999);
-    } else {
-      const [sh, sm] = start.split(':').map(Number);
-      const [eh, em] = end.split(':').map(Number);
-      startAt.setHours(sh, sm || 0, 0, 0);
-      endAt.setHours(eh, em || 0, 0, 0);
-    }
-
-    const res = await fetch('/api/pt/folgas', {
-      method: 'POST',
-      headers: { 'content-type':'application/json' },
-      body: JSON.stringify({ start: startAt.toISOString(), end: endAt.toISOString(), title }),
-    });
-    setBusy(false);
-    if (!res.ok) { setErr(await res.text()); return; }
-    location.reload();
-  }
-
-  return (
-    <form onSubmit={onSubmit} style={{ display: 'grid', gap: 8 }}>
-      <label className="small text-muted">Título</label>
-      <input value={title} onChange={(e) => setTitle(e.target.value)} />
-
-      <label className="small text-muted">Dia</label>
-      <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-
-      <label className="small text-muted">
-        <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} style={{ marginRight: 6 }} />
-        Dia inteiro
-      </label>
-
-      {!allDay && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <div>
-            <label className="small text-muted">Das</label>
-            <input type="time" value={start} onChange={(e) => setStart(e.target.value)} />
-          </div>
-          <div>
-            <label className="small text-muted">Às</label>
-            <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
-          </div>
-        </div>
-      )}
-
-      {!!err && <div className="badge-danger" role="alert">{err}</div>}
-
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button type="submit" className="btn primary" disabled={busy}>{busy ? 'A guardar…' : 'Adicionar folga'}</button>
-      </div>
-    </form>
   );
 }
