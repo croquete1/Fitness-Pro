@@ -1,54 +1,20 @@
-// src/app/api/pt/folgas/[id]/route.ts
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { toAppRole } from '@/lib/roles';
 import { createServerClient } from '@/lib/supabaseServer';
 
-export async function PUT(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
-  const session = await getServerSession(authOptions);
-  const meId = (session as any)?.user?.id as string | undefined;
-  if (!meId) return new NextResponse('Unauthorized', { status: 401 });
+type Params = { params: { id: string } };
 
-  const { title, start, end } = (await req.json().catch(() => ({}))) as {
-    title?: string;
-    start?: string;
-    end?: string;
-  };
-  if (!start || !end) return new NextResponse('Dados incompletos', { status: 400 });
+export async function DELETE(_req: Request, { params }: Params) {
+  const session = await getServerSession(authOptions);
+  const role = toAppRole((session as any)?.user?.role);
+  const trainerId = String((session as any)?.user?.id || '');
+  if (!trainerId) return new NextResponse('Unauthorized', { status: 401 });
+  if (role !== 'PT' && role !== 'ADMIN') return new NextResponse('Forbidden', { status: 403 });
 
   const sb = createServerClient();
-
-  // conflito com sessões/folgas existentes (regra básica)
-  // — se tiveres tabela de sessões, coloca aqui uma verificação adicional
-  const { error } = await sb
-    .from('trainer_blocks')
-    .update({ title: title ?? 'Folga', start_at: start, end_at: end })
-    .eq('id', params.id)
-    .eq('trainer_id', meId)
-    .select('id'); // garante row-level access
-
-  if (error) return new NextResponse(error.message, { status: 500 });
-  return NextResponse.json({ ok: true });
-}
-
-export async function DELETE(
-  _req: Request,
-  { params }: { params: { id: string } }
-) {
-  const session = await getServerSession(authOptions);
-  const meId = (session as any)?.user?.id as string | undefined;
-  if (!meId) return new NextResponse('Unauthorized', { status: 401 });
-
-  const sb = createServerClient();
-  const { error } = await sb
-    .from('trainer_blocks')
-    .delete()
-    .eq('id', params.id)
-    .eq('trainer_id', meId);
-
+  const { error } = await sb.from('pt_time_off').delete().eq('id', params.id).eq('trainer_id', trainerId);
   if (error) return new NextResponse(error.message, { status: 500 });
   return NextResponse.json({ ok: true });
 }
