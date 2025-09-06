@@ -9,6 +9,7 @@ import LiveBanners from '@/components/dashboard/LiveBanners';
 import Greeting from '@/components/dashboard/Greeting';
 import Link from 'next/link';
 import type { Route } from 'next';
+import SessionsTrendCard from '@/components/dashboard/SessionsTrendCard';
 
 type SessionRow = { id: string; start_time: string; title?: string | null; location?: string | null; status?: string | null };
 type PlanRow = { id: string; title?: string | null; status?: string | null; updated_at?: string | null };
@@ -92,6 +93,7 @@ export default async function PTDashboard() {
           <div style={{ fontSize: 36, fontWeight: 900 }}>{sessionsNext7}</div>
         </div>
       </div>
+      <SessionsTrendCard scope="pt" id={String(user.id)} />
 
       {/* Próximas sessões */}
       <div className="card" style={{ padding: 12 }}>

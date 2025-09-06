@@ -8,7 +8,7 @@ import { redirect } from 'next/navigation';
 import { toAppRole } from '@/lib/roles';
 import { createServerClient } from '@/lib/supabaseServer';
 import SchedulerClient, { type WeekItem, type Block } from '../ui/SchedulerClient';
-import type { Route } from 'next';
+
 
 function startOfWeek(date = new Date()) {
   const d = new Date(date); const day = d.getDay() || 7; if (day !== 1) d.setDate(d.getDate() - (day - 1));

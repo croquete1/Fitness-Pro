@@ -9,6 +9,7 @@ import LiveBanners from '@/components/dashboard/LiveBanners';
 import Greeting from '@/components/dashboard/Greeting';
 import Link from 'next/link';
 import type { Route } from 'next';
+import SessionsTrendCard from '@/components/dashboard/SessionsTrendCard';
 
 type Plan = { id: string; title?: string | null; status?: string | null; updated_at?: string | null };
 type SessionRow = { id: string; start_time: string; title?: string | null; location?: string | null; status?: string | null };
@@ -90,7 +91,7 @@ export default async function ClientDashboardPage() {
             <Link className="btn chip" href={'/dashboard/my-plan' as Route}>Abrir plano</Link>
           </div>
         </div>
-
+<SessionsTrendCard scope="client" id={String(user.id)} />
         <div className="card" style={{ padding: 12 }}>
           <div className="text-muted small">Sessões (próx. 7 dias)</div>
           <div style={{ fontSize: 36, fontWeight: 900 }}>{sessions7d}</div>

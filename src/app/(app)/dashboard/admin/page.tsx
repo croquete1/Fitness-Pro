@@ -9,6 +9,7 @@ import LiveBanners from '@/components/dashboard/LiveBanners';
 import Greeting from '@/components/dashboard/Greeting';
 import Link from 'next/link';
 import type { Route } from 'next';
+import SessionsTrendCard from '@/components/dashboard/SessionsTrendCard';
 
 async function safeCount(sb: ReturnType<typeof createServerClient>, table: string, build?: (q: any) => any) {
   try {
@@ -66,6 +67,7 @@ export default async function AdminDashboard() {
           <div style={{ fontSize: 36, fontWeight: 900 }}>{sessionsNext7}</div>
         </div>
       </div>
+      <SessionsTrendCard scope="admin" />
 
       {/* Atalhos de gestão */}
       <div className="card" style={{ padding: 12 }}>
