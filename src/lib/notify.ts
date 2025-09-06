@@ -1,57 +1,68 @@
-// src/lib/notify.ts
-import { createServerClient } from '@/lib/supabaseServer';
-import { ensureWebPush, webpush } from '@/lib/webpush';
+import webpush from 'web-push';
+type SB = ReturnType<typeof import('@/lib/supabaseServer').createServerClient>;
 
-export type NotifyKind = 'plan' | 'session' | 'message' | 'system';
+export type NotifInput = { user_id: string; title: string; body?: string | null; link?: string | null; };
 
-type NotifyTarget = { userId: string };
-type NotifyInput = { title: string; body?: string; url?: string; kind?: NotifyKind };
+function getVapid() {
+  const publicKey = process.env.NEXT_PUBLIC_WEB_PUSH_PUBLIC_KEY || '';
+  const privateKey = process.env.WEB_PUSH_PRIVATE_KEY || '';
+  const email = process.env.WEB_PUSH_CONTACT || 'mailto:admin@example.com';
+  if (!publicKey || !privateKey) return { ok: false as const };
+  webpush.setVapidDetails(email, publicKey, privateKey);
+  return { ok: true as const };
+}
 
-export async function notifyUsers(targets: NotifyTarget[], input: NotifyInput) {
-  const sb = createServerClient();
+export async function createAndPush(sb: SB, notif: NotifInput) {
+  const { data, error } = await sb
+    .from('notifications')
+    .insert({
+      user_id: notif.user_id, title: notif.title, body: notif.body ?? null,
+      link: notif.link ?? null, read: false
+    })
+    .select('id,user_id,title,body,link,created_at')
+    .single();
+  if (error) throw error;
 
-  // 1) registar na BD
-  const rows = targets.map((t) => ({
-    user_id: t.userId,
-    title: input.title,
-    body: input.body ?? null,
-    href: input.url ?? null,
-    kind: input.kind ?? 'system',
-    read: false,
-  }));
+  const cfg = getVapid();
+  if (cfg.ok) {
+    const { data: subs = [] } = await sb
+      .from('push_subscriptions')
+      .select('endpoint,p256dh,auth')
+      .eq('user_id', notif.user_id);
 
-  const { error: insErr } = await sb.from('notifications').insert(rows);
-  if (insErr) throw new Error(insErr.message);
-
-  // 2) push (opcional)
-  const cfg = ensureWebPush();
-  if (!cfg.ok) return { ok: true, push: 0 };
-
-  const payload = JSON.stringify({
-    title: input.title,
-    body: input.body ?? '',
-    url: input.url ?? '/dashboard',
-  });
-
-  const userIds = Array.from(new Set(targets.map((t) => t.userId)));
-  const { data: subs } = await sb
-    .from('push_subscriptions')
-    .select('id, endpoint, p256dh, auth')
-    .in('user_id', userIds);
-
-  let sent = 0;
-  for (const s of subs ?? []) {
-    try {
-      await webpush.sendNotification(
-        { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } } as any,
-        payload
-      );
-      sent++;
-    } catch (err: any) {
-      if (err?.statusCode === 410 || err?.statusCode === 404) {
-        await sb.from('push_subscriptions').delete().eq('id', s.id);
-      }
-    }
+    await Promise.all(subs.map(async (s) => {
+      try {
+        await (await import('web-push')).default.sendNotification(
+          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } } as any,
+          JSON.stringify({ title: notif.title, body: notif.body ?? undefined, data: { url: notif.link ?? undefined } })
+        );
+      } catch {}
+    }));
   }
-  return { ok: true, push: sent };
+  return data;
+}
+
+export async function notifyPlanCreated(sb: SB, clientId: string, planId: string) {
+  await createAndPush(sb, {
+    user_id: clientId,
+    title: 'Novo plano de treino disponível',
+    body: 'O teu personal trainer criou um novo plano de treino.',
+    link: `/dashboard/pt/plans/${planId}/page`,
+  });
+}
+export async function notifyPlanUpdated(sb: SB, clientId: string, planId: string) {
+  await createAndPush(sb, {
+    user_id: clientId,
+    title: 'Plano de treino atualizado',
+    body: 'O teu plano foi atualizado.',
+    link: `/dashboard/pt/plans/${planId}/page`,
+  });
+}
+export async function notifyPlanDayNotesUpdated(sb: SB, clientId: string, planId: string, dayIso: string) {
+  await createAndPush(sb, {
+    user_id: clientId,
+    title: 'Notas do treino atualizadas',
+    body: `As notas do dia ${new Date(dayIso).toLocaleDateString('pt-PT')} foram atualizadas.`,
+    link: `/dashboard/pt/plans/${planId}/page?focus=${dayIso}`,
+  });
 }

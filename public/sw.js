@@ -1,23 +1,24 @@
-// public/sw.js
 self.addEventListener('push', (event) => {
-  let data = {};
   try {
-    data = event.data?.json() || {};
+    const data = event.data?.json() || {};
+    const title = data.title || 'Notificação';
+    const body = data.body || '';
+    const options = {
+      body,
+      data: data.data || {},
+      icon: '/icon-192.png',
+      badge: '/icon-192.png'
+    };
+    event.waitUntil(self.registration.showNotification(title, options));
   } catch {
-    data = { title: 'Fitness Pro', body: event.data?.text() };
+    // ignore
   }
-  const title = data.title || 'Fitness Pro';
-  const options = {
-    body: data.body || '',
-    icon: '/icon-192.png',
-    badge: '/icon-192.png',
-    data: { url: data.url || '/dashboard' },
-  };
-  event.waitUntil(self.registration.showNotification(title, options));
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = event.notification?.data?.url || '/';
-  event.waitUntil(clients.openWindow(url));
+  const url = event.notification?.data?.url;
+  if (url) {
+    event.waitUntil(clients.openWindow(url));
+  }
 });

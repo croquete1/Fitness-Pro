@@ -1,82 +1,103 @@
-// src/app/api/dashboard/stats/route.ts
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
-
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { supabaseAdmin } from '@/lib/supabaseServer';
 import { toAppRole } from '@/lib/roles';
+import { createServerClient } from '@/lib/supabaseServer';
 
-type UiNotif = {
-  id: string;
-  title?: string;
-  body?: string | null;
-  link?: string | null;
-  createdAt?: string;
-  read?: boolean;
+type Res = {
+  counts: { clients?: number; trainers?: number; admins?: number; sessions7d?: number };
+  notifications: { unread: number };
+  upcoming?: { when: string; title?: string }[];
 };
 
-function appRoleToDbRole(app: 'ADMIN' | 'PT' | 'CLIENT') {
-  return app === 'PT' ? 'TRAINER' : app;
-}
+export const dynamic = 'force-dynamic';
 
-export async function GET(req: Request) {
+export async function GET() {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return new NextResponse('Unauthorized', { status: 401 });
+  const userId = (session as any)?.user?.id as string | undefined;
+  const appRole = toAppRole((session as any)?.user?.role) ?? 'CLIENT';
 
-  const { searchParams } = new URL(req.url);
-  const limitParam = Number(searchParams.get('limit') ?? '10');
-  const limit = Math.min(Math.max(limitParam, 1), 50); // 1..50
-  const cursor = searchParams.get('cursor'); // ISO created_at
+  const sb = createServerClient();
 
-  const userId = String(session.user.id);
-  const appRole = toAppRole((session.user as any).role) ?? 'CLIENT';
-  const dbRole = appRoleToDbRole(appRole);
-
-  const supabase = supabaseAdmin();
-
-  const or =
-    `target_user_id.eq.${userId},and(target_role.eq.${dbRole},target_user_id.is.null),and(target_role.is.null,target_user_id.is.null)`;
-
-  let q = supabase
-    .from('notifications')
-    .select('id,title,body,href,created_at', { count: 'exact' })
-    .or(or)
-    .order('created_at', { ascending: false })
-    .limit(limit + 1);
-
-  if (cursor) q = q.lt('created_at', cursor);
-
-  const { data, error } = await q;
-  if (error) return new NextResponse(error.message, { status: 500 });
-
-  const rows = data ?? [];
-  const hasMore = rows.length > limit;
-  const page = hasMore ? rows.slice(0, limit) : rows;
-  const nextCursor = hasMore ? page[page.length - 1]?.created_at : null;
-
-  // reads
-  const ids = page.map((r: any) => r.id);
-  let readSet = new Set<string>();
-  if (ids.length) {
-    const { data: reads, error: err2 } = await supabase
-      .from('notification_reads')
-      .select('notification_id')
-      .eq('user_id', userId)
-      .in('notification_id', ids);
-    if (err2) return new NextResponse(err2.message, { status: 500 });
-    readSet = new Set((reads ?? []).map((r: any) => r.notification_id));
+  async function safeCount(table: string, build: (q: any) => any) {
+    try {
+      let q = sb.from(table).select('*', { count: 'exact', head: true });
+      q = build(q);
+      const { count } = await q;
+      return count ?? 0;
+    } catch {
+      return 0;
+    }
+  }
+  async function safeSelect<T>(table: string, build: (q: any) => any): Promise<T[]> {
+    try {
+      let q = sb.from(table).select('*');
+      q = build(q);
+      const { data } = await q;
+      return (data ?? []) as T[];
+    } catch {
+      return [];
+    }
   }
 
-  const notifications: UiNotif[] = page.map((n: any) => ({
-    id: n.id,
-    title: n.title ?? undefined,
-    body: n.body ?? null,
-    link: n.href ?? null,
-    createdAt: n.created_at ? new Date(n.created_at).toISOString() : undefined,
-    read: readSet.has(n.id),
-  }));
+  const now = new Date();
+  const to = new Date(now); to.setDate(now.getDate() + 7);
 
-  return NextResponse.json({ notifications, nextCursor });
+  let payload: Res = { counts: {}, notifications: { unread: 0 }, upcoming: [] };
+
+  if (appRole === 'ADMIN') {
+    payload.counts.clients  = await safeCount('users', (q) => q.eq('role', 'CLIENT'));
+    payload.counts.trainers = await safeCount('users', (q) => q.eq('role', 'TRAINER'));
+    payload.counts.admins   = await safeCount('users', (q) => q.eq('role', 'ADMIN'));
+    payload.counts.sessions7d = await safeCount('sessions', (q) =>
+      q.gte('start_time', now.toISOString()).lt('start_time', to.toISOString())
+    );
+    payload.upcoming = await safeSelect<{ start_time: string; title?: string }>('sessions', (q) =>
+      q.gte('start_time', now.toISOString())
+       .lt('start_time', to.toISOString())
+       .order('start_time', { ascending: true })
+       .select('start_time,title')
+    ).then(arr => arr.map(r => ({ when: r.start_time, title: r.title })));
+  }
+  else if (appRole === 'PT' && userId) {
+    // clientes do PT (via client_packages)
+    const cps = await safeSelect<{ client_id: string }>('client_packages', (q) => q.eq('trainer_id', userId).select('client_id'));
+    payload.counts.clients = new Set(cps.map(x => x.client_id)).size;
+    payload.counts.sessions7d = await safeCount('sessions', (q) =>
+      q.eq('trainer_id', userId)
+       .gte('start_time', now.toISOString())
+       .lt('start_time', to.toISOString())
+    );
+    payload.upcoming = await safeSelect<{ start_time: string; title?: string }>('sessions', (q) =>
+      q.eq('trainer_id', userId)
+       .gte('start_time', now.toISOString())
+       .lt('start_time', to.toISOString())
+       .order('start_time', { ascending: true })
+       .select('start_time,title')
+    ).then(arr => arr.map(r => ({ when: r.start_time, title: r.title })));
+  }
+  else if (userId) {
+    // CLIENT
+    payload.counts.sessions7d = await safeCount('sessions', (q) =>
+      q.eq('client_id', userId)
+       .gte('start_time', now.toISOString())
+       .lt('start_time', to.toISOString())
+    );
+    payload.upcoming = await safeSelect<{ start_time: string; title?: string }>('sessions', (q) =>
+      q.eq('client_id', userId)
+       .gte('start_time', now.toISOString())
+       .lt('start_time', to.toISOString())
+       .order('start_time', { ascending: true })
+       .select('start_time,title')
+    ).then(arr => arr.map(r => ({ when: r.start_time, title: r.title })));
+  }
+
+  // notificações por utilizador
+  if (userId) {
+    payload.notifications.unread = await safeCount('notifications', (q) =>
+      q.eq('user_id', userId).eq('read', false)
+    );
+  }
+
+  return NextResponse.json(payload);
 }
