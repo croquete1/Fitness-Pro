@@ -10,13 +10,9 @@ import { toAppRole } from '@/lib/roles';
 export default async function DashboardIndex() {
   const session = await getServerSession(authOptions);
   const user = (session as any)?.user;
-
-  // sem sessão → login
   if (!user?.id) redirect('/login' as Route);
 
   const role = toAppRole(user.role) ?? 'CLIENT';
-
-  // decide UMA vez a página de aterragem
   if (role === 'ADMIN') redirect('/dashboard/admin' as Route);
   if (role === 'PT') redirect('/dashboard/pt' as Route);
   redirect('/dashboard/clients' as Route);
