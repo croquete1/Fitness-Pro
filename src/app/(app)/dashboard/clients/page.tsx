@@ -1,3 +1,4 @@
+// src/app/(app)/dashboard/clients/page.tsx
 export const dynamic = 'force-dynamic';
 
 import { getServerSession } from 'next-auth';
@@ -6,10 +7,9 @@ import { redirect } from 'next/navigation';
 import { toAppRole } from '@/lib/roles';
 import { createServerClient } from '@/lib/supabaseServer';
 import LiveBanners from '@/components/dashboard/LiveBanners';
-import Greeting from '@/components/dashboard/Greeting';
 import Link from 'next/link';
 import type { Route } from 'next';
-import SessionsTrendCard from '@/components/dashboard/SessionsTrendCard';
+import GreetingHeader from '@/components/dashboard/GreetingHeader';
 
 type Plan = { id: string; title?: string | null; status?: string | null; updated_at?: string | null };
 type SessionRow = { id: string; start_time: string; title?: string | null; location?: string | null; status?: string | null };
@@ -45,39 +45,23 @@ export default async function ClientDashboardPage() {
   const in7 = new Date(now); in7.setDate(now.getDate() + 7);
 
   const sessions7d = await safeCount(sb, 'sessions', (q) =>
-    q.eq('client_id', user.id)
-     .gte('start_time', now.toISOString())
-     .lt('start_time', in7.toISOString())
+    q.eq('client_id', user.id).gte('start_time', now.toISOString()).lt('start_time', in7.toISOString())
   );
-
-  const unread = await safeCount(sb, 'messages', (q) =>
-    q.eq('to_id', user.id).eq('read', false)
-  );
-
+  const unread = await safeCount(sb, 'messages', (q) => q.eq('to_id', user.id).eq('read', false));
   const plans = await safeSelect<Plan>(sb, 'training_plans', (q) =>
-    q.eq('client_id', user.id)
-     .order('updated_at', { ascending: false })
-     .limit(1)
-     .select('id,title,status,updated_at')
+    q.eq('client_id', user.id).order('updated_at', { ascending: false }).limit(1).select('id,title,status,updated_at')
   );
   const activePlan = plans[0];
-
   const upcoming = await safeSelect<SessionRow>(sb, 'sessions', (q) =>
-    q.eq('client_id', user.id)
-     .gte('start_time', now.toISOString())
-     .order('start_time', { ascending: true })
-     .limit(6)
-     .select('id,start_time,title,location,status')
+    q.eq('client_id', user.id).gte('start_time', now.toISOString()).order('start_time', { ascending: true }).limit(6).select('id,start_time,title,location,status')
   );
 
   return (
     <div style={{ padding: 16, display: 'grid', gap: 12 }}>
-      <Greeting name={user.name} role="CLIENT" />
+      <GreetingHeader name={user.name} role="CLIENT" />
 
-      {/* topo da página */}
       <LiveBanners />
 
-      {/* KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}>
         <div className="card" style={{ padding: 12 }}>
           <div className="text-muted small">Plano</div>
@@ -91,7 +75,7 @@ export default async function ClientDashboardPage() {
             <Link className="btn chip" href={'/dashboard/my-plan' as Route}>Abrir plano</Link>
           </div>
         </div>
-<SessionsTrendCard scope="client" id={String(user.id)} />
+
         <div className="card" style={{ padding: 12 }}>
           <div className="text-muted small">Sessões (próx. 7 dias)</div>
           <div style={{ fontSize: 36, fontWeight: 900 }}>{sessions7d}</div>
@@ -109,7 +93,6 @@ export default async function ClientDashboardPage() {
         </div>
       </div>
 
-      {/* Próximas sessões */}
       <div className="card" style={{ padding: 12 }}>
         <h3 style={{ marginTop: 0 }}>Próximas sessões</h3>
         {upcoming.length === 0 ? (
@@ -134,7 +117,6 @@ export default async function ClientDashboardPage() {
         )}
       </div>
 
-      {/* Atalhos úteis */}
       <div className="card" style={{ padding: 12 }}>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <Link className="btn chip" href={'/dashboard/profile' as Route}>👤 Perfil</Link>

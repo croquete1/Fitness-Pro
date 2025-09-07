@@ -1,49 +1,25 @@
-"use client";
+// src/components/dashboard/KpiCard.tsx
+import React from 'react';
 
 export default function KpiCard({
   label,
   value,
-  icon,
-  loading,
+  footer,
+  right,
 }: {
   label: string;
-  value: number | string;
-  icon?: string;
-  loading?: boolean;
+  value: React.ReactNode;
+  footer?: React.ReactNode;
+  right?: React.ReactNode;
 }) {
   return (
-    <div
-      style={{
-        border: "1px solid var(--border)",
-        borderRadius: 12,
-        padding: 14,
-        background: "var(--bg)",
-        display: "grid",
-        gridTemplateColumns: "auto 1fr",
-        gap: 10,
-        alignItems: "center",
-      }}
-    >
-      <div
-        aria-hidden
-        style={{
-          width: 36,
-          height: 36,
-          borderRadius: 10,
-          border: "1px solid var(--border)",
-          display: "grid",
-          placeItems: "center",
-          fontSize: 18,
-        }}
-      >
-        {icon ?? "•"}
+    <div className="card" style={{ padding: 12, display: 'grid', gap: 8 }}>
+      <div className="text-muted small" style={{ display: 'flex', justifyContent: 'space-between' }}>
+        <span>{label}</span>
+        {right}
       </div>
-      <div>
-        <div style={{ color: "var(--muted)", fontSize: ".85rem" }}>{label}</div>
-        <div style={{ fontWeight: 800, fontSize: "1.25rem", minHeight: 22 }}>
-          {loading ? "…" : value}
-        </div>
-      </div>
+      <div style={{ fontSize: 36, fontWeight: 900, lineHeight: 1 }}>{value}</div>
+      {footer && <div>{footer}</div>}
     </div>
   );
 }
