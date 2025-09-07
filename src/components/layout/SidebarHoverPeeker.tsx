@@ -5,23 +5,45 @@ import React from 'react';
 import { useSidebar } from './SidebarProvider';
 
 export default function SidebarHoverPeeker() {
-  const { pinned, collapsed } = useSidebar();
+  const { open, setOpen } = useSidebar();
 
-  // Só precisamos do peeker quando NÃO estiver afixada.
-  if (pinned) return null;
+  // Se a sidebar estiver aberta (pinned), o peeker não é necessário.
+  if (open) return null;
 
   return (
     <div
-      aria-hidden
+      // “faixa” de hover no lado esquerdo
+      onMouseEnter={() => setOpen(true)}
       style={{
         position: 'fixed',
-        left: 0,
         top: 0,
-        width: collapsed ? 20 : 0, // “borda” clicável quando colapsada
-        height: '100vh',
-        zIndex: 59,
-        pointerEvents: collapsed ? 'auto' : 'none',
+        left: 0,
+        width: 8,                // fino e discreto
+        height: '100dvh',
+        zIndex: 40,
+        background: 'transparent',
       }}
-    />
+    >
+      {/* Botão acessível para teclado/reader */}
+      <button
+        type="button"
+        aria-label="Abrir navegação"
+        onClick={() => setOpen(true)}
+        style={{
+          position: 'absolute',
+          top: '50%',
+          left: 10,
+          transform: 'translateY(-50%)',
+          borderRadius: 999,
+          padding: 8,
+          border: '1px solid var(--border)',
+          background: 'var(--card-bg)',
+          boxShadow: '0 8px 24px rgba(0,0,0,.12)',
+          cursor: 'pointer',
+        }}
+      >
+        ☰
+      </button>
+    </div>
   );
 }

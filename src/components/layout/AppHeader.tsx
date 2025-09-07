@@ -6,10 +6,9 @@ import Link from 'next/link';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import SignOutConfirmButton from '@/components/auth/SignOutConfirmButton';
-import { enablePush, disablePush } from '@/lib/pushClient';
+import { enablePush, disablePush, getPushStatus } from '@/lib/push-client';
 
-/* =================== Notificações (dropdown) =================== */
-
+/* =================== Tipos =================== */
 type HeaderNotif = {
   id: string;
   title?: string;
@@ -19,6 +18,9 @@ type HeaderNotif = {
   read?: boolean;
 };
 
+type SavedView = { id: string; name: string; qs: string };
+
+/* =================== Utilitários =================== */
 function timeLabel(iso?: string) {
   if (!iso) return '';
   const d = new Date(iso);
@@ -56,6 +58,13 @@ function useOutsideClick<T extends HTMLElement>(open: boolean, onClose: () => vo
   return ref;
 }
 
+const VIEWS_KEY = 'fp.search.views';
+const safeId = () =>
+  typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random()}`;
+
+/* =================== Notificações (dropdown) =================== */
 function NotificationsBell() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -63,11 +72,26 @@ function NotificationsBell() {
   const [items, setItems] = useState<HeaderNotif[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // estado push
-  const [pushReady, setPushReady] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return 'Notification' in window && Notification.permission === 'granted';
-  });
+  // Estado Push (não depender do retorno da função; usar a permissão real do browser)
+  const [pushReady, setPushReady] = useState(false);
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const status = await getPushStatus().catch< 'enabled' | 'disabled' >(() => 'disabled');
+        if (!isMounted) return;
+        if (status === 'enabled') setPushReady(true);
+        else if (typeof window !== 'undefined' && 'Notification' in window) {
+          setPushReady(Notification.permission === 'granted');
+        }
+      } catch {
+        setPushReady(false);
+      }
+    })();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const fetchLatest = useCallback(async () => {
     try {
@@ -85,12 +109,14 @@ function NotificationsBell() {
   }, []);
 
   useEffect(() => {
-    let t: any;
+    let t: ReturnType<typeof setInterval> | null = null;
     if (open) {
       fetchLatest();
       t = setInterval(fetchLatest, 60_000);
     }
-    return () => t && clearInterval(t);
+    return () => {
+      if (t) clearInterval(t);
+    };
   }, [open, fetchLatest]);
 
   const close = useCallback(() => setOpen(false), []);
@@ -100,27 +126,27 @@ function NotificationsBell() {
   function go(link?: string | null) {
     if (!link) return;
     close();
-    // pode vir do servidor; tipamos para Route para satisfazer typedRoutes
     router.push(link as Route);
   }
 
-  async function onEnablePush() {
+  const onEnablePush = useCallback(async () => {
     try {
-      const res = await enablePush();
-      setPushReady(res.ok && res.permission === 'granted');
+      const res = await enablePush(); // { ok: boolean, reason?: string }
+      const granted =
+        typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted';
+      setPushReady(Boolean(res?.ok) && granted);
     } catch {
-      // opcional: mostrar toast
       setPushReady(false);
     }
-  }
+  }, []);
 
-  async function onDisablePush() {
+  const onDisablePush = useCallback(async () => {
     try {
-      await disablePush();
+      await disablePush(); // idempotente no cliente
     } finally {
       setPushReady(false);
     }
-  }
+  }, []);
 
   return (
     <div className="notif-wrap" style={{ position: 'relative' }}>
@@ -174,16 +200,12 @@ function NotificationsBell() {
             Notificações
           </div>
 
-          {loading && (
-            <div style={{ padding: 16, fontSize: 13, color: 'var(--muted)' }}>A carregar…</div>
-          )}
+          {loading && <div style={{ padding: 16, fontSize: 13, color: 'var(--muted)' }}>A carregar…</div>}
           {error && !loading && (
             <div style={{ padding: 16, fontSize: 13, color: 'var(--danger)' }}>{error}</div>
           )}
           {!loading && !error && items.length === 0 && (
-            <div style={{ padding: 16, fontSize: 13, color: 'var(--muted)' }}>
-              Sem novas notificações.
-            </div>
+            <div style={{ padding: 16, fontSize: 13, color: 'var(--muted)' }}>Sem novas notificações.</div>
           )}
 
           {!loading && !error && items.length > 0 && (
@@ -212,12 +234,8 @@ function NotificationsBell() {
                     }}
                   >
                     <div>
-                      <div style={{ fontWeight: 600, marginBottom: 4 }}>
-                        {n.title ?? 'Notificação'}
-                      </div>
-                      {!!n.body && (
-                        <div style={{ fontSize: 13, color: 'var(--muted)' }}>{n.body}</div>
-                      )}
+                      <div style={{ fontWeight: 600, marginBottom: 4 }}>{n.title ?? 'Notificação'}</div>
+                      {!!n.body && <div style={{ fontSize: 13, color: 'var(--muted)' }}>{n.body}</div>}
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
                       {timeLabel(n.createdAt)}
@@ -265,16 +283,7 @@ function NotificationsBell() {
   );
 }
 
-/* =================== Saved Views (localStorage) =================== */
-
-type SavedView = { id: string; name: string; qs: string };
-
-const VIEWS_KEY = 'fp.search.views';
-const safeId = () =>
-  typeof crypto !== 'undefined' && 'randomUUID' in crypto
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random()}`;
-
+/* =================== Saved Views =================== */
 function useSavedViews() {
   const [views, setViews] = useState<SavedView[]>([]);
   useEffect(() => {
@@ -306,7 +315,6 @@ function useSavedViews() {
 }
 
 /* =================== QuickFilters =================== */
-
 function QuickFilters() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -367,7 +375,6 @@ function QuickFilters() {
 }
 
 /* =================== AppHeader =================== */
-
 export default function AppHeader() {
   const router = useRouter();
   const pathname = usePathname();
@@ -375,7 +382,7 @@ export default function AppHeader() {
 
   const [q, setQ] = useState('');
 
-  // tema
+  // Tema
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   useEffect(() => {
     const current =
@@ -390,7 +397,7 @@ export default function AppHeader() {
     } catch {}
   }, [theme]);
 
-  // sincroniza query no input quando estamos em /dashboard/search
+  // Sincronizar query do /dashboard/search → input
   useEffect(() => {
     if (pathname?.startsWith('/dashboard/search')) {
       setQ(searchParams.get('q') ?? '');
@@ -407,7 +414,7 @@ export default function AppHeader() {
     [router, q]
   );
 
-  // Chips-resumo dos filtros ativos
+  // Resumo de filtros ativos (chips)
   const filterSummary = useMemo(() => {
     if (!pathname?.startsWith('/dashboard/search')) return [] as { key: string; label: string }[];
 
@@ -441,7 +448,7 @@ export default function AppHeader() {
       const sp = new URLSearchParams(Array.from(searchParams.entries()));
       Object.entries(patch).forEach(([k, v]) => (v ? sp.set(k, v) : sp.delete(k)));
       const qs = sp.toString();
-      return `/dashboard/search${qs ? `?${qs}` : ''}` as Route;
+      return (`/dashboard/search${qs ? `?${qs}` : ''}` as Route);
     },
     [searchParams]
   );
@@ -546,7 +553,7 @@ export default function AppHeader() {
                         ))}
                       </select>
 
-                      {/* apagar vista selecionada (modo simples) */}
+                      {/* apagar vista selecionada */}
                       <button
                         type="button"
                         className="btn chip"

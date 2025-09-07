@@ -1,42 +1,88 @@
 // src/lib/notify.ts
 import { createServerClient } from '@/lib/supabaseServer';
 
-type BasePayload = { userId: string; title: string; body?: string; link?: string };
+export type NotifyResult = { ok: true } | { ok: false; reason: string };
 
-export async function createNotification(p: BasePayload) {
-  const sb = createServerClient();
-  await sb.from('notifications').insert({
-    user_id: p.userId,
-    title: p.title,
-    body: p.body ?? null,
-    link: p.link ?? null,
-    read: false,
-  });
+type SB = ReturnType<typeof createServerClient>;
+
+async function insertNotification(
+  sb: SB,
+  userId: string,
+  title: string,
+  body: string,
+  link?: string | null
+): Promise<NotifyResult> {
+  try {
+    const { error } = await sb.from('notifications').insert({
+      user_id: userId,
+      title,
+      body,
+      link: link ?? null,
+      read: false,
+      created_at: new Date().toISOString(),
+    } as any);
+
+    if (error) return { ok: false, reason: error.message };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, reason: e instanceof Error ? e.message : 'unknown' };
+  }
 }
 
-export async function notifyPlanCreated(clientId: string, planId: string, planTitle?: string | null) {
-  await createNotification({
-    userId: clientId,
-    title: 'Novo plano de treino',
-    body: planTitle ? `Plano: ${planTitle}` : undefined,
-    link: '/dashboard/my-plan',
-  });
+/** Novo plano criado -> notifica cliente */
+export async function notifyPlanCreated(
+  sb: SB,
+  clientId: string,
+  planId: string
+): Promise<NotifyResult> {
+  const link = `/dashboard/my-plan?plan=${encodeURIComponent(planId)}`;
+  return insertNotification(
+    sb,
+    clientId,
+    'Novo plano de treino',
+    'Foi criado um novo plano de treino.',
+    link
+  );
 }
 
-export async function notifyPlanUpdated(clientId: string, planId: string, planTitle?: string | null) {
-  await createNotification({
-    userId: clientId,
-    title: 'Plano atualizado',
-    body: planTitle ? `Plano: ${planTitle}` : undefined,
-    link: '/dashboard/my-plan',
-  });
+/** Plano atualizado (genérico) -> notifica cliente */
+export async function notifyPlanUpdated(
+  sb: SB,
+  clientId: string,
+  planId: string
+): Promise<NotifyResult> {
+  const link = `/dashboard/my-plan?plan=${encodeURIComponent(planId)}`;
+  return insertNotification(
+    sb,
+    clientId,
+    'Plano atualizado',
+    'O teu plano de treino foi atualizado.',
+    link
+  );
 }
 
-export async function notifyDayNotesUpdated(clientId: string, planId: string, dayLabel: string) {
-  await createNotification({
-    userId: clientId,
-    title: 'Notas do treino atualizadas',
-    body: `Notas do dia ${dayLabel}`,
-    link: '/dashboard/my-plan',
-  });
+/**
+ * Notas do dia de treino atualizadas -> notifica cliente
+ * 4º argumento (dayIso) é OPCIONAL para manter compatibilidade com chamadas a 3 args.
+ */
+export async function notifyPlanDayNotesUpdated(
+  sb: SB,
+  clientId: string,
+  planId: string,
+  dayIso?: string
+): Promise<NotifyResult> {
+  const link = `/dashboard/my-plan?plan=${encodeURIComponent(planId)}${
+    dayIso ? `&day=${encodeURIComponent(dayIso)}` : ''
+  }`;
+  const body = dayIso
+    ? `As notas do dia ${dayIso} foram atualizadas.`
+    : 'Notas de treino atualizadas.';
+
+  return insertNotification(
+    sb,
+    clientId,
+    'Notas do treino atualizadas',
+    body,
+    link
+  );
 }
