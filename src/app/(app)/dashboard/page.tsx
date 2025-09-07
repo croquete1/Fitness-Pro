@@ -1,16 +1,28 @@
+// src/app/(app)/dashboard/page.tsx
 export const dynamic = 'force-dynamic';
 
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { toAppRole } from '@/lib/roles';
 import { redirect } from 'next/navigation';
+import type { Route } from 'next';
 
-export default async function DashboardRoot() {
+export default async function DashboardIndex() {
   const session = await getServerSession(authOptions);
-  const role = toAppRole((session as any)?.user?.role) ?? 'CLIENT';
+  const user = (session as any)?.user;
 
-  if (role === 'ADMIN') redirect('/dashboard/admin' as any);
-  if (role === 'PT') redirect('/dashboard/pt' as any);
-  // cliente → manda para uma vista útil (ajusta se preferires outra)
-  redirect('/dashboard/my-plan' as any);
+  if (!user?.id) {
+    redirect('/login' as Route);
+  }
+
+  const role = toAppRole(user.role) ?? 'CLIENT';
+
+  const dest =
+    role === 'ADMIN'
+      ? ('/dashboard/admin' as Route)
+      : role === 'PT'
+      ? ('/dashboard/pt' as Route)
+      : ('/dashboard/clients' as Route);
+
+  redirect(dest);
 }
