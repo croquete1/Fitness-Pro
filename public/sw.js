@@ -1,24 +1,26 @@
+// public/sw.js
 self.addEventListener('push', (event) => {
-  try {
-    const data = event.data?.json() || {};
-    const title = data.title || 'Notificação';
-    const body = data.body || '';
-    const options = {
-      body,
-      data: data.data || {},
-      icon: '/icon-192.png',
-      badge: '/icon-192.png'
-    };
-    event.waitUntil(self.registration.showNotification(title, options));
-  } catch {
-    // ignore
-  }
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch {}
+  const title = data.title || 'Fitness Pro';
+  const options = {
+    body: data.body || '',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/badge.png',
+    data: { url: data.url || '/' }
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
 });
 
 self.addEventListener('notificationclick', (event) => {
+  const url = (event.notification && event.notification.data && event.notification.data.url) || '/';
   event.notification.close();
-  const url = event.notification?.data?.url;
-  if (url) {
-    event.waitUntil(clients.openWindow(url));
-  }
+  event.waitUntil(
+    clients.matchAll({ type: 'window' }).then((clis) => {
+      for (const c of clis) {
+        if ('focus' in c) { c.navigate(url); c.focus(); return; }
+      }
+      if (clients.openWindow) return clients.openWindow(url);
+    })
+  );
 });

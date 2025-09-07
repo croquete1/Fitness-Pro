@@ -1,3 +1,6 @@
+// src/app/api/notifications/mark-all-read/route.ts
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -9,8 +12,6 @@ export async function POST() {
   if (!user?.id) return new NextResponse('Unauthorized', { status: 401 });
 
   const sb = createServerClient();
-
-  // marcar todas como lidas para este utilizador
   const { error } = await sb
     .from('notifications')
     .update({ read: true })

@@ -1,79 +1,88 @@
+// src/app/(app)/dashboard/notifications/page.tsx
 'use client';
-import * as React from 'react';
-import Link from 'next/link';
-import type { Route } from 'next';
 
-type Notif = {
+import * as React from 'react';
+import { useRouter } from 'next/navigation';
+
+type Item = {
   id: string;
   title?: string;
   body?: string | null;
   link?: string | null;
-  created_at?: string;
-  read?: boolean;
-  type?: string | null;
+  created_at?: string | null;
+  read?: boolean | null;
 };
 
-export default function NotificationsCenterPage() {
-  const [items, setItems] = React.useState<Notif[]>([]);
+function timeLabel(iso?: string | null) {
+  if (!iso) return '';
+  try { return new Date(iso).toLocaleString('pt-PT'); } catch { return iso || ''; }
+}
+
+export default function NotificationsCenter() {
+  const [items, setItems] = React.useState<Item[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [filter, setFilter] = React.useState<'all' | 'unread'>('all');
+  const [onlyUnread, setOnlyUnread] = React.useState(false);
+  const router = useRouter();
 
   const load = React.useCallback(async () => {
     setLoading(true);
     const res = await fetch('/api/notifications/list', { cache: 'no-store' });
-    const json = await res.json().catch(() => ({ items: [] as Notif[] }));
-    setItems(json.items ?? []);
+    const data = await res.json().catch(() => ({}));
+    setItems(Array.isArray(data.items) ? data.items : []);
     setLoading(false);
   }, []);
 
   React.useEffect(() => { load(); }, [load]);
 
-  const visible = items.filter(n => filter === 'all' ? true : !n.read);
+  const markAll = async () => {
+    await fetch('/api/notifications/mark-all-read', { method: 'POST' });
+    await load();
+  };
+
+  const view = onlyUnread ? items.filter(i => !i.read) : items;
 
   return (
     <div style={{ padding: 16, display: 'grid', gap: 12 }}>
-      <h1 style={{ margin: 0 }}>Notificações</h1>
+      <h1 style={{ margin: 0 }}>Centro de notificações</h1>
 
-      <div className="card" style={{ padding: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
-        <select value={filter} onChange={(e) => setFilter(e.target.value as any)} aria-label="Filtro">
-          <option value="all">Todas</option>
-          <option value="unread">Por ler</option>
-        </select>
+      <div className="card" style={{ padding: 8, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <label style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+          <input type="checkbox" checked={onlyUnread} onChange={(e) => setOnlyUnread(e.target.checked)} />
+          Mostrar apenas por ler
+        </label>
+        <button className="btn chip" onClick={markAll}>Marcar tudo como lido</button>
         <button className="btn chip" onClick={load}>Atualizar</button>
-        <button
-          className="btn chip"
-          onClick={async () => {
-            await fetch('/api/notifications/mark-all-read', { method: 'POST' });
-            load();
-          }}
-        >
-          Marcar tudo como lido
-        </button>
       </div>
 
       <div className="card" style={{ padding: 0 }}>
         {loading ? (
-          <div style={{ padding: 12 }} className="text-muted small">A carregar…</div>
-        ) : visible.length === 0 ? (
-          <div style={{ padding: 12 }} className="text-muted small">Sem notificações.</div>
+          <div style={{ padding: 16, color: 'var(--muted)' }}>A carregar…</div>
+        ) : view.length === 0 ? (
+          <div style={{ padding: 16, color: 'var(--muted)' }}>Sem notificações.</div>
         ) : (
           <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-            {visible.map(n => (
+            {view.map((n) => (
               <li key={n.id} style={{ borderTop: '1px solid var(--border)' }}>
-                <div style={{ padding: 10, display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'center' }}>
+                <button
+                  onClick={() => { if (n.link) router.push(n.link as any); }}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr auto',
+                    gap: 8,
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: 12,
+                    background: n.read ? 'transparent' : 'var(--hover)',
+                    border: 0,
+                    cursor: n.link ? 'pointer' : 'default'
+                  }}
+                >
                   <div>
-                    <div style={{ fontWeight: 700 }}>{n.title ?? 'Notificação'}</div>
-                    {!!n.body && <div className="text-muted small">{n.body}</div>}
-                    {!!n.link && (
-                      <div style={{ marginTop: 6 }}>
-                        <Link href={(n.link as Route) ?? ('/dashboard' as Route)} className="btn chip">Abrir</Link>
-                      </div>
-                    )}
+                    <div style={{ fontWeight: 700, marginBottom: 4 }}>{n.title || 'Notificação'}</div>
+                    {!!n.body && <div className="small text-muted">{n.body}</div>}
                   </div>
-                  <div className="text-muted tiny" style={{ whiteSpace: 'nowrap' }}>
-                    {n.created_at ? new Date(n.created_at).toLocaleString('pt-PT') : '—'}
-                  </div>
-                </div>
+                  <div className="small text-muted" style={{ whiteSpace: 'nowrap' }}>{timeLabel(n.created_at)}</div>
+                </button>
               </li>
             ))}
           </ul>

@@ -1,3 +1,6 @@
+// src/app/api/notifications/list/route.ts
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -11,10 +14,10 @@ export async function GET() {
   const sb = createServerClient();
   const { data, error } = await sb
     .from('notifications')
-    .select('id,title,body,link,created_at,read,type')
+    .select('id,title,body,link,created_at,read')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
-    .limit(100);
+    .limit(50);
 
   if (error) return new NextResponse(error.message, { status: 500 });
   return NextResponse.json({ items: data ?? [] });

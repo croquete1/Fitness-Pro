@@ -11,6 +11,7 @@ import LiveBanners from '@/components/dashboard/LiveBanners';
 import GreetingHeader from '@/components/dashboard/GreetingHeader';
 import KpiCard from '@/components/dashboard/KpiCard';
 import { createServerClient } from '@/lib/supabaseServer';
+import PushBootstrap from '@/components/dashboard/PushBootstrap';
 
 async function safeCount(sb: ReturnType<typeof createServerClient>, table: string, build?: (q: any) => any) {
   try {
@@ -50,6 +51,7 @@ export default async function AdminDashboard() {
     <div style={{ padding: 16, display: 'grid', gap: 12 }}>
       <GreetingHeader name={user.name} role="ADMIN" />
       <LiveBanners />
+      <PushBootstrap />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}>
         <KpiCard label="Clientes" value={clients} />

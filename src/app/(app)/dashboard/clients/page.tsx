@@ -10,6 +10,7 @@ import LiveBanners from '@/components/dashboard/LiveBanners';
 import Link from 'next/link';
 import type { Route } from 'next';
 import GreetingHeader from '@/components/dashboard/GreetingHeader';
+import PushBootstrap from '@/components/dashboard/PushBootstrap';
 
 type Plan = { id: string; title?: string | null; status?: string | null; updated_at?: string | null };
 type SessionRow = { id: string; start_time: string; title?: string | null; location?: string | null; status?: string | null };
@@ -59,8 +60,8 @@ export default async function ClientDashboardPage() {
   return (
     <div style={{ padding: 16, display: 'grid', gap: 12 }}>
       <GreetingHeader name={user.name} role="CLIENT" />
-
       <LiveBanners />
+      <PushBootstrap />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}>
         <div className="card" style={{ padding: 12 }}>
