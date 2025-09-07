@@ -1,20 +1,30 @@
+// src/app/(app)/dashboard/admin/page.tsx
 export const dynamic = 'force-dynamic';
 
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { toAppRole } from '@/lib/roles';
-import { notFound } from 'next/navigation';
+import { redirect } from 'next/navigation';
+import type { Route } from 'next';
 import LiveBanners from '@/components/dashboard/LiveBanners';
 import Link from 'next/link';
-import type { Route } from 'next';
 
 export default async function AdminDashboard() {
   const session = await getServerSession(authOptions);
-  const role = toAppRole((session as any)?.user?.role) ?? 'CLIENT';
+  const user = (session as any)?.user;
 
-  // importante: não redirecionar para /dashboard — usa 404/403 para evitar loops
-  if (role !== 'ADMIN') return notFound();
+  // sem sessão → login
+  if (!user?.id) redirect('/login' as Route);
 
+  const role = toAppRole(user.role) ?? 'CLIENT';
+
+  // regra de acesso: se não for ADMIN, vai diretamente para a SUA dashboard
+  if (role !== 'ADMIN') {
+    if (role === 'PT') redirect('/dashboard/pt' as Route);
+    redirect('/dashboard/clients' as Route);
+  }
+
+  // --- UI (mantém o que já tinhas, só deixei um esqueleto)
   return (
     <div style={{ padding: 16, display: 'grid', gap: 12 }}>
       <h1 style={{ margin: 0 }}>Dashboard (Admin)</h1>

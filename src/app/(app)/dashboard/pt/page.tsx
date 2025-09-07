@@ -1,19 +1,30 @@
+// src/app/(app)/dashboard/pt/page.tsx
 export const dynamic = 'force-dynamic';
 
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { toAppRole } from '@/lib/roles';
-import { notFound } from 'next/navigation';
+import { redirect } from 'next/navigation';
+import type { Route } from 'next';
 import LiveBanners from '@/components/dashboard/LiveBanners';
 import Link from 'next/link';
-import type { Route } from 'next';
 
 export default async function PTDashboard() {
   const session = await getServerSession(authOptions);
-  const role = toAppRole((session as any)?.user?.role) ?? 'CLIENT';
+  const user = (session as any)?.user;
 
-  if (role !== 'PT') return notFound();
+  // sem sessão → login
+  if (!user?.id) redirect('/login' as Route);
 
+  const role = toAppRole(user.role) ?? 'CLIENT';
+
+  // regra de acesso: se não for PT, envia para a SUA dashboard
+  if (role !== 'PT') {
+    if (role === 'ADMIN') redirect('/dashboard/admin' as Route);
+    redirect('/dashboard/clients' as Route);
+  }
+
+  // --- UI (mantém o que já tinhas)
   return (
     <div style={{ padding: 16, display: 'grid', gap: 12 }}>
       <h1 style={{ margin: 0 }}>Dashboard (PT)</h1>
