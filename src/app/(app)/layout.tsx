@@ -1,42 +1,33 @@
-// src/app/(app)/layout.tsx
-export const dynamic = 'force-dynamic';
-
+// src/app/(app)/dashboard/layout.tsx  (usado pelo CLIENT)
 import React from 'react';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { redirect } from 'next/navigation';
 import { toAppRole } from '@/lib/roles';
-import type { AppRole } from '@/lib/roles';
+import SidebarClient from '@/components/layout/SidebarClient';
+import { SidebarProvider } from '@/components/layout/SidebarBase';
 
-import SidebarProvider from '@/components/layout/SidebarProvider';
-import RoleSidebar from '@/components/layout/RoleSidebar';
-import SidebarHoverPeeker from '@/components/layout/SidebarHoverPeeker';
-import AppProviders from '@/components/layout/AppProviders';
-import AppHeader from '@/components/layout/AppHeader';
-
-export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const session = await getServerSession(authOptions);
-  const role = (toAppRole(session?.user?.role) ?? 'CLIENT') as AppRole;
-  const userLabel = (session?.user?.name ?? session?.user?.email ?? 'Utilizador') as string;
-
+function ClientShell({ children, userLabel }: { children: React.ReactNode; userLabel: string }) {
+  'use client';
   return (
     <SidebarProvider>
-      <AppProviders>
-        <div
-          className="fp-shell"
-          style={{ display: 'grid', gridTemplateColumns: '280px 1fr', minHeight: '100vh' }}
-        >
-          <aside>
-            <RoleSidebar role={role} userLabel={userLabel} />
-          </aside>
-
-          <div className="app-shell fp-main" style={{ minWidth: 0 }}>
-            <AppHeader />
-            <div className="fp-content">{children}</div>
-          </div>
-        </div>
-
-        <SidebarHoverPeeker />
-      </AppProviders>
+      <div className="dash-shell">
+        <aside className="dash-sidebar">
+          <SidebarClient userLabel={userLabel} />
+        </aside>
+        <main className="dash-content">{children}</main>
+      </div>
     </SidebarProvider>
   );
+}
+
+export default async function DashboardRootLayout({ children }: { children: React.ReactNode }) {
+  const session = await getServerSession(authOptions);
+  const user = (session as any)?.user;
+  if (!user?.id) redirect('/login');
+  const role = toAppRole(user.role) ?? 'CLIENT';
+  if (role === 'ADMIN') redirect('/dashboard/admin');
+  if (role === 'PT') redirect('/dashboard/pt');
+  const userLabel = user.name ?? user.email ?? 'Cliente';
+  return <ClientShell userLabel={userLabel}>{children}</ClientShell>;
 }
