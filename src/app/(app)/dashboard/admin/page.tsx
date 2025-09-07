@@ -1,4 +1,3 @@
-// src/app/(app)/dashboard/admin/page.tsx
 export const dynamic = 'force-dynamic';
 
 import { getServerSession } from 'next-auth';
@@ -13,7 +12,7 @@ export default async function AdminDashboard() {
   const session = await getServerSession(authOptions);
   const role = toAppRole((session as any)?.user?.role) ?? 'CLIENT';
 
-  // ❌ Nada de redirect('/dashboard') aqui — isso causa loop com /dashboard
+  // importante: não redirecionar para /dashboard — usa 404/403 para evitar loops
   if (role !== 'ADMIN') return notFound();
 
   return (

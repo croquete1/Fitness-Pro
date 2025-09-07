@@ -1,4 +1,3 @@
-// src/app/(app)/dashboard/pt/page.tsx
 export const dynamic = 'force-dynamic';
 
 import { getServerSession } from 'next-auth';
@@ -12,6 +11,7 @@ import type { Route } from 'next';
 export default async function PTDashboard() {
   const session = await getServerSession(authOptions);
   const role = toAppRole((session as any)?.user?.role) ?? 'CLIENT';
+
   if (role !== 'PT') return notFound();
 
   return (

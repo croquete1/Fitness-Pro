@@ -1,58 +1,54 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 
-/** Normaliza o role vindo do token (pode vir como 'ADMIN', 'TRAINER', 'CLIENT' ou 'admin'/'pt'/'client') */
-function toAppRole(role?: unknown): 'admin' | 'pt' | 'client' {
-  const r = String(role ?? '').trim();
-  if (r === 'admin' || r === 'pt' || r === 'client') return r as any;
-  if (r === 'ADMIN') return 'admin';
-  if (r === 'TRAINER' || r === 'PT') return 'pt';
-  if (r === 'CLIENT') return 'client';
-  return 'client';
-}
-
-const PUBLIC = [
-  /^\/login(?:\/|$)/,
-  /^\/register(?:\/|$)/,
-  /^\/_next\//,
-  /^\/favicon/,
-  /^\/api\/auth\//, // next-auth endpoints
-];
-
-const ADMIN_ONLY = [/^\/dashboard\/admin(?:\/|$)/];
-const PT_ONLY = [/^\/dashboard\/pt(?:\/|$)/];
+// ficheiros públicos (não interceptar)
+const PUBLIC_FILE = /\.(.*)$/;
 
 export async function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
+  const { pathname, search } = req.nextUrl;
 
-  // público
-  if (PUBLIC.some((re) => re.test(pathname))) {
+  // ignorar assets, next internals e rota do service worker
+  if (
+    PUBLIC_FILE.test(pathname) ||
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/api/auth') ||
+    pathname === '/api/notifications/webpush-sw.js')
+  {
     return NextResponse.next();
   }
 
-  // precisa de sessão
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-  if (!token) {
-    const url = new URL('/login', req.url);
-    url.searchParams.set('callbackUrl', pathname);
-    return NextResponse.redirect(url);
+  const isLoggedIn = !!token;
+
+  const isAuthPage = pathname === '/login' || pathname === '/register';
+  const requiresAuth =
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/api/admin') ||
+    pathname.startsWith('/api/pt') ||
+    pathname.startsWith('/api/client');
+
+  // sem sessão → mandar para login com "next" (evita loop)
+  if (!isLoggedIn && requiresAuth) {
+    const loginUrl = new URL('/login', req.url);
+    loginUrl.searchParams.set('next', pathname + search);
+    return NextResponse.redirect(loginUrl);
   }
 
-  const role = toAppRole((token as any).role);
-
-  // regras por role
-  const matches = (rules: RegExp[]) => rules.some((r) => r.test(pathname));
-  if (matches(ADMIN_ONLY) && role !== 'admin') {
-    return NextResponse.redirect(new URL('/dashboard', req.url));
-  }
-  if (matches(PT_ONLY) && role !== 'pt') {
-    return NextResponse.redirect(new URL('/dashboard', req.url));
+  // com sessão → se estiver em /login|/register, empurrar para /dashboard (uma só vez)
+  if (isLoggedIn && isAuthPage) {
+    const dashUrl = new URL('/dashboard', req.url);
+    if (dashUrl.pathname !== pathname) {
+      return NextResponse.redirect(dashUrl);
+    }
   }
 
+  // default
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/login', '/register', '/api/auth/:path*'],
+  matcher: [
+    // Apanha tudo excepto assets estáticos
+    '/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-touch-icon.png|public).*)',
+  ],
 };

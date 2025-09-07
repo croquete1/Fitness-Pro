@@ -1,4 +1,3 @@
-// src/app/(app)/dashboard/page.tsx
 export const dynamic = 'force-dynamic';
 
 import { getServerSession } from 'next-auth';
