@@ -12,7 +12,10 @@ function timeLabel(iso?: string) {
   const d = new Date(iso);
   try {
     return d.toLocaleString('pt-PT', {
-      day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
     });
   } catch {
     return iso.replace('T', ' ').slice(0, 16);
@@ -99,16 +102,10 @@ function NotificationsBell() {
     try {
       const res = await registerPush();
       setPushReady(res.ok);
-    } catch {
-      setPushReady(false);
-    }
+    } catch { setPushReady(false); }
   }
   async function onDisablePush() {
-    try {
-      await unregisterPush();
-    } finally {
-      setPushReady(false);
-    }
+    try { await unregisterPush(); } finally { setPushReady(false); }
   }
 
   return (
@@ -119,7 +116,7 @@ function NotificationsBell() {
         title={pushReady ? 'Notificações ativas' : 'Ativar notificações'}
         aria-haspopup="menu"
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen(v => !v)}
       >
         {pushReady ? '🔔' : '🔕'}
         {!!unreadCount && (
@@ -140,18 +137,10 @@ function NotificationsBell() {
           role="menu"
           aria-label="Últimas notificações"
           style={{
-            position: 'absolute',
-            right: 0,
-            top: 'calc(100% + 8px)',
-            width: 360,
-            maxWidth: 'min(92vw, 360px)',
-            background: 'var(--card-bg)',
-            color: 'var(--fg)',
-            border: '1px solid var(--border)',
-            borderRadius: 12,
-            boxShadow: '0 12px 40px rgba(0,0,0,.18)',
-            overflow: 'hidden',
-            zIndex: 1000,
+            position: 'absolute', right: 0, top: 'calc(100% + 8px)',
+            width: 360, maxWidth: 'min(92vw, 360px)', background: 'var(--card-bg)',
+            color: 'var(--fg)', border: '1px solid var(--border)', borderRadius: 12,
+            boxShadow: '0 12px 40px rgba(0,0,0,.18)', overflow: 'hidden', zIndex: 1000,
           }}
         >
           <div style={{ padding: 10, borderBottom: '1px solid var(--border)', fontWeight: 700 }}>
@@ -197,11 +186,9 @@ function NotificationsBell() {
               Push: {pushReady ? 'ativo' : 'desligado'}
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              {!pushReady ? (
-                <button className="btn chip" onClick={onEnablePush}>Ativar push</button>
-              ) : (
-                <button className="btn chip" onClick={onDisablePush}>Desativar push</button>
-              )}
+              {!pushReady
+                ? <button className="btn chip" onClick={onEnablePush}>Ativar push</button>
+                : <button className="btn chip" onClick={onDisablePush}>Desativar push</button>}
               <button className="btn chip" onClick={fetchLatest}>Atualizar</button>
               <button className="btn chip" onClick={() => setOpen(false)}>Fechar</button>
             </div>
@@ -213,7 +200,6 @@ function NotificationsBell() {
 }
 
 /* =================== AppHeader =================== */
-
 export default function AppHeader() {
   const router = useRouter();
   const pathname = usePathname();
@@ -227,15 +213,12 @@ export default function AppHeader() {
     }
   }, [pathname, searchParams]);
 
-  const onSearch = useCallback(
-    (e: React.FormEvent) => {
-      e.preventDefault();
-      const value = q.trim();
-      if (!value) return;
-      router.push((`/dashboard/search?q=${encodeURIComponent(value)}` as Route));
-    },
-    [router, q]
-  );
+  const onSearch = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    const value = q.trim();
+    if (!value) return;
+    router.push((`/dashboard/search?q=${encodeURIComponent(value)}` as Route));
+  }, [router, q]);
 
   // Tema
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -251,10 +234,18 @@ export default function AppHeader() {
 
   return (
     <header className="app-header">
-      {/* grid: pesquisa cresce, ações ficam à direita */}
-      <div className="header-inner" style={{ display: 'grid', gridTemplateColumns: 'minmax(480px,1fr) auto', alignItems: 'center', gap: 12, width: '100%' }}>
-        {/* Pesquisa (sem ícone hambúrguer) */}
-        <form className="search" onSubmit={onSearch} role="search" aria-label="Pesquisar" style={{ display: 'flex', gap: 8, width: '100%' }}>
+      <div
+        className="header-inner"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(520px,1fr) auto',
+          alignItems: 'center',
+          gap: 12,
+          width: '100%',
+        }}
+      >
+        {/* Pesquisa ampla */}
+        <form className="search" onSubmit={onSearch} role="search" aria-label="Pesquisar" style={{ display: 'flex', gap: 8 }}>
           <input
             id="global-search"
             className="search-input"

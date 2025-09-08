@@ -1,79 +1,71 @@
 'use client';
 
-import React from 'react';
+import type { Route } from 'next';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import React from 'react';
 import { useSidebar } from './SidebarProvider';
 
 export type NavItem = {
-  href: string;                // manter string para evitar conflitos de typedRoutes
+  href: string;
   label: string;
   icon?: React.ReactNode;
-  activePrefix?: string;       // prefixo opcional para marcar active
-  section?: string;            // nome da secção (opcional)
+  activePrefix?: string;
+  section?: string;
 };
 
 type Props = {
   items: NavItem[];
-  userLabel: string;
+  userLabel: string;           // por ex.: "Admin" | "PT" | "Cliente"
   onNavigate?: () => void;
 };
 
 export default function SidebarBase({ items, userLabel, onNavigate }: Props) {
-  const pathname = usePathname();
-  const { pinned, collapsed, togglePinned, toggleCollapsed } = useSidebar();
+  const pathname = usePathname() || '/';
+  const { collapsed, pinned, toggleCollapsed, togglePinned } = useSidebar();
 
-  // agrupar por secção preservando ordem
-  const groups = React.useMemo(() => {
-    const res = new Map<string, NavItem[]>();
+  // Agrupa por secção mantendo ordem
+  const grouped = React.useMemo(() => {
+    const map = new Map<string | undefined, NavItem[]>();
     items.forEach((it) => {
-      const key = it.section ?? '';
-      const list = res.get(key);
-      if (list) list.push(it);
-      else res.set(key, [it]);
+      const k = it.section;
+      if (!map.has(k)) map.set(k, []);
+      map.get(k)!.push(it);
     });
-    return Array.from(res.entries()); // [section, items[]]
+    return [...map.entries()];
   }, [items]);
 
-  function isActive(it: NavItem) {
-    if (it.activePrefix) return pathname.startsWith(it.activePrefix);
-    return pathname === it.href;
-  }
-
   return (
-    <aside className="fp-sidebar" aria-label="Navegação principal">
-      {/* Cabeçalho */}
+    <aside className="fp-sidebar">
+      {/* Cabeçalho com LOGO + Nome + role */}
       <div className="fp-sb-head">
         <div className="fp-sb-brand">
-          <button className="logo" aria-label="Fitness Pro">💪</button>
-          <div>
-            <div className="brand-name" style={{ fontWeight: 800 }}>Fitness Pro</div>
-            <div
-              className="small text-muted"
-              title={userLabel}
-              style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-            >
+          {/* usa /public/logo.svg */}
+          <img src="/logo.svg" alt="" width={32} height={32} className="logo" />
+          <div style={{ lineHeight: 1.15 }}>
+            <div style={{ fontWeight: 800, fontSize: 14, letterSpacing: .2 }}>Fitness Pro</div>
+            <div className="small text-muted" style={{
+              maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+            }}>
               {userLabel}
             </div>
           </div>
         </div>
-
-        {/* Ações da sidebar (só aqui, nunca no header) */}
         <div className="fp-sb-actions">
+          {/* compactar/expandir */}
           <button
             type="button"
             className="btn icon"
-            aria-pressed={collapsed}
             aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
             title={collapsed ? 'Expandir menu' : 'Recolher menu'}
             onClick={toggleCollapsed}
           >
-            ☰
+            {collapsed ? '➡️' : '⬅️'}
           </button>
+          {/* afixar/desafixar */}
           <button
             type="button"
             className="btn icon"
-            aria-pressed={pinned}
             aria-label={pinned ? 'Desafixar menu' : 'Afixar menu'}
             title={pinned ? 'Desafixar menu' : 'Afixar menu'}
             onClick={togglePinned}
@@ -86,21 +78,23 @@ export default function SidebarBase({ items, userLabel, onNavigate }: Props) {
 
       {/* Navegação */}
       <nav className="fp-nav">
-        {groups.map(([section, list]) => (
+        {grouped.map(([section, list]) => (
           <div key={section || 'root'} className="nav-group">
             {section && <div className="nav-section">{section}</div>}
-            {list.map((it) => {
-              const active = isActive(it);
+            {list!.map((it) => {
+              const hrefStr = it.href;
+              const active =
+                pathname === hrefStr ||
+                (!!it.activePrefix && pathname.startsWith(it.activePrefix));
               return (
-                <div key={`${it.href}:${it.label}`} style={{ marginBottom: 6 }}>
+                <div key={hrefStr}>
                   <Link
-                    href={it.href as any}
+                    href={hrefStr as Route}
                     className="nav-item"
                     data-active={active ? 'true' : 'false'}
-                    prefetch
                     onClick={onNavigate}
                   >
-                    <span className="nav-icon">{it.icon ?? '•'}</span>
+                    <span className="nav-icon" aria-hidden>{it.icon ?? '•'}</span>
                     <span className="nav-label">{it.label}</span>
                   </Link>
                 </div>
