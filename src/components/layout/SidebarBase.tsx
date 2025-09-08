@@ -1,42 +1,48 @@
 'use client';
 
+import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import React from 'react';
 import { useSidebar } from './SidebarProvider';
 
 export type NavItem = {
-  href: string;                 // string para evitar chatices com typedRoutes
+  href: string;                // manter string para evitar conflitos de typedRoutes
   label: string;
   icon?: React.ReactNode;
-  activePrefix?: string;        // ex.: "/dashboard/admin/users"
-  section?: string;             // opcional: separadores
+  activePrefix?: string;       // prefixo opcional para marcar active
+  section?: string;            // nome da secção (opcional)
 };
 
-export default function SidebarBase({
-  items,
-  userLabel,
-}: {
+type Props = {
   items: NavItem[];
   userLabel: string;
-}) {
+  onNavigate?: () => void;
+};
+
+export default function SidebarBase({ items, userLabel, onNavigate }: Props) {
   const pathname = usePathname();
   const { pinned, collapsed, togglePinned, toggleCollapsed } = useSidebar();
 
-  // agrupar por section mantendo ordem
+  // agrupar por secção preservando ordem
   const groups = React.useMemo(() => {
-    const map = new Map<string, NavItem[]>();
-    for (const it of items) {
-      const k = it.section ?? '';
-      if (!map.has(k)) map.set(k, []);
-      map.get(k)!.push(it);
-    }
-    return Array.from(map.entries());
+    const res = new Map<string, NavItem[]>();
+    items.forEach((it) => {
+      const key = it.section ?? '';
+      const list = res.get(key);
+      if (list) list.push(it);
+      else res.set(key, [it]);
+    });
+    return Array.from(res.entries()); // [section, items[]]
   }, [items]);
 
+  function isActive(it: NavItem) {
+    if (it.activePrefix) return pathname.startsWith(it.activePrefix);
+    return pathname === it.href;
+  }
+
   return (
-    <aside className="fp-sidebar" role="navigation" aria-label="Menu lateral">
-      {/* Cabeçalho (logo + user + ações) */}
+    <aside className="fp-sidebar" aria-label="Navegação principal">
+      {/* Cabeçalho */}
       <div className="fp-sb-head">
         <div className="fp-sb-brand">
           <button className="logo" aria-label="Fitness Pro">💪</button>
@@ -52,21 +58,22 @@ export default function SidebarBase({
           </div>
         </div>
 
+        {/* Ações da sidebar (só aqui, nunca no header) */}
         <div className="fp-sb-actions">
-          {/* ☰ = compactar/expandir (CORRETO) */}
           <button
             type="button"
-            className="btn icon btn-toggle"
+            className="btn icon"
+            aria-pressed={collapsed}
             aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
             title={collapsed ? 'Expandir menu' : 'Recolher menu'}
             onClick={toggleCollapsed}
           >
             ☰
           </button>
-          {/* 📌 = afixar/desafixar (CORRETO) */}
           <button
             type="button"
-            className="btn icon btn-pin"
+            className="btn icon"
+            aria-pressed={pinned}
             aria-label={pinned ? 'Desafixar menu' : 'Afixar menu'}
             title={pinned ? 'Desafixar menu' : 'Afixar menu'}
             onClick={togglePinned}
@@ -79,22 +86,21 @@ export default function SidebarBase({
 
       {/* Navegação */}
       <nav className="fp-nav">
-        {groups.map(([section, links]) => (
+        {groups.map(([section, list]) => (
           <div key={section || 'root'} className="nav-group">
             {section && <div className="nav-section">{section}</div>}
-            {links.map((it) => {
-              const active = it.activePrefix
-                ? pathname?.startsWith(it.activePrefix)
-                : pathname === it.href;
+            {list.map((it) => {
+              const active = isActive(it);
               return (
-                <div key={it.href} style={{ marginBottom: 6 }}>
+                <div key={`${it.href}:${it.label}`} style={{ marginBottom: 6 }}>
                   <Link
                     href={it.href as any}
                     className="nav-item"
                     data-active={active ? 'true' : 'false'}
                     prefetch
+                    onClick={onNavigate}
                   >
-                    <span className="nav-icon">{it.icon ?? <span className="nav-emoji">•</span>}</span>
+                    <span className="nav-icon">{it.icon ?? '•'}</span>
                     <span className="nav-label">{it.label}</span>
                   </Link>
                 </div>

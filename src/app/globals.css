@@ -19,11 +19,9 @@ body {
     var(--bg);
 }
 
-/* Melhor foco acessível */
+/* Acessibilidade */
 :focus { outline: none; }
 :focus-visible { box-shadow: var(--ring); }
-
-/* Seleção de texto */
 ::selection { background: color-mix(in srgb, var(--primary) 25%, transparent); }
 
 /* =============================== */
@@ -60,24 +58,13 @@ body {
   /* Focus ring */
   --ring:0 0 0 3px rgba(59,130,246,.3);
 
-  /* Sidebar */
-  --sidebar-bg:#ffffff;
-  --sidebar-fg:#0f172a;
-  --sidebar-muted:#7b8797;
-  --sidebar-hover:#eef2f7;
-  --sidebar-active:#e5eeff;
-
-  /* Raio e sombra */
-  --radius:12px;
-  --shadow-1:0 2px 8px rgba(15,23,42,.06), 0 1px 3px rgba(15,23,42,.04);
-
-  /* Sidebar (expand/colapse) */
+  /* Sidebar sizes/anim */
   --sb-collapsed:64px;
   --sb-expanded:260px;
   --sb-ease:cubic-bezier(.18,.9,.22,1);
   --sb-dur:260ms;
 
-  /* Larguras efetivas */
+  /* Larguras efetivas (deriva dos atributos no <html>) */
   --sb-w:var(--sb-expanded);
 
   /* Compat App Shell */
@@ -85,11 +72,23 @@ body {
   --header-h:56px;
 }
 
-/* Alternador por atributo (duplo compat) */
+/* Alternador legacy (mantido para compat, será sobreposto pelos de baixo) */
 html[data-sb-collapsed="1"],
 html[data-sidebar="collapsed"]{
   --sb-w:var(--sb-collapsed);
   --sidebar-w:var(--sb-collapsed);
+}
+
+/* ===== NOVA LÓGICA (pinned x collapsed) ===== */
+:root { --sb-w: var(--sb-expanded); }
+html[data-sb-pinned="0"] {                /* não afixada: rail compacto */
+  --sb-w: var(--sb-collapsed);
+}
+html[data-sb-pinned="1"][data-sb-collapsed="1"] { /* afixada + compacta */
+  --sb-w: var(--sb-collapsed);
+}
+html[data-sb-pinned="1"]:not([data-sb-collapsed="1"]) { /* afixada + expandida */
+  --sb-w: var(--sb-expanded);
 }
 
 [data-auth-root]{ min-height:100dvh; }
@@ -169,7 +168,6 @@ input:focus,select:focus,textarea:focus{ box-shadow:var(--ring); border-color:va
 /* Header */
 .fp-header{
   position:sticky; top:0; z-index:40;
-  background: var(--bg);
   background: color-mix(in srgb, var(--bg) 88%, var(--card) 12%);
   border-bottom:1px solid var(--border);
   backdrop-filter:saturate(140%) blur(6px);
@@ -179,13 +177,14 @@ input:focus,select:focus,textarea:focus{ box-shadow:var(--ring); border-color:va
   padding:10px 16px;
 }
 
-/* Compat classes (RoleSidebar/app-shell) */
+/* Compat AppHeader (do teu componente de header) */
 .app-shell{ padding-left:var(--sidebar-w); transition:padding-left .18s ease; }
 .app-header{
   position:sticky; top:0; z-index:30; height:var(--header-h);
   display:flex; align-items:center; gap:10px; padding:0 12px;
   border-bottom:1px solid var(--border); background:var(--card-bg);
 }
+.app-header .header-inner{ width:100%; } /* garante 100% do content area */
 
 /* ================================= */
 /* ========== SIDEBAR ============== */
@@ -208,7 +207,7 @@ input:focus,select:focus,textarea:focus{ box-shadow:var(--ring); border-color:va
 }
 .fp-sb-actions{ display:inline-flex; gap:6px; }
 
-/* Navegação — escopada para não colidir com outros .nav-item */
+/* Navegação (escopada) */
 .fp-nav{ display:grid; gap:8px; padding:8px; }
 .nav-section{ margin:8px 6px 4px; color:var(--sidebar-muted); font-size:12px; text-transform:uppercase; }
 .nav-group{ display:grid; gap:6px; }
@@ -343,7 +342,10 @@ html[data-sidebar="collapsed"] .fp-sidebar::after{
 /* ========== REDUCED MOTION ====== */
 /* ================================ */
 @media (prefers-reduced-motion: reduce){
-  *,*::before,*::after{ animation-duration:0.01ms !important; animation-iteration-count:1 !important; transition-duration:0.01ms !important; scroll-behavior:auto !important; }
+  *,*::before,*::after{
+    animation-duration:0.01ms !important; animation-iteration-count:1 !important;
+    transition-duration:0.01ms !important; scroll-behavior:auto !important;
+  }
 }
 
 /* ================================ */
@@ -360,7 +362,7 @@ html[data-sidebar="collapsed"] .fp-sidebar::after{
 }
 ::-webkit-scrollbar-track{ background: transparent; }
 
-/* Utilitário de acessibilidade */
+/* A11y util */
 .visually-hidden{
   position:absolute !important; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0;
 }

@@ -1,3 +1,4 @@
+// src/components/layout/AppHeader.tsx
 'use client';
 
 import type { Route } from 'next';
@@ -31,9 +32,7 @@ function useOutsideClick<T extends HTMLElement>(open: boolean, onClose: () => vo
       if (!el) return;
       if (!el.contains(ev.target as Node)) onClose();
     };
-    const esc = (ev: KeyboardEvent) => {
-      if (ev.key === 'Escape') onClose();
-    };
+    const esc = (ev: KeyboardEvent) => { if (ev.key === 'Escape') onClose(); };
     document.addEventListener('mousedown', handler);
     document.addEventListener('keydown', esc);
     return () => {
@@ -61,7 +60,6 @@ function NotificationsBell() {
   const [items, setItems] = useState<HeaderNotif[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // Estado push
   const [pushReady, setPushReady] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     return 'Notification' in window && Notification.permission === 'granted';
@@ -77,9 +75,7 @@ function NotificationsBell() {
       setItems((data?.notifications ?? []).slice(0, 10));
     } catch {
       setError('Não foi possível carregar as notificações.');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, []);
 
   useEffect(() => {
@@ -105,16 +101,10 @@ function NotificationsBell() {
     try {
       const res = await registerPush();
       setPushReady(res.ok);
-    } catch {
-      setPushReady(false);
-    }
+    } catch { setPushReady(false); }
   }
   async function onDisablePush() {
-    try {
-      await unregisterPush();
-    } finally {
-      setPushReady(false);
-    }
+    try { await unregisterPush(); } finally { setPushReady(false); }
   }
 
   return (
@@ -133,12 +123,8 @@ function NotificationsBell() {
             aria-label={`${unreadCount} notificações por ler`}
             style={{
               position: 'absolute',
-              top: 2,
-              right: 2,
-              width: 8,
-              height: 8,
-              borderRadius: 999,
-              background: 'var(--danger)',
+              top: 2, right: 2, width: 8, height: 8,
+              borderRadius: 999, background: 'var(--danger)',
               border: '1px solid var(--sidebar-bg)',
             }}
           />
@@ -151,18 +137,11 @@ function NotificationsBell() {
           role="menu"
           aria-label="Últimas notificações"
           style={{
-            position: 'absolute',
-            right: 0,
-            top: 'calc(100% + 8px)',
-            width: 360,
-            maxWidth: 'min(92vw, 360px)',
-            background: 'var(--card-bg)',
-            color: 'var(--fg)',
-            border: '1px solid var(--border)',
-            borderRadius: 12,
-            boxShadow: '0 12px 40px rgba(0,0,0,.18)',
-            overflow: 'hidden',
-            zIndex: 1000,
+            position: 'absolute', right: 0, top: 'calc(100% + 8px)',
+            width: 360, maxWidth: 'min(92vw, 360px)',
+            background: 'var(--card-bg)', color: 'var(--fg)',
+            border: '1px solid var(--border)', borderRadius: 12,
+            boxShadow: '0 12px 40px rgba(0,0,0,.18)', overflow: 'hidden', zIndex: 1000,
           }}
         >
           <div style={{ padding: 10, borderBottom: '1px solid var(--border)', fontWeight: 700 }}>
@@ -178,26 +157,13 @@ function NotificationsBell() {
           {!loading && !error && items.length > 0 && (
             <ul style={{ listStyle: 'none', margin: 0, padding: 0, maxHeight: 360, overflow: 'auto' }}>
               {items.map((n) => (
-                <li
-                  key={n.id}
-                  style={{
-                    borderTop: '1px solid var(--border)',
-                    background: n.read ? 'transparent' : 'var(--hover)',
-                  }}
-                >
+                <li key={n.id} style={{ borderTop: '1px solid var(--border)', background: n.read ? 'transparent' : 'var(--hover)' }}>
                   <button
                     onClick={() => go(n.link ?? undefined)}
                     style={{
-                      display: 'grid',
-                      gridTemplateColumns: '1fr auto',
-                      gap: 8,
-                      width: '100%',
-                      textAlign: 'left',
-                      padding: 10,
-                      background: 'transparent',
-                      border: 0,
-                      cursor: n.link ? 'pointer' : 'default',
-                      color: 'inherit',
+                      display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, width: '100%',
+                      textAlign: 'left', padding: 10, background: 'transparent', border: 0,
+                      cursor: n.link ? 'pointer' : 'default', color: 'inherit',
                     }}
                   >
                     <div>
@@ -213,12 +179,8 @@ function NotificationsBell() {
 
           <div
             style={{
-              display: 'flex',
-              gap: 8,
-              padding: 8,
-              borderTop: '1px solid var(--border)',
-              justifyContent: 'space-between',
-              alignItems: 'center',
+              display: 'flex', gap: 8, padding: 8, borderTop: '1px solid var(--border)',
+              justifyContent: 'space-between', alignItems: 'center',
             }}
           >
             <div className="small text-muted" style={{ opacity: 0.9 }}>
@@ -255,15 +217,12 @@ export default function AppHeader() {
     }
   }, [pathname, searchParams]);
 
-  const onSearch = useCallback(
-    (e: React.FormEvent) => {
-      e.preventDefault();
-      const value = q.trim();
-      if (!value) return;
-      router.push((`/dashboard/search?q=${encodeURIComponent(value)}` as Route));
-    },
-    [router, q]
-  );
+  const onSearch = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    const value = q.trim();
+    if (!value) return;
+    router.push((`/dashboard/search?q=${encodeURIComponent(value)}` as Route));
+  }, [router, q]);
 
   // Tema
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -281,10 +240,17 @@ export default function AppHeader() {
     <header className="app-header">
       <div
         className="header-inner"
-        style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', alignItems: 'center', gap: 8 }}
+        style={{
+          width: '100%',
+          display: 'grid',
+          gridTemplateColumns: 'minmax(520px, 1fr) auto',
+          alignItems: 'center',
+          gap: 10,
+          padding: '8px 12px',
+        }}
       >
-        {/* Pesquisa */}
-        <form className="search" onSubmit={onSearch} role="search" aria-label="Pesquisar" style={{ display: 'flex', gap: 8 }}>
+        {/* Pesquisa (cresce) */}
+        <form className="search" onSubmit={onSearch} role="search" aria-label="Pesquisar" style={{ display: 'flex', gap: 8, width: '100%' }}>
           <input
             id="global-search"
             className="search-input"
@@ -297,8 +263,8 @@ export default function AppHeader() {
           />
         </form>
 
-        {/* Ações */}
-        <div className="actions" style={{ display: 'inline-flex', gap: 8 }}>
+        {/* Ações (direita) */}
+        <div className="actions" style={{ display: 'inline-flex', gap: 8, justifySelf: 'end' }}>
           <button
             className="btn icon"
             aria-label="Alternar tema"
