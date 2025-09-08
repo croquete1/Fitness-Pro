@@ -58,6 +58,13 @@ body {
   /* Focus ring */
   --ring:0 0 0 3px rgba(59,130,246,.3);
 
+  /* Sidebar palette (LIGHT) */
+  --sidebar-bg:#ffffff;
+  --sidebar-fg:#0f172a;
+  --sidebar-muted:#7b8797;
+  --sidebar-hover:#eef2f7;
+  --sidebar-active:#e5eeff;
+
   /* Sidebar sizes/anim */
   --sb-collapsed:64px;
   --sb-expanded:260px;
@@ -165,7 +172,7 @@ input:focus,select:focus,textarea:focus{ box-shadow:var(--ring); border-color:va
 .fp-main,.fp-content{ min-width:0; width:100%; }
 .fp-main{ padding:24px; }
 
-/* Header */
+/* Header (versão sticky global) */
 .fp-header{
   position:sticky; top:0; z-index:40;
   background: color-mix(in srgb, var(--bg) 88%, var(--card) 12%);
@@ -173,18 +180,33 @@ input:focus,select:focus,textarea:focus{ box-shadow:var(--ring); border-color:va
   backdrop-filter:saturate(140%) blur(6px);
 }
 .fp-header-inner{
-  display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:12px;
+  display:grid; grid-template-columns:minmax(520px,1fr) auto; /* pesquisa cresce */
+  align-items:center; gap:12px;
   padding:10px 16px;
 }
 
-/* Compat AppHeader (do teu componente de header) */
+/* Compat AppHeader (teu componente AppHeader) */
 .app-shell{ padding-left:var(--sidebar-w); transition:padding-left .18s ease; }
 .app-header{
   position:sticky; top:0; z-index:30; height:var(--header-h);
   display:flex; align-items:center; gap:10px; padding:0 12px;
   border-bottom:1px solid var(--border); background:var(--card-bg);
 }
-.app-header .header-inner{ width:100%; } /* garante 100% do content area */
+.app-header .header-inner{
+  display:grid; grid-template-columns:minmax(520px,1fr) auto;
+  align-items:center; gap:12px; width:100%;
+}
+.app-header .actions{ justify-self:end; }
+
+/* input de pesquisa com look consistente */
+.search-input{
+  width:100%;
+  border-radius:999px;
+  background:var(--card-bg);
+  border:1px solid var(--border);
+  padding:10px 14px;
+}
+.search-input:focus{ box-shadow:var(--ring); border-color:var(--primary); }
 
 /* ================================= */
 /* ========== SIDEBAR ============== */
