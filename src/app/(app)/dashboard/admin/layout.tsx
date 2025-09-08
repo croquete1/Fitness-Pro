@@ -1,6 +1,10 @@
 // src/app/(app)/dashboard/admin/layout.tsx
-import { SidebarProvider } from '@/components/layout/SidebarProvider';
+import React from 'react';
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  return <SidebarProvider>{children}</SidebarProvider>;
+export default function AdminSubLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return children;
 }

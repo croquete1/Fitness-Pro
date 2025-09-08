@@ -1,26 +1,15 @@
 // public/sw.js
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', () => self.clients.claim());
 self.addEventListener('push', (event) => {
-  let data = {};
-  try { data = event.data ? event.data.json() : {}; } catch {}
-  const title = data.title || 'Fitness Pro';
-  const options = {
-    body: data.body || '',
-    icon: '/icons/icon-192.png',
-    badge: '/icons/badge.png',
-    data: { url: data.url || '/' }
-  };
+  const data = event.data ? event.data.json() : {};
+  const title = data.title || 'Nova notificação';
+  const body = data.body || '';
+  const options = { body, data: data.link ? { url: data.link } : undefined };
   event.waitUntil(self.registration.showNotification(title, options));
 });
-
 self.addEventListener('notificationclick', (event) => {
-  const url = (event.notification && event.notification.data && event.notification.data.url) || '/';
   event.notification.close();
-  event.waitUntil(
-    clients.matchAll({ type: 'window' }).then((clis) => {
-      for (const c of clis) {
-        if ('focus' in c) { c.navigate(url); c.focus(); return; }
-      }
-      if (clients.openWindow) return clients.openWindow(url);
-    })
-  );
+  const url = event.notification?.data?.url;
+  if (url) event.waitUntil(clients.openWindow(url));
 });

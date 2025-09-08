@@ -1,0 +1,177 @@
+/* ===== Sidebar – animações & visuais suaves ===== */
+:root {
+  --sb-w: 264px;
+  --sb-w-compact: 84px;
+  --sb-radius: 16px;
+  --sb-pad: 10px;
+  --sb-gap: 8px;
+  --sb-ease: cubic-bezier(.22,.7,.23,1);
+}
+
+/* Wrapper principal (suporta .sidebar e .fp-sb para retrocompat) */
+.sidebar, .fp-sb {
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+  width: var(--sb-w);
+  background: var(--sidebar-bg, #0b1220);
+  color: var(--sidebar-fg, #f6f7fb);
+  border-right: 1px solid var(--border, rgba(255,255,255,.08));
+  transition: width .22s var(--sb-ease), box-shadow .22s var(--sb-ease);
+  will-change: width;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sb-gap);
+  padding: 10px;
+  box-shadow: 0 0 0 0 rgba(0,0,0,0);
+}
+
+.sidebar[data-collapsed="true"],
+.fp-sb[data-collapsed="true"] {
+  width: var(--sb-w-compact);
+}
+
+/* Cabeçalho/brand */
+.sb-head, .fp-sb-head {
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px;
+  border-radius: var(--sb-radius);
+  background: color-mix(in srgb, var(--sidebar-bg) 92%, #fff 8%);
+  border: 1px solid var(--border, rgba(255,255,255,.08));
+}
+
+.sb-brand, .fp-sb-brand {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.sb-brand .logo, .fp-sb-brand .logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border, rgba(255,255,255,.1));
+  background: color-mix(in srgb, var(--sidebar-bg) 90%, #fff 10%);
+}
+
+/* Lista de navegação */
+.sb-nav, .fp-sb-nav {
+  display: grid;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.nav-item {
+  --_bg: transparent;
+  position: relative;
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: var(--sb-pad);
+  border-radius: 12px;
+  text-decoration: none;
+  color: inherit;
+  background: var(--_bg);
+  border: 1px solid transparent;
+  transition: background .18s var(--sb-ease), transform .18s var(--sb-ease), border-color .18s var(--sb-ease);
+}
+
+.nav-item:hover {
+  --_bg: color-mix(in srgb, var(--sidebar-bg) 88%, #fff 12%);
+  transform: translateX(2px);
+}
+
+.nav-item[data-active="true"] {
+  --_bg: color-mix(in srgb, var(--sidebar-bg) 82%, #fff 18%);
+  border-color: color-mix(in srgb, var(--border, #5d6b86) 50%, #7aa2ff 50%);
+}
+
+/* “Pílula” ativa à esquerda */
+.nav-item[data-active="true"]::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 8px;
+  bottom: 8px;
+  width: 4px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #7aa2ff, #78f0c0);
+  transform: scaleY(.6);
+  opacity: .6;
+  transition: transform .22s var(--sb-ease), opacity .22s var(--sb-ease);
+}
+.nav-item[data-active="true"]:hover::before {
+  transform: scaleY(1);
+  opacity: 1;
+}
+
+.nav-item .icon {
+  width: 36px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  font-size: 1.1rem;
+  opacity: .95;
+  transition: transform .18s var(--sb-ease), opacity .18s var(--sb-ease);
+}
+.nav-item:hover .icon { transform: translateY(-1px); opacity: 1; }
+
+.nav-item .label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Estado “colapsado”: esconde label, mantém tooltips nativos do browser (title) */
+.sidebar[data-collapsed="true"] .nav-item .label,
+.fp-sb[data-collapsed="true"] .nav-item .label {
+  opacity: 0;
+  transform: translateX(-8px);
+  pointer-events: none;
+  transition: opacity .16s var(--sb-ease), transform .16s var(--sb-ease);
+}
+
+/* Botão de colapsar/expandir */
+.sb-collapse, .fp-sb-collapse {
+  margin-top: auto;
+  display: grid;
+  grid-auto-flow: column;
+  justify-content: start;
+  gap: 6px;
+  padding: 8px;
+}
+
+.collapse-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--border, rgba(255,255,255,.1));
+  background: color-mix(in srgb, var(--sidebar-bg) 90%, #fff 10%);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: transform .22s var(--sb-ease), background .18s var(--sb-ease), border-color .18s var(--sb-ease);
+}
+.collapse-btn:hover {
+  background: color-mix(in srgb, var(--sidebar-bg) 85%, #fff 15%);
+}
+.collapse-btn[data-state="collapsed"] .chev {
+  transform: rotate(180deg);
+}
+
+/* Reduz animações para quem prefere */
+@media (prefers-reduced-motion: reduce) {
+  .sidebar, .fp-sb,
+  .nav-item,
+  .nav-item::before,
+  .collapse-btn,
+  .nav-item .icon {
+    transition: none !important;
+  }
+}

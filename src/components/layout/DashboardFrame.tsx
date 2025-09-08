@@ -1,32 +1,33 @@
 // src/components/layout/DashboardFrame.tsx
-export const dynamic = 'force-dynamic';
+'use client';
 
-import React from 'react';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { toAppRole } from '@/lib/roles';
+import * as React from 'react';
 import type { AppRole } from '@/lib/roles';
-
-import SidebarProvider from '@/components/layout/SidebarProvider';
+import { SidebarProvider } from '@/components/layout/SidebarProvider';
 import RoleSidebar from '@/components/layout/RoleSidebar';
 import AppHeader from '@/components/layout/AppHeader';
+import SidebarHoverPeeker from '@/components/layout/SidebarHoverPeeker';
 
-export default async function DashboardFrame({ children }: { children: React.ReactNode }) {
-  const session = await getServerSession(authOptions);
-  const role = (toAppRole(session?.user?.role) ?? 'CLIENT') as AppRole;
-  const userLabel = (session?.user?.name ?? session?.user?.email ?? 'Utilizador') as string;
-
+export default function DashboardFrame({
+  role,
+  userLabel,
+  children,
+}: {
+  role: AppRole;
+  userLabel: string;
+  children: React.ReactNode;
+}) {
   return (
     <SidebarProvider>
-      <div className="flex" style={{ minHeight: '100vh' }}>
-        <aside style={{ width: 280, flex: '0 0 auto' }}>
-          <RoleSidebar role={role} userLabel={userLabel} />
-        </aside>
-        <div className="flex-1 min-w-0">
+      <div className="fp-shell" data-auth-root>
+        <RoleSidebar role={role} userLabel={userLabel} />
+        <div className="fp-main">
           <AppHeader />
-          <main className="p-4 sm:p-6 md:p-8">{children}</main>
+          <main className="fp-content">{children}</main>
         </div>
       </div>
+      {/* Aumenta um pouco a “zona quente” do rail quando não está afixada (implementação segura/no-op) */}
+      <SidebarHoverPeeker />
     </SidebarProvider>
   );
 }
