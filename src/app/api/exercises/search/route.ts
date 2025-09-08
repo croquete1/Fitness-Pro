@@ -1,40 +1,25 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { createServerClient } from '@/lib/supabaseServer';
-
-export const dynamic = 'force-dynamic';
-
-const esc = (s: string) => `%${s.replace(/[%_]/g, (m) => '\\' + m)}%`;
+import { supabaseAdmin } from '@/lib/supabase.server';
 
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-
   const url = new URL(req.url);
-  const q = (url.searchParams.get('q') || '').trim();
-  const muscle = (url.searchParams.get('muscle') || '').trim();
+  const q = (url.searchParams.get('q') ?? '').trim();
 
-  const sb = createServerClient();
-
-  // Espera-se tabela `exercises` com colunas:
-  // id, name, media_url, muscle_image_url, primary_muscle, equipment
-  let query = sb.from('exercises')
-    .select('id,name,media_url,muscle_image_url,primary_muscle,equipment')
-    .limit(40);
-
-  const ors: string[] = [];
-  if (q.length >= 2) {
-    ors.push(`name.ilike.${esc(q)}`);
-    // Opcional: notas/palavras-chave se existirem
-    // ors.push(`keywords.ilike.${esc(q)}`);
+  const s = supabaseAdmin();
+  let query = s.from('exercises').select('id, name, muscle_group, equipment, difficulty');
+  if (q) {
+    // ILIKE em name, muscle_group e equipment
+    query = query.or(`name.ilike.%${q}%,muscle_group.ilike.%${q}%,equipment.ilike.%${q}%`);
   }
-  if (ors.length) query = query.or(ors.join(','));
-
-  if (muscle) query = query.eq('primary_muscle', muscle);
-
-  const { data, error } = await query;
+  const { data, error } = await query.order('name', { ascending: true });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ exercises: data ?? [] });
+  const items = (data ?? []).map((x) => ({
+    id: x.id,
+    name: x.name,
+    muscleGroup: x.muscle_group,
+    equipment: x.equipment,
+    difficulty: x.difficulty,
+  }));
+  return NextResponse.json({ items });
 }

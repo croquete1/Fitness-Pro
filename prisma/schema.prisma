@@ -214,3 +214,18 @@ model TrainingPlanChange {
   @@index([createdAt], map: "tpc_created_idx")
   @@map("training_plan_changes")
 }
+model ExerciseNote {
+  id          String   @id @default(cuid())
+  exerciseId  String
+  trainerId   String
+  content     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  exercise    Exercise @relation(fields: [exerciseId], references: [id])
+  trainer     User     @relation(fields: [trainerId], references: [id])
+
+  @@index([exerciseId])
+  @@index([trainerId])
+  @@unique([exerciseId, trainerId]) // 1 nota por PT por exercício (editável)
+}

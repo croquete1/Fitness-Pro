@@ -1,12 +1,24 @@
 // src/components/dashboard/AdminCountCard.tsx
-import clsx from 'clsx';
+'use client';
+import React from 'react';
 
-type Props = { title: string; value: number | string; className?: string };
-export default function AdminCountCard({ title, value, className }: Props) {
+type Tone = 'primary' | 'violet' | 'teal' | 'pink' | 'amber';
+
+export default function AdminCountCard({
+  title,
+  count,
+  tone = 'primary',
+}: {
+  title: string;
+  count: number;
+  tone?: Tone;
+}) {
   return (
-    <div className={clsx('rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4', className)}>
-      <div className="text-xs text-neutral-500 mb-1">{title}</div>
-      <div className="text-[clamp(20px,5.5vw,32px)] font-extrabold leading-none">{value}</div>
+    <div className="card kpi" data-kpi="1" data-tone={tone === 'primary' ? undefined : tone}>
+      <div style={{ padding: 14 }}>
+        <div style={{ fontSize: 13, opacity: 0.8 }}>{title}</div>
+        <div style={{ fontSize: 28, fontWeight: 900, marginTop: 2 }}>{count}</div>
+      </div>
     </div>
   );
 }

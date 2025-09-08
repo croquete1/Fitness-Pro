@@ -333,6 +333,13 @@ html[data-sidebar="collapsed"] .fp-sidebar::after{
 .card.kpi[data-tone="teal"]  { border-left-color: var(--teal); }
 .card.kpi[data-tone="pink"]  { border-left-color: var(--pink); }
 .card.kpi[data-tone="amber"] { border-left-color: var(--amber); }
+/* KPI helpers (opcional) */
+.kpi-card .spinner{
+  display:inline-block; width:1em; height:1em;
+  border:2px solid var(--border); border-top-color: var(--kpi-fg);
+  border-radius:50%; animation: spin 900ms linear infinite; vertical-align:-2px;
+}
+
 
 /* badges / chips coloridos */
 .badge,.chip{

@@ -1,77 +1,70 @@
-// src/components/dashboard/KpiCard.tsx
 'use client';
 
-import * as React from 'react';
+import React from 'react';
+
+type Variant = 'blue' | 'green' | 'amber' | 'red' | 'purple' | 'teal';
 
 type Props = {
   label: string;
   value: React.ReactNode;
-  footer?: React.ReactNode;
-  right?: React.ReactNode;
-  /** Novo: ícone grande ou emoji à esquerda do título/valor */
-  icon?: React.ReactNode;
-  /** Novo: mostra estado de carregamento (skeleton) */
   loading?: boolean;
+  icon?: React.ReactNode;
+  variant?: Variant;
+  footer?: React.ReactNode;
+  right?: React.ReactNode; // compat anterior
 };
 
-export default function KpiCard({ label, value, footer, right, icon, loading }: Props) {
+export default function KpiCard({
+  label,
+  value,
+  loading,
+  icon,
+  variant = 'blue',
+  footer,
+  right,
+}: Props) {
   return (
-    <div className="card" style={{ padding: 12, display: 'grid', gap: 8 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {icon && (
-            <div
-              aria-hidden
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 10,
-                display: 'grid',
-                placeItems: 'center',
-                background: 'var(--sidebar-active)',
-                border: '1px solid var(--border)',
-                fontSize: 18,
-              }}
-            >
-              {icon}
-            </div>
-          )}
-          <div className="text-muted small">{label}</div>
+    <div className={`kpi-card kpi--${variant}`} role="status" aria-busy={loading ? 'true' : 'false'}>
+      <div className="kpi-row">
+        <div className="kpi-left">
+          <div className="kpi-icon" aria-hidden>{icon ?? '📈'}</div>
+          <div className="kpi-main">
+            <div className="kpi-label">{label}</div>
+            <div className="kpi-value">{loading ? <span className="spinner" /> : value}</div>
+          </div>
         </div>
-        {right ? <div>{right}</div> : null}
+        {right && <div className="kpi-right">{right}</div>}
       </div>
-
-      <div style={{ fontSize: 28, fontWeight: 900, minHeight: 34, lineHeight: 1.15 }}>
-        {loading ? (
-          <span
-            aria-busy="true"
-            style={{
-              display: 'inline-block',
-              height: 20,
-              minWidth: 80,
-              borderRadius: 6,
-              background:
-                'linear-gradient(90deg, var(--hover) 25%, var(--border) 37%, var(--hover) 63%)',
-              backgroundSize: '400% 100%',
-              animation: 'kpi-skel 1.2s ease-in-out infinite',
-            }}
-          />
-        ) : (
-          value
-        )}
-      </div>
-
-      {footer ? <div className="text-muted small">{footer}</div> : null}
+      {footer && <div className="kpi-footer">{footer}</div>}
 
       <style jsx>{`
-        @keyframes kpi-skel {
-          0% {
-            background-position: 100% 0;
-          }
-          100% {
-            background-position: -100% 0;
-          }
+        .kpi-card {
+          background: var(--card-bg);
+          border: 1px solid var(--border);
+          border-radius: 14px;
+          box-shadow: var(--shadow-1);
+          padding: 12px;
         }
+        .kpi-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; }
+        .kpi-left { display: grid; grid-template-columns: 40px 1fr; gap: 10px; align-items: center; }
+        .kpi-icon {
+          width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center;
+          background: var(--kpi-bg); color: var(--kpi-fg); font-size: 18px;
+        }
+        .kpi-label { font-size: 12px; color: var(--muted-fg); text-transform: uppercase; letter-spacing: .02em; }
+        .kpi-value { font-size: 22px; font-weight: 800; line-height: 1.1; }
+        .kpi-footer {
+          margin-top: 8px; font-size: 12px; color: var(--muted-fg);
+          border-top: 1px dashed var(--border); padding-top: 6px;
+        }
+
+        /* Variantes */
+        .kpi--blue   { --kpi-bg: color-mix(in srgb, var(--primary) 18%, transparent); --kpi-fg: var(--primary-600); }
+        .kpi--green  { --kpi-bg: color-mix(in srgb, var(--success) 18%, transparent); --kpi-fg: var(--success); }
+        .kpi--amber  { --kpi-bg: color-mix(in srgb, var(--warning) 18%, transparent); --kpi-fg: var(--warning); }
+        .kpi--red    { --kpi-bg: color-mix(in srgb, var(--danger) 18%, transparent);  --kpi-fg: var(--danger); }
+        .kpi--purple { --kpi-bg: color-mix(in srgb, var(--accent) 18%, transparent);  --kpi-fg: var(--accent); }
+        .kpi--teal   { --kpi-bg: color-mix(in srgb, var(--accent-2) 18%, transparent);--kpi-fg: var(--accent-2); }
       `}</style>
     </div>
   );
