@@ -1,78 +1,70 @@
-// src/components/layout/SidebarProvider.tsx
 'use client';
 
 import React from 'react';
 
-export type SidebarContextValue = {
-  collapsed: boolean;
+type SidebarState = {
   pinned: boolean;
-  toggleCollapsed: () => void;
+  collapsed: boolean;
   togglePinned: () => void;
-  setCollapsed: (v: boolean) => void;
+  toggleCollapsed: () => void;
   setPinned: (v: boolean) => void;
+  setCollapsed: (v: boolean) => void;
 };
 
-const SidebarContext = React.createContext<SidebarContextValue | null>(null);
+const Ctx = React.createContext<SidebarState | null>(null);
+export const useSidebar = () => {
+  const ctx = React.useContext(Ctx);
+  if (!ctx) throw new Error('useSidebar must be used within <SidebarProvider>');
+  return ctx;
+};
 
-function readBoolLS(key: string, fallback: boolean) {
-  try {
-    const v = localStorage.getItem(key);
-    if (v === '1') return true;
-    if (v === '0') return false;
-  } catch {}
-  return fallback;
+function readAttr(name: string, fallback: '0' | '1') {
+  if (typeof document === 'undefined') return fallback;
+  return (document.documentElement.getAttribute(name) as '0' | '1' | null) ?? fallback;
 }
 
-function writeBoolLS(key: string, v: boolean) {
+function persist(pinned: boolean, collapsed: boolean) {
+  if (typeof document === 'undefined') return;
+  const doc = document.documentElement;
+  doc.setAttribute('data-sb-pinned', pinned ? '1' : '0');
+  doc.setAttribute('data-sb-collapsed', collapsed ? '1' : '0');
   try {
-    localStorage.setItem(key, v ? '1' : '0');
+    localStorage.setItem('fp.sb.pinned', pinned ? '1' : '0');
+    localStorage.setItem('fp.sb.collapsed', collapsed ? '1' : '0');
   } catch {}
 }
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
-  // defaults seguros para SSR (ajustados no efeito)
-  const [collapsed, setCollapsed] = React.useState(false);
-  const [pinned, setPinned] = React.useState(true);
-
-  // hidratar de localStorage uma vez
-  React.useEffect(() => {
-    const nextCollapsed = readBoolLS('fp.sb.collapsed', false);
-    const nextPinned = readBoolLS('fp.sb.pinned', true);
-    setCollapsed(nextCollapsed);
-    setPinned(nextPinned);
-  }, []);
-
-  // refletir atributos no <html> (CSS já preparado em globals.css)
-  React.useEffect(() => {
-    const html = document.documentElement;
-    if (collapsed) html.setAttribute('data-sb-collapsed', '1');
-    else html.removeAttribute('data-sb-collapsed');
-    writeBoolLS('fp.sb.collapsed', collapsed);
-  }, [collapsed]);
+  const [pinned, setPinned] = React.useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    const v = localStorage.getItem('fp.sb.pinned');
+    if (v === '0' || v === '1') return v === '1';
+    return readAttr('data-sb-pinned', '1') === '1';
+  });
+  const [collapsed, setCollapsed] = React.useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const v = localStorage.getItem('fp.sb.collapsed');
+    if (v === '0' || v === '1') return v === '1';
+    return readAttr('data-sb-collapsed', '0') === '1';
+  });
 
   React.useEffect(() => {
-    const html = document.documentElement;
-    if (pinned) html.setAttribute('data-sb-pinned', '1');
-    else html.removeAttribute('data-sb-pinned');
-    writeBoolLS('fp.sb.pinned', pinned);
-  }, [pinned]);
+    persist(pinned, collapsed);
+  }, [pinned, collapsed]);
 
-  const toggleCollapsed = React.useCallback(() => setCollapsed((v) => !v), []);
-  const togglePinned = React.useCallback(() => setPinned((v) => !v), []);
-
-  const value = React.useMemo<SidebarContextValue>(
-    () => ({ collapsed, pinned, toggleCollapsed, togglePinned, setCollapsed, setPinned }),
-    [collapsed, pinned, toggleCollapsed, togglePinned]
+  const value = React.useMemo<SidebarState>(
+    () => ({
+      pinned,
+      collapsed,
+      setPinned,
+      setCollapsed,
+      togglePinned: () => setPinned((v) => !v),
+      toggleCollapsed: () => setCollapsed((v) => !v),
+    }),
+    [pinned, collapsed]
   );
 
-  return <SidebarContext.Provider value={value}>{children}</SidebarContext.Provider>;
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
-export function useSidebar(): SidebarContextValue {
-  const ctx = React.useContext(SidebarContext);
-  if (!ctx) throw new Error('useSidebar must be used within <SidebarProvider>');
-  return ctx;
-}
-
-// compat: alguns ficheiros importavam default
 export default SidebarProvider;

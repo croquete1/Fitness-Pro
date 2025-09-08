@@ -1,11 +1,9 @@
-// src/components/layout/AppHeader.tsx
 'use client';
 
 import type { Route } from 'next';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import SignOutConfirmButton from '@/components/auth/SignOutConfirmButton';
-import { useSidebar } from './SidebarProvider';
 import { registerPush, unregisterPush } from '@/lib/push-client';
 
 /* =================== Utils =================== */
@@ -249,9 +247,6 @@ export default function AppHeader() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // Sidebar controls
-  const { collapsed, pinned, toggleCollapsed, togglePinned } = useSidebar();
-
   // Pesquisa
   const [q, setQ] = useState('');
   useEffect(() => {
@@ -284,32 +279,10 @@ export default function AppHeader() {
 
   return (
     <header className="app-header">
-      <div className="header-inner" style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0,1fr) auto', alignItems: 'center', gap: 8 }}>
-        {/* Controles da Sidebar */}
-        <div style={{ display: 'inline-flex', gap: 6 }}>
-          <button
-            type="button"
-            className="btn icon"
-            aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
-            title={collapsed ? 'Expandir menu' : 'Recolher menu'}
-            aria-pressed={!collapsed}
-            onClick={toggleCollapsed}
-          >
-            ☰
-          </button>
-          <button
-            type="button"
-            className="btn icon"
-            aria-label={pinned ? 'Desafixar menu' : 'Afixar menu'}
-            title={pinned ? 'Desafixar menu' : 'Afixar menu'}
-            aria-pressed={pinned}
-            onClick={togglePinned}
-            style={{ transform: pinned ? 'rotate(25deg)' : 'none', transition: 'transform .2s ease' }}
-          >
-            📌
-          </button>
-        </div>
-
+      <div
+        className="header-inner"
+        style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', alignItems: 'center', gap: 8 }}
+      >
         {/* Pesquisa */}
         <form className="search" onSubmit={onSearch} role="search" aria-label="Pesquisar" style={{ display: 'flex', gap: 8 }}>
           <input
