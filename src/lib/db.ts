@@ -1,14 +1,11 @@
 // src/lib/db.ts
-import { PrismaClient } from "@prisma/client";
+/**
+ * Legacy entrypoint para "db".
+ * Prisma foi desativado no projeto — usamos o shim de '@/lib/prisma'.
+ * Mantemos este ficheiro só para compat de imports antigos:
+ *   import { prisma } from '@/lib/db'
+ *   import prisma from '@/lib/db'
+ */
 
-const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
-
-export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
-  });
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
-}
+export { prisma } from './prisma';
+export default prisma;
