@@ -1,29 +1,48 @@
-;
-import type { Role as DbRole, Status as DbStatus } from '@prisma/client'; // Se já não usares Prisma, troca para os teus types locais
-// Se não tiveres estes types, cria um fallback:
-type FallbackRole = 'ADMIN' | 'PT' | 'CLIENT';
-type FallbackStatus = 'PENDING' | 'ACTIVE' | 'SUSPENDED';
-
-type Role = DbRole extends string ? DbRole : FallbackRole;
-type Status = DbStatus extends string ? DbStatus : FallbackStatus;
+// src/lib/session-bridge.ts
+import { getServerSession } from "next-auth";
+import type { Session } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { toAppRole, type AppRole } from "@/lib/roles";
 
 export type SessionUser = {
   id: string;
-  name?: string | null;
   email?: string | null;
-  role?: Role | null;
-  status?: Status | null;
+  name?: string | null;
+  role?: string | null;
 };
 
+/**
+ * Devolve o utilizador da sessão (ou null).
+ * Usa NextAuth (App Router) com as tuas authOptions.
+ */
 export async function getSessionUserSafe(): Promise<SessionUser | null> {
-  // getServerSession sem options funciona na App Router se tens a rota /api/auth/[...nextauth]
-  // Se precisares, importa aqui as options:  const { authOptions } = await import('@/app/api/auth/[...nextauth]/authOptions');
-  const session = await getServerSession();
-  return (session?.user as any as SessionUser) ?? null;
+  let session: Session | null = null;
+
+  // Primeiro tenta com as opções definidas (normal em App Router)
+  try {
+    session = await getServerSession(authOptions);
+  } catch {
+    // Fallback defensivo: alguns ambientes permitem chamar sem options
+    try {
+      session = await (getServerSession as any)();
+    } catch {
+      session = null;
+    }
+  }
+
+  const u = session?.user as any;
+  if (!u?.id) return null;
+
+  return {
+    id: String(u.id),
+    email: u.email ?? null,
+    name: u.name ?? null,
+    role: (u.role ?? null) as string | null,
+  };
 }
 
-export function assertRole(user: SessionUser | null, roles: Role[]) {
-  if (!user) return false;
-  if (!user.role) return false;
-  return roles.includes(user.role);
+/** Devolve o role normalizado da sessão (ADMIN | PT | CLIENT) ou null. */
+export async function getSessionRole(): Promise<AppRole | null> {
+  const u = await getSessionUserSafe();
+  return u?.role ? toAppRole(u.role) : null;
 }
