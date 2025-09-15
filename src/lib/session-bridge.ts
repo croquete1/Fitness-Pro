@@ -1,48 +1,79 @@
 // src/lib/session-bridge.ts
-import { getServerSession } from "next-auth";
-import type { Session } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { toAppRole, type AppRole } from "@/lib/roles";
+// Ponte única para ler sessão (NextAuth v5/v4 compat) e validar perfis/roles.
+// NÃO usa Prisma.
 
-export type SessionUser = {
-  id: string;
-  email?: string | null;
-  name?: string | null;
-  role?: string | null;
-};
+import { getServerSession, type DefaultSession } from "next-auth";
+import type { NextRequest } from "next/server";
+import { authConfig } from "@/lib/auth";
 
-/**
- * Devolve o utilizador da sessão (ou null).
- * Usa NextAuth (App Router) com as tuas authOptions.
- */
-export async function getSessionUserSafe(): Promise<SessionUser | null> {
-  let session: Session | null = null;
+export type AppRole = "ADMIN" | "USER";
+export type SessionUser = (DefaultSession["user"] & { role?: AppRole }) | undefined | null;
 
-  // Primeiro tenta com as opções definidas (normal em App Router)
-  try {
-    session = await getServerSession(authOptions);
-  } catch {
-    // Fallback defensivo: alguns ambientes permitem chamar sem options
-    try {
-      session = await (getServerSession as any)();
-    } catch {
-      session = null;
-    }
-  }
-
-  const u = session?.user as any;
-  if (!u?.id) return null;
-
-  return {
-    id: String(u.id),
-    email: u.email ?? null,
-    name: u.name ?? null,
-    role: (u.role ?? null) as string | null,
-  };
+function toArray<T>(val: T | T[]): T[] {
+  return Array.isArray(val) ? val : [val];
 }
 
-/** Devolve o role normalizado da sessão (ADMIN | PT | CLIENT) ou null. */
-export async function getSessionRole(): Promise<AppRole | null> {
-  const u = await getSessionUserSafe();
-  return u?.role ? toAppRole(u.role) : null;
+/**
+ * Obtém sessão e utilizador de forma segura (server-side).
+ * Retorna sempre um objeto com { session, user }.
+ */
+export async function getSessionUserSafe() {
+  // getServerSession funciona no App Router com NextAuth config.
+  const session = await getServerSession(authConfig as any);
+  const user = (session?.user ?? null) as SessionUser;
+  return { session, user };
+}
+
+/**
+ * Verifica se o utilizador tem o(s) role(s) exigido(s).
+ * Lança erro 401 se não autenticado, 403 se autenticado mas sem permissão.
+ * Retorna o utilizador (tipado) quando a validação passa.
+ */
+export async function assertRole(required: AppRole | AppRole[]) {
+  const { user } = await getSessionUserSafe();
+
+  if (!user) {
+    const err = new Error("UNAUTHORIZED");
+    // @ts-ignore – útil em handlers para definir status
+    err.status = 401;
+    throw err;
+  }
+
+  const need = toArray(required);
+  const has = !!user.role && need.includes(user.role as AppRole);
+
+  if (!has) {
+    const err = new Error("FORBIDDEN");
+    // @ts-ignore
+    err.status = 403;
+    throw err;
+  }
+
+  return user;
+}
+
+/**
+ * Útil em handlers quando basta garantir sessão (sem validar role).
+ */
+export async function requireAuth() {
+  const { session, user } = await getSessionUserSafe();
+  if (!user) {
+    const err = new Error("UNAUTHORIZED");
+    // @ts-ignore
+    err.status = 401;
+    throw err;
+  }
+  return { session, user };
+}
+
+/**
+ * Helper opcional para usar em middlewares/handlers que recebem NextRequest,
+ * caso precises em algum endpoint (mantém assinatura simples).
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function assertRoleFromRequest(
+  _req: NextRequest,
+  required: AppRole | AppRole[]
+) {
+  return assertRole(required);
 }
