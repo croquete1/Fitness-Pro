@@ -4,6 +4,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabaseBrowser';
 import Badge from '@/components/ui/Badge';
 
+// ---- Tipos locais, alinhados com os types gerados ----
+// (plan_days)
 type Day = {
   id: string;
   plan_id: string;
@@ -11,16 +13,19 @@ type Day = {
   title: string | null;
 };
 
+// (plan_exercises) — no typegen estão expostas estas colunas.
+// Mantemos campos extra como opcionais para UI (não usados no insert/update).
 type Item = {
   id: string;
   day_id: string;
-  idx: number;
-  exercise_id: string | null;
+  order_index: number;
   title: string | null;
-  sets: number | null;
-  reps: string | null;     // ex.: "8-10"
-  rest_sec: number | null; // descanso em segundos
   notes: string | null;
+  // opcionais (se existirem no teu schema real, não quebram a UI)
+  exercise_id?: string | null;
+  sets?: number | null;
+  reps?: string | null;
+  rest_sec?: number | null;
 };
 
 type Props = { planId: string; initialTitle: string };
@@ -33,130 +38,30 @@ export default function PlanEditor({ planId, initialTitle }: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // Helpers
-  function itemsOf(dayId: string) {
-    return items.filter((i) => i.day_id === dayId).sort((a, b) => a.idx - b.idx);
-  }
-
-  // Carregar dias + exercícios com fallback se a coluna `idx` não existir
+  // Carregar dias + exercícios
   useEffect(() => {
     let active = true;
-
-    async function fetchAll() {
+    (async () => {
       try {
         setLoading(true);
 
-        // 1) Dias
-        const { data: d, error: dErr } = await sb
+        const { data: d } = await sb
           .from('plan_days')
           .select('id, plan_id, day_index, title')
           .eq('plan_id', planId)
           .order('day_index', { ascending: true });
 
-        if (dErr) throw dErr;
-        const dayRows = (d ?? []) as Day[];
-        if (!active) return;
+        const dayIds = (d ?? []).map((x) => x.id);
 
-        setDays(dayRows);
-
-        const dayIds = dayRows.map((x) => x.id);
-        if (dayIds.length === 0) {
-          setItems([]);
-          return;
-        }
-
-        // 2) Exercícios (1ª tentativa: com `idx`)
-        const { data: it1, error: itErr1 } = await sb
+        const { data: it } = await sb
           .from('plan_exercises')
-          .select('id, day_id, idx, exercise_id, title, sets, reps, rest_sec, notes')
-          .in('day_id', dayIds)
-          .order('idx', { ascending: true });
+          .select('id, day_id, order_index, title, notes') // ⚠ tipos gerados expõem estas colunas
+          .in('day_id', dayIds.length ? dayIds : ['__none__'])
+          .order('order_index', { ascending: true });
 
-        if (!itErr1 && it1) {
-          const normalized = (it1 as any[]).map((r) => ({
-            id: String(r.id),
-            day_id: String(r.day_id),
-            idx: Number(r.idx ?? 0),
-            exercise_id: r.exercise_id ?? null,
-            title: r.title ?? null,
-            sets: r.sets ?? null,
-            reps: r.reps ?? null,
-            rest_sec: r.rest_sec ?? null,
-            notes: r.notes ?? null,
-          })) as Item[];
-          if (!active) return;
-          setItems(normalized);
-          return;
-        }
-
-        // 3) Fallback se `idx` não existir: ordenar por `created_at` (se existir)
-        const { data: it2, error: itErr2 } = await sb
-          .from('plan_exercises')
-          .select('id, day_id, exercise_id, title, sets, reps, rest_sec, notes, created_at')
-          .in('day_id', dayIds)
-          .order('created_at', { ascending: true });
-
-        if (itErr2) {
-          // fallback final: sem order do servidor
-          const { data: it3 } = await sb
-            .from('plan_exercises')
-            .select('id, day_id, exercise_id, title, sets, reps, rest_sec, notes')
-            .in('day_id', dayIds);
-
-          const grouped: Record<string, any[]> = {};
-          (it3 ?? []).forEach((r: any) => {
-            const key = String(r.day_id);
-            grouped[key] = grouped[key] ?? [];
-            grouped[key].push(r);
-          });
-
-          const rebuilt: Item[] = [];
-          for (const [dayId, arr] of Object.entries(grouped)) {
-            arr.forEach((r: any, i: number) => {
-              rebuilt.push({
-                id: String(r.id),
-                day_id: dayId,
-                idx: i,
-                exercise_id: r.exercise_id ?? null,
-                title: r.title ?? null,
-                sets: r.sets ?? null,
-                reps: r.reps ?? null,
-                rest_sec: r.rest_sec ?? null,
-                notes: r.notes ?? null,
-              });
-            });
-          }
-          if (!active) return;
-          setItems(rebuilt);
-          return;
-        }
-
-        // it2 OK → construir idx local por dia
-        const grouped: Record<string, any[]> = {};
-        (it2 ?? []).forEach((r: any) => {
-          const key = String(r.day_id);
-          grouped[key] = grouped[key] ?? [];
-          grouped[key].push(r);
-        });
-
-        const rebuilt: Item[] = [];
-        for (const [dayId, arr] of Object.entries(grouped)) {
-          arr.forEach((r: any, i: number) => {
-            rebuilt.push({
-              id: String(r.id),
-              day_id: dayId,
-              idx: i,
-              exercise_id: r.exercise_id ?? null,
-              title: r.title ?? null,
-              sets: r.sets ?? null,
-              reps: r.reps ?? null,
-              rest_sec: r.rest_sec ?? null,
-              notes: r.notes ?? null,
-            });
-          });
-        }
         if (!active) return;
-        setItems(rebuilt);
+        setDays((d ?? []) as Day[]);
+        setItems((it ?? []) as Item[]);
       } catch {
         if (!active) return;
         setDays([]);
@@ -164,20 +69,29 @@ export default function PlanEditor({ planId, initialTitle }: Props) {
       } finally {
         if (active) setLoading(false);
       }
-    }
-
-    fetchAll();
+    })();
     return () => {
       active = false;
     };
   }, [planId, sb]);
+
+  // Helpers
+  function itemsOf(dayId: string) {
+    return items
+      .filter((i) => i.day_id === dayId)
+      .sort((a, b) => a.order_index - b.order_index);
+  }
+
+  // Drag state
+  const [dragDayId, setDragDayId] = useState<string | null>(null);
+  const [dragItemId, setDragItemId] = useState<string | null>(null);
 
   // Persistir reordenação de dias
   async function saveDayOrder(newDays: Day[]) {
     try {
       setSaving(true);
       const order = newDays.map((d, i) => ({ id: d.id, day_index: i }));
-      await fetch(`/api/pt/training-plans/${planId}/reorder-days`, {
+      await fetch(`/api/pt/plans/${planId}/reorder-days`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ order }),
@@ -188,10 +102,12 @@ export default function PlanEditor({ planId, initialTitle }: Props) {
   }
 
   // Persistir reordenação/movimentação de exercícios
-  async function saveItemMoves(moves: Array<{ id: string; day_id: string; idx: number }>) {
+  async function saveItemMoves(
+    moves: Array<{ id: string; day_id: string; order_index: number }>
+  ) {
     try {
       setSaving(true);
-      await fetch(`/api/pt/training-plans/${planId}/reorder-items`, {
+      await fetch(`/api/pt/plans/${planId}/reorder-items`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ moves }),
@@ -201,112 +117,40 @@ export default function PlanEditor({ planId, initialTitle }: Props) {
     }
   }
 
-  // Adicionar novo DIA ao fim
-  async function onAddDay() {
+  // Adicionar novo exercício no fim de um dia
+  async function addItem(dayId: string) {
     try {
       setSaving(true);
-      const nextIndex = days.length;
-      const defaultTitle = `Dia ${nextIndex + 1}`;
-      const { data, error } = await sb
-        .from('plan_days')
-        .insert({ plan_id: planId, day_index: nextIndex, title: defaultTitle })
-        .select('id, plan_id, day_index, title')
-        .single();
-      if (!error && data) {
-        setDays((prev) => [...prev, data as Day]);
-      }
-    } finally {
-      setSaving(false);
-    }
-  }
+      const nextIndex =
+        itemsOf(dayId).reduce((max, it) => Math.max(max, it.order_index), -1) + 1;
 
-  // Adicionar EXERCÍCIO num dia (com fallback se `idx` não existir na BD)
-  async function onAddExercise(dayId: string) {
-    const nextIdx = itemsOf(dayId).length;
-    try {
-      setSaving(true);
+      const { error } = await sb.from('plan_exercises').insert({
+        day_id: dayId,
+        order_index: nextIndex, // ✅ coluna correta
+        title: 'Novo exercício',
+        notes: null,
+      });
+      if (error) throw error;
 
-      // 1ª tentativa: inserir com idx
-      const tryWithIdx = await sb
+      // refetch leve (podes otimizar se quiseres)
+      const { data: it } = await sb
         .from('plan_exercises')
-        .insert({
-          day_id: dayId,
-          idx: nextIdx,
-          exercise_id: null,
-          title: `Exercício ${nextIdx + 1}`,
-          sets: 3,
-          reps: '10',
-          rest_sec: 60,
-          notes: null,
-        })
-        .select('id, day_id, idx, exercise_id, title, sets, reps, rest_sec, notes')
-        .single();
+        .select('id, day_id, order_index, title, notes')
+        .eq('day_id', dayId)
+        .order('order_index', { ascending: true });
 
-      if (!tryWithIdx.error && tryWithIdx.data) {
-        setItems((prev) => [...prev, tryWithIdx.data as unknown as Item]);
-        return;
-      }
-
-      // Fallback: sem idx
-      const tryWithoutIdx = await sb
-        .from('plan_exercises')
-        .insert({
-          day_id: dayId,
-          exercise_id: null,
-          title: `Exercício ${nextIdx + 1}`,
-          sets: 3,
-          reps: '10',
-          rest_sec: 60,
-          notes: null,
-        })
-        .select('id, day_id, exercise_id, title, sets, reps, rest_sec, notes, created_at')
-        .single();
-
-      const newRow = tryWithoutIdx.data as any;
-      if (newRow) {
-        // atribuir idx localmente
-        setItems((prev) => [
-          ...prev,
-          {
-            id: String(newRow.id),
-            day_id: dayId,
-            idx: nextIdx,
-            exercise_id: newRow.exercise_id ?? null,
-            title: newRow.title ?? null,
-            sets: newRow.sets ?? null,
-            reps: newRow.reps ?? null,
-            rest_sec: newRow.rest_sec ?? null,
-            notes: newRow.notes ?? null,
-          },
-        ]);
-
-        // tentar persistir a ordem (se o teu endpoint suportar outra coluna, ele mapeia lá)
-        try {
-          const after = itemsOf(dayId).concat([
-            {
-              id: String(newRow.id),
-              day_id: dayId,
-              idx: nextIdx,
-              exercise_id: newRow.exercise_id ?? null,
-              title: newRow.title ?? null,
-              sets: newRow.sets ?? null,
-              reps: newRow.reps ?? null,
-              rest_sec: newRow.rest_sec ?? null,
-              notes: newRow.notes ?? null,
-            },
-          ]);
-          await saveItemMoves(after.map((r, i) => ({ id: r.id, day_id: dayId, idx: i })));
-        } catch {
-          // best-effort
-        }
-      }
+      setItems((prev) => {
+        const others = prev.filter((i) => i.day_id !== dayId);
+        return [...others, ...((it ?? []) as Item[])];
+      });
+    } catch {
+      // noop — poderias dar um toast
     } finally {
       setSaving(false);
     }
   }
 
   // DnD dias
-  const [dragDayId, setDragDayId] = useState<string | null>(null);
   function onDayDragStart(id: string) {
     setDragDayId(id);
   }
@@ -326,8 +170,7 @@ export default function PlanEditor({ planId, initialTitle }: Props) {
     setDragDayId(null);
   }
 
-  // DnD exercícios
-  const [dragItemId, setDragItemId] = useState<string | null>(null);
+  // DnD exercícios (pode mudar de dia)
   function onItemDragStart(id: string) {
     setDragItemId(id);
   }
@@ -336,35 +179,50 @@ export default function PlanEditor({ planId, initialTitle }: Props) {
     const source = items.find((i) => i.id === dragItemId);
     if (!source) return;
 
+    // remover o item movido da coleção
     const without = items.filter((i) => i.id !== dragItemId);
-    const dest = without.filter((i) => i.day_id === targetDayId).sort((a, b) => a.idx - b.idx);
 
+    // destino
+    const dest = without
+      .filter((i) => i.day_id === targetDayId)
+      .sort((a, b) => a.order_index - b.order_index);
+
+    // posição de inserção
     let insertIdx = dest.length;
     if (beforeItemId) {
       const pos = dest.findIndex((i) => i.id === beforeItemId);
       if (pos >= 0) insertIdx = pos;
     }
 
-    const moved: Item = { ...source, day_id: targetDayId, idx: insertIdx };
+    // inserir no destino
+    const moved: Item = { ...source, day_id: targetDayId, order_index: insertIdx };
     const newDest = [...dest.slice(0, insertIdx), moved, ...dest.slice(insertIdx)];
 
-    const normalizedDest = newDest.map((i, n) => ({ ...i, idx: n }));
+    // normalizar índices destino e origem
+    const normalizedDest = newDest.map((i, n) => ({ ...i, order_index: n }));
     const origin = without
       .filter((i) => i.day_id === source.day_id)
-      .sort((a, b) => a.idx - b.idx)
-      .map((i, n) => ({ ...i, idx: n }));
+      .sort((a, b) => a.order_index - b.order_index)
+      .map((i, n) => ({ ...i, order_index: n }));
 
-    const rest = without.filter((i) => i.day_id !== source.day_id && i.day_id !== targetDayId);
+    // restantes dias
+    const rest = without.filter(
+      (i) => i.day_id !== source.day_id && i.day_id !== targetDayId
+    );
+
     const finalItems = [...rest, ...origin, ...normalizedDest];
     setItems(finalItems);
 
+    // persistir (dedupe por id)
     const moves = [...origin, ...normalizedDest].map((i) => ({
       id: i.id,
       day_id: i.day_id,
-      idx: i.idx,
+      order_index: i.order_index,
     }));
     const seen = new Set<string>();
-    const compact = moves.filter((m) => (seen.has(m.id) ? false : (seen.add(m.id), true)));
+    const compact = moves.filter((m) =>
+      seen.has(m.id) ? false : (seen.add(m.id), true)
+    );
     void saveItemMoves(compact);
 
     setDragItemId(null);
@@ -396,13 +254,15 @@ export default function PlanEditor({ planId, initialTitle }: Props) {
             }}
             className="rounded-lg border px-3 py-2 text-sm bg-white dark:bg-slate-900"
           />
-          <button className="btn chip" onClick={onAddDay}>+ Adicionar dia</button>
           {saving ? <Badge variant="info">a guardar…</Badge> : <Badge variant="success">guardado</Badge>}
         </div>
       </div>
 
       {/* GRID de dias */}
-      <div className="grid gap-3 md:gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))' }}>
+      <div
+        className="grid gap-3 md:gap-4"
+        style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))' }}
+      >
         {days.map((d) => {
           const its = itemsOf(d.id);
           return (
@@ -418,7 +278,14 @@ export default function PlanEditor({ planId, initialTitle }: Props) {
                 <div className="font-semibold">{d.title ?? `Dia ${d.day_index + 1}`}</div>
                 <div className="flex items-center gap-2">
                   <Badge variant="neutral">{its.length} exercícios</Badge>
-                  <button className="btn chip" onClick={() => onAddExercise(d.id)}>+ exercício</button>
+                  <button
+                    type="button"
+                    onClick={() => addItem(d.id)}
+                    className="rounded-md border px-2 py-1 text-xs bg-white/70 dark:bg-slate-800 hover:bg-slate-50"
+                    title="Adicionar exercício"
+                  >
+                    + Adicionar
+                  </button>
                 </div>
               </div>
 
@@ -429,13 +296,16 @@ export default function PlanEditor({ planId, initialTitle }: Props) {
                     draggable
                     onDragStart={() => onItemDragStart(it.id)}
                     onDragOver={(e) => e.preventDefault()}
-                    onDrop={() => onItemDrop(d.id, it.id)}
+                    onDrop={() => onItemDrop(d.id, it.id)} // largar antes deste item
                     className="rounded-lg border bg-white dark:bg-slate-800 px-3 py-2 text-sm"
                   >
                     <div className="flex items-center justify-between gap-3">
-                      <div className="font-medium">{it.title ?? `Exercício ${idx + 1}`}</div>
+                      <div className="font-medium">
+                        {it.title ?? `Exercício ${idx + 1}`}
+                      </div>
                       <div className="text-xs text-slate-500">
-                        {it.sets ?? '—'} séries · {it.reps ?? '—'} reps · {it.rest_sec ?? '—'}s
+                        {/* Mostra placeholders se não houver colunas adicionais */}
+                        {(it.sets ?? '—')} séries · {(it.reps ?? '—')} reps · {(it.rest_sec ?? '—')}s
                       </div>
                     </div>
                     {it.notes && <p className="mt-1 text-xs text-slate-500">{it.notes}</p>}
