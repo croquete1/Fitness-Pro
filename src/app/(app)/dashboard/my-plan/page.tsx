@@ -1,72 +1,102 @@
-// src/app/(app)/dashboard/my-plan/page.tsx
-import React from 'react';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { getBillingForUser } from '@/lib/billingRepo';
-
 export const dynamic = 'force-dynamic';
 
-export default async function MyPlanPage() {
-  const session = await getServerSession(authOptions);
-  const user = (session?.user as any) || {};
-  if (!user?.id) {
-    return (
-      <div style={{ padding: 16 }}>
-        <h1 style={{ margin: 0, fontSize: 24 }}>O meu plano</h1>
-        <p style={{ color: 'var(--muted)' }}>Sessão inválida.</p>
-      </div>
-    );
-  }
+import { redirect } from 'next/navigation';
+import { getSessionUserSafe } from '@/lib/session-bridge';
+import { toAppRole, type AppRole } from '@/lib/roles';
+import { createServerClient } from '@/lib/supabaseServer';
+import GreetingHeader from '@/components/dashboard/GreetingHeader';
+import KpiCard from '@/components/dashboard/KpiCard';
 
-  const data = await getBillingForUser(user.id);
-  const active = data.plans.find((p) => p.status === 'ACTIVE') ?? data.plans[0];
+type SB = ReturnType<typeof createServerClient>;
+async function safeCount(sb: SB, table: string, build?: (q: any) => any) {
+  try {
+    let q: any = sb.from(table).select('*', { count: 'exact', head: true });
+    if (build) q = build(q);
+    const { count } = await q;
+    return count ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+export default async function MyPlanPage() {
+  const user = await getSessionUserSafe();
+  if (!user?.id) redirect('/login');
+  const role = (toAppRole(user.role) ?? 'CLIENT') as AppRole;
+  if (role !== 'CLIENT' && role !== 'ADMIN') redirect('/dashboard');
+
+  const sb = createServerClient();
+  const { data: prof } = await sb
+    .from('profiles')
+    .select('name, avatar_url')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  const now = new Date();
+  const in7 = new Date(now);
+  in7.setDate(now.getDate() + 7);
+
+  const [plans, upcoming, unread] = await Promise.all([
+    safeCount(sb, 'training_plans', (q) => q.eq('client_id', user.id)),
+    safeCount(
+      sb,
+      'sessions',
+      (q) =>
+        q
+          .eq('client_id', user.id)
+          .gte('scheduled_at', now.toISOString())
+          .lt('scheduled_at', in7.toISOString())
+    ),
+    safeCount(sb, 'notifications', (q) => q.eq('user_id', user.id).eq('read', false)),
+  ]);
+
+  const { data: planList } = await sb
+    .from('training_plans')
+    .select('id,title,status,updated_at,trainer_id')
+    .eq('client_id', user.id)
+    .order('updated_at', { ascending: false })
+    .limit(10);
 
   return (
-    <div style={{ padding: 16, display: 'grid', gap: 16 }}>
-      <header>
-        <h1 style={{ margin: 0, fontSize: 28 }}>O meu plano</h1>
-        <p style={{ margin: 0, color: 'var(--muted)' }}>
-          {active
-            ? `${active.title} (${active.durationMonths} ${active.durationMonths === 1 ? 'mês' : 'meses'})`
-            : 'Sem plano ativo de momento.'}
-        </p>
-      </header>
+    <div className="p-4 grid gap-3">
+      <GreetingHeader
+        name={prof?.name ?? user.name ?? user.email ?? 'Utilizador'}
+        avatarUrl={prof?.avatar_url ?? null}
+        role={role}
+      />
 
-      <section
-        style={{
-          background: 'var(--card-bg)',
-          border: '1px solid var(--border)',
-          borderRadius: 16,
-          padding: 16,
-          display: 'grid',
-          gap: 12,
-        }}
+      <div
+        className="grid gap-3"
+        style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}
       >
-        {/* Estas secções serão trocadas por dados reais */}
-        <div>
-          <h3 style={{ margin: '0 0 6px 0' }}>Treino</h3>
-          <ul style={{ margin: 0, paddingLeft: 18 }}>
-            <li>Peito & Tríceps — 3x/semana</li>
-            <li>Costas & Bíceps — 2x/semana</li>
-            <li>Pernas & Ombros — 2x/semana</li>
-          </ul>
-        </div>
+        <KpiCard label="Planos" value={plans} variant="accent" icon="📝" />
+        <KpiCard label="Sessões (7d)" value={upcoming} variant="success" icon="📅" />
+        <KpiCard label="Notificações" value={unread} variant="warning" icon="🔔" />
+      </div>
 
-        <div>
-          <h3 style={{ margin: '0 0 6px 0' }}>Alimentação</h3>
-          <ul style={{ margin: 0, paddingLeft: 18 }}>
-            <li>Proteína: 2.0 g/kg · Carbo: moderado · Gordura: baixa</li>
-            <li>Plano diário: 5 refeições</li>
-          </ul>
-        </div>
-
-        <div>
-          <h3 style={{ margin: '0 0 6px 0' }}>Notas</h3>
-          <p style={{ margin: 0, color: 'var(--muted)' }}>
-            Manter hidratação, sono ≥ 7h. Reavaliar cargas na 3ª semana.
-          </p>
-        </div>
-      </section>
+      <div className="rounded-2xl border bg-white/70 dark:bg-slate-900/40 backdrop-blur shadow-sm">
+        <div className="p-3 border-b text-sm font-semibold">Os meus planos</div>
+        <ul className="p-3 space-y-2">
+          {(planList ?? []).map((p) => (
+            <li key={p.id} className="rounded-lg border p-2 bg-white dark:bg-slate-800">
+              <div className="flex items-center justify-between">
+                <div className="font-medium">{(p as any).title ?? 'Sem título'}</div>
+                <div className="text-xs opacity-70">
+                  {(p as any).updated_at
+                    ? new Date((p as any).updated_at).toLocaleString('pt-PT')
+                    : '—'}
+                </div>
+              </div>
+              <div className="text-xs opacity-80">
+                Estado: {(p as any).status ?? '—'} · PT: {(p as any).trainer_id ?? '—'}
+              </div>
+            </li>
+          ))}
+          {(planList ?? []).length === 0 && (
+            <li className="text-sm opacity-70 px-2 py-1">Ainda não tens planos.</li>
+          )}
+        </ul>
+      </div>
     </div>
   );
 }

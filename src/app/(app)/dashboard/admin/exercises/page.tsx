@@ -1,69 +1,85 @@
-import Link from 'next/link';
-import type { Route } from 'next';
-import { redirect } from 'next/navigation';
-import { supabaseAdmin } from '@/lib/supabase.server';
-import { getSessionUserSafe, assertRole } from '@/lib/session-bridge';
+export const dynamic = 'force-dynamic';
 
-export const metadata = { title: 'Catálogo de exercícios (Admin) · Fitness Pro' };
+import React from 'react';
+import { redirect } from 'next/navigation';
+import type { Route } from 'next';
+import Link from 'next/link';
+import PageHeader from '@/components/ui/PageHeader';
+import Card, { CardContent } from '@/components/ui/Card';
+import Badge from '@/components/ui/Badge';
+import { getSessionUserSafe } from '@/lib/session-bridge';
+import { toAppRole } from '@/lib/roles';
+import { createServerClient } from '@/lib/supabaseServer';
 
 export default async function AdminExercisesPage() {
-  const user = await getSessionUserSafe();
-  if (!assertRole(user, ['ADMIN'])) redirect('/dashboard');
+  const session = await getSessionUserSafe();
+  const user = (session as any)?.user;
+  if (!user?.id) redirect('/login' as Route);
 
-  const s = supabaseAdmin();
-  const { data, error } = await s
+  const role = toAppRole(user.role) ?? 'CLIENT';
+  const canCreate = role === 'ADMIN';
+
+  const sb = createServerClient();
+  const { data: rows, error } = await sb
     .from('exercises')
-    .select('id, name, muscle_group, equipment, difficulty')
-    .order('name', { ascending: true });
+    .select('id,name,muscle_group,equipment,difficulty,video_url,created_at,created_by')
+    .order('created_at', { ascending: false })
+    .limit(200);
 
-  if (error) {
-    return (
-      <div className="card" style={{ padding: 12 }}>
-        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>Catálogo de exercícios</h1>
-        <p className="small text-muted" style={{ marginTop: 8, color: 'var(--danger)' }}>
-          Falha a carregar: {error.message}
-        </p>
-      </div>
-    );
-  }
-
-  const items = data ?? [];
+  const items =
+    error || !rows
+      ? []
+      : rows;
 
   return (
-    <div style={{ display: 'grid', gap: 12 }}>
-      <div
-        className="card"
-        style={{ padding: 12, display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between' }}
-      >
-        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>Catálogo de exercícios</h1>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Link href={'/dashboard/admin/exercises/new' as Route} className="btn primary">
-            ➕ Novo exercício
-          </Link>
-        </div>
-      </div>
+    <main className="p-4 space-y-4">
+      <PageHeader
+        title="Catálogo de Exercícios"
+        subtitle="Gerir e pesquisar exercícios"
+        actions={
+          canCreate
+            ? <Link href={'/dashboard/admin/exercises/new' as Route} className="btn primary">➕ Novo exercício</Link>
+            : null
+        }
+      />
 
-      <div className="card" style={{ padding: 12 }}>
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-          {items.map((e) => (
-            <li
-              key={e.id}
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr auto auto',
-                gap: 8,
-                padding: '10px 0',
-                borderTop: '1px solid var(--border)',
-              }}
-            >
-              <div style={{ fontWeight: 700 }}>{e.name}</div>
-              <div className="small text-muted">{e.muscle_group ?? '—'}</div>
-              <div className="small text-muted">{e.equipment ?? '—'}</div>
-            </li>
-          ))}
-          {items.length === 0 && <li className="small text-muted">Ainda não existem exercícios.</li>}
-        </ul>
-      </div>
-    </div>
+      <Card>
+        <CardContent>
+          {!items.length ? (
+            <div className="text-muted small">Sem exercícios no catálogo.</div>
+          ) : (
+            <ul style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 6 }}>
+              {items.map((e) => (
+                <li key={e.id} className="card" style={{ padding: 10 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
+                    <div style={{ display: 'grid', gap: 4 }}>
+                      <div style={{ fontWeight: 700 }}>{e.name}</div>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {e.muscle_group ? <Badge variant="primary">{e.muscle_group}</Badge> : null}
+                        {e.equipment ? <Badge variant="neutral">{e.equipment}</Badge> : null}
+                        {e.difficulty ? (
+                          <Badge
+                            variant={
+                              e.difficulty === 'EASY' ? 'success'
+                              : e.difficulty === 'HARD' ? 'danger'
+                              : 'warning'
+                            }
+                          >
+                            {e.difficulty}
+                          </Badge>
+                        ) : null}
+                      </div>
+                    </div>
+                    {e.video_url ? (
+                      <a href={e.video_url} target="_blank" rel="noreferrer" className="btn chip">🎬 Vídeo</a>
+                    ) : null}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+    </main>
   );
 }

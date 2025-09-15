@@ -1,53 +1,40 @@
-// src/app/api/admin/roster/route.ts
-import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
-import { Role } from "@prisma/client";
+import { NextResponse } from 'next/server';
+import { createServerClient } from '@/lib/supabaseServer';
+import { getSessionUserSafe } from '@/lib/session-bridge';
+import { toAppRole } from '@/lib/roles';
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+type SessionUser = { id?: string; role?: string | null };
+type SessionLike = { user?: SessionUser } | null;
 
-/**
- * GET /api/admin/roster?trainerId=...&clientId=...&limit=25
- * - Lista atribuições Trainer<->Cliente (admin-only).
- * - Filtros opcionais por trainerId e/ou clientId.
- * - Ordenado por createdAt desc.
- */
-export async function GET(req: Request) {
-  try {
-    const session = await getServerSession(authOptions);
-    const me = session?.user as any;
-    if (!me || me.role !== Role.ADMIN) {
-      return NextResponse.json({ ok: false, error: "FORBIDDEN" }, { status: 403 });
-    }
+export async function GET() {
+  const session = (await getSessionUserSafe()) as SessionLike;
+  const me = session?.user;
+  if (!me?.id) return new NextResponse('Unauthorized', { status: 401 });
+  if ((toAppRole(me.role) ?? 'CLIENT') !== 'ADMIN') return new NextResponse('Forbidden', { status: 403 });
 
-    const url = new URL(req.url);
-    const trainerId = url.searchParams.get("trainerId") || undefined;
-    const clientId = url.searchParams.get("clientId") || undefined;
-    const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit") || 25)));
+  const sb = createServerClient();
+  const { data, error } = await sb
+    .from('trainer_clients')
+    .select('id, trainer_id, client_id, created_at')
+    .order('created_at', { ascending: false });
+  if (error) return new NextResponse(error.message, { status: 500 });
+  return NextResponse.json(data ?? []);
+}
 
-    const where: any = {};
-    if (trainerId) where.trainerId = trainerId;
-    if (clientId) where.clientId = clientId;
+export async function POST(req: Request) {
+  const session = (await getSessionUserSafe()) as SessionLike;
+  const me = session?.user;
+  if (!me?.id) return new NextResponse('Unauthorized', { status: 401 });
+  if ((toAppRole(me.role) ?? 'CLIENT') !== 'ADMIN') return new NextResponse('Forbidden', { status: 403 });
 
-    const rows = await prisma.trainerClient.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      take: limit,
-      select: {
-        id: true,
-        trainerId: true,
-        clientId: true,
-        createdAt: true,
-        trainer: { select: { id: true, email: true, name: true, role: true } },
-        client: { select: { id: true, email: true, name: true, role: true } },
-      },
-    });
+  const payload = await req.json().catch(() => null) as { trainer_id?: string; client_id?: string } | null;
+  if (!payload?.trainer_id || !payload?.client_id) return new NextResponse('Bad request', { status: 400 });
 
-    return NextResponse.json({ ok: true, data: rows });
-  } catch (e: any) {
-    console.error("[admin/roster][GET]", e?.message ?? e);
-    return NextResponse.json({ ok: false, error: "INTERNAL_ERROR" }, { status: 500 });
-  }
+  const sb = createServerClient();
+  const { error } = await sb.from('trainer_clients').insert({
+    trainer_id: payload.trainer_id,
+    client_id: payload.client_id,
+  });
+  if (error) return new NextResponse(error.message, { status: 500 });
+  return NextResponse.json({ ok: true });
 }

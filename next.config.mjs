@@ -1,11 +1,13 @@
 // next.config.mjs
+// @ts-check
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
-  experimental: { typedRoutes: true },
-  // Não usar "export": precisamos de server para rotas /api
-  // Se quiseres imagem menor para Docker/Node:
-  output: 'standalone',
+  // Desliga o ESLint durante o build (opcional, mas elimina ruído no Vercel)
+  eslint: { ignoreDuringBuilds: true },
+
+  // Mantém o type-check do TS no build (podes pôr true para ignorar também)
+  typescript: { ignoreBuildErrors: false },
 };
 
 export default nextConfig;

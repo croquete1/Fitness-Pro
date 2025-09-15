@@ -1,4 +1,3 @@
-// src/components/layout/SidebarProvider.tsx
 'use client';
 
 import React, {
@@ -38,6 +37,7 @@ function readBool(key: string, fallback: boolean) {
 function syncDom(pinned: boolean, collapsed: boolean) {
   if (typeof document === 'undefined') return;
   const html = document.documentElement;
+  // data-sb-pinned / data-sb-collapsed (alinha com o teu globals.css)
   html.dataset.sbPinned = pinned ? '1' : '0';
   html.dataset.sbCollapsed = collapsed ? '1' : '0';
 }
@@ -46,9 +46,7 @@ export const SidebarProvider: React.FC<React.PropsWithChildren> = ({ children })
   // defaults: afixada e expandida
   const [pinned, setPinned] = useState<boolean>(() => readBool(KEY_PINNED, true));
   // guardamos o "raw" para poder derivar o collapsed final consoante pinned
-  const [collapsedRaw, setCollapsedRaw] = useState<boolean>(() =>
-    readBool(KEY_COLLAPSED, false),
-  );
+  const [collapsedRaw, setCollapsedRaw] = useState<boolean>(() => readBool(KEY_COLLAPSED, false));
 
   // regra: se NÃO está afixada, fica sempre colapsada (rail)
   const collapsed = pinned ? collapsedRaw : true;
@@ -58,7 +56,7 @@ export const SidebarProvider: React.FC<React.PropsWithChildren> = ({ children })
     if (!pinned && collapsedRaw === false) setCollapsedRaw(true);
   }, [pinned, collapsedRaw]);
 
-  // sincronizar DOM + storage (corrige warnings de deps)
+  // sincronizar DOM + storage
   useEffect(() => {
     syncDom(pinned, collapsed);
     try {
@@ -67,7 +65,7 @@ export const SidebarProvider: React.FC<React.PropsWithChildren> = ({ children })
     } catch {}
   }, [pinned, collapsed]);
 
-  // sync entre tabs (sem referências a pinned/collapsed para evitar warnings)
+  // sync entre tabs (mount-only; evita warnings de deps)
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const onStorage = (e: StorageEvent) => {
@@ -75,13 +73,16 @@ export const SidebarProvider: React.FC<React.PropsWithChildren> = ({ children })
       if (e.key === KEY_COLLAPSED && e.newValue != null) setCollapsedRaw(e.newValue === '1');
     };
     window.addEventListener('storage', onStorage);
+    // garantir DOM atualizado no mount com o estado inicial
+    syncDom(pinned, collapsed);
     return () => window.removeEventListener('storage', onStorage);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // mount only intencional
 
   const togglePinned = useCallback(() => setPinned((v) => !v), []);
 
   const toggleCollapsed = useCallback(() => {
-    // Se não estiver afixada, ao "compactar" tornamos afixada + expandida (UX melhor).
+    // Se não estiver afixada, "compactar" passa a afixada + expandida (UX melhor).
     if (!pinned) {
       setPinned(true);
       setCollapsedRaw(false);
@@ -97,10 +98,9 @@ export const SidebarProvider: React.FC<React.PropsWithChildren> = ({ children })
       togglePinned,
       toggleCollapsed,
       setPinned,
-      // expõe setter com o raw internamente
       setCollapsed: setCollapsedRaw,
     }),
-    [pinned, collapsed, togglePinned, toggleCollapsed],
+    [pinned, collapsed, togglePinned, toggleCollapsed]
   );
 
   return <SidebarContext.Provider value={value}>{children}</SidebarContext.Provider>;
@@ -113,5 +113,5 @@ export function useSidebar() {
   return ctx;
 }
 
-// default export para compatibilidade com imports existentes
+// default export para compat
 export default SidebarProvider;

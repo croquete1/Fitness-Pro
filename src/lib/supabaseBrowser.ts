@@ -1,15 +1,21 @@
 // src/lib/supabaseBrowser.ts
+'use client';
+
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@/types/supabase';
 
-let _client: SupabaseClient | null = null;
-
-export function supabaseBrowser(): SupabaseClient {
-  if (_client) return _client;
+export function supabaseBrowser(): SupabaseClient<Database> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  _client = createClient(url, key, {
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  return createClient<Database>(url, anon, {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
-    global: { headers: { 'X-Client-Info': 'fitness-pro/browser' } },
   });
-  return _client;
 }
+
+// Alias p/ retrocompatibilidade
+export function createBrowserClient(): SupabaseClient<Database> {
+  return supabaseBrowser();
+}
+
+// ✅ re-exporta o tipo, caso queiras importar de aqui
+export type { Database } from '@/types/supabase';

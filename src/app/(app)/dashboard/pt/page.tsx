@@ -1,22 +1,25 @@
 // src/app/(app)/dashboard/pt/page.tsx
 export const dynamic = 'force-dynamic';
 
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { toAppRole } from '@/lib/roles';
 import { redirect } from 'next/navigation';
-import type { Route } from 'next';
-import Link from 'next/link';
-import LiveBanners from '@/components/dashboard/LiveBanners';
-import GreetingHeader from '@/components/dashboard/GreetingHeader';
-import KpiCard from '@/components/dashboard/KpiCard';
+import { getSessionUserSafe } from '@/lib/session-bridge';
 import { createServerClient } from '@/lib/supabaseServer';
+import GreetingHeader from '@/components/dashboard/GreetingHeader';
+import LiveBanners from '@/components/dashboard/LiveBanners';
 import PushBootstrap from '@/components/dashboard/PushBootstrap';
+import KpiCard from '@/components/dashboard/KpiCard';
+import { toAppRole, isAdmin, isPT } from '@/lib/roles';
 
-async function safeCount(sb: ReturnType<typeof createServerClient>, table: string, build?: (q: any) => any) {
+type SB = ReturnType<typeof createServerClient>;
+
+async function safeCount(
+  sb: SB,
+  table: string,
+  build?: (q: any) => any
+) {
   try {
     let q = sb.from(table).select('*', { count: 'exact', head: true });
-    if (build) q = build(q);
+    if (build) q = build(q as any);
     const { count } = await q;
     return count ?? 0;
   } catch {
@@ -25,46 +28,60 @@ async function safeCount(sb: ReturnType<typeof createServerClient>, table: strin
 }
 
 export default async function PTDashboard() {
-  const session = await getServerSession(authOptions);
-  const user = (session as any)?.user;
-  if (!user?.id) redirect('/login' as Route);
+  const sessionUser = await getSessionUserSafe();
+  if (!sessionUser?.id) redirect('/login');
 
-  const role = toAppRole(user.role) ?? 'CLIENT';
-  if (role !== 'PT') {
-    if (role === 'ADMIN') redirect('/dashboard/admin' as Route);
-    redirect('/dashboard/clients' as Route);
-  }
+  const role = toAppRole(sessionUser.role) ?? 'CLIENT';
+  // ✅ sem 'TRAINER' — usar guards
+  if (!isPT(role) && !isAdmin(role)) redirect('/dashboard');
 
   const sb = createServerClient();
-  const now = new Date();
-  const in7 = new Date(now); in7.setDate(now.getDate() + 7);
 
-  const [myClients, sessions7d, unreadNotifs] = await Promise.all([
-    // tenta trainer_id ou pt_id (fallback seguro → 0 se a coluna não existir)
-    safeCount(sb, 'users', q => q.eq('role', 'CLIENT').eq('trainer_id', user.id)),
-    safeCount(sb, 'sessions', q => q.eq('trainer_id', user.id).gte('start_time', now.toISOString()).lt('start_time', in7.toISOString())),
-    safeCount(sb, 'notifications', q => q.eq('user_id', user.id).eq('read', false)),
+  // Perfil para saudação (nome + avatar)
+  const { data: prof } = await sb
+    .from('profiles')
+    .select('name, avatar_url')
+    .eq('id', sessionUser.id)
+    .maybeSingle();
+
+  const now = new Date();
+  const in7 = new Date(now);
+  in7.setDate(now.getDate() + 7);
+
+  const [myClients, myPlans, myUpcoming, unread] = await Promise.all([
+    safeCount(sb, 'trainer_clients', q => q.eq('trainer_id', sessionUser.id)),
+    safeCount(sb, 'training_plans', q => q.eq('trainer_id', sessionUser.id)),
+    safeCount(sb, 'sessions', q => q
+      .eq('trainer_id', sessionUser.id)
+      .gte('scheduled_at', now.toISOString())
+      .lt('scheduled_at', in7.toISOString())),
+    safeCount(sb, 'notifications', q => q.eq('user_id', sessionUser.id).eq('read', false)),
   ]);
 
   return (
     <div style={{ padding: 16, display: 'grid', gap: 12 }}>
-      <GreetingHeader name={user.name} role="PT" />
+      <GreetingHeader
+        name={prof?.name ?? sessionUser.name ?? null}
+        avatarUrl={prof?.avatar_url ?? null}
+        role={role}
+      />
       <LiveBanners />
       <PushBootstrap />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}>
-        <KpiCard label="Meus clientes" value={myClients} />
-        <KpiCard label="Sessões (próx. 7d)" value={sessions7d} />
-        <KpiCard label="Notificações" value={unreadNotifs} footer={<span className="text-muted small">por ler</span>} />
-      </div>
-
-      <div className="card" style={{ padding: 12 }}>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <Link className="btn chip" href={'/dashboard/pt/clients' as Route}>🧑‍🤝‍🧑 Clientes</Link>
-          <Link className="btn chip" href={'/dashboard/pt/plans' as Route}>📝 Planos</Link>
-          <Link className="btn chip" href={'/dashboard/pt/sessions/calendar' as Route}>📅 Calendário</Link>
-          <Link className="btn chip" href={'/dashboard/pt/settings' as Route}>⚙️ Definições</Link>
-        </div>
+      <div
+        className="grid gap-3"
+        style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}
+      >
+        <KpiCard label="Clientes" value={myClients} tone="primary" icon="👥" />
+        <KpiCard label="Planos" value={myPlans} tone="accent" icon="📝" />
+        <KpiCard label="Sessões (7d)" value={myUpcoming} tone="success" icon="📅" />
+        <KpiCard
+          label="Notificações"
+          value={unread}
+          tone="warning"
+          icon="🔔"
+          footer={<span className="small text-muted">por ler</span>}
+        />
       </div>
     </div>
   );

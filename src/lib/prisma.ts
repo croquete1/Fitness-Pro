@@ -1,22 +1,13 @@
-import { PrismaClient } from "@prisma/client";
-
-const globalForPrisma = global as unknown as { prisma?: PrismaClient };
-
-export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    log:
-      process.env.NODE_ENV === "development"
-        ? ["query", "error", "warn"]
-        : ["error"],
-  });
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
-}
-
-// ✅ Compatibilidade com imports existentes: suporta
-//    import prisma from "@/lib/prisma"
-//    e também
-//    import { prisma } from "@/lib/prisma"
+// Shim: permite compilar enquanto migras tudo para Supabase.
+// Se algum código ainda tentar USAR .user/.session etc, lança erro claro a runtime.
+export const prisma = new Proxy(
+  {},
+  {
+    get() {
+      throw new Error(
+        'Prisma foi descontinuado neste projeto. Usa Supabase (createServerClient/createBrowserClient).'
+      );
+    },
+  }
+) as unknown as Record<string, never>;
 export default prisma;

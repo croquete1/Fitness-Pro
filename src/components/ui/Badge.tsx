@@ -1,40 +1,53 @@
-'use client';
+// src/components/ui/Badge.tsx
+import * as React from 'react';
 
-import React from 'react';
-
-type Variant = 'neutral' | 'info' | 'primary' | 'success' | 'warning' | 'danger';
-
-const PALETTE: Record<Variant, { bg: string; fg: string; bd: string }> = {
-  neutral: { bg: 'rgba(0,0,0,0.04)', fg: '#111', bd: 'rgba(0,0,0,0.1)' },
-  info:    { bg: 'rgba(59,130,246,0.12)', fg: '#1e3a8a', bd: 'rgba(59,130,246,0.35)' },
-  primary: { bg: 'rgba(99,102,241,0.12)', fg: '#3730a3', bd: 'rgba(99,102,241,0.35)' }, // novo
-  success: { bg: 'rgba(16,185,129,0.12)', fg: '#065f46', bd: 'rgba(16,185,129,0.35)' },
-  warning: { bg: 'rgba(245,158,11,0.12)', fg: '#7c2d12', bd: 'rgba(245,158,11,0.35)' },
-  danger:  { bg: 'rgba(239,68,68,0.12)',  fg: '#7f1d1d', bd: 'rgba(239,68,68,0.35)' },
-};
+export type Variant =
+  | 'neutral'
+  | 'primary'
+  | 'success'
+  | 'warning'
+  | 'danger'
+  | 'info'
+  | 'accent';
 
 export type BadgeProps = {
-  children: React.ReactNode;
   variant?: Variant;
-  style?: React.CSSProperties;
   className?: string;
+  title?: string;
+  children: React.ReactNode;
 };
 
-export default function Badge({ children, variant = 'neutral', style, className }: BadgeProps) {
-  const c = PALETTE[variant];
+const variantToClass: Record<Variant, string> = {
+  neutral:
+    'bg-slate-500/10 text-slate-700 ring-1 ring-slate-500/20 dark:bg-slate-400/10 dark:text-slate-200 dark:ring-slate-400/25',
+  primary:
+    'bg-blue-500/10 text-blue-700 ring-1 ring-blue-500/20 dark:bg-blue-400/10 dark:text-blue-200 dark:ring-blue-400/25',
+  success:
+    'bg-emerald-500/10 text-emerald-700 ring-1 ring-emerald-500/20 dark:bg-emerald-400/10 dark:text-emerald-200 dark:ring-emerald-400/25',
+  warning:
+    'bg-amber-500/10 text-amber-700 ring-1 ring-amber-500/20 dark:bg-amber-400/10 dark:text-amber-200 dark:ring-amber-400/25',
+  danger:
+    'bg-rose-500/10 text-rose-700 ring-1 ring-rose-500/20 dark:bg-rose-400/10 dark:text-rose-200 dark:ring-rose-400/25',
+  info:
+    'bg-cyan-500/10 text-cyan-700 ring-1 ring-cyan-500/20 dark:bg-cyan-400/10 dark:text-cyan-200 dark:ring-cyan-400/25',
+  accent:
+    'bg-violet-500/10 text-violet-700 ring-1 ring-violet-500/20 dark:bg-violet-400/10 dark:text-violet-200 dark:ring-violet-400/25',
+};
+
+export default function Badge({
+  variant = 'neutral',
+  className,
+  title,
+  children,
+}: BadgeProps) {
   return (
     <span
-      className={className}
-      style={{
-        display: 'inline-block',
-        fontSize: 12,
-        padding: '2px 8px',
-        borderRadius: 999,
-        background: c.bg,
-        color: c.fg,
-        border: `1px solid ${c.bd}`,
-        ...style,
-      }}
+      title={title}
+      className={[
+        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+        variantToClass[variant],
+        className ?? '',
+      ].join(' ')}
     >
       {children}
     </span>

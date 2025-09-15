@@ -1,135 +1,81 @@
+// src/app/api/pt/sessions/route.ts
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { toAppRole } from '@/lib/roles';
 import { createServerClient } from '@/lib/supabaseServer';
 
-type Body = {
-  start?: string; // ISO
-  end?: string;   // ISO
-  client_id?: string | null;
-  location_id?: string | null;
-};
-
-// util
-const addMin = (iso: string, min: number) => {
-  const d = new Date(iso);
-  d.setMinutes(d.getMinutes() + min);
-  return d.toISOString();
-};
+function parseHhMm(dateISO: string, hhmm: string) {
+  // cria Date a partir de YYYY-MM-DD + HH:MM (em UTC simples)
+  const d = dateISO.slice(0, 10);
+  return new Date(`${d}T${hhmm}:00Z`);
+}
+function overlaps(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) {
+  return aStart < bEnd && bStart < aEnd;
+}
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  const role = toAppRole((session as any)?.user?.role);
-  const trainerId = String((session as any)?.user?.id || '');
-
-  if (!trainerId) return new NextResponse('Unauthorized', { status: 401 });
-  if (role !== 'PT' && role !== 'ADMIN') return new NextResponse('Forbidden', { status: 403 });
-
-  const body = (await req.json().catch(() => ({}))) as Body;
-  if (!body.start || !body.end) return new NextResponse('start/end obrigatórios', { status: 400 });
-
   const sb = createServerClient();
+  const body = await req.json();
 
-  // === validações básicas ===
-  const start = new Date(body.start);
-  const end = new Date(body.end);
-  if (!(start < end)) return new NextResponse('Intervalo inválido', { status: 400 });
+  const trainer_id = String(body.trainer_id);
+  const client_id = String(body.client_id);
+  const scheduled_at = String(body.scheduled_at);
+  const duration_min = Number(body.duration_min ?? 60);
+  const location = body.location ?? null;
+  const notes = body.notes ?? null;
 
-  // Janela do dia (para reduzir query)
-  const dayStart = new Date(start); dayStart.setHours(0,0,0,0);
-  const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1);
-
-  // Sessões do próprio nesse dia
-  const { data: daySessions = [], error: sErr } = await sb
-    .from('pt_sessions')
-    .select('id,start,end,location_id')
-    .eq('trainer_id', trainerId)
-    .gte('start', dayStart.toISOString())
-    .lt('start', dayEnd.toISOString())
-    .order('start', { ascending: true });
-
-  if (sErr) return new NextResponse(sErr.message, { status: 500 });
-
-  // Folgas do próprio com qualquer overlap
-  const { data: folgas = [], error: fErr } = await sb
-    .from('pt_time_off')
-    .select('id,start,end,title')
-    .eq('trainer_id', trainerId)
-    .gte('end', dayStart.toISOString())     // termina depois do início do dia
-    .lte('start', dayEnd.toISOString());    // começa antes do fim do dia
-
-  if (fErr) return new NextResponse(fErr.message, { status: 500 });
-
-  // overlap helper
-  const overlap = (aS: Date, aE: Date, bS: Date, bE: Date) => aS < bE && bS < aE;
-
-  // Conflito com folgas
-  for (const bl of folgas) {
-    const bs = new Date(bl.start); const be = new Date(bl.end);
-    if (overlap(start, end, bs, be)) {
-      return new NextResponse(`Conflito com folga: ${bl.title ?? 'Folga'}`, { status: 409 });
-    }
+  if (!trainer_id || !client_id || !scheduled_at) {
+    return NextResponse.json({ error: 'Campos obrigatórios em falta.' }, { status: 400 });
   }
 
-  // Buffer dinâmico (deslocação) se mudar de local
-  let needBefore = 0, needAfter = 0;
-  if (body.location_id) {
-    const { data: locs = [] } = await sb
-      .from('pt_locations')
-      .select('id,travel_min')
-      .in('id', [
-        body.location_id,
-        ...(daySessions.map(s => s.location_id).filter(Boolean) as string[]),
-      ]);
+  // Janela da sessão
+  const start = new Date(scheduled_at);
+  const end = new Date(start.getTime() + duration_min * 60_000);
+  const day = scheduled_at.slice(0, 10); // YYYY-MM-DD
 
-    const travelOf = (id?: string | null) =>
-      Math.max(0, Number(locs.find(l => l.id === id)?.travel_min ?? 0));
+  // Busca folgas do dia
+  const { data: offs, error: eOff } = await sb
+    .from('pt_days_off')
+    .select('date,start_time,end_time')
+    .eq('trainer_id', trainer_id)
+    .eq('date', day);
 
-    // sessão imediatamente antes / depois
-    const prev = [...daySessions].filter(s => new Date(s.end) <= start).pop();
-    const next = [...daySessions].find(s => new Date(s.start) >= end);
+  if (eOff) return NextResponse.json({ error: eOff.message }, { status: 500 });
 
-    if (prev && prev.location_id && prev.location_id !== body.location_id) {
-      needBefore = Math.max(travelOf(prev.location_id), travelOf(body.location_id));
-      const limit = new Date(prev.end);
-      limit.setMinutes(limit.getMinutes() + needBefore);
-      if (start < limit) {
-        return new NextResponse(`Precisas de ${needBefore} min de deslocação após a sessão anterior.`, { status: 409 });
+  // Validação de bloqueio
+  if (offs && offs.length > 0) {
+    const blocked = offs.some((o) => {
+      // Dia inteiro
+      if (!o.start_time && !o.end_time) return true;
+      // Janela com horas
+      if (o.start_time && o.end_time) {
+        const bStart = parseHhMm(scheduled_at, o.start_time);
+        const bEnd = parseHhMm(scheduled_at, o.end_time);
+        return overlaps(start, end, bStart, bEnd);
       }
-    }
-    if (next && next.location_id && next.location_id !== body.location_id) {
-      needAfter = Math.max(travelOf(next.location_id), travelOf(body.location_id));
-      const limit = addMin(body.end, needAfter);
-      if (new Date(limit) > new Date(next.start)) {
-        return new NextResponse(`Precisas de ${needAfter} min de deslocação antes da sessão seguinte.`, { status: 409 });
-      }
-    }
-  }
-
-  // Conflito direto com sessões
-  for (const s of daySessions) {
-    const ss = new Date(s.start); const se = new Date(s.end);
-    if (overlap(start, end, ss, se)) {
-      return new NextResponse('Conflito com outra sessão', { status: 409 });
+      return false;
+    });
+    if (blocked) {
+      return NextResponse.json(
+        { error: 'Indisponível: existe folga do treinador neste período.' },
+        { status: 409 }
+      );
     }
   }
 
-  // Inserir
+  // Cria sessão
   const { data, error } = await sb
-    .from('pt_sessions')
+    .from('sessions')
     .insert({
-      trainer_id: trainerId,
-      client_id: body.client_id ?? null,
-      location_id: body.location_id ?? null,
-      start: body.start,
-      end: body.end,
-      title: null,
+      trainer_id,
+      client_id,
+      scheduled_at: start.toISOString(),
+      duration_min,
+      location,
+      notes,
     })
-    .select('id,trainer_id,client_id,location_id,start,end,title')
-    .single();
+    .select('id')
+    .maybeSingle();
 
-  if (error) return new NextResponse(error.message, { status: 500 });
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ ok: true, session: data });
+  return NextResponse.json({ id: data?.id ?? null }, { status: 201 });
 }

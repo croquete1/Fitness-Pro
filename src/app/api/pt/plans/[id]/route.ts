@@ -1,89 +1,45 @@
-// src/app/api/pt/plans/[id]/route.ts
-import { NextResponse } from "next/server";
-import { requireUser } from "@/lib/authz";
-import { Role } from "@prisma/client";
-import { sbGetPlan, sbSoftDeletePlan, sbUpdatePlan } from "@/lib/supabase/plans";
+import { NextResponse } from 'next/server';
+import { createServerClient } from '@/lib/supabaseServer';
+import { getSessionUserSafe } from '@/lib/session-bridge';
+import { toAppRole } from '@/lib/roles';
 
-export const dynamic = "force-dynamic";
+type SessionUser = { id?: string; role?: string | null };
+type SessionLike = { user?: SessionUser } | null;
 
-function canAccess(
-  user: { id?: string | null; role: Role },
-  plan: { trainerId: string; clientId: string }
-) {
-  if (!user) return false;
-  if (user.role === Role.ADMIN) return true;
-  const uid = user.id ?? ""; // se vier undefined/null, falha as comparações
-  if (user.role === Role.TRAINER) return plan.trainerId === uid;
-  if (user.role === Role.CLIENT) return plan.clientId === uid;
-  return false;
+export async function GET(_: Request, { params }: { params: { id: string } }) {
+  const sb = createServerClient();
+  const { data, error } = await sb
+    .from('training_plans')
+    .select('id, title, status, client_id, trainer_id, updated_at, created_at, content')
+    .eq('id', params.id)
+    .maybeSingle();
+  if (error) return new NextResponse(error.message, { status: 500 });
+  if (!data) return new NextResponse('Not found', { status: 404 });
+  return NextResponse.json(data);
 }
 
-// GET plano
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const guard = await requireUser([Role.ADMIN, Role.TRAINER, Role.CLIENT]);
-  if ("error" in guard) return guard.error;
-  const { user } = guard as { user: { id?: string | null; role: Role } };
-
-  const plan = await sbGetPlan(params.id);
-  if (!plan) return NextResponse.json({ error: "not_found" }, { status: 404 });
-
-  if (!canAccess(user, { trainerId: plan.trainerId, clientId: plan.clientId })) {
-    return NextResponse.json({ error: "forbidden" }, { status: 403 });
-  }
-
-  return NextResponse.json({ plan });
-}
-
-// PATCH plano
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const guard = await requireUser([Role.ADMIN, Role.TRAINER]);
-  if ("error" in guard) return guard.error;
-  const { user } = guard as { user: { id?: string | null; role: Role } };
+  const session = (await getSessionUserSafe()) as SessionLike;
+  const me = session?.user;
+  if (!me?.id) return new NextResponse('Unauthorized', { status: 401 });
+  const role = toAppRole(me.role) ?? 'CLIENT';
+  if (role !== 'PT' && role !== 'ADMIN') return new NextResponse('Forbidden', { status: 403 });
 
-  if (!user.id) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const payload = await req.json().catch(() => null) as Partial<{
+    title: string;
+    status: string;
+    content: unknown;
+  }> | null;
+  if (!payload) return new NextResponse('Bad request', { status: 400 });
 
-  const cur = await sbGetPlan(params.id);
-  if (!cur) return NextResponse.json({ error: "not_found" }, { status: 404 });
-
-  if (!canAccess(user, { trainerId: cur.trainerId, clientId: cur.clientId })) {
-    return NextResponse.json({ error: "forbidden" }, { status: 403 });
-  }
-
-  const body = await req.json().catch(() => ({} as Record<string, any>));
-  const patch: Record<string, any> = {};
-
-  if (typeof body.title === "string") patch.title = body.title;
-  if (typeof body.notes === "string" || body.notes === null) patch.notes = body.notes ?? null;
-  if ("exercises" in body) patch.exercises = body.exercises; // JSON livre
-  if (typeof body.status === "string") patch.status = body.status;
-
-  if (Object.keys(patch).length === 0) {
-    return NextResponse.json({ error: "nothing_to_update" }, { status: 400 });
-  }
-
-  const updated = await sbUpdatePlan(params.id, patch, user.id);
-  return NextResponse.json({ plan: updated });
-}
-
-// DELETE (soft-delete)
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const guard = await requireUser([Role.ADMIN, Role.TRAINER]);
-  if ("error" in guard) return guard.error;
-  const { user } = guard as { user: { id?: string | null; role: Role } };
-
-  if (!user.id) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-
-  const cur = await sbGetPlan(params.id);
-  if (!cur) return NextResponse.json({ error: "not_found" }, { status: 404 });
-
-  if (!canAccess(user, { trainerId: cur.trainerId, clientId: cur.clientId })) {
-    return NextResponse.json({ error: "forbidden" }, { status: 403 });
-  }
-
-  await sbSoftDeletePlan(params.id, user.id);
-  return NextResponse.json({ ok: true });
+  const sb = createServerClient();
+  const { data, error } = await sb
+    .from('training_plans')
+    .update(payload)
+    .eq('id', params.id)
+    .select('id, title, status, content, updated_at')
+    .maybeSingle();
+  if (error) return new NextResponse(error.message, { status: 500 });
+  if (!data) return new NextResponse('Not found', { status: 404 });
+  return NextResponse.json(data);
 }

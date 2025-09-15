@@ -1,25 +1,19 @@
-// src/app/api/admin/approvals/count/route.ts
-import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { Status } from "@prisma/client";
+import { NextResponse } from 'next/server';
+import { createServerClient } from '@/lib/supabaseServer';
+import { getSessionUserSafe } from '@/lib/session-bridge';
+import { toAppRole } from '@/lib/roles';
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+type SessionUser = { id?: string; role?: string | null };
+type SessionLike = { user?: SessionUser } | null;
 
 export async function GET() {
-  try {
-    const [pending, active, suspended] = await Promise.all([
-      prisma.user.count({ where: { status: Status.PENDING } }),
-      prisma.user.count({ where: { status: Status.ACTIVE } }),
-      prisma.user.count({ where: { status: Status.SUSPENDED } }),
-    ]);
+  const session = (await getSessionUserSafe()) as SessionLike;
+  const user = session?.user;
+  if (!user?.id) return new NextResponse('Unauthorized', { status: 401 });
+  const role = toAppRole(user.role) ?? 'CLIENT';
+  if (role !== 'ADMIN') return new NextResponse('Forbidden', { status: 403 });
 
-    return NextResponse.json({
-      ok: true,
-      data: { pending, active, suspended, total: pending + active + suspended },
-    });
-  } catch (e: any) {
-    console.error("[approvals/count][GET]", e?.message ?? e);
-    return NextResponse.json({ ok: false, error: "INTERNAL_ERROR" }, { status: 500 });
-  }
+  const sb = createServerClient();
+  const { count } = await sb.from('users').select('*', { count: 'exact', head: true }).eq('status', 'PENDING');
+  return NextResponse.json({ count: count ?? 0 });
 }

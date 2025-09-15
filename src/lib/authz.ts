@@ -1,13 +1,69 @@
 // src/lib/authz.ts
-import type { AppRole } from './roles';
+import { getSessionUserSafe } from '@/lib/session-bridge';
+import { toAppRole } from '@/lib/roles';
 
-type RoleLike = AppRole | string | null | undefined;
-const norm = (r: RoleLike) => (typeof r === 'string' ? r.toUpperCase() : (r as string) ?? '');
+type SessionShape = {
+  user?: {
+    id?: string;
+    role?: string | null;
+    email?: string | null;
+    name?: string | null;
+  } | null;
+};
 
-export const isAdmin   = (r: RoleLike) => ['ADMIN', 'ADM', 'ADMINISTRATOR'].includes(norm(r));
-export const isTrainer = (r: RoleLike) => ['PT', 'TRAINER', 'TREINADOR'].includes(norm(r));
+export type SessionUser = {
+  id: string;
+  role: string | null;
+  email?: string | null;
+  name?: string | null;
+};
 
-/** Permissão para gerir exercícios: Admin e PT */
-export function canManageExercises(role: RoleLike): boolean {
-  return isAdmin(role) || isTrainer(role);
+export function isAdmin(u?: { role?: string | null }): boolean {
+  return (toAppRole(u?.role) ?? 'CLIENT') === 'ADMIN';
+}
+export function isPT(u?: { role?: string | null }): boolean {
+  return (toAppRole(u?.role) ?? 'CLIENT') === 'PT';
+}
+export function isClient(u?: { role?: string | null }): boolean {
+  return (toAppRole(u?.role) ?? 'CLIENT') === 'CLIENT';
+}
+
+/** Apenas ADMIN pode gerir o catálogo (ajusta se quiseres permitir PT). */
+export function canManageExercises(userOrRole: { role?: string | null } | string | null | undefined): boolean {
+  const role = typeof userOrRole === 'string' ? userOrRole : userOrRole?.role;
+  return (toAppRole(role) ?? 'CLIENT') === 'ADMIN';
+}
+
+/** Requer utilizador autenticado. Lança erro com status 401 se não existir. */
+export async function requireUser(): Promise<SessionUser> {
+  const session = (await getSessionUserSafe()) as SessionShape;
+  const u = session?.user;
+  if (!u?.id) {
+    const err = new Error('UNAUTHORIZED');
+    (err as unknown as { status?: number }).status = 401;
+    throw err;
+  }
+  return { id: String(u.id), role: u.role ?? null, email: u.email ?? null, name: u.name ?? null };
+}
+
+/** Requer ADMIN. Lança erro 403 se não for. */
+export async function requireAdmin(): Promise<SessionUser> {
+  const u = await requireUser();
+  if (!isAdmin(u)) {
+    const err = new Error('FORBIDDEN');
+    (err as unknown as { status?: number }).status = 403;
+    throw err;
+  }
+  return u;
+}
+
+/** Requer PT ou ADMIN. */
+export async function requirePtOrAdmin(): Promise<SessionUser> {
+  const u = await requireUser();
+  if (!(isPT(u) || isAdmin(u))) {
+    const err = new Error('FORBIDDEN');
+    (err as unknown as { status?: number }).status = 403;
+    throw err;
+  }
+  return u;
 }

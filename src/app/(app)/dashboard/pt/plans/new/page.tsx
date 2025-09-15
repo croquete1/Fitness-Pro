@@ -1,45 +1,32 @@
-// src/app/(app)/dashboard/pt/plans/new/page.tsx
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-export const fetchCache = 'force-no-store';
 
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { Role } from '@prisma/client';
-import PlanEditor from '@/components/plan/PlanEditor';
-
-type Me = { id: string; role: Role };
+import type { Route } from 'next';
+import { getSessionUserSafe } from '@/lib/session-bridge';
+import { toAppRole } from '@/lib/roles';
+import { createServerClient } from '@/lib/supabaseServer';
+import PlanEditor from '@/components/pt/PlanEditor';
 
 export default async function Page() {
-  const session = await getServerSession(authOptions);
-  const me = session?.user as unknown as Me;
-  if (!me?.id) redirect('/login');
+  const session = await getSessionUserSafe();
+  const user = (session as any)?.user;
+  if (!user?.id) redirect('/login' as Route);
+  const role = toAppRole(user.role) ?? 'CLIENT';
+  if (role !== 'PT' && role !== 'ADMIN') redirect('/dashboard' as Route);
 
-  // ✅ Corrigido: evitar includes, usar comparação explícita
-  if (me.role !== Role.ADMIN && me.role !== Role.TRAINER) redirect('/dashboard');
+  const sb = createServerClient();
+  // Cria rascunho mínimo (PT como owner)
+  const { data: created, error } = await sb
+    .from('training_plans')
+    .insert({ title: 'Novo plano', trainer_id: user.id })
+    .select('id, title')
+    .maybeSingle();
 
-  const initial = {
-    trainerId: me.role === Role.TRAINER ? me.id : '',
-    clientId: '',
-    title: '',
-    notes: '',
-    status: 'DRAFT' as any, // ajusta se tiveres enum próprio no editor
-    exercises: [] as any[],
-  };
+  if (error || !created) redirect('/dashboard/pt/plans' as Route);
 
   return (
-    <div style={{ padding: 16, display: 'grid', gap: 12 }}>
-      <div className="flex items-center justify-between">
-        <h1 style={{ margin: 0 }}>Novo plano</h1>
-        <Link className="btn" href="/dashboard/pt/plans">Voltar</Link>
-      </div>
-
-      <div className="card" style={{ padding: 12 }}>
-        {/* PlanEditor é Client Component */}
-        <PlanEditor mode="create" initial={initial} />
-      </div>
-    </div>
+    <main className="p-4 md:p-6">
+      <PlanEditor planId={created.id} initialTitle={created.title ?? 'Plano'} />
+    </main>
   );
 }

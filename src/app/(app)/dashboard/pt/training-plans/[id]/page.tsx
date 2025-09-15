@@ -1,77 +1,70 @@
 export const dynamic = 'force-dynamic';
 
-import prisma from '@/lib/prisma';
-import { notFound, redirect } from 'next/navigation';
+import { redirect, notFound } from 'next/navigation';
+import { getSessionUserSafe } from '@/lib/session-bridge';
+import { createServerClient } from '@/lib/supabaseServer';
+import { toAppRole, type AppRole } from '@/lib/roles';
 import PageHeader from '@/components/ui/PageHeader';
 import Card, { CardContent } from '@/components/ui/Card';
-import Badge from '@/components/ui/Badge';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { toAppRole } from '@/lib/roles';
-import type { AppRole } from '@/lib/roles';
+import Link from 'next/link';
+
+type PlanRow = {
+  id: string;
+  title: string | null;
+  status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED' | null;
+  client_id: string | null;
+  trainer_id: string | null;
+  updated_at: string | null;
+};
 
 export default async function PTPlanDetail({ params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) redirect('/login');
+  // sessão “flat” (sem .user)
+  const viewer = await getSessionUserSafe();
+  if (!viewer?.id) redirect('/login');
 
-  const role = (toAppRole(session.user.role) ?? 'CLIENT') as AppRole;
+  const role = (toAppRole(viewer.role) ?? 'CLIENT') as AppRole;
   if (role !== 'ADMIN' && role !== 'PT') redirect('/dashboard');
 
-  const viewerId = String(session.user.id);
+  const sb = createServerClient();
+  const { data, error } = await sb
+    .from('training_plans')
+    .select('id,title,status,client_id,trainer_id,updated_at')
+    .eq('id', params.id)
+    .maybeSingle();
 
-  const plan = await prisma.trainingPlan.findUnique({
-    where: { id: params.id },
-    select: {
-      id: true,
-      trainerId: true,
-      clientId: true,
-      title: true,
-      status: true,
-      notes: true,
-      updatedAt: true,
-      createdAt: true,
-    },
-  });
-  if (!plan) return notFound();
+  if (error || !data) return notFound();
 
-  // PT só pode ver se for o dono do plano
-  if (role === 'PT' && plan.trainerId !== viewerId) redirect('/dashboard/pt/training-plans');
+  const plan = data as PlanRow;
+
+  // Se for PT, valida propriedade do plano
+  if (role === 'PT' && plan.trainer_id && plan.trainer_id !== viewer.id) {
+    redirect('/dashboard/pt/plans');
+  }
+
+  const updated = plan.updated_at ? new Date(plan.updated_at).toLocaleString('pt-PT') : '—';
 
   return (
-    <div style={{ display: 'grid', gap: 12, padding: 12 }}>
+    <main className="p-4 space-y-4">
       <PageHeader
-        title={`📝 ${plan.title}`}
-        subtitle={
-          <>
-            <Badge variant={plan.status === 'ACTIVE' ? 'success' : plan.status === 'DRAFT' ? 'info' : 'neutral'}>
-              {String(plan.status)}
-            </Badge>{' '}
-            <span style={{ fontSize: 12, opacity: 0.8 }}>
-              • Atualizado {new Date(plan.updatedAt).toLocaleString()}
-            </span>
-          </>
+        title={plan.title ?? 'Plano de treino'}
+        subtitle={`Estado: ${plan.status ?? '—'}`}
+        actions={
+          <Link href={`/dashboard/pt/plans/${plan.id}/edit`} className="btn chip">
+            Editar
+          </Link>
         }
       />
       <Card>
-        <CardContent>
-          <div style={{ display: 'grid', gap: 8 }}>
-            <div>
-              <strong>Trainer:</strong> {plan.trainerId}
-            </div>
-            <div>
-              <strong>Cliente:</strong> {plan.clientId}
-            </div>
-            <div>
-              <strong>Criado:</strong> {new Date(plan.createdAt).toLocaleString()}
-            </div>
-            {plan.notes && (
-              <div>
-                <strong>Notas:</strong> {plan.notes}
-              </div>
-            )}
+        <CardContent className="space-y-2">
+          <div><strong>ID:</strong> {plan.id}</div>
+          <div><strong>Cliente:</strong> {plan.client_id ?? '—'}</div>
+          <div><strong>Treinador:</strong> {plan.trainer_id ?? '—'}</div>
+          <div><strong>Atualizado:</strong> {updated}</div>
+          <div className="pt-2">
+            <Link href="/dashboard/pt/plans" className="btn chip">← Voltar</Link>
           </div>
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 }

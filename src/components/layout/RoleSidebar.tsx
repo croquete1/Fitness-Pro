@@ -8,30 +8,37 @@ export default function RoleSidebar({ role, userLabel }: { role: AppRole; userLa
   const items: NavItem[] =
     role === 'ADMIN'
       ? [
-          { href: '/dashboard/admin',            label: 'Painel',       icon: <span aria-hidden>📊</span>, activePrefix: '/dashboard/admin' },
-          { href: '/dashboard/admin/approvals',  label: 'Aprovações',   icon: <span aria-hidden>✅</span>, activePrefix: '/dashboard/admin/approvals' },
-          { href: '/dashboard/admin/users',      label: 'Utilizadores', icon: <span aria-hidden>🧑‍🤝‍🧑</span>, activePrefix: '/dashboard/admin/users' },
-          { href: '/dashboard/admin/exercises',  label: 'Exercícios',   icon: <span aria-hidden>🏋️</span>, activePrefix: '/dashboard/admin/exercises' },
-          { href: '/dashboard/admin/plans',      label: 'Planos',       icon: <span aria-hidden>📝</span>, activePrefix: '/dashboard/admin/plans' },
-          { href: '/dashboard/search',           label: 'Pesquisar',    icon: <span aria-hidden>🔎</span>, activePrefix: '/dashboard/search' },
-          { href: '/dashboard/settings',         label: 'Definições',   icon: <span aria-hidden>⚙️</span>, activePrefix: '/dashboard/settings' },
+          { href: '/dashboard/admin', label: 'Início', icon: '🏠' },
+          { href: '/dashboard/admin/users', label: 'Utilizadores', icon: '👥' },
+          { href: '/dashboard/admin/approvals', label: 'Aprovações', icon: '✅' },
+          { href: '/dashboard/admin/plans', label: 'Planos', icon: '📝' },
+          { href: '/dashboard/admin/logs', label: 'Logs', icon: '📜' },
         ]
       : role === 'PT'
       ? [
-          { href: '/dashboard/pt',                    label: 'Painel',      icon: <span aria-hidden>📊</span>, activePrefix: '/dashboard/pt' },
-          { href: '/dashboard/pt/clients',            label: 'Clientes',    icon: <span aria-hidden>🧑‍🤝‍🧑</span>, activePrefix: '/dashboard/pt/clients' },
-          { href: '/dashboard/pt/plans',              label: 'Planos',      icon: <span aria-hidden>📝</span>, activePrefix: '/dashboard/pt/plans' },
-          { href: '/dashboard/pt/sessions/calendar',  label: 'Calendário',  icon: <span aria-hidden>📅</span>, activePrefix: '/dashboard/pt/sessions' },
-          { href: '/dashboard/search',                label: 'Pesquisar',   icon: <span aria-hidden>🔎</span>, activePrefix: '/dashboard/search' },
-          { href: '/dashboard/settings',              label: 'Definições',  icon: <span aria-hidden>⚙️</span>, activePrefix: '/dashboard/settings' },
+          { href: '/dashboard/pt', label: 'Início', icon: '🏠' },
+          { href: '/dashboard/pt/clients', label: 'Clientes', icon: '🧑‍🤝‍🧑' },
+          { href: '/dashboard/pt/training-plans', label: 'Planos', icon: '📝' },
+          { href: '/dashboard/pt/sessions/calendar', label: 'Agenda', icon: '📅' },
+          { href: '/dashboard/pt/settings', label: 'Definições', icon: '⚙️' },
         ]
       : [
-          { href: '/dashboard',             label: 'Painel',     icon: <span aria-hidden>🏠</span>, activePrefix: '/dashboard' },
-          { href: '/dashboard/sessions',    label: 'Sessões',    icon: <span aria-hidden>📅</span>, activePrefix: '/dashboard/sessions' },
-          { href: '/dashboard/my-plan',     label: 'O meu plano',icon: <span aria-hidden>📘</span>, activePrefix: '/dashboard/my-plan' },
-          { href: '/dashboard/messages',    label: 'Mensagens',  icon: <span aria-hidden>💬</span>, activePrefix: '/dashboard/messages' },
-          { href: '/dashboard/settings',    label: 'Definições', icon: <span aria-hidden>⚙️</span>, activePrefix: '/dashboard/settings' },
+          { href: '/dashboard/clients', label: 'Início', icon: '🏠' },
+          { href: '/dashboard/my-plan', label: 'O meu plano', icon: '🏋️' },
+          { href: '/dashboard/sessions', label: 'Sessões', icon: '📅' },
+          { href: '/dashboard/messages', label: 'Mensagens', icon: '✉️' },
+          { href: '/dashboard/profile', label: 'Conta', icon: '👤' },
         ];
 
-  return <SidebarBase items={items} userLabel={userLabel} />;
+  return (
+    <SidebarBase
+      items={items}
+      header={
+        <div className="p-4">
+          <div className="text-xs opacity-70">Sessão</div>
+          <div className="text-sm font-semibold">{userLabel}</div>
+        </div>
+      }
+    />
+  );
 }

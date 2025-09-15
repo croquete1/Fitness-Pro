@@ -1,63 +1,42 @@
-// src/app/api/pt/wallet/route.ts
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
-
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { supabaseAdmin } from '@/lib/supabaseServer';
-import { toAppRole, isAdmin, isPT } from '@/lib/roles';
+import { createServerClient } from '@/lib/supabaseServer';
+import { requirePtOrAdminGuard, isGuardErr } from '@/lib/api-guards';
 
-function fromDate(range: 'today'|'7d'|'30d'|'all'): string | null {
-  const now = new Date();
-  if (range === 'all') return null;
-  if (range === 'today') { const d = new Date(now); d.setHours(0,0,0,0); return d.toISOString(); }
-  const d = new Date(now);
-  d.setDate(d.getDate() - (range === '7d' ? 7 : 30));
-  return d.toISOString();
-}
+type WalletRow = {
+  id: string;
+  trainer_id: string;
+  delta: number;
+  reason: string | null;
+  created_at: string;
+};
 
-export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return new NextResponse('Unauthorized', { status: 401 });
+/** GET /api/pt/wallet
+ *  PT vê a sua própria carteira; ADMIN pode filtrar por ?trainerId=...
+ */
+export async function GET(req: Request): Promise<Response> {
+  const guard = await requirePtOrAdminGuard();
+  if (isGuardErr(guard)) return guard.response;
 
-  const role = toAppRole((session.user as any).role);
-  if (!role || (!isAdmin(role) && !isPT(role))) return new NextResponse('Forbidden', { status: 403 });
+  const sb = createServerClient();
 
   const url = new URL(req.url);
-  const range = (url.searchParams.get('range') ?? '30d') as 'today'|'7d'|'30d'|'all';
-  const userId = String(session.user.id);
-  const from = fromDate(range);
+  const qTrainer = url.searchParams.get('trainerId');
+  // ADMIN pode ver de outro trainer via query; PT vê sempre a sua
+  const ownerId = guard.me.role === 'ADMIN' && qTrainer ? qTrainer : guard.me.id;
 
-  const supabase = supabaseAdmin();
-  let q = supabase
-    .from('wallet_transactions')
-    .select('id,date,kind,amount,description')
-    .eq('user_id', userId)
-    .order('date', { ascending: false })
-    .limit(1000);
+  const { data, error } = await sb
+    .from('pt_wallet')
+    .select('id,trainer_id,delta,reason,created_at')
+    .eq('trainer_id', ownerId)
+    .order('created_at', { ascending: false })
+    .limit(100);
 
-  if (from) q = q.gte('date', from);
+  if (error) {
+    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  }
 
-  const { data, error } = await q;
-  if (error) return new NextResponse(error.message, { status: 500 });
-
-  const txs = (data ?? []).map((t: any) => ({
-    id: t.id,
-    date: new Date(t.date).toISOString(),
-    kind: t.kind as 'credit'|'debit',
-    amount: Number(t.amount),
-    description: t.description as string | null,
-  }));
-
-  const income = txs.filter(t => t.kind === 'credit').reduce((s, t) => s + t.amount, 0);
-  const expense = txs.filter(t => t.kind === 'debit').reduce((s, t) => s + t.amount, 0);
-  const balance = income - expense;
-
-  return NextResponse.json({
-    ok: true,
-    range,
-    summary: { balance, income, expense },
-    transactions: txs,
-  });
+  return NextResponse.json(
+    { ok: true, items: (data ?? []) as WalletRow[] },
+    { status: 200 }
+  );
 }

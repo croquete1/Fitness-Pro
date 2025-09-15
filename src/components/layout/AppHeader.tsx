@@ -1,6 +1,5 @@
 'use client';
 
-import type { Route } from 'next';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import SignOutConfirmButton from '@/components/auth/SignOutConfirmButton';
@@ -45,11 +44,11 @@ function useOutsideClick<T extends HTMLElement>(open: boolean, onClose: () => vo
 /* =================== Notificações =================== */
 type HeaderNotif = {
   id: string;
-  title?: string;
+  title?: string | null;
   body?: string | null;
   link?: string | null;
-  createdAt?: string;
-  read?: boolean;
+  createdAt?: string | null;
+  read?: boolean | null;
 };
 
 function NotificationsBell() {
@@ -68,10 +67,20 @@ function NotificationsBell() {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch('/api/dashboard/stats', { cache: 'no-store' });
+      // usa o endpoint de lista (mais estável que /dashboard/stats)
+      const res = await fetch('/api/notifications/list', { cache: 'no-store' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      setItems((data?.notifications ?? []).slice(0, 10));
+      // normaliza campos (created_at -> createdAt)
+      const rows: HeaderNotif[] = (data?.items ?? []).map((n: any) => ({
+        id: String(n.id),
+        title: n.title ?? 'Notificação',
+        body: n.body ?? null,
+        link: n.link ?? null,
+        createdAt: n.created_at ?? n.createdAt ?? null,
+        read: !!n.read,
+      }));
+      setItems(rows.slice(0, 10));
     } catch {
       setError('Não foi possível carregar as notificações.');
     } finally {
@@ -95,7 +104,7 @@ function NotificationsBell() {
   function go(link?: string | null) {
     if (!link) return;
     close();
-    router.push(link as Route);
+    router.push(link); // sem Route — evita erro de tipos
   }
 
   async function onEnablePush() {
@@ -123,7 +132,7 @@ function NotificationsBell() {
           <span
             aria-label={`${unreadCount} notificações por ler`}
             style={{
-              position: 'absolute', top: 2, right: 2, width: 8, height: 8,
+              position: 'absolute', top: 2, right: 2, minWidth: 8, height: 8,
               borderRadius: 999, background: 'var(--danger)',
               border: '1px solid var(--sidebar-bg)',
             }}
@@ -158,7 +167,7 @@ function NotificationsBell() {
               {items.map((n) => (
                 <li key={n.id} style={{ borderTop: '1px solid var(--border)', background: n.read ? 'transparent' : 'var(--hover)' }}>
                   <button
-                    onClick={() => go(n.link ?? undefined)}
+                    onClick={() => go(n.link ?? null)}
                     style={{
                       display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, width: '100%',
                       textAlign: 'left', padding: 10, background: 'transparent', border: 0,
@@ -169,7 +178,7 @@ function NotificationsBell() {
                       <div style={{ fontWeight: 600, marginBottom: 4 }}>{n.title ?? 'Notificação'}</div>
                       {!!n.body && <div style={{ fontSize: 13, opacity: 0.9 }}>{n.body}</div>}
                     </div>
-                    <div style={{ fontSize: 12, opacity: 0.8, whiteSpace: 'nowrap' }}>{timeLabel(n.createdAt)}</div>
+                    <div style={{ fontSize: 12, opacity: 0.8, whiteSpace: 'nowrap' }}>{timeLabel(n.createdAt ?? undefined)}</div>
                   </button>
                 </li>
               ))}
@@ -217,7 +226,7 @@ export default function AppHeader() {
     e.preventDefault();
     const value = q.trim();
     if (!value) return;
-    router.push((`/dashboard/search?q=${encodeURIComponent(value)}` as Route));
+    router.push(`/dashboard/search?q=${encodeURIComponent(value)}`);
   }, [router, q]);
 
   // Tema

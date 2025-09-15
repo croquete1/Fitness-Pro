@@ -1,31 +1,48 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { Role } from '@prisma/client';
 import { createServerClient } from '@/lib/supabaseServer';
+import { getSessionUserSafe } from '@/lib/session-bridge';
+import { toAppRole } from '@/lib/roles';
 
-export async function PATCH(_req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  const me = session?.user as any;
-  if (!me?.id || me.role !== Role.ADMIN) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+type SessionUser = { id?: string; role?: string | null };
+type SessionLike = { user?: SessionUser } | null;
+
+type PatchBody = { action: 'approve' | 'reject' };
+
+export async function GET(_: Request, { params }: { params: { id: string } }) {
+  const session = (await getSessionUserSafe()) as SessionLike;
+  const user = session?.user;
+  if (!user?.id) return new NextResponse('Unauthorized', { status: 401 });
+  const role = toAppRole(user.role) ?? 'CLIENT';
+  if (role !== 'ADMIN') return new NextResponse('Forbidden', { status: 403 });
 
   const sb = createServerClient();
-  // Aprovar: passa o status do utilizador para ACTIVE
-  const { error } = await sb.from('users').update({ status: 'ACTIVE' }).eq('id', params.id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  const { data, error } = await sb
+    .from('users')
+    .select('id, name, email, role, status, created_at')
+    .eq('id', params.id)
+    .maybeSingle();
 
-  return NextResponse.json({ ok: true });
+  if (error) return new NextResponse(error.message, { status: 500 });
+  if (!data) return new NextResponse('Not found', { status: 404 });
+  return NextResponse.json(data);
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  const me = session?.user as any;
-  if (!me?.id || me.role !== Role.ADMIN) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  const session = (await getSessionUserSafe()) as SessionLike;
+  const admin = session?.user;
+  if (!admin?.id) return new NextResponse('Unauthorized', { status: 401 });
+  const role = toAppRole(admin.role) ?? 'CLIENT';
+  if (role !== 'ADMIN') return new NextResponse('Forbidden', { status: 403 });
 
+  const body = (await req.json().catch(() => null)) as PatchBody | null;
+  if (!body || (body.action !== 'approve' && body.action !== 'reject')) {
+    return new NextResponse('Bad request', { status: 400 });
+  }
+
+  const newStatus = body.action === 'approve' ? 'ACTIVE' : 'REJECTED';
   const sb = createServerClient();
-  // Rejeitar: marca como SUSPENDED (ou elimina o registo pendente se preferires)
-  const { error } = await sb.from('users').update({ status: 'SUSPENDED' }).eq('id', params.id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-
-  return NextResponse.json({ ok: true });
+  const { data, error } = await sb.from('users').update({ status: newStatus }).eq('id', params.id).select('id, status').maybeSingle();
+  if (error) return new NextResponse(error.message, { status: 500 });
+  if (!data) return new NextResponse('Not found', { status: 404 });
+  return NextResponse.json(data);
 }

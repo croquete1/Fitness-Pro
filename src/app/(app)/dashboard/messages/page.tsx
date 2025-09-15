@@ -1,92 +1,65 @@
-// src/app/(app)/dashboard/messages/page.tsx
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+export const dynamic = 'force-dynamic';
 
-export const metadata = { title: "Mensagens · Dashboard" };
-export const dynamic = "force-dynamic"; // garante que não fica estática
+import { redirect } from 'next/navigation';
+import { createServerClient } from '@/lib/supabaseServer';
+import { getSessionUserSafe } from '@/lib/session-bridge';
 
-type Message = {
+type Row = {
   id: string;
-  from: string;
-  subject: string;
-  preview: string;
-  createdAt: string;
-  unread: boolean;
+  title: string | null;
+  body: string | null;
+  link: string | null;
+  created_at: string | null;
+  read: boolean | null;
 };
 
-// TODO: substituir por leitura via Prisma quando quisermos persistência real
-async function loadMessagesSSR(_userId: string): Promise<Message[]> {
-  return [
-    {
-      id: "m1",
-      from: "sistema@fitnesspro.app",
-      subject: "Bem-vindo à Fitness Pro",
-      preview: "A tua conta foi criada com sucesso.",
-      createdAt: new Date().toISOString(),
-      unread: true,
-    },
-    {
-      id: "m2",
-      from: "andre@fitnesspro.app",
-      subject: "Plano atualizado",
-      preview: "Já tens o plano de perna com foco em extensão...",
-      createdAt: new Date(Date.now() - 86400000).toISOString(),
-      unread: false,
-    },
-  ];
-}
-
 export default async function MessagesPage() {
-  const session = await getServerSession(authOptions);
-  const userId = (session?.user as any)?.id as string | undefined;
+  const user = await getSessionUserSafe();
+  if (!user?.id) redirect('/login');
 
-  if (!userId) {
-    return (
-      <div style={{ padding: "1rem" }}>
-        <h1 style={{ fontSize: "1.5rem", marginBottom: ".75rem" }}>Mensagens</h1>
-        <p style={{ color: "var(--muted)" }}>Não foi possível carregar a sessão. Por favor, volta a iniciar sessão.</p>
-      </div>
-    );
-  }
+  const sb = createServerClient();
+  const { data } = await sb
+    .from('notifications')
+    .select('id,title,body,link,created_at,read')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(50);
 
-  let items: Message[] = [];
-  try {
-    items = await loadMessagesSSR(userId);
-  } catch {
-    items = [];
-  }
+  const items = (data ?? []) as Row[];
 
   return (
-    <div style={{ padding: "1rem" }}>
-      <h1 style={{ fontSize: "1.5rem", marginBottom: ".75rem" }}>Mensagens</h1>
-
-      {items.length === 0 ? (
-        <p style={{ color: "var(--muted)" }}>Sem mensagens para apresentar.</p>
-      ) : (
-        <ul style={{ display: "grid", gap: 8 }}>
-          {items.map((m) => (
-            <li
-              key={m.id}
-              style={{
-                border: "1px solid var(--border)",
-                borderRadius: 12,
-                padding: ".75rem .9rem",
-                background: m.unread ? "var(--chip)" : "transparent",
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                <strong style={{ lineHeight: 1.2 }}>{m.subject}</strong>
-                <span style={{ fontSize: ".8rem", color: "var(--muted)" }}>
-                  {new Date(m.createdAt).toLocaleString()}
-                </span>
-              </div>
-              <div style={{ fontSize: ".9rem", color: "var(--muted)", marginTop: 6 }}>
-                <em>{m.from}</em> — {m.preview}
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+    <div className="p-4 grid gap-3">
+      <div className="rounded-2xl border bg-white/70 dark:bg-slate-900/40 backdrop-blur shadow-sm">
+        <div className="p-3 border-b text-sm font-semibold">Mensagens</div>
+        {items.length === 0 ? (
+          <div className="p-3 text-sm opacity-70">Sem mensagens.</div>
+        ) : (
+          <ul className="p-3 space-y-2">
+            {items.map((n) => (
+              <li
+                key={n.id}
+                className="rounded-lg border p-2 bg-white dark:bg-slate-800"
+                style={{ background: n.read ? undefined : 'var(--hover)' }}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="font-medium">{n.title ?? 'Notificação'}</div>
+                  <div className="text-xs opacity-70">
+                    {n.created_at ? new Date(n.created_at).toLocaleString('pt-PT') : '—'}
+                  </div>
+                </div>
+                {!!n.body && <div className="text-sm opacity-90 mt-1">{n.body}</div>}
+                {!!n.link && (
+                  <div className="mt-2">
+                    <a className="btn chip" href={n.link}>
+                      Abrir
+                    </a>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }

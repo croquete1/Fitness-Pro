@@ -1,76 +1,106 @@
 // src/app/(app)/dashboard/pt/settings/folgas/FolgaForm.tsx
 'use client';
 
-import * as React from 'react';
+import React, { useState } from 'react';
+import { supabaseBrowser } from '@/lib/supabaseBrowser';
+import { useRouter } from 'next/navigation';
 
 export default function FolgaForm() {
-  const [date, setDate] = React.useState(() => new Date().toISOString().slice(0,10));
-  const [allDay, setAllDay] = React.useState(true);
-  const [start, setStart] = React.useState('09:00');
-  const [end, setEnd] = React.useState('18:00');
-  const [title, setTitle] = React.useState('Folga');
-  const [busy, setBusy] = React.useState(false);
-  const [err, setErr] = React.useState<string | null>(null);
+  const sb = supabaseBrowser();
+  const router = useRouter();
+
+  const [date, setDate] = useState('');
+  const [startTime, setStartTime] = useState<string>('');
+  const [endTime, setEndTime] = useState<string>('');
+  const [reason, setReason] = useState<string>('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
     setBusy(true);
-    const day = new Date(date);
-    const startAt = new Date(day);
-    const endAt   = new Date(day);
+    try {
+      const { data: auth } = await sb.auth.getUser();
+      const uid = auth?.user?.id;
+      if (!uid) {
+        setErr('Sessão inválida. Inicia sessão de novo.');
+        return;
+      }
 
-    if (allDay) {
-      startAt.setHours(0,0,0,0);
-      endAt.setHours(23,59,59,999);
-    } else {
-      const [sh, sm] = start.split(':').map(Number);
-      const [eh, em] = end.split(':').map(Number);
-      startAt.setHours(sh, sm || 0, 0, 0);
-      endAt.setHours(eh, em || 0, 0, 0);
+      const { error } = await sb
+        .from('pt_days_off')
+        .insert({
+          trainer_id: uid,
+          date: date || null,
+          start_time: startTime || null,
+          end_time: endTime || null,
+          reason: reason || null,
+        });
+
+      if (error) setErr(error.message);
+      else {
+        setDate(''); setStartTime(''); setEndTime(''); setReason('');
+        router.refresh();
+      }
+    } finally {
+      setBusy(false);
     }
-
-    const res = await fetch('/api/pt/folgas', {
-      method: 'POST',
-      headers: { 'content-type':'application/json' },
-      body: JSON.stringify({ start: startAt.toISOString(), end: endAt.toISOString(), title }),
-    });
-    setBusy(false);
-    if (!res.ok) { setErr(await res.text()); return; }
-    location.reload();
   }
 
   return (
-    <form onSubmit={onSubmit} style={{ display: 'grid', gap: 8 }}>
-      <label className="small text-muted">Título</label>
-      <input value={title} onChange={(e) => setTitle(e.target.value)} />
-
-      <label className="small text-muted">Dia</label>
-      <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-
-      <label className="small text-muted">
-        <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} style={{ marginRight: 6 }} />
-        Dia inteiro
+    <form onSubmit={onSubmit} className="grid gap-3">
+      <label className="grid gap-1">
+        <span className="text-sm opacity-80">Data</span>
+        <input
+          type="date"
+          required
+          className="rounded-md border px-3 py-2 bg-white dark:bg-slate-900"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+        />
       </label>
 
-      {!allDay && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <div>
-            <label className="small text-muted">Das</label>
-            <input type="time" value={start} onChange={(e) => setStart(e.target.value)} />
-          </div>
-          <div>
-            <label className="small text-muted">Às</label>
-            <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
-          </div>
-        </div>
-      )}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <label className="grid gap-1">
+          <span className="text-sm opacity-80">Início (opcional)</span>
+          <input
+            type="time"
+            className="rounded-md border px-3 py-2 bg-white dark:bg-slate-900"
+            value={startTime}
+            onChange={(e) => setStartTime(e.target.value)}
+          />
+        </label>
+        <label className="grid gap-1">
+          <span className="text-sm opacity-80">Fim (opcional)</span>
+          <input
+            type="time"
+            className="rounded-md border px-3 py-2 bg-white dark:bg-slate-900"
+            value={endTime}
+            onChange={(e) => setEndTime(e.target.value)}
+          />
+        </label>
+      </div>
 
-      {!!err && <div className="badge-danger" role="alert">{err}</div>}
+      <label className="grid gap-1">
+        <span className="text-sm opacity-80">Motivo (opcional)</span>
+        <textarea
+          rows={3}
+          className="rounded-md border px-3 py-2 bg-white dark:bg-slate-900"
+          placeholder="Ex.: férias, formação, indisponibilidade…"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+        />
+      </label>
 
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button type="submit" className="btn primary" disabled={busy}>
-          {busy ? 'A guardar…' : 'Adicionar folga'}
+      {err && <div className="text-sm text-rose-600">{err}</div>}
+
+      <div className="flex justify-end">
+        <button
+          disabled={busy}
+          className="px-3 py-2 rounded-md bg-indigo-600 text-white disabled:opacity-60"
+        >
+          {busy ? 'A criar…' : 'Adicionar folga'}
         </button>
       </div>
     </form>

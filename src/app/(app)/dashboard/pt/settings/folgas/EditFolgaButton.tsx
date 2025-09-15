@@ -1,112 +1,192 @@
 // src/app/(app)/dashboard/pt/settings/folgas/EditFolgaButton.tsx
 'use client';
 
-import * as React from 'react';
+import React, { useEffect, useState } from 'react';
+import { supabaseBrowser } from '@/lib/supabaseBrowser';
+import { useRouter } from 'next/navigation';
 
-type Props = {
+type Props = { folgaId: string };
+
+type Folga = {
   id: string;
-  initial: { title: string; start: string; end: string };
+  trainer_id: string;
+  date: string;
+  start_time: string | null;
+  end_time: string | null;
+  reason: string | null;
 };
 
-export default function EditFolgaButton({ id, initial }: Props) {
-  const [open, setOpen] = React.useState(false);
-  const [title, setTitle] = React.useState(initial.title);
-  const [date, setDate] = React.useState(() => initial.start.slice(0,10));
-  const [allDay, setAllDay] = React.useState(() => {
-    const s = new Date(initial.start);
-    const e = new Date(initial.end);
-    return s.getHours() === 0 && s.getMinutes() === 0 && e.getHours() === 23 && e.getMinutes() >= 58;
-  });
-  const [start, setStart] = React.useState(() => new Date(initial.start).toTimeString().slice(0,5));
-  const [end, setEnd] = React.useState(() => new Date(initial.end).toTimeString().slice(0,5));
-  const [busy, setBusy] = React.useState(false);
-  const [err, setErr] = React.useState<string | null>(null);
+export default function EditFolgaButton({ folgaId }: Props) {
+  const sb = supabaseBrowser();
+  const router = useRouter();
 
-  function buildRange() {
-    const day = new Date(date);
-    const s = new Date(day);
-    const e = new Date(day);
-    if (allDay) {
-      s.setHours(0,0,0,0);
-      e.setHours(23,59,59,999);
-    } else {
-      const [sh, sm] = start.split(':').map(Number);
-      const [eh, em] = end.split(':').map(Number);
-      s.setHours(sh, sm || 0, 0, 0);
-      e.setHours(eh, em || 0, 0, 0);
-    }
-    return { start: s.toISOString(), end: e.toISOString() };
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const [date, setDate] = useState('');
+  const [startTime, setStartTime] = useState<string>('');
+  const [endTime, setEndTime] = useState<string>('');
+  const [reason, setReason] = useState<string>('');
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let active = true;
+    (async () => {
+      setLoading(true);
+      setErr(null);
+      const { data, error } = await sb
+        .from('pt_days_off')
+        .select('id, trainer_id, date, start_time, end_time, reason')
+        .eq('id', folgaId)
+        .maybeSingle();
+      if (!active) return;
+      if (error || !data) {
+        setErr(error?.message ?? 'Não foi possível carregar a folga.');
+      } else {
+        const f = data as Folga;
+        setDate(f.date ?? '');
+        setStartTime(f.start_time ?? '');
+        setEndTime(f.end_time ?? '');
+        setReason(f.reason ?? '');
+      }
+      setLoading(false);
+    })();
+    return () => { active = false; };
+  }, [open, folgaId, sb]);
+
+  async function onSave(e: React.FormEvent) {
+    e.preventDefault();
+    setErr(null);
+    setLoading(true);
+    const { error } = await sb
+      .from('pt_days_off')
+      .update({
+        date: date || null,
+        start_time: startTime || null,
+        end_time: endTime || null,
+        reason: reason || null,
+      })
+      .eq('id', folgaId);
+    setLoading(false);
+    if (error) setErr(error.message);
+    else { setOpen(false); router.refresh(); }
   }
 
-  async function onSave() {
-    setErr(null); setBusy(true);
-    const { start: s, end: e } = buildRange();
-    const res = await fetch(`/api/pt/folgas/${id}`, {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ title: title.trim() || 'Folga', start: s, end: e }),
-    });
-    setBusy(false);
-    if (!res.ok) { setErr(await res.text()); return; }
-    setOpen(false);
-    location.reload();
+  async function onDelete() {
+    if (!confirm('Eliminar esta folga?')) return;
+    setLoading(true);
+    const { error } = await sb.from('pt_days_off').delete().eq('id', folgaId);
+    setLoading(false);
+    if (error) setErr(error.message);
+    else { setOpen(false); router.refresh(); }
   }
 
   return (
     <>
-      <button className="btn chip" onClick={() => setOpen(true)}>✏️ Editar</button>
+      <button
+        onClick={() => setOpen(true)}
+        className="btn chip border border-slate-300 dark:border-slate-700"
+      >
+        Editar
+      </button>
+
       {open && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Editar folga"
-          style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,.25)',
-            display: 'grid', placeItems: 'center', zIndex: 1000
-          }}
-          onClick={() => setOpen(false)}
-        >
+        <div className="fixed inset-0 z-50 grid place-items-center p-3">
           <div
-            className="card"
-            style={{ width: 'min(520px,92vw)', padding: 12 }}
-            onClick={(e) => e.stopPropagation()}
+            className="absolute inset-0 bg-black/40"
+            onClick={() => !loading && setOpen(false)}
+          />
+          <form
+            onSubmit={onSave}
+            className="relative w-full max-w-md rounded-2xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-4 shadow-xl"
           >
-            <h3 style={{ marginTop: 0 }}>Editar folga</h3>
-            <div style={{ display: 'grid', gap: 8 }}>
-              <label className="small text-muted">Título</label>
-              <input value={title} onChange={(e) => setTitle(e.target.value)} />
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-bold">Editar folga</h3>
+              <button
+                type="button"
+                className="text-sm opacity-70 hover:opacity-100"
+                onClick={() => !loading && setOpen(false)}
+              >
+                ✕
+              </button>
+            </div>
 
-              <label className="small text-muted">Dia</label>
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-
-              <label className="small text-muted">
-                <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} style={{ marginRight: 6 }} />
-                Dia inteiro
+            <div className="grid gap-3">
+              <label className="grid gap-1">
+                <span className="text-sm opacity-80">Data</span>
+                <input
+                  type="date"
+                  className="rounded-md border px-3 py-2 bg-white dark:bg-slate-900"
+                  required
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                />
               </label>
 
-              {!allDay && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <div>
-                    <label className="small text-muted">Das</label>
-                    <input type="time" value={start} onChange={(e) => setStart(e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="small text-muted">Às</label>
-                    <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
-                  </div>
-                </div>
-              )}
+              <div className="grid grid-cols-2 gap-3">
+                <label className="grid gap-1">
+                  <span className="text-sm opacity-80">Início (opcional)</span>
+                  <input
+                    type="time"
+                    className="rounded-md border px-3 py-2 bg-white dark:bg-slate-900"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                  />
+                </label>
+                <label className="grid gap-1">
+                  <span className="text-sm opacity-80">Fim (opcional)</span>
+                  <input
+                    type="time"
+                    className="rounded-md border px-3 py-2 bg-white dark:bg-slate-900"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                  />
+                </label>
+              </div>
 
-              {!!err && <div className="badge-danger" role="alert">{err}</div>}
+              <label className="grid gap-1">
+                <span className="text-sm opacity-80">Motivo (opcional)</span>
+                <textarea
+                  rows={3}
+                  className="rounded-md border px-3 py-2 bg-white dark:bg-slate-900"
+                  placeholder="Ex.: férias, formação…"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                />
+              </label>
 
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                <button className="btn chip" onClick={() => setOpen(false)}>Fechar</button>
-                <button className="btn primary" onClick={onSave} disabled={busy}>
-                  {busy ? 'A guardar…' : 'Guardar alterações'}
+              {err && <div className="text-sm text-rose-600">{err}</div>}
+            </div>
+
+            <div className="mt-4 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={onDelete}
+                disabled={loading}
+                className="px-3 py-2 rounded-md border border-rose-300/50 text-rose-700 dark:text-rose-400"
+              >
+                Eliminar
+              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  disabled={loading}
+                  className="px-3 py-2 rounded-md border"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-3 py-2 rounded-md bg-indigo-600 text-white disabled:opacity-60"
+                >
+                  {loading ? 'A guardar…' : 'Guardar'}
                 </button>
               </div>
             </div>
-          </div>
+          </form>
         </div>
       )}
     </>

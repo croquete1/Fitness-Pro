@@ -1,52 +1,30 @@
-// src/app/api/trainer/meta/route.ts
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
-import { prisma } from "@/lib/prisma";
-import { Role } from "@prisma/client";
-
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+import { NextResponse } from 'next/server';
+import { createServerClient } from '@/lib/supabaseServer';
+import { getSessionUserSafe } from '@/lib/session-bridge';
+import { toAppRole } from '@/lib/roles';
 
 export async function GET() {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const session = await getSessionUserSafe();
+  const user = (session as any)?.user;
+  if (!user?.id) return new NextResponse('Unauthorized', { status: 401 });
 
-    const meId = (session.user as any).id as string;
-    const role = (session.user as any).role as "ADMIN" | "TRAINER" | "CLIENT";
+  const role = toAppRole(user.role) ?? 'CLIENT';
+  if (role !== 'PT' && role !== 'ADMIN') return new NextResponse('Forbidden', { status: 403 });
 
-    const [me, clients, trainers] = await Promise.all([
-      prisma.user.findUnique({
-        where: { id: meId },
-        select: { id: true, name: true, email: true },
-      }),
-      prisma.user.findMany({
-        where: { role: Role.CLIENT },
-        orderBy: [{ name: "asc" }, { email: "asc" }],
-        select: { id: true, name: true, email: true },
-      }),
-      role === "ADMIN"
-        ? prisma.user.findMany({
-            where: { role: Role.TRAINER },
-            orderBy: [{ name: "asc" }, { email: "asc" }],
-            select: { id: true, name: true, email: true },
-          })
-        : prisma.user.findMany({
-            where: { id: meId },
-            select: { id: true, name: true, email: true },
-          }),
-    ]);
+  const sb = createServerClient();
+  const now = new Date();
+  const in7 = new Date(now);
+  in7.setDate(now.getDate() + 7);
 
-    return NextResponse.json({
-      role,
-      me,
-      clients,
-      trainers,
-    });
-  } catch {
-    return NextResponse.json({ error: "Erro ao carregar meta" }, { status: 500 });
-  }
+  const [{ count: clients = 0 }, { count: sessions = 0 }] = await Promise.all([
+    sb.from('trainer_clients').select('*', { head: true, count: 'exact' }).eq('trainer_id', user.id),
+    sb
+      .from('sessions')
+      .select('*', { head: true, count: 'exact' })
+      .eq('trainer_id', user.id)
+      .gte('scheduled_at', now.toISOString())
+      .lt('scheduled_at', in7.toISOString()),
+  ]);
+
+  return NextResponse.json({ clients, upcoming7d: sessions });
 }

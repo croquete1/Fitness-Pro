@@ -1,18 +1,21 @@
-import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { requireAdmin } from "@/lib/guards";
+import { NextResponse } from 'next/server';
+import { createServerClient } from '@/lib/supabaseServer';
+import { getSessionUserSafe } from '@/lib/session-bridge';
+import { toAppRole } from '@/lib/roles';
 
 export async function GET() {
-  try {
-    await requireAdmin();
-    const rows = await prisma.user.findMany({
-      where: { status: "PENDING" },
-      orderBy: { createdAt: "desc" },
-      select: { id: true, name: true, email: true, role: true, status: true, createdAt: true },
-    });
-    return NextResponse.json(rows);
-  } catch (e) {
-    const code = (e as Error).message === "UNAUTHORIZED" ? 401 : 500;
-    return NextResponse.json({ error: "Unauthorized" }, { status: code });
-  }
+  const session = await getSessionUserSafe();
+  const user = (session as any)?.user;
+  if (!user?.id) return new NextResponse('Unauthorized', { status: 401 });
+  if ((toAppRole(user.role) ?? 'CLIENT') !== 'ADMIN') return new NextResponse('Forbidden', { status: 403 });
+
+  const sb = createServerClient();
+  const { data, error } = await sb
+    .from('approval_requests')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ items: data ?? [] });
 }

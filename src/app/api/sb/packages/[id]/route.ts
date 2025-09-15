@@ -1,77 +1,56 @@
-// src/app/api/sb/packages/[id]/route.ts  (PATCH/DELETE)
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { z } from 'zod';
 import { createServerClient } from '@/lib/supabaseServer';
-import { Role } from '@prisma/client';
+import { getSessionUserSafe } from '@/lib/session-bridge';
+import { toAppRole } from '@/lib/roles';
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  const me = session?.user as any;
-  if (!me?.id) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+const PatchSchema = z.object({
+  name: z.string().min(1).optional(),
+  status: z.enum(['ACTIVE', 'PAUSED', 'CANCELLED']).optional(),
+  sessionsUsed: z.number().int().min(0).optional(),
+});
+
+export async function GET(_req: Request, { params }: { params: { id: string } }) {
+  const session = await getSessionUserSafe();
+  const user = (session as any)?.user as { id: string; role?: string | null } | undefined;
+  if (!user?.id) return new NextResponse('Unauthorized', { status: 401 });
 
   const sb = createServerClient();
+  const role = toAppRole(user.role) ?? 'CLIENT';
 
-  // carregar pacote
-  const { data: pkg, error: e1 } = await sb.from('client_packages').select('*').eq('id', params.id).single();
-  if (e1 || !pkg) return NextResponse.json({ error: 'not_found' }, { status: 404 });
+  const { data, error } =
+    role === 'ADMIN'
+      ? await sb.from('packages').select('*').eq('id', params.id).maybeSingle()
+      : await sb.from('packages').select('*').eq('id', params.id).eq('user_id', user.id).maybeSingle();
 
-  // Permissões: Admin ou PT dono
-  if (me.role !== Role.ADMIN && pkg.trainer_id !== me.id) {
-    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
-  }
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!data) return new NextResponse('Not Found', { status: 404 });
 
-  const body = await req.json().catch(() => ({} as any));
-  const patch: any = {};
-  for (const k of [
-    'packageName','sessionsTotal','sessionsUsed','priceCents','startDate','endDate','status','notes','planId','trainerId','clientId'
-  ]) if (k in body) patch[k] = body[k];
-
-  const updates: any = {
-    ...(patch.packageName !== undefined ? { package_name: patch.packageName } : {}),
-    ...(patch.sessionsTotal !== undefined ? { sessions_total: patch.sessionsTotal } : {}),
-    ...(patch.sessionsUsed !== undefined ? { sessions_used: patch.sessionsUsed } : {}),
-    ...(patch.priceCents !== undefined ? { price_cents: patch.priceCents } : {}),
-    ...(patch.startDate !== undefined ? { start_date: patch.startDate } : {}),
-    ...(patch.endDate !== undefined ? { end_date: patch.endDate } : {}),
-    ...(patch.status !== undefined ? { status: patch.status } : {}),
-    ...(patch.notes !== undefined ? { notes: patch.notes } : {}),
-    ...(patch.planId !== undefined ? { plan_id: patch.planId } : {}),
-  };
-  // Admin pode reatribuir trainer/client
-  if (me.role === Role.ADMIN) {
-    if (patch.trainerId !== undefined) updates.trainer_id = patch.trainerId;
-    if (patch.clientId !== undefined)  updates.client_id  = patch.clientId;
-  }
-
-  if (!Object.keys(updates).length) {
-    return NextResponse.json({ error: 'nothing_to_update' }, { status: 400 });
-  }
-
-  const { data, error } = await sb
-    .from('client_packages')
-    .update(updates).eq('id', params.id)
-    .select('*').single();
-
-  if (error || !data) return NextResponse.json({ error: 'update_failed' }, { status: 500 });
-  return NextResponse.json({ ok: true, data });
+  return NextResponse.json(data, { status: 200 });
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  const me = session?.user as any;
-  if (!me?.id) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  const session = await getSessionUserSafe();
+  const user = (session as any)?.user as { id: string; role?: string | null } | undefined;
+  if (!user?.id) return new NextResponse('Unauthorized', { status: 401 });
+
+  const role = toAppRole(user.role) ?? 'CLIENT';
+  const body = await req.json().catch(() => null);
+  const parsed = PatchSchema.safeParse(body);
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
   const sb = createServerClient();
 
-  const { data: pkg, error: e1 } = await sb.from('client_packages').select('trainer_id').eq('id', params.id).single();
-  if (e1 || !pkg) return NextResponse.json({ error: 'not_found' }, { status: 404 });
+  // Dono pode editar nome/consumo; ADMIN/PT pode administrar tudo
+  const filter = role === 'ADMIN' || role === 'PT' ? { id: params.id } : { id: params.id, user_id: user.id };
 
-  if (me.role !== Role.ADMIN && pkg.trainer_id !== me.id) {
-    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
-  }
+  const patch: Record<string, unknown> = {};
+  if (parsed.data.name !== undefined) patch.name = parsed.data.name;
+  if (parsed.data.status !== undefined) patch.status = parsed.data.status;
+  if (parsed.data.sessionsUsed !== undefined) patch.sessions_used = parsed.data.sessionsUsed;
 
-  const { error } = await sb.from('client_packages').delete().eq('id', params.id);
-  if (error) return NextResponse.json({ error: 'delete_failed' }, { status: 500 });
-  return NextResponse.json({ ok: true });
+  const { error } = await sb.from('packages').update(patch).match(filter).select('id').single();
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return new NextResponse(null, { status: 204 });
 }

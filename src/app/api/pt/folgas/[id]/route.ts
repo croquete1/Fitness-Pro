@@ -1,20 +1,47 @@
+// src/app/api/pt/folgas/[id]/route.ts
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { toAppRole } from '@/lib/roles';
+import { getSessionUserSafe } from '@/lib/session-bridge';
 import { createServerClient } from '@/lib/supabaseServer';
+import { toAppRole } from '@/lib/roles';
 
 type Params = { params: { id: string } };
 
-export async function DELETE(_req: Request, { params }: Params) {
-  const session = await getServerSession(authOptions);
-  const role = toAppRole((session as any)?.user?.role);
-  const trainerId = String((session as any)?.user?.id || '');
-  if (!trainerId) return new NextResponse('Unauthorized', { status: 401 });
-  if (role !== 'PT' && role !== 'ADMIN') return new NextResponse('Forbidden', { status: 403 });
+/**
+ * DELETE /api/pt/folgas/[id]
+ * - ADMIN pode remover qualquer folga.
+ * - PT só pode remover folgas do próprio (trainer_id = me.id).
+ */
+export async function DELETE(_req: Request, { params }: Params): Promise<Response> {
+  const me = await getSessionUserSafe();
+  if (!me?.id) return new NextResponse('Unauthorized', { status: 401 });
+
+  const role = toAppRole(me.role);
+  if (role !== 'PT' && role !== 'ADMIN') {
+    return new NextResponse('Forbidden', { status: 403 });
+  }
+
+  const id = params?.id;
+  if (!id) {
+    return NextResponse.json({ ok: false, error: 'id_required' }, { status: 400 });
+  }
 
   const sb = createServerClient();
-  const { error } = await sb.from('pt_time_off').delete().eq('id', params.id).eq('trainer_id', trainerId);
-  if (error) return new NextResponse(error.message, { status: 500 });
-  return NextResponse.json({ ok: true });
+
+  try {
+    // Nota: usamos `as any` para não depender do tipo Database local enquanto a tabela não está mapeada.
+    let q = sb.from('pt_days_off' as any).delete().eq('id', id);
+    if (role === 'PT') {
+      q = q.eq('trainer_id', me.id);
+    }
+
+    const { error } = await (q as any);
+    if (error) throw error;
+
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    return NextResponse.json(
+      { ok: false, error: e?.message ?? 'delete_failed' },
+      { status: 500 }
+    );
+  }
 }

@@ -1,103 +1,114 @@
-// src/app/(app)/dashboard/pt/training-plans/page.tsx
 export const dynamic = 'force-dynamic';
 
-import prisma from '@/lib/prisma';
+import { redirect } from 'next/navigation';
+import Link from 'next/link';
+import { getSessionUserSafe } from '@/lib/session-bridge';
+import { createServerClient } from '@/lib/supabaseServer';
+import { toAppRole, type AppRole } from '@/lib/roles';
 import PageHeader from '@/components/ui/PageHeader';
-import Toolbar from '@/components/ui/Toolbar';
 import Card, { CardContent } from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { toAppRole } from '@/lib/roles';
-import type { AppRole } from '@/lib/roles';
-import { redirect } from 'next/navigation';
 
-type Row = {
+type PlanRow = {
   id: string;
-  trainerId: string;
-  clientId: string;
-  title: string;
-  status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED' | string;
-  updatedAt: string;
-  createdAt: string;
+  title: string | null;
+  status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED' | null;
+  client_id: string | null;
+  trainer_id: string | null;
+  updated_at: string | null;
 };
 
 export default async function PTTrainingPlansPage() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) redirect('/login');
-  const role = (toAppRole(session.user.role) ?? 'CLIENT') as AppRole;
+  // Sessão "flat"
+  const viewer = await getSessionUserSafe();
+  if (!viewer?.id) redirect('/login');
+
+  const role = (toAppRole(viewer.role) ?? 'CLIENT') as AppRole;
   if (role !== 'ADMIN' && role !== 'PT') redirect('/dashboard');
 
-  const viewerId = String(session.user.id);
-  const where = role === 'ADMIN' ? {} : { trainerId: viewerId };
+  const sb = createServerClient();
 
-  const rowsRaw = await prisma.trainingPlan.findMany({
-    where,
-    select: {
-      id: true,
-      trainerId: true,
-      clientId: true,
-      title: true,
-      status: true,
-      updatedAt: true,
-      createdAt: true,
-    },
-    orderBy: { updatedAt: 'desc' },
-    take: 200,
-  });
+  // Lista de planos (se PT, apenas os seus)
+  const base = sb
+    .from('training_plans')
+    .select('id,title,status,client_id,trainer_id,updated_at')
+    .order('updated_at', { ascending: false })
+    .limit(100);
 
-  const rows: Row[] = rowsRaw.map((p) => ({
-    ...p,
-    updatedAt: p.updatedAt.toISOString(),
-    createdAt: p.createdAt.toISOString(),
-  }));
+  const { data, error } =
+    role === 'ADMIN' ? await base : await base.eq('trainer_id', viewer.id);
+
+  const plans: PlanRow[] = !error && data ? (data as PlanRow[]) : [];
 
   return (
-    <div style={{ display: 'grid', gap: 12 }}>
-      <PageHeader title="📝 Planos de treino" subtitle="Planos sob sua gestão." />
-      <Toolbar right={<div style={{ opacity: 0.8, fontSize: 14 }}>Total: {rows.length}</div>} />
-      <Card>
-        <CardContent>
-          {rows.length === 0 ? (
-            <div style={{ opacity: 0.7 }}>Sem planos.</div>
-          ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead style={{ textAlign: 'left' }}>
-                  <tr>
-                    <th style={{ padding: 8 }}>Título</th>
-                    <th style={{ padding: 8 }}>Estado</th>
-                    <th style={{ padding: 8 }}>Atualizado</th>
-                    <th style={{ padding: 8 }}>Criado</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r) => (
-                    <tr key={r.id} style={{ borderTop: '1px solid rgba(0,0,0,0.08)' }}>
-                      <td style={{ padding: 8, fontWeight: 600 }}>{r.title}</td>
-                      <td style={{ padding: 8 }}>
-                        <Badge
-                          variant={
-                            r.status === 'ACTIVE'
-                              ? 'success'
-                              : r.status === 'DRAFT'
-                              ? 'info'
-                              : 'neutral'
-                          }
-                        >
-                          {r.status}
-                        </Badge>
-                      </td>
-                      <td style={{ padding: 8 }}>{new Date(r.updatedAt).toLocaleString()}</td>
-                      <td style={{ padding: 8 }}>{new Date(r.createdAt).toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+    <main className="p-4 space-y-4">
+      <PageHeader
+        title="Planos de treino"
+        subtitle={role === 'ADMIN' ? 'Todos os planos' : 'Os teus planos'}
+        actions={
+          <Link href="/dashboard/pt/plans/new" className="btn chip">
+            + Novo plano
+          </Link>
+        }
+      />
+
+      {plans.length === 0 ? (
+        <Card>
+          <CardContent>
+            <div className="text-muted">Sem planos para apresentar.</div>
+          </CardContent>
+        </Card>
+      ) : (
+        <div
+          className="grid gap-3"
+          style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}
+        >
+          {plans.map((p) => (
+            <Card key={p.id}>
+              <CardContent className="space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="font-semibold truncate">
+                    {p.title ?? 'Sem título'}
+                  </h3>
+                  <Badge
+                    variant={
+                      p.status === 'ACTIVE'
+                        ? 'success'
+                        : p.status === 'DRAFT'
+                        ? 'neutral'
+                        : 'warning'
+                    }
+                  >
+                    {p.status ?? '—'}
+                  </Badge>
+                </div>
+
+                <div className="text-sm opacity-70">
+                  Atualizado:{' '}
+                  {p.updated_at
+                    ? new Date(p.updated_at).toLocaleString('pt-PT')
+                    : '—'}
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <Link
+                    href={`/dashboard/pt/plans/${p.id}`}
+                    className="btn chip"
+                  >
+                    Ver
+                  </Link>
+                  <Link
+                    href={`/dashboard/pt/plans/${p.id}/edit`}
+                    className="btn chip"
+                  >
+                    Editar
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </main>
   );
 }

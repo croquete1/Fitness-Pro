@@ -1,77 +1,59 @@
-export const dynamic = 'force-dynamic';
+// src/components/ui/Button.tsx
+'use client';
 
-import prisma from '@/lib/prisma';
-import { notFound, redirect } from 'next/navigation';
-import PageHeader from '@/components/ui/PageHeader';
-import Card, { CardContent } from '@/components/ui/Card';
-import Badge from '@/components/ui/Badge';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { toAppRole } from '@/lib/roles';
-import type { AppRole } from '@/lib/roles';
+import * as React from 'react';
 
-export default async function PTPlanDetail({ params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) redirect('/login');
+type Variant = 'primary' | 'secondary' | 'success' | 'warning' | 'danger' | 'ghost';
+type Size = 'sm' | 'md' | 'lg';
 
-  const role = (toAppRole(session.user.role) ?? 'CLIENT') as AppRole;
-  if (role !== 'ADMIN' && role !== 'PT') redirect('/dashboard');
+export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: Variant;
+  size?: Size;
+  loading?: boolean;
+  leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
+};
 
-  const viewerId = String(session.user.id);
+const cls = {
+  base:
+    'inline-flex items-center justify-center rounded-lg font-semibold transition-colors ' +
+    'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ' +
+    'disabled:opacity-60 disabled:cursor-not-allowed',
+  size: {
+    sm: 'text-sm px-2.5 py-1.5',
+    md: 'text-sm px-3 py-2',
+    lg: 'text-base px-4 py-2.5',
+  },
+  variant: {
+    primary: 'bg-indigo-600 text-white hover:bg-indigo-500 focus-visible:ring-indigo-600',
+    secondary:
+      'bg-slate-200 text-slate-900 hover:bg-slate-300 focus-visible:ring-slate-400 ' +
+      'dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700',
+    success: 'bg-emerald-600 text-white hover:bg-emerald-500 focus-visible:ring-emerald-600',
+    warning: 'bg-amber-500 text-black hover:bg-amber-400 focus-visible:ring-amber-600',
+    danger: 'bg-rose-600 text-white hover:bg-rose-500 focus-visible:ring-rose-600',
+    ghost: 'bg-transparent text-current hover:bg-black/5 dark:hover:bg-white/10',
+  },
+};
 
-  const plan = await prisma.trainingPlan.findUnique({
-    where: { id: params.id },
-    select: {
-      id: true,
-      trainerId: true,
-      clientId: true,
-      title: true,
-      status: true,
-      notes: true,
-      updatedAt: true,
-      createdAt: true,
-    },
-  });
-  if (!plan) return notFound();
-
-  // PT só pode ver se for o dono do plano
-  if (role === 'PT' && plan.trainerId !== viewerId) redirect('/dashboard/pt/training-plans');
-
+export default function Button({
+  variant = 'primary',
+  size = 'md',
+  loading = false,
+  leftIcon,
+  rightIcon,
+  children,
+  className = '',
+  ...rest
+}: ButtonProps) {
   return (
-    <div style={{ display: 'grid', gap: 12, padding: 12 }}>
-      <PageHeader
-        title={`📝 ${plan.title}`}
-        subtitle={
-          <>
-            <Badge variant={plan.status === 'ACTIVE' ? 'success' : plan.status === 'DRAFT' ? 'info' : 'neutral'}>
-              {String(plan.status)}
-            </Badge>{' '}
-            <span style={{ fontSize: 12, opacity: 0.8 }}>
-              • Atualizado {new Date(plan.updatedAt).toLocaleString()}
-            </span>
-          </>
-        }
-      />
-      <Card>
-        <CardContent>
-          <div style={{ display: 'grid', gap: 8 }}>
-            <div>
-              <strong>Trainer:</strong> {plan.trainerId}
-            </div>
-            <div>
-              <strong>Cliente:</strong> {plan.clientId}
-            </div>
-            <div>
-              <strong>Criado:</strong> {new Date(plan.createdAt).toLocaleString()}
-            </div>
-            {plan.notes && (
-              <div>
-                <strong>Notas:</strong> {plan.notes}
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+    <button
+      className={[cls.base, cls.size[size], cls.variant[variant], className].join(' ')}
+      {...rest}
+    >
+      {leftIcon && <span className="mr-2">{leftIcon}</span>}
+      {loading ? 'A carregar…' : children}
+      {rightIcon && <span className="ml-2">{rightIcon}</span>}
+    </button>
   );
 }

@@ -1,24 +1,48 @@
 // src/app/api/pt/locations/[id]/route.ts
-export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
-
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getSessionUserSafe } from '@/lib/session-bridge';
 import { createServerClient } from '@/lib/supabaseServer';
+import { toAppRole } from '@/lib/roles';
 
-export async function DELETE(_: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  const meId = (session as any)?.user?.id as string | undefined;
-  if (!meId) return new NextResponse('Unauthorized', { status: 401 });
+export async function DELETE(
+  _req: Request,
+  { params }: { params: { id: string } }
+): Promise<Response> {
+  const me = await getSessionUserSafe();
+  if (!me?.id) return new NextResponse('Unauthorized', { status: 401 });
+
+  const role = toAppRole(me.role);
+  if (role !== 'PT' && role !== 'ADMIN') {
+    return new NextResponse('Forbidden', { status: 403 });
+  }
 
   const sb = createServerClient();
-  const { error } = await sb
-    .from('trainer_locations')
-    .delete()
-    .eq('id', params.id)
-    .eq('trainer_id', meId);
 
-  if (error) return new NextResponse(error.message, { status: 500 });
-  return NextResponse.json({ ok: true });
+  try {
+    // Admin pode apagar qualquer registo; PT só os seus
+    let q = sb.from('pt_locations' as any).delete().eq('id', params.id);
+    if (role !== 'ADMIN') q = q.eq('trainer_id', me.id);
+
+    // select('id') para sabermos se algo foi apagado
+    const { data, error } = await q.select('id');
+
+    if (error) {
+      return NextResponse.json(
+        { ok: false, error: error.message ?? 'delete_failed' },
+        { status: 500 }
+      );
+    }
+
+    const deleted = Array.isArray(data) ? data.length : data ? 1 : 0;
+    if (deleted === 0) {
+      return new NextResponse('Not Found', { status: 404 });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    return NextResponse.json(
+      { ok: false, error: e?.message ?? 'unexpected_error' },
+      { status: 500 }
+    );
+  }
 }

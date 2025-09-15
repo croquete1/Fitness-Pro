@@ -1,25 +1,17 @@
 import { NextResponse } from 'next/server';
-import { requireUser } from '@/lib/authz';
-import { Role } from '@prisma/client';
 import { createServerClient } from '@/lib/supabaseServer';
 
-export const dynamic = 'force-dynamic';
-
 export async function GET(req: Request) {
-  const guard = await requireUser([Role.ADMIN, Role.TRAINER]);
-  if ('error' in guard) return guard.error;
-
-  const { searchParams } = new URL(req.url);
-  const q = (searchParams.get('q') || '').trim();
-  if (!q || q.length < 2) return NextResponse.json({ items: [] });
-
+  const url = new URL(req.url);
+  const q = (url.searchParams.get('q') ?? '').trim();
   const sb = createServerClient();
-  const { data, error } = await sb
-    .from('exercises')
-    .select('id,name,media_url,muscle_image_url')
-    .ilike('name', `%${q}%`)
-    .limit(20);
+  let query = sb.from('exercises').select('id, title, description, tags, published').limit(50);
 
-  if (error) return NextResponse.json({ items: [] });
-  return NextResponse.json({ items: data ?? [] });
+  if (q) {
+    query = query.or(`title.ilike.%${q}%,description.ilike.%${q}%`);
+  }
+
+  const { data, error } = await query;
+  if (error) return new NextResponse(error.message, { status: 500 });
+  return NextResponse.json(data ?? []);
 }

@@ -1,24 +1,40 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getSessionUserSafe } from '@/lib/session-bridge';
 import { createServerClient } from '@/lib/supabaseServer';
 
-export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  const user = (session as any)?.user;
-  if (!user?.id) return new NextResponse('Unauthorized', { status: 401 });
+type WebPushSub = {
+  endpoint: string;
+  keys?: { p256dh?: string; auth?: string };
+};
 
-  const payload = await req.json().catch(() => null);
-  if (!payload?.endpoint || !payload?.keys) return new NextResponse('Bad Request', { status: 400 });
+export async function POST(req: Request) {
+  const session = await getSessionUserSafe();
+  const sessionUser = (session as any)?.user;
+  if (!sessionUser?.id) return new NextResponse('Unauthorized', { status: 401 });
+
+  const payload = (await req.json().catch(() => null)) as WebPushSub | null;
+  if (!payload?.endpoint) {
+    return NextResponse.json({ ok: false, error: 'Missing endpoint' }, { status: 400 });
+  }
 
   const sb = createServerClient();
-  await sb.from('push_subscriptions').upsert({
-    user_id: user.id,
-    endpoint: payload.endpoint,
-    p256dh: payload.keys.p256dh,
-    auth: payload.keys.auth,
-    user_agent: req.headers.get('user-agent') || null
-  }, { onConflict: 'endpoint' });
+  const { error } = await sb
+    .from('push_subscriptions')
+    .upsert(
+      [
+        {
+          user_id: sessionUser.id,
+          endpoint: payload.endpoint,
+          p256dh: payload.keys?.p256dh ?? null,
+          auth: payload.keys?.auth ?? null,
+          created_at: new Date().toISOString(),
+        },
+      ],
+      { onConflict: 'user_id,endpoint' },
+    );
 
-  return NextResponse.json({ ok: true as const });
+  if (error) {
+    return NextResponse.json({ ok: false, error: error.message }, { status: 200 });
+  }
+  return NextResponse.json({ ok: true }, { status: 200 });
 }

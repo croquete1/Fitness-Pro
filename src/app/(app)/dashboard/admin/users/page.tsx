@@ -1,61 +1,56 @@
-// src/app/(app)/dashboard/admin/users/page.tsx
 export const dynamic = 'force-dynamic';
 
-import { Suspense } from 'react';
-import prisma from '@/lib/prisma';
-import UsersClientView from './UsersClientView';
-import type { AppRole, DbRole } from '@/lib/roles';
-import { dbRoleToAppRole, toAppRole } from '@/lib/roles';
-import PageHeader from '@/components/ui/PageHeader';
-import Toolbar from '@/components/ui/Toolbar';
-import Card, { CardContent } from '@/components/ui/Card';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
+import type { Route } from 'next';
+import Link from 'next/link';
+import PageHeader from '@/components/ui/PageHeader';
+import Card, { CardContent } from '@/components/ui/Card';
+import Badge from '@/components/ui/Badge';
+import { getSessionUserSafe } from '@/lib/session-bridge';
+import { toAppRole } from '@/lib/roles';
+import { createServerClient } from '@/lib/supabaseServer';
 
-type UiUser = {
-  id: string;
-  name: string | null;
-  email: string;
-  role: AppRole;
-  status: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
-  createdAt: string;
-};
+export default async function AdminUsersPage() {
+  const session = await getSessionUserSafe();
+  const user = (session as any)?.user;
+  if (!user?.id) redirect('/login' as Route);
 
-async function getUsers(): Promise<UiUser[]> {
-  const rows = await prisma.user.findMany({
-    select: { id: true, name: true, email: true, role: true, status: true, createdAt: true },
-    orderBy: { createdAt: 'desc' },
-  });
-  return rows.map((u) => ({
-    id: u.id,
-    name: u.name,
-    email: u.email,
-    role: (dbRoleToAppRole(u.role as DbRole) ?? 'CLIENT') as AppRole,
-    status: u.status as UiUser['status'],
-    createdAt: u.createdAt.toISOString(),
-  }));
-}
+  const role = toAppRole(user.role) ?? 'CLIENT';
+  if (role !== 'ADMIN') redirect('/dashboard' as Route);
 
-export default async function Page() {
-  const session = await getServerSession(authOptions);
-  const role = toAppRole(session?.user?.role);
-  if (!session?.user?.id) redirect('/login');
-  if (role !== 'ADMIN') redirect('/dashboard');
-
-  const users = await getUsers();
+  const sb = createServerClient();
+  const { data: users } = await sb
+    .from('users')
+    .select('id,name,email,role,status,created_at')
+    .order('created_at', { ascending: false })
+    .limit(200);
 
   return (
-    <div style={{ display: 'grid', gap: 12 }}>
-      <PageHeader title="👥 Utilizadores" subtitle="Gestão de contas da plataforma." />
-      <Toolbar right={<div style={{ opacity: 0.8, fontSize: 14 }}>Total: {users.length}</div>} />
+    <main className="p-4 space-y-4">
+      <PageHeader title="Utilizadores" subtitle="Gestão de utilizadores" />
       <Card>
         <CardContent>
-          <Suspense fallback={<div style={{ padding: 12 }}>A carregar utilizadores…</div>}>
-            <UsersClientView users={users} />
-          </Suspense>
+          {!users?.length ? (
+            <div className="text-muted small">Sem utilizadores.</div>
+          ) : (
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              {users.map((u) => (
+                <li key={u.id} style={{ marginBottom: 6 }}>
+                  <Link href={`/dashboard/admin/users/${u.id}` as Route} className="btn chip">
+                    {u.name ?? u.email}
+                  </Link>{' '}
+                  <Badge variant={u.role === 'ADMIN' ? 'info' : u.role === 'PT' ? 'primary' : 'neutral'}>
+                    {u.role}
+                  </Badge>{' '}
+                  <Badge variant={u.status === 'ACTIVE' ? 'success' : u.status === 'PENDING' ? 'warning' : 'neutral'}>
+                    {u.status}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 }

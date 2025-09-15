@@ -1,38 +1,38 @@
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
-import { prisma } from "@/lib/prisma";
-import { canAccessTrainer, isAdmin } from "@/lib/rbac";
+import { NextResponse } from 'next/server';
+import { createServerClient } from '@/lib/supabaseServer';
+import { requirePtOrAdminGuard, isGuardErr } from '@/lib/api-guards';
 
-export const runtime = "nodejs";
+export async function GET(req: Request): Promise<Response> {
+  const guard = await requirePtOrAdminGuard();
+if (isGuardErr(guard)) return guard.response;
 
-export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const sb = createServerClient();
+  const url = new URL(req.url);
+  const trainerIdParam = url.searchParams.get('trainerId');
 
-  const role = (session.user as any).role as "ADMIN" | "TRAINER" | "CLIENT";
-  if (!canAccessTrainer(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  // ADMIN pode ver de qualquer PT; PT vê apenas os seus
+  const trainerId = guard.me.role === 'ADMIN' && trainerIdParam ? trainerIdParam : guard.me.id;
 
-  const meId = (session.user as any).id as string;
+  // 1) ids
+  const { data: links, error: e1 } = await sb
+    .from('trainer_clients')
+    .select('client_id')
+    .eq('trainer_id', trainerId)
+    .limit(2000);
 
-  const { searchParams } = new URL(req.url);
-  const roleFilter = searchParams.get("role") as "ADMIN" | "TRAINER" | "CLIENT" | null;
+  if (e1) return NextResponse.json({ ok: false, error: e1.message }, { status: 500 });
+  const ids = (links ?? []).map((x: any) => x.client_id);
 
-  const select = { id: true, name: true, email: true, role: true } as const;
+  if (ids.length === 0) return NextResponse.json({ ok: true, items: [] });
 
-  // Helpers de queries
-  const qClients = prisma.user.findMany({ where: { role: "CLIENT" }, select, orderBy: { name: "asc" } });
-  const qTrainers = isAdmin(role)
-    ? prisma.user.findMany({ where: { role: "TRAINER" }, select, orderBy: { name: "asc" } })
-    : prisma.user.findMany({ where: { id: meId }, select }); // trainer só ele próprio
+  // 2) perfis/ users
+  const { data: users, error: e2 } = await sb
+    .from('users')
+    .select('id, name, email, role, status, created_at')
+    .in('id', ids)
+    .order('created_at', { ascending: false });
 
-  if (roleFilter === "CLIENT") {
-    return NextResponse.json({ clients: await qClients });
-  }
-  if (roleFilter === "TRAINER") {
-    return NextResponse.json({ trainers: await qTrainers });
-  }
+  if (e2) return NextResponse.json({ ok: false, error: e2.message }, { status: 500 });
 
-  const [clients, trainers] = await Promise.all([qClients, qTrainers]);
-  return NextResponse.json({ clients, trainers });
+  return NextResponse.json({ ok: true, items: users ?? [] });
 }

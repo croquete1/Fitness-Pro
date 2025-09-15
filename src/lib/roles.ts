@@ -1,51 +1,71 @@
 // src/lib/roles.ts
+
+/** Roles do lado da BD (schema) */
 export type DbRole = 'ADMIN' | 'TRAINER' | 'CLIENT';
+
+/** Roles canónicos da app (UI/Lógica) */
 export type AppRole = 'ADMIN' | 'PT' | 'CLIENT';
 
-// Aliases aceites em runtime → role canónica da App
-const ROLE_ALIASES: Record<string, AppRole> = {
-  // Admin
-  ADMIN: 'ADMIN', Admin: 'ADMIN', admin: 'ADMIN',
+/** Conjunto útil para validações/UX */
+export const APP_ROLES: Readonly<AppRole[]> = ['ADMIN', 'PT', 'CLIENT'] as const;
+export const DB_ROLES: Readonly<DbRole[]> = ['ADMIN', 'TRAINER', 'CLIENT'] as const;
 
-  // Trainer/PT
-  TRAINER: 'PT', Trainer: 'PT', trainer: 'PT',
-  PT: 'PT', Pt: 'PT', pt: 'PT',
-
-  // Client
-  CLIENT: 'CLIENT', Client: 'CLIENT', client: 'CLIENT',
+/**
+ * Tabela de normalização (sempre em UPPERCASE):
+ * - ADMIN   -> ADMIN
+ * - TRAINER -> PT
+ * - PT      -> PT
+ * - CLIENT  -> CLIENT
+ */
+const ROLE_ALIASES_UPPER: Record<string, AppRole> = {
+  ADMIN: 'ADMIN',
+  TRAINER: 'PT',
+  PT: 'PT',
+  CLIENT: 'CLIENT',
 };
 
-// ---- Normalização (UI/App) ----
+// -------- Normalização (UI/App) --------
+
+/** Converte qualquer input numa AppRole canónica, ou null se inválido. */
 export function toAppRole(input: unknown): AppRole | null {
-  if (input == null) return null;
-  const key = String(input).trim();
-  return ROLE_ALIASES[key] ?? null;
+  const key = String(input ?? '').trim().toUpperCase();
+  return ROLE_ALIASES_UPPER[key] ?? null;
 }
 
-// Compatibilidade: alguns módulos usam "normalizeRole"
+/** Compatibilidade antiga */
 export const normalizeRole = toAppRole;
 
-// ---- Converters DB <-> App ----
+// -------- Converters DB <-> App --------
+
+/** DB ➜ App: TRAINER vira PT; restantes mantêm. */
 export function dbRoleToAppRole(input: DbRole | string): AppRole | null {
-  if (input == null) return null;
-  const v = String(input).trim().toUpperCase();
-  if (v === 'TRAINER') return 'PT';
-  if (v === 'ADMIN') return 'ADMIN';
-  if (v === 'CLIENT') return 'CLIENT';
-  return toAppRole(input);
+  const v = String(input ?? '').trim().toUpperCase();
+  return toAppRole(v);
 }
 
+/** App ➜ DB: PT vira TRAINER; restantes mantêm. */
 export function appRoleToDbRole(input: AppRole | string): DbRole | null {
-  if (input == null) return null;
-  const v = String(input).trim().toUpperCase();
+  const v = String(input ?? '').trim().toUpperCase();
+  if (v === 'PT' || v === 'TRAINER') return 'TRAINER';
   if (v === 'ADMIN') return 'ADMIN';
   if (v === 'CLIENT') return 'CLIENT';
-  if (v === 'PT' || v === 'TRAINER') return 'TRAINER';
   return null;
 }
 
-// ---- Type guards ----
+// -------- Type guards / helpers --------
+
 export const isAdmin   = (r: unknown) => toAppRole(r) === 'ADMIN';
 export const isPT      = (r: unknown) => toAppRole(r) === 'PT';
-export const isTrainer = (r: unknown) => toAppRole(r) === 'PT';   // alias para compatibilidade
+export const isTrainer = (r: unknown) => toAppRole(r) === 'PT'; // alias p/ compatibilidade
 export const isClient  = (r: unknown) => toAppRole(r) === 'CLIENT';
+
+/** Lança erro se o role não for reconhecido — útil em código de servidor. */
+export function assertAppRole(input: unknown): asserts input is AppRole {
+  const role = toAppRole(input);
+  if (!role) throw new Error('Invalid role');
+}
+
+/** Devolve sempre uma AppRole (fallback para CLIENT) — útil em UI. */
+export function getAppRoleOrClient(input: unknown): AppRole {
+  return toAppRole(input) ?? 'CLIENT';
+}

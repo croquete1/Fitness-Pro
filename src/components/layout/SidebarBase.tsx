@@ -2,82 +2,54 @@
 
 import React from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { useSidebar } from './SidebarProvider';
 
-type NavItem = {
+export type NavItem = {
   href: string;
   label: string;
   icon?: React.ReactNode;
-  activePrefix?: string | string[];
+  /** Ativa o item quando o pathname começa com este prefixo */
+  activePrefix?: string;
+  /** Força o estado ativo manualmente (tem prioridade sobre activePrefix) */
+  active?: boolean;
 };
 
-type Props = {
-  brand?: { logoSrc?: string; name?: string; href?: string };
-  sections: Array<{ title?: string; items: NavItem[] }>;
-};
-
-export default function SidebarBase({ brand, sections }: Props) {
-  const pathname = usePathname();
-  const { pinned, collapsed, togglePinned, toggleCollapsed } = useSidebar();
-
-  const isActive = React.useCallback(
-    (item: NavItem) => {
-      const prefixes = Array.isArray(item.activePrefix) ? item.activePrefix : item.activePrefix ? [item.activePrefix] : [item.href];
-      return prefixes.some((p) => pathname?.startsWith(p));
-    },
-    [pathname]
-  );
+export default function SidebarBase({
+  items,
+  header,
+  className = '',
+}: {
+  items: NavItem[];
+  header?: React.ReactNode;
+  className?: string;
+}) {
+  const pathname = usePathname() ?? '';
 
   return (
-    <aside className="fp-sidebar">
-      <div className="fp-sb-head">
-        <Link href={brand?.href ?? '/dashboard'} className="fp-sb-brand" aria-label="Ir para dashboard">
-          <span className="logo" aria-hidden>
-            <Image src={brand?.logoSrc ?? '/logo.svg'} alt="" width={32} height={32} priority />
-          </span>
-          <strong style={{ fontSize: 15, lineHeight: 1.1 }}>{brand?.name ?? 'Fitness Pro'}</strong>
-        </Link>
-
-        <div className="fp-sb-actions">
-          <button
-            type="button"
-            className={`btn icon btn-pin${pinned ? ' is-pinned' : ''}`}
-            title={pinned ? 'Desafixar' : 'Afixar'}
-            aria-pressed={pinned}
-            onClick={togglePinned}
-          >
-            📌
-          </button>
-          <button
-            type="button"
-            className="btn icon btn-toggle"
-            title={collapsed ? 'Expandir' : 'Compactar'}
-            aria-pressed={collapsed}
-            onClick={toggleCollapsed}
-          >
-            ⇔
-          </button>
-        </div>
+    <aside className={`w-full md:w-64 shrink-0 ${className}`}>
+      <div className="sticky top-0">
+        {header ?? null}
+        <nav className="p-3 space-y-1">
+          {items.map((it) => {
+            const isActive =
+              typeof it.active === 'boolean'
+                ? it.active
+                : !!(it.activePrefix && pathname.startsWith(it.activePrefix));
+            return (
+              <Link
+                key={it.href + it.label}
+                href={it.href}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition
+                  ${isActive ? 'bg-slate-900 text-white' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}
+                `}
+              >
+                <span className="text-base">{it.icon ?? '•'}</span>
+                <span>{it.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
       </div>
-
-      <nav className="fp-nav" aria-label="Navegação principal">
-        {sections.map((sec, idx) => (
-          <div className="nav-group" key={idx}>
-            {sec.title && <div className="nav-section">{sec.title}</div>}
-            {sec.items.map((it) => {
-              const active = isActive(it);
-              return (
-                <Link key={it.href} href={it.href} className="nav-item" data-active={active ? 'true' : 'false'}>
-                  <span className="nav-icon" aria-hidden>{it.icon ?? <span className="nav-emoji">📄</span>}</span>
-                  <span className="nav-label">{it.label}</span>
-                </Link>
-              );
-            })}
-          </div>
-        ))}
-      </nav>
     </aside>
   );
 }

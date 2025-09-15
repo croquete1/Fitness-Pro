@@ -1,5 +1,5 @@
 // src/lib/auth.ts
-import { getServerSession } from 'next-auth';
+;
 import type { NextAuthOptions, DefaultSession } from 'next-auth';
 
 /**

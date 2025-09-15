@@ -2,8 +2,8 @@
 export const dynamic = 'force-dynamic';
 
 import React from 'react';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+;
+import { getSessionUserSafe, assertRole } from '@/lib/session-bridge';
 import { redirect } from 'next/navigation';
 import { toAppRole } from '@/lib/roles';
 import DashboardFrame from '@/components/layout/DashboardFrame';
@@ -13,15 +13,13 @@ export default async function DashboardRootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getServerSession(authOptions);
-  const user = (session as any)?.user;
-
-  if (!user?.id) {
+  const sessionUser = await getSessionUserSafe();
+  if (!sessionUser?.id) {
     redirect('/login');
   }
 
-  const role = toAppRole(user.role) ?? 'CLIENT';
-  const userLabel = user.name || user.email || 'Utilizador';
+  const role = toAppRole(sessionUser.role) ?? 'CLIENT';
+  const userLabel = sessionUser.name || sessionUser.email || 'Utilizador';
 
   return (
     <DashboardFrame role={role} userLabel={userLabel}>

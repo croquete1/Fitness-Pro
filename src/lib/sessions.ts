@@ -19,7 +19,7 @@ export type SessionUser = {
  * - Converte qualquer valor de role para "admin" | "pt" | "client".
  */
 export async function getSessionUser(): Promise<SessionUser | null> {
-  const session = await getServerSession(authOptions);
+  const user = await getSessionUserSafe();
   const u = session?.user as
     | { id?: string; name?: string | null; email?: string | null; role?: unknown }
     | undefined;

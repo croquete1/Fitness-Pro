@@ -1,119 +1,126 @@
 // src/app/api/pt/sessions/check/route.ts
-export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
-
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getSessionUserSafe } from '@/lib/session-bridge';
+import { toAppRole } from '@/lib/roles';
 import { createServerClient } from '@/lib/supabaseServer';
 
-type RawSession = {
-  id: string;
-  scheduled_at: string;
-  duration_min: number | null;
-  status: string | null;
-  location?: string | null;       // texto
-};
+/**
+ * GET /api/pt/sessions/check?start=...&end=...&trainerId=...&excludeSessionId=...
+ * Verifica disponibilidade do treinador entre start e end.
+ * - start/end: ISO string
+ * - trainerId (opcional): apenas permitido para ADMIN; caso contrário usa o próprio PT
+ * - excludeSessionId (opcional): ignora uma sessão específica (edição)
+ */
+export async function GET(req: Request): Promise<Response> {
+  // Auth
+  const me = await getSessionUserSafe();
+  if (!me?.id) return new NextResponse('Unauthorized', { status: 401 });
 
-export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
-  const meId = (session as any)?.user?.id as string | undefined;
-  if (!meId) return new NextResponse('Unauthorized', { status: 401 });
-
-  const url = new URL(req.url);
-  const startIso = url.searchParams.get('start');
-  const dur = Number(url.searchParams.get('dur') ?? 60);
-  const baseBuffer = Math.max(0, Number(url.searchParams.get('buffer') ?? 10));
-  const locLabel = url.searchParams.get('loc'); // nome do local (texto)
-
-  if (!startIso || !Number.isFinite(dur) || dur <= 0) {
-    return new NextResponse('Bad Request', { status: 400 });
+  const role = toAppRole(me.role);
+  if (role !== 'PT' && role !== 'ADMIN') {
+    return new NextResponse('Forbidden', { status: 403 });
   }
 
-  const start = new Date(startIso);
-  const end = new Date(start.getTime() + dur * 60_000);
+  const url = new URL(req.url);
+  const startStr = url.searchParams.get('start');
+  const endStr = url.searchParams.get('end');
+  const trainerIdParam = url.searchParams.get('trainerId');
+  const excludeSessionId = url.searchParams.get('excludeSessionId') ?? null;
+
+  if (!startStr || !endStr) {
+    return NextResponse.json(
+      { ok: false, error: 'Missing start or end ISO parameters' },
+      { status: 400 }
+    );
+  }
+
+  const start = new Date(startStr);
+  const end = new Date(endStr);
+  if (isNaN(start.getTime()) || isNaN(end.getTime()) || start >= end) {
+    return NextResponse.json(
+      { ok: false, error: 'Invalid start/end range' },
+      { status: 400 }
+    );
+  }
+
+  // ADMIN pode consultar outro trainer; PT só o seu
+  const trainerId = role === 'ADMIN' && trainerIdParam ? trainerIdParam : me.id;
 
   const sb = createServerClient();
 
-  // 1) sessões +-1 dia
-  const dayBefore = new Date(start); dayBefore.setDate(dayBefore.getDate() - 1);
-  const dayAfter  = new Date(end);   dayAfter.setDate(dayAfter.getDate() + 1);
+  // Janela diária para otimizar query
+  const dayStart = new Date(start); dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date(start); dayEnd.setHours(23, 59, 59, 999);
 
-  const { data: ses, error: qErr } = await sb
-    .from('sessions')
-    .select('id, scheduled_at, duration_min, status, location')
-    .eq('trainer_id', meId)
-    .neq('status', 'cancelada')
-    .gte('scheduled_at', dayBefore.toISOString())
-    .lte('scheduled_at', dayAfter.toISOString());
-
-  if (qErr) return new NextResponse(qErr.message, { status: 500 });
-
-  // 2) bloqueios pessoais (tabela opcional: trainer_blocks)
-  let blocks: { start_at: string; end_at: string }[] = [];
   try {
-    const { data } = await sb
-      .from('trainer_blocks')
-      .select('start_at, end_at')
-      .eq('trainer_id', meId)
-      .lte('start_at', dayAfter.toISOString())
-      .gte('end_at', dayBefore.toISOString());
-    blocks = data ?? [];
-  } catch { /* tabela pode não existir: ignora */ }
+    // 1) Sessões marcadas do treinador no dia
+    const { data: sessions, error: sessErr } = await sb
+      .from('sessions' as any)
+      .select('id, trainer_id, client_id, scheduled_at, duration_min')
+      .eq('trainer_id', trainerId)
+      .gte('scheduled_at', dayStart.toISOString())
+      .lte('scheduled_at', dayEnd.toISOString());
 
-  // 3) travel extra (opcional) a partir do local escolhido
-  let travelExtra = 0;
-  if (locLabel) {
-    try {
-      const { data: loc } = await sb
-        .from('trainer_locations')
-        .select('name, travel_min')
-        .eq('trainer_id', meId)
-        .eq('name', locLabel)
-        .single();
-      travelExtra = Number(loc?.travel_min ?? 0);
-    } catch { /* tabela pode não existir */ }
-  }
-
-  // conflitos
-  const conflicts: { id?: string; start: string; end: string; type: 'overlap' | 'buffer' | 'block' }[] = [];
-
-  // a) bloqueios
-  for (const b of blocks) {
-    const bStart = new Date(b.start_at);
-    const bEnd = new Date(b.end_at);
-    if (start < bEnd && end > bStart) {
-      conflicts.push({ start: bStart.toISOString(), end: bEnd.toISOString(), type: 'block' });
-    }
-  }
-
-  // b) sessões
-  for (const s of (ses ?? []) as RawSession[]) {
-    const sStart = new Date(s.scheduled_at);
-    const sEnd = new Date(sStart.getTime() + (Number(s.duration_min || 60) * 60_000));
-
-    // overlap clássico
-    if (start < sEnd && end > sStart) {
-      conflicts.push({ id: s.id, start: sStart.toISOString(), end: sEnd.toISOString(), type: 'overlap' });
-      continue;
+    if (sessErr) {
+      return NextResponse.json({ ok: false, error: sessErr.message }, { status: 500 });
     }
 
-    // buffer dinâmico: se local diferente, adiciona travelExtra
-    const extra = locLabel && s.location && s.location !== locLabel ? travelExtra : 0;
-    const eff = baseBuffer + extra;
+    // 2) Folgas do treinador nesse dia
+    const yyyy = String(start.getFullYear()).padStart(4, '0');
+    const mm = String(start.getMonth() + 1).padStart(2, '0');
+    const dd = String(start.getDate()).padStart(2, '0');
+    const dateStr = `${yyyy}-${mm}-${dd}`;
 
-    const nearPrev = Math.abs(start.getTime() - sEnd.getTime()) < eff * 60_000;
-    const nearNext = Math.abs(sStart.getTime() - end.getTime()) < eff * 60_000;
-    if (nearPrev || nearNext) {
-      conflicts.push({ id: s.id, start: sStart.toISOString(), end: sEnd.toISOString(), type: 'buffer' });
+    const { data: daysOff, error: offErr } = await sb
+      .from('pt_days_off' as any)
+      .select('id, date, start_time, end_time, reason')
+      .eq('trainer_id', trainerId)
+      .eq('date', dateStr);
+
+    if (offErr) {
+      return NextResponse.json({ ok: false, error: offErr.message }, { status: 500 });
     }
-  }
 
-  return NextResponse.json({
-    ok: true,
-    conflict: conflicts.length > 0,
-    conflicts,
-    bufferMin: baseBuffer,
-    travelExtra,
-  });
+    // Helpers
+    const overlaps = (aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) =>
+      aStart < bEnd && bStart < aEnd;
+
+    // Conflitos com sessões
+    const sessionConflicts =
+      (sessions ?? [])
+        .filter((s: any) => (excludeSessionId ? s.id !== excludeSessionId : true))
+        .filter((s: any) => {
+          const sStart = new Date(s.scheduled_at);
+          const dur = Number(s.duration_min ?? 60);
+          const sEnd = new Date(sStart.getTime() + dur * 60 * 1000);
+          return overlaps(start, end, sStart, sEnd);
+        });
+
+    // Conflitos com folgas (usa hora local do PT/servidor)
+    const dayOffConflicts =
+      (daysOff ?? []).filter((d: any) => {
+        // d.start_time e d.end_time no formato 'HH:MM' (assumido)
+        const [sh, sm] = String(d.start_time ?? '00:00').split(':').map(Number);
+        const [eh, em] = String(d.end_time ?? '23:59').split(':').map(Number);
+        const offStart = new Date(dayStart); offStart.setHours(sh || 0, sm || 0, 0, 0);
+        const offEnd = new Date(dayStart); offEnd.setHours(eh || 23, em || 59, 59, 999);
+        return overlaps(start, end, offStart, offEnd);
+      });
+
+    const available = sessionConflicts.length === 0 && dayOffConflicts.length === 0;
+
+    return NextResponse.json({
+      ok: true,
+      trainerId,
+      start: start.toISOString(),
+      end: end.toISOString(),
+      available,
+      conflicts: {
+        sessions: sessionConflicts,
+        days_off: dayOffConflicts,
+      },
+    });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message ?? 'unexpected_error' }, { status: 500 });
+  }
 }

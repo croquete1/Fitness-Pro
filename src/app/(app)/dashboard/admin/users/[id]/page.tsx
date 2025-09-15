@@ -1,84 +1,49 @@
 export const dynamic = 'force-dynamic';
 
-import prisma from '@/lib/prisma';
-import { notFound, redirect } from 'next/navigation';
+import { redirect, notFound } from 'next/navigation';
+import type { Route } from 'next';
 import PageHeader from '@/components/ui/PageHeader';
 import Card, { CardContent } from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
-import ClientSheet from '@/components/client/ClientSheet';
-import TrainerLinks from '@/components/client/TrainerLinks';
-import ApproveSuspendActions from '@/components/admin/ApproveSuspendActions';
-import { dbRoleToAppRole, toAppRole } from '@/lib/roles';
-import type { AppRole, DbRole } from '@/lib/roles';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-
-type UiUser = {
-  id: string;
-  name: string | null;
-  email: string;
-  role: AppRole;
-  status: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
-  createdAt: string;
-};
-type UiTrainer = { id: string; name: string | null; email: string };
+import { getSessionUserSafe } from '@/lib/session-bridge';
+import { toAppRole } from '@/lib/roles';
+import { createServerClient } from '@/lib/supabaseServer';
 
 export default async function UserProfile({ params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) redirect('/login');
-  if (toAppRole(session.user.role) !== 'ADMIN') redirect('/dashboard');
+  const session = await getSessionUserSafe();
+  const viewer = (session as any)?.user;
+  if (!viewer?.id) redirect('/login' as Route);
+  if (toAppRole(viewer.role) !== 'ADMIN') redirect('/dashboard' as Route);
 
-  const userRaw = await prisma.user.findUnique({
-    where: { id: params.id },
-    select: { id: true, name: true, email: true, role: true, status: true, createdAt: true },
-  });
-  if (!userRaw) return notFound();
+  const sb = createServerClient();
+  const { data: u } = await sb
+    .from('users')
+    .select('id,name,email,role,status,created_at')
+    .eq('id', params.id)
+    .single();
 
-  const user: UiUser = {
-    id: userRaw.id,
-    name: userRaw.name,
-    email: userRaw.email,
-    role: (dbRoleToAppRole(userRaw.role as DbRole) ?? 'CLIENT') as AppRole,
-    status: userRaw.status as UiUser['status'],
-    createdAt: userRaw.createdAt.toISOString(),
-  };
-
-  const trainers: UiTrainer[] = await prisma.user.findMany({
-    where: { role: 'TRAINER', status: 'ACTIVE' },
-    select: { id: true, name: true, email: true },
-    orderBy: { name: 'asc' },
-  });
-
-  const links = await prisma.$queryRawUnsafe<{ trainer_id: string }[]>(
-    'select trainer_id from trainer_clients where client_id = $1',
-    user.id
-  );
-  const currentTrainerIds = [...new Set(links.map((l) => l.trainer_id))];
+  if (!u) return notFound();
 
   return (
     <div style={{ display: 'grid', gap: 12, padding: 12 }}>
       <PageHeader
-        title={`👤 ${user.name ?? user.email}`}
+        title={`👤 ${u.name ?? u.email}`}
         subtitle={
           <>
-            <Badge variant={user.role === 'ADMIN' ? 'info' : user.role === 'PT' ? 'primary' : 'neutral'}>
-              {user.role}
-            </Badge>{' '}
-            <Badge variant={user.status === 'ACTIVE' ? 'success' : user.status === 'PENDING' ? 'warning' : 'neutral'}>
-              {user.status}
+            <Badge variant={u.role === 'ADMIN' ? 'info' : u.role === 'PT' ? 'primary' : 'neutral'}>{u.role}</Badge>{' '}
+            <Badge variant={u.status === 'ACTIVE' ? 'success' : u.status === 'PENDING' ? 'warning' : 'neutral'}>
+              {u.status}
             </Badge>
           </>
         }
-        actions={<ApproveSuspendActions userId={user.id} status={user.status} />}
       />
-
       <Card>
         <CardContent>
-          <ClientSheet user={user} trainers={trainers} currentTrainerIds={currentTrainerIds} />
-          <div style={{ height: 12 }} />
-          <h3 style={{ margin: 0 }}>Vínculos PT</h3>
-          <div style={{ height: 8 }} />
-          <TrainerLinks clientId={user.id} trainers={trainers} currentTrainerIds={currentTrainerIds} />
+          <div style={{ display: 'grid', gap: 8 }}>
+            <div><strong>ID:</strong> {u.id}</div>
+            <div><strong>Email:</strong> {u.email}</div>
+            <div><strong>Criado em:</strong> {u.created_at ? new Date(u.created_at).toLocaleString('pt-PT') : '—'}</div>
+          </div>
         </CardContent>
       </Card>
     </div>

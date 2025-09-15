@@ -1,28 +1,34 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { createServerClient } from '@/lib/supabaseServer';
+import { requireAdminGuard, isGuardErr } from '@/lib/api-guards';
 
-export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
-  const user = (session as any)?.user;
-  if (!user?.id) return new NextResponse('Unauthorized', { status: 401 });
+type NotificationRow = {
+  id: string;
+  user_id: string | null;
+  title: string | null;
+  body: string | null;
+  read: boolean | null;
+  created_at: string | null;
+};
 
-  const url = new URL(req.url);
-  const filter = url.searchParams.get('filter') || 'all'; // all | unread
-  const limit = Math.min(Number(url.searchParams.get('limit') || 50), 200);
+/** GET /api/admin/notifications  (ADMIN only) */
+export async function GET(): Promise<Response> {
+  const guard = await requireAdminGuard();
+  if (isGuardErr(guard)) return guard.response;
 
   const sb = createServerClient();
-  let q = sb.from('notifications')
-    .select('id,title,body,link,read,created_at')
-    .eq('user_id', user.id)
+  const { data, error } = await sb
+    .from('notifications')
+    .select('id,user_id,title,body,read,created_at')
     .order('created_at', { ascending: false })
-    .limit(limit);
+    .limit(200);
 
-  if (filter === 'unread') q = q.eq('read', false);
+  if (error) {
+    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  }
 
-  const { data, error } = await q;
-  if (error) return new NextResponse(error.message, { status: 500 });
-
-  return NextResponse.json({ items: data ?? [] });
+  return NextResponse.json(
+    { ok: true, items: (data ?? []) as NotificationRow[] },
+    { status: 200 }
+  );
 }

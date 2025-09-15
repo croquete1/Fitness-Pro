@@ -445,3 +445,18 @@ h1, .h1 {
 .visually-hidden{
   position:absolute !important; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0;
 }
+/* KPI palette */
+.kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; }
+@media (max-width: 1024px){ .kpi-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+.kpi { border-radius: 16px; padding: 14px; color: #0b1220; box-shadow: var(--shadow-1); border: 1px solid var(--border); }
+.kpi .kpi-label { font-size: 13px; opacity: .9; }
+.kpi .kpi-value { font-weight: 800; font-size: 22px; line-height: 1.1; margin-top: 4px; }
+.kpi--blue    { background: linear-gradient(180deg, #e6f0ff, #dbeafe); }
+.kpi--violet  { background: linear-gradient(180deg, #efe5ff, #e9d5ff); }
+.kpi--green   { background: linear-gradient(180deg, #e7fff2, #d1fae5); }
+.kpi--amber   { background: linear-gradient(180deg, #fff5e5, #fee2b6); }
+[data-theme="dark"] .kpi { color: #eaf0ff; border-color: color-mix(in oklab, var(--border) 60%, transparent); }
+[data-theme="dark"] .kpi--blue   { background: linear-gradient(180deg, #0b244a, #0f2d63); }
+[data-theme="dark"] .kpi--violet { background: linear-gradient(180deg, #2b1a55, #3a1f7a); }
+[data-theme="dark"] .kpi--green  { background: linear-gradient(180deg, #0f3b29, #11543a); }
+[data-theme="dark"] .kpi--amber  { background: linear-gradient(180deg, #4a2c0b, #633e0f); }

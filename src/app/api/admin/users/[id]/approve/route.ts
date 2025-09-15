@@ -1,15 +1,48 @@
-// src/app/api/admin/users/[id]/approve/route.ts
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { getSessionUserSafe } from '@/lib/session-bridge';
+import { toAppRole } from '@/lib/roles';
+import { createServerClient } from '@/lib/supabaseServer';
 
-export async function POST(_: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as any)?.role?.toUpperCase?.();
-  if (role !== 'ADMIN') return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+export async function POST(
+  _req: Request,
+  { params }: { params: { id: string } }
+): Promise<NextResponse> {
+  // Autenticação
+  const me = await getSessionUserSafe();
+  if (!me?.id) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  }
 
-  const id = params.id;
-  await prisma.user.update({ where: { id }, data: { status: 'ACTIVE' as any } });
-  return NextResponse.json({ ok: true });
+  // Autorização
+  const role = toAppRole(me.role);
+  if (role !== 'ADMIN') {
+    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  }
+
+  const userId = params.id;
+  const sb = createServerClient();
+
+  // Aprovar utilizador (status -> ACTIVE)
+  const { data, error } = await sb
+    .from('users')
+    .update({ status: 'ACTIVE' })
+    .eq('id', userId)
+    .select('id')
+    .single();
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+  if (!data) {
+    return NextResponse.json({ error: 'not_found' }, { status: 404 });
+  }
+
+  // (Opcional) Se tiveres colunas de auditoria, descomenta:
+  // await sb.from('audit_logs').insert({
+  //   actor_id: me.id,
+  //   kind: 'USER_APPROVED',
+  //   payload: { approved_user_id: userId },
+  // });
+
+  return NextResponse.json({ ok: true, id: data.id });
 }

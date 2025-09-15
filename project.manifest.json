@@ -13,8 +13,7 @@
     "src/app/login/LoginClient.tsx",
     "src/app/(app)/dashboard/page.tsx",
     "src/components/dashboard/Tabs.tsx",
-    "src/components/dashboard/AdminCountCard.tsx",
-    "prisma/schema.prisma"
+    "src/components/dashboard/AdminCountCard.tsx"
   ],
   "optional": [
     "src/app/api/admin/reset-password/route.ts",

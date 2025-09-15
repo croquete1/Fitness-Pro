@@ -1,46 +1,55 @@
+// src/app/api/admin/users/[id]/status/route.ts
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import prisma from '@/lib/prisma';
+import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole } from '@/lib/roles';
+import { createServerClient } from '@/lib/supabaseServer';
 
-type Body = { status: 'ACTIVE' | 'SUSPENDED' | 'PENDING' };
+type Body = {
+  status: 'ACTIVE' | 'SUSPENDED' | 'PENDING'; // ajusta se tiveres mais estados
+};
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return new NextResponse('Unauthorized', { status: 401 });
-  if (toAppRole(session.user.role) !== 'ADMIN') return new NextResponse('Forbidden', { status: 403 });
-
-  let body: Body;
-  try {
-    body = await req.json();
-  } catch {
-    return new NextResponse('Invalid JSON', { status: 400 });
+export async function PATCH(
+  req: Request,
+  { params }: { params: { id: string } }
+): Promise<NextResponse> {
+  // Autenticação
+  const me = await getSessionUserSafe();
+  if (!me?.id) {
+    return new NextResponse('Unauthorized', { status: 401 });
   }
 
-  if (!['ACTIVE', 'SUSPENDED', 'PENDING'].includes(body.status))
-    return new NextResponse('Invalid status', { status: 400 });
+  // Autorização: apenas ADMIN
+  const role = toAppRole(me.role);
+  if (role !== 'ADMIN') {
+    return new NextResponse('Forbidden', { status: 403 });
+  }
 
-  const updated = await prisma.user.update({
-    where: { id: params.id },
-    data: { status: body.status },
-    select: { id: true, status: true, updatedAt: true },
-  });
-
-  // opcional: log
+  // Body
+  let body: Body;
   try {
-    await prisma.auditLog.create({
-      data: {
-        actorId: String(session.user.id),
-        kind: 'ACCOUNT_STATUS_CHANGE',
-        action: `STATUS:${body.status}`,
-        target: 'USER',
-        targetId: params.id,
-        targetType: 'user',
-        meta: { old: null, new: body.status },
-      } as any,
-    });
-  } catch {}
+    body = (await req.json()) as Body;
+  } catch {
+    return NextResponse.json({ error: 'invalid_json' }, { status: 400 });
+  }
 
-  return NextResponse.json({ ok: true, user: updated });
+  if (!body?.status || !['ACTIVE', 'SUSPENDED', 'PENDING'].includes(body.status)) {
+    return NextResponse.json({ error: 'invalid_status' }, { status: 400 });
+  }
+
+  const userId = params.id;
+  const sb = createServerClient();
+
+  const { data, error } = await sb
+    .from('users')
+    .update({ status: body.status })
+    .eq('id', userId)
+    .select('id, status')
+    .single();
+
+  if (error) {
+    // Se precisares de distinguir 404, podes inspecionar error.details / error.code
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true, id: data.id, status: data.status });
 }

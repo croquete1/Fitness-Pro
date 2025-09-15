@@ -1,27 +1,30 @@
-// src/app/api/push/register/route.ts
-export const dynamic = 'force-dynamic';
-
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { createServerClient } from '@/lib/supabaseServer';
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  const user = (session as any)?.user;
-  if (!user?.id) return new NextResponse('Unauthorized', { status: 401 });
-
-  const sub = await req.json().catch(() => null);
-  if (!sub?.endpoint) return new NextResponse('Bad Request', { status: 400 });
-
-  const { endpoint, keys } = sub;
-  const p256dh = keys?.p256dh ?? null;
-  const auth = keys?.auth ?? null;
-
   const sb = createServerClient();
-  await sb
-    .from('push_subscriptions')
-    .upsert({ user_id: user.id, endpoint, p256dh, auth }, { onConflict: 'endpoint' });
+  const data = (await req.json().catch(() => null)) as
+    | { name?: string; email?: string; role?: string }
+    | null;
 
-  return NextResponse.json({ ok: true });
+  if (!data?.email) {
+    return NextResponse.json({ ok: false, error: 'Email é obrigatório' }, { status: 400 });
+  }
+
+  // Guarda pedido de registo para aprovação (ajusta para a tua tabela real)
+  const { error } = await sb.from('register_requests').insert([
+    {
+      name: data.name ?? null,
+      email: data.email,
+      role: data.role ?? 'CLIENT',
+      status: 'PENDING',
+      created_at: new Date().toISOString(),
+    },
+  ]);
+
+  if (error) {
+    return NextResponse.json({ ok: false, error: error.message }, { status: 200 });
+  }
+
+  return NextResponse.json({ ok: true }, { status: 200 });
 }

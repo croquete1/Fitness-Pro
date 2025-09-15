@@ -1,69 +1,123 @@
-// src/app/(app)/dashboard/pt/plans/[id]/page.tsx
-import { redirect } from 'next/navigation';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { Role } from '@prisma/client';
-import { createServerClient } from '@/lib/supabaseServer';
-import { toStatus, statusLabel } from '@/lib/status';
-import PlanViewBeacon from '@/components/PlanViewBeacon';
-
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-export const fetchCache = 'force-no-store';
 
-export default async function Page({ params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  const me = session?.user as any;
-  if (!me?.id) redirect('/login');
-  if (me.role !== Role.ADMIN && me.role !== Role.TRAINER) redirect('/dashboard');
+import { notFound, redirect } from 'next/navigation';
+import type { Route } from 'next';
+import Link from 'next/link';
+import PageHeader from '@/components/ui/PageHeader';
+import Card, { CardContent } from '@/components/ui/Card';
+import { createServerClient } from '@/lib/supabaseServer';
+import { getSessionUserSafe } from '@/lib/session-bridge';
+import { toAppRole } from '@/lib/roles';
+
+type Plan = {
+  id: string;
+  title: string | null;
+  status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED' | null;
+  client_id: string | null;
+  trainer_id: string | null;
+  updated_at: string | null;
+};
+
+function statusBadgeColor(s: Plan['status']) {
+  switch (s) {
+    case 'ACTIVE':
+      return 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-500/20';
+    case 'DRAFT':
+      return 'bg-amber-500/10 text-amber-700 dark:text-amber-300 ring-1 ring-amber-500/20';
+    case 'ARCHIVED':
+      return 'bg-slate-500/10 text-slate-700 dark:text-slate-300 ring-1 ring-slate-500/20';
+    default:
+      return 'bg-slate-500/10 text-slate-700 dark:text-slate-300 ring-1 ring-slate-500/20';
+  }
+}
+
+export default async function PTPlanViewPage({ params }: { params: { id: string } }) {
+  // sessão (SessionUser já vem “flat”: id/role/email)
+  const me = await getSessionUserSafe();
+  if (!me?.id) redirect('/login' as Route);
+
+  const role = toAppRole(me.role) ?? 'CLIENT';
+  if (role !== 'PT' && role !== 'ADMIN') redirect('/dashboard' as Route);
 
   const sb = createServerClient();
-  const { data: plan, error } = await sb.from('training_plans').select('*').eq('id', params.id).single();
-  if (error || !plan) redirect('/dashboard/pt/plans');
 
-  // RBAC simples
-  if (me.role === Role.TRAINER && plan.trainer_id !== me.id) redirect('/dashboard/pt/plans');
-  if (me.role === Role.CLIENT && plan.client_id !== me.id) redirect('/dashboard');
-  if (me.role !== Role.ADMIN && me.role !== Role.TRAINER) redirect('/dashboard');
+  // carrega plano
+  const { data, error } = await sb
+    .from('training_plans')
+    .select('id, title, status, client_id, trainer_id, updated_at')
+    .eq('id', params.id)
+    .maybeSingle();
 
-  const created = plan.created_at ? new Date(plan.created_at).toLocaleString() : '—';
-  const viewed  = plan.viewed_at  ? new Date(plan.viewed_at).toLocaleString()  : '—';
-  const status = toStatus(plan.status);
+  if (error || !data) return notFound();
+
+  const plan: Plan = data as Plan;
+
+  // se for PT, certifica que é o dono do plano
+  if (role === 'PT' && plan.trainer_id && plan.trainer_id !== String(me.id)) {
+    redirect('/dashboard/pt/plans' as Route);
+  }
+
+  const updated = plan.updated_at ? new Date(plan.updated_at).toLocaleString() : '—';
 
   return (
-    <div style={{ padding: 16, display: 'grid', gap: 12 }}>
-      <h1>{plan.title ?? `Plano #${String(plan.id).slice(0, 6)}`}</h1>
-      <PlanViewBeacon planId={String(plan.id)} />
-
-      <div className="card" style={{ padding: 12, display: 'grid', gap: 8 }}>
-        <div className="grid-2">
+    <main className="p-4 md:p-6 space-y-4">
+      {/* Header bonito */}
+      <div className="rounded-2xl p-4 md:p-6 bg-gradient-to-r from-slate-900/90 via-slate-800/80 to-slate-900/90 text-white shadow-sm">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <div className="muted small">Estado</div>
-            <div>
-              <span className={`chip ${status === 'ACTIVE' ? 'chip-success' : status === 'PENDING' ? 'chip-warn' : 'chip-danger'}`}>
-                {statusLabel(status)}
-              </span>
-            </div>
+            <h1 className="text-xl md:text-2xl font-extrabold tracking-tight">
+              {plan.title ?? 'Plano'}
+            </h1>
+            <p className="text-sm opacity-80">ID: {plan.id}</p>
           </div>
-          <div>
-            <div className="muted small">Treinador</div>
-            <div className="mono">{plan.trainer_id ?? '—'}</div>
+          <div className="flex items-center gap-2">
+            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusBadgeColor(plan.status)}`}>
+              {plan.status ?? '—'}
+            </span>
+            <Link
+              href={`/dashboard/pt/plans/${plan.id}/edit` as Route}
+              className="rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 font-semibold"
+            >
+              Editar
+            </Link>
           </div>
-          <div>
-            <div className="muted small">Criado</div>
-            <div>Plano criado a {created}</div>
-          </div>
-          <div>
-            <div className="muted small">Visualização</div>
-            <div>{viewed === '—' ? 'Ainda não visualizado pelo cliente' : `Visualizado a ${viewed}`}</div>
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: 12 }}>
-          <div className="muted">Conteúdo do plano</div>
-          <div style={{ paddingTop: 6 }}>— (integração dos exercícios aqui)</div>
         </div>
       </div>
-    </div>
+
+      {/* Detalhes */}
+      <Card>
+        <CardContent className="grid gap-3 md:grid-cols-2">
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-3">
+            <div className="text-xs opacity-70 mb-1">Cliente</div>
+            <div className="font-semibold">{plan.client_id ?? '—'}</div>
+          </div>
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-3">
+            <div className="text-xs opacity-70 mb-1">Treinador</div>
+            <div className="font-semibold">{plan.trainer_id ?? '—'}</div>
+          </div>
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-3">
+            <div className="text-xs opacity-70 mb-1">Última atualização</div>
+            <div className="font-semibold">{updated}</div>
+          </div>
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-3">
+            <div className="text-xs opacity-70 mb-1">Ações</div>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href={`/dashboard/pt/plans/${plan.id}/edit` as Route}
+                className="btn chip"
+              >
+                ✏️ Editar
+              </Link>
+              <Link
+                href={'/dashboard/pt/plans' as Route}
+                className="btn chip"
+              >
+                ← Voltar
+              </Link>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </main>
   );
 }

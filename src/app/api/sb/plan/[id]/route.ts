@@ -1,83 +1,92 @@
-// src/app/api/sb/plans/[id]/route.ts
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { Role } from '@prisma/client';
 import { createServerClient } from '@/lib/supabaseServer';
+import { getSessionUserSafe } from '@/lib/session-bridge';
+import { toAppRole } from '@/lib/roles';
 
-function canEdit(user: { id: string; role: Role }, plan: { trainer_id: string | null }) {
-  if (user.role === Role.ADMIN) return true;
-  if (user.role === Role.TRAINER && plan.trainer_id === user.id) return true;
-  return false;
-}
+type PlanStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
 
-function shallowDiff(a: any, b: any) {
-  const out: Record<string, { from: any; to: any }> = {};
-  const keys = new Set([...Object.keys(a ?? {}), ...Object.keys(b ?? {})]);
-  for (const k of keys) {
-    const va = JSON.stringify(a?.[k]);
-    const vb = JSON.stringify(b?.[k]);
-    if (va !== vb) out[k] = { from: JSON.parse(va ?? 'null'), to: JSON.parse(vb ?? 'null') };
+type Body = {
+  title?: string;
+  clientId?: string | null;
+  status?: PlanStatus;
+};
+
+export async function GET(_req: Request, { params }: { params: { id: string } }) {
+  const session = await getSessionUserSafe();
+  const user = (session as any)?.user as { id: string; role?: string } | null;
+  if (!user?.id) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+
+  const sb = createServerClient();
+  const { data, error } = await sb
+    .from('training_plans')
+    .select('id, title, status, trainer_id, client_id')
+    .eq('id', params.id)
+    .maybeSingle();
+
+  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (!data) return NextResponse.json({ ok: false, error: 'Not found' }, { status: 404 });
+
+  const role = toAppRole((user as any).role) ?? 'CLIENT';
+  if (role !== 'ADMIN' && data.trainer_id !== user.id) {
+    return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 });
   }
-  return out;
+
+  return NextResponse.json({ ok: true, plan: data });
 }
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  const me = session?.user as any;
-  if (!me?.id) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  const session = await getSessionUserSafe();
+  const user = (session as any)?.user as { id: string; role?: string } | null;
+  if (!user?.id) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+
+  const role = toAppRole(user.role) ?? 'CLIENT';
+  if (role !== 'PT' && role !== 'ADMIN') {
+    return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 });
+  }
+
+  let payload: Body;
+  try {
+    payload = (await req.json()) as Body;
+  } catch {
+    return NextResponse.json({ ok: false, error: 'Invalid JSON' }, { status: 400 });
+  }
+
+  const updates: Record<string, unknown> = {};
+  if (typeof payload.title === 'string' && payload.title.trim().length >= 3) {
+    updates.title = payload.title.trim();
+  }
+  if (payload.status) {
+    updates.status = payload.status;
+  }
+  if (payload.clientId !== undefined) {
+    updates.client_id = payload.clientId || null;
+  }
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ ok: false, error: 'Nada para atualizar' }, { status: 400 });
+  }
 
   const sb = createServerClient();
 
-  // carregar plano atual
-  const { data: current, error: e1 } = await sb
+  // garantir que o utilizador pode editar este plano
+  const { data: plan } = await sb
     .from('training_plans')
-    .select('id,title,notes,exercises,status,trainer_id,client_id,updated_at')
+    .select('id, trainer_id')
     .eq('id', params.id)
-    .single();
-  if (e1 || !current) return NextResponse.json({ error: 'not_found' }, { status: 404 });
+    .maybeSingle();
 
-  if (!canEdit({ id: me.id, role: me.role }, current)) {
-    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  if (!plan) return NextResponse.json({ ok: false, error: 'Not found' }, { status: 404 });
+  if (role !== 'ADMIN' && plan.trainer_id !== user.id) {
+    return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 });
   }
 
-  // body
-  const body = await req.json().catch(() => ({} as any));
-  const updates: any = {};
-  if (typeof body.title === 'string') updates.title = body.title;
-  if (typeof body.notes === 'string' || body.notes === null) updates.notes = body.notes ?? null;
-  if (body.exercises !== undefined) updates.exercises = body.exercises; // JSON
-  if (typeof body.status === 'string') updates.status = body.status;
-
-  if (!Object.keys(updates).length) {
-    return NextResponse.json({ error: 'nada_para_atualizar' }, { status: 400 });
-  }
-
-  // aplicar update
-  const { data: updated, error: e2 } = await sb
+  const { error } = await sb
     .from('training_plans')
     .update(updates)
-    .eq('id', params.id)
-    .select('id,title,notes,exercises,status,trainer_id,client_id,updated_at')
-    .single();
+    .eq('id', params.id);
 
-  if (e2 || !updated) {
-    return NextResponse.json({ error: 'update_failed' }, { status: 500 });
+  if (error) {
+    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
-  // log da alteração no histórico
-  const diff = shallowDiff(
-    { title: current.title, notes: current.notes, exercises: current.exercises, status: current.status },
-    { title: updated.title, notes: updated.notes, exercises: updated.exercises, status: updated.status },
-  );
-
-  await sb.from('training_plan_changes').insert({
-    plan_id: updated.id,
-    actor_id: me.id,
-    change_type: 'update',
-    diff,
-    snapshot: updated,
-  });
-
-  return NextResponse.json({ ok: true, data: updated });
+  return NextResponse.json({ ok: true, id: params.id });
 }

@@ -1,40 +1,86 @@
 // src/app/api/pt/packages/[id]/route.ts
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import type { AppRole } from '@/lib/roles';
-import { toAppRole, isAdmin, isPT } from '@/lib/roles';
+import { createServerClient } from '@/lib/supabaseServer';
+import { getSessionUserSafe } from '@/lib/session-bridge';
+import { toAppRole } from '@/lib/roles';
 
-export async function GET(
-  _req: Request, // underscore evita @typescript-eslint/no-unused-vars
-  { params }: { params: { id: string } }
-) {
-  // 1) Auth
-  const session = await getServerSession(authOptions);
-  const rawUser = session?.user;
-  if (!rawUser?.id) {
-    return new NextResponse('Unauthorized', { status: 401 });
-  }
+type Params = { params: { id: string } };
 
-  // 2) Role normalizada da App
-  const role = toAppRole((rawUser as any).role);
-  if (!role) {
+// GET /api/pt/packages/[id] — obter um pacote
+export async function GET(_req: Request, { params }: Params): Promise<Response> {
+  const me = await getSessionUserSafe();
+  if (!me?.id) return new NextResponse('Unauthorized', { status: 401 });
+
+  const role = toAppRole(me.role);
+  if (role !== 'PT' && role !== 'ADMIN') return new NextResponse('Forbidden', { status: 403 });
+
+  const sb = createServerClient();
+  const { data, error } = await sb
+    .from('pt_packages' as any)
+    .select('*')
+    .eq('id', params.id)
+    .maybeSingle();
+
+  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (!data) return new NextResponse('Not found', { status: 404 });
+
+  if (role === 'PT' && data.trainer_id && data.trainer_id !== me.id) {
     return new NextResponse('Forbidden', { status: 403 });
   }
 
-  // 3) Viewer
-  const me: { id: string; role: AppRole } = { id: String(rawUser.id), role };
+  return NextResponse.json({ ok: true, item: data });
+}
 
-  // 4) Autorização: apenas ADMIN/PT
-  if (!isAdmin(me.role) && !isPT(me.role)) {
-    return new NextResponse('Forbidden', { status: 403 });
+// PATCH /api/pt/packages/[id] — atualizar um pacote
+export async function PATCH(req: Request, { params }: Params): Promise<Response> {
+  const me = await getSessionUserSafe();
+  if (!me?.id) return new NextResponse('Unauthorized', { status: 401 });
+
+  const role = toAppRole(me.role);
+  if (role !== 'PT' && role !== 'ADMIN') return new NextResponse('Forbidden', { status: 403 });
+
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body !== 'object') {
+    return NextResponse.json({ ok: false, error: 'invalid_json' }, { status: 400 });
   }
 
-  // 5) Resposta (placeholder; liga ao prisma quando necessário)
-  const clientId = params.id;
-  return NextResponse.json({
-    ok: true,
-    viewer: { id: me.id, role: me.role },
-    clientId,
-  });
+  const sb = createServerClient();
+
+  // PT não pode trocar id/trainer_id
+  const safePayload =
+    role === 'ADMIN'
+      ? (body as Record<string, unknown>)
+      : Object.fromEntries(
+          Object.entries(body as Record<string, unknown>).filter(
+            ([k]) => k !== 'id' && k !== 'trainer_id'
+          )
+        );
+
+  let q = sb.from('pt_packages' as any).update(safePayload).eq('id', params.id);
+  if (role === 'PT') q = q.eq('trainer_id', me.id);
+
+  const { data, error } = await q.select('*').maybeSingle();
+  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (!data) return new NextResponse('Not found', { status: 404 });
+
+  return NextResponse.json({ ok: true, item: data });
+}
+
+// DELETE /api/pt/packages/[id] — remover um pacote
+export async function DELETE(_req: Request, { params }: Params): Promise<Response> {
+  const me = await getSessionUserSafe();
+  if (!me?.id) return new NextResponse('Unauthorized', { status: 401 });
+
+  const role = toAppRole(me.role);
+  if (role !== 'PT' && role !== 'ADMIN') return new NextResponse('Forbidden', { status: 403 });
+
+  const sb = createServerClient();
+
+  let q = sb.from('pt_packages' as any).delete().eq('id', params.id);
+  if (role === 'PT') q = q.eq('trainer_id', me.id);
+
+  const { error } = await q;
+  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+
+  return NextResponse.json({ ok: true });
 }

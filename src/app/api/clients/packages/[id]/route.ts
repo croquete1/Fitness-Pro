@@ -1,41 +1,56 @@
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-import { requireUser } from '@/lib/authz';
-import { Role } from '@prisma/client';
+import { createServerClient } from '@/lib/supabaseServer';
+import { getSessionUserSafe } from '@/lib/session-bridge';
+import { toAppRole } from '@/lib/roles';
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const guard = await requireUser([Role.ADMIN, Role.TRAINER]);
-  if ('error' in guard) return guard.error;
+// Mantém o tipo leve e seguro sem depender do schema inteiro
+export type RowClientPackage = {
+  id: string;
+  user_id: string;
+  status?: string | null;
+  package_id?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  expires_at?: string | null;
+  [k: string]: unknown;
+};
 
-  const b = await req.json().catch(()=> ({}));
-  const assign = (k: string, v: any) => (v === undefined ? undefined : v);
+export async function GET(
+  _req: Request,
+  { params }: { params: { id: string } }
+): Promise<Response> {
+  const session = await getSessionUserSafe();
+  const meId = session?.id ?? null;
+  const role = toAppRole(session?.role) ?? null;
+  if (!meId) return new NextResponse('Unauthorized', { status: 401 });
 
-  const sets: string[] = [];
-  const args: any[] = [];
-  const push = (sql: string, v: any) => { sets.push(sql); args.push(v); };
+  const sb = createServerClient();
 
-  if (assign('title', b.title) !== undefined)                  push(`title = $${args.length+1}`, String(b.title));
-  if (assign('sessions_included', b.sessionsIncluded) !== undefined) push(`sessions_included = $${args.length+1}`, Number(b.sessionsIncluded));
-  if (assign('sessions_used', b.sessionsUsed) !== undefined)   push(`sessions_used = $${args.length+1}`, Number(b.sessionsUsed));
-  if (assign('price_cents', b.priceCents) !== undefined)       push(`price_cents = $${args.length+1}`, Number(b.priceCents));
-  if (assign('currency', b.currency) !== undefined)            push(`currency = $${args.length+1}`, String(b.currency));
-  if (assign('start_date', b.startDate) !== undefined)         push(`start_date = $${args.length+1}`, b.startDate? new Date(b.startDate): null);
-  if (assign('end_date', b.endDate) !== undefined)             push(`end_date = $${args.length+1}`, b.endDate? new Date(b.endDate): null);
-  if (assign('status', b.status) !== undefined)                push(`status = $${args.length+1}`, String(b.status));
-  if (assign('notes', b.notes) !== undefined)                  push(`notes = $${args.length+1}`, b.notes ?? null);
+  // Por omissão: PT/Admin podem ver qualquer registo
+  let query = sb
+    .from('client_packages')
+    .select('*')
+    .eq('id', params.id)
+    .maybeSingle();
 
-  if (!sets.length) return NextResponse.json({ error:'Nada para atualizar' }, { status:400 });
+  // Cliente só pode ver o próprio registo
+  if (role === 'CLIENT') {
+    query = sb
+      .from('client_packages')
+      .select('*')
+      .eq('id', params.id)
+      .eq('user_id', meId)
+      .maybeSingle();
+  }
 
-  args.push(params.id);
-  const updated = await prisma.$queryRawUnsafe<any[]>(
-    `update client_packages set ${sets.join(', ')} where id = $${args.length} returning *`, ...args
-  );
-  return NextResponse.json(updated[0] ?? null);
-}
+  const { data, error } = await query;
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  await prisma.$executeRawUnsafe(
-    `delete from client_packages where id = $1`, params.id
-  );
-  return NextResponse.json({ ok:true });
+  if (error) {
+    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  }
+  if (!data) {
+    return NextResponse.json({ ok: false, error: 'not_found' }, { status: 404 });
+  }
+
+  return NextResponse.json({ ok: true, item: data as RowClientPackage });
 }

@@ -1,33 +1,64 @@
+// src/app/api/pt/scheduler/meta/route.ts
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { toAppRole } from '@/lib/roles';
 import { createServerClient } from '@/lib/supabaseServer';
+import { getSessionUserSafe } from '@/lib/session-bridge';
+import { toAppRole } from '@/lib/roles';
 
-export async function GET() {
-  const session = await getServerSession(authOptions);
-  const role = toAppRole((session as any)?.user?.role);
-  const trainerId = String((session as any)?.user?.id || '');
+/**
+ * GET /api/pt/scheduler/meta
+ * Devolve meta-informação para o agendador do PT:
+ * - locais do PT (pt_locations)
+ * - folgas/bloqueios (pt_days_off)
+ * Aceita ?trainerId=... se o caller for ADMIN.
+ */
+export async function GET(req: Request): Promise<Response> {
+  // 1) Auth
+  const me = await getSessionUserSafe();
+  if (!me?.id) return new NextResponse('Unauthorized', { status: 401 });
 
-  if (!trainerId) return new NextResponse('Unauthorized', { status: 401 });
-  if (role !== 'PT' && role !== 'ADMIN') return new NextResponse('Forbidden', { status: 403 });
+  const role = toAppRole(me.role);
+  if (role !== 'PT' && role !== 'ADMIN') {
+    return new NextResponse('Forbidden', { status: 403 });
+  }
+
+  // 2) Se ADMIN, pode consultar meta de outro treinador via query param
+  const url = new URL(req.url);
+  const trainerIdParam = url.searchParams.get('trainerId');
+  const trainerId = role === 'ADMIN' && trainerIdParam ? trainerIdParam : me.id;
 
   const sb = createServerClient();
 
-  const nowIso = new Date().toISOString();
-
-  const [{ data: folgas = [] }, { data: locations = [] }] = await Promise.all([
-    sb.from('pt_time_off')
-      .select('id,title,start,end')
+  try {
+    // 3) Locais do PT
+    const { data: locations, error: locErr } = await sb
+      .from('pt_locations' as any)
+      .select('id, trainer_id, name, address, city, created_at')
       .eq('trainer_id', trainerId)
-      .gte('end', nowIso)
-      .order('start', { ascending: true })
-      .limit(8),
-    sb.from('pt_locations')
-      .select('id,name,travel_min')
-      .eq('trainer_id', trainerId)
-      .order('name', { ascending: true }),
-  ]);
+      .order('created_at', { ascending: false });
 
-  return NextResponse.json({ folgas, locations });
+    if (locErr) {
+      return NextResponse.json({ ok: false, error: locErr.message }, { status: 500 });
+    }
+
+    // 4) Folgas / bloqueios do PT
+    const { data: daysOff, error: offErr } = await sb
+      .from('pt_days_off' as any)
+      .select('id, trainer_id, date, start_time, end_time, reason, created_at')
+      .eq('trainer_id', trainerId)
+      .order('date', { ascending: true });
+
+    if (offErr) {
+      return NextResponse.json({ ok: false, error: offErr.message }, { status: 500 });
+    }
+
+    // 5) Payload final
+    return NextResponse.json({
+      ok: true,
+      trainerId,
+      locations: locations ?? [],
+      days_off: daysOff ?? [],
+    });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message ?? 'unexpected_error' }, { status: 500 });
+  }
 }
