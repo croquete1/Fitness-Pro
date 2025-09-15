@@ -1,11 +1,9 @@
 // src/lib/db.ts
 /**
- * Legacy entrypoint para "db".
- * Prisma foi desativado no projeto — usamos o shim de '@/lib/prisma'.
- * Mantemos este ficheiro só para compat de imports antigos:
- *   import { prisma } from '@/lib/db'
- *   import prisma from '@/lib/db'
+ * Compat layer para "db".
+ * Prisma foi desativado; este ficheiro apenas reexporta o shim de '@/lib/prisma'.
  */
 
-export { prisma } from './prisma';
+import prisma from './prisma';
+export { prisma };
 export default prisma;
