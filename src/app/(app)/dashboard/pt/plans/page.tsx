@@ -1,91 +1,106 @@
+// src/app/(app)/dashboard/pt/plans/page.tsx
 export const dynamic = 'force-dynamic';
 
 import { redirect } from 'next/navigation';
 import { getSessionUserSafe } from '@/lib/session-bridge';
-import { toAppRole, type AppRole } from '@/lib/roles';
 import { createServerClient } from '@/lib/supabaseServer';
-import GreetingHeader from '@/components/dashboard/GreetingHeader';
-import KpiCard from '@/components/dashboard/KpiCard';
+import { toAppRole, isPT, isAdmin, type AppRole } from '@/lib/roles';
+import PageHeader from '@/components/ui/PageHeader';
+import Card, { CardContent } from '@/components/ui/Card';
+import Badge from '@/components/ui/Badge';
 
-type SB = ReturnType<typeof createServerClient>;
-
-async function safeCount(sb: SB, table: string, build?: (q: any) => any) {
-  try {
-    let q: any = sb.from(table).select('*', { count: 'exact', head: true });
-    if (build) q = build(q);
-    const { count } = await q;
-    return count ?? 0;
-  } catch {
-    return 0;
-  }
-}
+type PlanRow = {
+  id: string;
+  title: string | null;
+  status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED' | null;
+  client_id: string | null;
+  trainer_id: string | null;
+  updated_at: string | null;
+};
 
 export default async function PTPlansPage() {
-  const user = await getSessionUserSafe();
-  if (!user?.id) redirect('/login');
-  const role = (toAppRole(user.role) ?? 'CLIENT') as AppRole;
-  if (role !== 'ADMIN' && role !== 'PT' && role !== 'TRAINER') redirect('/dashboard');
+  // 1) Sessão
+  const sessionUser = await getSessionUserSafe();
+  if (!sessionUser?.id) redirect('/login');
 
+  const role = (toAppRole(sessionUser.role) ?? 'CLIENT') as AppRole;
+  // ❌ NADA de 'TRAINER' aqui — só PT/Admin
+  if (!isPT(role) && !isAdmin(role)) redirect('/dashboard');
+
+  // 2) Dados
   const sb = createServerClient();
-  const { data: prof } = await sb
-    .from('profiles')
-    .select('name, avatar_url')
-    .eq('id', user.id)
-    .maybeSingle();
+  let plans: PlanRow[] = [];
 
-  const [total, active, archived] = await Promise.all([
-    safeCount(sb, 'training_plans', (q) => q.eq('trainer_id', user.id)),
-    safeCount(sb, 'training_plans', (q) => q.eq('trainer_id', user.id).eq('status', 'ACTIVE')),
-    safeCount(sb, 'training_plans', (q) => q.eq('trainer_id', user.id).eq('status', 'ARCHIVED')),
-  ]);
+  try {
+    let q = sb
+      .from('training_plans')
+      .select('id,title,status,client_id,trainer_id,updated_at')
+      .order('updated_at', { ascending: false })
+      .limit(200);
 
-  const { data: plans } = await sb
-    .from('training_plans')
-    .select('id,title,status,updated_at,client_id')
-    .eq('trainer_id', user.id)
-    .order('updated_at', { ascending: false })
-    .limit(30);
+    if (isPT(role)) {
+      q = q.eq('trainer_id', String(sessionUser.id));
+    }
 
+    const { data, error } = await q;
+    if (!error && data) plans = data as PlanRow[];
+  } catch {
+    plans = [];
+  }
+
+  // 3) UI
   return (
-    <div className="p-4 grid gap-3">
-      <GreetingHeader
-        name={prof?.name ?? user.name ?? user.email ?? 'Utilizador'}
-        avatarUrl={prof?.avatar_url ?? null}
-        role={role}
+    <main className="p-4 md:p-6 space-y-4">
+      <PageHeader
+        title="📝 Planos de treino"
+        subtitle={isAdmin(role) ? 'Admin · todos os planos' : 'Os teus planos (PT)'}
+        actions={<a href="/dashboard/pt/plans/new" className="btn chip">+ Criar plano</a>}
       />
 
-      <div
-        className="grid gap-3"
-        style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}
-      >
-        <KpiCard label="Todos" value={total} variant="primary" icon="🗂️" />
-        <KpiCard label="Ativos" value={active} variant="success" icon="✅" />
-        <KpiCard label="Arquivados" value={archived} variant="neutral" icon="📦" />
-      </div>
+      <Card>
+        <CardContent>
+          {plans.length === 0 ? (
+            <div className="text-sm opacity-70">Ainda não tens planos.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-[640px] w-full border-separate border-spacing-0">
+                <thead className="[&_th]:text-left">
+                  <tr>
+                    <th className="py-2 pr-3">Título</th>
+                    <th className="py-2 pr-3">Estado</th>
+                    <th className="py-2 pr-3">Cliente</th>
+                    <th className="py-2 pr-3">Atualizado</th>
+                    <th className="py-2 pr-3" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {plans.map((p) => {
+                    const status = p.status ?? 'DRAFT';
+                    const variant =
+                      status === 'ACTIVE' ? 'success' : status === 'ARCHIVED' ? 'neutral' : 'warning';
 
-      <div className="rounded-2xl border bg-white/70 dark:bg-slate-900/40 backdrop-blur shadow-sm">
-        <div className="p-3 border-b text-sm font-semibold">Planos recentes</div>
-        <ul className="p-3 space-y-2">
-          {(plans ?? []).map((p) => (
-            <li key={p.id} className="rounded-lg border p-2 bg-white dark:bg-slate-800">
-              <div className="flex items-center justify-between">
-                <div className="font-medium">{(p as any).title ?? 'Sem título'}</div>
-                <div className="text-xs opacity-70">
-                  {(p as any).updated_at
-                    ? new Date((p as any).updated_at).toLocaleString('pt-PT')
-                    : '—'}
-                </div>
-              </div>
-              <div className="text-xs opacity-80">
-                Estado: {(p as any).status ?? '—'} · Cliente: {(p as any).client_id ?? '—'}
-              </div>
-            </li>
-          ))}
-          {(plans ?? []).length === 0 && (
-            <li className="text-sm opacity-70 px-2 py-1">Ainda não tens planos.</li>
+                    return (
+                      <tr key={p.id} className="border-t border-slate-200/60 dark:border-slate-800/60">
+                        <td className="py-2 pr-3 font-medium">{p.title ?? 'Sem título'}</td>
+                        <td className="py-2 pr-3">
+                          <Badge variant={variant as any}>{status}</Badge>
+                        </td>
+                        <td className="py-2 pr-3 font-mono text-xs">{p.client_id ?? '—'}</td>
+                        <td className="py-2 pr-3 text-sm opacity-80">
+                          {p.updated_at ? new Date(p.updated_at).toLocaleString('pt-PT') : '—'}
+                        </td>
+                        <td className="py-2 pr-3">
+                          <a href={`/dashboard/pt/plans/${p.id}/edit`} className="btn chip">Editar</a>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
-        </ul>
-      </div>
-    </div>
+        </CardContent>
+      </Card>
+    </main>
   );
 }
