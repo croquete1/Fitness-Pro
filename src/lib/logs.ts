@@ -1,108 +1,55 @@
 // src/lib/logs.ts
-import prisma from "@/lib/prisma";
-import { headers as nextHeaders } from "next/headers";
-import type { AuditKind } from "@prisma/client";
+import { headers as nextHeaders } from 'next/headers';
+import { createServerClient } from '@/lib/supabaseServer';
+import { getSessionUserSafe } from '@/lib/session-bridge';
 
-/* ========= AUDIT LOGS ========= */
+/**
+ * Tipos “amigáveis” e extensíveis: podes usar qualquer string,
+ * mas tens sugestões comuns abaixo.
+ */
+export type AuditKind =
+  | 'USER_REGISTERED'
+  | 'USER_APPROVED'
+  | 'USER_REJECTED'
+  | 'LOGIN'
+  | 'LOGOUT'
+  | 'PLAN_CREATED'
+  | 'PLAN_UPDATED'
+  | 'PLAN_DAY_REORDERED'
+  | 'PLAN_ITEM_REORDERED'
+  | 'NOTIFICATION_SENT'
+  | 'HEALTHCHECK'
+  | (string & {}); // permite strings personalizadas mantendo autocomplete
 
-export type AuditParams = {
-  actorId?: string | null;
-  kind: AuditKind;            // obrigatório
-  /** Preferir `message`. `action` é aceito como alias retrocompatível. */
-  message?: string;
-  action?: string;
+export type AuditPayload = Record<string, unknown>;
 
-  targetType?: string | null;
-  targetId?: string | null;
-  diff?: unknown;
+/**
+ * Escreve um evento de auditoria em `audit_logs`.
+ * A tabela deve ter, idealmente: kind (text), payload (jsonb), actor_id (uuid), ip (text), user_agent (text), created_at (timestamptz default now()).
+ * Se os nomes diferirem, ajusta os campos no objeto `row`.
+ */
+export async function writeAudit(kind: AuditKind, payload: AuditPayload = {}) {
+  const sb = createServerClient();
+  const me = await getSessionUserSafe().catch(() => null);
 
-  /** Aceites mas IGNORADOS (a BD não tem estas colunas). */
-  ip?: string | null;
-  userAgent?: string | null;
-};
+  const hdrs = nextHeaders();
+  const ip =
+    hdrs.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    hdrs.get('x-real-ip') ||
+    null;
+  const ua = hdrs.get('user-agent') || null;
 
-export async function logAudit(p: AuditParams) {
-  const {
-    actorId = null,
+  const row = {
     kind,
-    targetType = null,
-    targetId = null,
-    diff,
-  } = p;
+    payload,            // ↩ se a coluna no Supabase for `data`, troca para `data: payload`
+    actor_id: me?.id ?? null,
+    ip,
+    user_agent: ua,
+  };
 
-  const message = (p.message ?? p.action ?? "").toString();
-
-  await prisma.auditLog.create({
-    data: {
-      actorId,
-      kind,
-      message,                        // Prisma mapeia para coluna "action"
-      targetType,
-      targetId,
-      diff: (diff as any) ?? undefined, // Prisma mapeia para coluna "meta"
-      // NÃO enviar ip/userAgent — colunas não existem na BD atual
-    },
-  });
+  // Sem tipos gerados do Supabase => aceita qualquer shape (compila)
+  await sb.from('audit_logs').insert(row);
 }
 
-/** IP/User-Agent de cabeçalhos.
- *  Pode ser chamado com `req` (route handler) ou sem argumentos (usa next/headers). */
-export function getReqMeta(req?: Request | { headers?: Headers | Record<string, any> }) {
-  const h =
-    (req?.headers &&
-      (typeof (req.headers as any).get === "function"
-        ? (req.headers as any)
-        : {
-            get: (k: string) =>
-              (req.headers as any)[k] ??
-              (req.headers as any)[k.toLowerCase()],
-          })) ||
-    nextHeaders();
-
-  const ua = h?.get?.("user-agent") ?? undefined;
-  const cf = h?.get?.("cf-connecting-ip") as string | undefined;
-  const realIp = h?.get?.("x-real-ip") as string | undefined;
-  const xff = h?.get?.("x-forwarded-for") as string | undefined;
-
-  const ip = cf || realIp || (xff ? xff.split(",")[0].trim() : undefined);
-  return { ip, userAgent: ua };
-}
-
-/* ========= DIFERENÇAS DE PLANOS ========= */
-
-export function shallowPlanDiff(prev: any, next: any) {
-  const out: Record<string, { from: any; to: any }> = {};
-  const keys = new Set([...Object.keys(prev ?? {}), ...Object.keys(next ?? {})]);
-  for (const k of keys) {
-    const a = prev?.[k];
-    const b = next?.[k];
-    if (JSON.stringify(a) !== JSON.stringify(b)) out[k] = { from: a, to: b };
-  }
-  return out;
-}
-
-/* ========= LOG DE ALTERAÇÕES DE TRAINING PLAN ========= */
-
-export type PlanChangeParams = {
-  planId: string;
-  actorId?: string | null;
-  /** aceita 'create' | 'update' | 'delete' (ou qualquer string); normalizamos para lowercase */
-  changeType: string;
-  diff?: unknown;
-  snapshot?: unknown;
-};
-
-export async function logPlanChange(p: PlanChangeParams) {
-  const { planId, actorId = null, diff, snapshot } = p;
-  const changeType = String(p.changeType).toLowerCase(); // garante 'create'|'update'|'delete'
-
-  await prisma.trainingPlanChange.create({
-    data: {
-      planId,
-      actorId,
-      changeType,
-      diff: (diff as any) ?? undefined,
-      snapshot: (snapshot as any) ?? undefined,
-    },
-  });
-}
+/** Alias p/ compatibilidade com código que use `audit(...)` */
+export const audit = writeAudit;
