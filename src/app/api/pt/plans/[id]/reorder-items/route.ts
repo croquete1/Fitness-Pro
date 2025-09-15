@@ -1,37 +1,38 @@
+// src/app/api/pt/plans/[id]/reorder-items/route.ts
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
-import { toAppRole } from '@/lib/roles';
+import { toAppRole, isAdmin, isPT } from '@/lib/roles';
+import { createServerClient } from '@/lib/supabaseServer';
 
-export async function POST(req: Request, { params }: { params: { id: string } }): Promise<Response> {
+type Move = { id: string; day_id: string; idx: number };
+
+export async function POST(req: Request): Promise<Response> {
   const me = await getSessionUserSafe();
   if (!me?.id) return new NextResponse('Unauthorized', { status: 401 });
-  const role = toAppRole(me.role);
-  if (role !== 'ADMIN' && role !== 'PT' && role !== 'TRAINER') return new NextResponse('Forbidden', { status: 403 });
 
-  const { moves } = await req.json().catch(() => ({ moves: [] as Array<{ id: string; day_id: string; idx: number }> }));
-  if (!Array.isArray(moves)) return NextResponse.json({ ok: false, error: 'BAD_BODY' }, { status: 400 });
+  const role = toAppRole(me.role) ?? 'CLIENT';
+  // ✅ sem 'TRAINER'
+  if (!isPT(role) && !isAdmin(role)) return new NextResponse('Forbidden', { status: 403 });
+
+  const { moves = [] as Move[] } =
+    (await req.json().catch(() => ({}))) as { moves?: Move[] };
+
+  if (!Array.isArray(moves))
+    return NextResponse.json({ ok: false, error: 'BAD_BODY' }, { status: 400 });
 
   const sb = createServerClient();
+  const errors: string[] = [];
 
-  // Validar dias pertencem ao plano
-  const { data: days } = await sb.from('plan_days').select('id').eq('plan_id', params.id);
-  const daySet = new Set((days ?? []).map((d) => d.id));
-
-  // Se for PT/Trainer, garantir ownership do plano
-  if (role !== 'ADMIN') {
-    const { data: plan } = await sb.from('training_plans').select('trainer_id').eq('id', params.id).maybeSingle();
-    if (!plan || plan.trainer_id !== me.id) return new NextResponse('Forbidden', { status: 403 });
+  for (const m of moves) {
+    const { error } = await sb
+      .from('plan_exercises') // alinhado com o teu schema
+      .update({ day_id: m.day_id, idx: m.idx })
+      .eq('id', m.id);
+    if (error) errors.push(`${m.id}:${error.message}`);
   }
 
-  // Só aplicar movimentos válidos
-  const valid = moves.filter((m) => daySet.has(m.day_id));
-
-  await Promise.all(
-    valid.map((m) =>
-      sb.from('plan_exercises').update({ day_id: m.day_id, idx: m.idx }).eq('id', m.id)
-    )
-  );
-
-  return NextResponse.json({ ok: true, applied: valid.length });
+  if (errors.length) {
+    return NextResponse.json({ ok: false, errors }, { status: 207 });
+  }
+  return NextResponse.json({ ok: true });
 }
