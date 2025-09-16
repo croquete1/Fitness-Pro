@@ -1,30 +1,26 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabaseServer';
+// src/app/api/metrics/sessions-7d/route.ts
+export const dynamic = 'force-dynamic';
 
-export async function GET(req: NextRequest) {
-  const sb = createServerClient();
-  const { searchParams } = new URL(req.url);
-  const scope = (searchParams.get('scope') || 'admin') as 'client'|'pt'|'admin';
-  const id = searchParams.get('id') || undefined;
+import { NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/lib/supabase.server';
 
-  const now = new Date();
-  const days: { date: string; count: number }[] = [];
+export async function GET() {
+  try {
+    const s = supabaseAdmin();
+    const now = new Date();
+    const start = new Date(now);
+    start.setDate(now.getDate() - 7);
 
-  for (let i = 6; i >= 0; i--) {
-    const d0 = new Date(now); d0.setHours(0,0,0,0); d0.setDate(d0.getDate() - i);
-    const d1 = new Date(d0); d1.setDate(d1.getDate() + 1);
-
-    let q = sb.from('sessions')
+    const { count, error } = await s
+      .from('sessions')
       .select('*', { count: 'exact', head: true })
-      .gte('start_time', d0.toISOString())
-      .lt('start_time', d1.toISOString());
+      .gte('scheduled_at', start.toISOString())
+      .lt('scheduled_at', now.toISOString());
 
-    if (scope === 'client' && id) q = q.eq('client_id', id);
-    if (scope === 'pt' && id)      q = q.eq('trainer_id', id);
+    if (error) return NextResponse.json({ error: 'fail' }, { status: 500 });
 
-    const { count } = await q;
-    days.push({ date: d0.toISOString(), count: count ?? 0 });
+    return NextResponse.json({ range: '7d', count: count ?? 0 });
+  } catch {
+    return NextResponse.json({ error: 'fail' }, { status: 500 });
   }
-
-  return NextResponse.json({ days });
 }

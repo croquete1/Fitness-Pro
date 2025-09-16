@@ -1,10 +1,10 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { toAppRole, type AppRole } from "@/lib/roles";
+// src/lib/sessions.ts
+import { getSessionUserSafe } from '@/lib/session-bridge';
+import { toAppRole, type AppRole } from '@/lib/roles';
 
 /**
- * Representa o utilizador autenticado que regressamos do servidor,
- * com o nosso enum canónico de roles: "admin" | "pt" | "client".
+ * Representa o utilizador autenticado devolvido pelo servidor,
+ * já normalizado para o nosso enum canónico: "ADMIN" | "PT" | "CLIENT".
  */
 export type SessionUser = {
   id: string;
@@ -15,23 +15,23 @@ export type SessionUser = {
 
 /**
  * Lê a sessão no servidor e devolve um objeto SessionUser normalizado.
- * - Não depende do enum Role do Prisma (MAIÚSCULAS).
- * - Converte qualquer valor de role para "admin" | "pt" | "client".
+ * - Usa o session-bridge (JWT) para funcionar bem no App Router.
+ * - Converte a role para "ADMIN" | "PT" | "CLIENT".
  */
 export async function getSessionUser(): Promise<SessionUser | null> {
-  const user = await getSessionUserSafe();
-  const u = session?.user as
-    | { id?: string; name?: string | null; email?: string | null; role?: unknown }
-    | undefined;
+  const session = await getSessionUserSafe();
+  const u = session?.user;
 
   const id = u?.id ?? null;
   if (!id) return null;
+
+  const role = (toAppRole(u?.role) ?? 'CLIENT') as AppRole;
 
   return {
     id: String(id),
     name: u?.name ?? null,
     email: u?.email ?? null,
-    role: toAppRole(u?.role),
+    role,
   };
 }
 

@@ -12,14 +12,10 @@ import { toAppRole, isAdmin, isPT } from '@/lib/roles';
 
 type SB = ReturnType<typeof createServerClient>;
 
-async function safeCount(
-  sb: SB,
-  table: string,
-  build?: (q: any) => any
-) {
+async function safeCount(sb: SB, table: string, build?: (q: any) => any) {
   try {
-    let q = sb.from(table).select('*', { count: 'exact', head: true });
-    if (build) q = build(q as any);
+    let q: any = sb.from(table).select('*', { count: 'exact', head: true });
+    if (build) q = build(q);
     const { count } = await q;
     return count ?? 0;
   } catch {
@@ -29,19 +25,20 @@ async function safeCount(
 
 export default async function PTDashboard() {
   const sessionUser = await getSessionUserSafe();
-  if (!sessionUser?.id) redirect('/login');
+  if (!sessionUser?.user?.id) redirect('/login');
 
-  const role = toAppRole(sessionUser.role) ?? 'CLIENT';
-  // ✅ sem 'TRAINER' — usar guards
+  const role = toAppRole(sessionUser.user.role) ?? 'CLIENT';
+  // Apenas PT ou ADMIN
   if (!isPT(role) && !isAdmin(role)) redirect('/dashboard');
 
   const sb = createServerClient();
+  const userId = sessionUser.user.id;
 
   // Perfil para saudação (nome + avatar)
   const { data: prof } = await sb
     .from('profiles')
     .select('name, avatar_url')
-    .eq('id', sessionUser.id)
+    .eq('id', userId)
     .maybeSingle();
 
   const now = new Date();
@@ -49,19 +46,24 @@ export default async function PTDashboard() {
   in7.setDate(now.getDate() + 7);
 
   const [myClients, myPlans, myUpcoming, unread] = await Promise.all([
-    safeCount(sb, 'trainer_clients', q => q.eq('trainer_id', sessionUser.id)),
-    safeCount(sb, 'training_plans', q => q.eq('trainer_id', sessionUser.id)),
-    safeCount(sb, 'sessions', q => q
-      .eq('trainer_id', sessionUser.id)
-      .gte('scheduled_at', now.toISOString())
-      .lt('scheduled_at', in7.toISOString())),
-    safeCount(sb, 'notifications', q => q.eq('user_id', sessionUser.id).eq('read', false)),
+    safeCount(sb, 'trainer_clients', (q) => q.eq('trainer_id', userId)),
+    safeCount(sb, 'training_plans', (q) => q.eq('trainer_id', userId)),
+    safeCount(
+      sb,
+      'sessions',
+      (q) =>
+        q
+          .eq('trainer_id', userId)
+          .gte('scheduled_at', now.toISOString())
+          .lt('scheduled_at', in7.toISOString())
+    ),
+    safeCount(sb, 'notifications', (q) => q.eq('user_id', userId).eq('read', false)),
   ]);
 
   return (
     <div style={{ padding: 16, display: 'grid', gap: 12 }}>
       <GreetingHeader
-        name={prof?.name ?? sessionUser.name ?? null}
+        name={prof?.name ?? sessionUser.user.name ?? sessionUser.user.email ?? 'Utilizador'}
         avatarUrl={prof?.avatar_url ?? null}
         role={role}
       />
@@ -72,13 +74,13 @@ export default async function PTDashboard() {
         className="grid gap-3"
         style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}
       >
-        <KpiCard label="Clientes" value={myClients} tone="primary" icon="👥" />
-        <KpiCard label="Planos" value={myPlans} tone="accent" icon="📝" />
-        <KpiCard label="Sessões (7d)" value={myUpcoming} tone="success" icon="📅" />
+        <KpiCard label="Clientes" value={myClients} variant="primary" icon="👥" />
+        <KpiCard label="Planos" value={myPlans} variant="accent" icon="📝" />
+        <KpiCard label="Sessões (7d)" value={myUpcoming} variant="success" icon="📅" />
         <KpiCard
           label="Notificações"
           value={unread}
-          tone="warning"
+          variant="warning"
           icon="🔔"
           footer={<span className="small text-muted">por ler</span>}
         />

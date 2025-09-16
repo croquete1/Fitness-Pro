@@ -2,7 +2,6 @@
 export const dynamic = 'force-dynamic';
 
 import { redirect, notFound } from 'next/navigation';
-import type { Route } from 'next';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { createServerClient } from '@/lib/supabaseServer';
 import { toAppRole, type AppRole } from '@/lib/roles';
@@ -20,7 +19,7 @@ type TrainingPlanSummary = {
 type SessionSummary = {
   id: string;
   startsAt: string;     // ISO
-  durationMin: number;  // por enquanto fixo (60)
+  durationMin: number;  // por agora fixo (60)
   title: string;
   location: string | null;
 };
@@ -52,13 +51,26 @@ type SessionRow = {
   client_id: string | null;
 };
 
-export default async function PTClientDetailPage({ params }: { params: { id: string } }) {
-  // Sessão “flat” (sem .user)
-  const me = await getSessionUserSafe();
-  if (!me?.id) redirect('/login' as Route);
+function formatDatePT(iso: string | null) {
+  if (!iso) return '—';
+  try {
+    return new Intl.DateTimeFormat('pt-PT', {
+      dateStyle: 'short',
+      timeStyle: 'short',
+      hour12: false,
+    }).format(new Date(iso));
+  } catch {
+    return '—';
+  }
+}
 
-  const role = (toAppRole(me.role) ?? 'CLIENT') as AppRole;
-  if (role !== 'ADMIN' && role !== 'PT') redirect('/dashboard' as Route);
+export default async function PTClientDetailPage({ params }: { params: { id: string } }) {
+  // Sessão
+  const me = await getSessionUserSafe();
+  if (!me?.user?.id) redirect('/login');
+
+  const role = (toAppRole(me.user.role) ?? 'CLIENT') as AppRole;
+  if (role !== 'ADMIN' && role !== 'PT') redirect('/dashboard');
 
   const sb = createServerClient();
   const clientId = params.id;
@@ -77,14 +89,14 @@ export default async function PTClientDetailPage({ params }: { params: { id: str
     const { data: link } = await sb
       .from('trainer_clients')
       .select('id')
-      .eq('trainer_id', me.id)
+      .eq('trainer_id', me.user.id)
       .eq('client_id', clientId)
       .maybeSingle();
 
-    if (!link) redirect('/dashboard/pt/clients' as Route);
+    if (!link) redirect('/dashboard/pt/clients');
   }
 
-  // 3) Planos do cliente (se PT, apenas os dele)
+  // 3) Planos do cliente (se PT, apenas os desse PT)
   let plans: TrainingPlanSummary[] = [];
   {
     const base = sb
@@ -94,10 +106,10 @@ export default async function PTClientDetailPage({ params }: { params: { id: str
       .order('updated_at', { ascending: false })
       .limit(50);
 
-    const { data: plansRaw } =
-      role === 'ADMIN' ? await base : await base.eq('trainer_id', me.id);
+    const query = role === 'ADMIN' ? base : base.eq('trainer_id', me.user.id);
+    const { data: plansRaw } = await query.returns<PlanRow[]>();
 
-    const rows = (plansRaw ?? []) as PlanRow[];
+    const rows = plansRaw ?? [];
     plans = rows.map((p) => ({
       id: p.id,
       title: p.title ?? null,
@@ -106,7 +118,7 @@ export default async function PTClientDetailPage({ params }: { params: { id: str
     }));
   }
 
-  // 4) Sessões (se PT, apenas as dele)
+  // 4) Sessões (se PT, apenas as desse PT)
   let sessions: SessionSummary[] = [];
   {
     const base = sb
@@ -116,13 +128,15 @@ export default async function PTClientDetailPage({ params }: { params: { id: str
       .order('scheduled_at', { ascending: false })
       .limit(50);
 
-    const { data: sessionsRaw } =
-      role === 'ADMIN' ? await base : await base.eq('trainer_id', me.id);
+    const query = role === 'ADMIN' ? base : base.eq('trainer_id', me.user.id);
+    const { data: sessionsRaw } = await query.returns<SessionRow[]>();
 
-    const rows = (sessionsRaw ?? []) as SessionRow[];
+    const rows = sessionsRaw ?? [];
     sessions = rows.map((s) => ({
       id: s.id,
-      startsAt: s.scheduled_at ? new Date(s.scheduled_at).toISOString() : new Date().toISOString(),
+      startsAt: s.scheduled_at
+        ? new Date(s.scheduled_at).toISOString()
+        : new Date().toISOString(),
       durationMin: 60,
       title: s.notes ?? 'Sessão',
       location: s.location ?? null,
@@ -130,14 +144,13 @@ export default async function PTClientDetailPage({ params }: { params: { id: str
   }
 
   // 5) UI derivada do cliente
-  const cu = client as DbUser;
   const ui = {
-    id: cu.id,
-    name: cu.name,
-    email: cu.email,
-    role: (toAppRole(cu.role) ?? 'CLIENT') as AppRole,
-    status: (cu.status ?? 'ACTIVE') as 'ACTIVE' | 'PENDING' | 'SUSPENDED' | string,
-    createdAt: cu.created_at,
+    id: client.id,
+    name: client.name,
+    email: client.email,
+    role: (toAppRole(client.role) ?? 'CLIENT') as AppRole,
+    status: (client.status ?? 'ACTIVE') as 'ACTIVE' | 'PENDING' | 'SUSPENDED' | string,
+    createdAt: client.created_at,
   };
 
   return (
@@ -150,7 +163,15 @@ export default async function PTClientDetailPage({ params }: { params: { id: str
             <Badge variant={ui.role === 'ADMIN' ? 'info' : ui.role === 'PT' ? 'primary' : 'neutral'}>
               {ui.role}
             </Badge>
-            <Badge variant={ui.status === 'ACTIVE' ? 'success' : ui.status === 'PENDING' ? 'warning' : 'neutral'}>
+            <Badge
+              variant={
+                ui.status === 'ACTIVE'
+                  ? 'success'
+                  : ui.status === 'PENDING'
+                  ? 'warning'
+                  : 'neutral'
+              }
+            >
               {ui.status}
             </Badge>
           </div>
@@ -176,14 +197,10 @@ export default async function PTClientDetailPage({ params }: { params: { id: str
                   <div>
                     <div className="font-medium">{p.title ?? 'Sem título'}</div>
                     <div className="text-xs opacity-70">
-                      Estado: {p.status ?? '—'} · Atualizado:{' '}
-                      {p.updatedAt ? new Date(p.updatedAt).toLocaleString('pt-PT') : '—'}
+                      Estado: {p.status ?? '—'} · Atualizado: {formatDatePT(p.updatedAt)}
                     </div>
                   </div>
-                  <a
-                    href={`/dashboard/pt/plans/${p.id}`}
-                    className="btn chip"
-                  >
+                  <a href={`/dashboard/pt/plans/${p.id}`} className="btn chip">
                     Abrir
                   </a>
                 </li>
@@ -211,7 +228,7 @@ export default async function PTClientDetailPage({ params }: { params: { id: str
                 >
                   <div className="flex items-center justify-between">
                     <div className="font-medium">
-                      {new Date(s.startsAt).toLocaleString('pt-PT')}
+                      {formatDatePT(s.startsAt)}
                       <span className="text-xs ml-2 opacity-70">({s.durationMin} min)</span>
                     </div>
                     <div className="text-xs opacity-70">{s.location ?? '—'}</div>

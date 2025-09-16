@@ -1,3 +1,4 @@
+// src/app/(app)/dashboard/my-plan/page.tsx
 export const dynamic = 'force-dynamic';
 
 import { redirect } from 'next/navigation';
@@ -6,8 +7,11 @@ import { toAppRole, type AppRole } from '@/lib/roles';
 import { createServerClient } from '@/lib/supabaseServer';
 import GreetingHeader from '@/components/dashboard/GreetingHeader';
 import KpiCard from '@/components/dashboard/KpiCard';
+import LiveBanners from '@/components/dashboard/LiveBanners';
+import PushBootstrap from '@/components/dashboard/PushBootstrap';
 
 type SB = ReturnType<typeof createServerClient>;
+
 async function safeCount(sb: SB, table: string, build?: (q: any) => any) {
   try {
     let q: any = sb.from(table).select('*', { count: 'exact', head: true });
@@ -19,17 +23,42 @@ async function safeCount(sb: SB, table: string, build?: (q: any) => any) {
   }
 }
 
+type PlanRow = {
+  id: string;
+  title: string | null;
+  status: string | null;
+  updated_at: string | null;
+  trainer_id: string | null;
+};
+
+function formatDatePT(iso: string | null) {
+  if (!iso) return '—';
+  try {
+    return new Intl.DateTimeFormat('pt-PT', {
+      dateStyle: 'short',
+      timeStyle: 'short',
+      hour12: false,
+    }).format(new Date(iso));
+  } catch {
+    return '—';
+  }
+}
+
 export default async function MyPlanPage() {
-  const user = await getSessionUserSafe();
-  if (!user?.id) redirect('/login');
-  const role = (toAppRole(user.role) ?? 'CLIENT') as AppRole;
+  const sessionUser = await getSessionUserSafe();
+  if (!sessionUser?.user?.id) redirect('/login');
+
+  const role = (toAppRole(sessionUser.user.role) ?? 'CLIENT') as AppRole;
   if (role !== 'CLIENT' && role !== 'ADMIN') redirect('/dashboard');
 
   const sb = createServerClient();
+  const userId = sessionUser.user.id;
+
+  // Perfil para Greeting
   const { data: prof } = await sb
     .from('profiles')
     .select('name, avatar_url')
-    .eq('id', user.id)
+    .eq('id', userId)
     .maybeSingle();
 
   const now = new Date();
@@ -37,33 +66,39 @@ export default async function MyPlanPage() {
   in7.setDate(now.getDate() + 7);
 
   const [plans, upcoming, unread] = await Promise.all([
-    safeCount(sb, 'training_plans', (q) => q.eq('client_id', user.id)),
+    safeCount(sb, 'training_plans', (q) => q.eq('client_id', userId)),
     safeCount(
       sb,
       'sessions',
       (q) =>
         q
-          .eq('client_id', user.id)
+          .eq('client_id', userId)
           .gte('scheduled_at', now.toISOString())
           .lt('scheduled_at', in7.toISOString())
     ),
-    safeCount(sb, 'notifications', (q) => q.eq('user_id', user.id).eq('read', false)),
+    safeCount(sb, 'notifications', (q) => q.eq('user_id', userId).eq('read', false)),
   ]);
 
-  const { data: planList } = await sb
+  const { data: planList, error } = await sb
     .from('training_plans')
     .select('id,title,status,updated_at,trainer_id')
-    .eq('client_id', user.id)
+    .eq('client_id', userId)
     .order('updated_at', { ascending: false })
-    .limit(10);
+    .limit(10)
+    .returns<PlanRow[]>();
+
+  const items = Array.isArray(planList) ? planList : [];
 
   return (
     <div className="p-4 grid gap-3">
       <GreetingHeader
-        name={prof?.name ?? user.name ?? user.email ?? 'Utilizador'}
+        name={prof?.name ?? sessionUser.user.name ?? sessionUser.user.email ?? 'Utilizador'}
         avatarUrl={prof?.avatar_url ?? null}
         role={role}
       />
+
+      <LiveBanners />
+      <PushBootstrap />
 
       <div
         className="grid gap-3"
@@ -74,28 +109,38 @@ export default async function MyPlanPage() {
         <KpiCard label="Notificações" value={unread} variant="warning" icon="🔔" />
       </div>
 
-      <div className="rounded-2xl border bg-white/70 dark:bg-slate-900/40 backdrop-blur shadow-sm">
-        <div className="p-3 border-b text-sm font-semibold">Os meus planos</div>
-        <ul className="p-3 space-y-2">
-          {(planList ?? []).map((p) => (
-            <li key={p.id} className="rounded-lg border p-2 bg-white dark:bg-slate-800">
-              <div className="flex items-center justify-between">
-                <div className="font-medium">{(p as any).title ?? 'Sem título'}</div>
-                <div className="text-xs opacity-70">
-                  {(p as any).updated_at
-                    ? new Date((p as any).updated_at).toLocaleString('pt-PT')
-                    : '—'}
+      <div
+        className="rounded-2xl border bg-white/70 dark:bg-slate-900/40 backdrop-blur shadow-sm"
+        role="region"
+        aria-labelledby="my-plans-heading"
+      >
+        <div id="my-plans-heading" className="p-3 border-b text-sm font-semibold">
+          Os meus planos
+        </div>
+
+        {error && (
+          <div className="p-3 text-sm text-red-700/90 dark:text-red-300" role="alert">
+            Ocorreu um erro ao carregar os planos. Tenta novamente mais tarde.
+          </div>
+        )}
+
+        {items.length === 0 ? (
+          <div className="p-3 text-sm opacity-70">Ainda não tens planos.</div>
+        ) : (
+          <ul className="p-3 space-y-2">
+            {items.map((p) => (
+              <li key={p.id} className="rounded-lg border p-2 bg-white dark:bg-slate-800">
+                <div className="flex items-center justify-between">
+                  <div className="font-medium">{p.title ?? 'Sem título'}</div>
+                  <div className="text-xs opacity-70">{formatDatePT(p.updated_at)}</div>
                 </div>
-              </div>
-              <div className="text-xs opacity-80">
-                Estado: {(p as any).status ?? '—'} · PT: {(p as any).trainer_id ?? '—'}
-              </div>
-            </li>
-          ))}
-          {(planList ?? []).length === 0 && (
-            <li className="text-sm opacity-70 px-2 py-1">Ainda não tens planos.</li>
-          )}
-        </ul>
+                <div className="text-xs opacity-80">
+                  Estado: {p.status ?? '—'} · PT: {p.trainer_id ?? '—'}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );

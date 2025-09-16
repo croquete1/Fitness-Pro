@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { requireAdminGuard, isGuardErr } from '@/lib/api-guards';
 import { supabaseAdmin } from '@/lib/supabaseAdmin'; // <- cliente, não função

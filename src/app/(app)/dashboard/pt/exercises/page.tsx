@@ -1,33 +1,53 @@
+// src/app/(app)/dashboard/pt/exercises/page.tsx
+export const dynamic = 'force-dynamic';
+
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { supabaseAdmin } from '@/lib/supabase.server';
-import { getSessionUserSafe, assertRole } from '@/lib/session-bridge';
+import { getSessionUserSafe } from '@/lib/session-bridge';
+import { toAppRole, type AppRole } from '@/lib/roles';
+import { createServerClient } from '@/lib/supabaseServer';
 import PTExerciseNote from './PTExerciseNote';
 
 export const metadata: Metadata = { title: 'Exercícios (PT) · Fitness Pro' };
 
-export default async function PTExercisesPage() {
-  const user = await getSessionUserSafe();
-  if (!assertRole(user, ['PT', 'ADMIN'])) redirect('/dashboard');
+type ExerciseRow = {
+  id: string;
+  name: string;
+  muscle_group: string | null;
+  equipment: string | null;
+  difficulty: string | null;
+};
 
-  const s = supabaseAdmin();
-  const { data, error } = await s
+export default async function PTExercisesPage() {
+  // Sessão
+  const sessionUser = await getSessionUserSafe();
+  if (!sessionUser?.user?.id) redirect('/login');
+
+  // Guard de role
+  const role = (toAppRole(sessionUser.user.role) ?? 'CLIENT') as AppRole;
+  if (role !== 'PT' && role !== 'ADMIN') redirect('/dashboard');
+
+  // Supabase (scoped ao utilizador; não precisamos do service-role aqui)
+  const sb = createServerClient();
+
+  const { data, error } = await sb
     .from('exercises')
-    .select('id, name, muscle_group, equipment, difficulty')
-    .order('name', { ascending: true });
+    .select('id,name,muscle_group,equipment,difficulty')
+    .order('name', { ascending: true })
+    .returns<ExerciseRow[]>();
 
   if (error) {
     return (
       <div className="card" style={{ padding: 12 }}>
         <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>Exercícios</h1>
         <p className="small text-muted" style={{ marginTop: 8, color: 'var(--danger)' }}>
-          Falha a carregar: {error.message}
+          Ocorreu um erro ao carregar a lista de exercícios. Tenta novamente mais tarde.
         </p>
       </div>
     );
   }
 
-  const items = data ?? [];
+  const items = Array.isArray(data) ? data : [];
 
   return (
     <div style={{ display: 'grid', gap: 12 }}>
