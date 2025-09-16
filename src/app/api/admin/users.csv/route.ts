@@ -1,42 +1,70 @@
+// src/app/api/admin/users.csv/route.ts
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { requireAdminGuard, isGuardErr } from '@/lib/api-guards';
-import { supabaseAdmin } from '@/lib/supabaseAdmin'; // <- cliente, não função
+import { supabaseAdmin } from '@/lib/supabase.server';
+import { getSessionUserSafe } from '@/lib/session-bridge';
+import { toAppRole, isAdmin } from '@/lib/roles';
 
-function toCsvRow(fields: Array<string | number | null | undefined>) {
-  return fields
-    .map((f) => `"${String(f ?? '').replace(/"/g, '""')}"`)
-    .join(',');
-}
+type Row = {
+  id: string;
+  email: string;
+  username: string | null;
+  name: string | null;
+  role: string | null;
+  status: string | null;
+  created_at: string | null;
+};
 
-export async function GET(): Promise<Response> {
-  const guard = await requireAdminGuard();
-  if (isGuardErr(guard)) return guard.response;
-
-  const sb = supabaseAdmin; // <- sem parêntesis
-
-  const { data, error } = await sb
-    .from('users')
-    .select('id,name,email,role,status,created_at')
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+export async function GET() {
+  const me = await getSessionUserSafe();
+  if (!me?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!isAdmin(toAppRole(me.user.role) ?? 'CLIENT')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const header = ['id', 'name', 'email', 'role', 'status', 'created_at'];
-  const rows = (data ?? []).map((u) =>
-    toCsvRow([u.id, u.name, u.email, u.role, u.status, u.created_at]),
-  );
+  const s = supabaseAdmin();
+  const { data, error } = await s
+    .from('users')
+    .select('id,email,username,username_lower,name,role,status,created_at')
+    .order('created_at', { ascending: true })
+    .returns<Row[]>();
 
-  const body = [toCsvRow(header), ...rows].join('\r\n');
+  if (error) {
+    return NextResponse.json({ error: 'DB error' }, { status: 500 });
+  }
 
-  return new Response(body, {
+  const rows = data ?? [];
+  const header = ['id', 'email', 'username', 'name', 'role', 'status', 'created_at'];
+
+  const esc = (v: unknown) => {
+    const s = v == null ? '' : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+
+  const lines = [
+    header.join(','), // header
+    ...rows.map(r =>
+      [
+        r.id,
+        r.email,
+        r.username ?? '',
+        r.name ?? '',
+        r.role ?? '',
+        r.status ?? '',
+        r.created_at ?? '',
+      ].map(esc).join(',')
+    ),
+  ];
+
+  // BOM para abrir bem no Excel
+  const csv = '\ufeff' + lines.join('\n');
+
+  return new NextResponse(csv, {
     status: 200,
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': 'attachment; filename="users.csv"',
+      'Content-Disposition': `attachment; filename="users.csv"`,
       'Cache-Control': 'no-store',
     },
   });

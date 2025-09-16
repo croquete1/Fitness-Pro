@@ -49,3 +49,4 @@ next-env.d.ts
 src/app/(app)/dashboard/layout.tsx
 
 .vercel
+.env*.local
