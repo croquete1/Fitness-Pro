@@ -14,8 +14,8 @@ type SB = ReturnType<typeof createServerClient>;
 
 async function safeCount(sb: SB, table: string, build?: (q: any) => any) {
   try {
-    let q: any = sb.from(table).select('*', { count: 'exact', head: true });
-    if (build) q = build(q);
+    let q = sb.from(table).select('*', { count: 'exact', head: true });
+    if (build) q = build(q as any);
     const { count } = await q;
     return count ?? 0;
   } catch {
@@ -28,17 +28,16 @@ export default async function PTDashboard() {
   if (!sessionUser?.user?.id) redirect('/login');
 
   const role = toAppRole(sessionUser.user.role) ?? 'CLIENT';
-  // Apenas PT ou ADMIN
+  // PT e Admin podem aceder
   if (!isPT(role) && !isAdmin(role)) redirect('/dashboard');
 
   const sb = createServerClient();
-  const userId = sessionUser.user.id;
 
   // Perfil para saudação (nome + avatar)
   const { data: prof } = await sb
     .from('profiles')
     .select('name, avatar_url')
-    .eq('id', userId)
+    .eq('id', sessionUser.user.id)
     .maybeSingle();
 
   const now = new Date();
@@ -46,26 +45,27 @@ export default async function PTDashboard() {
   in7.setDate(now.getDate() + 7);
 
   const [myClients, myPlans, myUpcoming, unread] = await Promise.all([
-    safeCount(sb, 'trainer_clients', (q) => q.eq('trainer_id', userId)),
-    safeCount(sb, 'training_plans', (q) => q.eq('trainer_id', userId)),
+    safeCount(sb, 'trainer_clients', (q) => q.eq('trainer_id', sessionUser.user.id)),
+    safeCount(sb, 'training_plans', (q) => q.eq('trainer_id', sessionUser.user.id)),
     safeCount(
       sb,
       'sessions',
       (q) =>
         q
-          .eq('trainer_id', userId)
+          .eq('trainer_id', sessionUser.user.id)
           .gte('scheduled_at', now.toISOString())
           .lt('scheduled_at', in7.toISOString())
     ),
-    safeCount(sb, 'notifications', (q) => q.eq('user_id', userId).eq('read', false)),
+    safeCount(sb, 'notifications', (q) =>
+      q.eq('user_id', sessionUser.user.id).eq('read', false)
+    ),
   ]);
 
   return (
-    <div style={{ padding: 16, display: 'grid', gap: 12 }}>
+    <div className="p-4 grid gap-3">
       <GreetingHeader
         name={prof?.name ?? sessionUser.user.name ?? sessionUser.user.email ?? 'Utilizador'}
         avatarUrl={prof?.avatar_url ?? null}
-        role={role}
       />
       <LiveBanners />
       <PushBootstrap />

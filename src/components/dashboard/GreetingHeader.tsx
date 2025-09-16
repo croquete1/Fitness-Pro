@@ -16,11 +16,9 @@ function getGreeting(): { greet: string; wave: string } {
 export default function GreetingHeader({
   name,
   avatarUrl,
-  role,
 }: {
   name?: string | null;
   avatarUrl?: string | null;
-  role?: Role; // mantido p/ eventual badge no futuro
 }) {
   const { greet, wave } = getGreeting();
   const display = name && name.trim().length > 0 ? name : 'Utilizador';

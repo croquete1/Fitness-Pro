@@ -28,16 +28,16 @@ export default async function ClientDashboard() {
   if (!sessionUser?.user?.id) redirect('/login');
 
   const role = toAppRole(sessionUser.user.role) ?? 'CLIENT';
+  // Cliente e Admin podem ver esta página
   if (role !== 'CLIENT' && role !== 'ADMIN') redirect('/dashboard');
 
   const sb = createServerClient();
-  const userId = sessionUser.user.id;
 
   // Perfil para Greeting
   const { data: prof } = await sb
     .from('profiles')
     .select('name, avatar_url')
-    .eq('id', userId)
+    .eq('id', sessionUser.user.id)
     .maybeSingle();
 
   const now = new Date();
@@ -45,17 +45,19 @@ export default async function ClientDashboard() {
   in7.setDate(now.getDate() + 7);
 
   const [myPlans, myUpcoming, unread] = await Promise.all([
-    safeCount(sb, 'training_plans', (q) => q.eq('client_id', userId)),
+    safeCount(sb, 'training_plans', (q) => q.eq('client_id', sessionUser.user.id)),
     safeCount(
       sb,
       'sessions',
       (q) =>
         q
-          .eq('client_id', userId)
+          .eq('client_id', sessionUser.user.id)
           .gte('scheduled_at', now.toISOString())
           .lt('scheduled_at', in7.toISOString())
     ),
-    safeCount(sb, 'notifications', (q) => q.eq('user_id', userId).eq('read', false)),
+    safeCount(sb, 'notifications', (q) =>
+      q.eq('user_id', sessionUser.user.id).eq('read', false)
+    ),
   ]);
 
   return (
@@ -63,7 +65,6 @@ export default async function ClientDashboard() {
       <GreetingHeader
         name={prof?.name ?? sessionUser.user.name ?? sessionUser.user.email ?? 'Utilizador'}
         avatarUrl={prof?.avatar_url ?? null}
-        role={role}
       />
       <LiveBanners />
       <PushBootstrap />

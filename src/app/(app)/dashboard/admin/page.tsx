@@ -30,27 +30,22 @@ async function safeCount(
 
 export default async function AdminDashboard() {
   const sessionUser = await getSessionUserSafe();
-
-  // sessão válida?
+  // SessionBridge → usa sempre sessionUser.user
   if (!sessionUser?.user?.id) redirect('/login');
 
-  // role normalizada (toAppRole já trata TRAINER -> PT)
   const role = (toAppRole(sessionUser.user.role) ?? 'CLIENT') as AppRole;
-
-  // só ADMIN fica aqui; PT vai para /dashboard/pt; cliente para /dashboard/clients
   if (role !== 'ADMIN') {
     if (role === 'PT') redirect('/dashboard/pt');
     redirect('/dashboard/clients');
   }
 
   const sb = createServerClient();
-  const userId = sessionUser.user.id;
 
-  // perfil para greeting (nome/avatar)
+  // Perfil para greeting (nome/avatar)
   const { data: prof } = await sb
     .from('profiles')
     .select('name, avatar_url')
-    .eq('id', userId)
+    .eq('id', sessionUser.user.id)
     .maybeSingle();
 
   const now = new Date();
@@ -59,7 +54,7 @@ export default async function AdminDashboard() {
 
   const [clients, trainers, admins, sessions7d, unreadNotifs] = await Promise.all([
     safeCount(sb, 'users', (q) => q.eq('role', 'CLIENT')),
-    // conta PT + TRAINER (DB pode ter as duas grafias)
+    // conta PT + TRAINER (compat)
     safeCount(sb, 'users', (q) => q.in('role', ['PT', 'TRAINER'])),
     safeCount(sb, 'users', (q) => q.eq('role', 'ADMIN')),
     safeCount(
@@ -67,7 +62,7 @@ export default async function AdminDashboard() {
       'sessions',
       (q) => q.gte('scheduled_at', now.toISOString()).lt('scheduled_at', in7.toISOString())
     ),
-    safeCount(sb, 'notifications', (q) => q.eq('user_id', userId).eq('read', false)),
+    safeCount(sb, 'notifications', (q) => q.eq('user_id', sessionUser.user.id).eq('read', false)),
   ]);
 
   return (
@@ -75,8 +70,8 @@ export default async function AdminDashboard() {
       <GreetingHeader
         name={prof?.name ?? sessionUser.user.name ?? sessionUser.user.email ?? 'Utilizador'}
         avatarUrl={prof?.avatar_url ?? null}
-        role="ADMIN"
       />
+
       <LiveBanners />
       <PushBootstrap />
 
