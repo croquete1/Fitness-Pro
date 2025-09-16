@@ -1,10 +1,14 @@
 // src/components/layout/DashboardFrame.tsx
 'use client';
+
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 import AppLogo from './AppLogo';
+import NotificationMenu from '@/components/notifications/NotificationMenu';
+import { signOut } from 'next-auth/react';
 
-type Role = 'ADMIN'|'PT'|'CLIENT';
+type Role = 'ADMIN' | 'PT' | 'CLIENT';
 
 export default function DashboardFrame({
   role,
@@ -16,59 +20,175 @@ export default function DashboardFrame({
   children: React.ReactNode;
 }) {
   const path = usePathname();
-  const isActive = (href: string) => path?.startsWith(href);
+  const isActive = (href: string) => (path === href) || (path?.startsWith(href + '/'));
 
-  const adminLinks = [
-    { href: '/dashboard/admin', label: 'Início', emoji: '🏠' },
-    { href: '/dashboard/admin/users', label: 'Utilizadores', emoji: '👥' },
-    { href: '/dashboard/admin/approvals', label: 'Aprovações', emoji: '✅' },
-    { href: '/dashboard/admin/exercises', label: 'Exercícios', emoji: '📚' },
-    { href: '/dashboard/admin/plans', label: 'Planos', emoji: '📝' },
-    { href: '/dashboard/notifications', label: 'Centro de notificações', emoji: '🔔' },
-  ];
+  // ---- Sidebar state (pinned/collapsed + mobile) ----
+  const [pinned, setPinned] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    const s = localStorage.getItem('sbPinned');
+    return s === null ? true : s === '1';
+  });
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const s = localStorage.getItem('sbCollapsed');
+    return s === '1';
+  });
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  const ptLinks = [
-    { href: '/dashboard/pt', label: 'Início', emoji: '🏠' },
-    { href: '/dashboard/pt/clients', label: 'Clientes', emoji: '🧑‍🤝‍🧑' },
-    { href: '/dashboard/pt/plans', label: 'Planos', emoji: '📝' },
-    { href: '/dashboard/pt/exercises', label: 'Exercícios', emoji: '📚' },
-  ];
+  useEffect(() => {
+    const html = document.documentElement;
+    html.setAttribute('data-sb-pinned', pinned ? '1' : '0');
+    if (collapsed) html.setAttribute('data-sb-collapsed', '1');
+    else html.removeAttribute('data-sb-collapsed');
+    if (mobileOpen) html.setAttribute('data-sb-mobile-open', '1');
+    else html.removeAttribute('data-sb-mobile-open');
+    localStorage.setItem('sbPinned', pinned ? '1' : '0');
+    localStorage.setItem('sbCollapsed', collapsed ? '1' : '0');
+  }, [pinned, collapsed, mobileOpen]);
 
-  const clientLinks = [
-    { href: '/dashboard/clients', label: 'Início', emoji: '🏠' },
-    { href: '/dashboard/my-plan', label: 'Os meus planos', emoji: '📝' },
-    { href: '/dashboard/notifications', label: 'Notificações', emoji: '🔔' },
-  ];
+  // ---- Links por role ----
+  const links = useMemo(() => {
+    if (role === 'ADMIN') {
+      return [
+        { href: '/dashboard/admin', label: 'Início', emoji: '🏠' },
+        { href: '/dashboard/admin/users', label: 'Utilizadores', emoji: '👥' },
+        { href: '/dashboard/admin/approvals', label: 'Aprovações', emoji: '✅' },
+        { href: '/dashboard/admin/exercises', label: 'Exercícios', emoji: '📚' },
+        { href: '/dashboard/admin/plans', label: 'Planos', emoji: '📝' },
+        { href: '/dashboard/notifications', label: 'Notificações', emoji: '🔔' },
+      ];
+    }
+    if (role === 'PT') {
+      return [
+        { href: '/dashboard/pt', label: 'Início', emoji: '🏠' },
+        { href: '/dashboard/pt/clients', label: 'Clientes', emoji: '🧑‍🤝‍🧑' },
+        { href: '/dashboard/pt/plans', label: 'Planos', emoji: '📝' },
+        { href: '/dashboard/pt/exercises', label: 'Exercícios', emoji: '📚' },
+      ];
+    }
+    return [
+      { href: '/dashboard/clients', label: 'Início', emoji: '🏠' },
+      { href: '/dashboard/my-plan', label: 'Os meus planos', emoji: '📝' },
+      { href: '/dashboard/notifications', label: 'Notificações', emoji: '🔔' },
+    ];
+  }, [role]);
 
-  const links = role === 'ADMIN' ? adminLinks : role === 'PT' ? ptLinks : clientLinks;
+  // ---- UI helpers (ícones SVG simples) ----
+  const IconBurger = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2"/></svg>
+  );
+  const IconChevron = () => (
+    collapsed
+      ? <svg width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M9.29 6.71L13.58 11l-4.29 4.29L10 17l6-6l-6-6z"/></svg>
+      : <svg width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M14.71 17.29L10.41 13l4.3-4.29L13 7l-6 6l6 6z"/></svg>
+  );
+  const IconPin = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24"><path fill="currentColor" d="M16 12V4l1-1V2H7v1l1 1v8l-3 3v1h7.06V22l.94.94L14.94 22v-6H21v-1z"/></svg>
+  );
 
   return (
-    <div className="min-h-screen grid grid-cols-1 md:grid-cols-[240px_1fr]">
-      <aside className="hidden md:flex flex-col gap-3 p-4 border-r border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40 backdrop-blur">
-        <div className="flex items-center gap-2 px-2">
-          <AppLogo size={28} />
-          <div className="text-lg font-bold">Fitness Pro</div>
-        </div>
-        <nav className="mt-2 grid gap-1">
-          {links.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              className={`px-3 py-2 rounded-lg border ${
-                isActive(l.href)
-                  ? 'bg-indigo-50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-900 text-indigo-700 dark:text-indigo-300'
-                  : 'border-transparent hover:bg-[var(--hover)]'
-              }`}
+    <div className="fp-shell">
+      {/* Mobile overlay (fecha ao clicar) */}
+      <div className="fp-sb-overlay" onClick={() => setMobileOpen(false)} />
+
+      {/* Sidebar */}
+      <aside className="fp-sidebar">
+        <div className="fp-sb-head">
+          <div className="fp-sb-brand">
+            <img src="/assets/logo.png" alt="Fitness Pro" className="logo" />
+            <div>
+              <div className="brand-name">Fitness Pro</div>
+              <div className="brand-role">{userLabel}</div>
+            </div>
+          </div>
+          <div className="fp-sb-actions">
+            <button
+              className={`btn icon btn-pin ${pinned ? 'is-pinned' : ''}`}
+              title={pinned ? 'Desafixar' : 'Afixar'}
+              onClick={() => setPinned(v => !v)}
             >
-              <span className="mr-2">{l.emoji}</span>{l.label}
-            </Link>
-          ))}
+              <IconPin />
+            </button>
+            <button
+              className="btn icon"
+              title={collapsed ? 'Expandir' : 'Compactar'}
+              onClick={() => setCollapsed(v => !v)}
+            >
+              <IconChevron />
+            </button>
+          </div>
+        </div>
+
+        <nav className="fp-nav">
+          <div className="nav-group">
+            {links.map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                className="nav-item"
+                data-active={isActive(l.href)}
+                onClick={() => setMobileOpen(false)}
+              >
+                <span className="nav-icon nav-emoji">{l.emoji}</span>
+                <span className="nav-label">{l.label}</span>
+              </Link>
+            ))}
+          </div>
         </nav>
       </aside>
 
-      <main className="min-h-screen p-4 md:p-6 bg-[var(--bg)]">
-        {children}
-      </main>
+      {/* Main + Header */}
+      <div className="fp-content">
+        <header className="fp-header">
+          <div className="fp-header-inner">
+            <div className="flex items-center gap-2">
+              {/* Mobile burger */}
+              <button
+                className="btn icon md:hidden"
+                aria-label="Menu"
+                onClick={() => setMobileOpen(true)}
+              >
+                <IconBurger />
+              </button>
+
+              {/* Desktop controls */}
+              <div className="hidden md:flex items-center gap-2">
+                <button
+                  className="btn icon"
+                  title={collapsed ? 'Expandir sidebar' : 'Compactar sidebar'}
+                  onClick={() => setCollapsed(v => !v)}
+                >
+                  <IconChevron />
+                </button>
+                <button
+                  className={`btn icon btn-pin ${pinned ? 'is-pinned' : ''}`}
+                  title={pinned ? 'Desafixar sidebar' : 'Afixar sidebar'}
+                  onClick={() => setPinned(v => !v)}
+                >
+                  <IconPin />
+                </button>
+              </div>
+
+              {/* Pesquisa opcional */}
+              <input className="search-input" placeholder="Pesquisar…" />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <NotificationMenu />
+              <button
+                className="btn"
+                onClick={() => signOut({ callbackUrl: '/login' })}
+              >
+                Terminar sessão
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <main className="fp-main">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }
