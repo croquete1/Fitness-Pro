@@ -4,12 +4,9 @@ export const dynamic = 'force-dynamic';
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
-
-const LOGO = process.env.NEXT_PUBLIC_APP_LOGO || '/assets/logo.png';
+import AppLogo from '@/components/layout/AppLogo';
 
 export default function RegisterPage() {
-  const [logoFailed, setLogoFailed] = useState(false);
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -48,18 +45,14 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-[100dvh] grid lg:grid-cols-2 bg-slate-50 dark:bg-slate-950">
-      {/* HERO igual ao login */}
+      {/* HERO (igual ao login) */}
       <aside className="relative hidden lg:block overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-indigo-500 to-purple-500" />
         <div className="absolute -top-16 -left-12 h-72 w-72 rounded-full blur-3xl opacity-40 bg-white/30" />
         <div className="absolute bottom-0 right-0 h-80 w-80 rounded-full blur-3xl opacity-30 bg-fuchsia-400/40" />
         <div className="relative z-10 h-full w-full p-10 text-white flex flex-col justify-between">
           <div className="flex items-center gap-3">
-            {!logoFailed ? (
-              <Image src={LOGO} alt="Logo" width={36} height={36} className="h-9 w-auto drop-shadow" priority onError={() => setLogoFailed(true)} />
-            ) : (
-              <div className="h-9 w-9 rounded-lg bg-white/20 grid place-items-center font-bold">FP</div>
-            )}
+            <AppLogo size={36} className="drop-shadow" />
             <span className="text-xl font-bold tracking-tight drop-shadow">Fitness Pro</span>
           </div>
           <p className="text-xs text-white/70">© {new Date().getFullYear()} Fitness Pro</p>
@@ -71,15 +64,10 @@ export default function RegisterPage() {
         <form
           onSubmit={onSubmit}
           aria-labelledby="reg-title"
-          className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-6 sm:p-8
-                     animate-[fadeIn_.22s_ease-out_both]"
+          className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-6 sm:p-8 animate-[fadeIn_.22s_ease-out_both]"
         >
           <div className="flex items-center gap-3 sm:gap-4 mb-6 sm:mb-7 lg:hidden">
-            {!logoFailed ? (
-              <Image src={LOGO} alt="Logo" width={40} height={40} className="h-10 w-auto" priority onError={() => setLogoFailed(true)} />
-            ) : (
-              <div className="h-10 w-10 rounded-lg bg-slate-200 dark:bg-slate-800 grid place-items-center font-bold">FP</div>
-            )}
+            <AppLogo size={40} />
             <div>
               <h1 id="reg-title" className="m-0 text-2xl font-extrabold tracking-tight text-slate-800 dark:text-slate-100">Fitness Pro</h1>
               <p className="m-0 text-xs text-slate-500 dark:text-slate-400">Criar conta</p>
