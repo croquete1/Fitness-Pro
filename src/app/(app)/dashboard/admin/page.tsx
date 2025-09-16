@@ -30,23 +30,27 @@ async function safeCount(
 
 export default async function AdminDashboard() {
   const sessionUser = await getSessionUserSafe();
-  if (!sessionUser?.id) redirect('/login');
 
-  const role = (toAppRole(sessionUser.role) ?? 'CLIENT') as AppRole;
+  // sessão válida?
+  if (!sessionUser?.user?.id) redirect('/login');
 
-  // ✅ FIX: não comparar com "TRAINER" aqui; toAppRole já normaliza para "PT"
+  // role normalizada (toAppRole já trata TRAINER -> PT)
+  const role = (toAppRole(sessionUser.user.role) ?? 'CLIENT') as AppRole;
+
+  // só ADMIN fica aqui; PT vai para /dashboard/pt; cliente para /dashboard/clients
   if (role !== 'ADMIN') {
     if (role === 'PT') redirect('/dashboard/pt');
     redirect('/dashboard/clients');
   }
 
   const sb = createServerClient();
+  const userId = sessionUser.user.id;
 
   // perfil para greeting (nome/avatar)
   const { data: prof } = await sb
     .from('profiles')
     .select('name, avatar_url')
-    .eq('id', sessionUser.id)
+    .eq('id', userId)
     .maybeSingle();
 
   const now = new Date();
@@ -63,13 +67,13 @@ export default async function AdminDashboard() {
       'sessions',
       (q) => q.gte('scheduled_at', now.toISOString()).lt('scheduled_at', in7.toISOString())
     ),
-    safeCount(sb, 'notifications', (q) => q.eq('user_id', sessionUser.id).eq('read', false)),
+    safeCount(sb, 'notifications', (q) => q.eq('user_id', userId).eq('read', false)),
   ]);
 
   return (
     <div className="p-4 grid gap-3">
       <GreetingHeader
-        name={prof?.name ?? sessionUser.name ?? sessionUser.email ?? 'Utilizador'}
+        name={prof?.name ?? sessionUser.user.name ?? sessionUser.user.email ?? 'Utilizador'}
         avatarUrl={prof?.avatar_url ?? null}
         role="ADMIN"
       />

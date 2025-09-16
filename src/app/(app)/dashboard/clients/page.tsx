@@ -1,3 +1,4 @@
+// src/app/(app)/dashboard/clients/page.tsx
 export const dynamic = 'force-dynamic';
 
 import { redirect } from 'next/navigation';
@@ -24,18 +25,19 @@ async function safeCount(sb: SB, table: string, build?: (q: any) => any) {
 
 export default async function ClientDashboard() {
   const sessionUser = await getSessionUserSafe();
-  if (!sessionUser?.id) redirect('/login');
+  if (!sessionUser?.user?.id) redirect('/login');
 
-  const role = toAppRole(sessionUser.role) ?? 'CLIENT';
+  const role = toAppRole(sessionUser.user.role) ?? 'CLIENT';
   if (role !== 'CLIENT' && role !== 'ADMIN') redirect('/dashboard');
 
   const sb = createServerClient();
+  const userId = sessionUser.user.id;
 
   // Perfil para Greeting
   const { data: prof } = await sb
     .from('profiles')
     .select('name, avatar_url')
-    .eq('id', sessionUser.id)
+    .eq('id', userId)
     .maybeSingle();
 
   const now = new Date();
@@ -43,23 +45,23 @@ export default async function ClientDashboard() {
   in7.setDate(now.getDate() + 7);
 
   const [myPlans, myUpcoming, unread] = await Promise.all([
-    safeCount(sb, 'training_plans', (q) => q.eq('client_id', sessionUser.id)),
+    safeCount(sb, 'training_plans', (q) => q.eq('client_id', userId)),
     safeCount(
       sb,
       'sessions',
       (q) =>
         q
-          .eq('client_id', sessionUser.id)
+          .eq('client_id', userId)
           .gte('scheduled_at', now.toISOString())
           .lt('scheduled_at', in7.toISOString())
     ),
-    safeCount(sb, 'notifications', (q) => q.eq('user_id', sessionUser.id).eq('read', false)),
+    safeCount(sb, 'notifications', (q) => q.eq('user_id', userId).eq('read', false)),
   ]);
 
   return (
     <div className="p-4 grid gap-3">
       <GreetingHeader
-        name={prof?.name ?? sessionUser.name ?? sessionUser.email ?? 'Utilizador'}
+        name={prof?.name ?? sessionUser.user.name ?? sessionUser.user.email ?? 'Utilizador'}
         avatarUrl={prof?.avatar_url ?? null}
         role={role}
       />

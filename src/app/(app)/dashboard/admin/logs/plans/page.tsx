@@ -59,8 +59,8 @@ function q(base: string, params: Record<string, string | undefined>) {
 export default async function PlanLogsPage({ searchParams }: { searchParams?: Record<string, string | undefined> }) {
   // Guard simples (SSR)
   const session = await getSessionUserSafe();
-  if (!session?.id) redirect('/login');
-  if ((toAppRole(session.role) ?? 'CLIENT') !== 'ADMIN') redirect('/dashboard');
+  if (!session.user?.id) redirect('/login');
+  if ((toAppRole(session.user.role) ?? 'CLIENT') !== 'ADMIN') redirect('/dashboard');
 
   const h = headers();
   const host = h.get('x-forwarded-host') ?? h.get('host')!;
