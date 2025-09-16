@@ -10,14 +10,14 @@ import Logo from '@/components/layout/Logo';
 export default function LoginClient() {
   const router = useRouter();
 
-  // agora é "identifier": aceita email OU username
+  // aceita email OU username
   const [identifier, setIdentifier] = useState('');
   const [pw, setPw] = useState('');
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const canSubmit = identifier.trim().length > 0 && pw.length > 0 && !loading;
+  const canSubmit = identifier.trim().length > 0 && pw.length >= 6 && !loading;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -27,11 +27,10 @@ export default function LoginClient() {
     setLoading(true);
     try {
       const res = await signIn('credentials', {
-        redirect: false,            // controlamos o redirect no cliente
+        redirect: false, // controlamos o redirect
         identifier: identifier.trim(),
         password: pw,
       });
-
       if (res?.error) {
         setErr('Credenciais inválidas.');
       } else {
@@ -45,17 +44,17 @@ export default function LoginClient() {
   }
 
   return (
-    <div className="min-h-[100dvh] flex items-center justify-center px-4 py-6">
+    <div className="min-h-[100dvh] flex items-center justify-center px-4 py-8 bg-[var(--bg)]">
       <form
         onSubmit={onSubmit}
         aria-labelledby="auth-title"
-        className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-lg p-5 sm:p-6"
+        className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-lg p-6 sm:p-7"
       >
         {/* Header */}
-        <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-3 mb-5">
           <Logo size={36} />
           <div>
-            <h1 id="auth-title" className="m-0 text-lg sm:text-xl font-extrabold tracking-tight">
+            <h1 id="auth-title" className="m-0 text-xl sm:text-2xl font-extrabold tracking-tight">
               Fitness Pro
             </h1>
             <p className="m-0 text-xs text-slate-500 dark:text-slate-400">Iniciar sessão</p>
@@ -63,7 +62,7 @@ export default function LoginClient() {
         </div>
 
         {/* Campos */}
-        <div className="grid gap-3">
+        <div className="grid gap-4">
           <label className="text-sm font-medium">
             Email ou nome de utilizador
             <input
@@ -106,13 +105,17 @@ export default function LoginClient() {
             type="submit"
             disabled={!canSubmit}
             aria-disabled={!canSubmit}
-            className="mt-1 w-full rounded-md bg-indigo-600 text-white py-2 font-semibold disabled:opacity-60"
+            className="w-full rounded-md bg-indigo-600 text-white py-2 font-semibold disabled:opacity-60"
           >
             {loading ? 'A entrar…' : 'Entrar'}
           </button>
 
           {err && (
-            <div role="alert" className="rounded-md bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 text-sm px-3 py-2">
+            <div
+              role="alert"
+              aria-live="assertive"
+              className="rounded-md bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 text-sm px-3 py-2"
+            >
               {err}
             </div>
           )}
@@ -132,7 +135,7 @@ export default function LoginClient() {
         </div>
       </form>
 
-      {/* micro-animação acessível */}
+      {/* micro-anim acessível */}
       <style jsx>{`
         @media (prefers-reduced-motion: no-preference) {
           form {
