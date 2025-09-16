@@ -7,7 +7,7 @@ import { signIn } from 'next-auth/react';
 import Link from 'next/link';
 import Image from 'next/image';
 
-const LOGO = process.env.NEXT_PUBLIC_APP_LOGO || '/public/logo.png';
+const LOGO = process.env.NEXT_PUBLIC_APP_LOGO || '/assets/logo.png';
 
 export default function LoginClient() {
   const router = useRouter();
@@ -43,11 +43,11 @@ export default function LoginClient() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-950 flex items-center justify-center px-4 py-10">
+    <div className="fp-auth min-h-[100dvh] bg-slate-50 dark:bg-slate-950 flex items-center justify-center px-4 py-10">
       <form
         onSubmit={onSubmit}
         aria-labelledby="auth-title"
-        className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/70 backdrop-blur shadow-xl p-6 sm:p-8"
+        className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-6 sm:p-8"
       >
         {/* header */}
         <div className="flex items-center gap-3 sm:gap-4 mb-6 sm:mb-7">
@@ -82,13 +82,16 @@ export default function LoginClient() {
               type="text"
               inputMode="email"
               autoComplete="username"
-              placeholder="ex.: joana.silva ou joana@email.com"
+              // sem placeholder para evitar CSS global antigo a “empurrar” o pseudo-elemento
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
               required
               className="mt-1 block w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2
                          focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
+            <span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">
+              Pode ser o email ou o username.
+            </span>
           </label>
 
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
@@ -152,7 +155,17 @@ export default function LoginClient() {
         </div>
       </form>
 
-      {/* micro-animação acessível */}
+      {/* reset a estilos globais antigos que mexiam no ::placeholder, etc. */}
+      <style jsx global>{`
+        .fp-auth input::placeholder {
+          position: static !important;
+          background: transparent !important;
+          padding: 0 !important;
+          transform: none !important;
+        }
+      `}</style>
+
+      {/* micro-anim acessível */}
       <style jsx>{`
         @media (prefers-reduced-motion: no-preference) {
           form { animation: fadeIn .22s ease-out both; }
