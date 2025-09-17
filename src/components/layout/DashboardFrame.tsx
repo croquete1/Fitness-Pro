@@ -20,17 +20,12 @@ export default function DashboardFrame({
   return (
     <SidebarProvider>
       <div className="min-h-screen grid lg:grid-cols-[auto_1fr]">
-        {/* Sidebar única, delegada pelo role */}
         <RoleSidebar role={role} userLabel={userLabel} />
-
-        {/* Main */}
         <div className="min-w-0">
           <AppHeader />
           <main className="p-3 sm:p-5">{children}</main>
         </div>
       </div>
-
-      {/* hotspot de hover para expandir quando colapsada */}
       <SidebarHoverPeeker />
     </SidebarProvider>
   );

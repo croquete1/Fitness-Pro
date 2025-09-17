@@ -13,9 +13,14 @@ function greetingByHour(date = new Date()) {
 }
 
 export default function AppHeader() {
-  const { data: session } = useSession();
+  // fallback seguro para evitar quebra se useSession não estiver providenciado
+  const sessionValue = (useSession as unknown as () => { data: any; status: 'loading' | 'authenticated' | 'unauthenticated' })?.()
+    ?? { data: null, status: 'unauthenticated' as const };
+
+  const { data: session } = sessionValue;
+
   const name = session?.user?.name || session?.user?.email || 'Utilizador';
-  const role = (session?.user as any)?.role ? String((session!.user as any).role).toUpperCase() : 'CLIENTE';
+  const role = session?.user?.role ? String(session.user.role).toUpperCase() : 'CLIENTE';
 
   const { toggleCollapsed, openMobile } = useHeaderSidebarBridge();
 
@@ -80,7 +85,6 @@ export default function AppHeader() {
 }
 
 function useHeaderSidebarBridge() {
-  // Separado para manter o AppHeader conciso
   const { toggleCollapsed, openMobile } = useSidebar();
   return { toggleCollapsed, openMobile };
 }

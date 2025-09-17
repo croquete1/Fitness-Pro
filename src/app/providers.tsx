@@ -1,17 +1,21 @@
-"use client";
+// src/app/providers.tsx
+'use client';
 
-import { ThemeProvider } from "next-themes";
-import React from "react";
+import * as React from 'react';
+import { SessionProvider } from 'next-auth/react';
+import { ThemeProvider } from 'next-themes';
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <ThemeProvider
-      attribute="data-theme"       // <- necessário para [data-theme="dark"] do teu CSS
-      defaultTheme="light"
-      enableSystem={false}         // controlamos só light/dark
-      storageKey="fp:theme"        // mantém a preferência do utilizador
-    >
-      {children}
-    </ThemeProvider>
+    <SessionProvider>
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="system"
+        enableSystem
+        disableTransitionOnChange
+      >
+        {children}
+      </ThemeProvider>
+    </SessionProvider>
   );
 }

@@ -1,6 +1,7 @@
-// src/app/layout.tsx (ROOT)
+// src/app/layout.tsx
 import './globals.css';
-import Providers from './providers'; // se tiveres um wrapper com SessionProvider/ThemeProvider
+import * as React from 'react';
+import Providers from './providers';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

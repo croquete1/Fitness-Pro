@@ -16,14 +16,7 @@ export default function RoleSidebar({
 }) {
   const r = String(role).toUpperCase();
 
-  if (r === 'ADMIN') {
-    return <SidebarAdmin userLabel={userLabel} />;
-  }
-
-  if (r === 'TRAINER' || r === 'PT' || r === 'PERSONAL_TRAINER') {
-    return <SidebarPT userLabel={userLabel} />;
-  }
-
-  // CLIENTE
+  if (r === 'ADMIN') return <SidebarAdmin userLabel={userLabel} />;
+  if (r === 'TRAINER' || r === 'PT' || r === 'PERSONAL_TRAINER') return <SidebarPT userLabel={userLabel} />;
   return <SidebarClient userLabel={userLabel} />;
 }
