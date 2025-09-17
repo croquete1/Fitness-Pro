@@ -1,29 +1,19 @@
-export const dynamic = 'force-dynamic';
-
-import RoleSidebar from '@/components/layout/RoleSidebar';
-import AppHeader from '@/components/layout/AppHeader';
-import { SidebarProvider } from '@/components/layout/SidebarCtx';
+'use client';
+import DashboardFrame from '@/components/layout/DashboardFrame';
 import type { AppRole } from '@/lib/roles';
 
 export default function ClientShell({
   role,
-  userLabel, // ← pode existir aguas passadas, mas não vamos passar ao RoleSidebar
+  userLabel,
   children,
 }: {
   role: AppRole;
-  userLabel?: string;
+  userLabel: string;
   children: React.ReactNode;
 }) {
   return (
-    <SidebarProvider>
-      <div className="fp-shell">
-        {/* RoleSidebar já não espera userLabel */}
-        <RoleSidebar role={role} />
-        <main className="fp-main">
-          <AppHeader />
-          {children}
-        </main>
-      </div>
-    </SidebarProvider>
+    <DashboardFrame role={role} userLabel={userLabel}>
+      {children}
+    </DashboardFrame>
   );
 }

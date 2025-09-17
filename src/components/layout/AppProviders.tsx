@@ -1,8 +1,5 @@
-// src/components/layout/AppProviders.tsx
 'use client';
-
-import React from 'react';
-import { SidebarProvider } from './SidebarProvider';
+import { SidebarProvider } from './SidebarCtx';
 
 export default function AppProviders({ children }: { children: React.ReactNode }) {
   return <SidebarProvider>{children}</SidebarProvider>;

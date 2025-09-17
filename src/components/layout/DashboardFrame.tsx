@@ -20,7 +20,6 @@ export default function DashboardFrame({
 }) {
   const path = usePathname();
   const { collapsed, toggleCollapse, openMobile, closeMobile, toggleTheme, theme } = useSidebar();
-
   const isActive = (href: string) => path === href || path?.startsWith(href + '/');
 
   const links = useMemo(() => {
@@ -50,15 +49,12 @@ export default function DashboardFrame({
     ];
   }, [role]);
 
-  // ícones inline (sem dependências)
   const IconBurger = () => (
     <svg width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2"/></svg>
   );
   const IconChevron = () => (
-    <svg
-      width="20" height="20" viewBox="0 0 24 24"
-      style={{ transition: 'transform .26s var(--sb-ease)', transform: collapsed ? 'rotate(180deg)' : 'rotate(0deg)' }}
-    >
+    <svg width="20" height="20" viewBox="0 0 24 24"
+      style={{ transition: 'transform .26s var(--sb-ease)', transform: collapsed ? 'rotate(180deg)' : 'rotate(0deg)' }}>
       <path fill="currentColor" d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/>
     </svg>
   );
@@ -70,11 +66,9 @@ export default function DashboardFrame({
     <div className="fp-shell">
       <div className="fp-sb-overlay" onClick={closeMobile} />
 
-      {/* Sidebar */}
       <aside className="fp-sidebar">
         <div className="fp-sb-head">
           <div className="fp-sb-brand">
-            {/* usa <img> para evitar 400 do next/image */}
             <img src="/assets/logo.png" alt="Fitness Pro" className="logo" />
             <div>
               <div className="brand-name">Fitness Pro</div>
@@ -82,13 +76,8 @@ export default function DashboardFrame({
             </div>
           </div>
           <div className="fp-sb-actions">
-            {/* 1 único ícone para expandir/compactar (com animação de rotação) */}
-            <button
-              className="btn icon"
-              title={collapsed ? 'Expandir' : 'Compactar'}
-              onClick={toggleCollapse}
-              aria-label="Alternar sidebar"
-            >
+            <button className="btn icon" title={collapsed ? 'Expandir' : 'Compactar'}
+              onClick={toggleCollapse} aria-label="Alternar sidebar">
               <IconChevron />
             </button>
           </div>
@@ -96,14 +85,8 @@ export default function DashboardFrame({
 
         <nav className="fp-nav">
           <div className="nav-group">
-            {links.map((l) => (
-              <Link
-                key={l.href}
-                href={l.href}
-                className="nav-item"
-                data-active={isActive(l.href)}
-                onClick={closeMobile}
-              >
+            {links.map(l => (
+              <Link key={l.href} href={l.href} className="nav-item" data-active={isActive(l.href)} onClick={closeMobile}>
                 <span className="nav-icon nav-emoji">{l.emoji}</span>
                 <span className="nav-label">{l.label}</span>
               </Link>
@@ -112,31 +95,19 @@ export default function DashboardFrame({
         </nav>
       </aside>
 
-      {/* Content */}
       <div className="fp-content">
         <header className="fp-header">
           <div className="fp-header-inner">
             <div className="flex items-center gap-2">
-              {/* botão mobile */}
-              <button className="btn icon md:hidden" aria-label="Menu" onClick={openMobile}>
-                <IconBurger />
-              </button>
+              <button className="btn icon md:hidden" aria-label="Menu" onClick={openMobile}><IconBurger/></button>
               <input className="search-input" placeholder="Pesquisar…" />
             </div>
             <div className="flex items-center gap-2">
-              {/* toggle tema claro/escuro */}
-              <button
-                className="btn icon"
-                aria-label="Alternar tema"
-                title={theme === 'light' ? 'Modo escuro' : 'Modo claro'}
-                onClick={toggleTheme}
-              >
+              <button className="btn icon" aria-label="Alternar tema" title={theme === 'light' ? 'Modo escuro' : 'Modo claro'} onClick={toggleTheme}>
                 <IconTheme />
               </button>
               <NotificationMenu />
-              <button className="btn" onClick={() => signOut({ callbackUrl: '/login' })}>
-                Terminar sessão
-              </button>
+              <button className="btn" onClick={() => signOut({ callbackUrl: '/login' })}>Terminar sessão</button>
             </div>
           </div>
         </header>
