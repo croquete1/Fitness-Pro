@@ -207,10 +207,11 @@ input:focus,select:focus,textarea:focus{ box-shadow:var(--ring); border-color:va
 /* ================================= */
 /* ========== SIDEBAR ============== */
 /* ================================= */
+/* intensificar active */
 .fp-sidebar .nav-item[data-active="true"]{
-  background: var(--sidebar-active);
-  color: color-mix(in srgb, var(--primary) 28%, var(--sidebar-fg));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 22%, var(--border));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--primary) 20%, transparent), transparent 70%);
+  color: color-mix(in srgb, var(--primary) 40%, var(--sidebar-fg));
+  border: 1px solid color-mix(in srgb, var(--primary) 25%, var(--border));
 }
 
 /* Mobile drawer */
