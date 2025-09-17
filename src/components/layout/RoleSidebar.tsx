@@ -1,88 +1,66 @@
+// src/components/layout/RoleSidebar.tsx
 'use client';
 
-import Link from 'next/link';
-import {usePathname} from 'next/navigation';
-import React from 'react';
-import {useSidebar} from './SidebarCtx';
+import * as React from 'react';
+import { usePathname } from 'next/navigation';
 import type { AppRole } from '@/lib/roles';
+import SidebarBase from '@/components/layout/SidebarBase';
 
-export type NavItem = { href: string; label: string; icon: string };
+type RoleSidebarProps = {
+  role: AppRole;
+  onNavigate?: () => void; // compatibilidade com chamadas a partir do DashboardFrame
+};
 
-export function getRoleNav(role: AppRole): NavItem[] {
-  if (role === 'ADMIN') {
-    return [
-      { href: '/dashboard/admin',            label: 'Início',        icon: '🏠' },
-      { href: '/dashboard/admin/users',      label: 'Utilizadores',  icon: '👥' },
-      { href: '/dashboard/admin/approvals',  label: 'Aprovações',    icon: '✅' },
-      { href: '/dashboard/admin/exercises',  label: 'Exercícios',    icon: '📚' },
-      { href: '/dashboard/admin/plans',      label: 'Planos',        icon: '📝' },
-      { href: '/dashboard/admin/pt-schedule',label: 'Agenda PTs',    icon: '📅' },
-      { href: '/dashboard/admin/profile',    label: 'O meu perfil',  icon: '⚙️' },
-    ];
-  }
-  if (role === 'PT') {
-    return [
-      { href: '/dashboard/pt',           label: 'Início',     icon: '🏠' },
-      { href: '/dashboard/pt/clients',   label: 'Clientes',   icon: '🧑‍🤝‍🧑' },
-      { href: '/dashboard/pt/plans',     label: 'Planos',     icon: '📝' },
-      { href: '/dashboard/pt/exercises', label: 'Exercícios', icon: '📚' },
-      { href: '/dashboard/pt/profile',   label: 'O meu perfil', icon: '⚙️' },
-    ];
-  }
-  return [
-    { href: '/dashboard/clients',      label: 'Início',        icon: '🏠' },
-    { href: '/dashboard/my-plan',      label: 'Os meus planos',icon: '📝' },
-    { href: '/dashboard/notifications',label: 'Notificações',  icon: '🔔' },
-    { href: '/dashboard/profile',      label: 'Conta',         icon: '👤' },
-  ];
-}
-
-export default function RoleSidebar({ role, userLabel }: { role: AppRole; userLabel: string }) {
-  const { toggleCollapse } = useSidebar();
+export default function RoleSidebar({ role }: RoleSidebarProps) {
   const pathname = usePathname();
-  const items = getRoleNav(role);
 
-  // “Longest prefix match” – garante apenas 1 item ativo (o mais específico)
-  const activeHref = items
-    .filter(i => pathname === i.href || pathname?.startsWith(i.href + '/'))
-    .sort((a,b) => b.href.length - a.href.length)[0]?.href;
-
-  const Chevron = () => (
-    <svg width="18" height="18" viewBox="0 0 24 24"><path fill="currentColor" d="M14.71 17.29L10.41 13l4.3-4.29L13 7l-6 6l6 6z"/></svg>
+  // Itens comuns a todos os perfis
+  const common = React.useMemo(
+    () => [{ href: '/dashboard', label: 'Dashboard', activePrefix: '/dashboard' }],
+    [],
   );
 
-  return (
-    <aside className="fp-sidebar">
-      <div className="fp-sb-head">
-        <div className="fp-sb-brand">
-          <img src="/assets/logo.png" alt="Fitness Pro" className="logo" />
-          <div>
-            <div className="brand-name">Fitness Pro</div>
-            <div className="brand-role">{userLabel}</div>
-          </div>
-        </div>
-        <div className="fp-sb-actions">
-          <button className="btn icon" title="Expandir/compactar" onClick={toggleCollapse}>
-            <Chevron/>
-          </button>
-        </div>
-      </div>
+  // Itens por role — normalizamos para lidar com enum/union em MAIÚSCULAS
+  const items = React.useMemo(() => {
+    const r = String(role).toUpperCase();
 
-      <nav className="fp-nav">
-        <div className="nav-group">
-          {items.map(it => (
-            <Link
-              key={it.href}
-              href={it.href}
-              className="nav-item"
-              data-active={activeHref === it.href}
-            >
-              <span className="nav-icon nav-emoji">{it.icon}</span>
-              <span className="nav-label">{it.label}</span>
-            </Link>
-          ))}
-        </div>
-      </nav>
-    </aside>
+    if (r === 'ADMIN') {
+      return [
+        ...common,
+        { href: '/dashboard/admin', label: 'Administração', activePrefix: '/dashboard/admin' },
+        { href: '/dashboard/sistema', label: 'Sistema', activePrefix: '/dashboard/sistema' },
+      ];
+    }
+
+    if (r === 'TRAINER' || r === 'PT' || r === 'PERSONAL_TRAINER') {
+      return [
+        ...common,
+        { href: '/dashboard/pt', label: 'PT', activePrefix: '/dashboard/pt' },
+        { href: '/dashboard/pt/clientes', label: 'Clientes', activePrefix: '/dashboard/pt/clientes' },
+      ];
+    }
+
+    if (r === 'CLIENT') {
+      return [
+        ...common,
+        { href: '/dashboard/planos', label: 'Planos', activePrefix: '/dashboard/planos' },
+        { href: '/dashboard/nutricao', label: 'Nutrição', activePrefix: '/dashboard/nutricao' },
+      ];
+    }
+
+    return common;
+  }, [role, common]);
+
+  const activeIndex = React.useMemo(
+    () => items.findIndex((it) => pathname?.startsWith(it.activePrefix ?? it.href)),
+    [items, pathname],
   );
+
+  const itemsTagged = React.useMemo(
+    () => items.map((it, i) => ({ ...it, active: i === activeIndex })),
+    [items, activeIndex],
+  );
+
+  // Não passamos onNavigate porque o SidebarBase não suporta essa prop
+  return <SidebarBase items={itemsTagged} />;
 }

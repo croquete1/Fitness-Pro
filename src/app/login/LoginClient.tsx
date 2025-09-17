@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import Link from 'next/link';
-import AppLogo from '@/components/layout/AppLogo';
+// Removida a importação de AppLogo, pois usaremos diretamente a tag <img> para o logo
 
 export default function LoginClient() {
   const router = useRouter();
@@ -44,7 +44,7 @@ export default function LoginClient() {
         <div className="absolute bottom-0 right-0 h-80 w-80 rounded-full blur-3xl opacity-30 bg-fuchsia-400/40" />
         <div className="relative z-10 h-full w-full p-10 text-white flex flex-col justify-between">
           <div className="flex items-center gap-3">
-            <AppLogo size={36} className="drop-shadow" />
+            <img src="/logo.png" alt="Fitness Pro" width={36} height={36} className="drop-shadow" />
             <span className="text-xl font-bold tracking-tight drop-shadow">Fitness Pro</span>
           </div>
           <div>
@@ -68,7 +68,7 @@ export default function LoginClient() {
         >
           {/* header (mobile) */}
           <div className="flex items-center gap-3 sm:gap-4 mb-6 sm:mb-7 lg:hidden">
-            <AppLogo size={40} />
+            <img src="/logo.png" alt="Fitness Pro" width={40} height={40} />
             <div>
               <h1 id="auth-title" className="m-0 text-2xl font-extrabold tracking-tight text-slate-800 dark:text-slate-100">
                 Fitness Pro

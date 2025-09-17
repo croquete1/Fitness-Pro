@@ -1,31 +1,41 @@
+// src/components/layout/DashboardFrame.tsx
 'use client';
 
-import React from 'react';
-import RoleSidebar from './RoleSidebar';
-import AppHeader from './AppHeader';
-import { useSidebar } from './SidebarCtx';
+import * as React from 'react';
 import type { AppRole } from '@/lib/roles';
+import { SidebarProvider } from '@/components/layout/SidebarProvider';
+import RoleSidebar from '@/components/layout/RoleSidebar';
+import AppHeader from '@/components/layout/AppHeader';
+import SidebarHoverPeeker from '@/components/layout/SidebarHoverPeeker';
 
 export default function DashboardFrame({
   role,
-  userLabel,
+  userLabel: _userLabel, // mantemos para compatibilidade com chamadas existentes
   children,
 }: {
   role: AppRole;
   userLabel: string;
   children: React.ReactNode;
 }) {
-  // Touch context here to guarantee provider está ativo (evita o teu erro de runtime)
-  useSidebar();
+  // marcar como usado para evitar lint no-unused-vars em configs mais estritas
+  void _userLabel;
+
+  const handleNavigate = React.useCallback(() => {
+    // Aqui poderias fechar o menu mobile, se o provider expuser essa API.
+  }, []);
 
   return (
-    <div className="fp-shell">
-      <div className="fp-sb-overlay" />
-      <RoleSidebar role={role} userLabel={userLabel} />
-      <div className="fp-content">
-        <AppHeader />
-        <main className="fp-main">{children}</main>
+    <SidebarProvider>
+      <div className="fp-shell" data-auth-root>
+        <RoleSidebar role={role} onNavigate={handleNavigate} />
+        <div className="fp-main">
+          <AppHeader />
+          <main className="fp-content">{children}</main>
+        </div>
       </div>
-    </div>
+
+      {/* Zona “hotspot” que abre a sidebar quando está colapsada e não afixada */}
+      <SidebarHoverPeeker />
+    </SidebarProvider>
   );
 }
