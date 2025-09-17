@@ -1,36 +1,35 @@
-// src/app/(app)/dashboard/layout.tsx
-export const dynamic = 'force-dynamic';
-
-import React from 'react';
-import { getSessionUserSafe } from '@/lib/session-bridge';
 import { redirect } from 'next/navigation';
-import { toAppRole } from '@/lib/roles';
+import { getSessionUserSafe } from '@/lib/session-bridge';
+import { toAppRole, type AppRole } from '@/lib/roles';
+import { createServerClient } from '@/lib/supabaseServer';
+import { SidebarProvider } from '@/components/layout/SidebarCtx';
 import DashboardFrame from '@/components/layout/DashboardFrame';
 
-export default async function DashboardRootLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const sessionUser = await getSessionUserSafe();
+  const session = await getSessionUserSafe();
+  if (!session?.user?.id) redirect('/login');
 
-  // Sessão obrigatória
-  if (!sessionUser?.user?.id) {
-    redirect('/login');
-  }
+  const role = (toAppRole(session.user.role) ?? 'CLIENT') as AppRole;
 
-  // Role normalizada (TRAINER -> PT)
-  const role = toAppRole(sessionUser.user.role) ?? 'CLIENT';
+  // nome para saudação
+  const sb = createServerClient();
+  const { data: prof } = await sb
+    .from('profiles')
+    .select('name')
+    .eq('id', session.user.id)
+    .maybeSingle();
 
-  // Etiqueta do utilizador para o header
-  const userLabel =
-    sessionUser.user.name ||
-    sessionUser.user.email ||
-    'Utilizador';
+  const userLabel = prof?.name ?? session.user.name ?? session.user.email ?? 'Utilizador';
 
   return (
-    <DashboardFrame role={role} userLabel={userLabel}>
-      {children}
-    </DashboardFrame>
+    <SidebarProvider>
+      <DashboardFrame role={role} userLabel={userLabel}>
+        {children}
+      </DashboardFrame>
+    </SidebarProvider>
   );
 }

@@ -2,64 +2,86 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
-type Ctx = {
+export type SidebarTheme = 'light' | 'dark';
+
+export type SidebarState = {
   collapsed: boolean;
+  pinned: boolean;
   mobileOpen: boolean;
-  theme: 'light' | 'dark';
+  theme: SidebarTheme;
+
+  // actions
   toggleCollapse: () => void;
+  setCollapsed: (v: boolean) => void;
+
+  togglePin: () => void;
   openMobile: () => void;
   closeMobile: () => void;
+
   toggleTheme: () => void;
 };
 
-const SidebarContext = createContext<Ctx | null>(null);
+const SidebarCtx = createContext<SidebarState | null>(null);
 
-export function SidebarProvider({ children }: { children: React.ReactNode }) {
-  const [collapsed, setCollapsed] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return (localStorage.getItem('sbCollapsed') ?? '0') === '1';
-  });
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    if (typeof window === 'undefined') return 'light';
-    const saved = localStorage.getItem('theme');
-    if (saved === 'dark' || saved === 'light') return saved;
-    // fallback: prefere media
-    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  });
-
-  useEffect(() => {
-    const html = document.documentElement;
-    // sidebar
-    if (collapsed) html.setAttribute('data-sb-collapsed', '1');
-    else html.removeAttribute('data-sb-collapsed');
-    if (mobileOpen) html.setAttribute('data-sb-mobile-open', '1');
-    else html.removeAttribute('data-sb-mobile-open');
-    localStorage.setItem('sbCollapsed', collapsed ? '1' : '0');
-  }, [collapsed, mobileOpen]);
-
-  useEffect(() => {
-    const html = document.documentElement;
-    if (theme === 'dark') html.setAttribute('data-theme', 'dark');
-    else html.removeAttribute('data-theme');
-    localStorage.setItem('theme', theme);
-  }, [theme]);
-
-  const value = useMemo<Ctx>(() => ({
-    collapsed,
-    mobileOpen,
-    theme,
-    toggleCollapse: () => setCollapsed(v => !v),
-    openMobile: () => setMobileOpen(true),
-    closeMobile: () => setMobileOpen(false),
-    toggleTheme: () => setTheme(t => (t === 'dark' ? 'light' : 'dark')),
-  }), [collapsed, mobileOpen, theme]);
-
-  return <SidebarContext.Provider value={value}>{children}</SidebarContext.Provider>;
+function readLS<T>(key: string, fallback: T): T {
+  if (typeof window === 'undefined') return fallback;
+  try {
+    const v = localStorage.getItem(key);
+    if (v == null) return fallback;
+    return (JSON.parse(v) as T);
+  } catch {
+    return fallback;
+  }
+}
+function writeLS(key: string, value: unknown) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {}
 }
 
-export function useSidebar() {
-  const ctx = useContext(SidebarContext);
+export function SidebarProvider({ children }: { children: React.ReactNode }) {
+  const [collapsed, setCollapsed] = useState<boolean>(() => readLS('sb-collapsed', false));
+  const [pinned, setPinned] = useState<boolean>(() => readLS('sb-pinned', true));
+  const [mobileOpen, setMobileOpen] = useState<boolean>(false);
+  const [theme, setTheme] = useState<SidebarTheme>(() => readLS('fp-theme', 'light'));
+
+  // sync HTML data-attrs para CSS
+  useEffect(() => {
+    const html = document.documentElement;
+    html.setAttribute('data-sb-pinned', pinned ? '1' : '0');
+    if (collapsed) html.setAttribute('data-sb-collapsed', '1');
+    else html.removeAttribute('data-sb-collapsed');
+
+    if (mobileOpen) html.setAttribute('data-sb-mobile-open', '1');
+    else html.removeAttribute('data-sb-mobile-open');
+
+    html.setAttribute('data-theme', theme);
+    writeLS('sb-collapsed', collapsed);
+    writeLS('sb-pinned', pinned);
+    writeLS('fp-theme', theme);
+  }, [collapsed, pinned, mobileOpen, theme]);
+
+  const value: SidebarState = useMemo(
+    () => ({
+      collapsed,
+      pinned,
+      mobileOpen,
+      theme,
+      toggleCollapse: () => setCollapsed(v => !v),
+      setCollapsed,
+      togglePin: () => setPinned(v => !v),
+      openMobile: () => setMobileOpen(true),
+      closeMobile: () => setMobileOpen(false),
+      toggleTheme: () => setTheme(t => (t === 'light' ? 'dark' : 'light')),
+    }),
+    [collapsed, pinned, mobileOpen, theme]
+  );
+
+  return <SidebarCtx.Provider value={value}>{children}</SidebarCtx.Provider>;
+}
+
+export function useSidebar(): SidebarState {
+  const ctx = useContext(SidebarCtx);
   if (!ctx) throw new Error('useSidebar must be used within <SidebarProvider>');
   return ctx;
 }

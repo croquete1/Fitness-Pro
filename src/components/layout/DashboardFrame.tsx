@@ -2,10 +2,10 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { signOut } from 'next-auth/react';
+import { useMemo } from 'react';
+import { useSidebar } from './SidebarCtx';
 import NotificationMenu from '@/components/notifications/NotificationMenu';
-import RoleSidebar from '@/components/layout/RoleSidebar';
-import { useSidebar } from '@/components/layout/SidebarCtx';
+import { signOut } from 'next-auth/react';
 
 type Role = 'ADMIN' | 'PT' | 'CLIENT';
 
@@ -21,50 +21,119 @@ export default function DashboardFrame({
   const path = usePathname();
   const { collapsed, toggleCollapse, openMobile, closeMobile, toggleTheme, theme } = useSidebar();
 
+  const isActive = (href: string) => path === href || path?.startsWith(href + '/');
+
+  const links = useMemo(() => {
+    if (role === 'ADMIN') {
+      return [
+        { href: '/dashboard/admin', label: 'Início', emoji: '🏠' },
+        { href: '/dashboard/admin/users', label: 'Utilizadores', emoji: '👥' },
+        { href: '/dashboard/admin/approvals', label: 'Aprovações', emoji: '✅' },
+        { href: '/dashboard/admin/exercises', label: 'Exercícios', emoji: '📚' },
+        { href: '/dashboard/admin/plans', label: 'Planos', emoji: '📝' },
+        { href: '/dashboard/admin/pt-schedule', label: 'Agenda PTs', emoji: '📅' },
+        { href: '/dashboard/admin/profile', label: 'O meu perfil', emoji: '⚙️' },
+      ];
+    }
+    if (role === 'PT') {
+      return [
+        { href: '/dashboard/pt', label: 'Início', emoji: '🏠' },
+        { href: '/dashboard/pt/clients', label: 'Clientes', emoji: '🧑‍🤝‍🧑' },
+        { href: '/dashboard/pt/plans', label: 'Planos', emoji: '📝' },
+        { href: '/dashboard/pt/exercises', label: 'Exercícios', emoji: '📚' },
+      ];
+    }
+    return [
+      { href: '/dashboard/clients', label: 'Início', emoji: '🏠' },
+      { href: '/dashboard/my-plan', label: 'Os meus planos', emoji: '📝' },
+      { href: '/dashboard/notifications', label: 'Notificações', emoji: '🔔' },
+    ];
+  }, [role]);
+
+  // ícones inline (sem dependências)
   const IconBurger = () => (
     <svg width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2"/></svg>
   );
-  const IconChevron = () => collapsed
-    ? (<svg width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M9.29 6.71L13.58 11l-4.29 4.29L10 17l6-6l-6-6z"/></svg>)
-    : (<svg width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M14.71 17.29L10.41 13l4.3-4.29L13 7l-6 6l6 6z"/></svg>);
-  const IconSun = () => (<svg width="18" height="18" viewBox="0 0 24 24"><path fill="currentColor" d="M6.76 4.84l-1.8-1.79l-1.41 1.41l1.79 1.8l1.42-1.42M1 13h3v-2H1v2m10 10h2v-3h-2v3m9-10v-2h-3v2h3m-2.05 7.36l1.41-1.41l-1.79-1.8l-1.41 1.42l1.79 1.79M12 7a5 5 0 0 1 5 5a5 5 0 0 1-5 5a5 5 0 0 1-5-5a5 5 0 0 1 5-5m6.24-2.16l1.79-1.8l-1.41-1.41l-1.8 1.79l1.42 1.42M4.22 17.66l1.8-1.79l-1.42-1.42l-1.79 1.8l1.41 1.41Z"/></svg>);
-  const IconMoon = () => (<svg width="18" height="18" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a9.931 9.931 0 0 0-7.071 2.929A9.931 9.931 0 0 0 2 12c0 2.652 1.03 5.147 2.929 7.071A9.931 9.931 0 0 0 12 22a10 10 0 0 0 9.446-6.684a.75.75 0 0 0-1.04-.93A7.5 7.5 0 0 1 9.614 5.594a7.48 7.48 0 0 1 4.93-2.291a.75.75 0 0 0 .659-.99A10 10 0 0 0 12 2Z"/></svg>);
+  const IconChevron = () => (
+    <svg
+      width="20" height="20" viewBox="0 0 24 24"
+      style={{ transition: 'transform .26s var(--sb-ease)', transform: collapsed ? 'rotate(180deg)' : 'rotate(0deg)' }}
+    >
+      <path fill="currentColor" d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/>
+    </svg>
+  );
+  const IconTheme = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24"><path fill="currentColor" d="M12 3a1 1 0 0 1 1 1v1.06a7.002 7.002 0 0 1 6.94 6.02H21a1 1 0 1 1 0 2h-1.06A7.002 7.002 0 0 1 13 18.94V20a1 1 0 1 1-2 0v-1.06A7.002 7.002 0 0 1 4.06 13H3a1 1 0 1 1 0-2h1.06A7.002 7.002 0 0 1 11 5.06V4a1 1 0 0 1 1-1Z"/></svg>
+  );
 
   return (
     <div className="fp-shell">
-      {/* Sidebar (com brand + nav). Toggle só no header */}
-      <RoleSidebar role={role} onNavigate={closeMobile} />
+      <div className="fp-sb-overlay" onClick={closeMobile} />
 
+      {/* Sidebar */}
+      <aside className="fp-sidebar">
+        <div className="fp-sb-head">
+          <div className="fp-sb-brand">
+            {/* usa <img> para evitar 400 do next/image */}
+            <img src="/assets/logo.png" alt="Fitness Pro" className="logo" />
+            <div>
+              <div className="brand-name">Fitness Pro</div>
+              <div className="brand-role">{userLabel}</div>
+            </div>
+          </div>
+          <div className="fp-sb-actions">
+            {/* 1 único ícone para expandir/compactar (com animação de rotação) */}
+            <button
+              className="btn icon"
+              title={collapsed ? 'Expandir' : 'Compactar'}
+              onClick={toggleCollapse}
+              aria-label="Alternar sidebar"
+            >
+              <IconChevron />
+            </button>
+          </div>
+        </div>
+
+        <nav className="fp-nav">
+          <div className="nav-group">
+            {links.map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                className="nav-item"
+                data-active={isActive(l.href)}
+                onClick={closeMobile}
+              >
+                <span className="nav-icon nav-emoji">{l.emoji}</span>
+                <span className="nav-label">{l.label}</span>
+              </Link>
+            ))}
+          </div>
+        </nav>
+      </aside>
+
+      {/* Content */}
       <div className="fp-content">
         <header className="fp-header">
           <div className="fp-header-inner">
             <div className="flex items-center gap-2">
-              <button className="btn icon md:hidden" aria-label="Menu" onClick={openMobile}><IconBurger/></button>
-
-              {/* ÚNICO TOGGLE da sidebar */}
+              {/* botão mobile */}
+              <button className="btn icon md:hidden" aria-label="Menu" onClick={openMobile}>
+                <IconBurger />
+              </button>
+              <input className="search-input" placeholder="Pesquisar…" />
+            </div>
+            <div className="flex items-center gap-2">
+              {/* toggle tema claro/escuro */}
               <button
                 className="btn icon"
-                title={collapsed ? 'Expandir sidebar' : 'Compactar sidebar'}
-                onClick={toggleCollapse}
-                aria-pressed={collapsed}
-                data-role="sb-toggle"
+                aria-label="Alternar tema"
+                title={theme === 'light' ? 'Modo escuro' : 'Modo claro'}
+                onClick={toggleTheme}
               >
-                <IconChevron/>
+                <IconTheme />
               </button>
-
-              {/* Saudação (sem role) */}
-              <div className="text-sm text-muted">Bom dia,</div>
-              <div className="font-semibold">{userLabel}</div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {/* Theme toggle */}
-              <button className="btn icon" onClick={toggleTheme} title="Tema">
-                {theme === 'dark' ? <IconSun/> : <IconMoon/>}
-              </button>
-
               <NotificationMenu />
-
               <button className="btn" onClick={() => signOut({ callbackUrl: '/login' })}>
                 Terminar sessão
               </button>
