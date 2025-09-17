@@ -1,4 +1,3 @@
-// src/components/layout/DashboardFrame.tsx
 'use client';
 
 import * as React from 'react';
@@ -19,12 +18,12 @@ export default function DashboardFrame({
 }) {
   return (
     <SidebarProvider>
-      <div className="min-h-screen grid lg:grid-cols-[auto_1fr]">
-        <RoleSidebar role={role} userLabel={userLabel} />
-        <div className="min-w-0">
-          <AppHeader />
-          <main className="p-3 sm:p-5">{children}</main>
-        </div>
+      {/* Sidebar fixa */}
+      <RoleSidebar role={role} userLabel={userLabel} />
+      {/* Header + conteúdo compensados */}
+      <div className="lg:pl-[260px]">
+        <AppHeader />
+        <main className="p-3 sm:p-5">{children}</main>
       </div>
       <SidebarHoverPeeker />
     </SidebarProvider>

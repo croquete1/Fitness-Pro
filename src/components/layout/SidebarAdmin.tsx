@@ -1,4 +1,3 @@
-// src/components/layout/SidebarAdmin.tsx
 'use client';
 
 import * as React from 'react';
@@ -6,7 +5,7 @@ import SidebarBase, { type NavItem } from '@/components/layout/SidebarBase';
 
 export default function SidebarAdmin({ userLabel }: { userLabel?: string }) {
   const items: NavItem[] = [
-    { href: '/dashboard/admin',               label: 'Painel',                 icon: <span aria-hidden>📊</span>, activePrefix: '/dashboard/admin' },
+    { href: '/dashboard/admin',               label: 'Painel',                 icon: <span aria-hidden>📊</span>, exact: true, activePrefix: '/dashboard/admin' },
     { href: '/dashboard/admin/approvals',     label: 'Aprovações',             icon: <span aria-hidden>✅</span>, activePrefix: '/dashboard/admin/approvals' },
     { href: '/dashboard/admin/users',         label: 'Utilizadores',           icon: <span aria-hidden>🧑‍🤝‍🧑</span>, activePrefix: '/dashboard/admin/users' },
     { href: '/dashboard/admin/exercises',     label: 'Exercícios',             icon: <span aria-hidden>🏋️</span>, activePrefix: '/dashboard/admin/exercises' },
@@ -22,14 +21,7 @@ export default function SidebarAdmin({ userLabel }: { userLabel?: string }) {
       <img src="/logo.png" alt="Fitness Pro" width={24} height={24} className="rounded" />
       <div className="leading-tight">
         <div className="text-sm font-semibold">Fitness Pro</div>
-        {userLabel && (
-          <div
-            className="text-[11px] text-slate-500 dark:text-slate-400 truncate"
-            title={userLabel}
-          >
-            {userLabel}
-          </div>
-        )}
+        {userLabel && <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{userLabel}</div>}
       </div>
     </div>
   );

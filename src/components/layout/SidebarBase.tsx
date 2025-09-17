@@ -1,4 +1,3 @@
-// src/components/layout/SidebarBase.tsx
 'use client';
 
 import * as React from 'react';
@@ -10,8 +9,9 @@ export type NavItem = {
   href: string;
   label: string;
   icon?: React.ReactNode;
-  active?: boolean;        // opcional — se vier, tem prioridade
-  activePrefix?: string;   // opcional — fallback para calcular active via pathname
+  active?: boolean;       // se vier, tem prioridade
+  activePrefix?: string;  // alvo para matching
+  exact?: boolean;        // se true, usa equality; senão, startsWith
 };
 
 export default function SidebarBase({
@@ -37,11 +37,7 @@ export default function SidebarBase({
   return (
     <>
       {mobileOpen && (
-        <div
-          className="fixed inset-0 z-30 bg-black/30 lg:hidden"
-          onClick={closeMobile}
-          aria-hidden
-        />
+        <div className="fixed inset-0 z-30 bg-black/30 lg:hidden" onClick={closeMobile} aria-hidden />
       )}
 
       <aside
@@ -58,9 +54,11 @@ export default function SidebarBase({
 
           <nav className="p-2 space-y-1 overflow-y-auto">
             {items.map((it) => {
-              const isActive =
-                it.active ??
-                (pathname ? pathname.startsWith(it.activePrefix ?? it.href) : false);
+              const target = it.activePrefix ?? it.href;
+              const computed = pathname
+                ? (it.exact ? pathname === target : pathname.startsWith(target))
+                : false;
+              const isActive = it.active ?? computed;
 
               return (
                 <Link
@@ -75,9 +73,7 @@ export default function SidebarBase({
                   onClick={closeMobile}
                 >
                   {it.icon && <span className="shrink-0">{it.icon}</span>}
-                  <span className={`truncate ${collapsed && !peek ? 'lg:hidden' : ''}`}>
-                    {it.label}
-                  </span>
+                  <span className={`truncate ${collapsed && !peek ? 'lg:hidden' : ''}`}>{it.label}</span>
                 </Link>
               );
             })}

@@ -1,27 +1,25 @@
-// src/components/layout/SidebarClient.tsx
 'use client';
 
-import React from 'react';
-import SidebarBase, { type NavItem } from './SidebarBase';
+import * as React from 'react';
+import SidebarBase, { type NavItem } from '@/components/layout/SidebarBase';
 
-export default function SidebarClient({ userLabel }: { userLabel: string }) {
+export default function SidebarClient({ userLabel }: { userLabel?: string }) {
   const items: NavItem[] = [
-    { href: '/dashboard',           label: 'Resumo',      icon: <span aria-hidden>🏠</span>, activePrefix: '/dashboard' },
-    { href: '/dashboard/my-plan',   label: 'Meu plano',   icon: <span aria-hidden>📝</span>, activePrefix: '/dashboard/my-plan' },
-    { href: '/dashboard/messages',  label: 'Mensagens',   icon: <span aria-hidden>💬</span>, activePrefix: '/dashboard/messages' },
-    { href: '/dashboard/history',   label: 'Histórico',   icon: <span aria-hidden>📜</span>, activePrefix: '/dashboard/history' },
-
-    // Globais
-    { href: '/dashboard/search',    label: 'Pesquisar',   icon: <span aria-hidden>🔎</span>, activePrefix: '/dashboard/search' },
-    { href: '/dashboard/profile',   label: 'Perfil',      icon: <span aria-hidden>👤</span>, activePrefix: '/dashboard/profile' },
-    { href: '/dashboard/settings',  label: 'Definições',  icon: <span aria-hidden>⚙️</span>, activePrefix: '/dashboard/settings' },
+    { href: '/dashboard',            label: 'Painel',     icon: <span aria-hidden>📊</span>, exact: true, activePrefix: '/dashboard' },
+    { href: '/dashboard/planos',     label: 'Planos',     icon: <span aria-hidden>🗂️</span>, activePrefix: '/dashboard/planos' },
+    { href: '/dashboard/nutricao',   label: 'Nutrição',   icon: <span aria-hidden>🥗</span>, activePrefix: '/dashboard/nutricao' },
+    { href: '/dashboard/sessoes',    label: 'Sessões',    icon: <span aria-hidden>📅</span>, activePrefix: '/dashboard/sessoes' },
+    { href: '/dashboard/calendario', label: 'Calendário', icon: <span aria-hidden>🗓️</span>, activePrefix: '/dashboard/calendario' },
+    { href: '/dashboard/mensagens',  label: 'Mensagens',  icon: <span aria-hidden>💬</span>, activePrefix: '/dashboard/mensagens' },
+    { href: '/dashboard/historico',  label: 'Histórico',  icon: <span aria-hidden>📜</span>, activePrefix: '/dashboard/historico' },
   ];
 
   const header = (
-    <div className="px-3 pt-3 pb-2">
-      <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/40 px-3 py-2">
-        <div className="text-xs opacity-70">Olá,</div>
-        <div className="text-sm font-semibold truncate">{userLabel}</div>
+    <div className="flex items-center gap-3">
+      <img src="/logo.png" alt="Fitness Pro" width={24} height={24} className="rounded" />
+      <div className="leading-tight">
+        <div className="text-sm font-semibold">Fitness Pro</div>
+        {userLabel && <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{userLabel}</div>}
       </div>
     </div>
   );
