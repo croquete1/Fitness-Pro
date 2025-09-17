@@ -132,6 +132,7 @@ export default async function AdminDashboard() {
           <Link className="btn chip" href="/dashboard/admin/approvals">✅ Aprovações</Link>
           <Link className="btn chip" href="/dashboard/admin/exercises">📚 Exercícios</Link>
           <Link className="btn chip" href="/dashboard/admin/plans">📝 Planos</Link>
+          <Link className="btn chip" href="/dashboard/admin/agenda">📅 Agenda PTs</Link>
           <Link className="btn chip" href="/dashboard/notifications">🔔 Centro de notificações</Link>
           <Link className="btn chip" href="/dashboard/admin?tab=history">🗓️ Histórico</Link>
         </div>

@@ -3,35 +3,46 @@
 import { useEffect, useState } from 'react';
 
 export default function ThemeToggle() {
-  const [dark, setDark] = useState(false);
+  const [dark, setDark] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('theme') === 'dark';
+  });
 
   useEffect(() => {
     const html = document.documentElement;
-    const saved = localStorage.getItem('theme') ?? '';
-    const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
-    const isDark = saved ? saved === 'dark' : prefersDark;
-    html.dataset.theme = isDark ? 'dark' : 'light';
-    setDark(isDark);
-  }, []);
-
-  function toggle() {
-    const html = document.documentElement;
-    const next = !dark;
-    html.dataset.theme = next ? 'dark' : 'light';
-    localStorage.setItem('theme', next ? 'dark' : 'light');
-    setDark(next);
-  }
+    if (dark) {
+      html.setAttribute('data-theme', 'dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      html.removeAttribute('data-theme');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [dark]);
 
   return (
-    <button className="btn icon" aria-pressed={dark} aria-label="Alternar tema" onClick={toggle} title="Tema claro/escuro">
-      {/* ícone simples sem dependências */}
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-        {dark ? (
-          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" stroke="currentColor" strokeWidth="2" />
-        ) : (
-          <path d="M12 3v2m0 14v2m9-9h-2M5 12H3m14.95 6.95-1.41-1.41M7.46 7.46 6.05 6.05m12.9 0-1.41 1.41M7.46 16.54 6.05 17.95" stroke="currentColor" strokeWidth="2" />
-        )}
-      </svg>
+    <button
+      className="btn icon"
+      onClick={() => setDark((v) => !v)}
+      aria-label="Alternar tema"
+      title={dark ? 'Tema claro' : 'Tema escuro'}
+    >
+      {dark ? (
+        // sol
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden>
+          <path
+            d="M12 4V2m0 20v-2m8-8h2M2 12h2m13.657 6.343l1.414 1.414M4.929 4.929l1.414 1.414m0 11.314L4.93 19.071M19.071 4.929l-1.414 1.414M12 8a4 4 0 100 8 4 4 0 000-8z"
+            stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"
+          />
+        </svg>
+      ) : (
+        // lua
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden>
+          <path
+            d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"
+            fill="currentColor"
+          />
+        </svg>
+      )}
     </button>
   );
 }
