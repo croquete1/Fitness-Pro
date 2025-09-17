@@ -1,12 +1,10 @@
-import '../globals.css';
-import AppProviders from '@/components/layout/AppProviders';
+// Não importes globals.css aqui. Já é carregado no layout raiz: src/app/(app)/layout.tsx
+// Mantém este layout fino, apenas a renderizar os children.
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="pt" suppressHydrationWarning>
-      <body>
-        <AppProviders>{children}</AppProviders>
-      </body>
-    </html>
-  );
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return <>{children}</>;
 }
