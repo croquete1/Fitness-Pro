@@ -1,40 +1,37 @@
+// src/components/layout/HeaderNotifications.tsx
 'use client';
+import { useEffect, useState } from 'react';
 
-import React from 'react';
+type Row = { id: string; title: string|null; body: string|null; link: string|null; created_at: string|null; read: boolean|null };
 
-export default function NotificationBell() {
-  const [count, setCount] = React.useState<number>(0);
+export default function HeaderNotifications(){
+  const [open, setOpen] = useState(false);
+  const [items, setItems] = useState<Row[]|null>(null);
 
-  async function refresh() {
-    try {
-      const res = await fetch('/api/notifications/unread-count', { cache: 'no-store' });
-      const json = await res.json().catch(() => ({}));
-      setCount(Number(json?.count ?? 0));
-    } catch {
-      // noop
-    }
-  }
-
-  React.useEffect(() => {
-    refresh();
-    const id = setInterval(refresh, 30_000);
-    return () => clearInterval(id);
-  }, []);
+  useEffect(() => {
+    if (!open || items) return;
+    fetch('/api/notifications/recent').then(r => r.json()).then(d => setItems(d.items as Row[]));
+  }, [open, items]);
 
   return (
-    <button
-      type="button"
-      onClick={() => (window.location.href = '/dashboard/notifications')}
-      className="relative inline-flex items-center justify-center rounded-full h-9 w-9 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-      aria-label="Notificações"
-      title="Notificações"
-    >
-      <span className="text-lg">🔔</span>
-      {count > 0 && (
-        <span className="absolute -top-1 -right-1 text-[10px] min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-rose-600 text-white shadow">
-          {count > 99 ? '99+' : count}
-        </span>
+    <div className="relative">
+      <button className="btn icon" aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen(v => !v)} title="Notificações">
+        <span className="sr-only">Notificações</span>
+        🔔
+      </button>
+      {open && (
+        <div role="menu" className="absolute right-0 mt-2 w-[320px] rounded-xl border bg-white dark:bg-slate-900 shadow-2xl p-2 z-[100]">
+          {!items && <div className="p-3 text-sm opacity-70">A carregar…</div>}
+          {items?.length === 0 && <div className="p-3 text-sm opacity-70">Sem notificações recentes.</div>}
+          {items?.map(n => (
+            <a key={n.id} href={n.link ?? '#'} className="block rounded-lg p-2 hover:bg-slate-50 dark:hover:bg-slate-800">
+              <div className="text-sm font-medium">{n.title ?? 'Notificação'}</div>
+              {!!n.body && <div className="text-xs opacity-80">{n.body}</div>}
+              <div className="text-[11px] opacity-60 mt-1">{n.created_at ? new Date(n.created_at).toLocaleString('pt-PT') : '—'}</div>
+            </a>
+          ))}
+        </div>
       )}
-    </button>
+    </div>
   );
 }

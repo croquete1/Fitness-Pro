@@ -8,16 +8,12 @@ import LiveBanners from '@/components/dashboard/LiveBanners';
 import KpiCard from '@/components/dashboard/KpiCard';
 import PushBootstrap from '@/components/dashboard/PushBootstrap';
 import { getSessionUserSafe } from '@/lib/session-bridge';
-import { toAppRole, type AppRole } from '@/lib/roles';
+import { toAppRole } from '@/lib/roles';
 import { createServerClient } from '@/lib/supabaseServer';
 
 type SB = ReturnType<typeof createServerClient>;
 
-async function safeCount(
-  sb: SB,
-  table: string,
-  build?: (q: any) => any
-): Promise<number> {
+async function safeCount(sb: SB, table: string, build?: (q: any) => any): Promise<number> {
   try {
     let q = sb.from(table).select('*', { count: 'exact', head: true });
     if (build) q = build(q);
@@ -30,10 +26,10 @@ async function safeCount(
 
 export default async function AdminDashboard() {
   const sessionUser = await getSessionUserSafe();
-  // SessionBridge → usa sempre sessionUser.user
-  if (!sessionUser?.user?.id) redirect('/login');
+  const id = sessionUser?.user?.id;
+  if (!id) redirect('/login');
 
-  const role = (toAppRole(sessionUser.user.role) ?? 'CLIENT') as AppRole;
+  const role = toAppRole(sessionUser.user.role) ?? 'CLIENT';
   if (role !== 'ADMIN') {
     if (role === 'PT') redirect('/dashboard/pt');
     redirect('/dashboard/clients');
@@ -41,29 +37,66 @@ export default async function AdminDashboard() {
 
   const sb = createServerClient();
 
-  // Perfil para greeting (nome/avatar)
+  // Perfil (nome/avatar)
   const { data: prof } = await sb
     .from('profiles')
     .select('name, avatar_url')
-    .eq('id', sessionUser.user.id)
+    .eq('id', id)
     .maybeSingle();
 
+  // KPIs
   const now = new Date();
   const in7 = new Date(now);
   in7.setDate(now.getDate() + 7);
 
   const [clients, trainers, admins, sessions7d, unreadNotifs] = await Promise.all([
     safeCount(sb, 'users', (q) => q.eq('role', 'CLIENT')),
-    // conta PT + TRAINER (compat)
-    safeCount(sb, 'users', (q) => q.in('role', ['PT', 'TRAINER'])),
+    safeCount(sb, 'users', (q) => q.in('role', ['PT', 'TRAINER'])), // compat
     safeCount(sb, 'users', (q) => q.eq('role', 'ADMIN')),
     safeCount(
       sb,
       'sessions',
       (q) => q.gte('scheduled_at', now.toISOString()).lt('scheduled_at', in7.toISOString())
     ),
-    safeCount(sb, 'notifications', (q) => q.eq('user_id', sessionUser.user.id).eq('read', false)),
+    safeCount(sb, 'notifications', (q) => q.eq('user_id', id).eq('read', false)),
   ]);
+
+  // Histórico de sessões (últimas 500)
+  type Sess = {
+    id: string;
+    scheduled_at: string | null;
+    trainer_id: string | null;
+    client_id: string | null;
+    status: string | null;
+    location: string | null;
+  };
+
+  const { data: sessRaw } = await sb
+    .from('sessions')
+    .select('id,scheduled_at,trainer_id,client_id,status,location')
+    .order('scheduled_at', { ascending: false })
+    .limit(500);
+
+  const sessions = (sessRaw ?? []) as Sess[];
+
+  // Mapa {id->nome} para PTs/Clientes
+  const userIds = Array.from(
+    new Set(
+      [
+        ...sessions.map((s) => s.trainer_id).filter(Boolean),
+        ...sessions.map((s) => s.client_id).filter(Boolean),
+      ] as string[]
+    )
+  );
+
+  const usersMap = new Map<string, string>();
+  if (userIds.length) {
+    const { data: urows } = await sb
+      .from('users')
+      .select('id,name,email')
+      .in('id', userIds);
+    (urows ?? []).forEach((u: any) => usersMap.set(u.id, u.name ?? u.email ?? u.id));
+  }
 
   return (
     <div className="p-4 grid gap-3">
@@ -92,6 +125,7 @@ export default async function AdminDashboard() {
         />
       </div>
 
+      {/* Ações rápidas */}
       <div className="card p-3">
         <div className="flex gap-2 flex-wrap">
           <Link className="btn chip" href="/dashboard/admin/users">👥 Utilizadores</Link>
@@ -99,6 +133,74 @@ export default async function AdminDashboard() {
           <Link className="btn chip" href="/dashboard/admin/exercises">📚 Exercícios</Link>
           <Link className="btn chip" href="/dashboard/admin/plans">📝 Planos</Link>
           <Link className="btn chip" href="/dashboard/notifications">🔔 Centro de notificações</Link>
+          <Link className="btn chip" href="/dashboard/admin?tab=history">🗓️ Histórico</Link>
+        </div>
+      </div>
+
+      {/* Auto-scroll para a secção de histórico quando abre com ?tab=history */}
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `
+            (function(){
+              try{
+                const u = new URL(window.location.href);
+                if (u.searchParams.get('tab') === 'history') {
+                  const el = document.getElementById('history');
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+              }catch(e){}
+            })();
+          `,
+        }}
+      />
+
+      {/* Histórico de sessões */}
+      <div
+        id="history"
+        className="rounded-2xl border bg-white/70 dark:bg-slate-900/40 backdrop-blur shadow-sm"
+      >
+        <div className="p-3 border-b text-sm font-semibold flex items-center justify-between">
+          <span>Histórico de sessões</span>
+          <span className="text-xs opacity-70">{sessions.length} registos</span>
+        </div>
+        <div className="p-2 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-slate-500">
+                <th className="py-2 pr-4">Data</th>
+                <th className="py-2 pr-4">PT</th>
+                <th className="py-2 pr-4">Cliente</th>
+                <th className="py-2 pr-4">Local</th>
+                <th className="py-2 pr-4">Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sessions.map((s) => (
+                <tr key={s.id} className="border-t border-slate-200/70 dark:border-slate-800/70">
+                  <td className="py-2 pr-4">
+                    {s.scheduled_at ? new Date(s.scheduled_at).toLocaleString('pt-PT') : '—'}
+                  </td>
+                  <td className="py-2 pr-4">
+                    {s.trainer_id ? usersMap.get(s.trainer_id) ?? s.trainer_id : '—'}
+                  </td>
+                  <td className="py-2 pr-4">
+                    {s.client_id ? usersMap.get(s.client_id) ?? s.client_id : '—'}
+                  </td>
+                  <td className="py-2 pr-4">{s.location ?? '—'}</td>
+                  <td className="py-2 pr-4">
+                    <span className="chip">{s.status ?? '—'}</span>
+                  </td>
+                </tr>
+              ))}
+              {sessions.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-4 text-center text-slate-500">
+                    Sem sessões registadas.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

@@ -1,26 +1,30 @@
 // src/app/api/notifications/recent/route.ts
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
-import { getSessionUserSafe } from '@/lib/session-bridge';
 import { createServerClient } from '@/lib/supabaseServer';
+import { getSessionUserSafe } from '@/lib/session-bridge';
 
 export async function GET() {
-  const session = await getSessionUserSafe();
-  const userId = session?.user?.id ? String(session.user.id) : null;
-  if (!userId) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  try {
+    const me = await getSessionUserSafe();
+    if (!me?.id) return NextResponse.json({ items: [] }, { status: 200 });
+
+    const sb = createServerClient();
+    const { data, error } = await sb
+      .from('notifications')
+      .select('id,title,body,link,created_at,read')
+      .eq('user_id', me.id)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (error) {
+      console.warn('[notifications/recent] supabase:', error.message);
+      return NextResponse.json({ items: [] }, { status: 200 });
+    }
+    return NextResponse.json({ items: data ?? [] }, { status: 200 });
+  } catch (e: any) {
+    console.warn('[notifications/recent] fail:', e?.message);
+    return NextResponse.json({ items: [] }, { status: 200 });
   }
-
-  const sb = createServerClient();
-  const { data, error } = await sb
-    .from('notifications')
-    .select('id,title,body,link,created_at,read')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(10);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ items: data ?? [] }, { headers: { 'Cache-Control': 'no-store' } });
 }
