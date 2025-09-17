@@ -1,5 +1,6 @@
-import '../globals.css';
-import '@/app/(app)/theme.css'; // se usares o theme.css, mantém
+import '@/app/globals.css';            // ✅ robusto (usa o alias "@")
+import '@/app/(app)/theme.css';        // ✅ se tiveres o theme.css; remove esta linha se não existir
+
 import { redirect } from 'next/navigation';
 import { SidebarProvider } from '@/components/layout/SidebarCtx';
 import DashboardFrame from '@/components/layout/DashboardFrame';
