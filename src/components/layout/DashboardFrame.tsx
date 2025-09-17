@@ -10,31 +10,27 @@ import SidebarHoverPeeker from '@/components/layout/SidebarHoverPeeker';
 
 export default function DashboardFrame({
   role,
-  userLabel: _userLabel, // mantemos para compatibilidade com chamadas existentes
+  userLabel,
   children,
 }: {
   role: AppRole;
   userLabel: string;
   children: React.ReactNode;
 }) {
-  // marcar como usado para evitar lint no-unused-vars em configs mais estritas
-  void _userLabel;
-
-  const handleNavigate = React.useCallback(() => {
-    // Aqui poderias fechar o menu mobile, se o provider expuser essa API.
-  }, []);
-
   return (
     <SidebarProvider>
-      <div className="fp-shell" data-auth-root>
-        <RoleSidebar role={role} onNavigate={handleNavigate} />
-        <div className="fp-main">
+      <div className="min-h-screen grid lg:grid-cols-[auto_1fr]">
+        {/* Sidebar única, delegada pelo role */}
+        <RoleSidebar role={role} userLabel={userLabel} />
+
+        {/* Main */}
+        <div className="min-w-0">
           <AppHeader />
-          <main className="fp-content">{children}</main>
+          <main className="p-3 sm:p-5">{children}</main>
         </div>
       </div>
 
-      {/* Zona “hotspot” que abre a sidebar quando está colapsada e não afixada */}
+      {/* hotspot de hover para expandir quando colapsada */}
       <SidebarHoverPeeker />
     </SidebarProvider>
   );

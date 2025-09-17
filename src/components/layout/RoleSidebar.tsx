@@ -2,65 +2,28 @@
 'use client';
 
 import * as React from 'react';
-import { usePathname } from 'next/navigation';
 import type { AppRole } from '@/lib/roles';
-import SidebarBase from '@/components/layout/SidebarBase';
+import SidebarAdmin from '@/components/layout/SidebarAdmin';
+import SidebarPT from '@/components/layout/SidebarPT';
+import SidebarClient from '@/components/layout/SidebarClient';
 
-type RoleSidebarProps = {
+export default function RoleSidebar({
+  role,
+  userLabel,
+}: {
   role: AppRole;
-  onNavigate?: () => void; // compatibilidade com chamadas a partir do DashboardFrame
-};
+  userLabel: string;
+}) {
+  const r = String(role).toUpperCase();
 
-export default function RoleSidebar({ role }: RoleSidebarProps) {
-  const pathname = usePathname();
+  if (r === 'ADMIN') {
+    return <SidebarAdmin userLabel={userLabel} />;
+  }
 
-  // Itens comuns a todos os perfis
-  const common = React.useMemo(
-    () => [{ href: '/dashboard', label: 'Dashboard', activePrefix: '/dashboard' }],
-    [],
-  );
+  if (r === 'TRAINER' || r === 'PT' || r === 'PERSONAL_TRAINER') {
+    return <SidebarPT userLabel={userLabel} />;
+  }
 
-  // Itens por role — normalizamos para lidar com enum/union em MAIÚSCULAS
-  const items = React.useMemo(() => {
-    const r = String(role).toUpperCase();
-
-    if (r === 'ADMIN') {
-      return [
-        ...common,
-        { href: '/dashboard/admin', label: 'Administração', activePrefix: '/dashboard/admin' },
-        { href: '/dashboard/sistema', label: 'Sistema', activePrefix: '/dashboard/sistema' },
-      ];
-    }
-
-    if (r === 'TRAINER' || r === 'PT' || r === 'PERSONAL_TRAINER') {
-      return [
-        ...common,
-        { href: '/dashboard/pt', label: 'PT', activePrefix: '/dashboard/pt' },
-        { href: '/dashboard/pt/clientes', label: 'Clientes', activePrefix: '/dashboard/pt/clientes' },
-      ];
-    }
-
-    if (r === 'CLIENT') {
-      return [
-        ...common,
-        { href: '/dashboard/planos', label: 'Planos', activePrefix: '/dashboard/planos' },
-        { href: '/dashboard/nutricao', label: 'Nutrição', activePrefix: '/dashboard/nutricao' },
-      ];
-    }
-
-    return common;
-  }, [role, common]);
-
-  const activeIndex = React.useMemo(
-    () => items.findIndex((it) => pathname?.startsWith(it.activePrefix ?? it.href)),
-    [items, pathname],
-  );
-
-  const itemsTagged = React.useMemo(
-    () => items.map((it, i) => ({ ...it, active: i === activeIndex })),
-    [items, activeIndex],
-  );
-
-  // Não passamos onNavigate porque o SidebarBase não suporta essa prop
-  return <SidebarBase items={itemsTagged} />;
+  // CLIENTE
+  return <SidebarClient userLabel={userLabel} />;
 }

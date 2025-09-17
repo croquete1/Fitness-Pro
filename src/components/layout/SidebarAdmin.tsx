@@ -1,38 +1,35 @@
 // src/components/layout/SidebarAdmin.tsx
 'use client';
 
-import React from 'react';
-import SidebarBase, { type NavItem } from './SidebarBase';
+import * as React from 'react';
+import SidebarBase, { type NavItem } from '@/components/layout/SidebarBase';
 
-export default function SidebarAdmin({ userLabel }: { userLabel: string }) {
+export default function SidebarAdmin({ userLabel }: { userLabel?: string }) {
   const items: NavItem[] = [
-    { href: '/dashboard/admin',                  label: 'Painel',        icon: <span aria-hidden>📊</span>, activePrefix: '/dashboard/admin' },
-    { href: '/dashboard/admin/approvals',        label: 'Aprovações',    icon: <span aria-hidden>✅</span>, activePrefix: '/dashboard/admin/approvals' },
-    { href: '/dashboard/admin/users',            label: 'Utilizadores',  icon: <span aria-hidden>🧑‍🤝‍🧑</span>, activePrefix: '/dashboard/admin/users' },
-    { href: '/dashboard/admin/exercises',        label: 'Exercícios',    icon: <span aria-hidden>🏋️</span>, activePrefix: '/dashboard/admin/exercises' },
-    { href: '/dashboard/admin/plans',            label: 'Planos',        icon: <span aria-hidden>📝</span>, activePrefix: '/dashboard/admin/plans' },
-
-    // Notificações (admin)
-    { href: '/dashboard/notifications',          label: 'Notificações',  icon: <span aria-hidden>🔔</span>, activePrefix: '/dashboard/notifications' },
-
-    // Logs (admin)
-    { href: '/dashboard/admin/logs',             label: 'Logs',          icon: <span aria-hidden>🧾</span>, activePrefix: '/dashboard/admin/logs' },
-    { href: '/dashboard/admin/logs/plans',       label: 'Logs de Planos',icon: <span aria-hidden>📚</span>, activePrefix: '/dashboard/admin/logs/plans' },
-    { href: '/dashboard/admin/logs/accounts',    label: 'Logs de Contas',icon: <span aria-hidden>👤</span>, activePrefix: '/dashboard/admin/logs/accounts' },
-
-    // Métricas / sistema
-    { href: '/dashboard/system/metrics',         label: 'Métricas',      icon: <span aria-hidden>📈</span>, activePrefix: '/dashboard/system/metrics' },
-
-    // Pesquisa e definições
-    { href: '/dashboard/search',                 label: 'Pesquisar',     icon: <span aria-hidden>🔎</span>, activePrefix: '/dashboard/search' },
-    { href: '/dashboard/settings',               label: 'Definições',    icon: <span aria-hidden>⚙️</span>, activePrefix: '/dashboard/settings' },
+    { href: '/dashboard/admin',               label: 'Painel',                 icon: <span aria-hidden>📊</span>, activePrefix: '/dashboard/admin' },
+    { href: '/dashboard/admin/approvals',     label: 'Aprovações',             icon: <span aria-hidden>✅</span>, activePrefix: '/dashboard/admin/approvals' },
+    { href: '/dashboard/admin/users',         label: 'Utilizadores',           icon: <span aria-hidden>🧑‍🤝‍🧑</span>, activePrefix: '/dashboard/admin/users' },
+    { href: '/dashboard/admin/exercises',     label: 'Exercícios',             icon: <span aria-hidden>🏋️</span>, activePrefix: '/dashboard/admin/exercises' },
+    { href: '/dashboard/admin/plans',         label: 'Planos',                 icon: <span aria-hidden>🗂️</span>, activePrefix: '/dashboard/admin/plans' },
+    { href: '/dashboard/admin/pts-schedule',  label: 'Agenda PTs',             icon: <span aria-hidden>🗓️</span>, activePrefix: '/dashboard/admin/pts-schedule' },
+    { href: '/dashboard/admin/notifications', label: 'Centro de notificações', icon: <span aria-hidden>🔔</span>, activePrefix: '/dashboard/admin/notifications' },
+    { href: '/dashboard/admin/history',       label: 'Histórico',              icon: <span aria-hidden>📜</span>, activePrefix: '/dashboard/admin/history' },
+    { href: '/dashboard/sistema',             label: 'Sistema',                 icon: <span aria-hidden>🛠️</span>, activePrefix: '/dashboard/sistema' },
   ];
 
   const header = (
-    <div className="px-3 pt-3 pb-2">
-      <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/40 px-3 py-2">
-        <div className="text-xs opacity-70">Olá,</div>
-        <div className="text-sm font-semibold truncate">{userLabel}</div>
+    <div className="flex items-center gap-3">
+      <img src="/logo.png" alt="Fitness Pro" width={24} height={24} className="rounded" />
+      <div className="leading-tight">
+        <div className="text-sm font-semibold">Fitness Pro</div>
+        {userLabel && (
+          <div
+            className="text-[11px] text-slate-500 dark:text-slate-400 truncate"
+            title={userLabel}
+          >
+            {userLabel}
+          </div>
+        )}
       </div>
     </div>
   );
