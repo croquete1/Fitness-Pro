@@ -1,3 +1,4 @@
+// src/components/layout/SidebarBase.tsx
 'use client';
 
 import * as React from 'react';
@@ -9,9 +10,9 @@ export type NavItem = {
   href: string;
   label: string;
   icon?: React.ReactNode;
-  active?: boolean;       // se vier, tem prioridade
-  activePrefix?: string;  // alvo para matching
-  exact?: boolean;        // se true, usa equality; senão, startsWith
+  active?: boolean;
+  activePrefix?: string;
+  exact?: boolean; // se true, match exato
 };
 
 export default function SidebarBase({
@@ -30,9 +31,7 @@ export default function SidebarBase({
     'fixed inset-y-0 left-0 z-40 transition-transform duration-200 ease-out ' +
     'bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 shadow-sm';
   const mobile = mobileOpen ? 'translate-x-0' : '-translate-x-full';
-  const desktop =
-    'lg:static lg:translate-x-0 lg:block ' +
-    (collapsed && !peek ? 'lg:w-[72px]' : 'lg:w-[260px]');
+  const desktop = 'lg:static lg:translate-x-0 lg:block lg:w-[var(--sb-w)]';
 
   return (
     <>
@@ -73,7 +72,9 @@ export default function SidebarBase({
                   onClick={closeMobile}
                 >
                   {it.icon && <span className="shrink-0">{it.icon}</span>}
-                  <span className={`truncate ${collapsed && !peek ? 'lg:hidden' : ''}`}>{it.label}</span>
+                  <span className={`truncate ${collapsed && !peek ? 'lg:hidden' : ''}`}>
+                    {it.label}
+                  </span>
                 </Link>
               );
             })}
