@@ -13,7 +13,7 @@ export default function SidebarClient({ userLabel }: { userLabel?: string }) {
     { href: '/dashboard/calendario', label: 'Calendário', icon: <span aria-hidden>🗓️</span>, activePrefix: '/dashboard/calendario' },
     { href: '/dashboard/mensagens',  label: 'Mensagens',  icon: <span aria-hidden>💬</span>, activePrefix: '/dashboard/mensagens' },
     { href: '/dashboard/historico',  label: 'Histórico',  icon: <span aria-hidden>📜</span>, activePrefix: '/dashboard/historico' },
-    { href: '/dashboard/perfil',     label: 'Perfil',     icon: <span aria-hidden>👤</span>, activePrefix: '/dashboard/perfil' },
+    { href: '/dashboard/profile',    label: 'Perfil',     icon: <span aria-hidden>👤</span>, activePrefix: '/dashboard/profile' }, // ✅
   ];
 
   const header = (

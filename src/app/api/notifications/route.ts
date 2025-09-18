@@ -1,34 +1,33 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
-import { requireAdminGuard, isGuardErr } from '@/lib/api-guards';
+import { getSessionUserSafe } from '@/lib/session-bridge';
 
-type NotificationRow = {
-  id: string;
-  user_id: string | null;
-  title: string | null;
-  body: string | null;
-  read: boolean | null;
-  created_at: string | null;
-};
-
-/** GET /api/admin/notifications  (ADMIN only) */
-export async function GET(): Promise<Response> {
-  const guard = await requireAdminGuard();
-  if (isGuardErr(guard)) return guard.response;
+export async function GET(req: NextRequest) {
+  const session = await getSessionUserSafe();
+  const uid = session?.user?.id;
+  if (!uid) return NextResponse.json({ items: [] }, { status: 200 });
 
   const sb = createServerClient();
-  const { data, error } = await sb
-    .from('notifications')
-    .select('id,user_id,title,body,read,created_at')
-    .order('created_at', { ascending: false })
-    .limit(200);
+  const unreadOnly = req.nextUrl.searchParams.get('unread') === '1';
 
-  if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  try {
+    let q = sb.from('notifications').select('*').eq('user_id', uid).order('created_at', { ascending: false }).limit(50);
+    if (unreadOnly) q = q.eq('read', false);
+    const { data } = await q;
+    return NextResponse.json({ items: data ?? [] });
+  } catch {
+    return NextResponse.json({ items: [] });
   }
+}
 
-  return NextResponse.json(
-    { ok: true, items: (data ?? []) as NotificationRow[] },
-    { status: 200 }
-  );
+export async function POST(req: NextRequest) {
+  // marcar tudo como lido
+  const session = await getSessionUserSafe();
+  const uid = session?.user?.id;
+  if (!uid) return NextResponse.json({ ok: false }, { status: 200 });
+  const sb = createServerClient();
+  try {
+    await sb.from('notifications').update({ read: true }).eq('user_id', uid).eq('read', false);
+  } catch {}
+  return NextResponse.json({ ok: true });
 }
