@@ -14,7 +14,7 @@ export default function SidebarAdmin({ userLabel }: { userLabel?: string }) {
     { href: '/dashboard/admin/pts-schedule',  label: 'Agenda PTs',             icon: <span aria-hidden>🗓️</span>, activePrefix: '/dashboard/admin/pts-schedule' },
     { href: '/dashboard/admin/notifications', label: 'Centro de notificações', icon: <span aria-hidden>🔔</span>, activePrefix: '/dashboard/admin/notifications' },
     { href: '/dashboard/admin/history',       label: 'Histórico',              icon: <span aria-hidden>📜</span>, activePrefix: '/dashboard/admin/history' },
-    { href: '/dashboard/sistema',             label: 'Sistema',                 icon: <span aria-hidden>🛠️</span>, activePrefix: '/dashboard/sistema' },
+    { href: '/dashboard/sistema',             label: 'Sistema',                 icon: <span aria-hidden>🛠️</span>, activePrefix: '/dashboard/system' },
   ];
 
   const header = (

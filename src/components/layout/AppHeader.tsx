@@ -9,15 +9,16 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import InputBase from '@mui/material/InputBase';
-import Badge from '@mui/material/Badge';
+import Paper from '@mui/material/Paper';
 import { alpha } from '@mui/material/styles';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
-import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
+import SearchIcon from '@mui/icons-material/Search';
 import Brightness7OutlinedIcon from '@mui/icons-material/Brightness7Outlined';
 import Brightness4OutlinedIcon from '@mui/icons-material/Brightness4Outlined';
-import SearchIcon from '@mui/icons-material/Search';
-import { useSidebar } from './SidebarProvider';
+import Button from '@mui/material/Button';
 import { useTheme as useNextTheme } from 'next-themes';
+import { useSidebar } from '@/components/layout/SidebarProvider';
+import HeaderNotifications from '@/components/HeaderNotifications';
 
 function greetingByHour(d = new Date()) {
   const h = d.getHours();
@@ -38,11 +39,11 @@ export default function AppHeader() {
   return (
     <AppBar
       position="sticky"
+      color="default"
       elevation={0}
       sx={(t) => ({
-        borderBottom: `1px solid ${alpha(t.palette.text.primary, 0.12)}`,
-        bgcolor: alpha(t.palette.background.paper, 0.8),
-        backdropFilter: 'blur(8px)',
+        borderBottom: `1px solid ${t.palette.divider}`,
+        bgcolor: t.palette.background.paper, // evita “fantasmas” no modo claro
       })}
     >
       <Toolbar sx={{ minHeight: 56, gap: 1 }}>
@@ -51,55 +52,46 @@ export default function AppHeader() {
           <MenuRoundedIcon />
         </IconButton>
 
-        {/* Greeting */}
+        {/* Greeting legível */}
         <Box sx={{ display: { xs: 'none', sm: 'flex' }, flexDirection: 'column', mr: 2, lineHeight: 1 }}>
-          <Typography variant="subtitle2" fontWeight={700}>
+          <Typography variant="subtitle2" fontWeight={700} color="text.primary">
             {greetingByHour()}, {name}
           </Typography>
-          <Typography variant="caption" sx={{ letterSpacing: 1 }}>{role}</Typography>
+          <Typography variant="caption" sx={{ letterSpacing: 1 }} color="text.secondary">
+            {role}
+          </Typography>
         </Box>
 
-        {/* Pesquisa */}
-        <Box
+        {/* Pesquisa com Paper (tema-aware) */}
+        <Paper
+          elevation={0}
           sx={(t) => ({
-            position: 'relative',
-            borderRadius: 1,
-            backgroundColor: alpha(t.palette.text.primary, 0.06),
-            '&:hover': { backgroundColor: alpha(t.palette.text.primary, 0.1) },
             ml: 1, mr: 2, flex: 1, maxWidth: 900,
+            display: 'flex', alignItems: 'center',
+            px: 1, py: 0.5,
+            bgcolor: alpha(t.palette.text.primary, 0.06),
+            '&:hover': { bgcolor: alpha(t.palette.text.primary, 0.1) },
           })}
         >
-          <Box sx={{ p: '6px', height: '100%', position: 'absolute', pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <SearchIcon fontSize="small" />
-          </Box>
-          <InputBase
-            placeholder="Pesquisar…"
-            inputProps={{ 'aria-label': 'Pesquisar' }}
-            sx={{ color: 'inherit', pl: 4, width: '100%' }}
-          />
-        </Box>
+          <SearchIcon sx={{ mx: 1 }} fontSize="small" />
+          <InputBase placeholder="Pesquisar…" sx={{ flex: 1 }} inputProps={{ 'aria-label': 'Pesquisar' }} />
+        </Paper>
 
-        {/* Sino + tema + logout */}
-        <IconButton aria-label="Notificações">
-          <Badge color="error" badgeContent={0}>
-            <NotificationsNoneOutlinedIcon />
-          </Badge>
-        </IconButton>
+        {/* Sino dropdown + toggle de tema + logout */}
+        <HeaderNotifications unread={0} items={[]} />
 
         <IconButton aria-label="Alternar tema" onClick={() => setTheme(dark ? 'light' : 'dark')}>
           {dark ? <Brightness7OutlinedIcon /> : <Brightness4OutlinedIcon />}
         </IconButton>
 
-        <IconButton
-          aria-label="Terminar sessão"
+        <Button
+          variant="outlined"
+          size="small"
           onClick={() => signOut({ callbackUrl: '/login' })}
-          sx={(t) => ({
-            border: `1px solid ${alpha(t.palette.text.primary, 0.2)}`,
-            borderRadius: 1, px: 1.5, ml: 1,
-          })}
+          sx={{ ml: 1 }}
         >
-          <Typography variant="button">Terminar sessão</Typography>
-        </IconButton>
+          Terminar sessão
+        </Button>
       </Toolbar>
     </AppBar>
   );
