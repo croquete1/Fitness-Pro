@@ -10,7 +10,6 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Box from '@mui/material/Box';
 import Divider from '@mui/material/Divider';
-import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -41,7 +40,7 @@ export default function SidebarBase({
   const pathname = usePathname();
   const { collapsed, mobileOpen, closeMobile, toggleCollapsed } = useSidebar();
 
-  // TEMPORARY drawer (mobile)
+  // Drawer mobile
   const mobile = (
     <Drawer
       open={mobileOpen}
@@ -63,7 +62,7 @@ export default function SidebarBase({
     </Drawer>
   );
 
-  // PERMANENT drawer (desktop)
+  // Drawer desktop (permanente)
   const desktop = (
     <Drawer
       variant="permanent"
@@ -72,7 +71,10 @@ export default function SidebarBase({
         display: { xs: 'none', lg: 'block' },
         '& .MuiDrawer-paper': {
           width: collapsed ? WIDTH_COLLAPSED : WIDTH_EXPANDED,
-          transition: (t) => t.transitions.create('width', { duration: t.transitions.duration.shorter }),
+          transition: (t) =>
+            t.transitions.create('width', {
+              duration: t.transitions.duration.shorter,
+            }),
           overflowX: 'hidden',
           borderRight: (t) => `1px solid ${t.palette.divider}`,
         },
@@ -95,6 +97,7 @@ export default function SidebarBase({
     </>
   );
 
+  // conteúdo interno
   function SidebarContent({
     collapsed,
     items,
@@ -108,11 +111,31 @@ export default function SidebarBase({
     onItemClick: () => void;
     onToggle: () => void;
   }) {
+    const pathname = usePathname();
+
     return (
       <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-        {/* topo + toggle DENTRO */}
-        <Box sx={{ px: 1.5, height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, overflow: 'hidden' }}>
+        {/* topo + toggle dentro da sidebar */}
+        <Box
+          sx={{
+            px: 1.5,
+            height: 56,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.25,
+              overflow: 'hidden',
+              // fade do conteúdo do header quando colapsa
+              opacity: collapsed ? 0 : 1,
+              transition: (t) => t.transitions.create('opacity', { duration: t.transitions.duration.shorter }),
+            }}
+          >
             {header}
           </Box>
           <Tooltip title={collapsed ? 'Expandir' : 'Colapsar'}>
@@ -140,12 +163,33 @@ export default function SidebarBase({
                       px: collapsed ? 1.25 : 2,
                       borderRadius: 1,
                       mx: 0.5,
+                      transition: (t) =>
+                        t.transitions.create(['padding', 'background-color'], {
+                          duration: t.transitions.duration.shorter,
+                        }),
                     }}
                   >
                     {it.icon && (
-                      <ListItemIcon sx={{ minWidth: 0, mr: collapsed ? 0 : 1.5 }}>{it.icon}</ListItemIcon>
+                      <ListItemIcon sx={{ minWidth: 0, mr: collapsed ? 0 : 1.5 }}>
+                        {it.icon}
+                      </ListItemIcon>
                     )}
-                    {!collapsed && <ListItemText primary={it.label} primaryTypographyProps={{ noWrap: true }} />}
+
+                    {/* Texto com fade + tooltip quando colapsado */}
+                    {collapsed ? (
+                      <Tooltip title={it.label} placement="right">
+                        <Box sx={{ width: 0 }} />
+                      </Tooltip>
+                    ) : (
+                      <ListItemText
+                        primary={it.label}
+                        primaryTypographyProps={{ noWrap: true }}
+                        sx={(t) => ({
+                          opacity: collapsed ? 0 : 1,
+                          transition: t.transitions.create('opacity', { duration: t.transitions.duration.shorter }),
+                        })}
+                      />
+                    )}
                   </ListItemButton>
                 </Link>
               </ListItem>
@@ -153,7 +197,6 @@ export default function SidebarBase({
           })}
         </List>
 
-        {/* rodapé (opcional) */}
         <Box sx={{ mt: 'auto', p: 1 }} />
       </Box>
     );

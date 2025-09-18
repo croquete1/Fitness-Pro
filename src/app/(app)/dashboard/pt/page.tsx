@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 import { redirect } from 'next/navigation';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { createServerClient } from '@/lib/supabaseServer';
-import GreetingHeader from '@/components/dashboard/GreetingHeader';
+import GreetingBanner from '@/components/GreetingBanner';
 import LiveBanners from '@/components/dashboard/LiveBanners';
 import PushBootstrap from '@/components/dashboard/PushBootstrap';
 import KpiCard from '@/components/dashboard/KpiCard';
@@ -61,12 +61,12 @@ export default async function PTDashboard() {
     ),
   ]);
 
+  const name = prof?.name ?? sessionUser.user.name ?? sessionUser.user.email ?? 'Utilizador';
+
   return (
     <div className="p-4 grid gap-3">
-      <GreetingHeader
-        name={prof?.name ?? sessionUser.user.name ?? sessionUser.user.email ?? 'Utilizador'}
-        avatarUrl={prof?.avatar_url ?? null}
-      />
+      <GreetingBanner name={name} role="PT" />
+
       <LiveBanners />
       <PushBootstrap />
 

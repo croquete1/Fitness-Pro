@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import GreetingHeader from '@/components/dashboard/GreetingHeader';
+import GreetingBanner from '@/components/GreetingBanner';
 import LiveBanners from '@/components/dashboard/LiveBanners';
 import KpiCard from '@/components/dashboard/KpiCard';
 import PushBootstrap from '@/components/dashboard/PushBootstrap';
@@ -51,7 +51,7 @@ export default async function AdminDashboard() {
 
   const [clients, trainers, admins, sessions7d, unreadNotifs] = await Promise.all([
     safeCount(sb, 'users', (q) => q.eq('role', 'CLIENT')),
-    safeCount(sb, 'users', (q) => q.in('role', ['PT', 'TRAINER'])), // compat
+    safeCount(sb, 'users', (q) => q.in('role', ['PT', 'TRAINER'])),
     safeCount(sb, 'users', (q) => q.eq('role', 'ADMIN')),
     safeCount(
       sb,
@@ -98,12 +98,12 @@ export default async function AdminDashboard() {
     (urows ?? []).forEach((u: any) => usersMap.set(u.id, u.name ?? u.email ?? u.id));
   }
 
+  const name = prof?.name ?? sessionUser.user.name ?? sessionUser.user.email ?? 'Utilizador';
+
   return (
     <div className="p-4 grid gap-3">
-      <GreetingHeader
-        name={prof?.name ?? sessionUser.user.name ?? sessionUser.user.email ?? 'Utilizador'}
-        avatarUrl={prof?.avatar_url ?? null}
-      />
+      {/* NOVO greeting no estilo do template (header ficou limpo) */}
+      <GreetingBanner name={name} role="ADMIN" />
 
       <LiveBanners />
       <PushBootstrap />
@@ -125,15 +125,15 @@ export default async function AdminDashboard() {
         />
       </div>
 
-      {/* Ações rápidas */}
+      {/* Ações rápidas (corrigidos os links quebrados) */}
       <div className="card p-3">
         <div className="flex gap-2 flex-wrap">
           <Link className="btn chip" href="/dashboard/admin/users">👥 Utilizadores</Link>
           <Link className="btn chip" href="/dashboard/admin/approvals">✅ Aprovações</Link>
           <Link className="btn chip" href="/dashboard/admin/exercises">📚 Exercícios</Link>
           <Link className="btn chip" href="/dashboard/admin/plans">📝 Planos</Link>
-          <Link className="btn chip" href="/dashboard/admin/agenda">📅 Agenda PTs</Link>
-          <Link className="btn chip" href="/dashboard/notifications">🔔 Centro de notificações</Link>
+          <Link className="btn chip" href="/dashboard/admin/pts-schedule">📅 Agenda PTs</Link>
+          <Link className="btn chip" href="/dashboard/admin/notifications">🔔 Centro de notificações</Link>
           <Link className="btn chip" href="/dashboard/admin?tab=history">🗓️ Histórico</Link>
         </div>
       </div>
