@@ -12,8 +12,7 @@ import TableHead from '@mui/material/TableHead';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableRow from '@mui/material/TableRow';
-import Button from '@mui/material/Button';
-import Stack from '@mui/material/Stack';
+import ApprovalRowActions from '@/components/admin/ApprovalRowActions';
 
 type UserRow = { id: string; name?: string | null; email?: string | null; role?: string | null; created_at?: string | null };
 
@@ -25,11 +24,10 @@ export default async function ApprovalsPage() {
 
   const sb = createServerClient();
 
-  // tentar dois esquemas (approved=false) OU (status='PENDING')
   let pending: UserRow[] = [];
   try {
     const { data } = await sb.from('users').select('id,name,email,role,created_at').eq('approved', false);
-    if (data?.length) pending = data as any;
+    pending = (data ?? []) as any;
   } catch {}
   if (pending.length === 0) {
     try {
@@ -38,29 +36,11 @@ export default async function ApprovalsPage() {
     } catch {}
   }
 
-  async function RowActions({ id }: { id: string }) {
-    'use client';
-    async function doAction(path: string) {
-      const r = await fetch(path, { method: 'POST' });
-      if (r.ok) location.reload();
-    }
-    return (
-      <Stack direction="row" spacing={1}>
-        <Button size="small" variant="contained" onClick={() => doAction(`/api/admin/approvals/${id}/approve`)}>
-          Aprovar
-        </Button>
-        <Button size="small" variant="outlined" color="error" onClick={() => doAction(`/api/admin/approvals/${id}/reject`)}>
-          Rejeitar
-        </Button>
-      </Stack>
-    );
-  }
-
   return (
     <Paper elevation={0} sx={{ p: 2 }}>
       <Typography variant="h6" fontWeight={800} sx={{ mb: 2 }}>Aprovações</Typography>
 
-      <Box sx={{ borderRadius: 2, overflow: 'hidden', border: (t) => `1px solid ${t.palette.divider}` }}>
+      <Box sx={{ borderRadius: 2, overflow: 'hidden', border: 1, borderColor: 'divider' }}>
         <Table size="small">
           <TableHead>
             <TableRow>
@@ -78,7 +58,7 @@ export default async function ApprovalsPage() {
                 <TableCell>{u.email || '—'}</TableCell>
                 <TableCell>{u.role || '—'}</TableCell>
                 <TableCell>{u.created_at ? new Date(u.created_at).toLocaleString('pt-PT') : '—'}</TableCell>
-                <TableCell align="right"><RowActions id={u.id} /></TableCell>
+                <TableCell align="right"><ApprovalRowActions id={u.id} /></TableCell>
               </TableRow>
             ))}
             {pending.length === 0 && (

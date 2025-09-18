@@ -11,24 +11,23 @@ export async function PATCH(req: NextRequest) {
   const {
     name, email, avatar_url, gender, birthdate,
     height_cm, weight_kg, bodyfat_pct,
+    phone, city, emergency_contact_name, emergency_contact_phone,
+    goals, allergies, medical_notes, training_availability, injury_notes,
+    certifications, specialties, hourly_rate, bio,
   } = body || {};
 
   const sb = createServerClient();
 
-  // update profiles
+  // profiles
   try {
     await sb.from('profiles').upsert({
-      id: uid,
-      name: name ?? null,
-      email: email ?? null,
-      avatar_url: avatar_url ?? null,
-      gender: gender ?? null,
-      birthdate: birthdate ?? null,
+      id: uid, name: name ?? null, email: email ?? null, avatar_url: avatar_url ?? null,
+      gender: gender ?? null, birthdate: birthdate ?? null, phone: phone ?? null, city: city ?? null,
       updated_at: new Date().toISOString(),
-    }, { onConflict: 'id' });
+    } as any, { onConflict: 'id' });
   } catch {}
 
-  // update anthropometrics
+  // metrics
   try {
     await sb.from('profile_metrics').upsert({
       user_id: uid,
@@ -36,7 +35,26 @@ export async function PATCH(req: NextRequest) {
       weight_kg: weight_kg === '' ? null : Number(weight_kg),
       bodyfat_pct: bodyfat_pct === '' ? null : Number(bodyfat_pct),
       updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id' });
+    } as any, { onConflict: 'user_id' });
+  } catch {}
+
+  // details (opcional — só se a tabela existir)
+  try {
+    await sb.from('profile_details').upsert({
+      user_id: uid,
+      emergency_contact_name: emergency_contact_name ?? null,
+      emergency_contact_phone: emergency_contact_phone ?? null,
+      goals: goals ?? null,
+      allergies: allergies ?? null,
+      medical_notes: medical_notes ?? null,
+      training_availability: training_availability ?? null,
+      injury_notes: injury_notes ?? null,
+      certifications: certifications ?? null,
+      specialties: specialties ?? null,
+      hourly_rate: hourly_rate === '' ? null : Number(hourly_rate),
+      bio: bio ?? null,
+      updated_at: new Date().toISOString(),
+    } as any, { onConflict: 'user_id' });
   } catch {}
 
   // notificar PT(s) atribuídos
@@ -55,7 +73,7 @@ export async function PATCH(req: NextRequest) {
     }
   } catch {}
 
-  // log para admins
+  // log admin
   try {
     await sb.from('admin_logs').insert({
       actor_id: uid,

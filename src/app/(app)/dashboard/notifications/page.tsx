@@ -1,93 +1,63 @@
 // src/app/(app)/dashboard/notifications/page.tsx
-'use client';
+export const dynamic = 'force-dynamic';
 
-import * as React from 'react';
-import { useRouter } from 'next/navigation';
+import { redirect } from 'next/navigation';
+import { createServerClient } from '@/lib/supabaseServer';
+import { getSessionUserSafe } from '@/lib/session-bridge';
+import Paper from '@mui/material/Paper';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemText from '@mui/material/ListItemText';
+import Divider from '@mui/material/Divider';
+import Button from '@mui/material/Button';
 
-type Item = {
-  id: string;
-  title?: string;
-  body?: string | null;
-  link?: string | null;
-  created_at?: string | null;
-  read?: boolean | null;
-};
-
-function timeLabel(iso?: string | null) {
-  if (!iso) return '';
-  try { return new Date(iso).toLocaleString('pt-PT'); } catch { return iso || ''; }
+function MarkAllButton() {
+  'use client';
+  async function markAll() {
+    await fetch('/api/notifications', { method: 'POST', body: JSON.stringify({ markAllRead: true }) });
+    location.reload();
+  }
+  return <Button size="small" onClick={markAll}>Marcar tudo como lido</Button>;
 }
 
-export default function NotificationsCenter() {
-  const [items, setItems] = React.useState<Item[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [onlyUnread, setOnlyUnread] = React.useState(false);
-  const router = useRouter();
+export default async function NotificationsCenter() {
+  const session = await getSessionUserSafe();
+  if (!session?.user?.id) redirect('/login');
 
-  const load = React.useCallback(async () => {
-    setLoading(true);
-    const res = await fetch('/api/notifications/list', { cache: 'no-store' });
-    const data = await res.json().catch(() => ({}));
-    setItems(Array.isArray(data.items) ? data.items : []);
-    setLoading(false);
-  }, []);
+  const sb = createServerClient();
+  const { data } = await sb
+    .from('notifications')
+    .select('id,title,body,read,created_at')
+    .eq('user_id', session.user.id)
+    .order('created_at', { ascending: false })
+    .limit(100);
 
-  React.useEffect(() => { load(); }, [load]);
-
-  const markAll = async () => {
-    await fetch('/api/notifications/mark-all-read', { method: 'POST' });
-    await load();
-  };
-
-  const view = onlyUnread ? items.filter(i => !i.read) : items;
+  const items = data ?? [];
 
   return (
-    <div style={{ padding: 16, display: 'grid', gap: 12 }}>
-      <h1 style={{ margin: 0 }}>Centro de notificações</h1>
-
-      <div className="card" style={{ padding: 8, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-        <label style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-          <input type="checkbox" checked={onlyUnread} onChange={(e) => setOnlyUnread(e.target.checked)} />
-          Mostrar apenas por ler
-        </label>
-        <button className="btn chip" onClick={markAll}>Marcar tudo como lido</button>
-        <button className="btn chip" onClick={load}>Atualizar</button>
-      </div>
-
-      <div className="card" style={{ padding: 0 }}>
-        {loading ? (
-          <div style={{ padding: 16, color: 'var(--muted)' }}>A carregar…</div>
-        ) : view.length === 0 ? (
-          <div style={{ padding: 16, color: 'var(--muted)' }}>Sem notificações.</div>
-        ) : (
-          <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-            {view.map((n) => (
-              <li key={n.id} style={{ borderTop: '1px solid var(--border)' }}>
-                <button
-                  onClick={() => { if (n.link) router.push(n.link as any); }}
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '1fr auto',
-                    gap: 8,
-                    width: '100%',
-                    textAlign: 'left',
-                    padding: 12,
-                    background: n.read ? 'transparent' : 'var(--hover)',
-                    border: 0,
-                    cursor: n.link ? 'pointer' : 'default'
-                  }}
-                >
-                  <div>
-                    <div style={{ fontWeight: 700, marginBottom: 4 }}>{n.title || 'Notificação'}</div>
-                    {!!n.body && <div className="small text-muted">{n.body}</div>}
-                  </div>
-                  <div className="small text-muted" style={{ whiteSpace: 'nowrap' }}>{timeLabel(n.created_at)}</div>
-                </button>
-              </li>
-            ))}
-          </ul>
+    <Paper elevation={0} sx={{ p: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+        <Typography variant="h6" fontWeight={800}>Centro de notificações</Typography>
+        <MarkAllButton />
+      </Box>
+      <Divider sx={{ mb: 1.5 }} />
+      <List>
+        {items.map((n) => (
+          <ListItem key={n.id} sx={{ opacity: n.read ? 0.6 : 1 }}>
+            <ListItemText
+              primary={n.title || 'Notificação'}
+              secondary={n.body || new Date(n.created_at as any).toLocaleString('pt-PT')}
+              primaryTypographyProps={{ noWrap: true }}
+              secondaryTypographyProps={{ noWrap: true }}
+            />
+          </ListItem>
+        ))}
+        {items.length === 0 && (
+          <Typography variant="body2" color="text.secondary">Sem notificações.</Typography>
         )}
-      </div>
-    </div>
+      </List>
+    </Paper>
   );
 }
