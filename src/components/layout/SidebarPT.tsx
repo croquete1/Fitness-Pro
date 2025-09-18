@@ -1,3 +1,4 @@
+// src/components/layout/SidebarPT.tsx
 'use client';
 
 import * as React from 'react';

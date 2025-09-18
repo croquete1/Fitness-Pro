@@ -1,26 +1,43 @@
-import '@/app/globals.css';
-import '@/app/(app)/theme.css'; // remove esta linha se não usas o theme.css
+// src/app/(app)/dashboard/layout.tsx
+'use client';
 
-import { redirect } from 'next/navigation';
-import { SidebarProvider } from '@/components/layout/SidebarCtx';
+import * as React from 'react';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import DashboardFrame from '@/components/layout/DashboardFrame';
-import { getSessionUserSafe } from '@/lib/session-bridge';
-import { toAppRole } from '@/lib/roles';
+import type { AppRole } from '@/lib/roles';
 
-export const dynamic = 'force-dynamic';
+export default function Layout({ children }: { children: React.ReactNode }) {
+  // fallback defensivo caso o provider falhe
+  const sessionValue =
+    (useSession as unknown as () => {
+      data: any;
+      status: 'loading' | 'authenticated' | 'unauthenticated';
+    })?.() ?? { data: null, status: 'unauthenticated' as const };
 
-export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const session = await getSessionUserSafe();
-  if (!session?.user?.id) redirect('/login');
+  const { data: session, status } = sessionValue;
+  const router = useRouter();
 
-  const role = toAppRole(session.user.role) ?? 'CLIENT';
-  const userLabel = session.user.name || session.user.email || 'Utilizador';
+  React.useEffect(() => {
+    if (status === 'unauthenticated') router.replace('/login');
+  }, [status, router]);
+
+  if (status === 'loading') {
+    return (
+      <div className="min-h-[60vh] grid place-items-center text-slate-500">
+        A carregar…
+      </div>
+    );
+  }
+
+  if (!session) return null;
+
+  const role = (session.user?.role ?? 'CLIENT') as AppRole;
+  const userLabel = session.user?.name || session.user?.email || 'Utilizador';
 
   return (
-    <SidebarProvider>
-      <DashboardFrame role={role} userLabel={userLabel}>
-        {children}
-      </DashboardFrame>
-    </SidebarProvider>
+    <DashboardFrame role={role} userLabel={userLabel}>
+      {children}
+    </DashboardFrame>
   );
 }

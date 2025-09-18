@@ -2,6 +2,19 @@
 'use client';
 
 import * as React from 'react';
+import Drawer from '@mui/material/Drawer';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemButton from '@mui/material/ListItemButton';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import Box from '@mui/material/Box';
+import Divider from '@mui/material/Divider';
+import Typography from '@mui/material/Typography';
+import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSidebar } from './SidebarProvider';
@@ -12,75 +25,137 @@ export type NavItem = {
   icon?: React.ReactNode;
   active?: boolean;
   activePrefix?: string;
-  exact?: boolean; // se true, match exato
+  exact?: boolean;
 };
+
+const WIDTH_EXPANDED = 260;
+const WIDTH_COLLAPSED = 72;
 
 export default function SidebarBase({
   items,
   header,
-  className = '',
 }: {
   items: NavItem[];
   header?: React.ReactNode;
-  className?: string;
 }) {
   const pathname = usePathname();
-  const { collapsed, mobileOpen, closeMobile, peek, setPeek } = useSidebar();
+  const { collapsed, mobileOpen, closeMobile, toggleCollapsed } = useSidebar();
 
-  const base =
-    'fixed inset-y-0 left-0 z-40 transition-transform duration-200 ease-out ' +
-    'bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 shadow-sm';
-  const mobile = mobileOpen ? 'translate-x-0' : '-translate-x-full';
-  const desktop = 'lg:static lg:translate-x-0 lg:block lg:w-[var(--sb-w)]';
+  // TEMPORARY drawer (mobile)
+  const mobile = (
+    <Drawer
+      open={mobileOpen}
+      onClose={closeMobile}
+      variant="temporary"
+      ModalProps={{ keepMounted: true }}
+      sx={{
+        display: { xs: 'block', lg: 'none' },
+        '& .MuiDrawer-paper': { width: WIDTH_EXPANDED },
+      }}
+    >
+      <SidebarContent
+        collapsed={false}
+        items={items}
+        header={header}
+        onItemClick={closeMobile}
+        onToggle={toggleCollapsed}
+      />
+    </Drawer>
+  );
+
+  // PERMANENT drawer (desktop)
+  const desktop = (
+    <Drawer
+      variant="permanent"
+      open
+      sx={{
+        display: { xs: 'none', lg: 'block' },
+        '& .MuiDrawer-paper': {
+          width: collapsed ? WIDTH_COLLAPSED : WIDTH_EXPANDED,
+          transition: (t) => t.transitions.create('width', { duration: t.transitions.duration.shorter }),
+          overflowX: 'hidden',
+          borderRight: (t) => `1px solid ${t.palette.divider}`,
+        },
+      }}
+    >
+      <SidebarContent
+        collapsed={collapsed}
+        items={items}
+        header={header}
+        onItemClick={closeMobile}
+        onToggle={toggleCollapsed}
+      />
+    </Drawer>
+  );
 
   return (
     <>
-      {mobileOpen && (
-        <div className="fixed inset-0 z-30 bg-black/30 lg:hidden" onClick={closeMobile} aria-hidden />
-      )}
-
-      <aside
-        className={`${base} ${mobile} ${desktop} ${className}`}
-        onMouseEnter={() => setPeek(true)}
-        onMouseLeave={() => setPeek(false)}
-      >
-        <div className="h-full flex flex-col">
-          {header && (
-            <div className="h-14 flex items-center gap-3 px-3 border-b border-slate-200/80 dark:border-slate-800/80">
-              {header}
-            </div>
-          )}
-
-          <nav className="p-2 space-y-1 overflow-y-auto">
-            {items.map((it) => {
-              const target = it.activePrefix ?? it.href;
-              const computed = pathname
-                ? (it.exact ? pathname === target : pathname.startsWith(target))
-                : false;
-              const isActive = it.active ?? computed;
-
-              return (
-                <Link
-                  key={it.href}
-                  href={it.href}
-                  className={[
-                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm',
-                    isActive
-                      ? 'bg-slate-900 text-white dark:bg-slate-700'
-                      : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800',
-                  ].join(' ')}
-                  onClick={closeMobile}
-                >
-                  {it.icon && <span className="shrink-0">{it.icon}</span>}
-                  <span className={`truncate ${collapsed && !peek ? 'lg:hidden' : ''}`}>
-                    {it.label}
-                  </span>
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
-      </aside>
+      {mobile}
+      {desktop}
     </>
   );
+
+  function SidebarContent({
+    collapsed,
+    items,
+    header,
+    onItemClick,
+    onToggle,
+  }: {
+    collapsed: boolean;
+    items: NavItem[];
+    header?: React.ReactNode;
+    onItemClick: () => void;
+    onToggle: () => void;
+  }) {
+    return (
+      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        {/* topo + toggle DENTRO */}
+        <Box sx={{ px: 1.5, height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, overflow: 'hidden' }}>
+            {header}
+          </Box>
+          <Tooltip title={collapsed ? 'Expandir' : 'Colapsar'}>
+            <IconButton size="small" onClick={onToggle}>
+              {collapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+            </IconButton>
+          </Tooltip>
+        </Box>
+        <Divider />
+
+        <List sx={{ px: 0.5 }}>
+          {items.map((it) => {
+            const target = it.activePrefix ?? it.href;
+            const computed = pathname ? (it.exact ? pathname === target : pathname.startsWith(target)) : false;
+            const selected = it.active ?? computed;
+
+            return (
+              <ListItem key={it.href} disablePadding sx={{ display: 'block' }}>
+                <Link href={it.href} onClick={onItemClick} style={{ textDecoration: 'none', color: 'inherit' }}>
+                  <ListItemButton
+                    selected={selected}
+                    sx={{
+                      minHeight: 40,
+                      justifyContent: collapsed ? 'center' : 'flex-start',
+                      px: collapsed ? 1.25 : 2,
+                      borderRadius: 1,
+                      mx: 0.5,
+                    }}
+                  >
+                    {it.icon && (
+                      <ListItemIcon sx={{ minWidth: 0, mr: collapsed ? 0 : 1.5 }}>{it.icon}</ListItemIcon>
+                    )}
+                    {!collapsed && <ListItemText primary={it.label} primaryTypographyProps={{ noWrap: true }} />}
+                  </ListItemButton>
+                </Link>
+              </ListItem>
+            );
+          })}
+        </List>
+
+        {/* rodapé (opcional) */}
+        <Box sx={{ mt: 'auto', p: 1 }} />
+      </Box>
+    );
+  }
 }

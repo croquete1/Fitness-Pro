@@ -1,3 +1,4 @@
+// src/components/layout/SidebarAdmin.tsx
 'use client';
 
 import * as React from 'react';

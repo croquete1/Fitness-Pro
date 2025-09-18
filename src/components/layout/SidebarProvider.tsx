@@ -4,10 +4,10 @@
 import * as React from 'react';
 
 type SidebarState = {
-  pinned: boolean;           // se a sidebar fica sempre aberta no desktop
-  collapsed: boolean;        // estado visual colapsado no desktop
-  mobileOpen: boolean;       // aberta no mobile (overlay)
-  peek: boolean;             // estado temporário ao aproximar o rato
+  pinned: boolean;
+  collapsed: boolean;
+  mobileOpen: boolean;
+  peek: boolean;
   pin: () => void;
   unpin: () => void;
   toggleCollapsed: () => void;
@@ -16,7 +16,7 @@ type SidebarState = {
   setPeek: (v: boolean) => void;
 };
 
-const SidebarCtx = React.createContext<SidebarState | null>(null);
+const Ctx = React.createContext<SidebarState | null>(null);
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [pinned, setPinned] = React.useState(true);
@@ -24,24 +24,24 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [peek, setPeek] = React.useState(false);
 
-  const value = React.useMemo<SidebarState>(() => ({
+  const value: SidebarState = {
     pinned,
     collapsed,
     mobileOpen,
     peek,
     pin: () => setPinned(true),
     unpin: () => setPinned(false),
-    toggleCollapsed: () => setCollapsed(v => !v),
+    toggleCollapsed: () => setCollapsed((v) => !v),
     openMobile: () => setMobileOpen(true),
     closeMobile: () => setMobileOpen(false),
     setPeek,
-  }), [pinned, collapsed, mobileOpen, peek]);
+  };
 
-  return <SidebarCtx.Provider value={value}>{children}</SidebarCtx.Provider>;
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
 export function useSidebar() {
-  const ctx = React.useContext(SidebarCtx);
+  const ctx = React.useContext(Ctx);
   if (!ctx) throw new Error('useSidebar must be used inside <SidebarProvider>');
   return ctx;
 }
