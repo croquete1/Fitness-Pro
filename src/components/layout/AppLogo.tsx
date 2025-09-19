@@ -1,4 +1,19 @@
 'use client';
-export default function AppLogo({ size = 32, className = '' }: { size?: number; className?: string }) {
-  return <img src="/public/logo.png" alt="Fitness Pro" width={size} height={size} className={className} />;
+import * as React from 'react';
+
+export default function AppLogo({
+  size = 28,
+  className = '',
+  title = 'Fitness Pro',
+}: { size?: number; className?: string; title?: string }) {
+  return (
+    <img
+      src="/logo.png"                         // ← ficheiro em public/logo.png
+      width={size}
+      height={size}
+      alt={title}
+      className={className}
+      style={{ width: size, height: size, objectFit: 'contain', display: 'block' }}
+    />
+  );
 }

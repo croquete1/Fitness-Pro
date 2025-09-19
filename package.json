@@ -36,6 +36,7 @@
     "@tanstack/react-table": "^8.21.3",
     "bcryptjs": "^3.0.2",
     "date-fns": "^4.1.0",
+    "framer-motion": "^12.23.15",
     "lucide-react": "^0.539.0",
     "next": "^14.2.32",
     "next-auth": "4.24.11",

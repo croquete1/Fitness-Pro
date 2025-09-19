@@ -3,15 +3,18 @@ export const dynamic = 'force-dynamic';
 import { redirect } from 'next/navigation';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { createServerClient } from '@/lib/supabaseServer';
+import { toAppRole, isPT, isAdmin } from '@/lib/roles';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 
-export default async function ClientMessagesPage() {
+export default async function PTMessagesPage() {
   const session = await getSessionUserSafe();
   if (!session?.user?.id) redirect('/login');
+  const role = toAppRole(session.user.role) ?? 'CLIENT';
+  if (!isPT(role) && !isAdmin(role)) redirect('/dashboard');
 
   const sb = createServerClient();
   const { data } = await sb

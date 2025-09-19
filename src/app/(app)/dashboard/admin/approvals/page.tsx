@@ -4,17 +4,7 @@ import { redirect } from 'next/navigation';
 import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole } from '@/lib/roles';
-import Paper from '@mui/material/Paper';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import Table from '@mui/material/Table';
-import TableHead from '@mui/material/TableHead';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableRow from '@mui/material/TableRow';
-import ApprovalRowActions from '@/components/admin/ApprovalRowActions';
-
-type UserRow = { id: string; name?: string | null; email?: string | null; role?: string | null; created_at?: string | null };
+import AdminApprovalsClient from '@/components/admin/AdminApprovalsClient';
 
 export default async function ApprovalsPage() {
   const session = await getSessionUserSafe();
@@ -24,53 +14,13 @@ export default async function ApprovalsPage() {
 
   const sb = createServerClient();
 
-  let pending: UserRow[] = [];
-  try {
-    const { data } = await sb.from('users').select('id,name,email,role,created_at').eq('approved', false);
-    pending = (data ?? []) as any;
-  } catch {}
-  if (pending.length === 0) {
-    try {
-      const { data } = await sb.from('users').select('id,name,email,role,created_at,status').eq('status', 'PENDING');
-      pending = (data ?? []) as any;
-    } catch {}
-  }
+  // compat: approved=false OR status='PENDING'
+  const { data: rowsA } = await sb.from('users').select('id,name,email,role,created_at').eq('approved', false);
+  const { data: rowsB } = await sb.from('users').select('id,name,email,role,created_at').eq('status', 'PENDING');
+  const map = new Map<string, any>();
+  (rowsA ?? []).forEach((u: any) => map.set(u.id, u));
+  (rowsB ?? []).forEach((u: any) => map.set(u.id, u));
+  const rows = Array.from(map.values()).sort((a,b) => +new Date(b.created_at||0) - +new Date(a.created_at||0));
 
-  return (
-    <Paper elevation={0} sx={{ p: 2 }}>
-      <Typography variant="h6" fontWeight={800} sx={{ mb: 2 }}>Aprovações</Typography>
-
-      <Box sx={{ borderRadius: 2, overflow: 'hidden', border: 1, borderColor: 'divider' }}>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Nome</TableCell>
-              <TableCell>Email</TableCell>
-              <TableCell>Role</TableCell>
-              <TableCell>Registo</TableCell>
-              <TableCell align="right">Ações</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {pending.map((u) => (
-              <TableRow key={u.id}>
-                <TableCell>{u.name || '—'}</TableCell>
-                <TableCell>{u.email || '—'}</TableCell>
-                <TableCell>{u.role || '—'}</TableCell>
-                <TableCell>{u.created_at ? new Date(u.created_at).toLocaleString('pt-PT') : '—'}</TableCell>
-                <TableCell align="right"><ApprovalRowActions id={u.id} /></TableCell>
-              </TableRow>
-            ))}
-            {pending.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} align="center">
-                  <Typography variant="body2" color="text.secondary">Sem registos pendentes.</Typography>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </Box>
-    </Paper>
-  );
+  return <AdminApprovalsClient initial={rows} />;
 }

@@ -1,99 +1,52 @@
-// src/app/(app)/dashboard/pt/sessions/page.tsx
 export const dynamic = 'force-dynamic';
 
 import { redirect } from 'next/navigation';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { createServerClient } from '@/lib/supabaseServer';
-import { toAppRole, isPT, isAdmin, type AppRole } from '@/lib/roles';
-import PageHeader from '@/components/ui/PageHeader';
-import Card, { CardContent } from '@/components/ui/Card';
-import Badge from '@/components/ui/Badge';
-
-type Row = {
-  id: string;
-  scheduled_at: string | null;
-  notes: string | null;
-  location: string | null;
-  client_id: string | null;
-};
+import { toAppRole, isPT, isAdmin } from '@/lib/roles';
+import Paper from '@mui/material/Paper';
+import Typography from '@mui/material/Typography';
+import Table from '@mui/material/Table';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import TableCell from '@mui/material/TableCell';
+import TableBody from '@mui/material/TableBody';
 
 export default async function PTSessionsPage() {
-  // 1) Sessão e guard
-  const sessionUser = await getSessionUserSafe();
-  if (!sessionUser?.id) redirect('/login');
-
-  const role = (toAppRole(sessionUser.role) ?? 'CLIENT') as AppRole;
-  // ✅ apenas PT/Admin (nunca comparar com 'TRAINER')
+  const session = await getSessionUserSafe();
+  if (!session?.user?.id) redirect('/login');
+  const role = toAppRole(session.user.role) ?? 'CLIENT';
   if (!isPT(role) && !isAdmin(role)) redirect('/dashboard');
 
-  // 2) Dados (próximas 7d)
   const sb = createServerClient();
-  const now = new Date();
-  const in7 = new Date(now);
-  in7.setDate(now.getDate() + 7);
+  const { data } = await sb
+    .from('sessions')
+    .select('id,scheduled_at,location,status,client_id')
+    .eq('trainer_id', session.user.id)
+    .order('scheduled_at', { ascending: false })
+    .limit(200);
 
-  let sessions: Row[] = [];
-  try {
-    let q = sb
-      .from('sessions')
-      .select('id, scheduled_at, notes, location, client_id, trainer_id')
-      .gte('scheduled_at', now.toISOString())
-      .lt('scheduled_at', in7.toISOString())
-      .order('scheduled_at', { ascending: true })
-      .limit(100);
-
-    // PT vê só as suas sessões; Admin vê todas
-    if (isPT(role)) q = q.eq('trainer_id', String(sessionUser.id));
-
-    const { data, error } = await q;
-    if (!error && data) {
-      sessions = data.map((s: any) => ({
-        id: s.id,
-        scheduled_at: s.scheduled_at ?? null,
-        notes: s.notes ?? null,
-        location: s.location ?? null,
-        client_id: s.client_id ?? null,
-      }));
-    }
-  } catch {
-    sessions = [];
-  }
-
-  // 3) UI
   return (
-    <main className="p-4 md:p-6 space-y-4">
-      <PageHeader
-        title="📅 Sessões"
-        subtitle={isAdmin(role) ? 'Todas as sessões (próximos 7 dias)' : 'As tuas sessões (próximos 7 dias)'}
-      />
-
-      <Card>
-        <CardContent>
-          {sessions.length === 0 ? (
-            <div className="text-sm opacity-70">Sem sessões agendadas nos próximos 7 dias.</div>
-          ) : (
-            <ul className="divide-y divide-slate-200/70 dark:divide-slate-800/70">
-              {sessions.map((s) => (
-                <li key={s.id} className="py-2 flex items-start justify-between gap-6">
-                  <div className="space-y-1">
-                    <div className="font-medium">
-                      {s.scheduled_at ? new Date(s.scheduled_at).toLocaleString('pt-PT') : '—'}
-                    </div>
-                    <div className="text-sm opacity-80">
-                      {s.notes ?? 'Sessão'}
-                      {s.location ? ` · ${s.location}` : ''}
-                    </div>
-                    {s.client_id && (
-                      <div className="text-xs opacity-75 font-mono">cliente: {s.client_id}</div>
-                    )}
-                  </div>
-                  <Badge variant="neutral">Agendada</Badge>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
-    </main>
+    <Paper elevation={0} sx={{ p:2 }}>
+      <Typography variant="h6" fontWeight={800} sx={{ mb: 2 }}>Sessões (PT)</Typography>
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell>Data</TableCell><TableCell>Local</TableCell><TableCell>Estado</TableCell><TableCell>Cliente</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {(data ?? []).map((s:any)=>(
+            <TableRow key={s.id}>
+              <TableCell>{s.scheduled_at ? new Date(s.scheduled_at).toLocaleString('pt-PT') : '—'}</TableCell>
+              <TableCell>{s.location ?? '—'}</TableCell>
+              <TableCell>{s.status ?? '—'}</TableCell>
+              <TableCell>{s.client_id ?? '—'}</TableCell>
+            </TableRow>
+          ))}
+          {(!data || data.length===0) && <TableRow><TableCell colSpan={4} align="center">Sem sessões.</TableCell></TableRow>}
+        </TableBody>
+      </Table>
+    </Paper>
   );
 }

@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import Link from 'next/link';
-// Removida a importação de AppLogo, pois usaremos diretamente a tag <img> para o logo
+import AppLogo from '@/components/layout/AppLogo';
 
 export default function LoginClient() {
   const router = useRouter();
@@ -26,7 +26,7 @@ export default function LoginClient() {
     setLoading(true);
     const res = await signIn('credentials', {
       redirect: false,
-      identifier: identifier.trim(), // email OU username
+      identifier: identifier.trim(),
       password: pw,
     });
     setLoading(false);
@@ -36,7 +36,7 @@ export default function LoginClient() {
   }
 
   return (
-    <div className="min-h-[100dvh] grid lg:grid-cols-2 bg-slate-50 dark:bg-slate-950">
+    <div className="min-h-[100dvh] grid lg:grid-cols-2 bg-slate-950">
       {/* HERO */}
       <aside className="relative hidden lg:block overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-indigo-500 to-purple-500" />
@@ -44,7 +44,7 @@ export default function LoginClient() {
         <div className="absolute bottom-0 right-0 h-80 w-80 rounded-full blur-3xl opacity-30 bg-fuchsia-400/40" />
         <div className="relative z-10 h-full w-full p-10 text-white flex flex-col justify-between">
           <div className="flex items-center gap-3">
-            <img src="/public/logo.png" alt="Fitness Pro" width={36} height={36} className="drop-shadow" />
+            <AppLogo size={36} className="drop-shadow" />
             <span className="text-xl font-bold tracking-tight drop-shadow">Fitness Pro</span>
           </div>
           <div>
@@ -64,21 +64,21 @@ export default function LoginClient() {
         <form
           onSubmit={onSubmit}
           aria-labelledby="auth-title"
-          className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-6 sm:p-8 animate-[fadeIn_.22s_ease-out_both]"
+          className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 shadow-xl p-6 sm:p-8 animate-[fadeIn_.22s_ease-out_both] text-slate-100"
         >
           {/* header (mobile) */}
-          <div className="flex items-center gap-3 sm:gap-4 mb-6 sm:mb-7 lg:hidden">
-            <img src="/public/logo.png" alt="Fitness Pro" width={40} height={40} />
+          <div className="flex items-center gap-3 sm:gap-4 mb-6 sm:mb-7">
+            <AppLogo size={40} />
             <div>
-              <h1 id="auth-title" className="m-0 text-2xl font-extrabold tracking-tight text-slate-800 dark:text-slate-100">
+              <h1 id="auth-title" className="m-0 text-2xl font-extrabold tracking-tight">
                 Fitness Pro
               </h1>
-              <p className="m-0 text-xs text-slate-500 dark:text-slate-400">Iniciar sessão</p>
+              <p className="m-0 text-xs text-slate-400">Iniciar sessão</p>
             </div>
           </div>
 
           <div className="grid gap-4">
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
+            <label className="block text-sm font-medium">
               Email ou nome de utilizador
               <input
                 type="text"
@@ -87,14 +87,14 @@ export default function LoginClient() {
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 required
-                className="mt-1 block w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="mt-1 block w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
-              <span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">
+              <span className="mt-1 block text-xs text-slate-400">
                 Podes usar o teu email ou o teu username.
               </span>
             </label>
 
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
+            <label className="block text-sm font-medium">
               Palavra-passe
               <div className="mt-1 grid grid-cols-[1fr_auto] gap-2">
                 <input
@@ -104,11 +104,11 @@ export default function LoginClient() {
                   required
                   minLength={6}
                   autoComplete="current-password"
-                  className="block w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="block w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
                 <button
                   type="button"
-                  className="rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-800/80"
+                  className="rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm hover:bg-slate-800/80"
                   onClick={() => setShow((v) => !v)}
                   aria-pressed={show}
                   aria-label={show ? 'Esconder palavra-passe' : 'Mostrar palavra-passe'}
@@ -128,17 +128,17 @@ export default function LoginClient() {
             </button>
 
             {err && (
-              <div role="alert" aria-live="assertive" className="rounded-md bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 text-sm px-3 py-2">
+              <div role="alert" aria-live="assertive" className="rounded-md bg-rose-950/30 text-rose-300 text-sm px-3 py-2">
                 {err}
               </div>
             )}
 
             <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-              <Link href="/login/forgot" className="text-sm text-indigo-600 hover:underline">Esqueceste-te da palavra-passe?</Link>
-              <Link href="/register" className="text-sm text-indigo-600 hover:underline">Criar conta</Link>
+              <Link href="/login/forgot" className="text-sm text-indigo-400 hover:underline">Esqueceste-te da palavra-passe?</Link>
+              <Link href="/register" className="text-sm text-indigo-400 hover:underline">Criar conta</Link>
             </div>
 
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-slate-400">
               Após o registo, a tua conta ficará pendente até aprovação por um administrador.
             </p>
           </div>

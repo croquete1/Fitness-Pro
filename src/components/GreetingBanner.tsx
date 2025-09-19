@@ -16,10 +16,10 @@ function greetingByHour(d = new Date()) {
 
 export default function GreetingBanner({
   name,
-  role,
+  roleTag, // opcional — não mostrar no cliente
 }: {
   name: string;
-  role?: string;
+  roleTag?: string;
 }) {
   return (
     <Paper
@@ -30,8 +30,8 @@ export default function GreetingBanner({
         borderRadius: 3,
         background:
           t.palette.mode === 'dark'
-            ? 'linear-gradient(135deg, rgba(51,65,85,0.6), rgba(2,6,23,0.6))'
-            : 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(59,130,246,0.08))',
+            ? 'linear-gradient(135deg, rgba(17,24,39,0.85), rgba(2,6,23,0.85))' // 👁️ mais contraste
+            : 'linear-gradient(135deg, rgba(99,102,241,0.10), rgba(59,130,246,0.10))',
         border: `1px solid ${t.palette.divider}`,
       })}
     >
@@ -39,9 +39,9 @@ export default function GreetingBanner({
         <Typography variant="h6" fontWeight={800} sx={{ mb: 0.5 }}>
           {greetingByHour()}, {name}
         </Typography>
-        {role && (
+        {!!roleTag && (
           <Typography variant="caption" sx={{ letterSpacing: 1, opacity: 0.8 }}>
-            {role.toUpperCase()}
+            {roleTag.toUpperCase()}
           </Typography>
         )}
       </Box>

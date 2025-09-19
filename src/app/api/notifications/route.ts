@@ -1,33 +1,33 @@
+// GET /api/notifications?unread=1&limit=10
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 
 export async function GET(req: NextRequest) {
   const session = await getSessionUserSafe();
-  const uid = session?.user?.id;
-  if (!uid) return NextResponse.json({ items: [] }, { status: 200 });
+  if (!session?.user?.id) return NextResponse.json({ items: [] }, { status: 401 });
+  const userId = session.user.id;
 
-  const sb = createServerClient();
+  const limit = Number(req.nextUrl.searchParams.get('limit') || 10);
   const unreadOnly = req.nextUrl.searchParams.get('unread') === '1';
 
+  const sb = createServerClient();
   try {
-    let q = sb.from('notifications').select('*').eq('user_id', uid).order('created_at', { ascending: false }).limit(50);
-    if (unreadOnly) q = q.eq('read', false);
-    const { data } = await q;
-    return NextResponse.json({ items: data ?? [] });
+    let sel = sb.from('notifications').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(limit);
+    if (unreadOnly) sel = sel.eq('read', false);
+    const { data } = await sel;
+
+    const items = (data ?? []).map((n: any) => ({
+      id: n.id,
+      title: n.title ?? n.head ?? 'Notificação',
+      body: n.body ?? n.text ?? '',
+      href: n.href ?? n.url ?? '/dashboard/notifications',
+      read: !!n.read,
+      created_at: n.created_at ?? null,
+    }));
+
+    return NextResponse.json({ items });
   } catch {
     return NextResponse.json({ items: [] });
   }
-}
-
-export async function POST(req: NextRequest) {
-  // marcar tudo como lido
-  const session = await getSessionUserSafe();
-  const uid = session?.user?.id;
-  if (!uid) return NextResponse.json({ ok: false }, { status: 200 });
-  const sb = createServerClient();
-  try {
-    await sb.from('notifications').update({ read: true }).eq('user_id', uid).eq('read', false);
-  } catch {}
-  return NextResponse.json({ ok: true });
 }

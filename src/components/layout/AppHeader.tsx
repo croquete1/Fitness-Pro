@@ -24,6 +24,7 @@ import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined
 import { useTheme as useNextTheme } from 'next-themes';
 import { useSidebar } from '@/components/layout/SidebarProvider';
 import HeaderNotifications from '@/components/HeaderNotifications';
+import HeaderBell from '@/components/header/HeaderBell';
 
 export default function AppHeader() {
   const { openMobile } = useSidebar();
@@ -104,6 +105,7 @@ export default function AppHeader() {
   Meu perfil
 </MenuItem>
             <Divider />
+            <HeaderBell />
             <MenuItem
               onClick={() => {
                 setAnchorEl(null);

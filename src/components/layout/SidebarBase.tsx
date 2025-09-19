@@ -1,204 +1,94 @@
-// src/components/layout/SidebarBase.tsx
 'use client';
 
 import * as React from 'react';
-import Drawer from '@mui/material/Drawer';
-import List from '@mui/material/List';
-import ListItem from '@mui/material/ListItem';
-import ListItemButton from '@mui/material/ListItemButton';
-import ListItemIcon from '@mui/material/ListItemIcon';
-import ListItemText from '@mui/material/ListItemText';
-import Box from '@mui/material/Box';
-import Divider from '@mui/material/Divider';
-import IconButton from '@mui/material/IconButton';
-import Tooltip from '@mui/material/Tooltip';
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useSidebar } from './SidebarProvider';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export type NavItem = {
   href: string;
   label: string;
   icon?: React.ReactNode;
-  active?: boolean;
-  activePrefix?: string;
   exact?: boolean;
+  activePrefix?: string;
+  target?: string;
 };
-
-const WIDTH_EXPANDED = 260;
-const WIDTH_COLLAPSED = 72;
 
 export default function SidebarBase({
   items,
   header,
+  className = '',
 }: {
   items: NavItem[];
   header?: React.ReactNode;
+  className?: string;
 }) {
-  const pathname = usePathname();
-  const { collapsed, mobileOpen, closeMobile, toggleCollapsed } = useSidebar();
-
-  // Drawer mobile
-  const mobile = (
-    <Drawer
-      open={mobileOpen}
-      onClose={closeMobile}
-      variant="temporary"
-      ModalProps={{ keepMounted: true }}
-      sx={{
-        display: { xs: 'block', lg: 'none' },
-        '& .MuiDrawer-paper': { width: WIDTH_EXPANDED },
-      }}
-    >
-      <SidebarContent
-        collapsed={false}
-        items={items}
-        header={header}
-        onItemClick={closeMobile}
-        onToggle={toggleCollapsed}
-      />
-    </Drawer>
-  );
-
-  // Drawer desktop (permanente)
-  const desktop = (
-    <Drawer
-      variant="permanent"
-      open
-      sx={{
-        display: { xs: 'none', lg: 'block' },
-        '& .MuiDrawer-paper': {
-          width: collapsed ? WIDTH_COLLAPSED : WIDTH_EXPANDED,
-          transition: (t) =>
-            t.transitions.create('width', {
-              duration: t.transitions.duration.shorter,
-            }),
-          overflowX: 'hidden',
-          borderRight: (t) => `1px solid ${t.palette.divider}`,
-        },
-      }}
-    >
-      <SidebarContent
-        collapsed={collapsed}
-        items={items}
-        header={header}
-        onItemClick={closeMobile}
-        onToggle={toggleCollapsed}
-      />
-    </Drawer>
-  );
+  const path = usePathname();
+  const [collapsed, setCollapsed] = React.useState(false);
 
   return (
-    <>
-      {mobile}
-      {desktop}
-    </>
-  );
-
-  // conteúdo interno
-  function SidebarContent({
-    collapsed,
-    items,
-    header,
-    onItemClick,
-    onToggle,
-  }: {
-    collapsed: boolean;
-    items: NavItem[];
-    header?: React.ReactNode;
-    onItemClick: () => void;
-    onToggle: () => void;
-  }) {
-    const pathname = usePathname();
-
-    return (
-      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-        {/* topo + toggle dentro da sidebar */}
-        <Box
-          sx={{
-            px: 1.5,
-            height: 56,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
+    <motion.aside
+      className={`h-full bg-slate-950/95 text-slate-100 border-r border-slate-800 ${className}`}
+      animate={{ width: collapsed ? 64 : 240 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+      style={{ overflow: 'hidden' }}
+    >
+      <div className="p-3 flex items-center justify-between">
+        <div className="flex-1 min-w-0">
+          <AnimatePresence mode="popLayout">
+            {!collapsed && header && (
+              <motion.div
+                key="header"
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: .18 }}
+              >
+                {header}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+        <button
+          aria-label={collapsed ? 'Expandir sidebar' : 'Compactar sidebar'}
+          onClick={() => setCollapsed((v) => !v)}
+          className="ml-2 inline-flex items-center justify-center w-8 h-8 rounded-lg border border-slate-800 hover:bg-slate-900"
+          title={collapsed ? 'Expandir' : 'Compactar'}
         >
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1.25,
-              overflow: 'hidden',
-              // fade do conteúdo do header quando colapsa
-              opacity: collapsed ? 0 : 1,
-              transition: (t) => t.transitions.create('opacity', { duration: t.transitions.duration.shorter }),
-            }}
-          >
-            {header}
-          </Box>
-          <Tooltip title={collapsed ? 'Expandir' : 'Colapsar'}>
-            <IconButton size="small" onClick={onToggle}>
-              {collapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
-            </IconButton>
-          </Tooltip>
-        </Box>
-        <Divider />
+          {collapsed ? '»' : '«'}
+        </button>
+      </div>
 
-        <List sx={{ px: 0.5 }}>
-          {items.map((it) => {
-            const target = it.activePrefix ?? it.href;
-            const computed = pathname ? (it.exact ? pathname === target : pathname.startsWith(target)) : false;
-            const selected = it.active ?? computed;
-
-            return (
-              <ListItem key={it.href} disablePadding sx={{ display: 'block' }}>
-                <Link href={it.href} onClick={onItemClick} style={{ textDecoration: 'none', color: 'inherit' }}>
-                  <ListItemButton
-                    selected={selected}
-                    sx={{
-                      minHeight: 40,
-                      justifyContent: collapsed ? 'center' : 'flex-start',
-                      px: collapsed ? 1.25 : 2,
-                      borderRadius: 1,
-                      mx: 0.5,
-                      transition: (t) =>
-                        t.transitions.create(['padding', 'background-color'], {
-                          duration: t.transitions.duration.shorter,
-                        }),
-                    }}
+      <nav className="px-2 pb-3">
+        {items.map((it) => {
+          const active = it.exact ? path === it.href : (it.activePrefix ? path.startsWith(it.activePrefix) : path.startsWith(it.href));
+          return (
+            <Link
+              key={it.href}
+              href={it.href}
+              target={it.target}
+              className={`flex items-center gap-3 rounded-lg px-2 py-2.5 my-1 transition-colors
+                ${active ? 'bg-slate-800 text-white' : 'text-slate-300 hover:bg-slate-900 hover:text-white'}`}
+            >
+              <span className="w-5 shrink-0 text-lg">{it.icon ?? '•'}</span>
+              <AnimatePresence mode="popLayout">
+                {!collapsed && (
+                  <motion.span
+                    key="label"
+                    initial={{ opacity: 0, x: -6 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -6 }}
+                    transition={{ duration: .15 }}
+                    className="truncate"
                   >
-                    {it.icon && (
-                      <ListItemIcon sx={{ minWidth: 0, mr: collapsed ? 0 : 1.5 }}>
-                        {it.icon}
-                      </ListItemIcon>
-                    )}
-
-                    {/* Texto com fade + tooltip quando colapsado */}
-                    {collapsed ? (
-                      <Tooltip title={it.label} placement="right">
-                        <Box sx={{ width: 0 }} />
-                      </Tooltip>
-                    ) : (
-                      <ListItemText
-                        primary={it.label}
-                        primaryTypographyProps={{ noWrap: true }}
-                        sx={(t) => ({
-                          opacity: collapsed ? 0 : 1,
-                          transition: t.transitions.create('opacity', { duration: t.transitions.duration.shorter }),
-                        })}
-                      />
-                    )}
-                  </ListItemButton>
-                </Link>
-              </ListItem>
-            );
-          })}
-        </List>
-
-        <Box sx={{ mt: 'auto', p: 1 }} />
-      </Box>
-    );
-  }
+                    {it.label}
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </Link>
+          );
+        })}
+      </nav>
+    </motion.aside>
+  );
 }

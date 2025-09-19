@@ -1,19 +1,16 @@
-// src/components/layout/SidebarClient.tsx
 'use client';
-
 import * as React from 'react';
 import SidebarBase, { type NavItem } from '@/components/layout/SidebarBase';
 
 export default function SidebarClient({ userLabel }: { userLabel?: string }) {
   const items: NavItem[] = [
-    { href: '/dashboard',            label: 'Painel',     icon: <span aria-hidden>📊</span>, exact: true, activePrefix: '/dashboard' },
-    { href: '/dashboard/planos',     label: 'Planos',     icon: <span aria-hidden>🗂️</span>, activePrefix: '/dashboard/planos' },
-    { href: '/dashboard/nutricao',   label: 'Nutrição',   icon: <span aria-hidden>🥗</span>, activePrefix: '/dashboard/nutricao' },
-    { href: '/dashboard/sessoes',    label: 'Sessões',    icon: <span aria-hidden>📅</span>, activePrefix: '/dashboard/sessoes' },
-    { href: '/dashboard/calendario', label: 'Calendário', icon: <span aria-hidden>🗓️</span>, activePrefix: '/dashboard/calendario' },
-    { href: '/dashboard/mensagens',  label: 'Mensagens',  icon: <span aria-hidden>💬</span>, activePrefix: '/dashboard/mensagens' },
-    { href: '/dashboard/historico',  label: 'Histórico',  icon: <span aria-hidden>📜</span>, activePrefix: '/dashboard/historico' },
-    { href: '/dashboard/profile',    label: 'Perfil',     icon: <span aria-hidden>👤</span>, activePrefix: '/dashboard/profile' }, // ✅
+    { href: '/dashboard/clients',   label: 'Painel',       icon: <span aria-hidden>📊</span>, exact: true, activePrefix: '/dashboard/clients' },
+    { href: '/dashboard/my-plan',   label: 'Os meus planos', icon: <span aria-hidden>🗂️</span>, activePrefix: '/dashboard/my-plan' },
+    { href: '/dashboard/sessions',  label: 'Sessões',      icon: <span aria-hidden>📅</span>, activePrefix: '/dashboard/sessions' },
+    { href: '/dashboard/messages',  label: 'Mensagens',    icon: <span aria-hidden>💬</span>, activePrefix: '/dashboard/messages' },
+    { href: '/dashboard/history',   label: 'Histórico',    icon: <span aria-hidden>📜</span>, activePrefix: '/dashboard/history' },
+    { href: '/dashboard/notifications', label: 'Centro de notificações', icon: <span aria-hidden>🔔</span>, activePrefix: '/dashboard/notifications' },
+    { href: '/dashboard/profile',   label: 'Perfil',       icon: <span aria-hidden>👤</span>, activePrefix: '/dashboard/profile' },
   ];
 
   const header = (
