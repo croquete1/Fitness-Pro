@@ -3,11 +3,14 @@ import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole } from '@/lib/roles';
 
-export async function POST(_: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: { id: string } }) {
   const session = await getSessionUserSafe();
   if (!session?.user?.id) return NextResponse.json({ ok: false }, { status: 401 });
   const role = toAppRole(session.user.role) ?? 'CLIENT';
   if (role !== 'ADMIN') return NextResponse.json({ ok: false }, { status: 403 });
+
+  const body = await req.json().catch(() => ({}));
+  const reason: string | undefined = body?.reason;
 
   const sb = createServerClient();
 
@@ -29,6 +32,7 @@ export async function POST(_: Request, { params }: { params: { id: string } }) {
         actor_id: session.user.id,
         target_id: params.id,
         action: 'REJECT_USER',
+        meta: { reason: reason ?? null },
       });
     } catch {}
   } catch {

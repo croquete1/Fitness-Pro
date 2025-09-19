@@ -1,4 +1,3 @@
-// POST /api/notifications/mark-all-read
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';

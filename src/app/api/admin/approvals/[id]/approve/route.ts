@@ -9,13 +9,17 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const role = toAppRole(session.user.role) ?? 'CLIENT';
   if (role !== 'ADMIN') return NextResponse.json({ ok: false }, { status: 403 });
 
-  const { role: newRole } = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({}));
+  const newRole: string | undefined = body?.role;
+  const reason: string | undefined = body?.reason;
+
   const sb = createServerClient();
 
   try {
-    await sb.from('users').update({ approved: true, status: 'ACTIVE', role: newRole || 'CLIENT' }).eq('id', params.id);
+    const { data: before } = await sb.from('users').select('id,role,approved,status').eq('id', params.id).maybeSingle();
+    await sb.from('users').update({ approved: true, status: 'ACTIVE', role: newRole || before?.role || 'CLIENT' }).eq('id', params.id);
 
-    // notificação (se existir tabela)
+    // notificação
     try {
       await sb.from('notifications').insert({
         user_id: params.id,
@@ -26,13 +30,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       });
     } catch {}
 
-    // audit log (se existir tabela)
+    // audit log
     try {
       await sb.from('audit_log').insert({
         actor_id: session.user.id,
         target_id: params.id,
         action: 'APPROVE_USER',
-        meta: { role: newRole || 'CLIENT' },
+        meta: { fromRole: before?.role ?? null, toRole: newRole || before?.role || 'CLIENT', reason: reason ?? null },
       });
     } catch {}
   } catch {

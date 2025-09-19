@@ -1,4 +1,3 @@
-// POST /api/notifications/:id/read  { read?: boolean }
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';

@@ -1,47 +1,47 @@
-// src/components/layout/SidebarProvider.tsx
 'use client';
-
 import * as React from 'react';
 
-type SidebarState = {
-  pinned: boolean;
+export type SidebarState = {
   collapsed: boolean;
+  peek: boolean;                     // << NOVO
+  toggle: () => void;
+  setCollapsed: (v: boolean) => void;
+  setPeek: (v: boolean) => void;     // << NOVO
   mobileOpen: boolean;
-  peek: boolean;
-  pin: () => void;
-  unpin: () => void;
-  toggleCollapsed: () => void;
   openMobile: () => void;
   closeMobile: () => void;
-  setPeek: (v: boolean) => void;
 };
 
-const Ctx = React.createContext<SidebarState | null>(null);
+const Ctx = React.createContext<SidebarState | undefined>(undefined);
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
-  const [pinned, setPinned] = React.useState(true);
   const [collapsed, setCollapsed] = React.useState(false);
+  const [peek, setPeek] = React.useState(false);   // << NOVO
   const [mobileOpen, setMobileOpen] = React.useState(false);
-  const [peek, setPeek] = React.useState(false);
 
-  const value: SidebarState = {
-    pinned,
-    collapsed,
-    mobileOpen,
-    peek,
-    pin: () => setPinned(true),
-    unpin: () => setPinned(false),
-    toggleCollapsed: () => setCollapsed((v) => !v),
-    openMobile: () => setMobileOpen(true),
-    closeMobile: () => setMobileOpen(false),
-    setPeek,
-  };
+  // restaurar estado do colapso
+  React.useEffect(() => {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('fp.sidebar.collapsed') : null;
+    if (raw != null) setCollapsed(raw === '1');
+  }, []);
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') localStorage.setItem('fp.sidebar.collapsed', collapsed ? '1' : '0');
+  }, [collapsed]);
+
+  const toggle = React.useCallback(() => setCollapsed((v) => !v), []);
+  const openMobile = React.useCallback(() => setMobileOpen(true), []);
+  const closeMobile = React.useCallback(() => setMobileOpen(false), []);
+
+  const value = React.useMemo(
+    () => ({ collapsed, peek, toggle, setCollapsed, setPeek, mobileOpen, openMobile, closeMobile }),
+    [collapsed, peek, mobileOpen, openMobile, closeMobile]
+  );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
 export function useSidebar() {
   const ctx = React.useContext(Ctx);
-  if (!ctx) throw new Error('useSidebar must be used inside <SidebarProvider>');
+  if (!ctx) throw new Error('useSidebar must be used within SidebarProvider');
   return ctx;
 }
