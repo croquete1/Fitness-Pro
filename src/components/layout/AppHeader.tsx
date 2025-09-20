@@ -4,7 +4,6 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
-
 import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
 import Box from '@mui/material/Box';
@@ -14,28 +13,20 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import Divider from '@mui/material/Divider';
-import Tooltip from '@mui/material/Tooltip';
-
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import Brightness7OutlinedIcon from '@mui/icons-material/Brightness7Outlined';
 import Brightness4OutlinedIcon from '@mui/icons-material/Brightness4Outlined';
 import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined';
 import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined';
-
 import { useTheme as useNextTheme } from 'next-themes';
 import { useSidebar } from '@/components/layout/SidebarProvider';
-
-// 🔔 dropdown funcional (não lidas + marcar tudo como lido)
 import HeaderBell from '@/components/header/HeaderBell';
-
-// 🔎 pesquisa global com sugestões em tempo-real
-import HeaderSearch from '@/components/header/HeaderSearch';
+import GlobalSearchBox from '@/components/search/GlobalSearchBox';
 
 export default function AppHeader() {
   const { openMobile } = useSidebar();
   const { resolvedTheme, setTheme } = useNextTheme();
   const dark = resolvedTheme === 'dark';
-
   const { data: session } = useSession();
   const router = useRouter();
 
@@ -53,50 +44,43 @@ export default function AppHeader() {
       sx={(t) => ({
         borderBottom: `1px solid ${t.palette.divider}`,
         bgcolor: t.palette.background.paper,
+        backdropFilter: 'saturate(180%) blur(8px)',
       })}
     >
       <Toolbar sx={{ minHeight: 56, gap: 1 }}>
-        {/* Burger (mobile) */}
+        {/* Menu (mobile) */}
         <IconButton edge="start" onClick={openMobile} sx={{ display: { lg: 'none' } }} aria-label="Abrir menu">
           <MenuRoundedIcon />
         </IconButton>
 
         {/* Pesquisa global */}
-        <Box sx={{ ml: 1, mr: 'auto', flex: 1, maxWidth: 980 }}>
-          <HeaderSearch />
+        <Box sx={{ flex: 1, maxWidth: 980, mx: 1 }}>
+          <GlobalSearchBox onPick={(href) => router.push(href)} />
         </Box>
 
-        {/* Área de ações compacta (sino, tema, avatar) */}
+        {/* Ações à direita */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Tooltip title="Notificações">
-            <span><HeaderBell /></span>
-          </Tooltip>
+          <HeaderBell />
+          <IconButton aria-label="Alternar tema" onClick={() => setTheme(dark ? 'light' : 'dark')}>
+            {dark ? <Brightness7OutlinedIcon /> : <Brightness4OutlinedIcon />}
+          </IconButton>
 
-          <Tooltip title={dark ? 'Modo claro' : 'Modo escuro'}>
-            <IconButton aria-label="Alternar tema" onClick={() => setTheme(dark ? 'light' : 'dark')}>
-              {dark ? <Brightness7OutlinedIcon /> : <Brightness4OutlinedIcon />}
-            </IconButton>
-          </Tooltip>
-
-          {/* Avatar com menu */}
-          <Tooltip title="Conta">
-            <IconButton onClick={(e) => setAnchorEl(e.currentTarget)} aria-label="Abrir menu de utilizador">
-              <Avatar alt={displayName} src={avatarUrl || undefined} sx={{ width: 32, height: 32 }} />
-            </IconButton>
-          </Tooltip>
-
+          {/* Avatar + menu */}
+          <IconButton onClick={(e) => setAnchorEl(e.currentTarget)} aria-label="Abrir menu de utilizador">
+            <Avatar alt={displayName} src={avatarUrl || undefined} sx={{ width: 32, height: 32 }} />
+          </IconButton>
           <Menu
             anchorEl={anchorEl}
             open={menuOpen}
             onClose={() => setAnchorEl(null)}
             anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
             transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-            slotProps={{ paper: { sx: { minWidth: 220 } } }}
+            slotProps={{ paper: { sx: { minWidth: 240 } } }}
           >
             <MenuItem disabled>
               <Box sx={{ fontSize: 12, lineHeight: 1.2 }}>
                 <div style={{ fontWeight: 700 }}>{displayName}</div>
-                <div style={{ opacity: 0.7 }}>{(session as any)?.user?.role || ''}</div>
+                <div style={{ opacity: 0.7 }}>{session?.user?.role}</div>
               </Box>
             </MenuItem>
             <Divider />
@@ -105,12 +89,7 @@ export default function AppHeader() {
               Meu perfil
             </MenuItem>
             <Divider />
-            <MenuItem
-              onClick={() => {
-                setAnchorEl(null);
-                signOut({ callbackUrl: '/login' });
-              }}
-            >
+            <MenuItem onClick={() => { setAnchorEl(null); signOut({ callbackUrl: '/login' }); }}>
               <ListItemIcon><LogoutOutlinedIcon fontSize="small" /></ListItemIcon>
               Terminar sessão
             </MenuItem>

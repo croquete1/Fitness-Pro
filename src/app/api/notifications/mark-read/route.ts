@@ -1,18 +1,23 @@
-// src/app/api/notifications/mark-read/route.ts
-import { NextResponse } from 'next/server';
-import { getSessionUserSafe } from '@/lib/session-bridge';
+import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
+import { getSessionUserSafe } from '@/lib/session-bridge';
 
-export async function POST(req: Request) {
-  const body = await req.json().catch(() => ({}));
-  const id = body?.id as string | undefined;
-  if (!id) return NextResponse.json({ ok: false }, { status: 400 });
-
+export async function POST(req: NextRequest) {
   const session = await getSessionUserSafe();
-  const uid = session?.user?.id;
-  if (!uid) return NextResponse.json({ ok: false }, { status: 401 });
+  const userId = session?.user?.id;
+  if (!userId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+
+  let ids: string[] | undefined;
+  try {
+    const body = await req.json();
+    if (Array.isArray(body?.ids) && body.ids.length) ids = body.ids;
+  } catch {}
 
   const sb = createServerClient();
-  await sb.from('notifications').update({ read: true }).eq('id', id).eq('user_id', uid);
-  return NextResponse.json({ ok: true });
+  let q = sb.from('notifications').update({ read: true }).eq('user_id', userId);
+  if (ids) q = q.in('id', ids);
+  const { data, error } = await q.select('id');
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true, count: data?.length ?? 0 });
 }

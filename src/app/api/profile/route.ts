@@ -1,87 +1,47 @@
-import { NextRequest, NextResponse } from 'next/server';
+// GET: devolve o meu perfil
+// PATCH: atualiza nome/email/username (e o que permitires)
+import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 
-export async function PATCH(req: NextRequest) {
+export async function GET() {
   const session = await getSessionUserSafe();
-  const uid = session?.user?.id;
-  if (!uid) return NextResponse.json({ ok: false }, { status: 401 });
+  if (!session?.user?.id) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+
+  const sb = createServerClient();
+  const { data, error } = await sb
+    .from('profiles')
+    .select('id,name,avatar_url,username') // ajusta aos campos que tens
+    .eq('id', session.user.id)
+    .maybeSingle();
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ profile: data ?? null });
+}
+
+export async function PATCH(req: Request) {
+  const session = await getSessionUserSafe();
+  if (!session?.user?.id) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
-  const {
-    name, email, avatar_url, gender, birthdate,
-    height_cm, weight_kg, bodyfat_pct,
-    phone, city, emergency_contact_name, emergency_contact_phone,
-    goals, allergies, medical_notes, training_availability, injury_notes,
-    certifications, specialties, hourly_rate, bio,
-  } = body || {};
+  const allowed = (({ name, email, username }) => ({ name, email, username }))(body);
 
   const sb = createServerClient();
 
-  // profiles
-  try {
-    await sb.from('profiles').upsert({
-      id: uid, name: name ?? null, email: email ?? null, avatar_url: avatar_url ?? null,
-      gender: gender ?? null, birthdate: birthdate ?? null, phone: phone ?? null, city: city ?? null,
-      updated_at: new Date().toISOString(),
-    } as any, { onConflict: 'id' });
-  } catch {}
+  // email pode viver em "users", nome/username em "profiles" — ajusta se necessário
+  if (typeof allowed.email === 'string') {
+    const { error: e1 } = await sb.from('users').update({ email: allowed.email }).eq('id', session.user.id);
+    if (e1) return NextResponse.json({ error: e1.message }, { status: 400 });
+  }
 
-  // metrics
-  try {
-    await sb.from('profile_metrics').upsert({
-      user_id: uid,
-      height_cm: height_cm === '' ? null : Number(height_cm),
-      weight_kg: weight_kg === '' ? null : Number(weight_kg),
-      bodyfat_pct: bodyfat_pct === '' ? null : Number(bodyfat_pct),
-      updated_at: new Date().toISOString(),
-    } as any, { onConflict: 'user_id' });
-  } catch {}
+  const patch: Record<string, unknown> = {};
+  if (typeof allowed.name === 'string') patch.name = allowed.name;
+  if (typeof allowed.username === 'string') patch.username = allowed.username;
 
-  // details (opcional — só se a tabela existir)
-  try {
-    await sb.from('profile_details').upsert({
-      user_id: uid,
-      emergency_contact_name: emergency_contact_name ?? null,
-      emergency_contact_phone: emergency_contact_phone ?? null,
-      goals: goals ?? null,
-      allergies: allergies ?? null,
-      medical_notes: medical_notes ?? null,
-      training_availability: training_availability ?? null,
-      injury_notes: injury_notes ?? null,
-      certifications: certifications ?? null,
-      specialties: specialties ?? null,
-      hourly_rate: hourly_rate === '' ? null : Number(hourly_rate),
-      bio: bio ?? null,
-      updated_at: new Date().toISOString(),
-    } as any, { onConflict: 'user_id' });
-  } catch {}
-
-  // notificar PT(s) atribuídos
-  try {
-    const { data: links } = await sb.from('trainer_clients').select('trainer_id').eq('client_id', uid);
-    const trainerIds = (links ?? []).map((x: any) => x.trainer_id).filter(Boolean);
-    if (trainerIds.length) {
-      await sb.from('notifications').insert(
-        trainerIds.map((tid: string) => ({
-          user_id: tid,
-          title: 'Atualização de perfil do cliente',
-          body: 'Um cliente atualizou os dados do perfil.',
-          read: false,
-        }))
-      );
-    }
-  } catch {}
-
-  // log admin
-  try {
-    await sb.from('admin_logs').insert({
-      actor_id: uid,
-      action: 'PROFILE_UPDATE',
-      payload: { fields: Object.keys(body || {}) },
-      created_at: new Date().toISOString(),
-    } as any);
-  } catch {}
+  if (Object.keys(patch).length) {
+    const { error: e2 } = await sb.from('profiles').update(patch).eq('id', session.user.id);
+    if (e2) return NextResponse.json({ error: e2.message }, { status: 400 });
+  }
 
   return NextResponse.json({ ok: true });
 }

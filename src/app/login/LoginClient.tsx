@@ -1,156 +1,108 @@
 // src/app/login/LoginClient.tsx
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import * as React from 'react';
 import { signIn } from 'next-auth/react';
 import Link from 'next/link';
-import AppLogo from '@/components/layout/AppLogo';
+import {
+  Box, Paper, Stack, TextField, IconButton, InputAdornment, Button, Typography, Divider
+} from '@mui/material';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
+import Visibility from '@mui/icons-material/Visibility';
+import Image from 'next/image';
 
 export default function LoginClient() {
-  const router = useRouter();
-
-  const [identifier, setIdentifier] = useState('');
-  const [pw, setPw] = useState('');
-  const [show, setShow] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  const canSubmit = identifier.trim().length > 0 && pw.length >= 6 && !loading;
+  const [identifier, setIdentifier] = React.useState('');
+  const [pw, setPw] = React.useState('');
+  const [show, setShow] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
+  const [err, setErr] = React.useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!canSubmit) return;
-
+    if (!identifier.trim() || pw.length < 6) return;
     setErr(null);
     setLoading(true);
-    const res = await signIn('credentials', {
-      redirect: false,
-      identifier: identifier.trim(),
-      password: pw,
-    });
+    const res = await signIn('credentials', { redirect: false, identifier: identifier.trim(), password: pw });
     setLoading(false);
-
     if (res?.error) setErr('Credenciais inválidas.');
-    else router.push('/dashboard');
   }
 
   return (
-    <div className="min-h-[100dvh] grid lg:grid-cols-2 bg-slate-950">
-      {/* HERO */}
-      <aside className="relative hidden lg:block overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-indigo-500 to-purple-500" />
-        <div className="absolute -top-16 -left-12 h-72 w-72 rounded-full blur-3xl opacity-40 bg-white/30" />
-        <div className="absolute bottom-0 right-0 h-80 w-80 rounded-full blur-3xl opacity-30 bg-fuchsia-400/40" />
-        <div className="relative z-10 h-full w-full p-10 text-white flex flex-col justify-between">
-          <div className="flex items-center gap-3">
-            <AppLogo size={36} className="drop-shadow" />
-            <span className="text-xl font-bold tracking-tight drop-shadow">Fitness Pro</span>
-          </div>
-          <div>
-            <h2 className="mt-10 text-4xl font-extrabold leading-tight drop-shadow-sm">
-              Treina melhor.<br />Vive melhor.
-            </h2>
-            <p className="mt-3 max-w-md text-white/90">
-              Acompanha planos, sessões e progresso — tudo num só lugar, rápido e simples.
-            </p>
-          </div>
-          <p className="text-xs text-white/70">© {new Date().getFullYear()} Fitness Pro</p>
-        </div>
-      </aside>
+    <Box sx={{ minHeight: '100dvh', display: 'grid', gridTemplateColumns: { md: '1fr 1fr', xs: '1fr' } }}>
+      {/* Hero à esquerda */}
+      <Box sx={{
+        display: { xs: 'none', md: 'block' },
+        position: 'relative',
+        background: 'linear-gradient(135deg,#5b7cfa 0%,#9359ff 100%)'
+      }}>
+        <Box sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Image src="/logo.png" alt="Fitness Pro" width={28} height={28} />
+          <Typography fontWeight={800} color="#fff">Fitness Pro</Typography>
+        </Box>
+        <Box sx={{ position: 'absolute', inset: 0, display: 'grid', alignContent: 'end', p: 5, color: '#fff' }}>
+          <Typography variant="h4" fontWeight={900}>Treina melhor.<br />Vive melhor.</Typography>
+          <Typography sx={{ mt: 1, opacity: 0.9, maxWidth: 380 }}>
+            Acompanha planos, sessões e progresso — tudo num só lugar, rápido e simples.
+          </Typography>
+          <Typography sx={{ mt: 6, fontSize: 12, opacity: 0.8 }}>© {new Date().getFullYear()} Fitness Pro</Typography>
+        </Box>
+      </Box>
 
-      {/* FORM */}
-      <main className="flex items-center justify-center p-6 sm:p-10">
-        <form
-          onSubmit={onSubmit}
-          aria-labelledby="auth-title"
-          className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 shadow-xl p-6 sm:p-8 animate-[fadeIn_.22s_ease-out_both] text-slate-100"
-        >
-          {/* header (mobile) */}
-          <div className="flex items-center gap-3 sm:gap-4 mb-6 sm:mb-7">
-            <AppLogo size={40} />
-            <div>
-              <h1 id="auth-title" className="m-0 text-2xl font-extrabold tracking-tight">
-                Fitness Pro
-              </h1>
-              <p className="m-0 text-xs text-slate-400">Iniciar sessão</p>
-            </div>
-          </div>
+      {/* Formulário */}
+      <Box sx={{ display: 'grid', placeItems: 'center', p: 3 }}>
+        <Paper variant="outlined" sx={{ p: 3, borderRadius: 3, width: '100%', maxWidth: 420 }}>
+          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1 }}>
+            <Image src="/logo.png" alt="Fitness Pro" width={32} height={32} />
+            <Typography variant="h6" fontWeight={900}>Fitness Pro</Typography>
+          </Stack>
+          <Typography variant="caption" sx={{ opacity: 0.7, mb: 2, display: 'block' }}>Iniciar sessão</Typography>
 
-          <div className="grid gap-4">
-            <label className="block text-sm font-medium">
-              Email ou nome de utilizador
-              <input
-                type="text"
-                inputMode="email"
-                autoComplete="username"
+          <Box component="form" onSubmit={onSubmit}>
+            <Stack spacing={1.5}>
+              <TextField
+                label="Email ou nome de utilizador"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                required
-                className="mt-1 block w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                inputProps={{ autoComplete: 'username' }}
+                fullWidth
               />
-              <span className="mt-1 block text-xs text-slate-400">
-                Podes usar o teu email ou o teu username.
-              </span>
-            </label>
+              <TextField
+                label="Palavra-passe"
+                type={show ? 'text' : 'password'}
+                value={pw}
+                onChange={(e) => setPw(e.target.value)}
+                inputProps={{ minLength: 6, autoComplete: 'current-password' }}
+                fullWidth
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton onClick={() => setShow(v => !v)} aria-label="alternar visibilidade">
+                        {show ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  )
+                }}
+              />
+              <Button type="submit" variant="contained" disabled={loading || !identifier.trim() || pw.length < 6}>
+                {loading ? 'A entrar…' : 'Entrar'}
+              </Button>
 
-            <label className="block text-sm font-medium">
-              Palavra-passe
-              <div className="mt-1 grid grid-cols-[1fr_auto] gap-2">
-                <input
-                  type={show ? 'text' : 'password'}
-                  value={pw}
-                  onChange={(e) => setPw(e.target.value)}
-                  required
-                  minLength={6}
-                  autoComplete="current-password"
-                  className="block w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-                <button
-                  type="button"
-                  className="rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm hover:bg-slate-800/80"
-                  onClick={() => setShow((v) => !v)}
-                  aria-pressed={show}
-                  aria-label={show ? 'Esconder palavra-passe' : 'Mostrar palavra-passe'}
-                >
-                  {show ? 'Esconder' : 'Mostrar'}
-                </button>
-              </div>
-            </label>
+              {!!err && <Typography color="error" variant="body2">{err}</Typography>}
 
-            <button
-              type="submit"
-              disabled={!canSubmit}
-              aria-disabled={!canSubmit}
-              className="mt-1 w-full rounded-md bg-indigo-600 text-white py-2 font-semibold hover:brightness-110 disabled:opacity-60"
-            >
-              {loading ? 'A entrar…' : 'Entrar'}
-            </button>
+              <Stack direction="row" justifyContent="space-between">
+                <Link href="/login/forgot">Esqueceste-te da palavra-passe?</Link>
+                <Link href="/register">Criar conta</Link>
+              </Stack>
+            </Stack>
+          </Box>
 
-            {err && (
-              <div role="alert" aria-live="assertive" className="rounded-md bg-rose-950/30 text-rose-300 text-sm px-3 py-2">
-                {err}
-              </div>
-            )}
-
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-              <Link href="/login/forgot" className="text-sm text-indigo-400 hover:underline">Esqueceste-te da palavra-passe?</Link>
-              <Link href="/register" className="text-sm text-indigo-400 hover:underline">Criar conta</Link>
-            </div>
-
-            <p className="text-xs text-slate-400">
-              Após o registo, a tua conta ficará pendente até aprovação por um administrador.
-            </p>
-          </div>
-        </form>
-      </main>
-
-      <style jsx>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(8px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
-    </div>
+          <Divider sx={{ my: 2 }} />
+          <Typography variant="caption" sx={{ opacity: 0.7 }}>
+            Após o registo, a tua conta ficará pendente até aprovação por um administrador.
+          </Typography>
+        </Paper>
+      </Box>
+    </Box>
   );
 }

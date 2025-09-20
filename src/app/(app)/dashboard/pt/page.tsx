@@ -1,62 +1,52 @@
+// src/app/(app)/dashboard/pt/page.tsx
 export const dynamic = 'force-dynamic';
 
 import { redirect } from 'next/navigation';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { createServerClient } from '@/lib/supabaseServer';
-import GreetingBanner from '@/components/GreetingBanner';
-import LiveBanners from '@/components/dashboard/LiveBanners';
-import PushBootstrap from '@/components/dashboard/PushBootstrap';
-import KpiCard from '@/components/dashboard/KpiCard';
 import { toAppRole, isAdmin, isPT } from '@/lib/roles';
-import MotivationCard from '@/components/dashboard/MotivationCard';
-
-type SB = ReturnType<typeof createServerClient>;
-async function safeCount(sb: SB, table: string, build?: (q: any) => any) {
-  try {
-    let q = sb.from(table).select('*', { count: 'exact', head: true });
-    if (build) q = build(q as any);
-    const { count } = await q;
-    return count ?? 0;
-  } catch { return 0; }
-}
+import { Box, Paper, Stack, Typography, Button } from '@mui/material';
 
 export default async function PTDashboard() {
   const sessionUser = await getSessionUserSafe();
   if (!sessionUser?.user?.id) redirect('/login');
-
   const role = toAppRole(sessionUser.user.role) ?? 'CLIENT';
   if (!isPT(role) && !isAdmin(role)) redirect('/dashboard');
 
   const sb = createServerClient();
-
   const { data: prof } = await sb.from('profiles').select('name, avatar_url').eq('id', sessionUser.user.id).maybeSingle();
 
-  const now = new Date();
-  const in7 = new Date(now); in7.setDate(now.getDate() + 7);
-
+  // KPIs simples (clientes, planos, sessões 7d, notifs)
+  const now = new Date(); const in7 = new Date(now); in7.setDate(now.getDate()+7);
+  async function cnt(table:string, build?:(q:any)=>any){ try{ let q = sb.from(table).select('*', { count:'exact', head:true }); if(build) q = build(q); const { count } = await q; return count??0; }catch{ return 0; } }
   const [myClients, myPlans, myUpcoming, unread] = await Promise.all([
-    safeCount(sb, 'trainer_clients', (q) => q.eq('trainer_id', sessionUser.user.id)),
-    safeCount(sb, 'training_plans', (q) => q.eq('trainer_id', sessionUser.user.id)),
-    safeCount(sb, 'sessions', (q) => q.eq('trainer_id', sessionUser.user.id).gte('scheduled_at', now.toISOString()).lt('scheduled_at', in7.toISOString())),
-    safeCount(sb, 'notifications', (q) => q.eq('user_id', sessionUser.user.id).eq('read', false)),
+    cnt('trainer_clients', q=>q.eq('trainer_id', sessionUser.user.id)),
+    cnt('training_plans', q=>q.eq('trainer_id', sessionUser.user.id)),
+    cnt('sessions', q=>q.eq('trainer_id', sessionUser.user.id).gte('scheduled_at', now.toISOString()).lt('scheduled_at', in7.toISOString())),
+    cnt('notifications', q=>q.eq('user_id', sessionUser.user.id).eq('read', false)),
   ]);
 
-  const name = prof?.name ?? sessionUser.user.name ?? sessionUser.user.email ?? 'Utilizador';
-
   return (
-    <div className="p-4 grid gap-3">
-      <GreetingBanner name={name} roleTag="PT" />
-      <LiveBanners />
-      <PushBootstrap />
+    <Box sx={{ p: 2, display: 'grid', gap: 2 }}>
+      <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+        <Typography variant="h6" fontWeight={900}>Boa {new Date().getHours()<12?'manhã':new Date().getHours()<20?'tarde':'noite'}, {prof?.name ?? sessionUser.user.name ?? 'PT'} </Typography>
+        <Typography variant="caption" sx={{ opacity:.7 }}>PT</Typography>
+      </Paper>
 
-      <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
-        <KpiCard label="Clientes" value={myClients} variant="primary" icon="👥" />
-        <KpiCard label="Planos" value={myPlans} variant="accent" icon="📝" />
-        <KpiCard label="Sessões (7d)" value={myUpcoming} variant="success" icon="📅" />
-        <KpiCard label="Notificações" value={unread} variant="warning" icon="🔔" footer={<span className="small text-muted">por ler</span>} />
-      </div>
+      <Box sx={{ display:'grid', gap:2, gridTemplateColumns: { xs:'1fr', md:'repeat(4,1fr)' } }}>
+        <Paper variant="outlined" sx={{ p:2, borderRadius:3 }}><Typography>Clientes</Typography><Typography variant="h4">{myClients}</Typography></Paper>
+        <Paper variant="outlined" sx={{ p:2, borderRadius:3 }}><Typography>Planos</Typography><Typography variant="h4">{myPlans}</Typography></Paper>
+        <Paper variant="outlined" sx={{ p:2, borderRadius:3 }}><Typography>Sessões (7d)</Typography><Typography variant="h4">{myUpcoming}</Typography></Paper>
+        <Paper variant="outlined" sx={{ p:2, borderRadius:3 }}><Typography>Notificações</Typography><Typography variant="h4">{unread}</Typography></Paper>
+      </Box>
 
-      <MotivationCard />
-    </div>
+      <Paper variant="outlined" sx={{ p:2, borderRadius:3 }}>
+        <Stack direction="row" spacing={1}>
+          <Button href="/dashboard/pt/plans" variant="contained">Gerir planos</Button>
+          <Button href="/dashboard/sessions" variant="outlined">Ver sessões</Button>
+          <Button href="/dashboard/clients" variant="outlined">Meus clientes</Button>
+        </Stack>
+      </Paper>
+    </Box>
   );
 }

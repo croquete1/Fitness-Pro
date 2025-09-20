@@ -2,115 +2,132 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import Badge from '@mui/material/Badge';
 import IconButton from '@mui/material/IconButton';
-import Popover from '@mui/material/Popover';
-import List from '@mui/material/List';
-import ListItem from '@mui/material/ListItem';
-import ListItemButton from '@mui/material/ListItemButton';
+import Badge from '@mui/material/Badge';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
 import ListItemText from '@mui/material/ListItemText';
-import Button from '@mui/material/Button';
-import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
-import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import Divider from '@mui/material/Divider';
+import Tooltip from '@mui/material/Tooltip';
+import CircularProgress from '@mui/material/CircularProgress';
+import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
+import DoneAllOutlinedIcon from '@mui/icons-material/DoneAllOutlined';
+import OpenInNewOutlinedIcon from '@mui/icons-material/OpenInNewOutlined';
 
-type Noti = {
+type NotifItem = {
   id: string;
-  title: string;
-  body?: string;
-  href?: string;
-  read?: boolean;
+  title?: string | null;
+  body?: string | null;
   created_at?: string | null;
+  read?: boolean | null;
+  href?: string | null;
 };
 
 export default function HeaderBell() {
-  const [anchor, setAnchor] = React.useState<HTMLElement | null>(null);
-  const [items, setItems] = React.useState<Noti[]>([]);
-  const [loading, setLoading] = React.useState(false);
   const router = useRouter();
+  const [anchorEl, setAnchorEl] = React.useState<HTMLElement | null>(null);
+  const open = Boolean(anchorEl);
+  const [loading, setLoading] = React.useState(false);
+  const [items, setItems] = React.useState<NotifItem[]>([]);
+  const [unread, setUnread] = React.useState(0);
 
-  async function load() {
+  const load = React.useCallback(async () => {
     setLoading(true);
     try {
-      const r = await fetch('/api/notifications?unread=1&limit=10', { cache: 'no-store' });
+      const r = await fetch('/api/notifications/dropdown?unread=1&limit=10', { cache: 'no-store' });
       const j = await r.json();
-      setItems(j?.items ?? []);
+      const arr: NotifItem[] = Array.isArray(j?.items) ? j.items : [];
+      setItems(arr);
+      setUnread(arr.filter((n) => !n.read).length);
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
-  function open(e: React.MouseEvent<HTMLElement>) {
-    setAnchor(e.currentTarget);
-    load();
-  }
-  function close() {
-    setAnchor(null);
-  }
+  const handleOpen = (e: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(e.currentTarget);
+    // carrega no abrir (lazy)
+    void load();
+  };
 
-  async function markAll() {
-    await fetch('/api/notifications/mark-all-read', { method: 'POST' });
-    await load();
-  }
+  const handleClose = () => setAnchorEl(null);
 
-  async function clickItem(n: Noti) {
-    await fetch(`/api/notifications/${n.id}/read`, { method: 'POST' });
-    close();
+  const go = (n: NotifItem) => {
+    handleClose();
+    // marca como lida e navega
+    void fetch('/api/notifications/mark', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ids: [n.id], read: true }),
+    });
     router.push(n.href || '/dashboard/notifications');
-  }
+  };
 
-  const cnt = items.length;
+  const markAll = async () => {
+    setLoading(true);
+    try {
+      await fetch('/api/notifications/mark-all-read', { method: 'POST' });
+      setItems((prev) => prev.map((i) => ({ ...i, read: true })));
+      setUnread(0);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <>
-      <IconButton color="inherit" onClick={open} aria-label="Notificações">
-        <Badge badgeContent={cnt || 0} color="error">
-          <NotificationsNoneIcon />
-        </Badge>
-      </IconButton>
+      <Tooltip title="Notificações">
+        <IconButton onClick={handleOpen} aria-label="Notificações">
+          <Badge color="error" badgeContent={unread} max={99}>
+            <NotificationsNoneOutlinedIcon />
+          </Badge>
+        </IconButton>
+      </Tooltip>
 
-      <Popover
-        open={!!anchor}
-        anchorEl={anchor}
-        onClose={close}
+      <Menu
+        anchorEl={anchorEl}
+        open={open}
+        onClose={handleClose}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-        PaperProps={{ sx: { width: 340, p: 1 } }}
+        slotProps={{ paper: { sx: { minWidth: 320 } } }}
       >
-        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 1, py: 0.5 }}>
-          <Typography variant="subtitle2">Notificações</Typography>
-          <Button size="small" onClick={markAll} disabled={loading || !cnt}>
-            Marcar tudo como lido
-          </Button>
-        </Stack>
+        <MenuItem disabled sx={{ fontWeight: 700 }}>Notificações</MenuItem>
+        <Divider />
 
-        <List dense disablePadding>
-          {items.map((n) => (
-            <ListItem key={n.id} divider disablePadding>
-              <ListItemButton onClick={() => clickItem(n)}>
-                <ListItemText
-                  primary={n.title}
-                  secondary={n.body}
-                  primaryTypographyProps={{ noWrap: true }}
-                  secondaryTypographyProps={{ noWrap: true }}
-                />
-              </ListItemButton>
-            </ListItem>
-          ))}
+        {loading && (
+          <MenuItem disabled>
+            <ListItemIcon><CircularProgress size={18} /></ListItemIcon>
+            <ListItemText primary="A carregar…" />
+          </MenuItem>
+        )}
 
-          {!cnt && (
-            <ListItem>
-              <ListItemText primary="Sem notificações por ler." />
-            </ListItem>
-          )}
-        </List>
+        {!loading && items.length === 0 && (
+          <MenuItem disabled>
+            <ListItemText primary="Sem notificações por ler" />
+          </MenuItem>
+        )}
 
-        <Stack direction="row" justifyContent="flex-end" sx={{ px: 1, pb: 0.5 }}>
-          <Button size="small" onClick={() => { close(); router.push('/dashboard/notifications'); }}>
-            Ver tudo
-          </Button>
-        </Stack>
-      </Popover>
+        {!loading && items.map((n) => (
+          <MenuItem key={n.id} onClick={() => go(n)}>
+            <ListItemIcon><OpenInNewOutlinedIcon fontSize="small" /></ListItemIcon>
+            <ListItemText
+              primary={n.title || 'Notificação'}
+              secondary={n.body || (n.created_at ? new Date(n.created_at).toLocaleString('pt-PT') : '')}
+            />
+          </MenuItem>
+        ))}
+
+        <Divider />
+        <MenuItem onClick={markAll} disabled={loading || unread === 0}>
+          <ListItemIcon><DoneAllOutlinedIcon fontSize="small" /></ListItemIcon>
+          <ListItemText primary="Marcar tudo como lido" />
+        </MenuItem>
+        <MenuItem onClick={() => { handleClose(); router.push('/dashboard/notifications'); }}>
+          <ListItemText primary="Abrir centro de notificações" />
+        </MenuItem>
+      </Menu>
     </>
   );
 }

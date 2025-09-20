@@ -4,8 +4,16 @@ import { getSessionUserSafe } from '@/lib/session-bridge';
 
 export async function POST() {
   const session = await getSessionUserSafe();
-  if (!session?.user?.id) return NextResponse.json({ ok: false }, { status: 401 });
+  const userId = session?.user?.id;
+  if (!userId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+
   const sb = createServerClient();
-  try { await sb.from('notifications').update({ read: true }).eq('user_id', session.user.id).eq('read', false); } catch {}
-  return NextResponse.json({ ok: true });
+  const { data, error } = await sb
+    .from('notifications')
+    .update({ read: true })
+    .eq('user_id', userId)
+    .select('id');
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true, count: data?.length ?? 0 });
 }
