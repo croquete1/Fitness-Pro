@@ -1,58 +1,53 @@
 // src/lib/auth.ts
 import type { NextAuthOptions } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
-import bcrypt from 'bcryptjs';
-import { supabaseAdmin } from '@/lib/supabase.server';
+import { compare } from 'bcryptjs';
+import { createServerClient } from '@/lib/supabaseServer';
 
 export const authOptions: NextAuthOptions = {
+  // mantém o que já tinhas aqui (pages, theme, etc. se usares)
   session: { strategy: 'jwt' },
+  pages: { signIn: '/login' },
 
   providers: [
     Credentials({
-      name: 'Credentials',
+      name: 'Credenciais',
       credentials: {
-        identifier: { label: 'Email ou username', type: 'text' },
+        emailOrUsername: { label: 'Email ou username', type: 'text' },
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
-        const identifier = String(credentials?.identifier ?? '').trim();
-        const password = String(credentials?.password ?? '');
+        if (!credentials) return null;
 
-        if (!identifier || !password) return null;
+        const sb = createServerClient();
+        const loginKey = credentials.emailOrUsername.trim();
 
-        const s = supabaseAdmin();
-        const isEmail = identifier.includes('@');
-        let row: any = null;
+        // Ajusta os campos conforme a tua tabela "users"
+        const { data: u } = await sb
+          .from('users')
+          .select('id,email,name,role,approved,password_hash,avatar_url,username')
+          .or(`email.eq.${loginKey},username.eq.${loginKey}`)
+          .maybeSingle();
 
-        if (isEmail) {
-          const { data } = await s
-            .from('users')
-            .select('id,email,name,role,status,password_hash,username')
-            .ilike('email', identifier) // case-insensitive
-            .maybeSingle();
-          row = data ?? null;
-        } else {
-          const idLower = identifier.toLowerCase();
-          const { data } = await s
-            .from('users')
-            .select('id,email,name,role,status,password_hash,username,username_lower')
-            .eq('username_lower', idLower)
-            .maybeSingle();
-          row = data ?? null;
-        }
+        if (!u) return null;
 
-        if (!row) return null;
-        if (row.status && row.status !== 'ACTIVE') return null;
-
-        const ok = !!row.password_hash && (await bcrypt.compare(password, row.password_hash));
+        const ok = await compare(credentials.password, (u as any).password_hash ?? '');
         if (!ok) return null;
 
+        if ((u as any).approved === false) {
+          // devolve erro legível para o /login (?error=PENDING_APPROVAL)
+          throw new Error('PENDING_APPROVAL');
+        }
+
+        // devolve os dados que queres injectar no JWT
         return {
-          id: row.id,
-          email: row.email,
-          name: row.name ?? null,
-          role: row.role ?? 'CLIENT',
-          username: row.username ?? null,
+          id: u.id,
+          name: u.name ?? u.username ?? u.email,
+          email: u.email,
+          role: u.role,
+          approved: true,
+          avatar_url: (u as any).avatar_url ?? null,
+          username: (u as any).username ?? null,
         } as any;
       },
     }),
@@ -62,25 +57,21 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = (user as any).id;
-        token.role = (user as any).role ?? token.role;
-        token.name = user.name ?? token.name;
-        token.email = user.email ?? token.email;
-        (token as any).username = (user as any).username ?? (token as any).username;
+        token.role = (user as any).role;
+        token.approved = (user as any).approved ?? true;
+        token.avatar_url = (user as any).avatar_url ?? null;
+        token.username = (user as any).username ?? null;
       }
       return token;
     },
     async session({ session, token }) {
-      session.user = session.user || {};
-      (session.user as any).id = (token as any).id;
-      (session.user as any).role = (token as any).role;
-      (session.user as any).username = (token as any).username ?? null;
+      (session.user as any).id = token.id;
+      (session.user as any).role = token.role;
+      (session.user as any).approved = token.approved;
+      (session.user as any).avatar_url = token.avatar_url;
+      (session.user as any).username = token.username;
       return session;
     },
+    // (opcional) redirect({ url, baseUrl }) { ... }
   },
-
-  pages: { signIn: '/login' },
-  secret: process.env.NEXTAUTH_SECRET,
 };
-
-// compat
-export const authConfig = authOptions;
