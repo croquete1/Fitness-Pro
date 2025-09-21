@@ -1,4 +1,20 @@
 #!/bin/sh
-echo "🧪 Type checking..."
-npm run -s typecheck || exit 1
-echo "✅ Pre-commit checks passed."
+# Husky pre-commit minimalista (sem husky.sh / sem $(...))
+
+printf "🧪 Type checking...\n"
+
+# Raiz do repo (sem usar $(...), só backticks)
+ROOT=`git rev-parse --show-toplevel 2>/dev/null`
+if [ "x$ROOT" = "x" ]; then
+  ROOT="."
+fi
+
+node "$ROOT/scripts/precommit.cjs"
+status=$?
+
+if [ $status -ne 0 ]; then
+  printf "❌ Pre-commit falhou\n"
+  exit $status
+fi
+
+printf "✅ Pre-commit OK\n"

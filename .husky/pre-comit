@@ -1,13 +1,13 @@
-#!/bin/sh
-. "$(dirname "$0")/_/husky.sh"
-
-echo "🔎 Running lint-staged..."
-npx --no-install lint-staged || exit 1
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
 
 echo "🧪 Type checking..."
-npm run -s typecheck || exit 1
+node scripts/precommit.cjs
+status=$?
 
-echo "🧹 ESLint..."
-npm run -s lint || exit 1
+if [ $status -ne 0 ]; then
+  echo "❌ Pre-commit falhou"
+  exit $status
+fi
 
-echo "✅ Pre-commit checks passed."
+echo "✅ Pre-commit OK"
