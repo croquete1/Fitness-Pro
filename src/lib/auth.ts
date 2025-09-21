@@ -7,9 +7,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 type AnyRole = 'ADMIN' | 'PT' | 'TRAINER' | 'CLIENT' | string | undefined;
 
-function normalizeEmail(v?: string | null) {
-  return String(v ?? '').trim().toLowerCase();
-}
+function normalizeEmail(v?: string | null) { return String(v ?? '').trim().toLowerCase(); }
 function roleToApp(value?: AnyRole): 'ADMIN' | 'PT' | 'CLIENT' {
   const r = String(value ?? '').toUpperCase();
   if (r === 'ADMIN') return 'ADMIN';
@@ -22,36 +20,31 @@ function supabaseAnon() {
   return createSupabaseClient(url, anon, { auth: { persistSession: false } });
 }
 
-/** Lê utilizador nas tabelas locais com service role (independente do contexto da request) */
 async function getLocalUserByEmail(email: string) {
+  const hasService = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!hasService) {
+    console.warn('[auth] SERVICE_ROLE_KEY ausente — lookup local desativado.');
+    return null;
+  }
   const sb = supabaseAdmin();
-
   const selectCols =
     'id, email, name, role, status, user_role, account_type, approved, is_active, password_hash';
-
   async function tryTable(table: string) {
-    const { data, error } = await sb.from(table as any)
-      .select(selectCols)
-      .ilike('email', email)
-      .limit(1);
-    if (error) return null;
+    const { data, error } = await sb.from(table as any).select(selectCols).ilike('email', email).limit(1);
+    if (error) { console.warn(`[auth] falha a ler ${table}:`, error.message); return null; }
     return data?.[0] ?? null;
   }
-
   let row =
     (await tryTable('users')) ??
     (await tryTable('profiles')) ??
     (await tryTable('user_profiles'));
-
   if (!row) return null;
-
   const role = row.role ?? row.user_role ?? row.account_type ?? undefined;
   const statusRaw =
     String(row.status ?? '').toUpperCase() ||
     (row.approved === false ? 'PENDING' : '') ||
     (row.is_active === false ? 'SUSPENDED' : '') ||
     'ACTIVE';
-
   return {
     id: String(row.id),
     email: row.email as string,
@@ -69,57 +62,56 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       id: 'credentials',
       name: 'Credentials',
-      credentials: {
-        email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' },
-      },
+      credentials: { email: { label: 'Email', type: 'email' }, password: { label: 'Password', type: 'password' } },
       async authorize(credentials) {
         const email = normalizeEmail(credentials?.email);
         const password = String(credentials?.password ?? '');
         if (!email || !password) return null;
 
-        // 1) Autenticação LOCAL (bcrypt) com service role
-        let local: Awaited<ReturnType<typeof getLocalUserByEmail>> | null = null;
+        // 1) LOCAL (bcrypt)
         try {
-          local = await getLocalUserByEmail(email);
+          const local = await getLocalUserByEmail(email);
           if (local?.passwordHash) {
             const ok = await bcrypt.compare(password, local.passwordHash);
             if (ok) {
-              const user: User = {
-                id: local.id,
-                name: local.name ?? undefined,
-                email: local.email,
-                // @ts-expect-error role no user para callbacks
-                role: local.role,
-              };
+              console.log('[auth] login LOCAL OK para', email);
+              const user: User = { id: local.id, name: local.name ?? undefined, email: local.email } as User;
+              (user as any).role = local.role;
               return user;
+            } else {
+              console.warn('[auth] password incorreta (LOCAL) para', email);
             }
+          } else {
+            console.warn('[auth] sem password_hash LOCAL para', email);
           }
-        } catch {
-          // ignora e tenta Supabase Auth
+        } catch (e: any) {
+          console.error('[auth] erro LOCAL:', e?.message || e);
         }
 
-        // 2) Fallback: Supabase Auth (para quem foi criado no Auth)
+        // 2) SUPABASE AUTH
         try {
           const sb = supabaseAnon();
           const { data, error } = await sb.auth.signInWithPassword({ email, password });
           if (!error && data?.user) {
-            // tenta complementar meta local (role/nome) se existir
-            const meta = local ?? (await getLocalUserByEmail(email)) ?? undefined;
+            console.log('[auth] login SUPABASE OK para', email);
+            // carregar meta local para obter role se existir
+            const local = await getLocalUserByEmail(email);
             const user: User = {
               id: data.user.id,
-              name: data.user.user_metadata?.name ?? meta?.name ?? data.user.email ?? undefined,
+              name: data.user.user_metadata?.name ?? local?.name ?? data.user.email ?? undefined,
               email: data.user.email ?? email,
-              // @ts-expect-error role para callbacks
-              role: meta?.role ?? 'CLIENT',
-            };
+            } as User;
+            (user as any).role = local?.role ?? 'CLIENT';
             return user;
+          } else {
+            console.warn('[auth] SUPABASE rejeitou credenciais para', email, '-', error?.message);
           }
-        } catch {
-          // ignore
+        } catch (e: any) {
+          console.error('[auth] erro SUPABASE:', e?.message || e);
         }
 
-        // 3) Nenhum método validou
+        // 3) Falhou
+        console.warn('[auth] LOGIN FALHOU para', email);
         return null;
       },
     }),
@@ -127,28 +119,13 @@ export const authOptions: NextAuthOptions = {
   pages: { signIn: '/login' },
   callbacks: {
     async jwt({ token, user }) {
-      if (user) {
-        (token as any).id = (user as any).id ?? (token as any).id;
-        (token as any).role = (user as any).role ?? (token as any).role;
-      }
+      if (user) { (token as any).id = (user as any).id; (token as any).role = (user as any).role; }
       return token;
     },
     async session({ session, token }) {
-      if (session.user) {
-        (session.user as any).id = (token as any).id ?? (session.user as any).id;
-        (session.user as any).role = (token as any).role ?? (session.user as any).role;
-      }
+      if (session.user) { (session.user as any).id = (token as any).id; (session.user as any).role = (token as any).role; }
       return session;
-    },
-    async redirect({ url, baseUrl }) {
-      try {
-        const u = new URL(url, baseUrl);
-        if (u.origin === baseUrl) return u.toString();
-      } catch {}
-      return baseUrl;
     },
   },
 };
-
-// alias
 export const authConfig = authOptions;
