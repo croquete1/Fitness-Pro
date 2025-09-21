@@ -1,4 +1,4 @@
+#!/bin/sh
 echo "🧪 Type checking..."
 npm run -s typecheck || exit 1
-
 echo "✅ Pre-commit checks passed."

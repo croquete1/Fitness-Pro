@@ -1,3 +1,2 @@
-# manter hooks Husky com LF
 .husky/** text eol=lf
 *.sh text eol=lf
