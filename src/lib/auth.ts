@@ -7,52 +7,58 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 type AnyRole = 'ADMIN' | 'PT' | 'TRAINER' | 'CLIENT' | string | undefined;
 
-function normalizeEmail(v?: string | null) { return String(v ?? '').trim().toLowerCase(); }
-function roleToApp(value?: AnyRole): 'ADMIN' | 'PT' | 'CLIENT' {
-  const r = String(value ?? '').toUpperCase();
+const normEmail = (v?: string | null) => String(v ?? '').trim().toLowerCase();
+const toAppRole = (v?: AnyRole): 'ADMIN' | 'PT' | 'CLIENT' => {
+  const r = String(v ?? '').toUpperCase();
   if (r === 'ADMIN') return 'ADMIN';
   if (r === 'PT' || r === 'TRAINER') return 'PT';
   return 'CLIENT';
-}
-function supabaseAnon() {
+};
+const supabaseAnon = () => {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
   return createSupabaseClient(url, anon, { auth: { persistSession: false } });
-}
+};
 
+/** Lê APENAS da tabela `users`, com colunas que sabemos existir */
 async function getLocalUserByEmail(email: string) {
-  const hasService = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!hasService) {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     console.warn('[auth] SERVICE_ROLE_KEY ausente — lookup local desativado.');
     return null;
   }
   const sb = supabaseAdmin();
-  const selectCols =
-    'id, email, name, role, status, user_role, account_type, approved, is_active, password_hash';
-  async function tryTable(table: string) {
-    const { data, error } = await sb.from(table as any).select(selectCols).ilike('email', email).limit(1);
-    if (error) { console.warn(`[auth] falha a ler ${table}:`, error.message); return null; }
-    return data?.[0] ?? null;
+  try {
+    const { data, error } = await sb
+      .from('users' as any)
+      .select('id, email, name, role, status, approved, is_active, password_hash')
+      .ilike('email', email)
+      .limit(1);
+    if (error) {
+      console.warn('[auth] falha a ler users:', error.message);
+      return null;
+    }
+    const row = data?.[0];
+    if (!row) return null;
+
+    const role = row.role ?? undefined;
+    const statusRaw =
+      String(row.status ?? '').toUpperCase() ||
+      (row.approved === false ? 'PENDING' : '') ||
+      (row.is_active === false ? 'SUSPENDED' : '') ||
+      'ACTIVE';
+
+    return {
+      id: String(row.id),
+      email: row.email as string,
+      name: (row.name as string) ?? null,
+      role: toAppRole(role),
+      status: statusRaw,
+      passwordHash: (row as any).password_hash as string | null,
+    };
+  } catch (e: any) {
+    console.warn('[auth] exceção a ler users:', e?.message || e);
+    return null;
   }
-  let row =
-    (await tryTable('users')) ??
-    (await tryTable('profiles')) ??
-    (await tryTable('user_profiles'));
-  if (!row) return null;
-  const role = row.role ?? row.user_role ?? row.account_type ?? undefined;
-  const statusRaw =
-    String(row.status ?? '').toUpperCase() ||
-    (row.approved === false ? 'PENDING' : '') ||
-    (row.is_active === false ? 'SUSPENDED' : '') ||
-    'ACTIVE';
-  return {
-    id: String(row.id),
-    email: row.email as string,
-    name: (row.name as string) ?? null,
-    role: roleToApp(role),
-    status: statusRaw,
-    passwordHash: (row as any).password_hash as string | null,
-  };
 }
 
 export const authOptions: NextAuthOptions = {
@@ -62,9 +68,12 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       id: 'credentials',
       name: 'Credentials',
-      credentials: { email: { label: 'Email', type: 'email' }, password: { label: 'Password', type: 'password' } },
+      credentials: {
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' },
+      },
       async authorize(credentials) {
-        const email = normalizeEmail(credentials?.email);
+        const email = normEmail(credentials?.email);
         const password = String(credentials?.password ?? '');
         if (!email || !password) return null;
 
@@ -75,7 +84,11 @@ export const authOptions: NextAuthOptions = {
             const ok = await bcrypt.compare(password, local.passwordHash);
             if (ok) {
               console.log('[auth] login LOCAL OK para', email);
-              const user: User = { id: local.id, name: local.name ?? undefined, email: local.email } as User;
+              const user: User = {
+                id: local.id,
+                name: local.name ?? undefined,
+                email: local.email,
+              } as User;
               (user as any).role = local.role;
               return user;
             } else {
@@ -88,20 +101,19 @@ export const authOptions: NextAuthOptions = {
           console.error('[auth] erro LOCAL:', e?.message || e);
         }
 
-        // 2) SUPABASE AUTH
+        // 2) SUPABASE AUTH (fallback)
         try {
           const sb = supabaseAnon();
           const { data, error } = await sb.auth.signInWithPassword({ email, password });
           if (!error && data?.user) {
             console.log('[auth] login SUPABASE OK para', email);
-            // carregar meta local para obter role se existir
-            const local = await getLocalUserByEmail(email);
+            const meta = await getLocalUserByEmail(email);
             const user: User = {
               id: data.user.id,
-              name: data.user.user_metadata?.name ?? local?.name ?? data.user.email ?? undefined,
+              name: data.user.user_metadata?.name ?? meta?.name ?? data.user.email ?? undefined,
               email: data.user.email ?? email,
             } as User;
-            (user as any).role = local?.role ?? 'CLIENT';
+            (user as any).role = meta?.role ?? 'CLIENT';
             return user;
           } else {
             console.warn('[auth] SUPABASE rejeitou credenciais para', email, '-', error?.message);
