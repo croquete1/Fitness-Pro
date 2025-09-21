@@ -111,3 +111,4 @@ export const authOptions: NextAuthOptions = {
 
 // Compat com código que importa `authConfig`
 export const authConfig = authOptions;
+.
