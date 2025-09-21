@@ -9,7 +9,8 @@ import Card, { CardContent } from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole } from '@/lib/roles';
-import { createServerClient } from '@/lib/supabaseServer';
+import supabaseAdmin from '@/lib/supabaseServer';
+
 
 export default async function AdminExercisesPage() {
   const session = await getSessionUserSafe();
@@ -19,7 +20,7 @@ export default async function AdminExercisesPage() {
   const role = toAppRole(user.role) ?? 'CLIENT';
   const canCreate = role === 'ADMIN';
 
-  const sb = createServerClient();
+  const sb = supabaseAdmin;
   const { data: rows, error } = await sb
     .from('exercises')
     .select('id,name,muscle_group,equipment,difficulty,video_url,created_at,created_by')

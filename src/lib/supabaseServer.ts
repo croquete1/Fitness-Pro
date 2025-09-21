@@ -1,42 +1,34 @@
 // src/lib/supabaseServer.ts
+import 'server-only';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-function assertEnv(name: string, value?: string) {
-  if (!value) throw new Error(`Missing env "${name}" for Supabase`);
-  return value;
+const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const SERVICE =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ??
+  process.env.SUPABASE_SERVICE_ROLE ??
+  process.env.SUPABASE_SERVICE_KEY; // cobre nomes comuns
+
+if (!URL) throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL');
+if (!ANON && !SERVICE) throw new Error('Missing SUPABASE keys');
+
+// singleton em dev/SSR
+const g = globalThis as unknown as { __sb_admin?: SupabaseClient };
+
+function makeAdmin(): SupabaseClient {
+  // Em server usamos SERVICE se existir, senão ANON
+  const key = SERVICE || ANON;
+  return createClient(URL, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 }
 
-function makeClient(key: string): SupabaseClient {
-  const url = assertEnv('NEXT_PUBLIC_SUPABASE_URL', process.env.NEXT_PUBLIC_SUPABASE_URL);
-  return createClient(url, key, { auth: { persistSession: false } });
-}
+export const supabaseAdmin: SupabaseClient = g.__sb_admin ?? makeAdmin();
+if (!g.__sb_admin) g.__sb_admin = supabaseAdmin;
 
-/**
- * Função (service role) — usar em endpoints/server actions com permissões de admin (bypass RLS).
- */
-export function getSupabaseServer(): SupabaseClient {
-  const serviceKey = assertEnv('SUPABASE_SERVICE_ROLE_KEY', process.env.SUPABASE_SERVICE_ROLE_KEY);
-  return makeClient(serviceKey);
-}
+// ✅ default export para usares sem função
+export default supabaseAdmin;
 
-/**
- * Função (anon) — usar em server components/APIs que respeitam RLS.
- */
-export function getSupabaseAnonServer(): SupabaseClient {
-  const anonKey = assertEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-  return makeClient(anonKey);
-}
-
-/**
- * Aliases para compatibilidade com código existente.
- * - Alguns ficheiros importam uma FUNÇÃO `createServerClient`
- * - Outros importam uma INSTÂNCIA `supabaseAdmin` (cliente já criado)
- */
-export const createServerClient: () => SupabaseClient = getSupabaseServer;
-
-// Clientes prontos a usar (se precisas de uma instância diretamente)
-export const supabaseAdmin: SupabaseClient = getSupabaseServer();
-export const supabase: SupabaseClient = getSupabaseAnonServer();
-
-// Default export compatível com `import createServerClient from '@/lib/supabaseServer'`
-export default createServerClient;
+// ✅ aliases de compatibilidade (para ficheiros antigos)
+export function getSupabaseServer() { return supabaseAdmin; }
+export function createServerClient() { return supabaseAdmin; }

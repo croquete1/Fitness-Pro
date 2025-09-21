@@ -1,88 +1,117 @@
 // src/lib/auth.ts
-import type { NextAuthOptions } from 'next-auth';
-import Credentials from 'next-auth/providers/credentials';
-import bcrypt from 'bcryptjs';
-import { createServiceClient } from '@/lib/supabaseService';
+import type { NextAuthOptions, User } from 'next-auth';
+import CredentialsProvider from 'next-auth/providers/credentials';
+import supabaseAdmin from '@/lib/supabaseServer';
+import { compare } from 'bcryptjs';
 
-const DBG = process.env.AUTH_DEBUG === '1';
+/** Mantemos os campos que a app usa */
+type DbUser = {
+  id: string;
+  email: string | null;
+  username: string | null;
+  username_lower?: string | null;
+  password_hash?: string | null;
+  role?: string | null;
+  approved?: boolean | null;
+  status?: string | null; // p.ex. 'ACTIVE' / 'INACTIVE' / 'BLOCKED'
+};
+
+/** Mapa de role -> dashboard */
+export function dashboardForRole(role?: string) {
+  const r = (role ?? '').toUpperCase();
+  if (r === 'ADMIN') return '/dashboard/admin';
+  if (r === 'PT' || r === 'TRAINER') return '/dashboard/pt';
+  // cliente
+  return '/dashboard';
+}
 
 export const authOptions: NextAuthOptions = {
+  // ⚠️ Em v4 não existe trustHost — remover
+  session: { strategy: 'jwt', maxAge: 60 * 60 * 24 * 7 }, // 7 dias
+  secret: process.env.NEXTAUTH_SECRET,
+  pages: {
+    signIn: '/login',
+    error: '/login',
+  },
   providers: [
-    Credentials({
-      id: 'credentials',
-      name: 'Credenciais',
+    CredentialsProvider({
+      name: 'Credentials',
       credentials: {
-        emailOrUsername: { label: 'Email ou username', type: 'text' },
-        password: { label: 'Password', type: 'password' },
+        identifier: { label: 'Email ou username', type: 'text' },
+        password:   { label: 'Password', type: 'password' },
       },
-      async authorize(credentials) {
-        const id = credentials?.emailOrUsername?.trim() ?? '';
-        const pw = credentials?.password ?? '';
-        if (!id || pw.length < 6) return null;
+      authorize: async (creds) => {
+        const identifier = creds?.identifier?.trim();
+        const password = creds?.password ?? '';
+        if (!identifier || password.length < 6) return null;
 
-        const sb = createServiceClient();
+        const idLower = identifier.toLowerCase();
 
-        // Usa * para não falhar se alguma coluna não existir
-        const { data: user, error } = await sb
+        // Procura por username_lower EXATO ou por email (case-insensitive)
+        const { data: user, error } = await supabaseAdmin
           .from('users')
-          .select('*')
-          .or(`email.ilike.${id},username.eq.${id}`)
-          .maybeSingle();
+          .select('id,email,username,username_lower,password_hash,role,approved,status')
+          .or(`username_lower.eq.${idLower},email.ilike.${idLower}`)
+          .limit(1)
+          .maybeSingle<DbUser>();
 
-        if (DBG) console.log('[auth] found?', !!user, 'error?', !!error);
-        if (error || !user) return null;
+        if (error || !user || !user.password_hash) return null;
 
-        // ===== Aprovação (flexível ao schema) =====
-        const hasAnyApprovalFlag =
-          'approved'   in user || 'approved_at' in user ||
-          'status'     in user || 'enabled'     in user ||
-          'is_active'  in user || 'isApproved'  in user;
+        const ok = await compare(password, user.password_hash);
+        if (!ok) return null;
 
-        const status = String((user as any).status ?? '').toUpperCase();
-        const approved =
-          (user as any).approved === true ||
-          !!(user as any).approved_at ||
-          ['ACTIVE', 'APPROVED', 'ENABLED'].includes(status) ||
-          (user as any).enabled === true ||
-          (user as any).is_active === true ||
-          (user as any).isApproved === true ||
-          (!hasAnyApprovalFlag); // se não houver nenhum campo de aprovação, não bloqueia
-
-        if (!approved) {
-          if (DBG) console.log('[auth] not approved (flags present, mas false)');
-          return null;
+        // Bloqueios antes de criar sessão:
+        if (user.status && user.status !== 'ACTIVE') {
+          // Lança erro “amigável” que chega a res.error no signIn({ redirect:false })
+          throw new Error('ACCOUNT_BLOCKED');
+        }
+        if (user.approved === false) {
+          throw new Error('APPROVAL_REQUIRED');
         }
 
-        // ===== Password (hash ou legacy) =====
-        const hash: string | null =
-          (user as any).password_hash ?? (user as any).password ?? null;
-
-        if (!hash) {
-          if (DBG) console.log('[auth] no hash/password column present');
-          return null;
-        }
-
-        const ok = await bcrypt.compare(pw, hash);
-        if (!ok) {
-          if (DBG) console.log('[auth] bcrypt mismatch');
-          return null;
-        }
-
+        // ✅ devolve o “User” para o JWT
         return {
-          id: (user as any).id,
-          name: (user as any).name ?? (user as any).username ?? (user as any).email,
-          email: (user as any).email,
-          image: (user as any).avatar_url ?? undefined,
-          role: (user as any).role,
-        } as any;
+          id: user.id,
+          name: user.username ?? user.email ?? 'Utilizador',
+          email: user.email ?? undefined,
+          // props extra que vamos injetar no token/session
+          role: user.role ?? 'client',
+          approved: true,
+        } as unknown as User;
       },
     }),
   ],
-  pages: { signIn: '/login', error: '/login' },
-  session: { strategy: 'jwt' },
   callbacks: {
-    async jwt({ token, user }) { if (user) token.role = (user as any).role; return token; },
-    async session({ session, token }) { if (session.user) (session.user as any).role = token.role; return session; },
+    // injeta dados extra no token na 1ª vez
+    async jwt({ token, user }) {
+      if (user) {
+        token.role = (user as any).role ?? 'client';
+        token.approved = (user as any).approved ?? false;
+      }
+      return token;
+    },
+    // propaga do token para a session
+    async session({ session, token }) {
+      (session.user as any).role = (token as any).role ?? 'client';
+      (session.user as any).approved = (token as any).approved ?? false;
+      // útil ter o id também:
+      if (token.sub) (session.user as any).id = token.sub;
+      return session;
+    },
+    // segurança: só permite redirect interno
+    async redirect({ url, baseUrl }) {
+      try {
+        const u = new URL(url, baseUrl);
+        if (u.origin === baseUrl) return u.toString();
+      } catch {}
+      return baseUrl;
+    },
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  logger: {
+    error(code, meta) { console.error('[next-auth][error]', code, meta); },
+    warn(code) { console.warn('[next-auth][warn]', code); },
+    debug(code, meta) {
+      if (process.env.NODE_ENV !== 'production') console.debug('[next-auth][debug]', code, meta);
+    },
+  },
 };

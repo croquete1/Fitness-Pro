@@ -1,14 +1,12 @@
 // src/app/(app)/dashboard/page.tsx
-import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { authOptions, dashboardForRole } from '@/lib/auth';
+import { redirect } from 'next/navigation';
+
+export const dynamic = 'force-dynamic';
 
 export default async function DashboardIndex() {
   const session = await getServerSession(authOptions);
-  if (!session) redirect('/login');
-
-  const role = (session.user as any).role;
-  if (role === 'ADMIN') redirect('/dashboard/admin');
-  if (role === 'PT') redirect('/dashboard/pt');
-  redirect('/dashboard/clients');
+  const role = (session?.user as any)?.role as string | undefined;
+  redirect(dashboardForRole(role));
 }
