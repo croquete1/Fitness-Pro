@@ -1,8 +1,7 @@
-// src/lib/auth.ts
 import type { NextAuthOptions } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
-import { createServerClient } from '@/lib/supabaseServer';
+import { createServiceClient } from '@/lib/supabaseService';
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -14,31 +13,28 @@ export const authOptions: NextAuthOptions = {
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
-        const emailOrUsername = credentials?.emailOrUsername?.trim() ?? '';
-        const password = credentials?.password ?? '';
-        if (!emailOrUsername || !password) return null;
+        const id = credentials?.emailOrUsername?.trim() ?? '';
+        const pw = credentials?.password ?? '';
+        if (!id || pw.length < 6) return null;
 
-        const sb = createServerClient();
+        const sb = createServiceClient();
 
-        // procurar por email (case-insensitive) OU username
+        // login por email (case-insensitive) OU username exacto
+        const byEmail = id.includes('@');
+
         const { data: user, error } = await sb
           .from('users')
-          .select('id, name, email, username, role, approved, password_hash, avatar_url')
-          .or(`email.ilike.${emailOrUsername},username.eq.${emailOrUsername}`)
+          .select('id,name,email,username,role,approved,password_hash,avatar_url')
+          .eq(byEmail ? 'email' : 'username', byEmail ? id.toLowerCase() : id)
           .maybeSingle();
 
         if (error || !user) return null;
-
-        // conta ainda não aprovada
-        if (!Boolean(user.approved)) {
-          throw new Error('PENDING_APPROVAL');
+        if (!user.approved) {
+          // conta criada mas ainda pendente (mantemos 401 genérico para não revelar estado)
+          return null;
         }
 
-        // comparar password
-        const ok = user.password_hash
-          ? await bcrypt.compare(password, user.password_hash)
-          : false;
-
+        const ok = user.password_hash ? await bcrypt.compare(pw, user.password_hash) : false;
         if (!ok) return null;
 
         return {
