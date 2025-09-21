@@ -2,8 +2,8 @@
 import type { NextAuthOptions, User } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-import { createServerClient } from '@/lib/supabaseServer';
 import bcrypt from 'bcryptjs';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 type AnyRole = 'ADMIN' | 'PT' | 'TRAINER' | 'CLIENT' | string | undefined;
 
@@ -22,26 +22,21 @@ function supabaseAnon() {
   return createSupabaseClient(url, anon, { auth: { persistSession: false } });
 }
 
-/** Lê utilizador nas tabelas locais e devolve meta + hash se existir */
+/** Lê utilizador nas tabelas locais com service role (independente do contexto da request) */
 async function getLocalUserByEmail(email: string) {
-  const sb = createServerClient();
+  const sb = supabaseAdmin();
 
   const selectCols =
-    'id, email, name, role, status, user_role, account_type, is_active, approved, password_hash, password, hash, passwordHash';
+    'id, email, name, role, status, user_role, account_type, approved, is_active, password_hash';
 
-  const tryTable = async (table: string) => {
-    try {
-      const { data, error } = await sb
-        .from(table as any)
-        .select(selectCols)
-        .ilike('email', email)
-        .limit(1);
-      if (error) return null;
-      return data?.[0] ?? null;
-    } catch {
-      return null;
-    }
-  };
+  async function tryTable(table: string) {
+    const { data, error } = await sb.from(table as any)
+      .select(selectCols)
+      .ilike('email', email)
+      .limit(1);
+    if (error) return null;
+    return data?.[0] ?? null;
+  }
 
   let row =
     (await tryTable('users')) ??
@@ -57,16 +52,13 @@ async function getLocalUserByEmail(email: string) {
     (row.is_active === false ? 'SUSPENDED' : '') ||
     'ACTIVE';
 
-  const passwordHash: string | null =
-    row.password_hash ?? row.passwordHash ?? row.hash ?? row.password ?? null;
-
   return {
     id: String(row.id),
     email: row.email as string,
     name: (row.name as string) ?? null,
     role: roleToApp(role),
     status: statusRaw,
-    passwordHash,
+    passwordHash: (row as any).password_hash as string | null,
   };
 }
 
@@ -86,37 +78,39 @@ export const authOptions: NextAuthOptions = {
         const password = String(credentials?.password ?? '');
         if (!email || !password) return null;
 
-        // 1) Tenta autenticação local (bcrypt) se existir hash
-        const local = await getLocalUserByEmail(email);
-        if (local?.passwordHash) {
-          try {
+        // 1) Autenticação LOCAL (bcrypt) com service role
+        let local: Awaited<ReturnType<typeof getLocalUserByEmail>> | null = null;
+        try {
+          local = await getLocalUserByEmail(email);
+          if (local?.passwordHash) {
             const ok = await bcrypt.compare(password, local.passwordHash);
             if (ok) {
               const user: User = {
                 id: local.id,
                 name: local.name ?? undefined,
                 email: local.email,
-                // @ts-expect-error: adicionamos role para callbacks
+                // @ts-expect-error role no user para callbacks
                 role: local.role,
               };
               return user;
             }
-          } catch {
-            // se bcrypt falhar, continua para Supabase
           }
+        } catch {
+          // ignora e tenta Supabase Auth
         }
 
-        // 2) Fallback: Supabase Auth
+        // 2) Fallback: Supabase Auth (para quem foi criado no Auth)
         try {
           const sb = supabaseAnon();
           const { data, error } = await sb.auth.signInWithPassword({ email, password });
           if (!error && data?.user) {
+            // tenta complementar meta local (role/nome) se existir
             const meta = local ?? (await getLocalUserByEmail(email)) ?? undefined;
             const user: User = {
               id: data.user.id,
               name: data.user.user_metadata?.name ?? meta?.name ?? data.user.email ?? undefined,
               email: data.user.email ?? email,
-              // @ts-expect-error: role para callbacks
+              // @ts-expect-error role para callbacks
               role: meta?.role ?? 'CLIENT',
             };
             return user;
