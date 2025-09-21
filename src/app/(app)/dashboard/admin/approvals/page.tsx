@@ -1,26 +1,26 @@
+// src/app/(app)/dashboard/admin/approvals/page.tsx
+import AdminApprovalsClient from '@/components/admin/AdminApprovalsClient';
+import createServerClient from '@/lib/supabaseServer';
+
 export const dynamic = 'force-dynamic';
 
-import { redirect } from 'next/navigation';
-import { createServerClient } from '@/lib/supabaseServer';
-import { getSessionUserSafe } from '@/lib/session-bridge';
-import { toAppRole } from '@/lib/roles';
-import AdminApprovalsClient from '@/components/admin/AdminApprovalsClient';
+type Row = {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  role?: string | null;
+  created_at?: string | null;
+  approved?: boolean | null;
+};
 
-export default async function ApprovalsPage() {
-  const session = await getSessionUserSafe();
-  if (!session?.user?.id) redirect('/login');
-  const role = toAppRole(session.user.role) ?? 'CLIENT';
-  if (role !== 'ADMIN') redirect('/dashboard');
-
+export default async function Page() {
   const sb = createServerClient();
 
-  // compat: approved=false OR status='PENDING'
-  const { data: rowsA } = await sb.from('users').select('id,name,email,role,created_at').eq('approved', false);
-  const { data: rowsB } = await sb.from('users').select('id,name,email,role,created_at').eq('status', 'PENDING');
-  const map = new Map<string, any>();
-  (rowsA ?? []).forEach((u: any) => map.set(u.id, u));
-  (rowsB ?? []).forEach((u: any) => map.set(u.id, u));
-  const rows = Array.from(map.values()).sort((a,b) => +new Date(b.created_at||0) - +new Date(a.created_at||0));
+  const { data } = await sb
+    .from('users')
+    .select('id,name,email,role,created_at,approved')
+    .order('created_at', { ascending: false });
 
-  return <AdminApprovalsClient initial={rows} />;
+  // ✅ passa 'initial', que é o que o componente espera
+  return <AdminApprovalsClient initial={(data ?? []) as Row[]} />;
 }

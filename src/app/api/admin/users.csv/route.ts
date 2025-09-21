@@ -1,70 +1,51 @@
 // src/app/api/admin/users.csv/route.ts
+import { NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/lib/supabaseServer';
+
+// Evita cache estática no build
 export const dynamic = 'force-dynamic';
 
-import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase.server';
-import { getSessionUserSafe } from '@/lib/session-bridge';
-import { toAppRole, isAdmin } from '@/lib/roles';
-
-type Row = {
-  id: string;
-  email: string;
-  username: string | null;
-  name: string | null;
-  role: string | null;
-  status: string | null;
-  created_at: string | null;
-};
+function esc(v: unknown) {
+  if (v === null || v === undefined) return '';
+  const s = String(v);
+  // Aspas duplas e vírgulas precisam de escaping em CSV
+  const q = s.replace(/"/g, '""');
+  // Se tiver vírgula, aspas ou quebra de linha, envolve em aspas
+  return /[",\n\r]/.test(q) ? `"${q}"` : q;
+}
 
 export async function GET() {
-  const me = await getSessionUserSafe();
-  if (!me?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (!isAdmin(toAppRole(me.user.role) ?? 'CLIENT')) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  // 👇 ERA: const s = supabaseAdmin();
+  const s = supabaseAdmin;
 
-  const s = supabaseAdmin();
+  // Seleciona um conjunto “seguro” de colunas (presentes na tua tabela)
+  // Se quiseres mais (ex.: username, approved, status), adiciona quando já existirem no schema.
   const { data, error } = await s
     .from('users')
-    .select('id,email,username,username_lower,name,role,status,created_at')
-    .order('created_at', { ascending: true })
-    .returns<Row[]>();
+    .select('id,email,name,role,created_at')
+    .order('created_at', { ascending: false })
+    .limit(5000);
 
   if (error) {
-    return NextResponse.json({ error: 'DB error' }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const rows = data ?? [];
-  const header = ['id', 'email', 'username', 'name', 'role', 'status', 'created_at'];
+  const header = ['id', 'email', 'name', 'role', 'created_at'];
+  const rows = (data ?? []).map((u) => [
+    u.id,
+    u.email,
+    u.name,
+    u.role,
+    u.created_at,
+  ]);
 
-  const esc = (v: unknown) => {
-    const s = v == null ? '' : String(v);
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
-
-  const lines = [
-    header.join(','), // header
-    ...rows.map(r =>
-      [
-        r.id,
-        r.email,
-        r.username ?? '',
-        r.name ?? '',
-        r.role ?? '',
-        r.status ?? '',
-        r.created_at ?? '',
-      ].map(esc).join(',')
-    ),
-  ];
-
-  // BOM para abrir bem no Excel
-  const csv = '\ufeff' + lines.join('\n');
+  const csv = [header, ...rows].map(r => r.map(esc).join(',')).join('\r\n');
 
   return new NextResponse(csv, {
-    status: 200,
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': `attachment; filename="users.csv"`,
+      'Content-Disposition': 'attachment; filename="users.csv"',
+      // Evita cache agressiva em edge/CDN
       'Cache-Control': 'no-store',
     },
   });

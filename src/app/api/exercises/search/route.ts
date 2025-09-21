@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase.server';
+import { supabaseAdmin } from '@/lib/supabaseServer';
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const q = (url.searchParams.get('q') ?? '').trim();
 
-  const s = supabaseAdmin();
+  const s = supabaseAdmin;
   let query = s.from('exercises').select('id, name, muscle_group, equipment, difficulty');
   if (q) {
     // ILIKE em name, muscle_group e equipment

@@ -1,6 +1,6 @@
 // src/app/api/exercises/notes/route.ts
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase.server';
+import { supabaseAdmin } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole, isPT, isAdmin } from '@/lib/roles';
 
@@ -30,7 +30,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Missing exerciseId' }, { status: 400 });
   }
 
-  const s = supabaseAdmin();
+  const s = supabaseAdmin;
 
   const base = s
     .from('exercise_notes')
@@ -80,7 +80,7 @@ export async function POST(req: Request) {
   // trims + sane limit
   note = note.trim().slice(0, 10000);
 
-  const s = supabaseAdmin();
+  const s = supabaseAdmin;
 
   const upsertQuery = s
     .from('exercise_notes')

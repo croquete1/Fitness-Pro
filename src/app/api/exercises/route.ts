@@ -1,6 +1,6 @@
 // src/app/api/exercises/route.ts
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase.server';
+import { supabaseAdmin } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole, isAdmin, isPT } from '@/lib/roles';
 
@@ -52,7 +52,7 @@ export async function POST(req: Request) {
   const equipment = body?.equipment ?? null;
   const difficulty = body?.difficulty ?? null;
 
-  const s = supabaseAdmin();
+  const s = supabaseAdmin;
   const insertQ = s
     .from('exercises')
     .insert({ name, muscle_group, equipment, difficulty })
@@ -102,7 +102,7 @@ export async function PATCH(req: Request) {
     return badRequest('No fields to update');
   }
 
-  const s = supabaseAdmin();
+  const s = supabaseAdmin;
   const updQ = s
     .from('exercises')
     .update(update)
@@ -148,7 +148,7 @@ export async function DELETE(req: Request) {
   const id = String(qsId ?? bodyId ?? '').trim();
   if (!id) return badRequest('Missing id');
 
-  const s = supabaseAdmin();
+  const s = supabaseAdmin;
   const delQ = s.from('exercises').delete().eq('id', id).select('id').limit(1);
 
   const { data, error } = await delQ.returns<Pick<ExerciseRow, 'id'>[]>();

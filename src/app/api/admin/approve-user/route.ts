@@ -1,68 +1,78 @@
+// src/app/api/admin/approve-user/route.ts
 import { NextResponse } from 'next/server';
-import { z } from 'zod';
-import { createServerClient } from '@/lib/supabaseServer';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { getSupabaseServer } from '@/lib/supabaseServer';
 
-const schema = z.object({
-  requestId: z.string().uuid(),
-});
+type Body = { userId: string; approve?: boolean };
 
 export async function POST(req: Request) {
-  const { requestId } = await req.json().then(schema.parse).catch(() => ({} as any));
-  if (!requestId) {
-    return NextResponse.json({ ok: false, error: 'Pedido inválido' }, { status: 400 });
+  // 1) Autorização: apenas ADMIN
+  const session = await getServerSession(authOptions);
+  const role = (session as any)?.user?.role;
+  if (!session || role !== 'ADMIN') {
+    return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
   }
 
-  const sb = createServerClient();
+  // 2) Entrada
+  let body: Body;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ ok: false, error: 'bad_json' }, { status: 400 });
+  }
+  const { userId, approve = true } = body || {};
+  if (!userId) {
+    return NextResponse.json({ ok: false, error: 'missing_userId' }, { status: 400 });
+  }
 
-  // 1) Buscar pedido
-  const { data: reqRow, error: e1 } = await sb
-    .from('register_requests')
-    .select('id, name, username, email, role, status')
-    .eq('id', requestId)
+  const sb = getSupabaseServer();
+
+  // 3) Idempotente: se já está no estado desejado não dá erro
+  const { data: u, error: readErr } = await sb
+    .from('users')
+    .select('id, approved, approved_at')
+    .eq('id', userId)
     .maybeSingle();
 
-  if (e1 || !reqRow) {
-    return NextResponse.json({ ok: false, error: 'Pedido não encontrado' }, { status: 404 });
+  if (readErr) {
+    return NextResponse.json({ ok: false, error: 'read_failed', detail: readErr.message }, { status: 500 });
   }
-  if (reqRow.status !== 'PENDING') {
-    return NextResponse.json({ ok: false, error: 'Pedido já tratado' }, { status: 409 });
+  if (!u) {
+    return NextResponse.json({ ok: false, error: 'not_found' }, { status: 404 });
+  }
+  const already = approve ? u.approved === true : u.approved === false;
+  if (already) {
+    return NextResponse.json({ ok: true, idempotent: true });
   }
 
-  // 2) Criar utilizador (a tua tabela "users")
-  const { data: userRow, error: e2 } = await sb
+  // 4) Update
+  const { error: updErr } = await sb
     .from('users')
-    .insert({
-      name: reqRow.name,
-      username: reqRow.username,
-      email: reqRow.email.toLowerCase(),
-      role: reqRow.role,
-      approved: true,
+    .update({
+      approved: approve,
+      approved_at: approve ? new Date().toISOString() : null,
     })
-    .select('id, email')
-    .single();
+    .eq('id', userId);
 
-  if (e2 || !userRow) {
-    return NextResponse.json({ ok: false, error: 'Falha a criar utilizador' }, { status: 500 });
+  if (updErr) {
+    return NextResponse.json({ ok: false, error: 'update_failed', detail: updErr.message }, { status: 500 });
   }
 
-  // 3) Enviar link de definição de password
-  const origin =
-    process.env.NEXT_PUBLIC_APP_ORIGIN ??
-    process.env.APP_ORIGIN ??
-    'http://localhost:3000';
-
-  // resetPasswordForEmail envia um link de recuperação (serve para 1ª definição)
-  const { error: eMail } = await sb.auth.resetPasswordForEmail(userRow.email, {
-    redirectTo: `${origin}/login/reset`,
-  });
-
-  if (eMail) {
-    // Não rebenta a aprovação por falha no email; só regista
-    console.error('[approve-user] Erro a enviar email:', eMail);
+  // 5) Notificação (se existir a tabela "notifications", ignora se não existir)
+  try {
+    await sb.from('notifications').insert({
+      user_id: userId,
+      title: approve ? 'Conta aprovada ✅' : 'Conta desativada',
+      body: approve
+        ? 'A tua conta foi aprovada por um administrador. Já podes iniciar sessão.'
+        : 'A tua conta foi desativada. Contacta o suporte se for um erro.',
+      href: '/login',
+      read: false,
+    });
+  } catch {
+    // silencioso se a tabela/políticas não existirem
   }
-
-  // 4) Marcar pedido como aprovado
-  await sb.from('register_requests').update({ status: 'APPROVED' }).eq('id', requestId);
 
   return NextResponse.json({ ok: true });
 }

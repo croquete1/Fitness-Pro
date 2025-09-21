@@ -1,45 +1,42 @@
 // src/lib/supabaseServer.ts
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
+function assertEnv(name: string, value?: string) {
+  if (!value) throw new Error(`Missing env "${name}" for Supabase`);
+  return value;
+}
+
+function makeClient(key: string): SupabaseClient {
+  const url = assertEnv('NEXT_PUBLIC_SUPABASE_URL', process.env.NEXT_PUBLIC_SUPABASE_URL);
+  return createClient(url, key, { auth: { persistSession: false } });
+}
+
 /**
- * Cliente admin (service role) para uso em rotas /server.
- * Requer:
- *  - SUPABASE_URL
- *  - SUPABASE_SERVICE_ROLE_KEY  (NUNCA expor no cliente)
+ * Função (service role) — usar em endpoints/server actions com permissões de admin (bypass RLS).
  */
-export function supabaseAdmin(): SupabaseClient {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!url || !key) {
-    throw new Error(
-      'Faltam variáveis de ambiente SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY para o supabaseAdmin().'
-    );
-  }
-
-  return createClient(url, key, {
-    auth: { persistSession: false },
-    global: { headers: { 'X-Client-Info': 'fitness-pro/server' } },
-  });
+export function getSupabaseServer(): SupabaseClient {
+  const serviceKey = assertEnv('SUPABASE_SERVICE_ROLE_KEY', process.env.SUPABASE_SERVICE_ROLE_KEY);
+  return makeClient(serviceKey);
 }
-export function supabasePublic(): SupabaseClient {
-  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anon) throw new Error('Faltam NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY');
-  return createClient(url, anon, {
-    auth: { persistSession: false },
-    global: { headers: { 'X-Client-Info': 'fitness-pro/server-public' } },
-  });
-}
+
 /**
- * Compat layer para código existente.
- * Alguns ficheiros chamam createServerClient(...) com args (cookies/headers).
- * Para manter compatibilidade, aceitamos quaisquer argumentos e devolvemos o admin client.
- * Se no futuro quiseres RLS por utilizador, podemos trocar aqui por um cliente SSR com cookies.
+ * Função (anon) — usar em server components/APIs que respeitam RLS.
  */
-export function createServerClient(..._args: any[]): SupabaseClient {
-  return supabaseAdmin();
+export function getSupabaseAnonServer(): SupabaseClient {
+  const anonKey = assertEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  return makeClient(anonKey);
 }
 
-// (Opcional) exporta o tipo para quem quiser anotar variáveis
-export type { SupabaseClient };
+/**
+ * Aliases para compatibilidade com código existente.
+ * - Alguns ficheiros importam uma FUNÇÃO `createServerClient`
+ * - Outros importam uma INSTÂNCIA `supabaseAdmin` (cliente já criado)
+ */
+export const createServerClient: () => SupabaseClient = getSupabaseServer;
+
+// Clientes prontos a usar (se precisas de uma instância diretamente)
+export const supabaseAdmin: SupabaseClient = getSupabaseServer();
+export const supabase: SupabaseClient = getSupabaseAnonServer();
+
+// Default export compatível com `import createServerClient from '@/lib/supabaseServer'`
+export default createServerClient;

@@ -2,11 +2,11 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase.server';
+import { supabaseAdmin } from '@/lib/supabaseServer';
 
 export async function GET() {
   try {
-    const s = supabaseAdmin();
+    const s = supabaseAdmin;
     const now = new Date();
     const start = new Date(now);
     start.setDate(now.getDate() - 7);
