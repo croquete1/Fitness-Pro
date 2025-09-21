@@ -7,6 +7,6 @@ export const dynamic = 'force-dynamic';
 
 export default async function DashboardIndex() {
   const session = await getServerSession(authOptions);
-  const role = (session?.user as any)?.role as string | undefined;
-  redirect(dashboardForRole(role));
+  if (!session) redirect('/login?redirect=/dashboard');
+  redirect(dashboardForRole((session.user as any)?.role));
 }

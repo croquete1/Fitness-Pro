@@ -2,8 +2,8 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
-import { signIn, useSession, getSession } from 'next-auth/react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { signIn, useSession } from 'next-auth/react';
 import Link from 'next/link';
 import {
   Box, Paper, Stack, TextField, IconButton, InputAdornment, Button, Typography, Divider,
@@ -12,21 +12,36 @@ import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import Visibility from '@mui/icons-material/Visibility';
 import Image from 'next/image';
 
-/** Mapeamento de destino por role */
-function homeForRole(role?: string) {
-  const r = (role ?? '').toString().toLowerCase();
-  if (r === 'admin') return '/dashboard/admin';
-  if (['pt', 'trainer', 'personal_trainer'].includes(r)) return '/dashboard/pt';
-  return '/dashboard'; // cliente (default)
+function mapError(code?: string | null) {
+  switch (code) {
+    case 'APPROVAL_REQUIRED':
+      return 'A tua conta ainda não foi aprovada por um administrador.';
+    case 'ACCOUNT_BLOCKED':
+      return 'A tua conta está bloqueada. Contacta o suporte.';
+    case 'CredentialsSignin':
+      return 'Credenciais inválidas.';
+    case 'AccessDenied':
+      return 'Acesso negado.';
+    default:
+      return 'Não foi possível iniciar sessão. Tenta novamente.';
+  }
 }
 
 export default function LoginClient() {
   const router = useRouter();
+  const sp = useSearchParams();
 
-  // defensivo: se por algum motivo não houver Provider, não rebenta
-  const sessionCtx = typeof useSession === 'function' ? useSession() : undefined;
+  // ❗️NÃO desestruturar diretamente — pode ser undefined se não houver Provider.
+  const sessionCtx = useSession?.();
   const authStatus: 'loading' | 'authenticated' | 'unauthenticated' =
-    sessionCtx?.status ?? 'unauthenticated';
+    (sessionCtx && sessionCtx.status) || 'unauthenticated';
+
+  // Sanitização do redirect (previne open-redirect)
+  const rawRedirect =
+    sp?.get('redirect') ??
+    sp?.get('callbackUrl') ??
+    '/dashboard';
+  const redirectTo = rawRedirect.startsWith('/') ? rawRedirect : '/dashboard';
 
   const [identifier, setIdentifier] = React.useState('');
   const [pw, setPw] = React.useState('');
@@ -34,21 +49,23 @@ export default function LoginClient() {
   const [loading, setLoading] = React.useState(false);
   const [err, setErr] = React.useState<string | null>(null);
 
-  // Se já estiver autenticado, envia para a dashboard correta
+  // Mostra erros que venham por query string (?error=…)
+  React.useEffect(() => {
+    const urlError = sp?.get('error');
+    if (urlError) setErr(mapError(urlError));
+  }, [sp]);
+
+  // Se já está autenticado, envia para o destino seguro
   React.useEffect(() => {
     if (authStatus === 'authenticated') {
-      const role = (sessionCtx?.data?.user as any)?.role as string | undefined;
-      const dest = homeForRole(role);
-      router.replace(dest);
+      router.replace(redirectTo);
       router.refresh();
     }
-  }, [authStatus, sessionCtx?.data?.user, router]);
+  }, [authStatus, redirectTo, router]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (loading) return;
-    const id = identifier.trim();
-    if (!id || pw.length < 6) return;
+    if (!identifier.trim() || pw.length < 6 || loading) return;
 
     setErr(null);
     setLoading(true);
@@ -56,60 +73,40 @@ export default function LoginClient() {
     try {
       const res = await signIn('credentials', {
         redirect: false,
-        identifier: id,
+        identifier: identifier.trim(),
         password: pw,
-        // dás uma pista ao NextAuth, mas o nosso redirect é manual e à prova de race
-        callbackUrl: '/dashboard',
+        callbackUrl: redirectTo, // ✅ respeita o redirect sanitizado
       });
 
-      if (!res) {
-        setErr('Não foi possível iniciar sessão. Tenta novamente.');
+      setLoading(false);
+
+      if (res?.error) {
+        setErr(mapError(res.error));
         return;
       }
 
-      if (res.error) {
-        const msg = res.error.toLowerCase();
-        if (msg.includes('approved') || msg.includes('pendente') || msg.includes('unauthorized')) {
-          setErr('Conta pendente de aprovação por um administrador.');
-        } else if (msg.includes('credentials') || msg.includes('invalid')) {
-          setErr('Credenciais inválidas.');
-        } else {
-          setErr('Não foi possível iniciar sessão. Tenta novamente.');
-        }
-        return;
-      }
-
-      // Sucesso: forçamos atualização da sessão e redirecionamos por role
-      const sess = (await getSession()) ?? undefined;
-      const role = (sess?.user as any)?.role as string | undefined;
-      const dest = homeForRole(role);
-      router.replace(dest);
+      router.replace(res?.url ?? redirectTo);
       router.refresh();
     } catch {
-      setErr('Ocorreu um erro inesperado. Tenta novamente.');
-    } finally {
       setLoading(false);
+      setErr('Erro de rede. Verifica a tua ligação e tenta novamente.');
     }
   }
 
   return (
     <Box sx={{ minHeight: '100dvh', display: 'grid', gridTemplateColumns: { md: '1fr 1fr', xs: '1fr' } }}>
       {/* Hero à esquerda */}
-      <Box
-        sx={{
-          display: { xs: 'none', md: 'block' },
-          position: 'relative',
-          background: 'linear-gradient(135deg,#5b7cfa 0%,#9359ff 100%)',
-        }}
-      >
+      <Box sx={{
+        display: { xs: 'none', md: 'block' },
+        position: 'relative',
+        background: 'linear-gradient(135deg,#5b7cfa 0%,#9359ff 100%)'
+      }}>
         <Box sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
           <Image src="/logo.png" alt="Fitness Pro" width={28} height={28} />
           <Typography fontWeight={800} color="#fff">Fitness Pro</Typography>
         </Box>
         <Box sx={{ position: 'absolute', inset: 0, display: 'grid', alignContent: 'end', p: 5, color: '#fff' }}>
-          <Typography variant="h4" fontWeight={900}>
-            Treina melhor.<br />Vive melhor.
-          </Typography>
+          <Typography variant="h4" fontWeight={900}>Treina melhor.<br />Vive melhor.</Typography>
           <Typography sx={{ mt: 1, opacity: 0.9, maxWidth: 380 }}>
             Acompanha planos, sessões e progresso — tudo num só lugar, rápido e simples.
           </Typography>
@@ -130,16 +127,14 @@ export default function LoginClient() {
             Iniciar sessão
           </Typography>
 
-          <Box component="form" onSubmit={onSubmit} noValidate>
+          <Box component="form" onSubmit={onSubmit}>
             <Stack spacing={1.5}>
               <TextField
                 label="Email ou nome de utilizador"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 inputProps={{ autoComplete: 'username' }}
-                autoFocus
                 fullWidth
-                disabled={loading}
               />
               <TextField
                 label="Palavra-passe"
@@ -148,16 +143,10 @@ export default function LoginClient() {
                 onChange={(e) => setPw(e.target.value)}
                 inputProps={{ minLength: 6, autoComplete: 'current-password' }}
                 fullWidth
-                disabled={loading}
                 InputProps={{
                   endAdornment: (
                     <InputAdornment position="end">
-                      <IconButton
-                        onClick={() => setShow((v) => !v)}
-                        aria-label="alternar visibilidade"
-                        edge="end"
-                        disabled={loading}
-                      >
+                      <IconButton onClick={() => setShow((v) => !v)} aria-label="alternar visibilidade">
                         {show ? <VisibilityOff /> : <Visibility />}
                       </IconButton>
                     </InputAdornment>
@@ -172,16 +161,11 @@ export default function LoginClient() {
                 {loading ? 'A entrar…' : 'Entrar'}
               </Button>
 
-              {/* Região de erros acessível */}
-              <Typography
-                color="error"
-                variant="body2"
-                role="alert"
-                aria-live="polite"
-                sx={{ minHeight: 20 }}
-              >
-                {err ?? ''}
-              </Typography>
+              {!!err && (
+                <Typography color="error" variant="body2" role="alert">
+                  {err}
+                </Typography>
+              )}
 
               <Stack direction="row" justifyContent="space-between">
                 <Link href="/login/forgot">Esqueceste-te da palavra-passe?</Link>
