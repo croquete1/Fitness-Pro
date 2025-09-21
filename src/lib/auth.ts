@@ -1,77 +1,70 @@
 // src/lib/auth.ts
 import type { NextAuthOptions } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
-import { compare } from 'bcryptjs';
+import bcrypt from 'bcryptjs';
 import { createServerClient } from '@/lib/supabaseServer';
 
 export const authOptions: NextAuthOptions = {
-  // mantém o que já tinhas aqui (pages, theme, etc. se usares)
-  session: { strategy: 'jwt' },
-  pages: { signIn: '/login' },
-
   providers: [
     Credentials({
+      id: 'credentials',
       name: 'Credenciais',
       credentials: {
         emailOrUsername: { label: 'Email ou username', type: 'text' },
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
-        if (!credentials) return null;
+        const emailOrUsername = credentials?.emailOrUsername?.trim() ?? '';
+        const password = credentials?.password ?? '';
+        if (!emailOrUsername || !password) return null;
 
         const sb = createServerClient();
-        const loginKey = credentials.emailOrUsername.trim();
 
-        // Ajusta os campos conforme a tua tabela "users"
-        const { data: u } = await sb
+        // procurar por email (case-insensitive) OU username
+        const { data: user, error } = await sb
           .from('users')
-          .select('id,email,name,role,approved,password_hash,avatar_url,username')
-          .or(`email.eq.${loginKey},username.eq.${loginKey}`)
+          .select('id, name, email, username, role, approved, password_hash, avatar_url')
+          .or(`email.ilike.${emailOrUsername},username.eq.${emailOrUsername}`)
           .maybeSingle();
 
-        if (!u) return null;
+        if (error || !user) return null;
 
-        const ok = await compare(credentials.password, (u as any).password_hash ?? '');
-        if (!ok) return null;
-
-        if ((u as any).approved === false) {
-          // devolve erro legível para o /login (?error=PENDING_APPROVAL)
+        // conta ainda não aprovada
+        if (!Boolean(user.approved)) {
           throw new Error('PENDING_APPROVAL');
         }
 
-        // devolve os dados que queres injectar no JWT
+        // comparar password
+        const ok = user.password_hash
+          ? await bcrypt.compare(password, user.password_hash)
+          : false;
+
+        if (!ok) return null;
+
         return {
-          id: u.id,
-          name: u.name ?? u.username ?? u.email,
-          email: u.email,
-          role: u.role,
-          approved: true,
-          avatar_url: (u as any).avatar_url ?? null,
-          username: (u as any).username ?? null,
+          id: user.id,
+          name: user.name ?? user.username ?? user.email,
+          email: user.email,
+          image: user.avatar_url ?? undefined,
+          role: user.role,
         } as any;
       },
     }),
   ],
-
+  pages: {
+    signIn: '/login',
+    error: '/login',
+  },
   callbacks: {
     async jwt({ token, user }) {
-      if (user) {
-        token.id = (user as any).id;
-        token.role = (user as any).role;
-        token.approved = (user as any).approved ?? true;
-        token.avatar_url = (user as any).avatar_url ?? null;
-        token.username = (user as any).username ?? null;
-      }
+      if (user) token.role = (user as any).role;
       return token;
     },
     async session({ session, token }) {
-      (session.user as any).id = token.id;
-      (session.user as any).role = token.role;
-      (session.user as any).approved = token.approved;
-      (session.user as any).avatar_url = token.avatar_url;
-      (session.user as any).username = token.username;
+      if (session.user) (session.user as any).role = token.role;
       return session;
     },
-    // (opcional) redirect({ url, baseUrl }) { ... }
   },
+  session: { strategy: 'jwt' },
+  secret: process.env.NEXTAUTH_SECRET,
 };

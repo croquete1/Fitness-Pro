@@ -2,30 +2,67 @@
 'use client';
 
 import * as React from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import Link from 'next/link';
 import {
-  Box, Paper, Stack, TextField, IconButton, InputAdornment, Button, Typography, Divider
+  Box, Paper, Stack, TextField, IconButton, InputAdornment, Button,
+  Typography, Divider, Alert, CircularProgress
 } from '@mui/material';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import Visibility from '@mui/icons-material/Visibility';
 import Image from 'next/image';
 
 export default function LoginClient() {
+  const sp = useSearchParams();
+  const router = useRouter();
+
   const [identifier, setIdentifier] = React.useState('');
   const [pw, setPw] = React.useState('');
   const [show, setShow] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [err, setErr] = React.useState<string | null>(null);
 
+  // Lê erros vindos do NextAuth (?error=...)
+  React.useEffect(() => {
+    const qerr = sp.get('error');
+    if (!qerr) return;
+    if (qerr === 'PENDING_APPROVAL') {
+      setErr('A tua conta está pendente de aprovação por um administrador.');
+    } else if (qerr === 'CredentialsSignin') {
+      setErr('Credenciais inválidas.');
+    } else {
+      setErr('Não foi possível iniciar sessão.');
+    }
+  }, [sp]);
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!identifier.trim() || pw.length < 6) return;
+
     setErr(null);
     setLoading(true);
-    const res = await signIn('credentials', { redirect: false, identifier: identifier.trim(), password: pw });
+
+    // ⬇️ envia com a chave que o provider espera
+    const res = await signIn('credentials', {
+      redirect: false,
+      emailOrUsername: identifier.trim(),
+      password: pw,
+    });
+
     setLoading(false);
-    if (res?.error) setErr('Credenciais inválidas.');
+
+    if (res?.error) {
+      if (res.error === 'PENDING_APPROVAL') {
+        setErr('A tua conta está pendente de aprovação por um administrador.');
+      } else {
+        setErr('Credenciais inválidas.');
+      }
+      return;
+    }
+
+    // Se tudo OK, redireciona (podes trocar por um redirect por role)
+    router.replace('/dashboard');
   }
 
   return (
@@ -58,6 +95,8 @@ export default function LoginClient() {
           </Stack>
           <Typography variant="caption" sx={{ opacity: 0.7, mb: 2, display: 'block' }}>Iniciar sessão</Typography>
 
+          {err && <Alert severity="error" sx={{ mb: 2 }}>{err}</Alert>}
+
           <Box component="form" onSubmit={onSubmit}>
             <Stack spacing={1.5}>
               <TextField
@@ -66,6 +105,7 @@ export default function LoginClient() {
                 onChange={(e) => setIdentifier(e.target.value)}
                 inputProps={{ autoComplete: 'username' }}
                 fullWidth
+                autoFocus
               />
               <TextField
                 label="Palavra-passe"
@@ -84,11 +124,14 @@ export default function LoginClient() {
                   )
                 }}
               />
-              <Button type="submit" variant="contained" disabled={loading || !identifier.trim() || pw.length < 6}>
+              <Button
+                type="submit"
+                variant="contained"
+                disabled={loading || !identifier.trim() || pw.length < 6}
+                startIcon={loading ? <CircularProgress size={16} /> : undefined}
+              >
                 {loading ? 'A entrar…' : 'Entrar'}
               </Button>
-
-              {!!err && <Typography color="error" variant="body2">{err}</Typography>}
 
               <Stack direction="row" justifyContent="space-between">
                 <Link href="/login/forgot">Esqueceste-te da palavra-passe?</Link>

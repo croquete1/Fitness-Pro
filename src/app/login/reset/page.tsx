@@ -8,15 +8,12 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabaseBrowser';
 
 export default function ResetPage() {
-  // ⚠️ Requisito do Next: componentes que usam useSearchParams devem estar dentro de <Suspense>
   return (
-    <Suspense
-      fallback={
-        <main className="min-h-[60vh] flex items-center justify-center p-6">
-          <div className="text-sm opacity-70">A preparar a página…</div>
-        </main>
-      }
-    >
+    <Suspense fallback={
+      <main className="min-h-[60vh] flex items-center justify-center p-6">
+        <div className="text-sm opacity-70">A preparar a página…</div>
+      </main>
+    }>
       <ResetForm />
     </Suspense>
   );
@@ -27,7 +24,7 @@ function ResetForm() {
   const router = useRouter();
   const sb = supabaseBrowser();
 
-  // Supabase pode enviar ?code=..., ?token_hash=... ou ?token=...
+  // Supabase pode enviar ?code, ?token_hash ou ?token
   const code = useMemo(
     () => sp.get('code') ?? sp.get('token_hash') ?? sp.get('token'),
     [sp]
@@ -37,26 +34,22 @@ function ResetForm() {
   const [busy, setBusy] = useState(false);
   const [ok, setOk] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [ready, setReady] = useState(false); // sessão trocada a partir do code
+  const [ready, setReady] = useState(false);
 
-  // 1) Trocar o code por sessão antes de permitir updateUser
+  // Trocar code por sessão antes de permitir updateUser
   useEffect(() => {
     let cancelled = false;
     async function run() {
-      if (!code) {
-        setReady(false);
-        return;
-      }
+      if (!code) { setReady(false); return; }
       setBusy(true);
       setErr(null);
       try {
-        const { data, error } = await sb.auth.exchangeCodeForSession(code);
+        const { error } = await sb.auth.exchangeCodeForSession(code);
         if (!cancelled) {
           if (error) {
             setErr('Ligação inválida ou expirada. Pede um novo email de recuperação.');
             setReady(false);
           } else {
-            // temos sessão válida para atualizar a password
             setReady(true);
           }
         }
@@ -70,14 +63,12 @@ function ResetForm() {
       }
     }
     run();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [code, sb]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!ready) return; // defesa
+    if (!ready) return;
     if (password.trim().length < 6) {
       setErr('A palavra-passe deve ter pelo menos 6 caracteres.');
       return;
@@ -89,8 +80,14 @@ function ResetForm() {
       if (error) {
         setErr('Não foi possível atualizar a palavra-passe. Tenta novamente.');
       } else {
+        // ⬇️ sincroniza o hash na nossa tabela "users" (NextAuth)
+        await fetch('/api/auth/update-password-hash', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password }),
+        }).catch(() => { /* não bloquear o fluxo */ });
+
         setOk(true);
-        // Navega de volta ao login
         setTimeout(() => router.push('/login'), 1200);
       }
     } catch {
