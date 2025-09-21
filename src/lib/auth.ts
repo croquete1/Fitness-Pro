@@ -3,24 +3,79 @@ import type { NextAuthOptions, User } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { createServerClient } from '@/lib/supabaseServer';
-import { toAppRole } from '@/lib/roles';
+import bcrypt from 'bcryptjs';
 
-type DbUser = {
-  id: string;
-  name: string | null;
-  email: string;
-  role: 'ADMIN' | 'TRAINER' | 'PT' | 'CLIENT' | string;
-  status: 'ACTIVE' | 'SUSPENDED' | 'PENDING' | string;
-};
+type AnyRole = 'ADMIN' | 'PT' | 'TRAINER' | 'CLIENT' | string | undefined;
 
 function normalizeEmail(v?: string | null) {
   return String(v ?? '').trim().toLowerCase();
+}
+function roleToApp(value?: AnyRole): 'ADMIN' | 'PT' | 'CLIENT' {
+  const r = String(value ?? '').toUpperCase();
+  if (r === 'ADMIN') return 'ADMIN';
+  if (r === 'PT' || r === 'TRAINER') return 'PT';
+  return 'CLIENT';
 }
 
 function supabaseAnon() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
   return createSupabaseClient(url, anon, { auth: { persistSession: false } });
+}
+
+/** Tenta obter metadados (role/status/hash) das tabelas conhecidas */
+async function getLocalUserByEmail(email: string) {
+  const sb = createServerClient();
+
+  const selectCols =
+    'id, email, name, role, status, user_role, account_type, is_active, approved, password_hash, password, hash, passwordHash';
+
+  const tryTable = async (table: string) => {
+    try {
+      const { data, error } = await sb
+        .from(table as any)
+        .select(selectCols)
+        .ilike('email', email)
+        .limit(1);
+      if (error) return null;
+      return data?.[0] ?? null;
+    } catch {
+      return null;
+    }
+  };
+
+  let row =
+    (await tryTable('users')) ??
+    (await tryTable('profiles')) ??
+    (await tryTable('user_profiles'));
+
+  if (!row) return null;
+
+  const role =
+    row.role ?? row.user_role ?? row.account_type ?? undefined;
+
+  const statusRaw =
+    String(row.status ?? '')
+      .toUpperCase() ||
+    (row.approved === false ? 'PENDING' : '') ||
+    (row.is_active === false ? 'SUSPENDED' : '') ||
+    'ACTIVE';
+
+  const passwordHash: string | null =
+    row.password_hash ??
+    row.passwordHash ??
+    row.hash ??
+    row.password ??
+    null;
+
+  return {
+    id: String(row.id),
+    email: row.email as string,
+    name: (row.name as string) ?? null,
+    role: roleToApp(role),
+    status: statusRaw,
+    passwordHash,
+  };
 }
 
 export const authOptions: NextAuthOptions = {
@@ -39,46 +94,59 @@ export const authOptions: NextAuthOptions = {
         const password = String(credentials?.password ?? '');
         if (!email || !password) return null;
 
-        // 1) Validar credenciais no Supabase Auth (anon client)
-        const sb = supabaseAnon();
-        const { data: signInData, error: signInErr } = await sb.auth.signInWithPassword({ email, password });
-        if (signInErr || !signInData?.user) return null;
+        // 1) Tenta utilizador local (hash na BD)
+        const local = await getLocalUserByEmail(email);
+        if (local?.passwordHash) {
+          try {
+            const ok = await bcrypt.compare(password, local.passwordHash);
+            if (ok) {
+              const user: User = {
+                id: local.id,
+                name: local.name ?? undefined,
+                email: local.email,
+                // @ts-expect-error — anexamos role para usar nos callbacks
+                role: local.role,
+              };
+              return user;
+            }
+          } catch {
+            // se der erro no bcrypt, continuamos para o Supabase
+          }
+        }
 
-        // 2) Ler utilizador na nossa tabela (role/status) via service/server client
-        const sba = createServerClient();
-        const { data: rows, error: qErr } = await sba
-          .from('users')
-          .select('id,name,email,role,status')
-          .ilike('email', email)
-          .limit(1);
+        // 2) Fallback: Supabase Auth (para contas criadas via Supabase)
+        try {
+          const sb = supabaseAnon();
+          const { data, error } = await sb.auth.signInWithPassword({
+            email,
+            password,
+          });
+          if (!error && data?.user) {
+            // tenta completar com meta local (role/status) se existir; se não houver, CLIENT
+            const meta = local ?? (await getLocalUserByEmail(email)) ?? undefined;
+            const user: User = {
+              id: data.user.id,
+              name:
+                data.user.user_metadata?.name ??
+                meta?.name ??
+                data.user.email ??
+                undefined,
+              email: data.user.email ?? email,
+              // @ts-expect-error — role para callbacks
+              role: meta?.role ?? 'CLIENT',
+            };
+            return user;
+          }
+        } catch {
+          // ignorar — falhará como inválido
+        }
 
-        if (qErr) throw new Error('INTERNAL_ERROR');
-        if (!rows || rows.length === 0) throw new Error('ACCOUNT_NOT_LINKED');
-
-        const u = rows[0] as DbUser;
-
-        // 3) Regras de estado
-        const status = String(u.status ?? '').toUpperCase();
-        if (status === 'PENDING') throw new Error('APPROVAL_REQUIRED');
-        if (status === 'SUSPENDED') throw new Error('ACCOUNT_SUSPENDED');
-
-        // 4) Mapear role para app
-        const appRole = toAppRole(u.role) ?? 'CLIENT';
-
-        const user: User = {
-          id: String(u.id),
-          name: u.name ?? undefined,
-          email: u.email,
-          // @ts-expect-error — guardamos role no user para callbacks
-          role: appRole,
-        };
-        return user;
+        // 3) Nenhum método validou → credenciais inválidas
+        return null;
       },
     }),
   ],
-  pages: {
-    signIn: '/login',
-  },
+  pages: { signIn: '/login' },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
@@ -90,7 +158,8 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         (session.user as any).id = (token as any).id ?? (session.user as any).id;
-        (session.user as any).role = (token as any).role ?? (session.user as any).role;
+        (session.user as any).role =
+          (token as any).role ?? (session.user as any).role;
       }
       return session;
     },
