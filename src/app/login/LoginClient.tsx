@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn, useSession } from 'next-auth/react';
 import Link from 'next/link';
 import {
-  Box, Paper, Stack, TextField, IconButton, InputAdornment, Button, Typography, Divider,
+  Box, Paper, Stack, TextField, IconButton, InputAdornment, Button, Typography, Divider, CircularProgress,
 } from '@mui/material';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import Visibility from '@mui/icons-material/Visibility';
@@ -41,7 +41,7 @@ export default function LoginClient() {
   const router = useRouter();
   const sp = useSearchParams();
 
-  // ⚠️ não desestruturar diretamente — pode ser undefined se não houver Provider.
+  // ⚠️ pode ser undefined se não houver Provider
   const sessionCtx = useSession?.();
   const status: 'loading' | 'authenticated' | 'unauthenticated' =
     (sessionCtx && sessionCtx.status) || 'unauthenticated';
@@ -56,11 +56,31 @@ export default function LoginClient() {
   const [loading, setLoading] = React.useState(false);
   const [err, setErr] = React.useState<string | null>(null);
 
-  // Mostrar erros que venham via query (?error=…)
+  // anti-loop: ao autenticar tentamos 1x redirecionar; se passado 1.2s ainda estamos no /login, mostramos CTA
+  const [autoTried, setAutoTried] = React.useState(false);
+  const [stuck, setStuck] = React.useState(false);
+
+  // Erro que venha via query (?error=…)
   React.useEffect(() => {
     const urlError = sp?.get('error');
     if (urlError) setErr(mapError(urlError));
   }, [sp]);
+
+  // Redirect automático quando já autenticado (apenas 1 tentativa)
+  React.useEffect(() => {
+    if (status === 'authenticated' && !autoTried) {
+      setAutoTried(true);
+      router.replace(redirectTo);
+      router.refresh();
+
+      const t = setTimeout(() => {
+        if (typeof window !== 'undefined' && window.location.pathname.startsWith('/login')) {
+          setStuck(true); // o servidor voltou a mandar-nos para /login → evita loop
+        }
+      }, 1200);
+      return () => clearTimeout(t);
+    }
+  }, [status, autoTried, redirectTo, router]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -84,7 +104,9 @@ export default function LoginClient() {
         return;
       }
 
-      // ✅ Só redireciona aqui, imediatamente após signIn OK
+      // ✅ redirect imediato após login com sucesso
+      setAutoTried(true); // evita efeito voltar a correr
+      setStuck(false);
       router.replace(res?.url ?? redirectTo);
       router.refresh();
     } catch {
@@ -127,12 +149,17 @@ export default function LoginClient() {
             Iniciar sessão
           </Typography>
 
-          {/* Se já estiver autenticado, NÃO redireciona automaticamente — evita loop */}
-          {status === 'authenticated' ? (
+          {status === 'authenticated' && !stuck ? (
+            <Stack spacing={1.5} alignItems="center">
+              <Typography>A redirecionar para a tua dashboard…</Typography>
+              <CircularProgress size={22} />
+              <Button variant="text" onClick={() => { router.replace(redirectTo); router.refresh(); }}>
+                Ir agora
+              </Button>
+            </Stack>
+          ) : status === 'authenticated' && stuck ? (
             <Stack spacing={1.5}>
-              <Typography sx={{ mb: 1 }}>
-                Já tens sessão iniciada.
-              </Typography>
+              <Typography>Já tens sessão iniciada.</Typography>
               <Button onClick={() => { router.replace(redirectTo); router.refresh(); }} variant="contained">
                 Ir para a dashboard
               </Button>
