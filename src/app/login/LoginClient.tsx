@@ -3,7 +3,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { signIn, useSession } from 'next-auth/react';
+import { signIn, useSession, getSession } from 'next-auth/react';
 import Link from 'next/link';
 import {
   Box, Paper, Stack, TextField, IconButton, InputAdornment, Button, Typography, Divider,
@@ -12,63 +12,104 @@ import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import Visibility from '@mui/icons-material/Visibility';
 import Image from 'next/image';
 
+/** Mapeamento de destino por role */
+function homeForRole(role?: string) {
+  const r = (role ?? '').toString().toLowerCase();
+  if (r === 'admin') return '/dashboard/admin';
+  if (['pt', 'trainer', 'personal_trainer'].includes(r)) return '/dashboard/pt';
+  return '/dashboard'; // cliente (default)
+}
+
 export default function LoginClient() {
   const router = useRouter();
-  const { status } = useSession(); // se já está autenticado, redireciona
+
+  // defensivo: se por algum motivo não houver Provider, não rebenta
+  const sessionCtx = typeof useSession === 'function' ? useSession() : undefined;
+  const authStatus: 'loading' | 'authenticated' | 'unauthenticated' =
+    sessionCtx?.status ?? 'unauthenticated';
+
   const [identifier, setIdentifier] = React.useState('');
   const [pw, setPw] = React.useState('');
   const [show, setShow] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [err, setErr] = React.useState<string | null>(null);
 
-  // Se o utilizador já estiver autenticado e cair no /login, manda para /dashboard
+  // Se já estiver autenticado, envia para a dashboard correta
   React.useEffect(() => {
-    if (status === 'authenticated') {
-      router.replace('/dashboard');
+    if (authStatus === 'authenticated') {
+      const role = (sessionCtx?.data?.user as any)?.role as string | undefined;
+      const dest = homeForRole(role);
+      router.replace(dest);
+      router.refresh();
     }
-  }, [status, router]);
+  }, [authStatus, sessionCtx?.data?.user, router]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!identifier.trim() || pw.length < 6) return;
+    if (loading) return;
+    const id = identifier.trim();
+    if (!id || pw.length < 6) return;
 
     setErr(null);
     setLoading(true);
 
-    // Usamos redirect:false mas navegamos manualmente após sucesso
-    const res = await signIn('credentials', {
-      redirect: false,
-      identifier: identifier.trim(),
-      password: pw,
-      callbackUrl: '/dashboard',
-    });
+    try {
+      const res = await signIn('credentials', {
+        redirect: false,
+        identifier: id,
+        password: pw,
+        // dás uma pista ao NextAuth, mas o nosso redirect é manual e à prova de race
+        callbackUrl: '/dashboard',
+      });
 
-    setLoading(false);
+      if (!res) {
+        setErr('Não foi possível iniciar sessão. Tenta novamente.');
+        return;
+      }
 
-    if (res?.error) {
-      // Erro genérico: credenciais inválidas / conta não aprovada / bloqueada, etc.
-      setErr('Credenciais inválidas ou conta não autorizada.');
-      return;
+      if (res.error) {
+        const msg = res.error.toLowerCase();
+        if (msg.includes('approved') || msg.includes('pendente') || msg.includes('unauthorized')) {
+          setErr('Conta pendente de aprovação por um administrador.');
+        } else if (msg.includes('credentials') || msg.includes('invalid')) {
+          setErr('Credenciais inválidas.');
+        } else {
+          setErr('Não foi possível iniciar sessão. Tenta novamente.');
+        }
+        return;
+      }
+
+      // Sucesso: forçamos atualização da sessão e redirecionamos por role
+      const sess = (await getSession()) ?? undefined;
+      const role = (sess?.user as any)?.role as string | undefined;
+      const dest = homeForRole(role);
+      router.replace(dest);
+      router.refresh();
+    } catch {
+      setErr('Ocorreu um erro inesperado. Tenta novamente.');
+    } finally {
+      setLoading(false);
     }
-
-    // Navega para a URL devolvida pelo NextAuth (ou /dashboard por defeito)
-    const target = res?.url ?? '/dashboard';
-    router.replace(target);
-    // força refresh para que o App Router reidrate a sessão imediatamente
-    router.refresh();
   }
 
   return (
     <Box sx={{ minHeight: '100dvh', display: 'grid', gridTemplateColumns: { md: '1fr 1fr', xs: '1fr' } }}>
       {/* Hero à esquerda */}
-      <Box sx={{ display: { xs: 'none', md: 'block' }, position: 'relative',
-        background: 'linear-gradient(135deg,#5b7cfa 0%,#9359ff 100%)' }}>
+      <Box
+        sx={{
+          display: { xs: 'none', md: 'block' },
+          position: 'relative',
+          background: 'linear-gradient(135deg,#5b7cfa 0%,#9359ff 100%)',
+        }}
+      >
         <Box sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
           <Image src="/logo.png" alt="Fitness Pro" width={28} height={28} />
           <Typography fontWeight={800} color="#fff">Fitness Pro</Typography>
         </Box>
         <Box sx={{ position: 'absolute', inset: 0, display: 'grid', alignContent: 'end', p: 5, color: '#fff' }}>
-          <Typography variant="h4" fontWeight={900}>Treina melhor.<br />Vive melhor.</Typography>
+          <Typography variant="h4" fontWeight={900}>
+            Treina melhor.<br />Vive melhor.
+          </Typography>
           <Typography sx={{ mt: 1, opacity: 0.9, maxWidth: 380 }}>
             Acompanha planos, sessões e progresso — tudo num só lugar, rápido e simples.
           </Typography>
@@ -89,14 +130,16 @@ export default function LoginClient() {
             Iniciar sessão
           </Typography>
 
-          <Box component="form" onSubmit={onSubmit}>
+          <Box component="form" onSubmit={onSubmit} noValidate>
             <Stack spacing={1.5}>
               <TextField
                 label="Email ou nome de utilizador"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 inputProps={{ autoComplete: 'username' }}
+                autoFocus
                 fullWidth
+                disabled={loading}
               />
               <TextField
                 label="Palavra-passe"
@@ -105,10 +148,16 @@ export default function LoginClient() {
                 onChange={(e) => setPw(e.target.value)}
                 inputProps={{ minLength: 6, autoComplete: 'current-password' }}
                 fullWidth
+                disabled={loading}
                 InputProps={{
                   endAdornment: (
                     <InputAdornment position="end">
-                      <IconButton onClick={() => setShow((v) => !v)} aria-label="alternar visibilidade">
+                      <IconButton
+                        onClick={() => setShow((v) => !v)}
+                        aria-label="alternar visibilidade"
+                        edge="end"
+                        disabled={loading}
+                      >
                         {show ? <VisibilityOff /> : <Visibility />}
                       </IconButton>
                     </InputAdornment>
@@ -123,11 +172,16 @@ export default function LoginClient() {
                 {loading ? 'A entrar…' : 'Entrar'}
               </Button>
 
-              {!!err && (
-                <Typography color="error" variant="body2" role="alert">
-                  {err}
-                </Typography>
-              )}
+              {/* Região de erros acessível */}
+              <Typography
+                color="error"
+                variant="body2"
+                role="alert"
+                aria-live="polite"
+                sx={{ minHeight: 20 }}
+              >
+                {err ?? ''}
+              </Typography>
 
               <Stack direction="row" justifyContent="space-between">
                 <Link href="/login/forgot">Esqueceste-te da palavra-passe?</Link>
