@@ -1,0 +1,13 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+echo "🔎 Running lint-staged..."
+npx --no-install lint-staged || exit 1
+
+echo "🧪 Type checking..."
+npm run -s typecheck || exit 1
+
+echo "🧹 ESLint..."
+npm run -s lint || exit 1
+
+echo "✅ Pre-commit checks passed."

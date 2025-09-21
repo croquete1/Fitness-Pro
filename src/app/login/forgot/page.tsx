@@ -1,54 +1,52 @@
-// src/app/login/forgot/page.tsx
 'use client';
 
-import { useState } from 'react';
+import * as React from 'react';
+import { Box, Stack, TextField, Button, Alert, Typography, CircularProgress } from '@mui/material';
 
 export default function ForgotPage() {
-  const [email, setEmail] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [ok, setOk] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [email, setEmail] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+  const [ok, setOk] = React.useState<string | null>(null);
+  const [err, setErr] = React.useState<string | null>(null);
+
+  const canSubmit = !loading && email.trim().length > 0;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setBusy(true); setErr(null); setOk(false);
+    if (!canSubmit) return;
+    setOk(null); setErr(null); setLoading(true);
     try {
-      const r = await fetch('/api/auth/forgot', {
+      const res = await fetch('/api/auth/forgot', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
       });
-      if (!r.ok) throw new Error(await r.text());
-      setOk(true);
-    } catch (e: any) {
-      setErr(e?.message || 'Não foi possível enviar o email.');
-    } finally {
-      setBusy(false);
-    }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setErr(data?.message || 'Não foi possível processar o pedido.');
+      } else {
+        setOk('Se o email existir, enviámos um link de recuperação.');
+        setEmail('');
+      }
+    } catch {
+      setErr('Erro de rede. Tenta novamente.');
+    } finally { setLoading(false); }
   }
 
   return (
-    <div className="auth-wrap">
-      <div className="auth-card">
-        <div className="auth-header">
-          <div className="logo">🔒</div>
-          <div className="auth-title">Recuperar palavra-passe</div>
-        </div>
-        {ok ? (
-          <p className="text-muted">
-            Se o email existir, enviámos um link de recuperação. Verifica a tua caixa de entrada.
-          </p>
-        ) : (
-          <form onSubmit={onSubmit} className="auth-fields">
-            <label className="auth-label" htmlFor="email">Email</label>
-            <input id="email" className="auth-input" type="email" value={email} onChange={e=>setEmail(e.target.value)} required />
-            {err && <div className="badge-danger">{err}</div>}
-            <div className="auth-actions">
-              <button className="btn primary" disabled={busy}>{busy ? 'A enviar…' : 'Enviar link'}</button>
-            </div>
-          </form>
-        )}
-      </div>
-    </div>
+    <Box sx={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', p: 2 }}>
+      <Box component="form" onSubmit={onSubmit}
+        sx={{ width: '100%', maxWidth: 420, p: 3, borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
+        <Stack spacing={2}>
+          <Typography variant="h5" fontWeight={600}>Recuperar acesso</Typography>
+          <TextField label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required fullWidth />
+          <Button type="submit" variant="contained" disabled={!canSubmit}>
+            {loading ? <CircularProgress size={20} /> : 'Enviar link'}
+          </Button>
+          {ok && <Alert severity="success">{ok}</Alert>}
+          {err && <Alert severity="error">{err}</Alert>}
+        </Stack>
+      </Box>
+    </Box>
   );
 }

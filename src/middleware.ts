@@ -1,45 +1,72 @@
 // src/middleware.ts
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
+import { roleToHomePath } from '@/types/auth';
 
-const PUBLIC_FILE = /\.(.*)$/;
+const PUBLIC = ['/', '/login', '/register', '/login/forgot', '/login/reset'];
 
-export async function middleware(req: NextRequest) {
-  const { pathname, searchParams } = req.nextUrl;
-
-  // Ignorar assets e rotas públicas
+function isPublic(pathname: string) {
+  if (PUBLIC.includes(pathname)) return true;
   if (
-    pathname.startsWith('/api/auth') ||
     pathname.startsWith('/_next') ||
-    pathname.startsWith('/favicon') ||
+    pathname.startsWith('/api/') ||
+    pathname.startsWith('/assets') ||
     pathname.startsWith('/images') ||
-    PUBLIC_FILE.test(pathname)
-  ) {
+    pathname === '/favicon.ico' ||
+    pathname.startsWith('/manifest') ||
+    pathname === '/sw.js'
+  ) return true;
+  return false;
+}
+
+export default async function middleware(req: NextRequest) {
+  const { pathname, search } = req.nextUrl;
+  const secret = process.env.NEXTAUTH_SECRET;
+
+  if (isPublic(pathname)) {
+    // Autenticado a abrir login/register → envia para home do role
+    if (pathname === '/login' || pathname === '/register') {
+      const token = await getToken({ req, secret });
+      const role = (token as any)?.role as string | undefined;
+      if (role) {
+        const dest = roleToHomePath(role);
+        if (dest !== pathname) {
+          const url = req.nextUrl.clone();
+          url.pathname = dest;
+          url.search = '';
+          return NextResponse.redirect(url);
+        }
+      }
+    }
     return NextResponse.next();
   }
 
-  // Ler JWT do NextAuth (tem de usar o MESMO NEXTAUTH_SECRET)
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-  const isAuth = !!token;
-
-  // 1) Bloquear /dashboard* para não autenticados
-  if (!isAuth && pathname.startsWith('/dashboard')) {
-    const url = new URL('/login', req.nextUrl.origin);
-    // manter para onde querias ir, para depois do login
-    url.searchParams.set('redirect', pathname + (req.nextUrl.search || ''));
-    return NextResponse.redirect(url);
+  // Rotas protegidas
+  const token = await getToken({ req, secret });
+  if (!token) {
+    const loginUrl = req.nextUrl.clone();
+    loginUrl.pathname = '/login';
+    loginUrl.search = `?next=${encodeURIComponent(pathname + (search ?? ''))}`;
+    return NextResponse.redirect(loginUrl);
   }
 
-  // 2) Mandar utilizadores autenticados para a dashboard se abrirem /login ou /register
-  if (isAuth && (pathname === '/login' || pathname.startsWith('/register'))) {
-    const redirectTo = searchParams.get('redirect') || '/dashboard';
-    return NextResponse.redirect(new URL(redirectTo, req.nextUrl.origin));
+  // Normalizar /dashboard raiz para a área do role
+  if (pathname === '/dashboard') {
+    const role = (token as any)?.role as string | undefined;
+    const dest = roleToHomePath(role);
+    if (dest && dest !== pathname) {
+      const url = req.nextUrl.clone();
+      url.pathname = dest;
+      url.search = search ?? '';
+      return NextResponse.redirect(url);
+    }
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/login', '/register'],
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|assets/|images/|manifest.*|sw\\.js|api/).*)',
+  ],
 };
