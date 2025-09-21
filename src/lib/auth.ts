@@ -16,14 +16,13 @@ function roleToApp(value?: AnyRole): 'ADMIN' | 'PT' | 'CLIENT' {
   if (r === 'PT' || r === 'TRAINER') return 'PT';
   return 'CLIENT';
 }
-
 function supabaseAnon() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
   return createSupabaseClient(url, anon, { auth: { persistSession: false } });
 }
 
-/** Tenta obter metadados (role/status/hash) das tabelas conhecidas */
+/** Lê utilizador nas tabelas locais e devolve meta + hash se existir */
 async function getLocalUserByEmail(email: string) {
   const sb = createServerClient();
 
@@ -51,22 +50,15 @@ async function getLocalUserByEmail(email: string) {
 
   if (!row) return null;
 
-  const role =
-    row.role ?? row.user_role ?? row.account_type ?? undefined;
-
+  const role = row.role ?? row.user_role ?? row.account_type ?? undefined;
   const statusRaw =
-    String(row.status ?? '')
-      .toUpperCase() ||
+    String(row.status ?? '').toUpperCase() ||
     (row.approved === false ? 'PENDING' : '') ||
     (row.is_active === false ? 'SUSPENDED' : '') ||
     'ACTIVE';
 
   const passwordHash: string | null =
-    row.password_hash ??
-    row.passwordHash ??
-    row.hash ??
-    row.password ??
-    null;
+    row.password_hash ?? row.passwordHash ?? row.hash ?? row.password ?? null;
 
   return {
     id: String(row.id),
@@ -94,7 +86,7 @@ export const authOptions: NextAuthOptions = {
         const password = String(credentials?.password ?? '');
         if (!email || !password) return null;
 
-        // 1) Tenta utilizador local (hash na BD)
+        // 1) Tenta autenticação local (bcrypt) se existir hash
         const local = await getLocalUserByEmail(email);
         if (local?.passwordHash) {
           try {
@@ -104,44 +96,36 @@ export const authOptions: NextAuthOptions = {
                 id: local.id,
                 name: local.name ?? undefined,
                 email: local.email,
-                // @ts-expect-error — anexamos role para usar nos callbacks
+                // @ts-expect-error: adicionamos role para callbacks
                 role: local.role,
               };
               return user;
             }
           } catch {
-            // se der erro no bcrypt, continuamos para o Supabase
+            // se bcrypt falhar, continua para Supabase
           }
         }
 
-        // 2) Fallback: Supabase Auth (para contas criadas via Supabase)
+        // 2) Fallback: Supabase Auth
         try {
           const sb = supabaseAnon();
-          const { data, error } = await sb.auth.signInWithPassword({
-            email,
-            password,
-          });
+          const { data, error } = await sb.auth.signInWithPassword({ email, password });
           if (!error && data?.user) {
-            // tenta completar com meta local (role/status) se existir; se não houver, CLIENT
             const meta = local ?? (await getLocalUserByEmail(email)) ?? undefined;
             const user: User = {
               id: data.user.id,
-              name:
-                data.user.user_metadata?.name ??
-                meta?.name ??
-                data.user.email ??
-                undefined,
+              name: data.user.user_metadata?.name ?? meta?.name ?? data.user.email ?? undefined,
               email: data.user.email ?? email,
-              // @ts-expect-error — role para callbacks
+              // @ts-expect-error: role para callbacks
               role: meta?.role ?? 'CLIENT',
             };
             return user;
           }
         } catch {
-          // ignorar — falhará como inválido
+          // ignore
         }
 
-        // 3) Nenhum método validou → credenciais inválidas
+        // 3) Nenhum método validou
         return null;
       },
     }),
@@ -158,8 +142,7 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         (session.user as any).id = (token as any).id ?? (session.user as any).id;
-        (session.user as any).role =
-          (token as any).role ?? (session.user as any).role;
+        (session.user as any).role = (token as any).role ?? (session.user as any).role;
       }
       return session;
     },
@@ -173,5 +156,5 @@ export const authOptions: NextAuthOptions = {
   },
 };
 
-// Alias usado noutros pontos do projeto
+// alias
 export const authConfig = authOptions;

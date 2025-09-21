@@ -11,8 +11,6 @@ export default async function DashboardIndex() {
     redirect(`/login?next=${encodeURIComponent('/dashboard')}`);
   }
 
-  const role = (sessionUser!.user as any)?.role as string | undefined;
-  const dest = roleToHomePath(role);
-
-  redirect(dest);
+  const role = (sessionUser.user as any)?.role as string | undefined;
+  redirect(roleToHomePath(role));
 }

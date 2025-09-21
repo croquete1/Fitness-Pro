@@ -1,52 +1,53 @@
 'use client';
 
 import * as React from 'react';
-import { Box, Stack, TextField, Button, Alert, Typography, CircularProgress } from '@mui/material';
+import Link from 'next/link';
+import {
+  Box, Paper, Stack, TextField, Button, Alert, Typography, CircularProgress
+} from '@mui/material';
+
+export const dynamic = 'force-dynamic';
 
 export default function ForgotPage() {
   const [email, setEmail] = React.useState('');
-  const [loading, setLoading] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
   const [ok, setOk] = React.useState<string | null>(null);
   const [err, setErr] = React.useState<string | null>(null);
 
-  const canSubmit = !loading && email.trim().length > 0;
-
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!canSubmit) return;
-    setOk(null); setErr(null); setLoading(true);
+    setBusy(true); setOk(null); setErr(null);
     try {
       const res = await fetch('/api/auth/forgot', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email }),
       });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setErr(data?.message || 'Não foi possível processar o pedido.');
-      } else {
-        setOk('Se o email existir, enviámos um link de recuperação.');
-        setEmail('');
-      }
+      if (!res.ok) throw new Error('failed');
+      setOk('Se o email existir, enviámos instruções para recuperar o acesso.');
     } catch {
-      setErr('Erro de rede. Tenta novamente.');
-    } finally { setLoading(false); }
+      setErr('Não foi possível enviar o email. Tenta novamente.');
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
-    <Box sx={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', p: 2 }}>
-      <Box component="form" onSubmit={onSubmit}
-        sx={{ width: '100%', maxWidth: 420, p: 3, borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
-        <Stack spacing={2}>
-          <Typography variant="h5" fontWeight={600}>Recuperar acesso</Typography>
-          <TextField label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required fullWidth />
-          <Button type="submit" variant="contained" disabled={!canSubmit}>
-            {loading ? <CircularProgress size={20} /> : 'Enviar link'}
-          </Button>
-          {ok && <Alert severity="success">{ok}</Alert>}
-          {err && <Alert severity="error">{err}</Alert>}
-        </Stack>
-      </Box>
+    <Box sx={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', p: 2, bgcolor: 'background.default' }}>
+      <Paper elevation={6} sx={{ width: '100%', maxWidth: 460, p: 3.5, borderRadius: 4 }}>
+        <form onSubmit={onSubmit}>
+          <Stack spacing={2.25}>
+            <Typography variant="h5" fontWeight={800} textAlign="center">Recuperar acesso</Typography>
+            <TextField label="Email *" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required fullWidth />
+            <Button type="submit" variant="contained" disabled={!email || busy}>
+              {busy ? <CircularProgress size={20} /> : 'Enviar'}
+            </Button>
+            {ok && <Alert severity="success">{ok}</Alert>}
+            {err && <Alert severity="error">{err}</Alert>}
+            <Button component={Link} href="/login" variant="text">Voltar ao login</Button>
+          </Stack>
+        </form>
+      </Paper>
     </Box>
   );
 }

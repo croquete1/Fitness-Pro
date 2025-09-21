@@ -1,11 +1,10 @@
-// src/app/login/reset/ResetClient.tsx
 'use client';
 
 import * as React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabaseBrowser';
 import {
-  Box, Stack, TextField, Button, Alert, Typography, CircularProgress,
+  Box, Stack, TextField, Button, Alert, Typography, CircularProgress, Paper
 } from '@mui/material';
 
 export default function ResetClient() {
@@ -44,29 +43,30 @@ export default function ResetClient() {
   }
 
   return (
-    <Box sx={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', p: 2 }}>
-      <Box component="form" onSubmit={onSubmit}
-        sx={{ width: '100%', maxWidth: 440, p: 3, borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
-        <Stack spacing={2}>
-          <Typography variant="h5" fontWeight={600}>Definir nova palavra-passe</Typography>
-          {!ready && !err && <Alert severity="info">A validar ligação…</Alert>}
-          {err && <Alert severity="error">{err}</Alert>}
-          <TextField
-            label="Nova palavra-passe"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            fullWidth
-            inputProps={{ minLength: 6 }}
-            disabled={!ready || !!err}
-          />
-          <Button type="submit" variant="contained" disabled={!ready || !!err || busy}>
-            {busy ? <CircularProgress size={20} /> : 'Guardar'}
-          </Button>
-          {ok && <Alert severity="success">{ok}</Alert>}
-        </Stack>
-      </Box>
+    <Box sx={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', p: 2, bgcolor: 'background.default' }}>
+      <Paper sx={{ width: '100%', maxWidth: 460, p: 3.5, borderRadius: 4 }}>
+        <Box component="form" onSubmit={onSubmit}>
+          <Stack spacing={2.25}>
+            <Typography variant="h5" fontWeight={800} textAlign="center">Definir nova palavra-passe</Typography>
+            {!ready && !err && <Alert severity="info">A validar ligação…</Alert>}
+            {err && <Alert severity="error">{err}</Alert>}
+            <TextField
+              label="Nova palavra-passe"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              fullWidth
+              inputProps={{ minLength: 6 }}
+              disabled={!ready || !!err}
+            />
+            <Button type="submit" variant="contained" disabled={!ready || !!err || busy}>
+              {busy ? <CircularProgress size={20} /> : 'Guardar'}
+            </Button>
+            {ok && <Alert severity="success">{ok}</Alert>}
+          </Stack>
+        </Box>
+      </Paper>
     </Box>
   );
 }

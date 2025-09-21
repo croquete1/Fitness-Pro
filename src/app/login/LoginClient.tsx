@@ -6,7 +6,7 @@ import { signIn, getSession } from 'next-auth/react';
 import Link from 'next/link';
 import {
   Box, Paper, Stack, TextField, Button, Alert, Typography,
-  CircularProgress, IconButton, InputAdornment
+  CircularProgress, IconButton, InputAdornment, Divider
 } from '@mui/material';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
@@ -56,16 +56,18 @@ export default function LoginClient() {
       display: 'grid',
       placeItems: 'center',
       p: 2,
-      bgcolor: 'background.default'
+      bgcolor: 'background.default',
+      backgroundImage:
+        'radial-gradient(1200px 600px at 50% -10%, rgba(255,255,255,0.06), transparent)'
     }}>
-      <Paper elevation={6}
+      <Paper elevation={8}
         sx={{
-          width: '100%', maxWidth: 460, p: 3, borderRadius: 3,
+          width: '100%', maxWidth: 460, p: 3.5, borderRadius: 4,
           bgcolor: 'background.paper'
         }}>
         <form onSubmit={onSubmit}>
-          <Stack spacing={2}>
-            <Typography variant="h6" fontWeight={700}>
+          <Stack spacing={2.25}>
+            <Typography variant="h5" fontWeight={800} textAlign="center">
               Iniciar sessão
             </Typography>
 
@@ -76,6 +78,7 @@ export default function LoginClient() {
               onChange={(e) => setEmail(e.target.value)}
               required
               fullWidth
+              autoFocus
             />
             <TextField
               label="Palavra-passe *"
@@ -96,18 +99,19 @@ export default function LoginClient() {
               }}
             />
 
-            <Button type="submit" variant="contained" disabled={!canSubmit}>
+            <Button type="submit" variant="contained" size="large" disabled={!canSubmit}>
               {loading ? <CircularProgress size={20} /> : 'Entrar'}
             </Button>
 
             {err && <Alert severity="error">{err}</Alert>}
 
+            <Divider flexItem />
             <Stack direction="row" justifyContent="space-between">
               <Button component={Link} href="/login/forgot" variant="text">Esqueceste-te da palavra-passe?</Button>
               <Button component={Link} href="/register" variant="text">Registar</Button>
             </Stack>
 
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" color="text.secondary" textAlign="center">
               Após o registo, a tua conta ficará pendente até aprovação por um administrador.
             </Typography>
           </Stack>

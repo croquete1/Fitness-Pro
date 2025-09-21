@@ -1,4 +1,3 @@
-// src/middleware.ts
 import { NextResponse, type NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 import { roleToHomePath } from '@/types/auth';
@@ -24,7 +23,6 @@ export default async function middleware(req: NextRequest) {
   const secret = process.env.NEXTAUTH_SECRET;
 
   if (isPublic(pathname)) {
-    // Autenticado a abrir login/register → envia para home do role
     if (pathname === '/login' || pathname === '/register') {
       const token = await getToken({ req, secret });
       const role = (token as any)?.role as string | undefined;
@@ -41,7 +39,6 @@ export default async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Rotas protegidas
   const token = await getToken({ req, secret });
   if (!token) {
     const loginUrl = req.nextUrl.clone();
@@ -50,10 +47,8 @@ export default async function middleware(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Normalizar /dashboard raiz para a área do role
   if (pathname === '/dashboard') {
-    const role = (token as any)?.role as string | undefined;
-    const dest = roleToHomePath(role);
+    const dest = roleToHomePath((token as any)?.role as string | undefined);
     if (dest && dest !== pathname) {
       const url = req.nextUrl.clone();
       url.pathname = dest;

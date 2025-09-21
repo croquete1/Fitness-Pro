@@ -7,16 +7,10 @@ import { roleToHomePath } from '@/types/auth';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
-  if (!session) {
-    redirect('/login?next=' + encodeURIComponent('/dashboard/admin'));
-  }
+  if (!session) redirect('/login?next=' + encodeURIComponent('/dashboard/admin'));
 
   const role = String((session.user as any)?.role ?? '').toUpperCase();
-
-  // Só ADMIN pode aceder a esta área
-  if (role !== 'ADMIN') {
-    redirect(roleToHomePath(role));
-  }
+  if (role !== 'ADMIN') redirect(roleToHomePath(role));
 
   return <>{children}</>;
 }
