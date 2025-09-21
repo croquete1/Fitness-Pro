@@ -2,39 +2,31 @@
 'use client';
 
 import * as React from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { signIn } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import { signIn, useSession } from 'next-auth/react';
 import Link from 'next/link';
 import {
-  Box, Paper, Stack, TextField, IconButton, InputAdornment, Button,
-  Typography, Divider, Alert, CircularProgress
+  Box, Paper, Stack, TextField, IconButton, InputAdornment, Button, Typography, Divider,
 } from '@mui/material';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import Visibility from '@mui/icons-material/Visibility';
 import Image from 'next/image';
 
 export default function LoginClient() {
-  const sp = useSearchParams();
   const router = useRouter();
-
+  const { status } = useSession(); // se já está autenticado, redireciona
   const [identifier, setIdentifier] = React.useState('');
   const [pw, setPw] = React.useState('');
   const [show, setShow] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [err, setErr] = React.useState<string | null>(null);
 
-  // Lê erros vindos do NextAuth (?error=...)
+  // Se o utilizador já estiver autenticado e cair no /login, manda para /dashboard
   React.useEffect(() => {
-    const qerr = sp.get('error');
-    if (!qerr) return;
-    if (qerr === 'PENDING_APPROVAL') {
-      setErr('A tua conta está pendente de aprovação por um administrador.');
-    } else if (qerr === 'CredentialsSignin') {
-      setErr('Credenciais inválidas.');
-    } else {
-      setErr('Não foi possível iniciar sessão.');
+    if (status === 'authenticated') {
+      router.replace('/dashboard');
     }
-  }, [sp]);
+  }, [status, router]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -43,36 +35,34 @@ export default function LoginClient() {
     setErr(null);
     setLoading(true);
 
-    // ⬇️ envia com a chave que o provider espera
+    // Usamos redirect:false mas navegamos manualmente após sucesso
     const res = await signIn('credentials', {
       redirect: false,
-      emailOrUsername: identifier.trim(),
+      identifier: identifier.trim(),
       password: pw,
+      callbackUrl: '/dashboard',
     });
 
     setLoading(false);
 
     if (res?.error) {
-      if (res.error === 'PENDING_APPROVAL') {
-        setErr('A tua conta está pendente de aprovação por um administrador.');
-      } else {
-        setErr('Credenciais inválidas.');
-      }
+      // Erro genérico: credenciais inválidas / conta não aprovada / bloqueada, etc.
+      setErr('Credenciais inválidas ou conta não autorizada.');
       return;
     }
 
-    // Se tudo OK, redireciona (podes trocar por um redirect por role)
-    router.replace('/dashboard');
+    // Navega para a URL devolvida pelo NextAuth (ou /dashboard por defeito)
+    const target = res?.url ?? '/dashboard';
+    router.replace(target);
+    // força refresh para que o App Router reidrate a sessão imediatamente
+    router.refresh();
   }
 
   return (
     <Box sx={{ minHeight: '100dvh', display: 'grid', gridTemplateColumns: { md: '1fr 1fr', xs: '1fr' } }}>
       {/* Hero à esquerda */}
-      <Box sx={{
-        display: { xs: 'none', md: 'block' },
-        position: 'relative',
-        background: 'linear-gradient(135deg,#5b7cfa 0%,#9359ff 100%)'
-      }}>
+      <Box sx={{ display: { xs: 'none', md: 'block' }, position: 'relative',
+        background: 'linear-gradient(135deg,#5b7cfa 0%,#9359ff 100%)' }}>
         <Box sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
           <Image src="/logo.png" alt="Fitness Pro" width={28} height={28} />
           <Typography fontWeight={800} color="#fff">Fitness Pro</Typography>
@@ -82,7 +72,9 @@ export default function LoginClient() {
           <Typography sx={{ mt: 1, opacity: 0.9, maxWidth: 380 }}>
             Acompanha planos, sessões e progresso — tudo num só lugar, rápido e simples.
           </Typography>
-          <Typography sx={{ mt: 6, fontSize: 12, opacity: 0.8 }}>© {new Date().getFullYear()} Fitness Pro</Typography>
+          <Typography sx={{ mt: 6, fontSize: 12, opacity: 0.8 }}>
+            © {new Date().getFullYear()} Fitness Pro
+          </Typography>
         </Box>
       </Box>
 
@@ -93,9 +85,9 @@ export default function LoginClient() {
             <Image src="/logo.png" alt="Fitness Pro" width={32} height={32} />
             <Typography variant="h6" fontWeight={900}>Fitness Pro</Typography>
           </Stack>
-          <Typography variant="caption" sx={{ opacity: 0.7, mb: 2, display: 'block' }}>Iniciar sessão</Typography>
-
-          {err && <Alert severity="error" sx={{ mb: 2 }}>{err}</Alert>}
+          <Typography variant="caption" sx={{ opacity: 0.7, mb: 2, display: 'block' }}>
+            Iniciar sessão
+          </Typography>
 
           <Box component="form" onSubmit={onSubmit}>
             <Stack spacing={1.5}>
@@ -105,7 +97,6 @@ export default function LoginClient() {
                 onChange={(e) => setIdentifier(e.target.value)}
                 inputProps={{ autoComplete: 'username' }}
                 fullWidth
-                autoFocus
               />
               <TextField
                 label="Palavra-passe"
@@ -117,21 +108,26 @@ export default function LoginClient() {
                 InputProps={{
                   endAdornment: (
                     <InputAdornment position="end">
-                      <IconButton onClick={() => setShow(v => !v)} aria-label="alternar visibilidade">
+                      <IconButton onClick={() => setShow((v) => !v)} aria-label="alternar visibilidade">
                         {show ? <VisibilityOff /> : <Visibility />}
                       </IconButton>
                     </InputAdornment>
-                  )
+                  ),
                 }}
               />
               <Button
                 type="submit"
                 variant="contained"
                 disabled={loading || !identifier.trim() || pw.length < 6}
-                startIcon={loading ? <CircularProgress size={16} /> : undefined}
               >
                 {loading ? 'A entrar…' : 'Entrar'}
               </Button>
+
+              {!!err && (
+                <Typography color="error" variant="body2" role="alert">
+                  {err}
+                </Typography>
+              )}
 
               <Stack direction="row" justifyContent="space-between">
                 <Link href="/login/forgot">Esqueceste-te da palavra-passe?</Link>
@@ -142,7 +138,7 @@ export default function LoginClient() {
 
           <Divider sx={{ my: 2 }} />
           <Typography variant="caption" sx={{ opacity: 0.7 }}>
-            Após o registo, a tua conta ficará pendente até aprovação por um administrador.
+            Após o registo, a tua conta fica pendente até aprovação por um administrador.
           </Typography>
         </Paper>
       </Box>
