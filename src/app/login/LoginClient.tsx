@@ -27,21 +27,28 @@ function mapError(code?: string | null) {
   }
 }
 
+function sanitizeRedirect(v?: string | null) {
+  if (!v) return '/dashboard';
+  try {
+    const decoded = decodeURIComponent(v);
+    return decoded.startsWith('/') ? decoded : '/dashboard';
+  } catch {
+    return '/dashboard';
+  }
+}
+
 export default function LoginClient() {
   const router = useRouter();
   const sp = useSearchParams();
 
-  // ❗️NÃO desestruturar diretamente — pode ser undefined se não houver Provider.
+  // ⚠️ não desestruturar diretamente — pode ser undefined se não houver Provider.
   const sessionCtx = useSession?.();
-  const authStatus: 'loading' | 'authenticated' | 'unauthenticated' =
+  const status: 'loading' | 'authenticated' | 'unauthenticated' =
     (sessionCtx && sessionCtx.status) || 'unauthenticated';
 
-  // Sanitização do redirect (previne open-redirect)
-  const rawRedirect =
-    sp?.get('redirect') ??
-    sp?.get('callbackUrl') ??
-    '/dashboard';
-  const redirectTo = rawRedirect.startsWith('/') ? rawRedirect : '/dashboard';
+  const redirectTo = sanitizeRedirect(
+    sp?.get('redirect') ?? sp?.get('callbackUrl') ?? '/dashboard'
+  );
 
   const [identifier, setIdentifier] = React.useState('');
   const [pw, setPw] = React.useState('');
@@ -49,19 +56,11 @@ export default function LoginClient() {
   const [loading, setLoading] = React.useState(false);
   const [err, setErr] = React.useState<string | null>(null);
 
-  // Mostra erros que venham por query string (?error=…)
+  // Mostrar erros que venham via query (?error=…)
   React.useEffect(() => {
     const urlError = sp?.get('error');
     if (urlError) setErr(mapError(urlError));
   }, [sp]);
-
-  // Se já está autenticado, envia para o destino seguro
-  React.useEffect(() => {
-    if (authStatus === 'authenticated') {
-      router.replace(redirectTo);
-      router.refresh();
-    }
-  }, [authStatus, redirectTo, router]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -75,7 +74,7 @@ export default function LoginClient() {
         redirect: false,
         identifier: identifier.trim(),
         password: pw,
-        callbackUrl: redirectTo, // ✅ respeita o redirect sanitizado
+        callbackUrl: redirectTo,
       });
 
       setLoading(false);
@@ -85,6 +84,7 @@ export default function LoginClient() {
         return;
       }
 
+      // ✅ Só redireciona aqui, imediatamente após signIn OK
       router.replace(res?.url ?? redirectTo);
       router.refresh();
     } catch {
@@ -127,52 +127,69 @@ export default function LoginClient() {
             Iniciar sessão
           </Typography>
 
-          <Box component="form" onSubmit={onSubmit}>
+          {/* Se já estiver autenticado, NÃO redireciona automaticamente — evita loop */}
+          {status === 'authenticated' ? (
             <Stack spacing={1.5}>
-              <TextField
-                label="Email ou nome de utilizador"
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-                inputProps={{ autoComplete: 'username' }}
-                fullWidth
-              />
-              <TextField
-                label="Palavra-passe"
-                type={show ? 'text' : 'password'}
-                value={pw}
-                onChange={(e) => setPw(e.target.value)}
-                inputProps={{ minLength: 6, autoComplete: 'current-password' }}
-                fullWidth
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton onClick={() => setShow((v) => !v)} aria-label="alternar visibilidade">
-                        {show ? <VisibilityOff /> : <Visibility />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-              />
-              <Button
-                type="submit"
-                variant="contained"
-                disabled={loading || !identifier.trim() || pw.length < 6}
-              >
-                {loading ? 'A entrar…' : 'Entrar'}
+              <Typography sx={{ mb: 1 }}>
+                Já tens sessão iniciada.
+              </Typography>
+              <Button onClick={() => { router.replace(redirectTo); router.refresh(); }} variant="contained">
+                Ir para a dashboard
               </Button>
-
-              {!!err && (
-                <Typography color="error" variant="body2" role="alert">
-                  {err}
-                </Typography>
-              )}
-
+              <Divider sx={{ my: 1 }} />
               <Stack direction="row" justifyContent="space-between">
                 <Link href="/login/forgot">Esqueceste-te da palavra-passe?</Link>
                 <Link href="/register">Criar conta</Link>
               </Stack>
             </Stack>
-          </Box>
+          ) : (
+            <Box component="form" onSubmit={onSubmit}>
+              <Stack spacing={1.5}>
+                <TextField
+                  label="Email ou nome de utilizador"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  inputProps={{ autoComplete: 'username' }}
+                  fullWidth
+                />
+                <TextField
+                  label="Palavra-passe"
+                  type={show ? 'text' : 'password'}
+                  value={pw}
+                  onChange={(e) => setPw(e.target.value)}
+                  inputProps={{ minLength: 6, autoComplete: 'current-password' }}
+                  fullWidth
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton onClick={() => setShow((v) => !v)} aria-label="alternar visibilidade">
+                          {show ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+                <Button
+                  type="submit"
+                  variant="contained"
+                  disabled={loading || !identifier.trim() || pw.length < 6}
+                >
+                  {loading ? 'A entrar…' : 'Entrar'}
+                </Button>
+
+                {!!err && (
+                  <Typography color="error" variant="body2" role="alert">
+                    {err}
+                  </Typography>
+                )}
+
+                <Stack direction="row" justifyContent="space-between">
+                  <Link href="/login/forgot">Esqueceste-te da palavra-passe?</Link>
+                  <Link href="/register">Criar conta</Link>
+                </Stack>
+              </Stack>
+            </Box>
+          )}
 
           <Divider sx={{ my: 2 }} />
           <Typography variant="caption" sx={{ opacity: 0.7 }}>
