@@ -3,52 +3,19 @@
 
 import * as React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { signIn, useSession } from 'next-auth/react';
+import { signIn } from 'next-auth/react';
 import Link from 'next/link';
 import {
-  Box, Paper, Stack, TextField, IconButton, InputAdornment, Button, Typography, Divider, CircularProgress,
+  Box, Paper, Stack, TextField, IconButton, InputAdornment, Button, Typography, Divider,
 } from '@mui/material';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import Visibility from '@mui/icons-material/Visibility';
 import Image from 'next/image';
 
-function mapError(code?: string | null) {
-  switch (code) {
-    case 'APPROVAL_REQUIRED':
-      return 'A tua conta ainda não foi aprovada por um administrador.';
-    case 'ACCOUNT_BLOCKED':
-      return 'A tua conta está bloqueada. Contacta o suporte.';
-    case 'CredentialsSignin':
-      return 'Credenciais inválidas.';
-    case 'AccessDenied':
-      return 'Acesso negado.';
-    default:
-      return 'Não foi possível iniciar sessão. Tenta novamente.';
-  }
-}
-
-function sanitizeRedirect(v?: string | null) {
-  if (!v) return '/dashboard';
-  try {
-    const decoded = decodeURIComponent(v);
-    return decoded.startsWith('/') ? decoded : '/dashboard';
-  } catch {
-    return '/dashboard';
-  }
-}
-
 export default function LoginClient() {
   const router = useRouter();
-  const sp = useSearchParams();
-
-  // ⚠️ pode ser undefined se não houver Provider
-  const sessionCtx = useSession?.();
-  const status: 'loading' | 'authenticated' | 'unauthenticated' =
-    (sessionCtx && sessionCtx.status) || 'unauthenticated';
-
-  const redirectTo = sanitizeRedirect(
-    sp?.get('redirect') ?? sp?.get('callbackUrl') ?? '/dashboard'
-  );
+  const search = useSearchParams();
+  const redirectTo = search.get('redirect') || '/dashboard';
 
   const [identifier, setIdentifier] = React.useState('');
   const [pw, setPw] = React.useState('');
@@ -56,63 +23,36 @@ export default function LoginClient() {
   const [loading, setLoading] = React.useState(false);
   const [err, setErr] = React.useState<string | null>(null);
 
-  // anti-loop: ao autenticar tentamos 1x redirecionar; se passado 1.2s ainda estamos no /login, mostramos CTA
-  const [autoTried, setAutoTried] = React.useState(false);
-  const [stuck, setStuck] = React.useState(false);
-
-  // Erro que venha via query (?error=…)
-  React.useEffect(() => {
-    const urlError = sp?.get('error');
-    if (urlError) setErr(mapError(urlError));
-  }, [sp]);
-
-  // Redirect automático quando já autenticado (apenas 1 tentativa)
-  React.useEffect(() => {
-    if (status === 'authenticated' && !autoTried) {
-      setAutoTried(true);
-      router.replace(redirectTo);
-      router.refresh();
-
-      const t = setTimeout(() => {
-        if (typeof window !== 'undefined' && window.location.pathname.startsWith('/login')) {
-          setStuck(true); // o servidor voltou a mandar-nos para /login → evita loop
-        }
-      }, 1200);
-      return () => clearTimeout(t);
-    }
-  }, [status, autoTried, redirectTo, router]);
-
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!identifier.trim() || pw.length < 6 || loading) return;
+    if (!identifier.trim() || pw.length < 6) return;
 
     setErr(null);
     setLoading(true);
 
-    try {
-      const res = await signIn('credentials', {
-        redirect: false,
-        identifier: identifier.trim(),
-        password: pw,
-        callbackUrl: redirectTo,
-      });
+    const res = await signIn('credentials', {
+      redirect: false,
+      identifier: identifier.trim(),
+      password: pw,
+      callbackUrl: redirectTo,
+    });
 
-      setLoading(false);
+    setLoading(false);
 
-      if (res?.error) {
-        setErr(mapError(res.error));
-        return;
+    if (!res || res.error) {
+      // mensagens úteis se vierem do authorize/signIn
+      if (res?.error === 'APPROVAL_REQUIRED') {
+        setErr('A tua conta ainda não foi aprovada por um administrador.');
+      } else if (res?.error === 'ACCOUNT_BLOCKED') {
+        setErr('A tua conta está bloqueada. Contacta o suporte.');
+      } else {
+        setErr('Credenciais inválidas ou conta não autorizada.');
       }
-
-      // ✅ redirect imediato após login com sucesso
-      setAutoTried(true); // evita efeito voltar a correr
-      setStuck(false);
-      router.replace(res?.url ?? redirectTo);
-      router.refresh();
-    } catch {
-      setLoading(false);
-      setErr('Erro de rede. Verifica a tua ligação e tenta novamente.');
+      return;
     }
+
+    // ir para a rota destino (ou /dashboard)
+    router.replace(res.url ?? redirectTo);
   }
 
   return (
@@ -128,7 +68,7 @@ export default function LoginClient() {
           <Typography fontWeight={800} color="#fff">Fitness Pro</Typography>
         </Box>
         <Box sx={{ position: 'absolute', inset: 0, display: 'grid', alignContent: 'end', p: 5, color: '#fff' }}>
-          <Typography variant="h4" fontWeight={900}>Treina melhor.<br />Vive melhor.</Typography>
+          <Typography variant="h4" fontWeight={900}>Treina melhor.<br/>Vive melhor.</Typography>
           <Typography sx={{ mt: 1, opacity: 0.9, maxWidth: 380 }}>
             Acompanha planos, sessões e progresso — tudo num só lugar, rápido e simples.
           </Typography>
@@ -149,74 +89,52 @@ export default function LoginClient() {
             Iniciar sessão
           </Typography>
 
-          {status === 'authenticated' && !stuck ? (
-            <Stack spacing={1.5} alignItems="center">
-              <Typography>A redirecionar para a tua dashboard…</Typography>
-              <CircularProgress size={22} />
-              <Button variant="text" onClick={() => { router.replace(redirectTo); router.refresh(); }}>
-                Ir agora
-              </Button>
-            </Stack>
-          ) : status === 'authenticated' && stuck ? (
+          <Box component="form" onSubmit={onSubmit}>
             <Stack spacing={1.5}>
-              <Typography>Já tens sessão iniciada.</Typography>
-              <Button onClick={() => { router.replace(redirectTo); router.refresh(); }} variant="contained">
-                Ir para a dashboard
+              <TextField
+                label="Email ou nome de utilizador"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                inputProps={{ autoComplete: 'username' }}
+                fullWidth
+              />
+              <TextField
+                label="Palavra-passe"
+                type={show ? 'text' : 'password'}
+                value={pw}
+                onChange={(e) => setPw(e.target.value)}
+                inputProps={{ minLength: 6, autoComplete: 'current-password' }}
+                fullWidth
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton onClick={() => setShow((v) => !v)} aria-label="alternar visibilidade">
+                        {show ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              <Button
+                type="submit"
+                variant="contained"
+                disabled={loading || !identifier.trim() || pw.length < 6}
+              >
+                {loading ? 'A entrar…' : 'Entrar'}
               </Button>
-              <Divider sx={{ my: 1 }} />
+
+              {!!err && (
+                <Typography color="error" variant="body2" role="alert">
+                  {err}
+                </Typography>
+              )}
+
               <Stack direction="row" justifyContent="space-between">
                 <Link href="/login/forgot">Esqueceste-te da palavra-passe?</Link>
                 <Link href="/register">Criar conta</Link>
               </Stack>
             </Stack>
-          ) : (
-            <Box component="form" onSubmit={onSubmit}>
-              <Stack spacing={1.5}>
-                <TextField
-                  label="Email ou nome de utilizador"
-                  value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
-                  inputProps={{ autoComplete: 'username' }}
-                  fullWidth
-                />
-                <TextField
-                  label="Palavra-passe"
-                  type={show ? 'text' : 'password'}
-                  value={pw}
-                  onChange={(e) => setPw(e.target.value)}
-                  inputProps={{ minLength: 6, autoComplete: 'current-password' }}
-                  fullWidth
-                  InputProps={{
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton onClick={() => setShow((v) => !v)} aria-label="alternar visibilidade">
-                          {show ? <VisibilityOff /> : <Visibility />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-                <Button
-                  type="submit"
-                  variant="contained"
-                  disabled={loading || !identifier.trim() || pw.length < 6}
-                >
-                  {loading ? 'A entrar…' : 'Entrar'}
-                </Button>
-
-                {!!err && (
-                  <Typography color="error" variant="body2" role="alert">
-                    {err}
-                  </Typography>
-                )}
-
-                <Stack direction="row" justifyContent="space-between">
-                  <Link href="/login/forgot">Esqueceste-te da palavra-passe?</Link>
-                  <Link href="/register">Criar conta</Link>
-                </Stack>
-              </Stack>
-            </Box>
-          )}
+          </Box>
 
           <Divider sx={{ my: 2 }} />
           <Typography variant="caption" sx={{ opacity: 0.7 }}>
