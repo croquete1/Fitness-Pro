@@ -27,7 +27,7 @@ export default function ForgotPage() {
     setOk(null); setErr(null);
     const res = schema.safeParse({ email });
     if (!res.success) {
-      setFieldErr(res.error.errors[0]?.message);
+      setFieldErr(res.error.issues[0]?.message); // ✅ Zod usa `issues`
       return;
     }
     setBusy(true);
@@ -79,7 +79,7 @@ export default function ForgotPage() {
               onChange={(e) => setEmail(e.target.value)}
               onBlur={(e) => {
                 const r = schema.safeParse({ email: e.target.value });
-                setFieldErr(r.success ? undefined : r.error.errors[0]?.message);
+                setFieldErr(r.success ? undefined : r.error.issues[0]?.message); // ✅
               }}
               required
               fullWidth

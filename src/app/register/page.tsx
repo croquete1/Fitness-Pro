@@ -28,7 +28,7 @@ export default function RegisterPage() {
   const validateField = (key: 'name' | 'email', value: string) => {
     const partial = schema.pick({ [key]: true } as any);
     const res = partial.safeParse({ [key]: value } as any);
-    setFieldErr((prev) => ({ ...prev, [key]: res.success ? undefined : res.error.errors[0]?.message }));
+    setFieldErr((prev) => ({ ...prev, [key]: res.success ? undefined : res.error.issues[0]?.message })); // ✅
     return res.success;
   };
 

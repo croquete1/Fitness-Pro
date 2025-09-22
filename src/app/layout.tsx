@@ -1,11 +1,43 @@
 // src/app/layout.tsx
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import AppProviders from '@/components/providers/AppProviders';
 
 export const metadata: Metadata = {
-  title: 'Fitness Pro',
+  title: {
+    default: 'Fitness Pro',
+    template: '%s · Fitness Pro',
+  },
   description: 'Gestão de treino e progresso',
+  applicationName: 'Fitness Pro',
+  icons: {
+    icon: '/logo.png',
+    apple: '/logo.png',
+    shortcut: '/logo.png',
+  },
+  openGraph: {
+    type: 'website',
+    title: 'Fitness Pro',
+    siteName: 'Fitness Pro',
+    description: 'Gestão de treino e progresso',
+    images: ['/logo.png'],
+    locale: 'pt_PT',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Fitness Pro',
+    description: 'Gestão de treino e progresso',
+    images: ['/logo.png'],
+  },
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#0b0b0b' },
+  ],
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

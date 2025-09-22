@@ -36,7 +36,6 @@ export default function LoginClient() {
   const [err, setErr] = React.useState<string | null>(null);
   const [fieldErr, setFieldErr] = React.useState<{ email?: string; password?: string }>({});
 
-  // Prefill email
   React.useEffect(() => {
     try { const last = localStorage.getItem('fp:lastEmail'); if (last) setEmail(last); } catch {}
   }, []);
@@ -45,26 +44,22 @@ export default function LoginClient() {
   }, [email]);
 
   const validateField = (key: 'email' | 'password', value: string) => {
-    const partial =
-      key === 'email'
-        ? loginSchema.pick({ email: true })
-        : loginSchema.pick({ password: true });
+    const partial = key === 'email' ? loginSchema.pick({ email: true }) : loginSchema.pick({ password: true });
     const res = partial.safeParse({ [key]: value } as any);
-    setFieldErr((prev) => ({ ...prev, [key]: res.success ? undefined : res.error.errors[0]?.message }));
+    setFieldErr((prev) => ({ ...prev, [key]: res.success ? undefined : res.error.issues[0]?.message })); // ✅
     return res.success;
   };
 
-  const isFormValid =
-    loginSchema.safeParse({ email, password: pw }).success && !loading;
+  const isFormValid = loginSchema.safeParse({ email, password: pw }).success && !loading;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
 
-    const valid = loginSchema.safeParse({ email, password: pw });
-    if (!valid.success) {
+    const parsed = loginSchema.safeParse({ email, password: pw });
+    if (!parsed.success) {
       const next: any = {};
-      for (const issue of valid.error.issues) next[issue.path[0] as string] = issue.message;
+      for (const issue of parsed.error.issues) next[issue.path[0] as string] = issue.message;
       setFieldErr(next);
       return;
     }
