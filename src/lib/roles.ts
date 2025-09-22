@@ -4,58 +4,66 @@
 export type DbRole = 'ADMIN' | 'TRAINER' | 'CLIENT';
 export type AppRole = 'ADMIN' | 'PT' | 'CLIENT';
 
-// Aliases → role canónica da App
-const ROLE_ALIASES: Record<string, AppRole> = {
+export const APP_ROLES = ['ADMIN', 'PT', 'CLIENT'] as const;
+export const DB_ROLES  = ['ADMIN', 'TRAINER', 'CLIENT'] as const;
+
+// Aliases (sempre em MAIÚSCULAS) → role canónica da App
+// Mantém compatibilidade com dados antigos/fuentes externas.
+const UPPER_ALIASES: Record<string, AppRole> = {
   // Admin
   ADMIN: 'ADMIN',
-  Admin: 'ADMIN',
-  admin: 'ADMIN',
-
   // Trainer/PT
   TRAINER: 'PT',
-  Trainer: 'PT',
-  trainer: 'PT',
   PT: 'PT',
-  Pt: 'PT',
-  pt: 'PT',
-
   // Client
   CLIENT: 'CLIENT',
-  Client: 'CLIENT',
-  client: 'CLIENT',
+  USER: 'CLIENT', // compat com seeds/providers que usam "USER"
 };
 
-// Normaliza para AppRole ('TRAINER' → 'PT', etc.)
+/**
+ * Normaliza para AppRole ('TRAINER' → 'PT', 'USER' → 'CLIENT', etc.).
+ * @returns AppRole ou null se não reconhecido
+ */
 export function toAppRole(input: unknown): AppRole | null {
   if (input == null) return null;
-  const raw = String(input).trim();
-  const upper = raw.toUpperCase();
-  return ROLE_ALIASES[upper] ?? ROLE_ALIASES[raw] ?? null;
+  const key = String(input).trim().toUpperCase();
+  return UPPER_ALIASES[key] ?? null;
 }
 
-// Compatibilidade com código antigo
+// Compat com código antigo
 export const normalizeRole = toAppRole;
 
-// Conversões DB <-> App
+/**
+ * Versão "estrita": devolve o AppRole ou lança erro se inválido.
+ * Útil em camadas públicas (API routes, server actions) para falhar cedo.
+ */
+export function assertAppRole(input: unknown, message?: string): AppRole {
+  const role = toAppRole(input);
+  if (role) return role;
+  throw new Error(message ?? `Invalid role "${String(input)}"`);
+}
+
+/**
+ * Conversão DB → App
+ */
 export function dbRoleToAppRole(input: DbRole | string | null | undefined): AppRole | null {
-  if (input == null) return null;
-  const v = String(input).trim().toUpperCase();
-  if (v === 'ADMIN') return 'ADMIN';
-  if (v === 'CLIENT') return 'CLIENT';
-  if (v === 'TRAINER' || v === 'PT') return 'PT';
   return toAppRole(input);
 }
 
+/**
+ * Conversão App → DB
+ * 'PT' na App corresponde a 'TRAINER' na BD.
+ */
 export function appRoleToDbRole(input: AppRole | string | null | undefined): DbRole | null {
   if (input == null) return null;
-  const v = String(input).trim().toUpperCase();
-  if (v === 'ADMIN') return 'ADMIN';
-  if (v === 'CLIENT') return 'CLIENT';
-  if (v === 'PT' || v === 'TRAINER') return 'TRAINER';
-  return null;
+  const app = toAppRole(input);
+  if (!app) return null;
+  if (app === 'ADMIN') return 'ADMIN';
+  if (app === 'CLIENT') return 'CLIENT';
+  return 'TRAINER'; // app 'PT'
 }
 
-// Type guards / helpers
+// Type helpers
 export const isAdmin   = (r: unknown) => toAppRole(r) === 'ADMIN';
 export const isPT      = (r: unknown) => toAppRole(r) === 'PT';
 export const isTrainer = isPT; // alias para compatibilidade

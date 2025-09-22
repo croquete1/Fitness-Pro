@@ -3,7 +3,11 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import AppProviders from '@/components/providers/AppProviders';
 
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, '') || 'http://localhost:3000';
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
     default: 'Fitness Pro',
     template: '%s · Fitness Pro',
@@ -20,8 +24,9 @@ export const metadata: Metadata = {
     title: 'Fitness Pro',
     siteName: 'Fitness Pro',
     description: 'Gestão de treino e progresso',
-    images: ['/logo.png'],
+    images: ['/logo.png'], // será resolvido com metadataBase
     locale: 'pt_PT',
+    url: SITE_URL,
   },
   twitter: {
     card: 'summary',
@@ -29,15 +34,15 @@ export const metadata: Metadata = {
     description: 'Gestão de treino e progresso',
     images: ['/logo.png'],
   },
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#0b0b0b' },
-  ],
 };
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#0b0b0b' },
+  ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
