@@ -1,62 +1,96 @@
-// src/components/dashboard/KpiCard.tsx
 'use client';
+
 import * as React from 'react';
+import Paper from '@mui/material/Paper';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import Tooltip from '@mui/material/Tooltip';
+import Skeleton from '@mui/material/Skeleton';
 
-type Variant = 'primary'|'success'|'warning'|'danger'|'info'|'neutral'|'accent';
+type Variant = 'primary' | 'accent' | 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
-export type KpiCardProps = {
-  label: string;
-  value: number | string;
-  icon?: React.ReactNode;
-  href?: string;
-  footer?: React.ReactNode;
-  variant?: Variant;
-  /** alias retro-compatível */
-  tone?: Variant;
-  /** opcional – para skeletons */
-  loading?: boolean;
-  /** métricas diferenciais (opcional) */
-  delta?: { value: number; suffix?: string };
-  hint?: string;
+const bgByVariant: Record<Variant, string> = {
+  primary: 'linear-gradient(135deg, rgba(59,130,246,.16), rgba(59,130,246,.06))',
+  accent:  'linear-gradient(135deg, rgba(139,92,246,.16), rgba(139,92,246,.06))',
+  success: 'linear-gradient(135deg, rgba(34,197,94,.16), rgba(34,197,94,.06))',
+  warning: 'linear-gradient(135deg, rgba(234,179,8,.18), rgba(234,179,8,.08))',
+  danger:  'linear-gradient(135deg, rgba(239,68,68,.16), rgba(239,68,68,.06))',
+  info:    'linear-gradient(135deg, rgba(2,132,199,.16), rgba(2,132,199,.06))',
+  neutral: 'linear-gradient(135deg, rgba(148,163,184,.16), rgba(148,163,184,.06))', // slate
 };
 
-const variantToClass: Record<Variant,string> = {
-  primary: 'bg-gradient-to-br from-blue-600/10 via-blue-500/10 to-blue-400/10 ring-1 ring-blue-500/20',
-  success: 'bg-gradient-to-br from-emerald-600/10 via-emerald-500/10 to-emerald-400/10 ring-1 ring-emerald-500/20',
-  warning: 'bg-gradient-to-br from-amber-600/10 via-amber-500/10 to-amber-400/10 ring-1 ring-amber-500/20',
-  danger:  'bg-gradient-to-br from-rose-600/10 via-rose-500/10 to-rose-400/10 ring-1 ring-rose-500/20',
-  info:    'bg-gradient-to-br from-cyan-600/10 via-cyan-500/10 to-cyan-400/10 ring-1 ring-cyan-500/20',
-  neutral: 'bg-gradient-to-br from-slate-600/10 via-slate-500/10 to-slate-400/10 ring-1 ring-slate-500/20',
-  accent:  'bg-gradient-to-br from-violet-600/10 via-violet-500/10 to-violet-400/10 ring-1 ring-violet-500/20',
-};
+type Trend = 'up' | 'down' | 'flat';
 
 export default function KpiCard({
-  label, value, icon, footer, variant='neutral', tone, loading=false, delta, hint
-}: KpiCardProps) {
-  const v = tone ?? variant;
-  const isUp = typeof delta?.value === 'number' ? delta.value >= 0 : undefined;
+  label,
+  value,
+  icon,
+  footer,
+  variant = 'primary',
+  tooltip,
+  loading = false,
+  trend,           // 'up' | 'down' | 'flat'
+  trendValue,      // e.g. "+12%" ou "3"
+  trendLabel,      // e.g. "vs. semana anterior"
+}: {
+  label: string;
+  value?: number | string;
+  icon?: React.ReactNode;
+  footer?: React.ReactNode;
+  variant?: Variant;
+  tooltip?: React.ReactNode;
+  loading?: boolean;
+  trend?: Trend;
+  trendValue?: string | number;
+  trendLabel?: string;
+}) {
+  const trendColor =
+    trend === 'up' ? 'success.main' : trend === 'down' ? 'error.main' : 'text.secondary';
+  const trendSymbol = trend === 'up' ? '▲' : trend === 'down' ? '▼' : '➜';
 
-  return (
-    <div className={`rounded-2xl p-4 shadow-sm ${variantToClass[v]} backdrop-blur-sm`} style={{ minHeight: 110 }}>
-      <div className="text-xs opacity-80 flex items-center gap-2">
-        {icon && <span aria-hidden>{icon}</span>}
-        <span>{label}</span>
-      </div>
+  const content = (
+    <Paper
+      variant="outlined"
+      sx={{
+        p: 2,
+        borderRadius: 3,
+        backgroundImage: bgByVariant[variant],
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        {icon && <Box component="span" sx={{ fontSize: 22, lineHeight: 1 }}>{icon}</Box>}
+        <Typography variant="body2" sx={{ opacity: 0.8, fontWeight: 700 }}>
+          {label}
+        </Typography>
+      </Box>
 
-      <div className="mt-1 text-2xl font-extrabold tracking-tight">
-        {loading ? <span className="inline-block animate-pulse w-14 h-6 rounded bg-slate-300/60 dark:bg-slate-700/60" /> : value}
-      </div>
+      <Box sx={{ mt: .5 }}>
+        {loading ? (
+          <Skeleton variant="text" width={64} height={34} />
+        ) : (
+          <Typography variant="h5" sx={{ fontWeight: 800 }}>
+            {value ?? '—'}
+          </Typography>
+        )}
+      </Box>
 
-      <div className="mt-1 flex items-center justify-between">
-        {typeof isUp === 'boolean' ? (
-          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-            isUp ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-600'
-          }`}>
-            {isUp ? '▲' : '▼'} {Math.abs(delta!.value).toFixed(1)}{delta?.suffix ?? ''}
-          </span>
-        ) : <span className="text-xs opacity-70">—</span>}
-        {hint ? <span className="text-[11px] opacity-60">{hint}</span> : (footer ?? <span />)}
-      </div>
-    </div>
+      {/* Linha de tendência (opcional) */}
+      {trend && trendValue != null && (
+        <Box sx={{ mt: .25, display: 'flex', alignItems: 'baseline', gap: .75 }}>
+          <Typography variant="body2" sx={{ color: trendColor, fontWeight: 700, lineHeight: 1 }}>
+            {trendSymbol} {trendValue}
+          </Typography>
+          {trendLabel && (
+            <Typography variant="caption" sx={{ opacity: 0.7 }}>
+              {trendLabel}
+            </Typography>
+          )}
+        </Box>
+      )}
+
+      {footer && <Box sx={{ mt: .75 }}>{footer}</Box>}
+    </Paper>
   );
+
+  return tooltip ? <Tooltip title={tooltip}>{content}</Tooltip> : content;
 }

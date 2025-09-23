@@ -8,8 +8,8 @@ import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
 import Divider from '@mui/material/Divider';
 import CloseIcon from '@mui/icons-material/Close';
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import KeyboardDoubleArrowLeftRoundedIcon from '@mui/icons-material/KeyboardDoubleArrowLeftRounded';
+import KeyboardDoubleArrowRightRoundedIcon from '@mui/icons-material/KeyboardDoubleArrowRightRounded';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSidebar } from './SidebarProvider';
 
@@ -17,11 +17,8 @@ export type NavItem = {
   href: string;
   label: string;
   icon?: React.ReactNode;
-  /** Quando definido, a “atividade” usa este prefixo em vez do href */
   activePrefix?: string;
-  /** Igualdade exata (sem startsWith) */
   exact?: boolean;
-  /** Força ativo externamente (fallback) */
   active?: boolean;
 };
 
@@ -57,14 +54,12 @@ export default function SidebarBase({
   const isMobile = useIsMobile();
   const computedWidth = collapsed && !peek ? collapsedWidth : width;
 
-  // Variantes framer para conteúdo (texto) entrar/sair
   const textVariants = {
     initial: { opacity: 0, x: -6 },
     enter: { opacity: 1, x: 0, transition: { duration: 0.15 } },
     exit: { opacity: 0, x: -6, transition: { duration: 0.12 } },
   };
 
-  // Backdrop do drawer em mobile
   const Backdrop = () =>
     isMobile ? (
       <AnimatePresence>
@@ -101,14 +96,7 @@ export default function SidebarBase({
           x: isMobile ? (mobileOpen ? 0 : -computedWidth - 8) : 0,
         }}
         transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-        style={{
-          position: isMobile ? 'fixed' : 'relative',
-          left: 0,
-          top: 0,
-          bottom: 0,
-          zIndex: 1210,
-          overflow: 'hidden',
-        }}
+        style={{ position: isMobile ? 'fixed' : 'relative', left: 0, top: 0, bottom: 0, zIndex: 1210, overflow: 'hidden' }}
       >
         <Paper
           square
@@ -123,34 +111,20 @@ export default function SidebarBase({
           }}
         >
           {/* Cabeçalho */}
-          <div
-            className="flex items-center justify-between px-3 py-3"
-            style={{ minHeight: 56 }}
-          >
+          <div className="flex items-center justify-between px-3 py-3" style={{ minHeight: 56 }}>
             <div className="min-w-0">
               <AnimatePresence mode="popLayout">
                 {(!collapsed || peek) && header && (
-                  <motion.div
-                    key="header"
-                    variants={textVariants}
-                    initial="initial"
-                    animate="enter"
-                    exit="exit"
-                  >
+                  <motion.div key="header" variants={textVariants} initial="initial" animate="enter" exit="exit">
                     {header}
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
 
-            {/* Botão fechar em mobile / colapsar em desktop */}
+            {/* Fechar em mobile / colapsar em desktop */}
             {isMobile ? (
-              <IconButton
-                size="small"
-                aria-label="Fechar menu"
-                onClick={closeMobile}
-                sx={{ ml: 1 }}
-              >
+              <IconButton size="small" aria-label="Fechar menu" onClick={closeMobile} sx={{ ml: 1 }}>
                 <CloseIcon fontSize="small" />
               </IconButton>
             ) : (
@@ -161,9 +135,9 @@ export default function SidebarBase({
                 sx={{ ml: 1 }}
               >
                 {collapsed ? (
-                  <ChevronRightIcon fontSize="small" />
+                  <KeyboardDoubleArrowRightRoundedIcon fontSize="small" />
                 ) : (
-                  <ChevronLeftIcon fontSize="small" />
+                  <KeyboardDoubleArrowLeftRoundedIcon fontSize="small" />
                 )}
               </IconButton>
             )}
@@ -171,12 +145,11 @@ export default function SidebarBase({
 
           <Divider />
 
-          {/* Lista de navegação */}
+          {/* Lista */}
           <nav className="px-2 flex-1 overflow-y-auto">
             <ul className="list-none m-0 p-0">
               {items.map((it, i) => {
                 const active = i === activeIndex || !!it.active;
-
                 const baseCls =
                   'flex items-center gap-2 rounded-md px-2 py-2 mb-1 no-underline transition-colors outline-none focus:ring-2 focus:ring-indigo-400/40';
                 const stateCls = active
@@ -185,32 +158,12 @@ export default function SidebarBase({
 
                 return (
                   <li key={it.href}>
-                    <Tooltip
-                      title={collapsed && !peek ? it.label : ''}
-                      placement="right"
-                    >
-                      <Link
-                        href={it.href}
-                        aria-current={active ? 'page' : undefined}
-                        className={`${baseCls} ${stateCls}`}
-                        data-active={active ? '1' : '0'}
-                      >
-                        {it.icon && (
-                          <span className="shrink-0 w-5 h-5 flex items-center justify-center">
-                            {it.icon}
-                          </span>
-                        )}
-
+                    <Tooltip title={collapsed && !peek ? it.label : ''} placement="right">
+                      <Link href={it.href} aria-current={active ? 'page' : undefined} className={`${baseCls} ${stateCls}`}>
+                        {it.icon && <span className="shrink-0 w-5 h-5 flex items-center justify-center">{it.icon}</span>}
                         <AnimatePresence mode="popLayout">
                           {(!collapsed || peek) && (
-                            <motion.span
-                              key="label"
-                              variants={textVariants}
-                              initial="initial"
-                              animate="enter"
-                              exit="exit"
-                              className="truncate"
-                            >
+                            <motion.span key="label" variants={textVariants} initial="initial" animate="enter" exit="exit" className="truncate">
                               {it.label}
                             </motion.span>
                           )}
@@ -223,7 +176,6 @@ export default function SidebarBase({
             </ul>
           </nav>
 
-          {/* Rodapé opcional (ex.: tema/perfil) */}
           {footer && (
             <>
               <Divider />
@@ -236,7 +188,6 @@ export default function SidebarBase({
   );
 }
 
-/** Hook simples para detetar mobile (<= 1024px) */
 function useIsMobile() {
   const [mobile, setMobile] = React.useState(false);
   React.useEffect(() => {
