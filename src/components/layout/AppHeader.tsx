@@ -1,3 +1,4 @@
+// src/components/layout/AppHeader.tsx
 'use client';
 
 import * as React from 'react';
@@ -41,30 +42,28 @@ export default function AppHeader() {
       color="default"
       elevation={0}
       sx={(t) => ({
+        left: 0, right: 0, top: 0,
+        zIndex: t.zIndex.appBar,
         borderBottom: `1px solid ${t.palette.divider}`,
         bgcolor: t.palette.background.paper,
         backdropFilter: 'saturate(180%) blur(8px)',
       })}
     >
-      <Toolbar sx={{ minHeight: 56, gap: 1 }}>
-        {/* Menu (mobile) */}
+      <Toolbar sx={{ minHeight: 56, gap: 1, px: { xs: 1, sm: 2 } }}>
         <IconButton edge="start" onClick={openMobile} sx={{ display: { lg: 'none' } }} aria-label="Abrir menu">
           <MenuRoundedIcon />
         </IconButton>
 
-        {/* Pesquisa global (full width) */}
-        <Box sx={{ flex: 1, minWidth: 0, mx: 1 }}>
+        <Box sx={{ flex: 1, maxWidth: 980, mx: 1 }}>
           <GlobalSearchBox onPick={(href) => router.push(href)} />
         </Box>
 
-        {/* Ações à direita */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: .5 }}>
           <HeaderBell />
           <IconButton aria-label="Alternar tema" onClick={() => setTheme(dark ? 'light' : 'dark')}>
             {dark ? <Brightness7OutlinedIcon /> : <Brightness4OutlinedIcon />}
           </IconButton>
 
-          {/* Avatar + menu */}
           <IconButton onClick={(e) => setAnchorEl(e.currentTarget)} aria-label="Abrir menu de utilizador">
             <Avatar alt={displayName} src={avatarUrl || undefined} sx={{ width: 32, height: 32 }} />
           </IconButton>

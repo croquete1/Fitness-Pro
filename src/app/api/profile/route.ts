@@ -1,47 +1,35 @@
-// GET: devolve o meu perfil
-// PATCH: atualiza nome/email/username (e o que permitires)
+// src/app/api/profile/route.ts
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
-import { getSessionUserSafe } from '@/lib/session-bridge';
-
-export async function GET() {
-  const session = await getSessionUserSafe();
-  if (!session?.user?.id) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-
-  const sb = createServerClient();
-  const { data, error } = await sb
-    .from('profiles')
-    .select('id,name,avatar_url,username') // ajusta aos campos que tens
-    .eq('id', session.user.id)
-    .maybeSingle();
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ profile: data ?? null });
-}
 
 export async function PATCH(req: Request) {
-  const session = await getSessionUserSafe();
-  if (!session?.user?.id) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-
-  const body = await req.json().catch(() => ({}));
-  const allowed = (({ name, email, username }) => ({ name, email, username }))(body);
-
   const sb = createServerClient();
+  const { data: auth } = await sb.auth.getUser();
+  const me = auth?.user; if (!me?.id) return NextResponse.json({ ok:false, error:'UNAUTHENTICATED' }, { status: 401 });
 
-  // email pode viver em "users", nome/username em "profiles" — ajusta se necessário
-  if (typeof allowed.email === 'string') {
-    const { error: e1 } = await sb.from('users').update({ email: allowed.email }).eq('id', session.user.id);
-    if (e1) return NextResponse.json({ error: e1.message }, { status: 400 });
+  let body:any; try{ body = await req.json(); } catch { return NextResponse.json({ ok:false, error:'INVALID_JSON' }, { status:400 }); }
+
+  // username único (case-insensitive) ignorando o próprio
+  if (body?.username) {
+    const uname = String(body.username).trim();
+    const { count } = await sb.from('profiles')
+      .select('*',{ count:'exact', head:true })
+      .ilike('username', uname)
+      .neq('id', me.id);
+    if ((count ?? 0) > 0) {
+      return NextResponse.json({ ok:false, error:'USERNAME_TAKEN' }, { status:409 });
+    }
   }
 
-  const patch: Record<string, unknown> = {};
-  if (typeof allowed.name === 'string') patch.name = allowed.name;
-  if (typeof allowed.username === 'string') patch.username = allowed.username;
+  const patch: Record<string, any> = {};
+  if (body?.name != null) patch.name = String(body.name);
+  if (body?.avatar_url != null) patch.avatar_url = String(body.avatar_url);
+  if (body?.username != null) patch.username = String(body.username);
 
-  if (Object.keys(patch).length) {
-    const { error: e2 } = await sb.from('profiles').update(patch).eq('id', session.user.id);
-    if (e2) return NextResponse.json({ error: e2.message }, { status: 400 });
-  }
+  if (!Object.keys(patch).length) return NextResponse.json({ ok:true });
 
-  return NextResponse.json({ ok: true });
+  const { error } = await sb.from('profiles').upsert({ id: me.id, ...patch }, { onConflict: 'id' });
+  if (error) return NextResponse.json({ ok:false, error:error.message }, { status:400 });
+
+  return NextResponse.json({ ok:true });
 }
