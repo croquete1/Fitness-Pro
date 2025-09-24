@@ -1,4 +1,5 @@
 import { createServerClient } from '@/lib/supabaseServer';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export const AUDIT_KINDS = {
   CREATE: 'CREATE',
@@ -57,30 +58,33 @@ type InsertLike = {
   metadata?: unknown;
   extra?: unknown;
   data?: unknown;
+  diff?: unknown;
 };
 
-export async function logAudit(
-  clientOrPayload: any,
-  maybePayload?: InsertLike
-): Promise<void> {
-  const sb = maybePayload ? clientOrPayload : createServerClient();
+export function logAudit(client: SupabaseClient, payload: InsertLike): Promise<void>;
+export function logAudit(payload: InsertLike): Promise<void>;
+export async function logAudit(clientOrPayload: SupabaseClient | InsertLike, maybePayload?: InsertLike): Promise<void> {
+  const sb = maybePayload ? (clientOrPayload as SupabaseClient) : createServerClient();
   const payload = (maybePayload ?? clientOrPayload) as InsertLike;
 
   const kind = String(payload.kind ?? AUDIT_KINDS.OTHER).toUpperCase();
-  const target_type = String(
-    (payload as any).target_type ?? payload.targetType ?? AUDIT_TARGET_TYPES.SYSTEM
-  ).toUpperCase();
+  const target_type = String(payload.target_type ?? payload.targetType ?? AUDIT_TARGET_TYPES.SYSTEM).toUpperCase();
 
-  const rawTargetId = (payload as any).target_id ?? payload.targetId ?? null;
+  const rawTargetId = payload.target_id ?? payload.targetId ?? null;
   const target_id =
     rawTargetId === undefined || rawTargetId === null || rawTargetId === ''
       ? null
       : String(rawTargetId);
 
-  const actor_id = (payload as any).actor_id ?? payload.actorId ?? null;
+  const actor_id = payload.actor_id ?? payload.actorId ?? null;
   const note = (payload.message ?? payload.note ?? null) as string | null;
   const details =
-    payload.details ?? payload.extra ?? payload.metadata ?? payload.data ?? null;
+    payload.details ??
+    payload.extra ??
+    payload.metadata ??
+    payload.data ??
+    payload.diff ??
+    null;
 
   const row = {
     kind,

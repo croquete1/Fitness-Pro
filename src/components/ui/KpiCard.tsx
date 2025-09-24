@@ -1,62 +1,50 @@
-// src/components/ui/KpiCard.tsx
 'use client';
-
 import * as React from 'react';
+import MiniSpark from '@/components/charts/MiniSpark';
 
-type Variant = 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'neutral' | 'accent';
-
-export type KpiCardProps = {
-  label: string;
-  value: number | string;
-  icon?: React.ReactNode;
-  href?: string;
-  footer?: React.ReactNode;
-  variant?: Variant;
-  /** alias opcional para retrocompatibilidade */
-  tone?: Variant;
+type Props = {
+  title: string;
+  value: string | number;
+  delta?: number; // positivo/negativo = seta ↑/↓
+  loading?: boolean;
+  sparkData?: number[];
 };
 
-const variantToClass: Record<Variant, string> = {
-  primary:
-    'bg-gradient-to-br from-blue-600/10 via-blue-500/10 to-blue-400/10 ring-1 ring-blue-500/20',
-  success:
-    'bg-gradient-to-br from-emerald-600/10 via-emerald-500/10 to-emerald-400/10 ring-1 ring-emerald-500/20',
-  warning:
-    'bg-gradient-to-br from-amber-600/10 via-amber-500/10 to-amber-400/10 ring-1 ring-amber-500/20',
-  danger:
-    'bg-gradient-to-br from-rose-600/10 via-rose-500/10 to-rose-400/10 ring-1 ring-rose-500/20',
-  info:
-    'bg-gradient-to-br from-cyan-600/10 via-cyan-500/10 to-cyan-400/10 ring-1 ring-cyan-500/20',
-  neutral:
-    'bg-gradient-to-br from-slate-600/10 via-slate-500/10 to-slate-400/10 ring-1 ring-slate-500/20',
-  accent:
-    'bg-gradient-to-br from-violet-600/10 via-violet-500/10 to-violet-400/10 ring-1 ring-violet-500/20',
-};
-
-export default function KpiCard(props: KpiCardProps) {
-  const { label, value, icon, href, footer } = props;
-  const variant = props.variant ?? props.tone ?? 'neutral';
-
-  const content = (
-    <div
-      className={`rounded-2xl p-4 shadow-sm ${variantToClass[variant]} backdrop-blur-sm`}
-      style={{ minHeight: 110 }}
-    >
-      <div className="text-xs opacity-80">{label}</div>
-      <div className="mt-1 text-2xl font-extrabold tracking-tight flex items-center gap-2">
-        {icon ? <span className="text-lg">{icon}</span> : null}
-        <span>{value}</span>
-      </div>
-      <div className="mt-2 text-xs opacity-70">{footer ?? ' '}</div>
-    </div>
-  );
-
-  if (href) {
+export default function KpiCard({ title, value, delta, loading, sparkData }: Props) {
+  if (loading) {
     return (
-      <a href={href} className="block hover:opacity-95 transition-opacity">
-        {content}
-      </a>
+      <div className="rounded-2xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-4">
+        <div className="h-3 w-24 mb-3 rounded bg-black/10 dark:bg-white/10 animate-pulse" />
+        <div className="h-8 w-32 rounded bg-black/10 dark:bg-white/10 animate-pulse" />
+        <div className="mt-3 h-9 rounded bg-black/5 dark:bg-white/5 animate-pulse" />
+      </div>
     );
   }
-  return content;
+
+  const isUp = typeof delta === 'number' ? delta >= 0 : undefined;
+
+  return (
+    <div className="rounded-2xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-4">
+      <div className="text-xs font-semibold opacity-60">{title}</div>
+      <div className="mt-1 flex items-baseline gap-2">
+        <div className="text-2xl font-bold">{value}</div>
+        {typeof delta === 'number' && (
+          <div
+            className={`text-xs font-medium ${
+              isUp ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+            }`}
+            aria-label={isUp ? 'A subir' : 'A descer'}
+            title={isUp ? 'A subir' : 'A descer'}
+          >
+            {isUp ? '↑' : '↓'} {Math.abs(delta).toFixed(1)}%
+          </div>
+        )}
+      </div>
+      {sparkData && sparkData.length > 1 && (
+        <div className="mt-3 text-neutral-400">
+          <MiniSpark data={sparkData} className="w-full h-9" />
+        </div>
+      )}
+    </div>
+  );
 }

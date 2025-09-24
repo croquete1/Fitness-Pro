@@ -1,51 +1,29 @@
-// src/app/api/pt/plans/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
-import { toAppRole } from '@/lib/roles';
 
-export const dynamic = 'force-dynamic';
-
-export async function GET() {
+export async function POST(req: NextRequest) {
   const sb = createServerClient();
-  const { data: auth } = await sb.auth.getUser();
-  if (!auth?.user?.id) return NextResponse.json({ ok:false, error:'UNAUTHENTICATED' }, { status:401 });
-  const role = toAppRole((auth.user as any)?.role) ?? 'CLIENT';
-  if (role !== 'PT' && role !== 'ADMIN') return NextResponse.json({ ok:false, error:'FORBIDDEN' }, { status:403 });
 
-  const { data, error } = await sb.from('training_plans')
-    .select('id,title,status,start_date,end_date,client_id')
-    .eq('trainer_id', auth.user.id)
-    .order('created_at', { ascending: false });
-  if (error) return NextResponse.json({ ok:false, error:error.message }, { status:400 });
+  const form = await req.formData();
+  const clientId = String(form.get('clientId') || '');
+  const title = String(form.get('title') || '').trim();
 
-  return NextResponse.json({ ok:true, items: data ?? [] });
-}
+  if (!clientId || !title) {
+    return NextResponse.json({ error: 'Dados inválidos' }, { status: 400 });
+    }
+  // opcional: obter user atual como trainerId
+  const { data: { user } } = await sb.auth.getUser();
+  const trainerId = user?.id ?? null;
 
-export async function POST(req: Request) {
-  const sb = createServerClient();
-  const { data: auth } = await sb.auth.getUser();
-  if (!auth?.user?.id) return NextResponse.json({ ok:false, error:'UNAUTHENTICATED' }, { status:401 });
-  const role = toAppRole((auth.user as any)?.role) ?? 'CLIENT';
-  if (role !== 'PT' && role !== 'ADMIN') return NextResponse.json({ ok:false, error:'FORBIDDEN' }, { status:403 });
+  const { error } = await sb.from('plans').insert({
+    client_id: clientId,
+    trainer_id: trainerId,
+    title,
+  });
 
-  let body:any; try { body = await req.json(); } catch {
-    return NextResponse.json({ ok:false, error:'INVALID_JSON' }, { status:400 });
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
   }
-  if (!body?.client_id || !body?.title) {
-    return NextResponse.json({ ok:false, error:'MISSING_FIELDS' }, { status:400 });
-  }
-
-  const row = {
-    client_id: body.client_id,
-    trainer_id: auth.user.id,
-    title: String(body.title),
-    status: body.status ?? 'ATIVO',
-    start_date: body.start_date ? new Date(body.start_date).toISOString() : null,
-    end_date: body.end_date ? new Date(body.end_date).toISOString() : null,
-  };
-
-  const { data, error } = await sb.from('training_plans').insert(row).select('id').single();
-  if (error) return NextResponse.json({ ok:false, error:error.message }, { status:400 });
-
-  return NextResponse.json({ ok:true, id: data?.id });
+  // redireciona para listagem de planos do PT (ajusta rota conforme o teu projeto)
+  return NextResponse.redirect(new URL('/dashboard/pt', req.url));
 }

@@ -1,40 +1,70 @@
 // src/app/api/pt/clients/route.ts
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { createServerClient } from '@/lib/supabaseServer';
 import { toAppRole } from '@/lib/roles';
 
-export const dynamic = 'force-dynamic';
+export async function GET() {
+  const session = await getServerSession(authOptions);
+  const me = session?.user;
+  if (!me?.id) return NextResponse.json({ ok: false, error: 'UNAUTH' }, { status: 401 });
 
-export async function GET(req: Request) {
+  const role = toAppRole(me.role);
+  if (role !== 'PT' && role !== 'ADMIN') {
+    return NextResponse.json({ ok: false, error: 'FORBIDDEN' }, { status: 403 });
+  }
+
   const sb = createServerClient();
-  const { data: auth } = await sb.auth.getUser();
-  if (!auth?.user?.id) return NextResponse.json({ ok:false, error:'UNAUTHENTICATED' }, { status:401 });
-  const role = toAppRole((auth.user as any)?.role) ?? 'CLIENT';
-  if (role !== 'PT' && role !== 'ADMIN') return NextResponse.json({ ok:false, error:'FORBIDDEN' }, { status:403 });
 
-  const url = new URL(req.url);
-  const search = (url.searchParams.get('q') || '').trim().toLowerCase();
-
+  // Estratégia robusta: procurar clientes atribuídos ao PT
   const ids = new Set<string>();
+
+  // 1) Por planos (preferido)
   try {
-    const { data: p } = await sb.from('training_plans').select('client_id').eq('trainer_id', auth.user.id);
-    (p ?? []).forEach((r:any)=>r?.client_id && ids.add(r.client_id));
-  } catch {}
-  try {
-    const { data: s } = await sb.from('sessions').select('client_id').eq('trainer_id', auth.user.id);
-    (s ?? []).forEach((r:any)=>r?.client_id && ids.add(r.client_id));
+    const { data } = await sb
+      .from('training_plans' as any)
+      .select('client_id')
+      .eq('trainer_id', me.id);
+    (data ?? []).forEach((r: any) => r?.client_id && ids.add(r.client_id));
   } catch {}
 
-  let rows:any[] = [];
-  if (ids.size) {
+  // 2) Por sessões (fallback)
+  if (!ids.size) {
+    try {
+      const { data } = await sb
+        .from('sessions' as any)
+        .select('client_id')
+        .eq('trainer_id', me.id);
+      (data ?? []).forEach((r: any) => r?.client_id && ids.add(r.client_id));
+    } catch {}
+  }
+
+  if (!ids.size) return NextResponse.json({ ok: true, clients: [] });
+
+  // Tentar obter nome/email dos clientes
+  // 1) tabela users
+  const list: { id: string; label: string; email?: string }[] = [];
+  try {
     const { data } = await sb.from('users').select('id,name,email').in('id', Array.from(ids));
-    rows = data ?? [];
+    (data ?? []).forEach((u: any) =>
+      list.push({ id: u.id, label: u.name ?? u.email ?? u.id, email: u.email ?? undefined })
+    );
+  } catch {}
+
+  // 2) completar com profiles (caso faltem nomes)
+  const missing = Array.from(ids).filter((id) => !list.some((i) => i.id === id));
+  if (missing.length) {
+    try {
+      const { data } = await sb.from('profiles').select('id,name').in('id', missing);
+      (data ?? []).forEach((p: any) =>
+        list.push({ id: p.id, label: p.name ?? p.id })
+      );
+    } catch {}
   }
 
-  // filtrar no servidor (leve)
-  if (search) {
-    rows = rows.filter((u:any) => String(u.name||'').toLowerCase().includes(search) || String(u.email||'').toLowerCase().includes(search));
-  }
+  // Ordenar alfabeticamente
+  list.sort((a, b) => a.label.localeCompare(b.label, 'pt'));
 
-  return NextResponse.json({ ok:true, items: rows.map((u:any)=>({ id:u.id, label: u.name ?? u.email ?? u.id, email: u.email ?? '' })) });
+  return NextResponse.json({ ok: true, clients: list });
 }
