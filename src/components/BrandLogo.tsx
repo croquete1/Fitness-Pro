@@ -6,7 +6,7 @@ export default function BrandLogo({ size = 56 }: { size?: number }) {
   return (
     <Box sx={{ width: size, height: size, display: 'inline-flex' }}>
       <Image
-        src="/logo.png"
+        src="/public/logo.png"
         alt="Fitness Pro"
         width={size}
         height={size}

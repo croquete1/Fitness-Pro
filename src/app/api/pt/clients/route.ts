@@ -1,66 +1,40 @@
-import { NextResponse } from "next/server";
-import prismaAny from "@/lib/prisma";
+// src/app/api/pt/clients/route.ts
+import { NextResponse } from 'next/server';
+import { createServerClient } from '@/lib/supabaseServer';
+import { toAppRole } from '@/lib/roles';
 
-const prisma: any =
-  (prismaAny as any).prisma ??
-  (prismaAny as any).default ??
-  prismaAny;
-
-const CANDIDATE_USER_MODELS = [
-  "user",
-  "User",
-  "accountUser",
-  "AccountUser",
-  "client",
-  "Client",
-];
-
-function firstModel(names: string[]) {
-  for (const n of names) {
-    const m = (prisma as any)[n];
-    if (m && typeof m.findMany === "function") return n;
-  }
-  return null;
-}
-
-function like(q: string) {
-  return { contains: q, mode: "insensitive" as const };
-}
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const q = (searchParams.get("q") ?? "").trim();
-  const limit = Math.min(100, Math.max(1, Number(searchParams.get("limit") ?? 50)));
+  const sb = createServerClient();
+  const { data: auth } = await sb.auth.getUser();
+  if (!auth?.user?.id) return NextResponse.json({ ok:false, error:'UNAUTHENTICATED' }, { status:401 });
+  const role = toAppRole((auth.user as any)?.role) ?? 'CLIENT';
+  if (role !== 'PT' && role !== 'ADMIN') return NextResponse.json({ ok:false, error:'FORBIDDEN' }, { status:403 });
 
-  const model = firstModel(CANDIDATE_USER_MODELS);
-  if (!model) return NextResponse.json({ data: [] });
+  const url = new URL(req.url);
+  const search = (url.searchParams.get('q') || '').trim().toLowerCase();
 
-  const where: any = {};
-  // Se o schema tiver role, filtra por CLIENT
-  try { where.role = "CLIENT"; } catch {}
-
-  if (q) {
-    where.OR = [{ name: like(q) }, { email: like(q) }, { fullName: like(q) }];
-  }
-
-  let items: any[] = [];
+  const ids = new Set<string>();
   try {
-    items = await (prisma as any)[model].findMany({
-      where,
-      take: limit,
-      orderBy: { createdAt: "desc" },
-    });
-  } catch {
-    items = await (prisma as any)[model].findMany({ where, take: limit });
+    const { data: p } = await sb.from('training_plans').select('client_id').eq('trainer_id', auth.user.id);
+    (p ?? []).forEach((r:any)=>r?.client_id && ids.add(r.client_id));
+  } catch {}
+  try {
+    const { data: s } = await sb.from('sessions').select('client_id').eq('trainer_id', auth.user.id);
+    (s ?? []).forEach((r:any)=>r?.client_id && ids.add(r.client_id));
+  } catch {}
+
+  let rows:any[] = [];
+  if (ids.size) {
+    const { data } = await sb.from('users').select('id,name,email').in('id', Array.from(ids));
+    rows = data ?? [];
   }
 
-  const data = items.map((u: any) => ({
-    id: String(u.id ?? ""),
-    name: u.name ?? u.fullName ?? null,
-    email: u.email ?? null,
-    status: (u.status ?? "ACTIVE").toString().toUpperCase(),
-    createdAt: u.createdAt ?? null,
-  }));
+  // filtrar no servidor (leve)
+  if (search) {
+    rows = rows.filter((u:any) => String(u.name||'').toLowerCase().includes(search) || String(u.email||'').toLowerCase().includes(search));
+  }
 
-  return NextResponse.json({ data });
+  return NextResponse.json({ ok:true, items: rows.map((u:any)=>({ id:u.id, label: u.name ?? u.email ?? u.id, email: u.email ?? '' })) });
 }

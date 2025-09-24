@@ -1,90 +1,72 @@
-// src/app/(app)/dashboard/pt/page.tsx
 export const dynamic = 'force-dynamic';
 
 import { redirect } from 'next/navigation';
-import { getSessionUserSafe } from '@/lib/session-bridge';
+import Link from 'next/link';
 import { createServerClient } from '@/lib/supabaseServer';
-import GreetingHeader from '@/components/dashboard/GreetingHeader';
-import LiveBanners from '@/components/dashboard/LiveBanners';
-import PushBootstrap from '@/components/dashboard/PushBootstrap';
-import KpiCard from '@/components/dashboard/KpiCard';
-import { toAppRole, isAdmin, isPT } from '@/lib/roles';
+import { getSessionUserSafe } from '@/lib/session-bridge';
+import { toAppRole } from '@/lib/roles';
+import Paper from '@mui/material/Paper';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import Table from '@mui/material/Table';
+import TableHead from '@mui/material/TableHead';
+import TableBody from '@mui/material/TableBody';
+import TableRow from '@mui/material/TableRow';
+import TableCell from '@mui/material/TableCell';
 
-type SB = ReturnType<typeof createServerClient>;
-
-async function safeCount(sb: SB, table: string, build?: (q: any) => any) {
-  try {
-    let q = sb.from(table).select('*', { count: 'exact', head: true });
-    if (build) q = build(q as any);
-    const { count } = await q;
-    return count ?? 0;
-  } catch {
-    return 0;
-  }
-}
-
-export default async function PTDashboard() {
-  const sessionUser = await getSessionUserSafe();
-  if (!sessionUser?.user?.id) redirect('/login');
-
-  const role = toAppRole(sessionUser.user.role) ?? 'CLIENT';
-  // PT e Admin podem aceder
-  if (!isPT(role) && !isAdmin(role)) redirect('/dashboard');
+export default async function PtClientsPage() {
+  const session = await getSessionUserSafe();
+  const me = session?.user; if (!me?.id) redirect('/login');
+  const role = toAppRole(me.role) ?? 'CLIENT';
+  if (role !== 'PT' && role !== 'ADMIN') redirect('/dashboard');
 
   const sb = createServerClient();
 
-  // Perfil para saudação (nome + avatar)
-  const { data: prof } = await sb
-    .from('profiles')
-    .select('name, avatar_url')
-    .eq('id', sessionUser.user.id)
-    .maybeSingle();
+  // union: clientes por planos + por sessões
+  const ids = new Set<string>();
+  try {
+    const { data: p } = await sb.from('training_plans').select('client_id').eq('trainer_id', me.id);
+    (p ?? []).forEach((r: any) => r?.client_id && ids.add(r.client_id));
+  } catch {}
+  try {
+    const { data: s } = await sb.from('sessions').select('client_id').eq('trainer_id', me.id);
+    (s ?? []).forEach((r: any) => r?.client_id && ids.add(r.client_id));
+  } catch {}
 
-  const now = new Date();
-  const in7 = new Date(now);
-  in7.setDate(now.getDate() + 7);
-
-  const [myClients, myPlans, myUpcoming, unread] = await Promise.all([
-    safeCount(sb, 'trainer_clients', (q) => q.eq('trainer_id', sessionUser.user.id)),
-    safeCount(sb, 'training_plans', (q) => q.eq('trainer_id', sessionUser.user.id)),
-    safeCount(
-      sb,
-      'sessions',
-      (q) =>
-        q
-          .eq('trainer_id', sessionUser.user.id)
-          .gte('scheduled_at', now.toISOString())
-          .lt('scheduled_at', in7.toISOString())
-    ),
-    safeCount(sb, 'notifications', (q) =>
-      q.eq('user_id', sessionUser.user.id).eq('read', false)
-    ),
-  ]);
+  let rows: any[] = [];
+  if (ids.size) {
+    const { data } = await sb.from('users').select('id,name,email,role').in('id', Array.from(ids));
+    rows = data ?? [];
+  }
 
   return (
-    <div className="p-4 grid gap-3">
-      <GreetingHeader
-        name={prof?.name ?? sessionUser.user.name ?? sessionUser.user.email ?? 'Utilizador'}
-        avatarUrl={prof?.avatar_url ?? null}
-      />
-      <LiveBanners />
-      <PushBootstrap />
-
-      <div
-        className="grid gap-3"
-        style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}
-      >
-        <KpiCard label="Clientes" value={myClients} variant="primary" icon="👥" />
-        <KpiCard label="Planos" value={myPlans} variant="accent" icon="📝" />
-        <KpiCard label="Sessões (7d)" value={myUpcoming} variant="success" icon="📅" />
-        <KpiCard
-          label="Notificações"
-          value={unread}
-          variant="warning"
-          icon="🔔"
-          footer={<span className="small text-muted">por ler</span>}
-        />
-      </div>
-    </div>
+    <Box sx={{ p: 2 }}>
+      <Typography variant="h5" fontWeight={800} sx={{ mb: 2 }}>Meus clientes</Typography>
+      <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 3 }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Nome</TableCell>
+              <TableCell>Email</TableCell>
+              <TableCell>Perfil</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {rows.map((r) => (
+              <TableRow key={r.id}>
+                <TableCell>{r.name ?? r.email ?? r.id}</TableCell>
+                <TableCell>{r.email ?? '—'}</TableCell>
+                <TableCell>
+                  <Link className="text-sm underline" href={`/dashboard/users/${r.id}`}>abrir</Link>
+                </TableCell>
+              </TableRow>
+            ))}
+            {rows.length === 0 && (
+              <TableRow><TableCell colSpan={3} align="center">Sem clientes associados.</TableCell></TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </Paper>
+    </Box>
   );
 }

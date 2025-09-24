@@ -1,5 +1,4 @@
 'use client';
-
 import * as React from 'react';
 import SidebarBase, { type NavItem } from '@/components/layout/SidebarBase';
 
@@ -8,10 +7,11 @@ export default function SidebarAdmin({ userLabel }: { userLabel?: string }) {
     { href: '/dashboard/admin',               label: 'Painel',                 icon: <span aria-hidden>📊</span>, exact: true, activePrefix: '/dashboard/admin' },
     { href: '/dashboard/admin/approvals',     label: 'Aprovações',             icon: <span aria-hidden>✅</span>, activePrefix: '/dashboard/admin/approvals' },
     { href: '/dashboard/admin/users',         label: 'Utilizadores',           icon: <span aria-hidden>🧑‍🤝‍🧑</span>, activePrefix: '/dashboard/admin/users' },
+    { href: '/dashboard/admin/clients',       label: 'Clientes',               icon: <span aria-hidden>👥</span>, activePrefix: '/dashboard/admin/clients' },
     { href: '/dashboard/admin/exercises',     label: 'Exercícios',             icon: <span aria-hidden>🏋️</span>, activePrefix: '/dashboard/admin/exercises' },
     { href: '/dashboard/admin/plans',         label: 'Planos',                 icon: <span aria-hidden>🗂️</span>, activePrefix: '/dashboard/admin/plans' },
     { href: '/dashboard/admin/pts-schedule',  label: 'Agenda PTs',             icon: <span aria-hidden>🗓️</span>, activePrefix: '/dashboard/admin/pts-schedule' },
-    { href: '/dashboard/admin/notifications', label: 'Notificações',           icon: <span aria-hidden>🔔</span>, activePrefix: '/dashboard/admin/notifications' },
+    { href: '/dashboard/admin/notifications', label: 'Centro de notificações', icon: <span aria-hidden>🔔</span>, activePrefix: '/dashboard/admin/notifications' },
     { href: '/dashboard/admin/history',       label: 'Histórico',              icon: <span aria-hidden>📜</span>, activePrefix: '/dashboard/admin/history' },
     { href: '/dashboard/system',              label: 'Sistema',                 icon: <span aria-hidden>🛠️</span>, activePrefix: '/dashboard/system' },
   ];

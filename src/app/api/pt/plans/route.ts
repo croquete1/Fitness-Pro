@@ -1,74 +1,51 @@
+// src/app/api/pt/plans/route.ts
 import { NextResponse } from 'next/server';
-import { z } from 'zod';
 import { createServerClient } from '@/lib/supabaseServer';
-import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole } from '@/lib/roles';
 
-type PlanRow = {
-  id: string;
-  title: string;
-  description: string | null;
-  status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED' | string | null;
-  trainer_id: string;
-  client_id: string | null;
-  created_at: string | null;
-  updated_at: string | null;
-};
-
-const CreatePlanSchema = z.object({
-  title: z.string().min(1),
-  description: z.string().optional().nullable(),
-  clientId: z.string().uuid().optional().nullable(),
-});
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const session = await getSessionUserSafe();
-  const user = (session as any)?.user as { id: string; role?: string | null } | undefined;
-  if (!user?.id) return new NextResponse('Unauthorized', { status: 401 });
-
   const sb = createServerClient();
-  const role = toAppRole(user.role) ?? 'CLIENT';
+  const { data: auth } = await sb.auth.getUser();
+  if (!auth?.user?.id) return NextResponse.json({ ok:false, error:'UNAUTHENTICATED' }, { status:401 });
+  const role = toAppRole((auth.user as any)?.role) ?? 'CLIENT';
+  if (role !== 'PT' && role !== 'ADMIN') return NextResponse.json({ ok:false, error:'FORBIDDEN' }, { status:403 });
 
-  // PT vê seus planos; ADMIN vê todos.
-  const query =
-    role === 'ADMIN'
-      ? sb.from('training_plans').select('id,title,description,status,trainer_id,client_id,created_at,updated_at').order('updated_at', { ascending: false }).limit(200)
-      : sb.from('training_plans').select('id,title,description,status,trainer_id,client_id,created_at,updated_at').eq('trainer_id', user.id).order('updated_at', { ascending: false }).limit(200);
+  const { data, error } = await sb.from('training_plans')
+    .select('id,title,status,start_date,end_date,client_id')
+    .eq('trainer_id', auth.user.id)
+    .order('created_at', { ascending: false });
+  if (error) return NextResponse.json({ ok:false, error:error.message }, { status:400 });
 
-  const { data, error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  const rows = (data ?? []) as PlanRow[];
-  return NextResponse.json(rows, { status: 200 });
+  return NextResponse.json({ ok:true, items: data ?? [] });
 }
 
 export async function POST(req: Request) {
-  const session = await getSessionUserSafe();
-  const user = (session as any)?.user as { id: string; role?: string | null } | undefined;
-  if (!user?.id) return new NextResponse('Unauthorized', { status: 401 });
+  const sb = createServerClient();
+  const { data: auth } = await sb.auth.getUser();
+  if (!auth?.user?.id) return NextResponse.json({ ok:false, error:'UNAUTHENTICATED' }, { status:401 });
+  const role = toAppRole((auth.user as any)?.role) ?? 'CLIENT';
+  if (role !== 'PT' && role !== 'ADMIN') return NextResponse.json({ ok:false, error:'FORBIDDEN' }, { status:403 });
 
-  const role = toAppRole(user.role) ?? 'CLIENT';
-  if (role !== 'PT' && role !== 'ADMIN') return new NextResponse('Forbidden', { status: 403 });
-
-  const body = await req.json().catch(() => null);
-  const parsed = CreatePlanSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  let body:any; try { body = await req.json(); } catch {
+    return NextResponse.json({ ok:false, error:'INVALID_JSON' }, { status:400 });
+  }
+  if (!body?.client_id || !body?.title) {
+    return NextResponse.json({ ok:false, error:'MISSING_FIELDS' }, { status:400 });
   }
 
-  const { title, description, clientId } = parsed.data;
-
-  const sb = createServerClient();
-  const insert = {
-    title,
-    description: description ?? null,
-    status: 'DRAFT',
-    trainer_id: user.id,
-    client_id: clientId ?? null,
+  const row = {
+    client_id: body.client_id,
+    trainer_id: auth.user.id,
+    title: String(body.title),
+    status: body.status ?? 'ATIVO',
+    start_date: body.start_date ? new Date(body.start_date).toISOString() : null,
+    end_date: body.end_date ? new Date(body.end_date).toISOString() : null,
   };
 
-  const { data, error } = await sb.from('training_plans').insert(insert).select('id').single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const { data, error } = await sb.from('training_plans').insert(row).select('id').single();
+  if (error) return NextResponse.json({ ok:false, error:error.message }, { status:400 });
 
-  return NextResponse.json({ id: data?.id }, { status: 201 });
+  return NextResponse.json({ ok:true, id: data?.id });
 }

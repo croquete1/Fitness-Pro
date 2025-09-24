@@ -10,9 +10,16 @@ export async function POST(req: Request) {
   let body: any; try { body = await req.json(); } catch { return NextResponse.json({ ok:false, error:'INVALID_JSON' }, { status: 400 }); }
 
   const row = {
-    user_id: auth.user.id, plan_id: body.plan_id ?? null, day_index: body.day_index ?? null,
-    exercise_id: body.exercise_id ?? null, sets: Number(body.sets ?? 0), reps: String(body.reps ?? ''),
-    rest_seconds: Number(body.rest_seconds ?? 0), payload: body.loads ?? null,
+    user_id: auth.user.id,
+    plan_id: body.plan_id ?? null,
+    day_index: typeof body.day_index === 'number' ? body.day_index : null,
+    exercise_id: body.exercise_id ?? null,
+    sets: Number(body.sets ?? 0),
+    reps: String(body.reps ?? ''),
+    rest_seconds: Number(body.rest_seconds ?? 0),
+    payload: body.loads ?? null, // { set, weight }[]
+    note: body.note ?? null,     // ← NOVO
+    created_at: new Date().toISOString(),
   };
 
   try {
