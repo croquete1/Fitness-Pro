@@ -1,29 +1,105 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
 
+function dayBounds(iso: string) {
+  const d = new Date(iso);
+  const s = new Date(d); s.setHours(0,0,0,0);
+  const e = new Date(d); e.setHours(23,59,59,999);
+  return { start: s.toISOString(), end: e.toISOString() };
+}
+
+export async function GET(req: NextRequest) {
+  const sb = createServerClient();
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return NextResponse.json({ items: [] }, { status: 401 });
+
+  const url = new URL(req.url);
+  const from = url.searchParams.get('from') || new Date().toISOString();
+  const to   = url.searchParams.get('to')   || new Date(Date.now() + 7*86400000).toISOString();
+
+  const { data, error } = await sb
+    .from('sessions')
+    .select('id, client_id, title, kind, start_at, end_at, order_index')
+    .eq('trainer_id', user.id)
+    .gte('start_at', from)
+    .lte('start_at', to)
+    .order('start_at', { ascending: true })
+    .order('order_index', { ascending: true });
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  return NextResponse.json({ items: data ?? [] });
+}
+
 export async function POST(req: NextRequest) {
   const sb = createServerClient();
-
-  const form = await req.formData();
-  const clientId = String(form.get('clientId') || '');
-  const title = String(form.get('title') || '').trim();
-
-  if (!clientId || !title) {
-    return NextResponse.json({ error: 'Dados inválidos' }, { status: 400 });
-    }
-  // opcional: obter user atual como trainerId
   const { data: { user } } = await sb.auth.getUser();
-  const trainerId = user?.id ?? null;
+  if (!user) return NextResponse.json({ error: 'Auth' }, { status: 401 });
 
-  const { error } = await sb.from('plans').insert({
-    client_id: clientId,
-    trainer_id: trainerId,
-    title,
-  });
+  const b = await req.json().catch(()=>({}));
+  const start = b.start ? new Date(b.start) : null;
+  const durationMin = Number(b.durationMin || 60);
+  const end = start ? new Date(start.getTime() + durationMin*60000) : null;
+  if (!start) return NextResponse.json({ error: 'start obrigatório' }, { status: 400 });
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+  const { start: D0, end: D1 } = dayBounds(start.toISOString());
+  const { data: sameDay } = await sb
+    .from('sessions')
+    .select('order_index')
+    .eq('trainer_id', user.id)
+    .gte('start_at', D0)
+    .lte('start_at', D1)
+    .order('order_index', { ascending: false })
+    .limit(1);
+
+  const nextIndex = sameDay && sameDay[0] ? (Number(sameDay[0].order_index) + 1) : 0;
+
+  const insert: any = {
+    trainer_id: user.id,
+    client_id: b.client_id ?? null,
+    title: b.title ?? 'Sessão',
+    kind: b.kind ?? 'presencial',
+    start_at: start.toISOString(),
+    end_at: end?.toISOString() ?? null,
+    order_index: nextIndex,
+  };
+
+  const { error } = await sb.from('sessions').insert(insert);
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  return NextResponse.json({ ok: true });
+}
+
+export async function PATCH(req: NextRequest) {
+  const sb = createServerClient();
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'Auth' }, { status: 401 });
+
+  const b = await req.json().catch(()=>({}));
+
+  if (Array.isArray(b.ids)) {
+    const ids: string[] = b.ids.map((x: any) => String(x));
+    for (let i = 0; i < ids.length; i++) {
+      const { error } = await sb.from('sessions')
+        .update({ order_index: i })
+        .eq('id', ids[i]).eq('trainer_id', user.id);
+      if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    }
   }
-  // redireciona para listagem de planos do PT (ajusta rota conforme o teu projeto)
-  return NextResponse.redirect(new URL('/dashboard/pt', req.url));
+
+  if (Array.isArray(b.moves)) {
+    for (const mv of b.moves) {
+      const id = String(mv.id);
+      const targetDate = new Date(String(mv.date));
+      const cur = await sb.from('sessions').select('start_at').eq('id', id).single();
+      if (cur.error || !cur.data?.start_at) continue;
+      const curDate = new Date(cur.data.start_at);
+      targetDate.setHours(curDate.getHours(), curDate.getMinutes(), 0, 0);
+      const upd: any = { start_at: targetDate.toISOString() };
+      if (typeof mv.order_index === 'number') upd.order_index = mv.order_index;
+
+      const { error } = await sb.from('sessions').update(upd).eq('id', id).eq('trainer_id', user.id);
+      if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+  }
+
+  return NextResponse.json({ ok: true });
 }

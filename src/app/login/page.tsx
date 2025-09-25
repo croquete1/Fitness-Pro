@@ -1,10 +1,10 @@
 'use client';
 
 import * as React from 'react';
-import Image from 'next/image';
-import { Box, Button, Container, Stack, TextField, Typography, Alert } from '@mui/material';
+import { Box, Button, Container, Stack, TextField, Typography, Alert, Link as MuiLink, Paper } from '@mui/material';
 import { signIn } from 'next-auth/react';
 import { toast } from '@/components/ui/Toaster';
+import BrandLogo from '@/components/branding/BrandLogo';
 
 export default function LoginPage() {
   const [loading, setLoading] = React.useState(false);
@@ -16,41 +16,71 @@ export default function LoginPage() {
     const f = new FormData(e.currentTarget);
     const email = String(f.get('email') || '');
     const password = String(f.get('password') || '');
-
     try {
       const res = await signIn('credentials', { email, password, redirect: false });
       if (!res || res.error) throw new Error(res?.error || 'Credenciais inválidas');
       toast('Sessão iniciada ✅', 2000, 'success');
-      window.location.href = '/dashboard'; // redireciona genericamente
+      // vamos sempre para /dashboard; o index lá redireciona por role
+      window.location.href = '/dashboard';
     } catch (e: any) {
-      setErr(e.message || 'Falha no login');
-      toast('Falha no login', 2500, 'error');
-    } finally {
-      setLoading(false);
-    }
+      setErr(e.message || 'Falha no login'); toast('Falha no login', 2500, 'error');
+    } finally { setLoading(false); }
   }
 
   return (
-    <Container maxWidth="xs" sx={{ minHeight: '100dvh', display: 'grid', placeItems: 'center' }}>
-      <Box component="form" onSubmit={onSubmit} sx={{ width: '100%', p: 3, borderRadius: 3, bgcolor: 'background.paper', boxShadow: 3, display:'grid', gap:2 }}>
-        <Stack alignItems="center" gap={1}>
-          {/* ✅ logo visível */}
-          <Image src="/logo.png" alt="Fitness Pro" width={64} height={64} priority />
-          <Typography variant="h5" fontWeight={800}>Entrar</Typography>
-        </Stack>
+    <Box
+      sx={{
+        minHeight: '100dvh',
+        display: 'grid',
+        placeItems: 'center',
+        // fundo com gradiente suave (legível em claro e escuro)
+        background:
+          'radial-gradient(1200px 600px at 15% -10%, rgba(25,118,210,.25), transparent), ' +
+          'radial-gradient(900px 500px at 100% 0%, rgba(156,39,176,.20), transparent)',
+      }}
+    >
+      <Container maxWidth="xs">
+        <Paper elevation={6} sx={{ p: 3, borderRadius: 4 }}>
+          <Stack alignItems="center" gap={1} sx={{ mb: 1 }}>
+            <BrandLogo size={56} />
+            <Typography variant="h5" fontWeight={800} textAlign="center">
+              Bem-vindo ao Fitness Pro
+            </Typography>
+            <Typography variant="body2" sx={{ opacity: .75, textAlign: 'center' }}>
+              Inicia sessão para acederes ao teu painel.
+            </Typography>
+          </Stack>
 
-        {err && <Alert severity="error">{err}</Alert>}
+          {err && <Alert severity="error" sx={{ mb: 2 }}>{err}</Alert>}
 
-        <TextField name="email" label="Email" type="email" required autoComplete="username" />
-        <TextField name="password" label="Palavra-passe" type="password" required autoComplete="current-password" />
-
-        <Stack direction="row" gap={1} justifyContent="space-between" alignItems="center">
-          <a href="/login/forgot" style={{ fontSize: 14 }}>Esqueceste-te?</a>
-          <Button type="submit" variant="contained" disabled={loading}>{loading ? 'A entrar…' : '👉 Entrar'}</Button>
-        </Stack>
-
-        <Button href="/register">➕ Criar conta</Button>
-      </Box>
-    </Container>
+          <Box component="form" onSubmit={onSubmit} sx={{ display: 'grid', gap: 1.5 }}>
+            <TextField
+              name="email"
+              label="Email"
+              type="email"
+              required
+              autoComplete="username"
+              InputProps={{ inputProps: { inputMode: 'email' } }}
+            />
+            <TextField
+              name="password"
+              label="Palavra-passe"
+              type="password"
+              required
+              autoComplete="current-password"
+            />
+            <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <MuiLink href="/login/forgot" underline="hover" sx={{ fontSize: 14 }}>Esqueceste-te?</MuiLink>
+              <Button type="submit" variant="contained" disabled={loading}>
+                {loading ? 'A entrar…' : '👉 Entrar'}
+              </Button>
+            </Stack>
+            <MuiLink href="/register" underline="hover" sx={{ mt: .5, textAlign: 'center', fontSize: 14 }}>
+              ➕ Criar conta
+            </MuiLink>
+          </Box>
+        </Paper>
+      </Container>
+    </Box>
   );
 }
