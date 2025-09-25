@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import Link from 'next/link';
 import {
@@ -12,7 +11,8 @@ import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import LoginIcon from '@mui/icons-material/Login';
 import ThemeToggle from '@/components/ThemeToggle';
-import BrandLogo from '@/components/BrandLogo'; // ← caminho que usas no projeto
+import BrandLogo from '@/components/BrandLogo';
+import { useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 
 const loginSchema = z.object({
@@ -20,18 +20,18 @@ const loginSchema = z.object({
   password: z.string().min(6, 'Mínimo 6 caracteres'),
 });
 
-// permite apenas caminhos locais (evita open-redirects) e previne loops /login
+// só permite destinos internos e evita voltar ao /login
 function sanitizeNext(next?: string | null) {
   const fallback = '/dashboard';
   if (!next) return fallback;
-
   try {
-    const u = new URL(next, window.location.origin);
-    const path = u.origin === window.location.origin ? (u.pathname + (u.search || '') + (u.hash || '')) : '';
+    const u = new URL(next, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+    const path = u.origin === (typeof window !== 'undefined' ? window.location.origin : u.origin)
+      ? (u.pathname + (u.search || '') + (u.hash || ''))
+      : '';
     if (path.startsWith('/login')) return fallback;
     if (path.startsWith('/') && !path.startsWith('//')) return path || fallback;
   } catch {
-    // não é uma URL absoluta — tratar como relativo
     if (next.startsWith('/login')) return fallback;
     if (next.startsWith('/') && !next.startsWith('//')) return next;
   }
@@ -39,7 +39,6 @@ function sanitizeNext(next?: string | null) {
 }
 
 export default function LoginClient() {
-  const router = useRouter();
   const sp = useSearchParams();
   const nextParam = sp.get('next');
 
@@ -50,7 +49,6 @@ export default function LoginClient() {
   const [err, setErr] = React.useState<string | null>(null);
   const [fieldErr, setFieldErr] = React.useState<{ email?: string; password?: string }>({});
 
-  // lembrar último email
   React.useEffect(() => {
     try { const last = localStorage.getItem('fp:lastEmail'); if (last) setEmail(last); } catch {}
   }, []);
@@ -72,7 +70,6 @@ export default function LoginClient() {
     if (loading) return;
 
     setErr(null);
-
     const parsed = loginSchema.safeParse({ email, password: pw });
     if (!parsed.success) {
       const nextErrors: any = {};
@@ -82,30 +79,18 @@ export default function LoginClient() {
     }
 
     setLoading(true);
-    const target = sanitizeNext(nextParam);
 
     try {
-      // evitamos redirect automático do NextAuth (controlamos aqui)
-      const res = await signIn('credentials', {
+      // ✅ Deixa o NextAuth redirecionar no servidor com Set-Cookie + Location
+      // Evita a corrida de cookies que te deixava “preso” no /login
+      const callbackUrl = sanitizeNext(nextParam);
+      await signIn('credentials', {
         email: email.trim(),
         password: pw,
-        redirect: false,
-        callbackUrl: target,
+        redirect: true,        // <-- chave da robustez em produção
+        callbackUrl,
       });
-
-      if (!res || res.error) {
-        setErr('Credenciais inválidas.');
-        setLoading(false);
-        return;
-      }
-
-      // toca na sessão para garantir cookie disponível ao middleware
-      await fetch('/api/auth/session', { cache: 'no-store' }).catch(() => {});
-      // pequeno atraso para evitar corrida de cookies
-      await new Promise((r) => setTimeout(r, 60));
-
-      const dest = sanitizeNext(res.url || target);
-      router.replace(dest);
+      // não precisamos de setLoading(false) — a navegação vai acontecer via 302 do servidor
     } catch {
       setErr('Não foi possível iniciar sessão. Tenta novamente.');
       setLoading(false);
