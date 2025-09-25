@@ -1,3 +1,4 @@
+// src/app/(app)/dashboard/page.tsx
 import { redirect } from 'next/navigation';
 import { createServerClient } from '@/lib/supabaseServer';
 
@@ -18,5 +19,5 @@ export default async function DashboardIndex() {
 
   if (role === 'ADMIN')  redirect('/dashboard/admin');
   if (role === 'TRAINER') redirect('/dashboard/pt');
-  redirect('/dashboard/clients'); // fallback seguro
+  redirect('/dashboard/clients'); // fallback
 }

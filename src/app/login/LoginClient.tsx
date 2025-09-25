@@ -12,7 +12,7 @@ import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import LoginIcon from '@mui/icons-material/Login';
 import ThemeToggle from '@/components/ThemeToggle';
-import BrandLogo from '@/components/BrandLogo';
+import BrandLogo from '@/components/BrandLogo'; // ← caminho que usas no projeto
 import { z } from 'zod';
 
 const loginSchema = z.object({
@@ -20,14 +20,28 @@ const loginSchema = z.object({
   password: z.string().min(6, 'Mínimo 6 caracteres'),
 });
 
-function fallbackTarget(nextUrl?: string | null) {
-  return nextUrl && nextUrl.trim().length > 0 ? decodeURIComponent(nextUrl) : '/dashboard';
+// permite apenas caminhos locais (evita open-redirects) e previne loops /login
+function sanitizeNext(next?: string | null) {
+  const fallback = '/dashboard';
+  if (!next) return fallback;
+
+  try {
+    const u = new URL(next, window.location.origin);
+    const path = u.origin === window.location.origin ? (u.pathname + (u.search || '') + (u.hash || '')) : '';
+    if (path.startsWith('/login')) return fallback;
+    if (path.startsWith('/') && !path.startsWith('//')) return path || fallback;
+  } catch {
+    // não é uma URL absoluta — tratar como relativo
+    if (next.startsWith('/login')) return fallback;
+    if (next.startsWith('/') && !next.startsWith('//')) return next;
+  }
+  return fallback;
 }
 
 export default function LoginClient() {
   const router = useRouter();
   const sp = useSearchParams();
-  const nextUrl = sp.get('next');
+  const nextParam = sp.get('next');
 
   const [email, setEmail] = React.useState('');
   const [pw, setPw] = React.useState('');
@@ -36,6 +50,7 @@ export default function LoginClient() {
   const [err, setErr] = React.useState<string | null>(null);
   const [fieldErr, setFieldErr] = React.useState<{ email?: string; password?: string }>({});
 
+  // lembrar último email
   React.useEffect(() => {
     try { const last = localStorage.getItem('fp:lastEmail'); if (last) setEmail(last); } catch {}
   }, []);
@@ -46,39 +61,55 @@ export default function LoginClient() {
   const validateField = (key: 'email' | 'password', value: string) => {
     const partial = key === 'email' ? loginSchema.pick({ email: true }) : loginSchema.pick({ password: true });
     const res = partial.safeParse({ [key]: value } as any);
-    setFieldErr((prev) => ({ ...prev, [key]: res.success ? undefined : res.error.issues[0]?.message })); // ✅
+    setFieldErr((prev) => ({ ...prev, [key]: res.success ? undefined : res.error.issues[0]?.message }));
     return res.success;
   };
 
   const isFormValid = loginSchema.safeParse({ email, password: pw }).success && !loading;
 
-  async function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (loading) return;
+
     setErr(null);
 
     const parsed = loginSchema.safeParse({ email, password: pw });
     if (!parsed.success) {
-      const next: any = {};
-      for (const issue of parsed.error.issues) next[issue.path[0] as string] = issue.message;
-      setFieldErr(next);
+      const nextErrors: any = {};
+      for (const issue of parsed.error.issues) nextErrors[issue.path[0] as string] = issue.message;
+      setFieldErr(nextErrors);
       return;
     }
 
     setLoading(true);
-    const target = fallbackTarget(nextUrl);
-    const res = await signIn('credentials', {
-      email,
-      password: pw,
-      redirect: false,
-      callbackUrl: target,
-    });
-    setLoading(false);
+    const target = sanitizeNext(nextParam);
 
-    if (!res || !res.ok) {
-      setErr('Credenciais inválidas.');
-      return;
+    try {
+      // evitamos redirect automático do NextAuth (controlamos aqui)
+      const res = await signIn('credentials', {
+        email: email.trim(),
+        password: pw,
+        redirect: false,
+        callbackUrl: target,
+      });
+
+      if (!res || res.error) {
+        setErr('Credenciais inválidas.');
+        setLoading(false);
+        return;
+      }
+
+      // toca na sessão para garantir cookie disponível ao middleware
+      await fetch('/api/auth/session', { cache: 'no-store' }).catch(() => {});
+      // pequeno atraso para evitar corrida de cookies
+      await new Promise((r) => setTimeout(r, 60));
+
+      const dest = sanitizeNext(res.url || target);
+      router.replace(dest);
+    } catch {
+      setErr('Não foi possível iniciar sessão. Tenta novamente.');
+      setLoading(false);
     }
-    router.replace(res.url || target);
   }
 
   return (
@@ -135,6 +166,7 @@ export default function LoginClient() {
               fullWidth
               autoFocus
               autoComplete="username"
+              inputProps={{ inputMode: 'email', spellCheck: false, 'aria-label': 'Email' }}
               error={!!fieldErr.email}
               helperText={fieldErr.email}
             />
@@ -147,14 +179,15 @@ export default function LoginClient() {
               onBlur={(e) => validateField('password', e.target.value)}
               required
               fullWidth
-              inputProps={{ minLength: 6 }}
+              inputProps={{ minLength: 6, 'aria-label': 'Palavra-passe' }}
               autoComplete="current-password"
               error={!!fieldErr.password}
               helperText={fieldErr.password}
+              onKeyDown={(e) => { if (loading && e.key === 'Enter') e.preventDefault(); }}
               InputProps={{
                 endAdornment: (
                   <InputAdornment position="end">
-                    <IconButton onClick={() => setShow((v) => !v)} edge="end" aria-label="mostrar/ocultar palavra-passe">
+                    <IconButton onClick={() => setShow((v) => !v)} edge="end" aria-label="Mostrar/ocultar palavra-passe">
                       {show ? <VisibilityOff /> : <Visibility />}
                     </IconButton>
                   </InputAdornment>
