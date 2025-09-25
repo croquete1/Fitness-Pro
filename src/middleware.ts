@@ -2,11 +2,11 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 
-// rotas públicas: nunca redirecionar a partir daqui
+// Rotas públicas — nunca redirecionar a partir do middleware
 const PUBLIC = new Set(['/', '/login', '/register', '/login/forgot', '/login/reset']);
 
-// nomes possíveis de cookies de sessão (NextAuth v4 e Auth.js v5)
-const SESSION_COOKIES = [
+// Qualquer variante conhecida (v4 e v5) + regex genérica de segurança
+const SESSION_COOKIE_NAMES = [
   '__Secure-next-auth.session-token',
   'next-auth.session-token',
   '__Secure-authjs.session-token',
@@ -23,43 +23,51 @@ function isPublic(pathname: string) {
     pathname.startsWith('/manifest') ||
     pathname === '/sw.js')
     return true;
-  // API valida auth nos próprios handlers
+  // APIs validam auth nos próprios handlers
   if (pathname.startsWith('/api/')) return true;
   return false;
 }
 
+// Detecta “parece sessão” por nome de cookie (todas as variantes)
 function hasSessionCookie(req: NextRequest) {
-  return SESSION_COOKIES.some((n) => req.cookies.get(n)?.value);
+  const all = req.cookies.getAll();
+  // nomes explícitos mais regex genérica (auth + session + token)
+  const explicit = SESSION_COOKIE_NAMES.some((n) => !!all.find((c) => c.name === n && (c.value?.length ?? 0) > 20));
+  if (explicit) return true;
+  const generic = all.some((c) => {
+    const n = c.name.toLowerCase();
+    return /auth/.test(n) && /session/.test(n) && /token/.test(n) && (c.value?.length ?? 0) > 20;
+  });
+  return generic;
 }
 
 export default async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // 1) nunca tocar nas públicas (inclui /login)
+  // 1) Nunca mexer nas rotas públicas (inclui /login)
   if (isPublic(pathname)) return NextResponse.next();
 
-  // 2) detetar sessão por cookie (robusto p/ DB sessions e JWT)
-  let authenticated = hasSessionCookie(req);
+  // 2) Sinal forte: temos cookie de sessão (DB ou JWT) → deixa passar
+  if (hasSessionCookie(req)) return NextResponse.next();
 
-  // 3) fallback: tentar decifrar JWT se existir (caso uses strategy: 'jwt')
-  if (!authenticated) {
-    const token = await getToken({
-      req,
-      secret: process.env.NEXTAUTH_SECRET,
-      secureCookie: process.env.NODE_ENV === 'production',
-    }).catch(() => null);
-    authenticated = !!token;
-  }
+  // 3) Fallback: tenta decifrar JWT (quando usas strategy: 'jwt')
+  const token = await getToken({
+    req,
+    secret: process.env.NEXTAUTH_SECRET,
+    secureCookie: process.env.NODE_ENV === 'production',
+  }).catch(() => null);
+  if (token) return NextResponse.next();
 
-  if (!authenticated) {
-    const url = req.nextUrl.clone();
-    url.pathname = '/login';
-    url.search = `?next=${encodeURIComponent(req.nextUrl.pathname + req.nextUrl.search)}`;
-    return NextResponse.redirect(url);
-  }
+  // 4) Relaxo do 1.º salto pós-callback (evita “voltar ao login”):
+  // se o Referer vier do callback de auth, deixa passar 1 pedido para /dashboard
+  const referer = req.headers.get('referer') || '';
+  if (referer.includes('/api/auth/callback')) return NextResponse.next();
 
-  // 4) não fazer mais redirects aqui; /dashboard decide no server
-  return NextResponse.next();
+  // 5) Sem sessão → envia para /login com next=… (para onde voltar depois)
+  const url = req.nextUrl.clone();
+  url.pathname = '/login';
+  url.search = `?next=${encodeURIComponent(req.nextUrl.pathname + req.nextUrl.search)}`;
+  return NextResponse.redirect(url);
 }
 
 export const config = {
