@@ -1,22 +1,26 @@
-"use client";
+'use client';
 
-import React from "react";
-import { useSidebar } from "@/components/SidebarProvider";
+import React from 'react';
+import { useSidebar } from '@/components/layout/SidebarContext';
+
+const RAIL_WIDTH = 72;   // sidebar colapsada
+const PANEL_WIDTH = 240; // sidebar expandida
 
 export default function MainContent({ children }: { children: React.ReactNode }) {
-  const { railWidth, panelWidth, pinned, collapsed } = useSidebar();
+  const { pinned, collapsed, isMobile, open } = useSidebar();
 
-  // base: rail sempre ocupa espaço
-  // se AFIXADA e EXPANDIDA => empurra mais o conteúdo
-  const extra = pinned && !collapsed ? panelWidth : 0;
-  const paddingLeft = railWidth + extra;
+  // largura efetiva da sidebar à esquerda
+  const asideWidth = isMobile ? 0 : (collapsed ? RAIL_WIDTH : PANEL_WIDTH);
 
   return (
     <div
-      className="min-h-screen"
       style={{
-        paddingLeft,
-        transition: "padding-left 320ms ease-out",
+        minHeight: '100dvh',
+        display: 'flex',
+        flexDirection: 'column',
+        // se a sidebar estiver pinada em desktop, empurramos o conteúdo
+        marginLeft: pinned && !isMobile ? asideWidth : 0,
+        transition: 'margin-left .2s ease',
       }}
     >
       {children}

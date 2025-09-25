@@ -1,4 +1,3 @@
-// src/app/(app)/dashboard/pt/page.tsx
 import KpiCard from '@/components/ui/KpiCard';
 import TaskListCard from '@/components/dashboard/TaskListCard';
 import PTAgendaCard, { PTSess } from '@/components/dashboard/PTAgendaCard';
@@ -14,21 +13,20 @@ export default async function PTDashboardPage() {
       const start = new Date(); start.setHours(0,0,0,0);
       const end = new Date();   end.setHours(23,59,59,999);
 
-      // Lê as sessões do PT autenticado (trainer_id = user.id)
+      // join simples para obter nome do cliente (assumindo tabela profiles)
       const { data, error } = await sb
         .from('sessions')
-        .select('id, title, start_at, end_at, kind, status, client_id')
+        .select('id, title, start_at, end_at, kind, status, client:profiles!sessions_client_id_fkey(full_name)')
         .eq('trainer_id', user.id)
         .gte('start_at', start.toISOString())
         .lte('start_at', end.toISOString())
         .order('start_at', { ascending: true });
 
       if (!error && Array.isArray(data)) {
-        // (Opcional) juntar nome do cliente se tiveres tabela de perfis
         sessions = data.map((d: any) => ({
           id: String(d.id),
           title: d.title ?? 'Sessão',
-          client: null, // podemos popular no futuro via join (profiles)
+          client: d.client?.full_name ?? null,
           start_at: d.start_at,
           end_at: d.end_at ?? null,
           kind: d.kind ?? null,
@@ -36,9 +34,7 @@ export default async function PTDashboardPage() {
         }));
       }
     }
-  } catch {
-    // fallback silencioso
-  }
+  } catch {}
 
   return (
     <div className="space-y-6">
@@ -50,6 +46,11 @@ export default async function PTDashboardPage() {
       </div>
 
       <PTAgendaCard sessions={sessions} />
+
+      <div className="flex gap-2">
+        <a href="/dashboard/pt/sessions/new" className="btn">➕ Marcar sessão</a>
+        <a href="/dashboard/pt/sessions" className="btn">📅 Ver todas</a>
+      </div>
 
       <TaskListCard
         storageId="pt.tasks.today"

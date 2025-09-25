@@ -1,32 +1,25 @@
-// src/app/(app)/dashboard/layout.tsx
-export const dynamic = 'force-dynamic';
-
-import * as React from 'react';
 import { redirect } from 'next/navigation';
-import DashboardShell from '@/components/layout/DashboardShell';
-import SidebarAdmin from '@/components/layout/SidebarAdmin';
-import SidebarPT from '@/components/layout/SidebarPT';
-import SidebarClient from '@/components/layout/SidebarClient';
-import { getSessionUserSafe } from '@/lib/session-bridge';
-import { toAppRole, type AppRole } from '@/lib/roles';
 import { createServerClient } from '@/lib/supabaseServer';
+import DashboardFrame from '@/components/layout/DashboardFrame';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const sessionUser = await getSessionUserSafe();
-  const user = sessionUser?.user;
-  if (!user?.id) redirect('/login');
-
-  // toAppRole já normaliza para 'ADMIN' | 'PT' | 'CLIENT'
-  const role = (toAppRole(user.role) ?? 'CLIENT') as AppRole;
-
   const sb = createServerClient();
-  const { data: prof } = await sb.from('profiles').select('name').eq('id', user.id).maybeSingle();
-  const userLabel = prof?.name ?? user.name ?? user.email ?? 'Utilizador';
 
-  let sidebar: React.ReactNode;
-  if (role === 'ADMIN') sidebar = <SidebarAdmin userLabel={userLabel} />;
-  else if (role === 'PT') sidebar = <SidebarPT userLabel={userLabel} />;
-  else sidebar = <SidebarClient userLabel={userLabel} />;
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) redirect('/login');
 
-  return <DashboardShell sidebar={sidebar}>{children}</DashboardShell>;
+  // tenta obter o nome do perfil
+  let fullName: string | null = null;
+  try {
+    const { data } = await sb.from('profiles').select('full_name').eq('id', user.id).single();
+    fullName = (data as any)?.full_name ?? null;
+  } catch {}
+
+  const role = String((user.user_metadata as any)?.role ?? 'CLIENT').toUpperCase();
+
+  return (
+    <DashboardFrame role={role} userLabel={fullName}>
+      {children}
+    </DashboardFrame>
+  );
 }

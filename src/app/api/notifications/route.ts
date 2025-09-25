@@ -1,47 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
-import { getSessionUserSafe } from '@/lib/session-bridge';
 
-export async function GET(req: NextRequest) {
-  const session = await getSessionUserSafe();
-  if (!session?.user?.id) return NextResponse.json({ items: [], count: 0, page: 1, pageSize: 10 }, { status: 401 });
-
+export async function GET() {
   const sb = createServerClient();
-  const userId = session.user.id;
+  try {
+    const { data, error } = await sb.from('notifications').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    return NextResponse.json({ items: data ?? [] });
+  } catch {
+    // fallback seguro
+    return NextResponse.json({ items: [] });
+  }
+}
 
-  // compat com versão anterior
-  const unreadParam = req.nextUrl.searchParams.get('unread');
-  const status = (req.nextUrl.searchParams.get('status') || (unreadParam === '1' ? 'unread' : 'all')).toLowerCase() as
-    | 'all' | 'unread' | 'read';
+export async function POST(req: NextRequest) {
+  const sb = createServerClient();
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'Auth' }, { status: 401 });
 
-  const page = Math.max(1, Number(req.nextUrl.searchParams.get('page') || 1));
-  const pageSize = Math.min(50, Math.max(1, Number(req.nextUrl.searchParams.get('pageSize') || 10)));
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
+  const b = await req.json().catch(()=>({}));
+  const title = String(b.title || '').trim();
+  const body = b.body ? String(b.body) : null;
+  if (!title) return NextResponse.json({ error: 'Título obrigatório' }, { status: 400 });
 
   try {
-    let q = sb.from('notifications')
-      .select('*', { count: 'exact' })
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .range(from, to);
-
-    if (status === 'unread') q = q.eq('read', false);
-    if (status === 'read') q = q.eq('read', true);
-
-    const { data, count } = await q;
-
-    const items = (data ?? []).map((n: any) => ({
-      id: n.id,
-      title: n.title ?? n.head ?? 'Notificação',
-      body: n.body ?? n.text ?? '',
-      href: n.href ?? n.url ?? '/dashboard/notifications',
-      read: !!n.read,
-      created_at: n.created_at ?? null,
-    }));
-
-    return NextResponse.json({ items, count: count ?? 0, page, pageSize });
-  } catch {
-    return NextResponse.json({ items: [], count: 0, page, pageSize });
+    const { error } = await sb.from('notifications').insert({ title, body, user_id: null, active: true });
+    if (error) throw error;
+    return NextResponse.json({ ok: true });
+  } catch (e:any) {
+    return NextResponse.json({ error: e.message || 'Falha ao criar' }, { status: 400 });
   }
 }

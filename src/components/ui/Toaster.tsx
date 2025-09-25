@@ -1,47 +1,46 @@
 'use client';
+
 import * as React from 'react';
+import { Alert, Snackbar } from '@mui/material';
 
-type Toast = { id: string; text: string; ttl: number };
-const TOAST_EVENT = 'app:toast';
+type Level = 'success' | 'error' | 'info' | 'warning';
 
-export function toast(text: string, ttl = 3000) {
+type ToastPayload = { text: string; level?: Level; ttl?: number };
+
+const EVT = 'app:toast';
+
+export function toast(text: string, ttl = 3000, level: Level = 'info') {
   if (typeof window === 'undefined') return;
-  const ev = new CustomEvent(TOAST_EVENT, { detail: { text, ttl } });
-  window.dispatchEvent(ev);
+  const detail: ToastPayload = { text, ttl, level };
+  window.dispatchEvent(new CustomEvent<ToastPayload>(EVT, { detail }));
 }
 
-/** Hook compatível com `import { useToast } from "@/components/ui/Toaster"` */
-export function useToast() {
-  return React.useCallback((text: string, ttl = 3000) => toast(text, ttl), []);
-}
-
-export default function Toaster() {
-  const [list, setList] = React.useState<Toast[]>([]);
+export function Toaster() {
+  const [open, setOpen] = React.useState(false);
+  const [msg, setMsg] = React.useState<ToastPayload>({ text: '' });
 
   React.useEffect(() => {
-    const onToast = (e: any) => {
-      const id =
-        (globalThis.crypto && 'randomUUID' in globalThis.crypto
-          ? (globalThis.crypto as Crypto).randomUUID()
-          : `t-${Math.random().toString(36).slice(2)}`);
-      const t: Toast = { id, text: e.detail.text, ttl: e.detail.ttl ?? 3000 };
-      setList(prev => [...prev, t]);
-      setTimeout(() => setList(prev => prev.filter(x => x.id !== t.id)), t.ttl);
+    const onToast = (e: Event) => {
+      const detail = (e as CustomEvent<ToastPayload>).detail;
+      setMsg(detail);
+      setOpen(true);
     };
-    window.addEventListener(TOAST_EVENT as any, onToast);
-    return () => window.removeEventListener(TOAST_EVENT as any, onToast);
+    window.addEventListener(EVT, onToast as EventListener);
+    return () => window.removeEventListener(EVT, onToast as EventListener);
   }, []);
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 space-y-2 pointer-events-none">
-      {list.map(t => (
-        <div
-          key={t.id}
-          className="pointer-events-auto rounded-lg px-3 py-2 text-sm bg-neutral-900 text-white shadow-lg border border-white/10"
-        >
-          {t.text}
-        </div>
-      ))}
-    </div>
+    <Snackbar
+      open={open}
+      autoHideDuration={msg.ttl ?? 3000}
+      onClose={() => setOpen(false)}
+      anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+    >
+      <Alert severity={msg.level ?? 'info'} onClose={() => setOpen(false)} variant="filled" elevation={3}>
+        {msg.text}
+      </Alert>
+    </Snackbar>
   );
 }
+
+export default Toaster;

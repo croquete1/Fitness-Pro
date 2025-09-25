@@ -1,86 +1,68 @@
-export const dynamic = 'force-dynamic';
-
-import React from 'react';
-import { redirect } from 'next/navigation';
-import type { Route } from 'next';
 import Link from 'next/link';
-import PageHeader from '@/components/ui/PageHeader';
-import Card, { CardContent } from '@/components/ui/Card';
-import Badge from '@/components/ui/Badge';
-import { getSessionUserSafe } from '@/lib/session-bridge';
-import { toAppRole } from '@/lib/roles';
-import supabaseAdmin from '@/lib/supabaseServer';
+import { createServerClient } from '@/lib/supabaseServer';
+import { Box, Button, Chip, Container, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
 
+export const revalidate = 0;
 
-export default async function AdminExercisesPage() {
-  const session = await getSessionUserSafe();
-  const user = (session as any)?.user;
-  if (!user?.id) redirect('/login' as Route);
+export default async function AdminExercisesPage({ searchParams }: { searchParams: { q?: string } }) {
+  const q = (searchParams.q || '').trim();
 
-  const role = toAppRole(user.role) ?? 'CLIENT';
-  const canCreate = role === 'ADMIN';
+  const sb = createServerClient();
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return null;
 
-  const sb = supabaseAdmin;
-  const { data: rows, error } = await sb
-    .from('exercises')
-    .select('id,name,muscle_group,equipment,difficulty,video_url,created_at,created_by')
-    .order('created_at', { ascending: false })
-    .limit(200);
+  let query = sb.from('exercises').select('id, name, muscle_group, equipment, difficulty, is_active, created_at').order('created_at', { ascending: false });
+  if (q) query = query.ilike('name', `%${q}%`);
 
-  const items =
-    error || !rows
-      ? []
-      : rows;
+  const { data, error } = await query;
+  const rows = (!error && Array.isArray(data) ? data : []) as any[];
 
   return (
-    <main className="p-4 space-y-4">
-      <PageHeader
-        title="Catálogo de Exercícios"
-        subtitle="Gerir e pesquisar exercícios"
-        actions={
-          canCreate
-            ? <Link href={'/dashboard/admin/exercises/new' as Route} className="btn primary">➕ Novo exercício</Link>
-            : null
-        }
-      />
+    <Container maxWidth="lg" sx={{ display:'grid', gap:2 }}>
+      <Stack direction="row" alignItems="center" justifyContent="space-between">
+        <Typography variant="h5" fontWeight={800}>🏋️ Exercícios</Typography>
+        <Stack direction="row" gap={1}>
+          <Link href="/dashboard/admin/exercises/new"><Button variant="contained">➕ Novo</Button></Link>
+        </Stack>
+      </Stack>
 
-      <Card>
-        <CardContent>
-          {!items.length ? (
-            <div className="text-muted small">Sem exercícios no catálogo.</div>
-          ) : (
-            <ul style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 6 }}>
-              {items.map((e) => (
-                <li key={e.id} className="card" style={{ padding: 10 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-                    <div style={{ display: 'grid', gap: 4 }}>
-                      <div style={{ fontWeight: 700 }}>{e.name}</div>
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        {e.muscle_group ? <Badge variant="primary">{e.muscle_group}</Badge> : null}
-                        {e.equipment ? <Badge variant="neutral">{e.equipment}</Badge> : null}
-                        {e.difficulty ? (
-                          <Badge
-                            variant={
-                              e.difficulty === 'EASY' ? 'success'
-                              : e.difficulty === 'HARD' ? 'danger'
-                              : 'warning'
-                            }
-                          >
-                            {e.difficulty}
-                          </Badge>
-                        ) : null}
-                      </div>
-                    </div>
-                    {e.video_url ? (
-                      <a href={e.video_url} target="_blank" rel="noreferrer" className="btn chip">🎬 Vídeo</a>
-                    ) : null}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
-    </main>
+      <Box component="form" action="/dashboard/admin/exercises" method="get" sx={{ display:'flex', gap:1 }}>
+        <TextField name="q" defaultValue={q} label="🔎 Pesquisar exercícios" placeholder="ex.: Agachamento" sx={{ minWidth: 320 }} />
+        <Button type="submit">Procurar</Button>
+      </Box>
+
+      <Box sx={{ borderRadius:3, bgcolor:'background.paper', border:'1px solid', borderColor:'divider', overflow:'hidden' }}>
+        <Table size="small">
+          <TableHead sx={{ bgcolor:'action.hover' }}>
+            <TableRow>
+              <TableCell>Nome</TableCell>
+              <TableCell>Grupo muscular</TableCell>
+              <TableCell>Equipamento</TableCell>
+              <TableCell>Dificuldade</TableCell>
+              <TableCell>Estado</TableCell>
+              <TableCell align="right">Ações</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {rows.length === 0 ? (
+              <TableRow><TableCell colSpan={6} align="center" sx={{ py:4, opacity:.7 }}>Sem exercícios.</TableCell></TableRow>
+            ) : rows.map(r => (
+              <TableRow key={r.id} hover>
+                <TableCell><strong>{r.name}</strong></TableCell>
+                <TableCell>{r.muscle_group ?? '—'}</TableCell>
+                <TableCell>{r.equipment ?? '—'}</TableCell>
+                <TableCell>{r.difficulty ?? '—'}</TableCell>
+                <TableCell>
+                  <Chip size="small" label={r.is_active ? 'Ativo' : 'Inativo'} color={r.is_active ? 'success' : 'default'} />
+                </TableCell>
+                <TableCell align="right">
+                  <Link href={`/dashboard/admin/exercises/${r.id}`}><Button size="small">✏️ Editar</Button></Link>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Box>
+    </Container>
   );
 }

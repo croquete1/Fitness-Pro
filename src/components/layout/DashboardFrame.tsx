@@ -1,30 +1,31 @@
 'use client';
 
 import * as React from 'react';
-import { useSidebar } from '@/components/layout/SidebarProvider';
-import AppHeader from '@/components/layout/AppHeader';
-import RoleSidebar from '@/components/layout/RoleSidebar';
-import type { AppRole } from '@/lib/roles';
+import { SidebarProvider } from './SidebarContext';
+import RoleSidebar from '@/components/layout/RoleSidebar'; // já existente no teu projeto
+import AppHeader from '@/components/layout/AppHeader';       // já existente no teu projeto
 
 export default function DashboardFrame({
   role,
   userLabel,
   children,
 }: {
-  role: AppRole;
-  userLabel?: string;
+  role: 'ADMIN' | 'PT' | 'CLIENT' | string;
+  userLabel?: string | null;
   children: React.ReactNode;
 }) {
-  const { collapsed, peek } = useSidebar();       // << agora existe
-  const width = collapsed && !peek ? 72 : 260;    // largura efetiva da sidebar
-
   return (
-    <div className="fp-shell" data-auth-root style={{ display: 'grid', gridTemplateColumns: `${width}px 1fr`, minHeight: '100dvh' }}>
-      <RoleSidebar role={role} userLabel={userLabel} />
-      <div className="fp-main" style={{ minWidth: 0, display: 'grid', gridTemplateRows: 'auto 1fr' }}>
-        <AppHeader />
-        <main className="fp-content" style={{ padding: 16, minWidth: 0 }}>{children}</main>
+    <SidebarProvider>
+      <div className="flex min-h-[100dvh] bg-neutral-50 dark:bg-neutral-950">
+        {/* Sidebar lateral */}
+        <RoleSidebar role={role} userLabel={userLabel ?? undefined} />
+
+        {/* Conteúdo */}
+        <div className="flex-1 min-w-0 flex flex-col">
+          <AppHeader />
+          <main className="flex-1 min-w-0 p-4 lg:p-6">{children}</main>
+        </div>
       </div>
-    </div>
+    </SidebarProvider>
   );
 }

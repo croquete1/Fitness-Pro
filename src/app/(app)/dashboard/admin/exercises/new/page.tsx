@@ -1,88 +1,50 @@
-export const dynamic = 'force-dynamic';
+'use client';
 
-import { redirect } from 'next/navigation';
-import type { Route } from 'next';
-import PageHeader from '@/components/ui/PageHeader';
-import Card, { CardContent } from '@/components/ui/Card';
-import { getSessionUserSafe } from '@/lib/session-bridge';
-import { toAppRole } from '@/lib/roles';
-import { createServerClient } from '@/lib/supabaseServer';
-import { revalidatePath } from 'next/cache';
+import * as React from 'react';
+import { useRouter } from 'next/navigation';
+import { Box, Button, Container, MenuItem, Stack, TextField, Typography, Alert } from '@mui/material';
+import { toast } from '@/components/ui/Toaster';
 
-async function createExercise(formData: FormData) {
-  'use server';
-  const session = await getSessionUserSafe();
-  const user = (session as any)?.user;
-  if (!user?.id) redirect('/login' as Route);
-  if (toAppRole(user.role) !== 'ADMIN') redirect('/dashboard' as Route);
+export default function NewExercisePage() {
+  const router = useRouter();
+  const [err, setErr] = React.useState<string | null>(null);
+  const [saving, setSaving] = React.useState(false);
 
-  const name = String(formData.get('name') || '').trim();
-  const muscle_group = String(formData.get('muscle_group') || '').trim() || null;
-  const equipment = String(formData.get('equipment') || '').trim() || null;
-  const difficulty = String(formData.get('difficulty') || '').trim() || null;
-  const video_url = String(formData.get('video_url') || '').trim() || null;
-
-  if (!name) return;
-
-  const sb = createServerClient();
-  await sb.from('exercises').insert({
-    name, muscle_group, equipment, difficulty, video_url, created_by: user.id,
-  });
-
-  revalidatePath('/dashboard/admin/exercises');
-  redirect('/dashboard/admin/exercises' as Route);
-}
-
-export default async function AdminNewExercisePage() {
-  const session = await getSessionUserSafe();
-  const user = (session as any)?.user;
-  if (!user?.id) redirect('/login' as Route);
-  if (toAppRole(user.role) !== 'ADMIN') redirect('/dashboard' as Route);
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setErr(null); setSaving(true);
+    const f = new FormData(e.currentTarget);
+    const payload = Object.fromEntries(f.entries());
+    try {
+      const res = await fetch('/api/admin/exercises', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) });
+      if (!res.ok) throw new Error(await res.text());
+      toast('Exercício criado ✅', 2000, 'success');
+      router.push('/dashboard/admin/exercises');
+    } catch (e: any) {
+      setErr(e.message || 'Falha ao criar exercício'); toast('Falha ao criar', 2500, 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
-    <main className="p-4 space-y-4">
-      <PageHeader title="Novo exercício" subtitle="Adicionar ao catálogo" />
-      <Card>
-        <CardContent>
-          <form action={createExercise} style={{ display: 'grid', gap: 10, maxWidth: 560 }}>
-            <label>
-              <div className="small text-muted">Nome *</div>
-              <input name="name" required placeholder="Agachamento" />
-            </label>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <label>
-                <div className="small text-muted">Grupo muscular</div>
-                <input name="muscle_group" placeholder="Pernas / Peito / Costas…" />
-              </label>
-              <label>
-                <div className="small text-muted">Equipamento</div>
-                <input name="equipment" placeholder="Halteres / Barra / Máquina…" />
-              </label>
-            </div>
-
-            <label>
-              <div className="small text-muted">Dificuldade</div>
-              <select name="difficulty" defaultValue="">
-                <option value="">—</option>
-                <option value="EASY">Fácil</option>
-                <option value="MEDIUM">Médio</option>
-                <option value="HARD">Difícil</option>
-              </select>
-            </label>
-
-            <label>
-              <div className="small text-muted">Vídeo (URL)</div>
-              <input name="video_url" type="url" placeholder="https://…" />
-            </label>
-
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn primary" type="submit">Guardar</button>
-              <a className="btn ghost" href={'/dashboard/admin/exercises' as Route}>Cancelar</a>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-    </main>
+    <Container maxWidth="sm" sx={{ display:'grid', gap:2 }}>
+      <Typography variant="h5" fontWeight={800}>➕ Novo exercício</Typography>
+      <Box component="form" onSubmit={onSubmit} sx={{ p:3, borderRadius:3, bgcolor:'background.paper', border:'1px solid', borderColor:'divider', display:'grid', gap:2 }}>
+        {err && <Alert severity="error">{err}</Alert>}
+        <TextField name="name" label="Nome" required placeholder="Agachamento" />
+        <TextField name="muscle_group" label="Grupo muscular" placeholder="Perna/Glúteo" />
+        <TextField name="equipment" label="Equipamento" placeholder="Barra, Máquina, Halteres" />
+        <TextField select name="difficulty" label="Dificuldade" defaultValue="média">
+          <MenuItem value="fácil">Fácil</MenuItem>
+          <MenuItem value="média">Média</MenuItem>
+          <MenuItem value="difícil">Difícil</MenuItem>
+        </TextField>
+        <Stack direction="row" gap={1} justifyContent="flex-end">
+          <Button onClick={()=>router.back()}>❌ Cancelar</Button>
+          <Button variant="contained" type="submit" disabled={saving}>{saving ? 'A criar…' : '💾 Guardar'}</Button>
+        </Stack>
+      </Box>
+    </Container>
   );
 }

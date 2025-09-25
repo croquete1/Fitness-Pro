@@ -1,43 +1,20 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
-import { getSessionUserSafe } from '@/lib/session-bridge';
-import { toAppRole } from '@/lib/roles';
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const session = await getSessionUserSafe();
-  if (!session?.user?.id) return NextResponse.json({ ok: false }, { status: 401 });
-  const role = toAppRole(session.user.role) ?? 'CLIENT';
-  if (role !== 'ADMIN') return NextResponse.json({ ok: false }, { status: 403 });
-
-  const body = await req.json().catch(() => ({}));
-  const reason: string | undefined = body?.reason;
-
+export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const sb = createServerClient();
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'Auth' }, { status: 401 });
 
-  try {
-    await sb.from('users').update({ approved: false, status: 'REJECTED' }).eq('id', params.id);
+  const body = await req.json().catch(()=>({}));
+  const reason = body.reason ? String(body.reason) : null;
 
-    try {
-      await sb.from('notifications').insert({
-        user_id: params.id,
-        title: 'Conta recusada',
-        body: 'O teu registo foi recusado por um administrador.',
-        read: false,
-        href: '/dashboard',
-      });
-    } catch {}
+  // Rejeitar = SUSPENDED (ou REJECTED se usares esse estado)
+  const patch: any = { status: 'SUSPENDED' };
+  if (reason) patch.rejection_reason = reason;
 
-    try {
-      await sb.from('audit_log').insert({
-        actor_id: session.user.id,
-        target_id: params.id,
-        action: 'REJECT_USER',
-        meta: { reason: reason ?? null },
-      });
-    } catch {}
-  } catch {
-    return NextResponse.json({ ok: false }, { status: 500 });
-  }
+  const { error } = await sb.from('profiles').update(patch).eq('id', params.id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
   return NextResponse.json({ ok: true });
 }
