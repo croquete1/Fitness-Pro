@@ -2,8 +2,16 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 
-// rotas públicas SEM redirecionamentos automáticos
+// rotas públicas: nunca redirecionar a partir daqui
 const PUBLIC = new Set(['/', '/login', '/register', '/login/forgot', '/login/reset']);
+
+// nomes possíveis de cookies de sessão (NextAuth v4 e Auth.js v5)
+const SESSION_COOKIES = [
+  '__Secure-next-auth.session-token',
+  'next-auth.session-token',
+  '__Secure-authjs.session-token',
+  'authjs.session-token',
+];
 
 function isPublic(pathname: string) {
   if (PUBLIC.has(pathname)) return true;
@@ -15,33 +23,42 @@ function isPublic(pathname: string) {
     pathname.startsWith('/manifest') ||
     pathname === '/sw.js')
     return true;
-  // API não é bloqueada no middleware; cada handler valida auth/RLS
+  // API valida auth nos próprios handlers
   if (pathname.startsWith('/api/')) return true;
   return false;
+}
+
+function hasSessionCookie(req: NextRequest) {
+  return SESSION_COOKIES.some((n) => req.cookies.get(n)?.value);
 }
 
 export default async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // 1) Nunca redirecionar páginas públicas (inclui /login)
+  // 1) nunca tocar nas públicas (inclui /login)
   if (isPublic(pathname)) return NextResponse.next();
 
-  // 2) Rotas privadas: exige sessão (token NextAuth)
-  const token = await getToken({
-    req,
-    secret: process.env.NEXTAUTH_SECRET,
-    // em produção, os cookies são secure; esta flag evita falsos negativos
-    secureCookie: process.env.NODE_ENV === 'production',
-  }).catch(() => null);
+  // 2) detetar sessão por cookie (robusto p/ DB sessions e JWT)
+  let authenticated = hasSessionCookie(req);
 
-  if (!token) {
+  // 3) fallback: tentar decifrar JWT se existir (caso uses strategy: 'jwt')
+  if (!authenticated) {
+    const token = await getToken({
+      req,
+      secret: process.env.NEXTAUTH_SECRET,
+      secureCookie: process.env.NODE_ENV === 'production',
+    }).catch(() => null);
+    authenticated = !!token;
+  }
+
+  if (!authenticated) {
     const url = req.nextUrl.clone();
     url.pathname = '/login';
     url.search = `?next=${encodeURIComponent(req.nextUrl.pathname + req.nextUrl.search)}`;
     return NextResponse.redirect(url);
   }
 
-  // 3) Não fazer mais redirecionamentos aqui; /dashboard decide no server
+  // 4) não fazer mais redirects aqui; /dashboard decide no server
   return NextResponse.next();
 }
 
