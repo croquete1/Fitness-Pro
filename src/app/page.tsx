@@ -1,18 +1,22 @@
-// src/app/page.tsx
+// src/app/(app)/dashboard/page.tsx
 import { redirect } from 'next/navigation';
-import { getSessionUserSafe } from '@/lib/session-bridge';
+import { createServerClient } from '@/lib/supabaseServer';
 
-// Evita cache estática
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
-export default async function RootPage() {
-  // Lê a sessão de forma segura (compatível com o shape “flat” e o antigo `.user`)
-  const sessionUser = await getSessionUserSafe().catch(() => null);
-  const userId =
-    (sessionUser as any)?.id ??
-    (sessionUser as any)?.user?.id ??
-    null;
+export default async function DashboardIndex() {
+  const sb = createServerClient();
 
-  // Se autenticado → dashboard; caso contrário → login
-  redirect(userId ? '/dashboard' : '/login');
+  // 1) precisa de user; se não houver → /login (evita fallback anónimo)
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) redirect('/login');
+
+  // 2) obtém role e envia para o painel certo
+  const { data: profile } = await sb.from('profiles').select('role').eq('id', user.id).single();
+  const role = (profile as any)?.role as string | null;
+
+  if (role === 'ADMIN')  redirect('/dashboard/admin');
+  if (role === 'TRAINER') redirect('/dashboard/pt');
+  redirect('/dashboard/clients'); // fallback cliente
 }

@@ -20,15 +20,15 @@ const loginSchema = z.object({
   password: z.string().min(6, 'Mínimo 6 caracteres'),
 });
 
-// só permite destinos internos e evita voltar ao /login
+// Apenas destinos internos e nunca volta ao /login
 function sanitizeNext(next?: string | null) {
   const fallback = '/dashboard';
   if (!next) return fallback;
   try {
-    const u = new URL(next, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
-    const path = u.origin === (typeof window !== 'undefined' ? window.location.origin : u.origin)
-      ? (u.pathname + (u.search || '') + (u.hash || ''))
-      : '';
+    const base = typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
+    const u = new URL(next, base);
+    const path = u.pathname + (u.search || '') + (u.hash || '');
+    if (u.origin !== base) return fallback;
     if (path.startsWith('/login')) return fallback;
     if (path.startsWith('/') && !path.startsWith('//')) return path || fallback;
   } catch {
@@ -38,9 +38,20 @@ function sanitizeNext(next?: string | null) {
   return fallback;
 }
 
+// Mapeia códigos de erro do NextAuth para mensagens amigáveis
+function mapAuthError(code?: string | null) {
+  if (!code) return null;
+  const c = code.toLowerCase();
+  if (c.includes('credential') || c.includes('signin')) return 'Credenciais inválidas.';
+  if (c.includes('configuration')) return 'Erro de configuração do login.';
+  if (c.includes('accessdenied')) return 'Acesso negado.';
+  return 'Não foi possível iniciar sessão.';
+}
+
 export default function LoginClient() {
   const sp = useSearchParams();
   const nextParam = sp.get('next');
+  const errParam = sp.get('error');
 
   const [email, setEmail] = React.useState('');
   const [pw, setPw] = React.useState('');
@@ -49,6 +60,12 @@ export default function LoginClient() {
   const [err, setErr] = React.useState<string | null>(null);
   const [fieldErr, setFieldErr] = React.useState<{ email?: string; password?: string }>({});
 
+  // mostra erro vindo da query (?error=...)
+  React.useEffect(() => {
+    setErr(mapAuthError(errParam));
+  }, [errParam]);
+
+  // lembrar último email para UX
   React.useEffect(() => {
     try { const last = localStorage.getItem('fp:lastEmail'); if (last) setEmail(last); } catch {}
   }, []);
@@ -79,18 +96,16 @@ export default function LoginClient() {
     }
 
     setLoading(true);
-
     try {
-      // ✅ Deixa o NextAuth redirecionar no servidor com Set-Cookie + Location
-      // Evita a corrida de cookies que te deixava “preso” no /login
+      // ✅ redirect no servidor (cookie + Location no mesmo response)
       const callbackUrl = sanitizeNext(nextParam);
       await signIn('credentials', {
         email: email.trim(),
         password: pw,
-        redirect: true,        // <-- chave da robustez em produção
-        callbackUrl,
+        redirect: true,
+        callbackUrl, // recomendado pela doc do Client API
       });
-      // não precisamos de setLoading(false) — a navegação vai acontecer via 302 do servidor
+      // Não prossegue: o navegador será redirecionado pelo 302 do servidor
     } catch {
       setErr('Não foi possível iniciar sessão. Tenta novamente.');
       setLoading(false);
@@ -142,6 +157,7 @@ export default function LoginClient() {
         <form onSubmit={onSubmit} noValidate>
           <Stack spacing={2.25}>
             <TextField
+              name="email"
               label="Email *"
               type="email"
               value={email}
@@ -157,6 +173,7 @@ export default function LoginClient() {
             />
 
             <TextField
+              name="password"
               label="Palavra-passe *"
               type={show ? 'text' : 'password'}
               value={pw}
