@@ -7,14 +7,12 @@ import { hashPassword } from '@/lib/hash';
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   const parsed = RegisterSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: 'Campos inválidos.' }, { status: 400 });
-  }
-  const { name, email, password, role = 'CLIENT' } = parsed.data;
+  if (!parsed.success) return NextResponse.json({ error: 'Campos inválidos.' }, { status: 400 });
 
-  // já existe?
+  const { name, email, password } = parsed.data;
+
   const { data: exists } = await supabaseAdmin
-    .from('auth_local_users')
+    .from('users')
     .select('id')
     .eq('email', email)
     .maybeSingle();
@@ -22,16 +20,12 @@ export async function POST(req: Request) {
 
   const password_hash = await hashPassword(password);
 
-  // credencial + perfil (upsert)
-  const { error: e1 } = await supabaseAdmin
-    .from('auth_local_users')
-    .insert({ email, password_hash });
-  if (e1) return NextResponse.json({ error: 'Falha a criar credencial.' }, { status: 500 });
+  // ⚠️ Inserimos só colunas garantidas: email, password_hash (+ name se existir no teu schema)
+  const payload: any = { email, password_hash };
+  if (typeof name !== 'undefined') payload.name = name;
 
-  const { error: e2 } = await supabaseAdmin
-    .from('profiles')
-    .upsert({ email, name: name ?? null, role }, { onConflict: 'email' });
-  if (e2) return NextResponse.json({ error: 'Falha a sincronizar perfil.' }, { status: 500 });
+  const { error } = await supabaseAdmin.from('users').insert(payload);
+  if (error) return NextResponse.json({ error: 'Falha a criar utilizador.' }, { status: 500 });
 
   return NextResponse.json({ ok: true }, { status: 201 });
 }

@@ -5,26 +5,32 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { LoginSchema } from '@/lib/validation/auth';
 import { checkPassword } from '@/lib/hash';
 
-type CredRow = { id: string; email: string; password_hash?: string | null; password?: string | null };
+type DbUser = Partial<{
+  id: string; uuid: string; email: string; password_hash: string;
+  name: string | null; role: 'ADMIN'|'TRAINER'|'CLIENT'|string;
+  is_active: boolean | null; status: string | null; approved: boolean | null;
+}>;
 
-async function findLocalCred(email: string): Promise<CredRow | null> {
-  // 1) nova tabela canónica
-  const a = await supabaseAdmin
-    .from('auth_local_users')
-    .select('id, email, password_hash')
+async function getUserByEmail(email: string): Promise<DbUser | null> {
+  // tenta com colunas "ricas"
+  try {
+    const r = await supabaseAdmin
+      .from('users')
+      .select('id, uuid, email, password_hash, name, role, is_active, status, approved')
+      .eq('email', email)
+      .maybeSingle<DbUser>();
+    if (r.data) return r.data;
+    if (r.error && r.error.message) console.warn('[auth] select users (full) warn:', r.error.message);
+  } catch (e) {
+    console.warn('[auth] select users (full) failed, fallback simples');
+  }
+  // fallback: apenas o essencial (garantido pelo teu print)
+  const r2 = await supabaseAdmin
+    .from('users')
+    .select('id, uuid, email, password_hash')
     .eq('email', email)
-    .maybeSingle<CredRow>();
-  if (a.data) return a.data;
-
-  // 2) fallback: alguns projetos usam 'users' e coluna 'password' ou 'password_hash'
-  const b = await supabaseAdmin
-    .from('users' as any)
-    .select('id, email, password, password_hash')
-    .eq('email', email)
-    .maybeSingle<CredRow>();
-  if (b.data) return b.data;
-
-  return null;
+    .maybeSingle<DbUser>();
+  return r2.data ?? null;
 }
 
 export const authOptions: NextAuthOptions = {
@@ -42,43 +48,33 @@ export const authOptions: NextAuthOptions = {
         const parsed = LoginSchema.safeParse({
           email: credentials?.email, password: credentials?.password,
         });
-        if (!parsed.success) {
-          console.warn('[auth] payload inválido');
-          return null;
-        }
+        if (!parsed.success) return null;
         const { email, password } = parsed.data;
 
-        const cred = await findLocalCred(email);
-        if (!cred) {
-          console.warn('[auth] user not found:', email);
+        const user = await getUserByEmail(email);
+        if (!user?.email || !user.password_hash) {
+          console.warn('[auth] user not found (public.users):', email);
           return null;
         }
 
-        const hash = cred.password_hash ?? cred.password ?? '';
-        const ok = await checkPassword(password, hash);
+        const ok = await checkPassword(password, user.password_hash);
         if (!ok) {
-          console.warn('[auth] bad password para', email);
+          console.warn('[auth] bad password:', email);
           return null;
         }
 
-        // perfil / role (se existir)
-        const { data: prof, error: pErr } = await supabaseAdmin
-          .from('profiles')
-          .select('name, role')
-          .eq('email', email)
-          .maybeSingle();
+        // bloqueios (só se existirem as colunas)
+        if (user.is_active === false || user.status === 'SUSPENDED') return null;
 
-        if (pErr) console.error('[auth] erro supabase (profiles):', pErr.message);
-
-        const user = {
-          id: cred.id,
-          email: cred.email,
-          name: prof?.name ?? cred.email.split('@')[0],
-          role: prof?.role ?? 'CLIENT',
+        const sessionUser = {
+          id: user.uuid ?? user.id!, // usa uuid se existir
+          email: user.email,
+          name: user.name ?? user.email.split('@')[0],
+          role: (user.role as any) ?? 'CLIENT',
         } as any;
 
         console.log('[auth] login LOCAL OK para', email);
-        return user;
+        return sessionUser;
       },
     }),
   ],
