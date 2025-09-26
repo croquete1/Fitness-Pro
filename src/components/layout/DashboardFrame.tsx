@@ -1,31 +1,51 @@
+// src/components/layout/DashboardFrame.tsx
 'use client';
 
 import * as React from 'react';
-import { SidebarProvider } from './SidebarContext';
-import RoleSidebar from '@/components/layout/RoleSidebar'; // já existente no teu projeto
-import AppHeader from '@/components/layout/AppHeader';       // já existente no teu projeto
+import { AppBar, Toolbar, Box, IconButton, Typography, Container, Stack, Paper } from '@mui/material';
+import MenuIcon from '@mui/icons-material/Menu';
 
-export default function DashboardFrame({
-  role,
-  userLabel,
-  children,
-}: {
-  role: 'ADMIN' | 'PT' | 'CLIENT' | string;
-  userLabel?: string | null;
+type Props = {
+  role?: string;
+  userLabel?: string | null | undefined;
   children: React.ReactNode;
-}) {
-  return (
-    <SidebarProvider>
-      <div className="flex min-h-[100dvh] bg-neutral-50 dark:bg-neutral-950">
-        {/* Sidebar lateral */}
-        <RoleSidebar role={role} userLabel={userLabel ?? undefined} />
+};
 
-        {/* Conteúdo */}
-        <div className="flex-1 min-w-0 flex flex-col">
-          <AppHeader />
-          <main className="flex-1 min-w-0 p-4 lg:p-6">{children}</main>
-        </div>
-      </div>
-    </SidebarProvider>
+export default function DashboardFrame({ role = 'CLIENT', userLabel, children }: Props) {
+  return (
+    <Box sx={{ minHeight: '100dvh', bgcolor: 'background.default', display: 'grid', gridTemplateRows: 'auto 1fr' }}>
+      <AppBar position="sticky" color="inherit" sx={{
+        borderBottom: '1px solid',
+        borderColor: 'divider',
+        bgcolor: 'background.paper'
+      }}>
+        <Toolbar sx={{ gap: 1 }}>
+          <IconButton edge="start" size="large" sx={{ mr: 1 }}>
+            <MenuIcon />
+          </IconButton>
+          <Typography variant="h6" fontWeight={800}>Fitness Pro</Typography>
+          <Box sx={{ flex: 1 }} />
+          <Typography variant="body2" color="text.secondary">
+            {role === 'ADMIN' ? '🛠️ Admin' : role === 'TRAINER' ? '🧑‍🏫 PT' : '💪 Cliente'}
+            {userLabel ? ` • ${userLabel}` : ''}
+          </Typography>
+        </Toolbar>
+      </AppBar>
+
+      <Box component="main" sx={{ py: 3 }}>
+        <Container maxWidth="xl">
+          {/* Content wrapper para manter contraste */}
+          <Stack spacing={2}>
+            {/* Exemplo: podes remover este Paper se o teu conteúdo já traz Cards próprios */}
+            <Paper sx={{ p: 2, display: { xs: 'block', md: 'none' } }}>
+              <Typography variant="body2" color="text.secondary">
+                Dica: usa o menu (☰) para navegar as secções.
+              </Typography>
+            </Paper>
+            {children}
+          </Stack>
+        </Container>
+      </Box>
+    </Box>
   );
 }
