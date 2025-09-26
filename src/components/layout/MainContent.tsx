@@ -1,22 +1,20 @@
 'use client';
 
 import * as React from 'react';
-import { useSidebar } from '@/components/layout/SidebarProvider';
+import { Box, Container } from '@mui/material';
+import { useSidebar } from './SidebarProvider';
 
 export default function MainContent({ children }: { children: React.ReactNode }) {
-  // agora o contexto expõe isMobile e open (alias de mobileOpen)
-  const { collapsed, isMobile, railWidth, panelWidth } = useSidebar();
+  const { isMobile, collapsed, railWidth, panelWidth } = useSidebar();
+  const left = isMobile ? 0 : (collapsed ? railWidth : panelWidth);
 
-  // largura efetiva da sidebar (0 no mobile)
-  const asideWidth = isMobile ? 0 : (collapsed ? railWidth : panelWidth);
-
-  // Se usares CSS custom que leia --aside-w, mantemos essa variável disponível:
   return (
-    <div
-      className="fp-content"
-      style={{ '--aside-w': `${asideWidth}px` } as React.CSSProperties}
-    >
-      {children}
-    </div>
+    <Box component="main" sx={{ minHeight: '100dvh', bgcolor: 'background.default' }}>
+      <Box sx={{ pl: { lg: `${left}px` }, transition: 'padding-left .25s ease' }}>
+        <Container maxWidth="xl" sx={{ py: 3 }}>
+          {children}
+        </Container>
+      </Box>
+    </Box>
   );
 }

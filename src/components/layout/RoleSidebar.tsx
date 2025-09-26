@@ -1,95 +1,131 @@
 'use client';
+
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useSidebar } from '@/components/layout/SidebarCtx';
-import { Box, Divider, IconButton, List, ListItemButton, ListItemText, Tooltip, Typography } from '@mui/material';
-import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
-import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded';
-import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
+import {
+  Box, Drawer, List, ListItemButton, ListItemIcon, ListItemText,
+  Toolbar, Tooltip, Divider, Typography
+} from '@mui/material';
+import DashboardIcon from '@mui/icons-material/Dashboard';
+import GroupIcon from '@mui/icons-material/Group';
+import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import SettingsIcon from '@mui/icons-material/Settings';
 
-type Item = { href: string; label: string; emoji?: string };
+import BrandLogo from '@/components/BrandLogo';
+import { useSidebar } from './SidebarProvider';
+
+type Item = { label: string; href: string; emoji?: string; icon?: React.ReactNode };
+
 function itemsFor(role: string): Item[] {
-  const R = role.toUpperCase();
-  if (R === 'ADMIN') return [
-    { href: '/dashboard/admin', label: 'Painel', emoji: '📊' },
-    { href: '/dashboard/admin/users', label: 'Utilizadores', emoji: '👥' },
-    { href: '/dashboard/admin/approvals', label: 'Aprovações', emoji: '✅' },
-    { href: '/dashboard/admin/exercises', label: 'Exercícios', emoji: '🏋️' },
-    { href: '/dashboard/system', label: 'Sistema', emoji: '⚙️' },
+  const common: Item[] = [
+    { label: 'Painel', href: '/dashboard', emoji: '📊', icon: <DashboardIcon /> },
   ];
-  if (R === 'PT' || R === 'TRAINER') return [
-    { href: '/dashboard/pt', label: 'Painel', emoji: '📊' },
-    { href: '/dashboard/pt/clients', label: 'Clientes', emoji: '🧑‍🤝‍🧑' },
-    { href: '/dashboard/pt/sessions', label: 'Sessões', emoji: '📅' },
-    { href: '/dashboard/pt/plans', label: 'Planos', emoji: '📋' },
-    { href: '/dashboard/notifications', label: 'Notificações', emoji: '🔔' },
-  ];
+  if (role === 'ADMIN') {
+    return [
+      ...common,
+      { label: 'Utilizadores', href: '/dashboard/admin', emoji: '👥', icon: <GroupIcon /> },
+      { label: 'Aprovações', href: '/dashboard/admin/approvals', emoji: '✅', icon: <CheckCircleIcon /> },
+      { label: 'Sistema', href: '/dashboard/admin/system', emoji: '⚙️', icon: <SettingsIcon /> },
+    ];
+  }
+  if (role === 'TRAINER') {
+    return [
+      ...common,
+      { label: 'Clientes', href: '/dashboard/pt/clients', emoji: '👥', icon: <GroupIcon /> },
+      { label: 'Sessões', href: '/dashboard/pt/sessions', emoji: '🏋️', icon: <FitnessCenterIcon /> },
+      { label: 'Definições', href: '/dashboard/pt/settings', emoji: '⚙️', icon: <SettingsIcon /> },
+    ];
+  }
+  // CLIENT
   return [
-    { href: '/dashboard/clients', label: 'Painel', emoji: '🏠' },
-    { href: '/dashboard/clients/metrics', label: 'Métricas', emoji: '📈' },
-    { href: '/dashboard/sessions', label: 'Sessões', emoji: '📅' },
-    { href: '/dashboard/my-plan', label: 'O meu plano', emoji: '📋' },
-    { href: '/dashboard/notifications', label: 'Notificações', emoji: '🔔' },
+    ...common,
+    { label: 'O meu plano', href: '/dashboard/clients', emoji: '📅', icon: <FitnessCenterIcon /> },
+    { label: 'Definições', href: '/dashboard/clients/settings', emoji: '⚙️', icon: <SettingsIcon /> },
   ];
 }
 
 export default function RoleSidebar({ role, userLabel }: { role: string; userLabel?: string }) {
-  const { isMobile, open, closeMobile, collapsed, toggleCollapse } = useSidebar();
   const path = usePathname();
-  const items = itemsFor(role);
+  const { isMobile, mobileOpen, closeMobile, collapsed, railWidth, panelWidth } = useSidebar();
 
-  const width = collapsed ? 72 : 240;
-  return (
-    <>
-      {/* backdrop mobile */}
-      {isMobile && open && (
-        <div onClick={closeMobile} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.35)', zIndex: 98 }} />
-      )}
-      <aside
-        style={{
-          position: isMobile ? 'fixed' as const : 'sticky',
-          top: 0, bottom: 0, left: isMobile ? (open ? 0 : -width) : 0,
-          width, zIndex: 99, transition: 'left .2s ease, width .2s ease',
-          background: 'var(--mui-palette-background-paper)',
-          borderRight: '1px solid var(--mui-palette-divider)',
-          display: 'flex', flexDirection: 'column'
-        }}
-      >
-        <Box sx={{ display:'flex', alignItems:'center', justifyContent:'space-between', px:1.5, py:1 }}>
-          <Typography fontWeight={800} sx={{ opacity: .9 }}>
-            {collapsed ? 'FP' : 'Fitness&nbsp;Pro'}
-          </Typography>
-          {isMobile ? (
-            <IconButton size="small" onClick={closeMobile}><CloseRoundedIcon /></IconButton>
-          ) : (
-            <Tooltip title={collapsed ? 'Expandir' : 'Colapsar'}>
-              <IconButton size="small" onClick={toggleCollapse}>
-                {collapsed ? <ChevronRightRoundedIcon/> : <ChevronLeftRoundedIcon/>}
-              </IconButton>
-            </Tooltip>
+  const width = collapsed ? railWidth : panelWidth;
+  const list = itemsFor((role || 'CLIENT').toUpperCase());
+
+  const content = (
+    <Box sx={{ width, display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <Toolbar sx={{ minHeight: 56, px: 1.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <BrandLogo size={24} />
+          {!collapsed && (
+            <Box>
+              <Typography fontWeight={800} lineHeight={1.1}>Fitness Pro</Typography>
+              <Typography variant="caption" color="text.secondary">
+                {role === 'ADMIN' ? '🛠️ Admin' : role === 'TRAINER' ? '🧑‍🏫 PT' : '💪 Cliente'}
+                {userLabel ? ` • ${userLabel}` : ''}
+              </Typography>
+            </Box>
           )}
         </Box>
-        {!collapsed && userLabel && (
-          <Typography variant="body2" sx={{ px:2, pb:1, opacity:.7 }}>👋 {userLabel}</Typography>
-        )}
-        <Divider />
-        <List sx={{ py:0, flex:1, overflowY:'auto' }}>
-          {items.map(it => {
-            const active = path?.startsWith(it.href);
-            return (
-              <Link key={it.href} href={it.href} style={{ textDecoration:'none', color:'inherit' }}>
-                <ListItemButton selected={!!active} sx={{ gap:1.25 }}>
-                  <span aria-hidden style={{ width:22, textAlign:'center' }}>{it.emoji ?? '•'}</span>
-                  {!collapsed && <ListItemText primary={it.label} />}
-                </ListItemButton>
-              </Link>
-            );
-          })}
-        </List>
-        <Divider />
-        <Box sx={{ p:1.5, fontSize:12, opacity:.6 }}>v1.0</Box>
-      </aside>
-    </>
+      </Toolbar>
+      <Divider />
+      <List sx={{ py: 1 }}>
+        {list.map((item) => {
+          const active = path === item.href || (item.href !== '/dashboard' && path.startsWith(item.href));
+          const btn = (
+            <ListItemButton
+              key={item.href}
+              component={Link}
+              href={item.href}
+              selected={active}
+              sx={{
+                borderRadius: 1.5,
+                mx: 1,
+                mb: 0.5,
+                '&.Mui-selected': {
+                  bgcolor: 'action.selected',
+                },
+              }}
+              onClick={isMobile ? () => closeMobile() : undefined}
+            >
+              <ListItemIcon sx={{ minWidth: 36 }}>
+                {item.emoji ? <span style={{ fontSize: 18 }}>{item.emoji}</span> : item.icon}
+              </ListItemIcon>
+              {!collapsed && <ListItemText primary={item.label} />}
+            </ListItemButton>
+          );
+          return collapsed ? (
+            <Tooltip key={item.href} title={item.label} placement="right">
+              {btn}
+            </Tooltip>
+          ) : btn;
+        })}
+      </List>
+      <Box sx={{ flex: 1 }} />
+    </Box>
+  );
+
+  if (isMobile) {
+    return (
+      <Drawer
+        open={mobileOpen}
+        onClose={closeMobile}
+        variant="temporary"
+        ModalProps={{ keepMounted: true }}
+        PaperProps={{ sx: { width } }}
+      >
+        {content}
+      </Drawer>
+    );
+  }
+  return (
+    <Drawer
+      open
+      variant="permanent"
+      PaperProps={{ sx: { position: 'relative', width, overflow: 'hidden' } }}
+    >
+      {content}
+    </Drawer>
   );
 }
