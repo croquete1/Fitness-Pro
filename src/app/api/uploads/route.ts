@@ -1,42 +1,53 @@
-// src/app/api/upload/route.ts
+// src/app/api/uploads/route.ts
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { createServerClient } from '@/lib/supabaseServer';
+import { authOptions } from '@/lib/authOptions';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
-function extFromType(type?: string | null, name?: string | null) {
-  if (name && name.includes('.')) return name.split('.').pop()!;
-  if (!type) return 'bin';
-  const m = type.split('/')[1];
-  return m || 'bin';
-}
+export const runtime = 'nodejs'; // garante acesso a APIs de fs/streams no server
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
-  const me = session?.user;
-  if (!me?.id) return NextResponse.json({ ok: false, error: 'UNAUTH' }, { status: 401 });
+  if (!session?.user?.email) return NextResponse.json({ error: 'Auth' }, { status: 401 });
 
-  const form = await req.formData();
-  const file = form.get('file') as File | null;
-  const bucket = String(form.get('bucket') || 'media'); // cria este bucket no Supabase
-  const folder = String(form.get('folder') || 'uploads');
+  const form = await req.formData().catch(() => null);
+  const file = form?.get('file') as File | null;
 
-  if (!file) return NextResponse.json({ ok: false, error: 'NO_FILE' }, { status: 400 });
+  if (!file) {
+    return NextResponse.json({ error: 'Ficheiro ausente. Envie o campo "file" no form-data.' }, { status: 400 });
+  }
 
-  const sb = createServerClient();
+  // Nome único
+  const ext = file.name.split('.').pop() || 'bin';
+  const key = `u/${encodeURIComponent(session.user.email)}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
-  const ext = extFromType(file.type, file.name);
-  const now = new Date();
-  const path = `${me.id}/${folder}/${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${crypto.randomUUID()}.${ext}`;
-
+  // Upload para bucket "uploads"
   const arrayBuffer = await file.arrayBuffer();
-  const { error: upErr } = await sb.storage.from(bucket).upload(path, new Uint8Array(arrayBuffer), {
-    contentType: file.type || undefined,
-    upsert: false,
-  });
-  if (upErr) return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
+  const { data, error } = await supabaseAdmin.storage
+    .from('uploads')
+    .upload(key, Buffer.from(arrayBuffer), {
+      contentType: file.type || 'application/octet-stream',
+      upsert: false,
+    });
 
-  // Signed URL curto para preview
-  const { data: signed } = await sb.storage.from(bucket).createSignedUrl(path, 60 * 10); // 10 min
-  return NextResponse.json({ ok: true, path, signedUrl: signed?.signedUrl ?? null });
+  if (error) {
+    const msg = error.message?.includes('bucket not found')
+      ? 'Bucket "uploads" não existe. Cria-o no Supabase Storage.'
+      : 'Falha no upload.';
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+
+  // Gera URL pública (se bucket estiver como public)
+  const { data: pubUrl } = supabaseAdmin.storage.from('uploads').getPublicUrl(data.path);
+
+  return NextResponse.json({
+    ok: true,
+    path: data.path,
+    url: pubUrl?.publicUrl || null,
+  }, { status: 201 });
+}
+
+export function GET() {
+  // opcional: poderias listar uploads do utilizador
+  return NextResponse.json({ ok: true, hint: 'Use POST multipart/form-data com campo "file".' });
 }

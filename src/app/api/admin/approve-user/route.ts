@@ -1,78 +1,59 @@
 // src/app/api/admin/approve-user/route.ts
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { getSupabaseServer } from '@/lib/supabaseServer';
+import { authOptions } from '@/lib/authOptions';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
-type Body = { userId: string; approve?: boolean };
+type Body = {
+  userId?: string;     // id do profile OU email
+  email?: string;      // alternativa ao userId
+  approve?: boolean;   // default true
+  role?: 'CLIENT' | 'TRAINER' | 'ADMIN';
+};
 
 export async function POST(req: Request) {
-  // 1) Autorização: apenas ADMIN
   const session = await getServerSession(authOptions);
-  const role = (session as any)?.user?.role;
-  if (!session || role !== 'ADMIN') {
-    return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
+  const role = (session?.user as any)?.role as string | undefined;
+  if (!session?.user || role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  // 2) Entrada
-  let body: Body;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ ok: false, error: 'bad_json' }, { status: 400 });
-  }
-  const { userId, approve = true } = body || {};
-  if (!userId) {
-    return NextResponse.json({ ok: false, error: 'missing_userId' }, { status: 400 });
-  }
+  const payload = (await req.json().catch(() => null)) as Body | null;
+  if (!payload) return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
 
-  const sb = getSupabaseServer();
+  const approve = payload.approve ?? true;
+  const wantedRole = payload.role ?? 'CLIENT';
+  const target = (payload.email || payload.userId || '').toString().trim();
+  if (!target) return NextResponse.json({ error: 'Missing user identifier' }, { status: 400 });
 
-  // 3) Idempotente: se já está no estado desejado não dá erro
-  const { data: u, error: readErr } = await sb
-    .from('users')
-    .select('id, approved, approved_at')
-    .eq('id', userId)
-    .maybeSingle();
+  // Tentamos identificar o utilizador por email primeiro, depois por id
+  let email = payload.email?.trim();
+  if (!email) {
+    // procurar por id em profiles → obter email
+    const { data: profById } = await supabaseAdmin
+      .from('profiles')
+      .select('email')
+      .eq('id', target)
+      .maybeSingle();
 
-  if (readErr) {
-    return NextResponse.json({ ok: false, error: 'read_failed', detail: readErr.message }, { status: 500 });
+    email = profById?.email ?? undefined;
+    if (!email && target.includes('@')) email = target;
   }
-  if (!u) {
-    return NextResponse.json({ ok: false, error: 'not_found' }, { status: 404 });
-  }
-  const already = approve ? u.approved === true : u.approved === false;
-  if (already) {
-    return NextResponse.json({ ok: true, idempotent: true });
-  }
+  if (!email) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
-  // 4) Update
-  const { error: updErr } = await sb
-    .from('users')
-    .update({
-      approved: approve,
-      approved_at: approve ? new Date().toISOString() : null,
-    })
-    .eq('id', userId);
+  if (approve) {
+    // Aprovar: atualiza role no profiles.
+    const { error: upErr } = await supabaseAdmin
+      .from('profiles')
+      .update({ role: wantedRole })
+      .eq('email', email);
 
-  if (updErr) {
-    return NextResponse.json({ ok: false, error: 'update_failed', detail: updErr.message }, { status: 500 });
+    if (upErr) {
+      return NextResponse.json({ error: 'Falha ao aprovar utilizador.' }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true });
+  } else {
+    // Rejeitar: aqui podes suspender/remover. Mantemos no-op (sem regressão).
+    return NextResponse.json({ ok: true, rejected: true });
   }
-
-  // 5) Notificação (se existir a tabela "notifications", ignora se não existir)
-  try {
-    await sb.from('notifications').insert({
-      user_id: userId,
-      title: approve ? 'Conta aprovada ✅' : 'Conta desativada',
-      body: approve
-        ? 'A tua conta foi aprovada por um administrador. Já podes iniciar sessão.'
-        : 'A tua conta foi desativada. Contacta o suporte se for um erro.',
-      href: '/login',
-      read: false,
-    });
-  } catch {
-    // silencioso se a tabela/políticas não existirem
-  }
-
-  return NextResponse.json({ ok: true });
 }

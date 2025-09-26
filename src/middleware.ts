@@ -2,21 +2,22 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 
-const PUBLIC = new Set(['/', '/login', '/register', '/login/forgot', '/login/reset', '/dashboard']);
+const PUBLIC = new Set([
+  '/', '/login', '/register', '/login/forgot', '/login/reset', '/dashboard',
+]);
 
 export default async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  if (PUBLIC.has(pathname) || pathname.startsWith('/api/') || pathname.startsWith('/_next')) {
+  if (PUBLIC.has(pathname) || pathname.startsWith('/api/') || pathname.startsWith('/_next') ||
+      pathname === '/favicon.ico' || pathname.startsWith('/assets') || pathname.startsWith('/images')) {
     return NextResponse.next();
   }
 
-  // aceita sessão por cookie (DB) ou JWT (strategy:'jwt')
+  // aceita sessão por cookie (DB) ou JWT (strategy: 'jwt')
   const hasCookie = [
-    '__Secure-next-auth.session-token',
-    'next-auth.session-token',
-    '__Secure-authjs.session-token',
-    'authjs.session-token',
+    '__Secure-next-auth.session-token', 'next-auth.session-token',
+    '__Secure-authjs.session-token',    'authjs.session-token',
   ].some((n) => req.cookies.get(n)?.value);
   if (hasCookie) return NextResponse.next();
 
@@ -25,7 +26,7 @@ export default async function middleware(req: NextRequest) {
     secret: process.env.NEXTAUTH_SECRET,
     secureCookie: process.env.NODE_ENV === 'production',
   }).catch(() => null);
-  if (token) return NextResponse.next(); // sessão via JWT
+  if (token) return NextResponse.next();
 
   const url = req.nextUrl.clone();
   url.pathname = '/login';
