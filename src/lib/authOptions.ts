@@ -5,32 +5,31 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { LoginSchema } from '@/lib/validation/auth';
 import { checkPassword } from '@/lib/hash';
 
-type DbUser = Partial<{
-  id: string; uuid: string; email: string; password_hash: string;
-  name: string | null; role: 'ADMIN'|'TRAINER'|'CLIENT'|string;
-  is_active: boolean | null; status: string | null; approved: boolean | null;
+type BaseUser = { id: string; email: string; password_hash: string };
+type ExtraUser = Partial<{
+  name: string | null;
+  role: 'ADMIN' | 'TRAINER' | 'CLIENT' | string | null;
+  is_active: boolean | null;
+  status: string | null;
+  approved: boolean | null;
 }>;
 
-async function getUserByEmail(email: string): Promise<DbUser | null> {
-  // tenta com colunas "ricas"
-  try {
-    const r = await supabaseAdmin
-      .from('users')
-      .select('id, uuid, email, password_hash, name, role, is_active, status, approved')
-      .eq('email', email)
-      .maybeSingle<DbUser>();
-    if (r.data) return r.data;
-    if (r.error && r.error.message) console.warn('[auth] select users (full) warn:', r.error.message);
-  } catch (e) {
-    console.warn('[auth] select users (full) failed, fallback simples');
-  }
-  // fallback: apenas o essencial (garantido pelo teu print)
-  const r2 = await supabaseAdmin
+// 1) Só pedimos colunas garantidas; 2) depois tentamos extras (se existirem)
+async function getUserByEmail(email: string) {
+  const base = await supabaseAdmin
     .from('users')
-    .select('id, uuid, email, password_hash')
+    .select('id,email,password_hash')
     .eq('email', email)
-    .maybeSingle<DbUser>();
-  return r2.data ?? null;
+    .maybeSingle<BaseUser>();
+  if (!base.data) return null;
+
+  const extra = await supabaseAdmin
+    .from('users')
+    .select('name,role,is_active,status,approved')
+    .eq('id', base.data.id)
+    .maybeSingle<ExtraUser>();
+
+  return { ...base.data, ...(extra.data ?? {}) };
 }
 
 export const authOptions: NextAuthOptions = {
@@ -46,13 +45,14 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         const parsed = LoginSchema.safeParse({
-          email: credentials?.email, password: credentials?.password,
+          email: credentials?.email,
+          password: credentials?.password,
         });
         if (!parsed.success) return null;
-        const { email, password } = parsed.data;
 
+        const { email, password } = parsed.data;
         const user = await getUserByEmail(email);
-        if (!user?.email || !user.password_hash) {
+        if (!user) {
           console.warn('[auth] user not found (public.users):', email);
           return null;
         }
@@ -63,11 +63,11 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        // bloqueios (só se existirem as colunas)
+        // bloqueios (só se as colunas existirem)
         if (user.is_active === false || user.status === 'SUSPENDED') return null;
 
         const sessionUser = {
-          id: user.uuid ?? user.id!, // usa uuid se existir
+          id: user.id,
           email: user.email,
           name: user.name ?? user.email.split('@')[0],
           role: (user.role as any) ?? 'CLIENT',
