@@ -1,7 +1,7 @@
-'use client';
-
+// src/app/(app)/layout.tsx
+import type { ReactNode } from 'react';
 import SidebarProvider from '@/components/layout/SidebarProvider';
 
-export default function AppAreaLayout({ children }: { children: React.ReactNode }) {
+export default function AppSectionLayout({ children }: { children: ReactNode }) {
   return <SidebarProvider>{children}</SidebarProvider>;
 }

@@ -1,28 +1,158 @@
+// src/components/layout/SidebarClient.tsx
 'use client';
 
 import * as React from 'react';
-import SidebarBase, { type NavItem } from '@/components/layout/SidebarBase';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import {
+  Avatar,
+  Box,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Tooltip,
+} from '@mui/material';
 
-export default function SidebarClient({ userLabel }: { userLabel?: string }) {
-  const items: NavItem[] = [
-    { href: '/dashboard/clients',      label: 'Painel',           icon: <span aria-hidden>📊</span>, exact: true, activePrefix: '/dashboard/clients' },
-    { href: '/dashboard/my-plan',      label: 'Os meus planos',   icon: <span aria-hidden>🗂️</span>, activePrefix: '/dashboard/my-plan' },
-    { href: '/dashboard/sessions',     label: 'Sessões',          icon: <span aria-hidden>📅</span>, activePrefix: '/dashboard/sessions' },
-    { href: '/dashboard/messages',     label: 'Mensagens',        icon: <span aria-hidden>💬</span>, activePrefix: '/dashboard/messages' },
-    { href: '/dashboard/notifications',label: 'Notificações',     icon: <span aria-hidden>🔔</span>, activePrefix: '/dashboard/notifications' },
-    { href: '/dashboard/history',      label: 'Histórico',        icon: <span aria-hidden>📜</span>, activePrefix: '/dashboard/history' },
-    { href: '/dashboard/profile',      label: 'Perfil',           icon: <span aria-hidden>👤</span>, activePrefix: '/dashboard/profile' },
-  ];
+import DashboardOutlined from '@mui/icons-material/DashboardOutlined';
+import ListAltOutlined from '@mui/icons-material/ListAltOutlined';
+import CalendarMonthOutlined from '@mui/icons-material/CalendarMonthOutlined';
+import ChatBubbleOutline from '@mui/icons-material/ChatBubbleOutline';
+import NotificationsOutlined from '@mui/icons-material/NotificationsOutlined';
+import HistoryOutlined from '@mui/icons-material/HistoryOutlined';
+import AccountCircleOutlined from '@mui/icons-material/AccountCircleOutlined';
 
-  const header = (
-    <div className="flex items-center gap-3">
-      <img src="/logo.png" alt="Fitness Pro" width={24} height={24} className="rounded" />
-      <div className="leading-tight">
-        <div className="text-sm font-semibold">Fitness Pro</div>
-        {userLabel && <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{userLabel}</div>}
-      </div>
-    </div>
-  );
+import SidebarBase from '@/components/layout/SidebarBase';
+import { useSidebar } from '@/components/layout/SidebarProvider';
 
-  return <SidebarBase items={items} header={header} />;
+type Nav = {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+  exact?: boolean;
+  activePrefix?: string;
+};
+
+// 🔧 Estáticos — não recriamos a cada render
+const NAV_ITEMS: Nav[] = [
+  // ✅ Consistência com as tuas rotas: /dashboard/clients (plural)
+  { href: '/dashboard/clients',  label: 'Painel',         icon: <DashboardOutlined />, exact: true, activePrefix: '/dashboard/clients' },
+  { href: '/dashboard/my-plan',  label: 'Os meus planos', icon: <ListAltOutlined />,   activePrefix: '/dashboard/my-plan' },
+  { href: '/dashboard/sessions', label: 'Sessões',        icon: <CalendarMonthOutlined />, activePrefix: '/dashboard/sessions' },
+  { href: '/dashboard/messages', label: 'Mensagens',      icon: <ChatBubbleOutline />, activePrefix: '/dashboard/messages' },
+  { href: '/dashboard/notifications', label: 'Notificações', icon: <NotificationsOutlined />, activePrefix: '/dashboard/notifications' },
+  { href: '/dashboard/history',  label: 'Histórico',      icon: <HistoryOutlined />,   activePrefix: '/dashboard/history' },
+  { href: '/dashboard/profile',  label: 'Perfil',         icon: <AccountCircleOutlined />, activePrefix: '/dashboard/profile' },
+];
+
+function isActive(path: string, it: Nav) {
+  if (it.exact) return path === it.href;
+  if (it.activePrefix) return path.startsWith(it.activePrefix);
+  return path.startsWith(it.href);
 }
+
+function Header({ userLabel, collapsed }: { userLabel?: string; collapsed: boolean }) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0, p: 1.5 }}>
+      <Avatar
+        src="/logo.png"
+        alt="Fitness Pro"
+        sx={{ width: 28, height: 28, fontWeight: 800 }}
+        imgProps={{ referrerPolicy: 'no-referrer' }}
+      >
+        FP
+      </Avatar>
+      {!collapsed && (
+        <Box sx={{ lineHeight: 1.1, minWidth: 0 }}>
+          <Box component="div" sx={{ fontSize: 14, fontWeight: 700, letterSpacing: .2 }}>
+            Fitness Pro
+          </Box>
+          {userLabel && (
+            <Box
+              component="div"
+              sx={{
+                fontSize: 11,
+                color: 'text.secondary',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              💪 Cliente • {userLabel}
+            </Box>
+          )}
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+function SidebarClientInner({ userLabel }: { userLabel?: string }) {
+  const path = usePathname();
+  const { collapsed, isMobile, closeMobile } = useSidebar();
+
+  return (
+    <SidebarBase header={<Header userLabel={userLabel} collapsed={collapsed} />}>
+      <List dense disablePadding sx={{ px: 0.5, py: 0.5, display: 'grid', gap: 0.5 }}>
+        {NAV_ITEMS.map((it) => {
+          const active = isActive(path, it);
+
+          const Button = (
+            <ListItemButton
+              component={Link}
+              href={it.href}
+              prefetch={false}
+              onClick={() => { if (isMobile) closeMobile(); }}
+              selected={active}
+              aria-current={active ? 'page' : undefined}
+              aria-label={collapsed ? it.label : undefined}
+              sx={{
+                borderRadius: 1.5,
+                height: 40,
+                '&.Mui-selected': {
+                  bgcolor: 'action.selected',
+                  '&:hover': { bgcolor: 'action.selected' },
+                },
+                '&.Mui-selected .MuiListItemText-primary': {
+                  color: 'primary.main',
+                  fontWeight: 700,
+                },
+              }}
+            >
+              <ListItemIcon
+                sx={{
+                  minWidth: collapsed ? 0 : 36,
+                  mr: collapsed ? 0 : 1,
+                  justifyContent: 'center',
+                  color: active ? 'primary.main' : 'text.secondary',
+                }}
+              >
+                {it.icon}
+              </ListItemIcon>
+              {!collapsed && (
+                <ListItemText
+                  primary={it.label}
+                  primaryTypographyProps={{ fontSize: 14, fontWeight: active ? 700 : 500, noWrap: true }}
+                />
+              )}
+            </ListItemButton>
+          );
+
+          return (
+            <React.Fragment key={it.href}>
+              {collapsed ? (
+                <Tooltip title={it.label} placement="right" arrow disableInteractive>
+                  {Button}
+                </Tooltip>
+              ) : (
+                Button
+              )}
+            </React.Fragment>
+          );
+        })}
+      </List>
+    </SidebarBase>
+  );
+}
+
+export default React.memo(SidebarClientInner);

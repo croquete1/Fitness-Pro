@@ -4,105 +4,117 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  Box, Drawer, List, ListItemButton, ListItemIcon, ListItemText,
-  Toolbar, Tooltip, Divider, Typography
+  Box, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Typography, Divider
 } from '@mui/material';
-import DashboardIcon from '@mui/icons-material/Dashboard';
-import GroupIcon from '@mui/icons-material/Group';
-import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import SettingsIcon from '@mui/icons-material/Settings';
-
+import DashboardOutlined from '@mui/icons-material/DashboardOutlined';
+import GroupOutlined from '@mui/icons-material/GroupOutlined';
+import TaskAltOutlined from '@mui/icons-material/TaskAltOutlined';
+import SettingsOutlined from '@mui/icons-material/SettingsOutlined';
+import CalendarMonthOutlined from '@mui/icons-material/CalendarMonthOutlined';
+import AssignmentOutlined from '@mui/icons-material/AssignmentOutlined';
+import TrendingUpOutlined from '@mui/icons-material/TrendingUpOutlined';
+import PersonOutline from '@mui/icons-material/PersonOutline';
 import BrandLogo from '@/components/BrandLogo';
 import { useSidebar } from './SidebarProvider';
 
-type Item = { label: string; href: string; emoji?: string; icon?: React.ReactNode };
+type MatchFn = (candidateHref: string) => boolean;
+type Item = { href: string; label: string; icon: React.ReactNode; match?: MatchFn };
 
-function itemsFor(role: string): Item[] {
-  const common: Item[] = [
-    { label: 'Painel', href: '/dashboard', emoji: '📊', icon: <DashboardIcon /> },
-  ];
+function itemsFor(role: string, path: string): Item[] {
+  // fun fact: fazemos "bound" do path aqui → match(href) => path.startsWith(href)
+  const boundMatch: MatchFn = (candidate) => path.startsWith(candidate);
+
   if (role === 'ADMIN') {
     return [
-      ...common,
-      { label: 'Utilizadores', href: '/dashboard/admin', emoji: '👥', icon: <GroupIcon /> },
-      { label: 'Aprovações', href: '/dashboard/admin/approvals', emoji: '✅', icon: <CheckCircleIcon /> },
-      { label: 'Sistema', href: '/dashboard/admin/system', emoji: '⚙️', icon: <SettingsIcon /> },
+      { href: '/dashboard/admin', label: 'Painel', icon: <DashboardOutlined />, match: boundMatch },
+      { href: '/dashboard/admin/users', label: 'Utilizadores', icon: <GroupOutlined />, match: boundMatch },
+      { href: '/dashboard/admin/approvals', label: 'Aprovações', icon: <TaskAltOutlined />, match: boundMatch },
+      { href: '/dashboard/admin/system', label: 'Sistema', icon: <SettingsOutlined />, match: boundMatch },
     ];
   }
+
   if (role === 'TRAINER') {
     return [
-      ...common,
-      { label: 'Clientes', href: '/dashboard/pt/clients', emoji: '👥', icon: <GroupIcon /> },
-      { label: 'Sessões', href: '/dashboard/pt/sessions', emoji: '🏋️', icon: <FitnessCenterIcon /> },
-      { label: 'Definições', href: '/dashboard/pt/settings', emoji: '⚙️', icon: <SettingsIcon /> },
+      { href: '/dashboard/pt', label: 'Painel', icon: <DashboardOutlined />, match: boundMatch },
+      { href: '/dashboard/pt/clients', label: 'Clientes', icon: <PersonOutline />, match: boundMatch },
+      { href: '/dashboard/pt/plans', label: 'Planos', icon: <AssignmentOutlined />, match: boundMatch },
+      { href: '/dashboard/pt/agenda', label: 'Agenda', icon: <CalendarMonthOutlined />, match: boundMatch },
+      { href: '/dashboard/pt/system', label: 'Sistema', icon: <SettingsOutlined />, match: boundMatch },
     ];
   }
+
   // CLIENT
   return [
-    ...common,
-    { label: 'O meu plano', href: '/dashboard/clients', emoji: '📅', icon: <FitnessCenterIcon /> },
-    { label: 'Definições', href: '/dashboard/clients/settings', emoji: '⚙️', icon: <SettingsIcon /> },
+    { href: '/dashboard/clients', label: 'Painel', icon: <DashboardOutlined />, match: boundMatch },
+    { href: '/dashboard/clients/plan', label: 'Plano', icon: <AssignmentOutlined />, match: boundMatch },
+    { href: '/dashboard/clients/sessions', label: 'Sessões', icon: <CalendarMonthOutlined />, match: boundMatch },
+    { href: '/dashboard/clients/progress', label: 'Progresso', icon: <TrendingUpOutlined />, match: boundMatch },
+    { href: '/dashboard/clients/system', label: 'Sistema', icon: <SettingsOutlined />, match: boundMatch },
   ];
 }
 
-export default function RoleSidebar({ role, userLabel }: { role: string; userLabel?: string }) {
-  const path = usePathname();
-  const { isMobile, mobileOpen, closeMobile, collapsed, railWidth, panelWidth } = useSidebar();
+function NavItem({
+  item, active, collapsed,
+}: { item: Item; active: boolean; collapsed: boolean }) {
+  return (
+    <ListItemButton
+      component={Link}
+      href={item.href}
+      selected={active}
+      sx={{
+        borderRadius: 1.5,
+        mb: 0.5,
+        '&.Mui-selected': { bgcolor: 'action.selected' },
+      }}
+    >
+      <ListItemIcon sx={{ minWidth: 36 }}>{item.icon}</ListItemIcon>
+      {!collapsed && <ListItemText primary={item.label} />}
+    </ListItemButton>
+  );
+}
 
-  const width = collapsed ? railWidth : panelWidth;
-  const list = itemsFor((role || 'CLIENT').toUpperCase());
+export default function RoleSidebar({ role, userLabel }: { role: string; userLabel?: string }) {
+  const { collapsed, mobileOpen, closeMobile, isMobile } = useSidebar();
+  const path = usePathname();
+  const items = itemsFor(role, path);
+
+  const isActive = (it: Item) => (it.match ? it.match(it.href) : path === it.href);
 
   const content = (
-    <Box sx={{ width, display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <Toolbar sx={{ minHeight: 56, px: 1.5 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <BrandLogo size={24} />
-          {!collapsed && (
-            <Box>
-              <Typography fontWeight={800} lineHeight={1.1}>Fitness Pro</Typography>
-              <Typography variant="caption" color="text.secondary">
-                {role === 'ADMIN' ? '🛠️ Admin' : role === 'TRAINER' ? '🧑‍🏫 PT' : '💪 Cliente'}
-                {userLabel ? ` • ${userLabel}` : ''}
-              </Typography>
-            </Box>
-          )}
-        </Box>
-      </Toolbar>
+    <Box
+      role="navigation"
+      sx={{
+        width: collapsed ? 72 : 240,
+        transition: 'width .26s var(--sb-ease, cubic-bezier(.18,.9,.22,1))',
+        height: '100%',
+        borderRight: 1,
+        borderColor: 'divider',
+        bgcolor: 'background.paper',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      <Box sx={{ p: 1.25, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <BrandLogo size={22} />
+        {!collapsed && (
+          <Box>
+            <Typography fontWeight={800} lineHeight={1}>Fitness Pro</Typography>
+            <Typography variant="caption" color="text.secondary" lineHeight={1.1}>
+              {role === 'ADMIN' ? '🛠️ Admin' : role === 'TRAINER' ? '🧑‍🏫 PT' : '💪 Cliente'}
+              {userLabel ? ` • ${userLabel}` : ''}
+            </Typography>
+          </Box>
+        )}
+      </Box>
       <Divider />
-      <List sx={{ py: 1 }}>
-        {list.map((item) => {
-          const active = path === item.href || (item.href !== '/dashboard' && path.startsWith(item.href));
-          const btn = (
-            <ListItemButton
-              key={item.href}
-              component={Link}
-              href={item.href}
-              selected={active}
-              sx={{
-                borderRadius: 1.5,
-                mx: 1,
-                mb: 0.5,
-                '&.Mui-selected': {
-                  bgcolor: 'action.selected',
-                },
-              }}
-              onClick={isMobile ? () => closeMobile() : undefined}
-            >
-              <ListItemIcon sx={{ minWidth: 36 }}>
-                {item.emoji ? <span style={{ fontSize: 18 }}>{item.emoji}</span> : item.icon}
-              </ListItemIcon>
-              {!collapsed && <ListItemText primary={item.label} />}
-            </ListItemButton>
-          );
-          return collapsed ? (
-            <Tooltip key={item.href} title={item.label} placement="right">
-              {btn}
-            </Tooltip>
-          ) : btn;
-        })}
-      </List>
-      <Box sx={{ flex: 1 }} />
+
+      <Box sx={{ p: 1, flex: 1, overflowY: 'auto' }}>
+        <List dense>
+          {items.map((it) => (
+            <NavItem key={it.href} item={it} collapsed={collapsed} active={isActive(it)} />
+          ))}
+        </List>
+      </Box>
     </Box>
   );
 
@@ -111,21 +123,12 @@ export default function RoleSidebar({ role, userLabel }: { role: string; userLab
       <Drawer
         open={mobileOpen}
         onClose={closeMobile}
-        variant="temporary"
         ModalProps={{ keepMounted: true }}
-        PaperProps={{ sx: { width } }}
+        PaperProps={{ sx: { width: 280 } }}
       >
         {content}
       </Drawer>
     );
   }
-  return (
-    <Drawer
-      open
-      variant="permanent"
-      PaperProps={{ sx: { position: 'relative', width, overflow: 'hidden' } }}
-    >
-      {content}
-    </Drawer>
-  );
+  return content;
 }

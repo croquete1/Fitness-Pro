@@ -3,199 +3,109 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import Tooltip from '@mui/material/Tooltip';
-import IconButton from '@mui/material/IconButton';
-import Paper from '@mui/material/Paper';
-import Divider from '@mui/material/Divider';
-import CloseIcon from '@mui/icons-material/Close';
-import KeyboardDoubleArrowLeftRoundedIcon from '@mui/icons-material/KeyboardDoubleArrowLeftRounded';
-import KeyboardDoubleArrowRightRoundedIcon from '@mui/icons-material/KeyboardDoubleArrowRightRounded';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useSidebar } from './SidebarProvider';
+import {
+  Box, Paper, IconButton, Tooltip, List, ListItemButton, ListItemIcon, ListItemText, Divider
+} from '@mui/material';
+import ChevronLeft from '@mui/icons-material/ChevronLeft';
+import ChevronRight from '@mui/icons-material/ChevronRight';
+
+import { useSidebar } from '@/components/layout/SidebarProvider';
 
 export type NavItem = {
   href: string;
   label: string;
   icon?: React.ReactNode;
-  activePrefix?: string;
   exact?: boolean;
-  active?: boolean;
+  activePrefix?: string;
+  match?: (path: string) => (href: string) => boolean;
 };
 
-export default function SidebarBase({
-  items,
-  header,
-  className,
-  footer,
-  width = 240,
-  collapsedWidth = 72,
-}: {
-  items: NavItem[];
-  header?: React.ReactNode;
-  className?: string;
-  footer?: React.ReactNode;
-  width?: number;
-  collapsedWidth?: number;
-}) {
+type Props =
+  | { header?: React.ReactNode; items: NavItem[]; children?: never }
+  | { header?: React.ReactNode; items?: never; children: React.ReactNode };
+
+export default function SidebarBase(props: Props) {
   const path = usePathname();
-  const { collapsed, peek, setPeek, toggle, mobileOpen, closeMobile } = useSidebar();
+  const { collapsed, toggleCollapse, isMobile, closeMobile } = useSidebar();
 
-  const activeIndex = React.useMemo(() => {
-    let idx = -1;
-    for (let i = 0; i < items.length; i++) {
-      const it = items[i];
-      const base = it.activePrefix ?? it.href;
-      const isActive = it.exact ? path === base : path.startsWith(base);
-      if ((isActive || it.active) && idx === -1) idx = i;
-    }
-    return idx;
-  }, [items, path]);
-
-  const isMobile = useIsMobile();
-  const computedWidth = collapsed && !peek ? collapsedWidth : width;
-
-  const textVariants = {
-    initial: { opacity: 0, x: -6 },
-    enter: { opacity: 1, x: 0, transition: { duration: 0.15 } },
-    exit: { opacity: 0, x: -6, transition: { duration: 0.12 } },
-  };
-
-  const Backdrop = () =>
-    isMobile ? (
-      <AnimatePresence>
-        {mobileOpen && (
-          <motion.div
-            key="backdrop"
-            onClick={closeMobile}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.5 }}
-            exit={{ opacity: 0 }}
-            style={{
-              position: 'fixed',
-              inset: 0,
-              background: 'var(--mui-palette-common-black)',
-              zIndex: 1200,
-            }}
-          />
-        )}
-      </AnimatePresence>
-    ) : null;
+  const width = collapsed ? 72 : 240;
 
   return (
-    <>
-      <Backdrop />
-      <motion.aside
-        role="navigation"
-        aria-label="Menu lateral"
-        className={className}
-        onMouseEnter={() => setPeek(true)}
-        onMouseLeave={() => setPeek(false)}
-        initial={false}
-        animate={{
-          width: computedWidth,
-          x: isMobile ? (mobileOpen ? 0 : -computedWidth - 8) : 0,
-        }}
-        transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-        style={{ position: isMobile ? 'fixed' : 'relative', left: 0, top: 0, bottom: 0, zIndex: 1210, overflow: 'hidden' }}
-      >
-        <Paper
-          square
-          elevation={isMobile ? 8 : 0}
-          sx={{
-            height: '100%',
-            width: '100%',
-            borderRight: '1px solid var(--mui-palette-divider)',
-            bgcolor: 'background.paper',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          {/* Cabeçalho */}
-          <div className="flex items-center justify-between px-3 py-3" style={{ minHeight: 56 }}>
-            <div className="min-w-0">
-              <AnimatePresence mode="popLayout">
-                {(!collapsed || peek) && header && (
-                  <motion.div key="header" variants={textVariants} initial="initial" animate="enter" exit="exit">
-                    {header}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+    <Paper
+      component="aside"
+      elevation={0}
+      sx={{
+        position: 'relative',
+        height: '100%',
+        borderRight: 1,
+        borderColor: 'divider',
+        width,
+        transition: 'width .26s cubic-bezier(.18,.9,.22,1)',
+        bgcolor: 'background.paper',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Header da sidebar + Toggle */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1.25, minHeight: 56 }}>
+        <Box sx={{ minWidth: 0, maxWidth: '70%' }}>{props.header}</Box>
+        <Tooltip title={collapsed ? 'Expandir' : 'Colapsar'}>
+          <IconButton size="small" onClick={toggleCollapse} aria-label="Alternar sidebar" sx={{ ml: 0.5 }}>
+            {collapsed ? <ChevronRight /> : <ChevronLeft />}
+          </IconButton>
+        </Tooltip>
+      </Box>
+      <Divider />
 
-            {/* Fechar em mobile / colapsar em desktop */}
-            {isMobile ? (
-              <IconButton size="small" aria-label="Fechar menu" onClick={closeMobile} sx={{ ml: 1 }}>
-                <CloseIcon fontSize="small" />
-              </IconButton>
-            ) : (
-              <IconButton
-                size="small"
-                aria-label={collapsed ? 'Expandir sidebar' : 'Compactar sidebar'}
-                onClick={toggle}
-                sx={{ ml: 1 }}
-              >
-                {collapsed ? (
-                  <KeyboardDoubleArrowRightRoundedIcon fontSize="small" />
-                ) : (
-                  <KeyboardDoubleArrowLeftRoundedIcon fontSize="small" />
-                )}
-              </IconButton>
-            )}
-          </div>
-
-          <Divider />
-
-          {/* Lista */}
-          <nav className="px-2 flex-1 overflow-y-auto">
-            <ul className="list-none m-0 p-0">
-              {items.map((it, i) => {
-                const active = i === activeIndex || !!it.active;
-                const baseCls =
-                  'flex items-center gap-2 rounded-md px-2 py-2 mb-1 no-underline transition-colors outline-none focus:ring-2 focus:ring-indigo-400/40';
-                const stateCls = active
-                  ? 'bg-[rgba(99,102,241,.15)] ring-1 ring-indigo-300/30 text-indigo-600 dark:text-indigo-200'
-                  : 'text-slate-700 dark:text-slate-200 hover:bg-slate-200/40 dark:hover:bg-white/5';
-
-                return (
-                  <li key={it.href}>
-                    <Tooltip title={collapsed && !peek ? it.label : ''} placement="right">
-                      <Link href={it.href} aria-current={active ? 'page' : undefined} className={`${baseCls} ${stateCls}`}>
-                        {it.icon && <span className="shrink-0 w-5 h-5 flex items-center justify-center">{it.icon}</span>}
-                        <AnimatePresence mode="popLayout">
-                          {(!collapsed || peek) && (
-                            <motion.span key="label" variants={textVariants} initial="initial" animate="enter" exit="exit" className="truncate">
-                              {it.label}
-                            </motion.span>
-                          )}
-                        </AnimatePresence>
-                      </Link>
-                    </Tooltip>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
-
-          {footer && (
-            <>
-              <Divider />
-              <div className="px-3 py-2">{footer}</div>
-            </>
-          )}
-        </Paper>
-      </motion.aside>
-    </>
+      {/* Conteúdo */}
+      <Box sx={{ p: 0.5 }}>
+        {'items' in props && props.items ? (
+          <List dense disablePadding sx={{ display: 'grid', gap: 0.5 }}>
+            {props.items.map((it) => {
+              const active = it.exact ? path === it.href : (it.activePrefix ? path.startsWith(it.activePrefix) : path.startsWith(it.href));
+              const button = (
+                <ListItemButton
+                  component={Link}
+                  href={it.href}
+                  prefetch={false}
+                  onClick={() => { if (isMobile) closeMobile(); }}
+                  selected={active}
+                  aria-current={active ? 'page' : undefined}
+                  aria-label={collapsed ? it.label : undefined}
+                  sx={{
+                    borderRadius: 1.5,
+                    height: 40,
+                    '&.Mui-selected': {
+                      bgcolor: 'action.selected',
+                      '&:hover': { bgcolor: 'action.selected' },
+                    },
+                    '&.Mui-selected .MuiListItemText-primary': {
+                      color: 'primary.main',
+                      fontWeight: 700,
+                    },
+                  }}
+                >
+                  {it.icon && (
+                    <ListItemIcon
+                      sx={{
+                        minWidth: collapsed ? 0 : 36,
+                        mr: collapsed ? 0 : 1,
+                        justifyContent: 'center',
+                        color: active ? 'primary.main' : 'text.secondary',
+                      }}
+                    >
+                      {it.icon}
+                    </ListItemIcon>
+                  )}
+                  {!collapsed && <ListItemText primary={it.label} primaryTypographyProps={{ fontSize: 14, fontWeight: active ? 700 : 500, noWrap: true }} />}
+                </ListItemButton>
+              );
+              return <React.Fragment key={it.href}>{button}</React.Fragment>;
+            })}
+          </List>
+        ) : (
+          <Box>{('children' in props) && props.children}</Box>
+        )}
+      </Box>
+    </Paper>
   );
-}
-
-function useIsMobile() {
-  const [mobile, setMobile] = React.useState(false);
-  React.useEffect(() => {
-    const mql = window.matchMedia('(max-width: 1024px)');
-    const onChange = () => setMobile(mql.matches);
-    onChange();
-    mql.addEventListener?.('change', onChange);
-    return () => mql.removeEventListener?.('change', onChange);
-  }, []);
-  return mobile;
 }

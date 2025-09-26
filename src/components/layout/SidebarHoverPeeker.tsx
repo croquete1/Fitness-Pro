@@ -1,17 +1,13 @@
-// src/components/layout/SidebarHoverPeeker.tsx
 'use client';
 
 import * as React from 'react';
-import { useSidebar } from './SidebarProvider';
+
+// Este componente era um “hover zone” para expand temporário.
+// Removemos a chamada a setPeek (não existe no contexto atual).
+// Mantemos o componente como inócuo para evitar regressões e erros de import.
 
 export default function SidebarHoverPeeker() {
-  const { setPeek } = useSidebar();
-  return (
-    <div
-      className="hidden lg:block fixed inset-y-0 left-0 z-30 w-2"
-      onMouseEnter={() => setPeek(true)}
-      onMouseLeave={() => setPeek(false)}
-      aria-hidden
-    />
-  );
+  // Caso queiras reativar futuramente, podemos ligar a um estado interno
+  // e expor via CSS (mas hoje o width vem do contexto colapsado/expandido).
+  return null;
 }

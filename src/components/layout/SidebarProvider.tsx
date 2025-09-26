@@ -1,89 +1,76 @@
 'use client';
 
 import * as React from 'react';
+import { usePathname } from 'next/navigation';
+import useMediaQuery from '@mui/material/useMediaQuery';
 
 export type SidebarCtx = {
   collapsed: boolean;
   setCollapsed: (v: boolean) => void;
-  toggle: () => void;
   toggleCollapse: () => void;
 
-  pinned: boolean;
-  setPinned: (v: boolean) => void;
-
   mobileOpen: boolean;
-  open: boolean;
-  openMobile: (open: boolean) => void;
+  openMobile: (v?: boolean) => void;
   closeMobile: () => void;
-
-  peek: boolean;
-  setPeek: (v: boolean) => void;
+  toggle: () => void;
 
   isMobile: boolean;
-  railWidth: number;
-  panelWidth: number;
+
+  /** ➕ larguras pedidas por MainContent */
+  railWidth: number;   // quando colapsada
+  panelWidth: number;  // expandida
 };
 
 const Ctx = React.createContext<SidebarCtx | null>(null);
 
 export default function SidebarProvider({ children }: { children: React.ReactNode }) {
+  const isMobile = useMediaQuery('(max-width:1024px)');
   const [collapsed, setCollapsed] = React.useState(false);
-  const [pinned, setPinned] = React.useState(true);
   const [mobileOpen, setMobileOpen] = React.useState(false);
-  const [peek, setPeek] = React.useState(false);
+  const pathname = usePathname();
 
-  const [isMobile, setIsMobile] = React.useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return window.matchMedia('(max-width: 1023px)').matches;
-  });
+  // larguras consistentes com o CSS
+  const railWidth = 72;
+  const panelWidth = 240;
 
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const mq = window.matchMedia('(max-width: 1023px)');
-    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    setIsMobile(mq.matches);
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, []);
-
-  const railWidth = 64;
-  const panelWidth = 260;
-
+  // sincroniza data-attrs esperados pelo teu global.css
   React.useEffect(() => {
     const html = document.documentElement;
-    html.setAttribute('data-sb-collapsed', collapsed ? '1' : '0');
-    html.setAttribute('data-sb-pinned', pinned ? '1' : '0');
-    html.setAttribute('data-sb-mobile-open', mobileOpen ? '1' : '0');
-    html.setAttribute('data-sb-peek', peek ? '1' : '0');
-  }, [collapsed, pinned, mobileOpen, peek]);
+    html.dataset.sbCollapsed = collapsed ? '1' : '0';
+    html.dataset.sbMobileOpen = mobileOpen ? '1' : '0';
+    html.dataset.sbPinned = '1';
+    return () => {
+      delete html.dataset.sbCollapsed;
+      delete html.dataset.sbMobileOpen;
+      delete html.dataset.sbPinned;
+    };
+  }, [collapsed, mobileOpen]);
 
+  // fecha drawer ao navegar
   React.useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMobileOpen(false); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
-
-  const openMobile  = (open: boolean) => setMobileOpen(open);
-  const closeMobile = () => setMobileOpen(false);
-  const toggle = () => { isMobile ? setMobileOpen(v => !v) : setCollapsed(c => !c); };
-  const toggleCollapse = () => setCollapsed(c => !c);
+    setMobileOpen(false);
+  }, [pathname]);
 
   const value: SidebarCtx = {
-    collapsed, setCollapsed, toggle, toggleCollapse,
-    pinned, setPinned,
-    mobileOpen, open: mobileOpen, openMobile, closeMobile,
-    peek, setPeek,
-    isMobile, railWidth, panelWidth,
+    collapsed,
+    setCollapsed,
+    toggleCollapse: () => setCollapsed(v => !v),
+
+    mobileOpen,
+    openMobile: (v) => setMobileOpen(v ?? true),
+    closeMobile: () => setMobileOpen(false),
+    toggle: () => (isMobile ? setMobileOpen(v => !v) : setCollapsed(v => !v)),
+
+    isMobile,
+    railWidth,
+    panelWidth,
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
-export function useSidebar(): SidebarCtx {
-  const v = React.useContext(Ctx);
-  if (!v) throw new Error('useSidebar must be used inside <SidebarProvider>');
-  return v;
+export function useSidebar() {
+  const ctx = React.useContext(Ctx);
+  if (!ctx) throw new Error('useSidebar deve ser usado dentro de <SidebarProvider>');
+  return ctx;
 }
-
-// named export de compat
-export { SidebarProvider };
