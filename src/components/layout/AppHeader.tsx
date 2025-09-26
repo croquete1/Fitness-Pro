@@ -1,47 +1,210 @@
 'use client';
+
 import * as React from 'react';
-import { AppBar, Toolbar, IconButton, Box, Menu, MenuItem, Typography, Avatar, Tooltip } from '@mui/material';
-import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
-import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
-import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
-import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined';
-import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined';
-import { useSidebar } from './SidebarContext';
-import { useTheme as useNextTheme } from 'next-themes';
-import { signOut } from 'next-auth/react';
 import Link from 'next/link';
-// se tiveres, mantém:
-import HeaderBell from '@/components/layout/HeaderBell';
+import {
+  AppBar,
+  Toolbar,
+  Box,
+  Stack,
+  IconButton,
+  Typography,
+  Chip,
+  Avatar,
+  Tooltip,
+  Badge,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  Divider,
+  TextField,
+  InputAdornment,
+} from '@mui/material';
 
-export default function AppHeader() {
-  const { openMobile } = useSidebar();
-  const { resolvedTheme, setTheme } = useNextTheme();
-  const isDark = resolvedTheme === 'dark';
+import MenuIcon from '@mui/icons-material/Menu';
+import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded';
+import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
+import NotificationsRounded from '@mui/icons-material/NotificationsRounded';
+import LogoutRounded from '@mui/icons-material/LogoutRounded';
+import SettingsRounded from '@mui/icons-material/SettingsRounded';
+import PersonRounded from '@mui/icons-material/PersonRounded';
+import SearchRounded from '@mui/icons-material/SearchRounded';
 
-  const [anchor, setAnchor] = React.useState<null | HTMLElement>(null);
-  const open = Boolean(anchor);
+import { signOut } from 'next-auth/react';
+
+import BrandLogo from '@/components/BrandLogo';
+import ThemeToggle from '@/components/ThemeToggle';
+import { useSidebar } from './SidebarProvider';
+
+type Props = {
+  userLabel?: string;
+  role?: 'ADMIN' | 'TRAINER' | 'CLIENT' | string;
+};
+
+function roleEmoji(role?: string) {
+  const r = String(role || '').toUpperCase();
+  if (r === 'ADMIN') return '🛠️ Admin';
+  if (r === 'TRAINER') return '🧑‍🏫 PT';
+  return '💪 Cliente';
+}
+
+export default function AppHeader({ userLabel, role }: Props) {
+  const { openMobile, collapsed, setCollapsed } = useSidebar();
+
+  // notificações (exemplo mock; podes ligar a API depois)
+  const [notifCount] = React.useState<number>(3);
+
+  // menu do utilizador
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const open = Boolean(anchorEl);
+  const handleMenu = (e: React.MouseEvent<HTMLElement>) => setAnchorEl(e.currentTarget);
+  const handleClose = () => setAnchorEl(null);
+
+  const handleLogout = async () => {
+    handleClose();
+    // 🔒 termina sessão
+    await signOut({ callbackUrl: '/login' });
+  };
 
   return (
-    <AppBar position="sticky" elevation={0} sx={{ backdropFilter:'blur(6px)', backgroundColor:'transparent', borderBottom:'1px solid var(--mui-palette-divider)' }}>
-      <Toolbar sx={{ minHeight:64, px:1.5 }}>
-        <IconButton edge="start" sx={{ display:{ lg:'none' } }} onClick={openMobile}><MenuRoundedIcon/></IconButton>
-        <Box sx={{ flex:1 }} /> {/* espaço para eventual GlobalSearch */}
-        <HeaderBell />
-        <Tooltip title={isDark ? 'Modo claro' : 'Modo escuro'}>
-          <IconButton onClick={() => setTheme(isDark ? 'light' : 'dark')} aria-label="alternar tema">
-            {isDark ? <LightModeOutlinedIcon/> : <DarkModeOutlinedIcon/>}
+    <AppBar
+      position="sticky"
+      color="inherit"
+      elevation={0}
+      sx={{
+        borderBottom: '1px solid',
+        borderColor: 'divider',
+        bgcolor: 'background.paper',
+        backdropFilter: 'saturate(140%) blur(6px)',
+      }}
+    >
+      <Toolbar sx={{ minHeight: 56, gap: 1 }}>
+        {/* ☰ Mobile */}
+        <Tooltip title="Abrir menu">
+          <IconButton
+            size="large"
+            onClick={() => openMobile(true)}
+            sx={{ display: { xs: 'inline-flex', lg: 'none' } }}
+            aria-label="Abrir menu"
+          >
+            <MenuIcon />
           </IconButton>
         </Tooltip>
-        <IconButton onClick={(e)=>setAnchor(e.currentTarget)} sx={{ ml:1 }}>
-          <Avatar sx={{ width:32, height:32 }}>FP</Avatar>
-        </IconButton>
-        <Menu anchorEl={anchor} open={open} onClose={()=>setAnchor(null)}>
-          <MenuItem disabled><Typography variant="body2">Ligado</Typography></MenuItem>
-          <Link href="/dashboard/profile" style={{ color:'inherit', textDecoration:'none' }}>
-            <MenuItem onClick={()=>setAnchor(null)}><PersonOutlineOutlinedIcon fontSize="small" style={{marginRight:8}}/> Meu perfil</MenuItem>
-          </Link>
-          <MenuItem onClick={()=>signOut({ callbackUrl:'/login' })}><LogoutOutlinedIcon fontSize="small" style={{marginRight:8}}/> Terminar sessão</MenuItem>
-        </Menu>
+
+        {/* Marca / voltar à dashboard */}
+        <Box
+          component={Link}
+          href="/dashboard"
+          sx={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 1,
+            textDecoration: 'none',
+            color: 'inherit',
+          }}
+        >
+          <BrandLogo size={22} />
+          <Typography variant="subtitle2" fontWeight={800} letterSpacing={0.2}>
+            Fitness Pro
+          </Typography>
+        </Box>
+
+        {/* Toggle rail (desktop) */}
+        <Tooltip title={collapsed ? 'Expandir sidebar' : 'Colapsar sidebar'}>
+          <IconButton
+            onClick={() => setCollapsed(!collapsed)}
+            aria-label="Alternar sidebar"
+            sx={{ ml: 1, display: { xs: 'none', lg: 'inline-flex' } }}
+          >
+            {collapsed ? <ChevronRightRounded /> : <ChevronLeftRounded />}
+          </IconButton>
+        </Tooltip>
+
+        {/* Pesquisa (md+) */}
+        <Box sx={{ flex: 1, display: { xs: 'none', md: 'block' }, px: 2 }}>
+          <TextField
+            fullWidth
+            size="small"
+            placeholder="🔎 Pesquisar…"
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchRounded fontSize="small" />
+                </InputAdornment>
+              ),
+            }}
+          />
+        </Box>
+
+        {/* Ações à direita */}
+        <Stack direction="row" spacing={0.5} alignItems="center">
+          {/* Notificações com Badge */}
+          <Tooltip title="Notificações">
+            <IconButton size="large" aria-label="Notificações">
+              <Badge color="error" badgeContent={notifCount} max={9}>
+                <NotificationsRounded />
+              </Badge>
+            </IconButton>
+          </Tooltip>
+
+          <ThemeToggle />
+
+          {/* Identificação + menu do utilizador */}
+          <Chip
+            size="small"
+            variant="outlined"
+            sx={{ borderRadius: '999px', pl: 0.5 }}
+            onClick={handleMenu}
+            clickable
+            avatar={
+              <Avatar
+                alt="Utilizador"
+                sx={{
+                  width: 24,
+                  height: 24,
+                  fontSize: 14,
+                  bgcolor: 'primary.main',
+                }}
+              >
+                {userLabel?.slice(0, 1)?.toUpperCase() || 'U'}
+              </Avatar>
+            }
+            label={
+              <Typography variant="body2" component="span">
+                {roleEmoji(role)}
+                {userLabel ? ` • ${userLabel}` : ''}
+              </Typography>
+            }
+          />
+
+          <Menu
+            anchorEl={anchorEl}
+            open={open}
+            onClose={handleClose}
+            anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+            transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+          >
+            <MenuItem onClick={handleClose}>
+              <ListItemIcon>
+                <PersonRounded fontSize="small" />
+              </ListItemIcon>
+              Perfil 👤
+            </MenuItem>
+            <MenuItem onClick={handleClose}>
+              <ListItemIcon>
+                <SettingsRounded fontSize="small" />
+              </ListItemIcon>
+              Preferências ⚙️
+            </MenuItem>
+            <Divider />
+            <MenuItem onClick={handleLogout}>
+              <ListItemIcon>
+                <LogoutRounded fontSize="small" />
+              </ListItemIcon>
+              Terminar sessão 🚪
+            </MenuItem>
+          </Menu>
+        </Stack>
       </Toolbar>
     </AppBar>
   );

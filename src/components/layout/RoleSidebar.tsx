@@ -2,7 +2,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useSidebar } from './SidebarContext';
+import { useSidebar } from '@/components/layout/SidebarCtx';
 import { Box, Divider, IconButton, List, ListItemButton, ListItemText, Tooltip, Typography } from '@mui/material';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded';
