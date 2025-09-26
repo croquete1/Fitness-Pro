@@ -1,3 +1,4 @@
+// src/app/login/LoginClient.tsx
 'use client';
 
 import * as React from 'react';
@@ -5,8 +6,10 @@ import { signIn } from 'next-auth/react';
 import Link from 'next/link';
 import {
   Box, Paper, Stack, TextField, Button, Alert, Typography,
-  CircularProgress, IconButton, InputAdornment, Divider
+  CircularProgress, IconButton, InputAdornment, Divider, Fade
 } from '@mui/material';
+import MailOutline from '@mui/icons-material/MailOutline';
+import LockOutlined from '@mui/icons-material/LockOutlined';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import LoginIcon from '@mui/icons-material/Login';
@@ -20,7 +23,6 @@ const loginSchema = z.object({
   password: z.string().min(6, 'Mínimo 6 caracteres'),
 });
 
-// destinos internos apenas e nunca volta ao /login
 function sanitizeNext(next?: string | null) {
   const fallback = '/dashboard';
   if (!next) return fallback;
@@ -91,10 +93,10 @@ export default function LoginClient() {
       await signIn('credentials', {
         email: email.trim(),
         password: pw,
-        redirect: true,          // 302 com Set-Cookie no servidor
-        callbackUrl,             // vai para /dashboard (ou o “next” válido)
+        redirect: true,
+        callbackUrl,
       });
-      // o 302 faz a navegação; nada a fazer aqui
+      // redireciona via 302; não precisamos de mexer aqui
     } catch {
       setErr('Não foi possível iniciar sessão. Tenta novamente.');
       setLoading(false);
@@ -102,70 +104,130 @@ export default function LoginClient() {
   }
 
   return (
-    <Box sx={{
-      minHeight: '100dvh', display: 'grid', placeItems: 'center', p: 2,
-      bgcolor: 'background.default',
-      backgroundImage: `
-        radial-gradient(1000px 600px at 50% -10%, rgba(255,255,255,0.06), transparent),
-        linear-gradient(180deg, rgba(255,255,255,0.02), transparent 120px)
-      `,
-    }}>
-      <Paper elevation={10} sx={{
-        width: '100%', maxWidth: 520, p: { xs: 3, sm: 4 }, borderRadius: 4,
-        bgcolor: 'background.paper', position: 'relative', backdropFilter: 'saturate(120%) blur(2px)',
-      }}>
-        <Box sx={{ position: 'absolute', top: 8, right: 8 }}><ThemeToggle /></Box>
+    <Box
+      sx={{
+        minHeight: '100dvh',
+        display: 'grid',
+        placeItems: 'center',
+        p: 3,
+        bgcolor: 'background.default',
+        // fundo com gradiente suave + textura radial
+        backgroundImage: `
+          radial-gradient(1200px 700px at 50% -10%, rgba(255,255,255,0.06), transparent),
+          radial-gradient(900px 500px at 120% 10%, rgba(99,102,241,0.12), transparent),
+          linear-gradient(180deg, rgba(255,255,255,0.02), transparent 160px)
+        `,
+      }}
+    >
+      <Fade in timeout={400}>
+        <Paper
+          elevation={24}
+          sx={{
+            width: '100%',
+            maxWidth: 520,
+            p: { xs: 3, sm: 4 },
+            borderRadius: 5,
+            bgcolor: 'rgba(18,18,18,0.65)',
+            color: 'text.primary',
+            backdropFilter: 'saturate(140%) blur(8px)',
+            border: (t) => `1px solid ${t.palette.divider}`,
+            boxShadow: '0 10px 40px rgba(0,0,0,0.35)',
+            position: 'relative',
+          }}
+        >
+          <Box sx={{ position: 'absolute', top: 10, right: 10 }}>
+            <ThemeToggle />
+          </Box>
 
-        <Stack alignItems="center" spacing={1.5} sx={{ mb: 1 }}>
-          <BrandLogo size={56} />
-          <Typography variant="h5" fontWeight={800} textAlign="center">Bem-vindo ao Fitness Pro</Typography>
-          <Typography variant="body2" color="text.secondary" textAlign="center">
-            Inicia sessão para acederes ao teu painel (Admin, PT ou Cliente).
-          </Typography>
-        </Stack>
-
-        <Divider sx={{ my: 2 }} />
-
-        <form onSubmit={onSubmit} noValidate>
-          <Stack spacing={2.25}>
-            <TextField
-              name="email" label="Email *" type="email" value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onBlur={(e) => validateField('email', e.target.value)}
-              required fullWidth autoFocus autoComplete="username"
-              inputProps={{ inputMode: 'email', spellCheck: false, 'aria-label': 'Email' }}
-              error={!!fieldErr.email} helperText={fieldErr.email}
-            />
-            <TextField
-              name="password" label="Palavra-passe *" type={show ? 'text' : 'password'} value={pw}
-              onChange={(e) => setPw(e.target.value)}
-              onBlur={(e) => validateField('password', e.target.value)}
-              required fullWidth autoComplete="current-password"
-              inputProps={{ minLength: 6, 'aria-label': 'Palavra-passe' }}
-              error={!!fieldErr.password} helperText={fieldErr.password}
-              onKeyDown={(e) => { if (loading && e.key === 'Enter') e.preventDefault(); }}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton onClick={() => setShow((v) => !v)} edge="end" aria-label="Mostrar/ocultar palavra-passe">
-                      {show ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
-            <Button type="submit" variant="contained" size="large"
-              startIcon={loading ? undefined : <LoginIcon />} disabled={!isFormValid}>
-              {loading ? <CircularProgress size={20} /> : 'Entrar'}
-            </Button>
-            {err && <Alert severity="error">{err}</Alert>}
-            <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={1}>
-              <Button component={Link} href="/login/forgot" variant="text">Esqueceste-te da palavra-passe?</Button>
-              <Button component={Link} href="/register" variant="text">Criar conta</Button>
-            </Stack>
+          <Stack alignItems="center" spacing={1.2} sx={{ mb: 1 }}>
+            <BrandLogo size={64} />
+            <Typography variant="h4" fontWeight={800} textAlign="center" sx={{ letterSpacing: 0.2 }}>
+              Bem-vindo ao Fitness Pro
+            </Typography>
+            <Typography variant="body2" color="text.secondary" textAlign="center">
+              Entra para aceder ao teu painel <b>Admin</b>, <b>PT</b> ou <b>Cliente</b>.
+            </Typography>
           </Stack>
-        </form>
-      </Paper>
+
+          <Divider sx={{ my: 2.2, opacity: 0.6 }} />
+
+          <form onSubmit={onSubmit} noValidate>
+            <Stack spacing={2.2}>
+              <TextField
+                label="Email *"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onBlur={(e) => validateField('email', e.target.value)}
+                required
+                fullWidth
+                autoFocus
+                autoComplete="username"
+                error={!!fieldErr.email}
+                helperText={fieldErr.email}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <MailOutline fontSize="small" />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+
+              <TextField
+                label="Palavra-passe *"
+                type={show ? 'text' : 'password'}
+                value={pw}
+                onChange={(e) => setPw(e.target.value)}
+                onBlur={(e) => validateField('password', e.target.value)}
+                required
+                fullWidth
+                inputProps={{ minLength: 6 }}
+                autoComplete="current-password"
+                error={!!fieldErr.password}
+                helperText={fieldErr.password}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <LockOutlined fontSize="small" />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton onClick={() => setShow((v) => !v)} edge="end" aria-label="Mostrar/ocultar palavra-passe">
+                        {show ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
+
+              <Button
+                type="submit"
+                variant="contained"
+                size="large"
+                startIcon={loading ? undefined : <LoginIcon />}
+                disabled={!isFormValid}
+                sx={{
+                  py: 1.2,
+                  fontWeight: 700,
+                  textTransform: 'none',
+                  borderRadius: 2.5,
+                }}
+              >
+                {loading ? <CircularProgress size={20} /> : 'Entrar'}
+              </Button>
+
+              {err && <Alert severity="error">{err}</Alert>}
+
+              <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={1}>
+                <Button component={Link} href="/login/forgot" variant="text">Esqueceste-te da palavra-passe?</Button>
+                <Button component={Link} href="/register" variant="text">Criar conta</Button>
+              </Stack>
+            </Stack>
+          </form>
+        </Paper>
+      </Fade>
     </Box>
   );
 }

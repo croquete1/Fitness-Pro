@@ -20,34 +20,55 @@ export const authOptions: NextAuthOptions = {
         const parsed = LoginSchema.safeParse({
           email: credentials?.email, password: credentials?.password,
         });
-        if (!parsed.success) return null;
+        if (!parsed.success) {
+          console.warn('[auth] payload inválido');
+          return null;
+        }
         const { email, password } = parsed.data;
 
-        // 1) obter hash
-        const { data: cred } = await supabaseAdmin
+        // 1) obter credencial local
+        const { data: cred, error: cErr } = await supabaseAdmin
           .from('auth_local_users')
           .select('id, email, password_hash')
           .eq('email', email)
           .maybeSingle();
-        if (!cred) return null;
 
-        // 2) comparar
+        if (cErr) {
+          console.error('[auth] erro supabase (auth_local_users):', cErr.message);
+          return null;
+        }
+        if (!cred) {
+          console.warn('[auth] user not found:', email);
+          return null;
+        }
+
+        // 2) comparar bcrypt
         const ok = await checkPassword(password, cred.password_hash);
-        if (!ok) return null;
+        if (!ok) {
+          console.warn('[auth] bad password para', email);
+          return null;
+        }
 
-        // 3) perfil / role
-        const { data: prof } = await supabaseAdmin
+        // 3) perfil/role
+        const { data: prof, error: pErr } = await supabaseAdmin
           .from('profiles')
           .select('name, role')
           .eq('email', email)
           .maybeSingle();
 
-        return {
+        if (pErr) {
+          console.error('[auth] erro supabase (profiles):', pErr.message);
+        }
+
+        const user = {
           id: cred.id,
           email: cred.email,
           name: prof?.name ?? cred.email.split('@')[0],
           role: prof?.role ?? 'CLIENT',
         } as any;
+
+        console.log('[auth] login LOCAL OK para', email);
+        return user;
       },
     }),
   ],
@@ -71,6 +92,4 @@ export const authOptions: NextAuthOptions = {
       return baseUrl + '/dashboard';
     },
   },
-
-  // secret lido de process.env.NEXTAUTH_SECRET
 };
