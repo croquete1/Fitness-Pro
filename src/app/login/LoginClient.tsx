@@ -96,7 +96,6 @@ export default function LoginClient() {
         redirect: true,
         callbackUrl,
       });
-      // redireciona via 302; não precisamos de mexer aqui
     } catch {
       setErr('Não foi possível iniciar sessão. Tenta novamente.');
       setLoading(false);
@@ -111,7 +110,6 @@ export default function LoginClient() {
         placeItems: 'center',
         p: 3,
         bgcolor: 'background.default',
-        // fundo com gradiente suave + textura radial
         backgroundImage: `
           radial-gradient(1200px 700px at 50% -10%, rgba(255,255,255,0.06), transparent),
           radial-gradient(900px 500px at 120% 10%, rgba(99,102,241,0.12), transparent),
@@ -208,12 +206,7 @@ export default function LoginClient() {
                 size="large"
                 startIcon={loading ? undefined : <LoginIcon />}
                 disabled={!isFormValid}
-                sx={{
-                  py: 1.2,
-                  fontWeight: 700,
-                  textTransform: 'none',
-                  borderRadius: 2.5,
-                }}
+                sx={{ py: 1.2, fontWeight: 700, textTransform: 'none', borderRadius: 2.5 }}
               >
                 {loading ? <CircularProgress size={20} /> : 'Entrar'}
               </Button>

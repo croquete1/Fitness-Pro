@@ -5,6 +5,28 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { LoginSchema } from '@/lib/validation/auth';
 import { checkPassword } from '@/lib/hash';
 
+type CredRow = { id: string; email: string; password_hash?: string | null; password?: string | null };
+
+async function findLocalCred(email: string): Promise<CredRow | null> {
+  // 1) nova tabela canónica
+  const a = await supabaseAdmin
+    .from('auth_local_users')
+    .select('id, email, password_hash')
+    .eq('email', email)
+    .maybeSingle<CredRow>();
+  if (a.data) return a.data;
+
+  // 2) fallback: alguns projetos usam 'users' e coluna 'password' ou 'password_hash'
+  const b = await supabaseAdmin
+    .from('users' as any)
+    .select('id, email, password, password_hash')
+    .eq('email', email)
+    .maybeSingle<CredRow>();
+  if (b.data) return b.data;
+
+  return null;
+}
+
 export const authOptions: NextAuthOptions = {
   pages: { signIn: '/login' },
   session: { strategy: 'jwt' },
@@ -26,39 +48,27 @@ export const authOptions: NextAuthOptions = {
         }
         const { email, password } = parsed.data;
 
-        // 1) obter credencial local
-        const { data: cred, error: cErr } = await supabaseAdmin
-          .from('auth_local_users')
-          .select('id, email, password_hash')
-          .eq('email', email)
-          .maybeSingle();
-
-        if (cErr) {
-          console.error('[auth] erro supabase (auth_local_users):', cErr.message);
-          return null;
-        }
+        const cred = await findLocalCred(email);
         if (!cred) {
           console.warn('[auth] user not found:', email);
           return null;
         }
 
-        // 2) comparar bcrypt
-        const ok = await checkPassword(password, cred.password_hash);
+        const hash = cred.password_hash ?? cred.password ?? '';
+        const ok = await checkPassword(password, hash);
         if (!ok) {
           console.warn('[auth] bad password para', email);
           return null;
         }
 
-        // 3) perfil/role
+        // perfil / role (se existir)
         const { data: prof, error: pErr } = await supabaseAdmin
           .from('profiles')
           .select('name, role')
           .eq('email', email)
           .maybeSingle();
 
-        if (pErr) {
-          console.error('[auth] erro supabase (profiles):', pErr.message);
-        }
+        if (pErr) console.error('[auth] erro supabase (profiles):', pErr.message);
 
         const user = {
           id: cred.id,
