@@ -1,109 +1,101 @@
 'use client';
+import * as React from 'react';
+import {
+  DataGrid,
+  GridToolbar,
+  type GridColDef,
+} from '@mui/x-data-grid';
+import { Paper, Chip } from '@mui/material';
 
-import { useEffect, useMemo, useState } from 'react';
+export type Row = {
+  id: string;
+  email: string;
+  name: string;
+  role: 'ADMIN' | 'TRAINER' | 'CLIENT' | string;
+  approved: boolean | null;
+  active: boolean;
+  created_at: string | null;
+};
 
-type Row = { id: string; name: string | null; email: string; role: string; status: string; createdAt: string };
+const RoleChip: React.FC<{ value: Row['role'] }> = ({ value }) => {
+  const v = String(value || '').toUpperCase();
+  const map: Record<string, { label: string; color: 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'error' }> = {
+    ADMIN:   { label: '🛠️ Admin',   color: 'secondary' },
+    TRAINER: { label: '🧑‍🏫 PT',      color: 'primary' },
+    CLIENT:  { label: '💪 Cliente',  color: 'default' },
+  };
+  const cfg = map[v] ?? { label: v, color: 'default' };
+  return <Chip size="small" label={cfg.label} color={cfg.color} variant="outlined" />;
+};
 
-export default function UsersClient() {
-  const [q, setQ] = useState('');
-  const [role, setRole] = useState<'ALL'|'CLIENT'|'TRAINER'|'ADMIN'>('ALL');
-  const [page, setPage] = useState(1);
-  const [rows, setRows] = useState<Row[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
+const columns: GridColDef<Row>[] = [
+  { field: 'name', headerName: 'Nome', flex: 1, minWidth: 160 },
+  { field: 'email', headerName: 'Email', flex: 1, minWidth: 220 },
+  {
+    field: 'role',
+    headerName: 'Role',
+    width: 140,
+    renderCell: (p) => <RoleChip value={p.value as any} />,
+    sortComparator: (a, b) => String(a).localeCompare(String(b)),
+  },
+  {
+    field: 'approved',
+    headerName: 'Aprovado',
+    width: 120,
+    type: 'boolean',
+    renderCell: (p) => (
+      <Chip
+        size="small"
+        label={p.value ? 'Sim' : 'Não'}
+        color={p.value ? 'success' : 'default'}
+        variant={p.value ? 'filled' : 'outlined'}
+      />
+    ),
+  },
+  {
+    field: 'active',
+    headerName: 'Ativo',
+    width: 110,
+    type: 'boolean',
+    renderCell: (p) => (
+      <Chip
+        size="small"
+        label={p.value ? 'Sim' : 'Não'}
+        color={p.value ? 'success' : 'default'}
+        variant={p.value ? 'filled' : 'outlined'}
+      />
+    ),
+  },
+  {
+    field: 'created_at',
+    headerName: 'Registo',
+    width: 160,
+    renderCell: (p) => (p.value ? new Date(String(p.value)).toLocaleDateString() : ''),
+  },
+];
 
-  const pageSize = 20;
-  const fetchData = useMemo(() => {
-    let timer: any;
-    return (query: string, r: typeof role, p: number) => {
-      clearTimeout(timer);
-      timer = setTimeout(async () => {
-        setLoading(true);
-        const params = new URLSearchParams();
-        if (query) params.set('q', query);
-        if (r !== 'ALL') params.set('role', r);
-        params.set('page', String(p));
-        params.set('pageSize', String(pageSize));
-        const res = await fetch(`/api/admin/users?${params.toString()}`, { cache: 'no-store' });
-        const data = await res.json();
-        setRows(data.items ?? []);
-        setTotal(data.total ?? 0);
-        setLoading(false);
-      }, 250); // debounce
-    };
-  }, []);
-
-  useEffect(() => {
-    fetchData(q, role, page);
-  }, [q, role, page, fetchData]);
-
+export default function UsersGrid({ rows, initialQuickFilter = '' }: { rows: Row[]; initialQuickFilter?: string }) {
   return (
-    <div className="space-y-4">
-      <div className="flex gap-2 items-center">
-        <input
-          value={q}
-          onChange={(e) => { setPage(1); setQ(e.target.value); }}
-          placeholder="Pesquisar por nome ou email…"
-          className="w-full md:max-w-sm h-10 rounded-lg border border-neutral-300 dark:border-neutral-700 px-3"
-        />
-        <select
-          value={role}
-          onChange={(e) => { setPage(1); setRole(e.target.value as any); }}
-          className="h-10 rounded-lg border border-neutral-300 dark:border-neutral-700 px-3"
-        >
-          <option value="ALL">Todos</option>
-          <option value="CLIENT">Clientes</option>
-          <option value="TRAINER">Treinadores</option>
-          <option value="ADMIN">Admins</option>
-        </select>
-      </div>
-
-      <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden bg-white dark:bg-neutral-900">
-        <table className="w-full text-sm">
-          <thead className="bg-neutral-50 dark:bg-neutral-950/50 text-neutral-600">
-            <tr>
-              <th className="text-left px-4 py-3">Nome</th>
-              <th className="text-left px-4 py-3">Email</th>
-              <th className="text-left px-4 py-3">Role</th>
-              <th className="text-left px-4 py-3">Estado</th>
-              <th className="text-left px-4 py-3">Criado</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(r => (
-              <tr key={r.id} className="border-t border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50/60">
-                <td className="px-4 py-3">
-                  <a href={`/dashboard/admin/users/${r.id}`} className="underline underline-offset-2">{r.name ?? '—'}</a>
-                </td>
-                <td className="px-4 py-3">{r.email}</td>
-                <td className="px-4 py-3">{r.role}</td>
-                <td className="px-4 py-3">{r.status}</td>
-                <td className="px-4 py-3">{new Date(r.createdAt).toLocaleDateString()}</td>
-              </tr>
-            ))}
-            {!loading && rows.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-10 text-center text-neutral-500">Sem resultados.</td></tr>
-            )}
-          </tbody>
-        </table>
-        {loading && <div className="px-4 py-3 text-sm text-neutral-500">A carregar…</div>}
-      </div>
-
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-neutral-500">Total: {total}</div>
-        <div className="flex gap-2">
-          <button
-            className="h-9 px-3 rounded-lg border border-neutral-300 disabled:opacity-50"
-            onClick={() => setPage(p => Math.max(1, p-1))}
-            disabled={page === 1}
-          >Anterior</button>
-          <button
-            className="h-9 px-3 rounded-lg border border-neutral-300 disabled:opacity-50"
-            onClick={() => setPage(p => p + 1)}
-            disabled={page * pageSize >= total}
-          >Seguinte</button>
-        </div>
-      </div>
-    </div>
+    <Paper sx={{ p: 1, border: 1, borderColor: 'divider' }}>
+      <DataGrid<Row>
+        autoHeight
+        rows={rows}
+        getRowId={(r) => r.id}
+        columns={columns}
+        slots={{ toolbar: GridToolbar }}
+        slotProps={{
+          toolbar: {
+            showQuickFilter: true,
+            quickFilterProps: { debounceMs: 250, placeholder: 'Pesquisar utilizadores…' },
+            // Nota: o QuickFilter não lê URL por si — passamos via prop e aplicamos por API se quiseres.
+          },
+        }}
+        pageSizeOptions={[10, 25, 50]}
+        initialState={{
+          pagination: { paginationModel: { page: 0, pageSize: 10 } },
+        }}
+        disableRowSelectionOnClick
+      />
+    </Paper>
   );
 }

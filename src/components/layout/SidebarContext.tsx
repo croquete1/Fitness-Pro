@@ -1,5 +1,4 @@
 'use client';
 
 export type { SidebarCtx } from './SidebarProvider';
-export { useSidebar } from './SidebarProvider';
-export { default as SidebarProvider } from './SidebarProvider';
+export { default as SidebarProvider, useSidebar } from './SidebarProvider';

@@ -1,24 +1,25 @@
 'use client';
-
 import * as React from 'react';
-import { useTheme } from 'next-themes';
 import { IconButton, Tooltip } from '@mui/material';
-import DarkModeIcon from '@mui/icons-material/DarkMode';
-import LightModeIcon from '@mui/icons-material/LightMode';
+import DarkModeOutlined from '@mui/icons-material/DarkModeOutlined';
+import LightModeOutlined from '@mui/icons-material/LightModeOutlined';
 
-type Props = { size?: 'small' | 'medium' | 'large' };
+export default function ThemeToggle() {
+  const [mode, setMode] = React.useState<'light'|'dark'>(() =>
+    (typeof window !== 'undefined' && (localStorage.getItem('theme') as any)) || 'light'
+  );
 
-export default function ThemeToggle({ size = 'small' }: Props) {
-  const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = React.useState(false);
-  React.useEffect(() => setMounted(true), []);
-  if (!mounted) return null;
+  React.useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-theme', mode);
+      localStorage.setItem('theme', mode);
+    }
+  }, [mode]);
 
-  const isDark = resolvedTheme === 'dark';
   return (
-    <Tooltip title={isDark ? 'Modo claro' : 'Modo escuro'}>
-      <IconButton onClick={() => setTheme(isDark ? 'light' : 'dark')} size={size}>
-        {isDark ? <LightModeIcon /> : <DarkModeIcon />}
+    <Tooltip title={mode === 'dark' ? 'Modo claro' : 'Modo escuro'}>
+      <IconButton onClick={() => setMode(mode === 'dark' ? 'light' : 'dark')}>
+        {mode === 'dark' ? <LightModeOutlined /> : <DarkModeOutlined />}
       </IconButton>
     </Tooltip>
   );

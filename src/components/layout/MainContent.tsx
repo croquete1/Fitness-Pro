@@ -1,21 +1,30 @@
+// src/components/layout/MainContent.tsx
 'use client';
 
 import * as React from 'react';
-import { Box } from '@mui/material';
-import { useSidebar } from './SidebarProvider';
+import { Box, Container, Stack } from '@mui/material';
 
-/**
- * Wrapper seguro para páginas antigas.
- * Se precisares de margem à esquerda, usamos os widths do contexto;
- * mas como a nova shell em grid já reserva a coluna, deixo sem ml para evitar “dupla” margem.
- */
-export default function MainContent({ children }: { children: React.ReactNode }) {
-  const { isMobile, collapsed, railWidth, panelWidth } = useSidebar();
-  const _left = isMobile ? 0 : (collapsed ? railWidth : panelWidth); // disponível se quiseres usar
+type Props = {
+  children: React.ReactNode;
+  /** Ajusta facilmente o content width da página */
+  maxWidth?: 'xl' | 'lg' | 'md' | 'sm' | false;
+  /** Útil para páginas full-bleed (grids, etc.) */
+  disableGutters?: boolean;
+  /** Espaçamento vertical entre blocos */
+  spacing?: number;
+};
 
+export default function MainContent({
+  children,
+  maxWidth = 'xl',
+  disableGutters = false,
+  spacing = 2,
+}: Props) {
   return (
-    <Box component="main" sx={{ p: { xs: 2, md: 3 }, minWidth: 0 }}>
-      {children}
+    <Box component="main" sx={{ py: 3, minWidth: 0 }}>
+      <Container maxWidth={maxWidth} disableGutters={disableGutters}>
+        <Stack spacing={spacing}>{children}</Stack>
+      </Container>
     </Box>
   );
 }

@@ -1,24 +1,46 @@
+// src/components/layout/MobileTopBar.tsx
 'use client';
 
-import React from 'react';
-import { useSidebar } from '@/components/layout/SidebarContext';
+import * as React from 'react';
+import { AppBar, Toolbar, IconButton, Typography } from '@mui/material';
+import MenuIcon from '@mui/icons-material/Menu';
+import { useSidebar } from '@/components/layout/SidebarProvider';
 
-type Props = { title?: string; onToggleSidebar?: () => void };
+type Props = {
+  title?: string;
+  onToggleSidebar?: () => void;
+};
 
 export default function MobileTopBar({ title = 'Dashboard', onToggleSidebar }: Props) {
-  const { toggle } = useSidebar();
+  const { openMobile } = useSidebar();
 
   const handleToggle = () => {
     onToggleSidebar?.();
-    toggle(); // em mobile abre/fecha, em desktop colapsa/expande
+    // Abre o drawer da sidebar no mobile
+    openMobile(true);
   };
 
   return (
-    <div className="lg:hidden sticky top-0 z-50 flex items-center justify-between px-3 py-2
-                    border-b border-black/10 dark:border-white/10 bg-white/80 dark:bg-neutral-900/80 backdrop-blur">
-      <button className="btn" onClick={handleToggle} aria-label="Abrir menu">☰</button>
-      <div className="font-semibold">{title}</div>
-      <div style={{ width: 40 }} /> {/* spacer */}
-    </div>
+    <AppBar
+      position="sticky"
+      color="inherit"
+      elevation={0}
+      sx={{
+        display: { xs: 'block', lg: 'none' },
+        borderBottom: 1,
+        borderColor: 'divider',
+        bgcolor: 'background.paper',
+        backdropFilter: 'saturate(140%) blur(6px)',
+      }}
+    >
+      <Toolbar variant="dense" sx={{ gap: 1 }}>
+        <IconButton edge="start" onClick={handleToggle} aria-label="Abrir menu">
+          <MenuIcon />
+        </IconButton>
+        <Typography variant="subtitle1" fontWeight={800}>
+          {title}
+        </Typography>
+      </Toolbar>
+    </AppBar>
   );
 }

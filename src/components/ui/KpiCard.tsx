@@ -1,50 +1,96 @@
+// src/components/ui/KpiCard.tsx
 'use client';
+
 import * as React from 'react';
-import MiniSpark from '@/components/charts/MiniSpark';
+import { Card, CardContent, Box, Typography, Chip } from '@mui/material';
+import ArrowDropUp from '@mui/icons-material/ArrowDropUp';
+import ArrowDropDown from '@mui/icons-material/ArrowDropDown';
 
 type Props = {
   title: string;
-  value: string | number;
-  delta?: number; // positivo/negativo = seta ↑/↓
-  loading?: boolean;
-  sparkData?: number[];
+  value: number | string;
+  delta?: number;         // ex.: +3.2 / -1.8
+  sparkData?: number[];   // ex.: [110,112,114,...]
+  accent?: 'blue' | 'violet' | 'green' | 'amber';
 };
 
-export default function KpiCard({ title, value, delta, loading, sparkData }: Props) {
-  if (loading) {
-    return (
-      <div className="rounded-2xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-4">
-        <div className="h-3 w-24 mb-3 rounded bg-black/10 dark:bg-white/10 animate-pulse" />
-        <div className="h-8 w-32 rounded bg-black/10 dark:bg-white/10 animate-pulse" />
-        <div className="mt-3 h-9 rounded bg-black/5 dark:bg-white/5 animate-pulse" />
-      </div>
-    );
+function gradientBg(mode: 'light'|'dark', accent: NonNullable<Props['accent']>) {
+  if (mode === 'dark') {
+    const map = {
+      blue:   'linear-gradient(180deg, #0b244a, #0f2d63)',
+      violet: 'linear-gradient(180deg, #2b1a55, #3a1f7a)',
+      green:  'linear-gradient(180deg, #0f3b29, #11543a)',
+      amber:  'linear-gradient(180deg, #4a2c0b, #633e0f)',
+    } as const;
+    return map[accent];
   }
+  const map = {
+    blue:   'linear-gradient(180deg, #e9f1ff, #deebff)',
+    violet: 'linear-gradient(180deg, #f0e8ff, #eadbff)',
+    green:  'linear-gradient(180deg, #e8fff3, #d4fae8)',
+    amber:  'linear-gradient(180deg, #fff6e7, #fee6bd)',
+  } as const;
+  return map[accent];
+}
 
-  const isUp = typeof delta === 'number' ? delta >= 0 : undefined;
-
+function Sparkline({ data }: { data: number[] }) {
+  if (!data || data.length < 2) return null;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const norm = (v: number) => (max === min ? 0.5 : (v - min) / (max - min));
+  const points = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * 100;
+    const y = 24 - norm(v) * 24;
+    return `${x},${y}`;
+  }).join(' ');
   return (
-    <div className="rounded-2xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-4">
-      <div className="text-xs font-semibold opacity-60">{title}</div>
-      <div className="mt-1 flex items-baseline gap-2">
-        <div className="text-2xl font-bold">{value}</div>
-        {typeof delta === 'number' && (
-          <div
-            className={`text-xs font-medium ${
-              isUp ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
-            }`}
-            aria-label={isUp ? 'A subir' : 'A descer'}
-            title={isUp ? 'A subir' : 'A descer'}
-          >
-            {isUp ? '↑' : '↓'} {Math.abs(delta).toFixed(1)}%
-          </div>
+    <svg viewBox="0 0 100 24" preserveAspectRatio="none" style={{ width: '100%', height: 28 }}>
+      <polyline points={points} fill="none" stroke="currentColor" strokeWidth="2" opacity={0.85} />
+    </svg>
+  );
+}
+
+export default function KpiCard({ title, value, delta, sparkData, accent = 'blue' }: Props) {
+  return (
+    <Card
+      elevation={0}
+      sx={(theme) => ({
+        border: 1,
+        borderColor: 'divider',
+        borderRadius: 3,
+        background: gradientBg(theme.palette.mode as 'light'|'dark', accent),
+        boxShadow: theme.palette.mode === 'dark'
+          ? '0 12px 36px rgba(0,0,0,.28)'
+          : '0 10px 28px rgba(15,23,42,.10)',
+      })}
+    >
+      <CardContent sx={{ p: 2.25, display: 'grid', gap: 0.75 }}>
+        <Typography variant="caption" sx={{ opacity: 0.9 }}>{title}</Typography>
+
+        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+          <Typography variant="h5" fontWeight={800} lineHeight={1}>
+            {value}
+          </Typography>
+          {typeof delta === 'number' && delta !== 0 && (
+            <Chip
+              size="small"
+              icon={delta > 0 ? <ArrowDropUp /> : <ArrowDropDown />}
+              label={`${Math.abs(delta).toFixed(1)}%`}
+              color={delta > 0 ? 'success' : 'error'}
+              sx={{ bgcolor: 'background.paper' }}
+            />
+          )}
+          {typeof delta === 'number' && delta === 0 && (
+            <Chip size="small" label="0%" variant="outlined" />
+          )}
+        </Box>
+
+        {sparkData && sparkData.length > 1 && (
+          <Box sx={{ color: 'text.secondary' }}>
+            <Sparkline data={sparkData} />
+          </Box>
         )}
-      </div>
-      {sparkData && sparkData.length > 1 && (
-        <div className="mt-3 text-neutral-400">
-          <MiniSpark data={sparkData} className="w-full h-9" />
-        </div>
-      )}
-    </div>
+      </CardContent>
+    </Card>
   );
 }
