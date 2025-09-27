@@ -1,4 +1,3 @@
-// src/components/layout/SidebarPT.tsx
 'use client';
 
 import * as React from 'react';
@@ -15,9 +14,9 @@ import {
 } from '@mui/material';
 
 import DashboardOutlined from '@mui/icons-material/DashboardOutlined';
-import PersonOutline from '@mui/icons-material/PersonOutline';
+import GroupOutlined from '@mui/icons-material/GroupOutlined';
 import CalendarMonthOutlined from '@mui/icons-material/CalendarMonthOutlined';
-import AssignmentOutlined from '@mui/icons-material/AssignmentOutlined';
+import ListAltOutlined from '@mui/icons-material/ListAltOutlined';
 import ChatBubbleOutline from '@mui/icons-material/ChatBubbleOutline';
 import NotificationsOutlined from '@mui/icons-material/NotificationsOutlined';
 import HistoryOutlined from '@mui/icons-material/HistoryOutlined';
@@ -34,16 +33,15 @@ type Nav = {
   activePrefix?: string;
 };
 
-// 🔧 Estáticos — evitam recriação em cada render
 const NAV_ITEMS: Nav[] = [
-  { href: '/dashboard/pt',          label: 'Painel',      icon: <DashboardOutlined />, exact: true, activePrefix: '/dashboard/pt' },
-  { href: '/dashboard/pt/clients',  label: 'Clientes',    icon: <PersonOutline />,      activePrefix: '/dashboard/pt/clients' },
-  { href: '/dashboard/pt/sessions', label: 'Sessões',     icon: <CalendarMonthOutlined />, activePrefix: '/dashboard/pt/sessions' },
-  { href: '/dashboard/pt/plans',    label: 'Planos',      icon: <AssignmentOutlined />, activePrefix: '/dashboard/pt/plans' },
-  { href: '/dashboard/pt/messages', label: 'Mensagens',   icon: <ChatBubbleOutline />,  activePrefix: '/dashboard/pt/messages' },
+  { href: '/dashboard/pt',          label: 'Painel',    icon: <DashboardOutlined />, exact: true, activePrefix: '/dashboard/pt' },
+  { href: '/dashboard/pt/clients',  label: 'Clientes',  icon: <GroupOutlined />, activePrefix: '/dashboard/pt/clients' },
+  { href: '/dashboard/pt/sessions', label: 'Sessões',   icon: <CalendarMonthOutlined />, activePrefix: '/dashboard/pt/sessions' },
+  { href: '/dashboard/pt/my-plan',  label: 'Planos',    icon: <ListAltOutlined />, activePrefix: '/dashboard/pt/my-plan' },
+  { href: '/dashboard/pt/messages', label: 'Mensagens', icon: <ChatBubbleOutline />, activePrefix: '/dashboard/pt/messages' },
   { href: '/dashboard/notifications', label: 'Notificações', icon: <NotificationsOutlined />, activePrefix: '/dashboard/notifications' },
-  { href: '/dashboard/history',     label: 'Histórico',   icon: <HistoryOutlined />,    activePrefix: '/dashboard/history' },
-  { href: '/dashboard/profile',     label: 'Perfil',      icon: <AccountCircleOutlined />, activePrefix: '/dashboard/profile' },
+  { href: '/dashboard/history',     label: 'Histórico', icon: <HistoryOutlined />, activePrefix: '/dashboard/history' },
+  { href: '/dashboard/profile',     label: 'Perfil',    icon: <AccountCircleOutlined />, activePrefix: '/dashboard/profile' },
 ];
 
 function isActive(path: string, it: Nav) {
@@ -54,34 +52,20 @@ function isActive(path: string, it: Nav) {
 
 function Header({ userLabel, collapsed }: { userLabel?: string; collapsed: boolean }) {
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0, p: 1.5 }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0, py: 1 }}>
       <Avatar
         src="/logo.png"
-        alt="Fitness Pro"
+        alt="Logo"
         sx={{ width: 28, height: 28, fontWeight: 800 }}
         imgProps={{ referrerPolicy: 'no-referrer' }}
       >
         FP
       </Avatar>
-      {!collapsed && (
+      {!collapsed && !!userLabel && (
         <Box sx={{ lineHeight: 1.1, minWidth: 0 }}>
-          <Box component="div" sx={{ fontSize: 14, fontWeight: 700, letterSpacing: .2 }}>
-            Fitness Pro
+          <Box component="div" sx={{ fontSize: 11, color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            🧑‍🏫 PT • {userLabel}
           </Box>
-          {userLabel && (
-            <Box
-              component="div"
-              sx={{
-                fontSize: 11,
-                color: 'text.secondary',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              🧑‍🏫 PT • {userLabel}
-            </Box>
-          )}
         </Box>
       )}
     </Box>

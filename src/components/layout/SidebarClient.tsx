@@ -1,4 +1,3 @@
-// src/components/layout/SidebarClient.tsx
 'use client';
 
 import * as React from 'react';
@@ -33,16 +32,15 @@ type Nav = {
   activePrefix?: string;
 };
 
-// 🔧 Estáticos — não recriamos a cada render
 const NAV_ITEMS: Nav[] = [
-  // ✅ Consistência com as tuas rotas: /dashboard/clients (plural)
-  { href: '/dashboard/clients',  label: 'Painel',         icon: <DashboardOutlined />, exact: true, activePrefix: '/dashboard/clients' },
-  { href: '/dashboard/my-plan',  label: 'Os meus planos', icon: <ListAltOutlined />,   activePrefix: '/dashboard/my-plan' },
-  { href: '/dashboard/sessions', label: 'Sessões',        icon: <CalendarMonthOutlined />, activePrefix: '/dashboard/sessions' },
-  { href: '/dashboard/messages', label: 'Mensagens',      icon: <ChatBubbleOutline />, activePrefix: '/dashboard/messages' },
+  // Mantém o plural como no teu projeto atual
+  { href: '/dashboard/clients',     label: 'Painel',         icon: <DashboardOutlined />, exact: true, activePrefix: '/dashboard/clients' },
+  { href: '/dashboard/my-plan',     label: 'Os meus planos', icon: <ListAltOutlined />, activePrefix: '/dashboard/my-plan' },
+  { href: '/dashboard/sessions',    label: 'Sessões',        icon: <CalendarMonthOutlined />, activePrefix: '/dashboard/sessions' },
+  { href: '/dashboard/messages',    label: 'Mensagens',      icon: <ChatBubbleOutline />, activePrefix: '/dashboard/messages' },
   { href: '/dashboard/notifications', label: 'Notificações', icon: <NotificationsOutlined />, activePrefix: '/dashboard/notifications' },
-  { href: '/dashboard/history',  label: 'Histórico',      icon: <HistoryOutlined />,   activePrefix: '/dashboard/history' },
-  { href: '/dashboard/profile',  label: 'Perfil',         icon: <AccountCircleOutlined />, activePrefix: '/dashboard/profile' },
+  { href: '/dashboard/history',     label: 'Histórico',      icon: <HistoryOutlined />, activePrefix: '/dashboard/history' },
+  { href: '/dashboard/profile',     label: 'Perfil',         icon: <AccountCircleOutlined />, activePrefix: '/dashboard/profile' },
 ];
 
 function isActive(path: string, it: Nav) {
@@ -53,34 +51,20 @@ function isActive(path: string, it: Nav) {
 
 function Header({ userLabel, collapsed }: { userLabel?: string; collapsed: boolean }) {
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0, p: 1.5 }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0, py: 1 }}>
       <Avatar
         src="/logo.png"
-        alt="Fitness Pro"
+        alt="Logo"
         sx={{ width: 28, height: 28, fontWeight: 800 }}
         imgProps={{ referrerPolicy: 'no-referrer' }}
       >
         FP
       </Avatar>
-      {!collapsed && (
+      {!collapsed && !!userLabel && (
         <Box sx={{ lineHeight: 1.1, minWidth: 0 }}>
-          <Box component="div" sx={{ fontSize: 14, fontWeight: 700, letterSpacing: .2 }}>
-            Fitness Pro
+          <Box component="div" sx={{ fontSize: 11, color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            💪 Cliente • {userLabel}
           </Box>
-          {userLabel && (
-            <Box
-              component="div"
-              sx={{
-                fontSize: 11,
-                color: 'text.secondary',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              💪 Cliente • {userLabel}
-            </Box>
-          )}
         </Box>
       )}
     </Box>
