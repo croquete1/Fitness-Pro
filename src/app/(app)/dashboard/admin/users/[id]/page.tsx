@@ -1,51 +1,32 @@
-export const dynamic = 'force-dynamic';
-
-import { redirect, notFound } from 'next/navigation';
-import type { Route } from 'next';
-import PageHeader from '@/components/ui/PageHeader';
-import Card, { CardContent } from '@/components/ui/Card';
-import Badge from '@/components/ui/Badge';
-import { getSessionUserSafe } from '@/lib/session-bridge';
-import { toAppRole } from '@/lib/roles';
 import { createServerClient } from '@/lib/supabaseServer';
+import { Container, Typography, Stack, Chip } from '@mui/material';
 
-export default async function UserProfile({ params }: { params: { id: string } }) {
-  const session = await getSessionUserSafe();
-  const viewer = (session as any)?.user;
-  if (!viewer?.id) redirect('/login' as Route);
-  if (toAppRole(viewer.role) !== 'ADMIN') redirect('/dashboard' as Route);
-
+export default async function AdminUserProfilePage({ params }: { params: { id: string } }) {
   const sb = createServerClient();
-  const { data: u } = await sb
-    .from('users')
-    .select('id,name,email,role,status,created_at')
+  const { data: user } = await sb.from('users')
+    .select('id, name, email, role, approved, active, created_at')
     .eq('id', params.id)
     .single();
 
-  if (!u) return notFound();
-
   return (
-    <div style={{ display: 'grid', gap: 12, padding: 12 }}>
-      <PageHeader
-        title={`👤 ${u.name ?? u.email}`}
-        subtitle={
-          <>
-            <Badge variant={u.role === 'ADMIN' ? 'info' : u.role === 'PT' ? 'primary' : 'neutral'}>{u.role}</Badge>{' '}
-            <Badge variant={u.status === 'ACTIVE' ? 'success' : u.status === 'PENDING' ? 'warning' : 'neutral'}>
-              {u.status}
-            </Badge>
-          </>
-        }
-      />
-      <Card>
-        <CardContent>
-          <div style={{ display: 'grid', gap: 8 }}>
-            <div><strong>ID:</strong> {u.id}</div>
-            <div><strong>Email:</strong> {u.email}</div>
-            <div><strong>Criado em:</strong> {u.created_at ? new Date(u.created_at).toLocaleString('pt-PT') : '—'}</div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+    <Container maxWidth="xl" sx={{ py: 3 }}>
+      <Typography variant="h5" fontWeight={800} sx={{ mb: 1 }}>
+        Perfil do utilizador
+      </Typography>
+
+      {user ? (
+        <Stack spacing={1}>
+          <Typography variant="h6" fontWeight={700}>{user.name ?? '—'}</Typography>
+          <Typography color="text.secondary">{user.email}</Typography>
+          <Stack direction="row" spacing={1}>
+            <Chip label={String(user.role).toUpperCase()} />
+            <Chip label={user.approved ? 'Aprovado ✅' : 'Por aprovar'} />
+            <Chip label={user.active ? 'Ativo' : 'Inativo'} />
+          </Stack>
+        </Stack>
+      ) : (
+        <Typography color="text.secondary">Utilizador não encontrado.</Typography>
+      )}
+    </Container>
   );
 }

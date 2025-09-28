@@ -1,17 +1,19 @@
+// src/app/(app)/dashboard/admin/exercises/exercises.client.tsx
 'use client';
 
 import * as React from 'react';
-import { Paper, Chip, Stack } from '@mui/material';
+import Link from 'next/link';
+import { Box, Paper, Button, Stack } from '@mui/material';
 import {
-  DataGrid,
-  GridToolbar,
-  type GridColDef,
-  type GridRowsProp,
+  DataGrid, type GridColDef, type GridRowModel,
+  GridToolbarContainer, GridToolbarColumnsButton, GridToolbarFilterButton,
+  GridToolbarDensitySelector, GridToolbarExport, GridToolbarQuickFilter,
 } from '@mui/x-data-grid';
+import Add from '@mui/icons-material/Add';
 
 export type ExerciseRow = {
   id: string;
-  name: string;
+  name: string | null;
   muscle: string | null;
   equipment: string | null;
   created_at: string | null;
@@ -20,82 +22,75 @@ export type ExerciseRow = {
 
 type Props = { initial: ExerciseRow[] };
 
+function Toolbar({ onCreate }: { onCreate: () => void }) {
+  return (
+    <GridToolbarContainer>
+      <Button startIcon={<Add />} onClick={onCreate}>Criar exercício</Button>
+      <GridToolbarColumnsButton />
+      <GridToolbarFilterButton />
+      <GridToolbarDensitySelector />
+      <GridToolbarExport />
+      <Box sx={{ flex: 1 }} />
+      <GridToolbarQuickFilter placeholder="Pesquisar exercícios…" />
+    </GridToolbarContainer>
+  );
+}
+
 export default function ExercisesGrid({ initial }: Props) {
-  const [rows, setRows] = React.useState<GridRowsProp<ExerciseRow>>(initial);
+  const [rows, setRows] = React.useState<ExerciseRow[]>(initial);
+
+  const onCreate = async () => {
+    const res = await fetch('/api/admin/exercises', { method: 'POST' });
+    if (!res.ok) return;
+    const row = (await res.json()) as ExerciseRow;
+    setRows((cur) => [row, ...cur]);
+  };
+
+  const processRowUpdate = async (next: GridRowModel<ExerciseRow>) => {
+    const payload = {
+      name: next.name ?? null,
+      muscle: next.muscle ?? null,
+      equipment: next.equipment ?? null,
+    };
+    const res = await fetch(`/api/admin/exercises/${next.id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const saved = (await res.json()) as ExerciseRow;
+    setRows((cur) => cur.map((r) => (r.id === saved.id ? saved : r)));
+    return saved;
+  };
 
   const cols: GridColDef<ExerciseRow>[] = [
     {
-      field: 'name',
-      headerName: 'Nome',
-      flex: 1,
-      minWidth: 220,
-      editable: true,
-      renderCell: (p) => p.row.name || '—',
+      field: 'name', headerName: 'Nome', flex: 1, minWidth: 180, editable: true,
+      renderCell: (p) => <Link href={`/dashboard/admin/exercises/${p.row.id}`}>{p.row.name ?? '—'}</Link>,
     },
+    { field: 'muscle', headerName: 'Músculo', width: 160, editable: true },
+    { field: 'equipment', headerName: 'Equipamento', width: 180, editable: true },
     {
-      field: 'muscle',
-      headerName: 'Músculo',
-      width: 160,
-      editable: true,
-      renderCell: (p) =>
-        p.row.muscle ? <Chip size="small" label={p.row.muscle} /> : '—',
-    },
-    {
-      field: 'equipment',
-      headerName: 'Equipamento',
-      width: 170,
-      editable: true,
-      renderCell: (p) =>
-        p.row.equipment ? (
-          <Stack direction="row" spacing={0.5}>
-            <Chip size="small" label={p.row.equipment} />
-          </Stack>
-        ) : (
-          '—'
-        ),
-    },
-    {
-      field: 'updated_at',
-      headerName: 'Atualizado',
-      width: 170,
-      renderCell: (p) =>
-        p.row.updated_at ? new Date(p.row.updated_at).toLocaleString() : '—',
+      field: 'updated_at', headerName: 'Atualizado', width: 170,
+      renderCell: (p) => <>{p.row.updated_at ? new Date(p.row.updated_at).toLocaleString() : '—'}</>,
     },
   ];
 
-  async function processRowUpdate(newRow: ExerciseRow, oldRow: ExerciseRow) {
-    const patch: Partial<ExerciseRow> = {};
-    if (newRow.name !== oldRow.name) patch.name = newRow.name;
-    if (newRow.muscle !== oldRow.muscle) patch.muscle = newRow.muscle;
-    if (newRow.equipment !== oldRow.equipment) patch.equipment = newRow.equipment;
-
-    if (Object.keys(patch).length) {
-      const res = await fetch(`/api/admin/exercises/${newRow.id}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(patch),
-      });
-      if (!res.ok) throw new Error(await res.text());
-    }
-
-    setRows((cur) => cur.map((r) => (r.id === newRow.id ? newRow : r)));
-    return newRow;
-  }
-
   return (
-    <Paper sx={{ p: 1 }}>
-      <DataGrid
-        autoHeight
-        density="compact"
-        rows={rows}
-        columns={cols}
-        getRowId={(r) => r.id}
-        processRowUpdate={processRowUpdate}
-        onProcessRowUpdateError={(e) => console.error('exercises.update', e)}
-        slots={{ toolbar: GridToolbar }}
-        slotProps={{ toolbar: { showQuickFilter: true, quickFilterProps: { debounceMs: 300 } } }}
-        disableRowSelectionOnClick
-      />
+    <Paper sx={{ p: 1, border: 1, borderColor: 'divider', borderRadius: 3 }} elevation={0}>
+      <Box sx={{ height: 640, width: '100%' }}>
+        <DataGrid<ExerciseRow>
+          rows={rows}
+          columns={cols}
+          getRowId={(r) => r.id}
+          disableRowSelectionOnClick
+          slots={{ toolbar: () => <Toolbar onCreate={onCreate} /> }}
+          paginationModel={{ page: 0, pageSize: 25 }}
+          pageSizeOptions={[10, 25, 50, 100]}
+          processRowUpdate={processRowUpdate}
+          onProcessRowUpdateError={(e) => console.error('exercises.update', e)}
+        />
+      </Box>
     </Paper>
   );
 }

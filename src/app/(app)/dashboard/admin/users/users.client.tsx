@@ -1,19 +1,31 @@
+// src/app/(app)/dashboard/admin/users/users.client.tsx
 'use client';
 
 import * as React from 'react';
-import { Paper } from '@mui/material';
+import Link from 'next/link';
+import { Box, Paper, Chip, Tooltip } from '@mui/material';
 import {
   DataGrid,
-  GridToolbar,
   type GridColDef,
-  type GridRowsProp,
+  type GridRowModel,
+  GridToolbarContainer,
+  GridToolbarColumnsButton,
+  GridToolbarFilterButton,
+  GridToolbarDensitySelector,
+  GridToolbarExport,
+  GridToolbarQuickFilter,
+  GridActionsCellItem,
+  useGridApiRef,
 } from '@mui/x-data-grid';
+import MailOutline from '@mui/icons-material/MailOutline';
+import ManageAccounts from '@mui/icons-material/ManageAccounts';
 
 export type Role = 'ADMIN' | 'TRAINER' | 'CLIENT';
+
 export type Row = {
   id: string;
   name: string | null;
-  email: string | null;
+  email: string;
   role: Role;
   approved: boolean;
   active: boolean;
@@ -22,8 +34,58 @@ export type Row = {
 
 type Props = { initial: Row[] };
 
+function Toolbar() {
+  return (
+    <GridToolbarContainer>
+      <GridToolbarColumnsButton />
+      <GridToolbarFilterButton />
+      <GridToolbarDensitySelector />
+      <GridToolbarExport />
+      <Box sx={{ flex: 1 }} />
+      <GridToolbarQuickFilter placeholder="Pesquisar utilizadores…" />
+    </GridToolbarContainer>
+  );
+}
+
 export default function UsersGrid({ initial }: Props) {
-  const [rows, setRows] = React.useState<GridRowsProp<Row>>(initial);
+  const apiRef = useGridApiRef();
+  const [rows, setRows] = React.useState<Row[]>(initial);
+
+  const processRowUpdate = async (next: GridRowModel<Row>, prev: GridRowModel<Row>) => {
+    const payload: Partial<Row> = {
+      name: (next.name ?? null) as Row['name'],
+      role: (next.role as Role) || (prev.role as Role),
+      approved: Boolean(next.approved),
+      active: Boolean(next.active),
+    };
+
+    const res = await fetch(`/api/admin/users/${next.id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(await res.text());
+
+    const saved = (await res.json()) as Row;
+
+    // manter estado controlado
+    setRows((cur) => cur.map((r) => (r.id === saved.id ? saved : r)));
+    return saved;
+  };
+
+  const handleSendReset = async (email: string) => {
+    try {
+      const res = await fetch('/api/admin/users/send-recovery', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      console.info('📧 Reset enviado (ou link gerado) para:', email);
+    } catch (e) {
+      console.error('send-recovery', e);
+    }
+  };
 
   const cols: GridColDef<Row>[] = [
     {
@@ -32,84 +94,101 @@ export default function UsersGrid({ initial }: Props) {
       flex: 1,
       minWidth: 160,
       editable: true,
-      // ✅ evita “never”: usa renderCell tipado
-      renderCell: (params) => params.row.name ?? '—',
+      renderCell: (p) => (
+        <Link href={`/dashboard/admin/users/${p.row.id}`} style={{ textDecoration: 'none' }}>
+          {p.value ?? '—'}
+        </Link>
+      ),
     },
-    { field: 'email', headerName: 'Email', flex: 1, minWidth: 220 },
+    { field: 'email', headerName: 'Email', flex: 1.2, minWidth: 220 },
     {
       field: 'role',
       headerName: 'Role',
       width: 130,
-      type: 'singleSelect',
       editable: true,
+      type: 'singleSelect',
       valueOptions: [
         { value: 'ADMIN', label: 'ADMIN' },
         { value: 'TRAINER', label: 'TRAINER' },
         { value: 'CLIENT', label: 'CLIENT' },
       ],
+      renderCell: (p) => (
+        <Chip
+          size="small"
+          label={
+            p.value === 'ADMIN' ? '🛠️ ADMIN' :
+            p.value === 'TRAINER' ? '🧑‍🏫 TRAINER' : '💪 CLIENT'
+          }
+          color={p.value === 'ADMIN' ? 'warning' : p.value === 'TRAINER' ? 'info' : 'default'}
+          variant="outlined"
+        />
+      ),
     },
     {
       field: 'approved',
       headerName: 'Aprovado',
-      type: 'boolean',
       width: 120,
       editable: true,
+      type: 'boolean',
     },
     {
       field: 'active',
       headerName: 'Ativo',
-      type: 'boolean',
-      width: 100,
+      width: 110,
       editable: true,
+      type: 'boolean',
     },
     {
       field: 'created_at',
       headerName: 'Registo',
       width: 170,
-      renderCell: (p) =>
-        p.row.created_at ? new Date(p.row.created_at).toLocaleString() : '—',
       sortable: false,
       filterable: false,
-      editable: false,
+      renderCell: (p) => <>{p.value ? new Date(p.value as string).toLocaleString() : '—'}</>,
+    },
+    {
+      field: 'actions',
+      type: 'actions',
+      headerName: 'Ações',
+      width: 120,
+      getActions: (p) => [
+        <GridActionsCellItem
+          key="editRole"
+          icon={<Tooltip title="Editar role"><ManageAccounts fontSize="small" /></Tooltip>}
+          label="Editar role"
+          onClick={() => {
+            // ✅ v6: usa apiRef (não existe p.api)
+            apiRef.current.startCellEditMode({ id: p.id, field: 'role' });
+          }}
+          showInMenu
+        />,
+        <GridActionsCellItem
+          key="reset"
+          icon={<Tooltip title="Enviar reset palavra-passe"><MailOutline fontSize="small" /></Tooltip>}
+          label="Enviar reset"
+          onClick={() => handleSendReset(p.row.email)}
+          showInMenu
+        />,
+      ],
     },
   ];
 
-  async function processRowUpdate(newRow: Row, oldRow: Row) {
-    // calcula patch só com campos alterados
-    const patch: Partial<Row> = {};
-    if (newRow.name !== oldRow.name) patch.name = newRow.name;
-    if (newRow.role !== oldRow.role) patch.role = newRow.role;
-    if (newRow.approved !== oldRow.approved) patch.approved = newRow.approved;
-    if (newRow.active !== oldRow.active) patch.active = newRow.active;
-
-    if (Object.keys(patch).length) {
-      const res = await fetch(`/api/admin/users/${newRow.id}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(patch),
-      });
-      if (!res.ok) throw new Error(await res.text());
-    }
-
-    // mantém client state
-    setRows((cur) => cur.map((r) => (r.id === newRow.id ? newRow : r)));
-    return newRow;
-  }
-
   return (
-    <Paper sx={{ p: 1 }}>
-      <DataGrid
-        autoHeight
-        density="compact"
-        rows={rows}
-        columns={cols}
-        getRowId={(r) => r.id}
-        processRowUpdate={processRowUpdate}
-        onProcessRowUpdateError={(e) => console.error('users.update', e)}
-        slots={{ toolbar: GridToolbar }}
-        slotProps={{ toolbar: { showQuickFilter: true, quickFilterProps: { debounceMs: 300 } } }}
-        disableRowSelectionOnClick
-      />
+    <Paper sx={{ p: 1, border: 1, borderColor: 'divider', borderRadius: 3 }} elevation={0}>
+      <Box sx={{ height: 640, width: '100%' }}>
+        <DataGrid<Row>
+          apiRef={apiRef}
+          rows={rows}
+          columns={cols}
+          getRowId={(r) => r.id}
+          disableRowSelectionOnClick
+          paginationModel={{ page: 0, pageSize: 25 }}
+          pageSizeOptions={[10, 25, 50, 100]}
+          processRowUpdate={processRowUpdate}
+          onProcessRowUpdateError={(e) => console.error('users.update', e)}
+          slots={{ toolbar: Toolbar }}
+        />
+      </Box>
     </Paper>
   );
 }

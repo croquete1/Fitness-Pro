@@ -1,33 +1,30 @@
+// src/app/(app)/dashboard/admin/users/page.tsx
 import { createServerClient } from '@/lib/supabaseServer';
 import UsersGrid, { type Row, type Role } from './users.client';
 
 export const dynamic = 'force-dynamic';
-
-function asRole(x: unknown): Role {
-  const v = String(x ?? '').toUpperCase();
-  return (v === 'ADMIN' || v === 'TRAINER' || v === 'CLIENT') ? (v as Role) : 'CLIENT';
-}
 
 export default async function AdminUsersPage() {
   const sb = createServerClient();
   const { data, error } = await sb
     .from('users')
     .select('id, name, email, role, approved, is_active, created_at')
-    .order('created_at', { ascending: false })
-    .limit(200);
+    .order('created_at', { ascending: false });
 
-  if (error) console.warn('[admin/users] fetch error:', error);
+  if (error) {
+    // fallback vazio — podes trocar por erro UI
+    return <UsersGrid initial={[]} />;
+  }
 
-  const rows: Row[] = (data ?? []).map((u: any): Row => ({
+  const rows: Row[] = (data ?? []).map((u: any) => ({
     id: String(u.id),
     name: u.name ?? null,
-    email: u.email ?? null,
-    role: asRole(u.role),
-    approved: !!u.approved,
-    active: (u.is_active ?? true) as boolean,
+    email: u.email,
+    role: (u.role ?? 'CLIENT') as Role,
+    approved: Boolean(u.approved),
+    active: Boolean(u.is_active ?? u.active ?? true),
     created_at: u.created_at ?? null,
   }));
 
-  // ✅ UsersGrid espera "initial"
   return <UsersGrid initial={rows} />;
 }

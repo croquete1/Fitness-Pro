@@ -4,17 +4,14 @@ import { createServerClient } from '@/lib/supabaseServer';
 export async function POST() {
   const sb = createServerClient();
   const { data, error } = await sb
-    .from('exercises')
-    .insert({ name: 'Novo exercício', muscle: null, equipment: null })
+    .from('training_plans')
+    .insert({ title: 'Novo plano 🗂️' })
     .select()
     .single();
-
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json({
     id: String(data.id),
-    name: data.name ?? null,
-    muscle: data.muscle ?? null,
-    equipment: data.equipment ?? null,
+    title: data.title ?? null,
     updated_at: data.updated_at ?? data.created_at ?? null,
   });
 }

@@ -1,93 +1,115 @@
+// src/components/plan/DayBlocksDnD.tsx
 'use client';
 
 import * as React from 'react';
-import { Card, CardHeader, CardContent, Snackbar, Alert } from '@mui/material';
-import OrderListDnD, { type OrderItem } from './OrderListDnD';
+import {
+  Card, CardHeader, CardContent,
+  Stack, Button, CircularProgress, Typography
+} from '@mui/material';
+import SaveRounded from '@mui/icons-material/SaveRounded';
+import ReplayRounded from '@mui/icons-material/ReplayRounded';
 
-type Block = { id: string; label: string };
+import OrderListDnD, { type OrderItem } from '@/components/plan/OrderListDnD';
+
 type Props = {
-  planId: string;
-  dayId: string;
-  initial: Block[];           // blocos do dia (na ordem atual)
-  title?: string;             // título opcional para este dia (ex.: "Segunda-feira")
+  /** Lista atual de blocos (id/label/order_index) */
+  items: OrderItem[];
+  /** Persiste a ordem no backend (chamado quando clicas "Guardar ordem") */
+  onReorder: (next: OrderItem[]) => Promise<void> | void;
+  /** Ações item → editar / apagar (opcional) */
   onEditBlock?: (id: string) => void;
   onDeleteBlock?: (id: string) => void;
+  /** UI */
+  title?: string;
+  dense?: boolean;
+  loading?: boolean;
 };
 
 export default function DayBlocksDnD({
-  planId,
-  dayId,
-  initial,
-  title = 'Blocos do dia',
+  items: itemsProp,
+  onReorder,
   onEditBlock,
   onDeleteBlock,
+  title = 'Ordenar blocos do dia',
+  dense = true,
+  loading = false,
 }: Props) {
-  const [items, setItems] = React.useState<OrderItem[]>(
-    () => initial.map(b => ({ id: b.id, label: b.label }))
-  );
-  const [busy, setBusy] = React.useState(false);
-  const [msg, setMsg] = React.useState<string | null>(null);
-  const [err, setErr] = React.useState<string | null>(null);
+  // estado local para “drag preview”
+  const [items, setItems] = React.useState<OrderItem[]>(itemsProp);
+  const [initial, setInitial] = React.useState<OrderItem[]>(itemsProp);
+  const [saving, setSaving] = React.useState(false);
 
-  const persist = React.useCallback(async (next: OrderItem[]) => {
-    setBusy(true);
+  // sincroniza quando a prop muda (ex.: depois de refresh/guardar)
+  React.useEffect(() => {
+    setItems(itemsProp);
+    setInitial(itemsProp);
+  }, [itemsProp]);
+
+  const handleReorder = React.useCallback((next: OrderItem[]) => {
+    setItems(next);
+  }, []);
+
+  const handleReset = React.useCallback(() => {
+    setItems(initial);
+  }, [initial]);
+
+  const handleSave = React.useCallback(async () => {
+    if (!items.length) return;
+    setSaving(true);
     try {
-      const res = await fetch(
-        `/api/pt/plans/${encodeURIComponent(planId)}/days/${encodeURIComponent(dayId)}/blocks/reorder`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ ids: next.map(x => x.id) }),
-        }
-      );
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok || !j?.ok) {
-        throw new Error(j?.error || 'Falha ao gravar ordem.');
-      }
-      setMsg('✅ Ordem guardada');
-    } catch (e: any) {
-      setErr(e?.message || 'Erro ao gravar ordem.');
-      // rollback visual: nada a fazer porque só aplicamos estado local ao final
-      throw e;
+      // delega para API (ex.: /api/pt/plans/[planId]/days/[dayId]/blocks/reorder)
+      await onReorder(items);
     } finally {
-      setBusy(false);
+      setSaving(false);
     }
-  }, [planId, dayId]);
-
-  const handleReorder = async (next: OrderItem[]) => {
-    const prev = items;
-    setItems(next); // otimista
-    try {
-      await persist(next);
-    } catch {
-      setItems(prev); // rollback
-    }
-  };
+  }, [items, onReorder]);
 
   return (
-    <Card variant="outlined" sx={{ borderRadius: 2 }}>
+    <Card variant="outlined">
       <CardHeader
+        titleTypographyProps={{ fontWeight: 800 }}
         title={title}
-        subheader={busy ? 'A guardar…' : 'Arrasta para ordenar • Usa ↑/↓ para mover'}
-        sx={{ pb: 0.5 }}
+        action={(
+          <Stack direction="row" spacing={1}>
+            <Button
+              onClick={handleReset}
+              disabled={loading || saving}
+              variant="outlined"
+              startIcon={<ReplayRounded />}
+            >
+              Repor
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={loading || saving}
+              variant="contained"
+              startIcon={saving ? <CircularProgress size={18} /> : <SaveRounded />}
+            >
+              Guardar ordem
+            </Button>
+          </Stack>
+        )}
       />
-      <CardContent sx={{ pt: 1.5 }}>
-        <OrderListDnD
-          list={items}
-          onReorder={handleReorder}
-          onEdit={onEditBlock}
-          onDelete={onDeleteBlock}
-          dense
-        />
-      </CardContent>
 
-      <Snackbar open={!!msg} autoHideDuration={2000} onClose={() => setMsg(null)}>
-        <Alert severity="success" onClose={() => setMsg(null)}>{msg}</Alert>
-      </Snackbar>
-      <Snackbar open={!!err} autoHideDuration={3000} onClose={() => setErr(null)}>
-        <Alert severity="error" onClose={() => setErr(null)}>{err}</Alert>
-      </Snackbar>
+      <CardContent sx={{ pt: 1.5 }}>
+        {loading ? (
+          <Stack alignItems="center" justifyContent="center" sx={{ py: 6 }}>
+            <CircularProgress />
+          </Stack>
+        ) : items.length === 0 ? (
+          <Typography color="text.secondary">Sem blocos para ordenar.</Typography>
+        ) : (
+          // ⚠️ NÃO coloques comentários JSX dentro dos atributos
+          // (ex.: items={items} {/* ... */}  ← isto quebra o parser)
+          <OrderListDnD
+            items={items}
+            dense={dense}
+            onReorder={handleReorder}
+            onEdit={onEditBlock}
+            onDelete={onDeleteBlock}
+          />
+        )}
+      </CardContent>
     </Card>
   );
 }

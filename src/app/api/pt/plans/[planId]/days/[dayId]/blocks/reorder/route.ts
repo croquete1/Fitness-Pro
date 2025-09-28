@@ -2,22 +2,26 @@ import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
 
 export async function POST(req: Request, { params }: { params: { planId: string; dayId: string } }) {
-  const { ids } = await req.json().catch(() => ({}));
-  if (!Array.isArray(ids) || ids.length === 0) {
-    return NextResponse.json({ error: 'ids[] obrigatório' }, { status: 400 });
-  }
-
+  const body = await req.json().catch(() => ({}));
   const sb = createServerClient();
-  let ok = 0;
 
-  for (let i = 0; i < ids.length; i++) {
-    const { error } = await sb
-      .from('plan_day_blocks')
-      .update({ order_index: i })
-      .eq('id', ids[i])
-      .eq('day_id', params.dayId);
-    if (!error) ok++;
+  let pairs: Array<{ id: string; order_index: number }> = [];
+
+  if (Array.isArray(body?.ids)) {
+    pairs = body.ids.map((id: string, i: number) => ({ id, order_index: i + 1 }));
+  } else if (Array.isArray(body?.pairs)) {
+    pairs = body.pairs.map((p: any) => ({ id: String(p.id), order_index: Number(p.order_index) || 0 }));
   }
 
-  return NextResponse.json({ ok, total: ids.length });
+  if (!pairs.length) {
+    return NextResponse.json({ error: 'payload inválido' }, { status: 400 });
+  }
+
+  // updates sequenciais simples → evita “excessively deep” de tipos
+  for (const p of pairs) {
+    const { error } = await sb.from('plan_day').update({ order_index: p.order_index }).eq('id', p.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+
+  return NextResponse.json({ ok: true, count: pairs.length });
 }
