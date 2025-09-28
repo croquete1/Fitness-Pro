@@ -1,102 +1,82 @@
 'use client';
 
 import * as React from 'react';
-import { usePathname } from 'next/navigation';
-import { useMediaQuery, useTheme } from '@mui/material';
+import useMediaQuery from '@mui/material/useMediaQuery';
 
 export type SidebarCtx = {
-  /** Estado “rail/painel” no desktop */
+  // estado/layout
   collapsed: boolean;
   setCollapsed: (v: boolean) => void;
   toggleCollapse: () => void;
 
-  /** Estado drawer no mobile */
+  // mobile
   isMobile: boolean;
   mobileOpen: boolean;
-  openMobile: (v: boolean) => void;
+  openMobile: (open?: boolean) => void;
   closeMobile: () => void;
 
-  /** 🔁 Aliases/compat de versões antigas (para evitar regressões) */
-  toggle: () => void;            // alias de toggleCollapse
-  railWidth: number;             // para componentes antigos que ainda leem valores
-  panelWidth: number;
-  peek: boolean;                 // “hover peeker” (se não usares, fica sempre false)
-  setPeek: (v: boolean) => void; // no-op seguro se não for usado
+  // hover-peek (rail expand temporário)
+  peek: boolean;
+  setPeek: (v: boolean) => void;
+
+  // larguras (px)
+  widthCollapsed: number; // rail
+  widthExpanded: number;  // painel
 };
 
-const SidebarContext = React.createContext<SidebarCtx | undefined>(undefined);
+const Ctx = React.createContext<SidebarCtx | null>(null);
 
 export default function SidebarProvider({ children }: { children: React.ReactNode }) {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('lg')); // < 1200px ~ drawer
-  const [collapsed, setCollapsed] = React.useState(false);
-  const [mobileOpen, setMobileOpen] = React.useState(false);
-  const [peek, setPeek] = React.useState(false);
+  const isMobile = useMediaQuery('(max-width:1024px)');
+  const [collapsed, setCollapsed] = React.useState<boolean>(false);
+  const [mobileOpen, setMobileOpen] = React.useState<boolean>(false);
+  const [peek, setPeek] = React.useState<boolean>(false);
 
-  // Larguras “canónicas” (também usadas no CSS global)
-  const railWidth = 64;
-  const panelWidth = 260;
+  // larguras alinhadas ao teu design
+  const widthCollapsed = 72;
+  const widthExpanded = 240;
 
-  const toggleCollapse = React.useCallback(() => {
-    setCollapsed((v) => !v);
-  }, []);
-
-  const openMobile = React.useCallback((v: boolean) => {
-    setMobileOpen(!!v);
-    // reflete no <html> para CSS (drawer)
-    if (typeof document !== 'undefined') {
-      document.documentElement.dataset.sbMobileOpen = v ? '1' : '0';
-    }
-  }, []);
-
-  const closeMobile = React.useCallback(() => openMobile(false), [openMobile]);
-
-  // Reflete o estado de colapso no <html> (para o CSS que já tens)
+  // data-attrs que o teu CSS usa
   React.useEffect(() => {
-    if (typeof document === 'undefined') return;
-    document.documentElement.dataset.sbCollapsed = collapsed ? '1' : '0';
-    // opcional: mantemos “pinned=1” por omissão (layout com sidebar presente)
-    document.documentElement.dataset.sbPinned = '1';
+    document.documentElement.setAttribute('data-sb-collapsed', collapsed ? '1' : '0');
   }, [collapsed]);
 
-  // No mobile, fecha o drawer ao navegar
-  const path = usePathname();
   React.useEffect(() => {
-    if (isMobile) closeMobile();
-  }, [path, isMobile, closeMobile]);
+    document.documentElement.setAttribute('data-sb-mobile-open', mobileOpen ? '1' : '0');
+  }, [mobileOpen]);
 
-  // Se estiveres em mobile, considera a sidebar “colapsada” visualmente
   React.useEffect(() => {
-    if (isMobile) {
-      document.documentElement.dataset.sbCollapsed = '1';
-    } else {
-      document.documentElement.dataset.sbCollapsed = collapsed ? '1' : '0';
-    }
-  }, [isMobile, collapsed]);
+    document.documentElement.setAttribute('data-sb-peek', peek ? '1' : '0');
+  }, [peek]);
+
+  // fecha drawer ao sair de mobile
+  React.useEffect(() => {
+    if (!isMobile && mobileOpen) setMobileOpen(false);
+  }, [isMobile, mobileOpen]);
+
+  const toggleCollapse = () => setCollapsed((c) => !c);
+  const openMobile = (open: boolean = true) => setMobileOpen(open);
+  const closeMobile = () => setMobileOpen(false);
 
   const value: SidebarCtx = {
     collapsed,
     setCollapsed,
     toggleCollapse,
-
     isMobile,
     mobileOpen,
     openMobile,
     closeMobile,
-
-    // aliases de compat
-    toggle: toggleCollapse,
-    railWidth,
-    panelWidth,
     peek,
     setPeek,
+    widthCollapsed,
+    widthExpanded,
   };
 
-  return <SidebarContext.Provider value={value}>{children}</SidebarContext.Provider>;
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
 export function useSidebar(): SidebarCtx {
-  const ctx = React.useContext(SidebarContext);
+  const ctx = React.useContext(Ctx);
   if (!ctx) throw new Error('useSidebar must be used within <SidebarProvider>');
   return ctx;
 }

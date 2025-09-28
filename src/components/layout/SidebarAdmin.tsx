@@ -16,7 +16,6 @@ import {
 import DashboardOutlined from '@mui/icons-material/DashboardOutlined';
 import CheckCircleOutlined from '@mui/icons-material/CheckCircleOutlined';
 import GroupOutlined from '@mui/icons-material/GroupOutlined';
-import AccessibilityNewOutlined from '@mui/icons-material/AccessibilityNewOutlined';
 import FitnessCenterOutlined from '@mui/icons-material/FitnessCenterOutlined';
 import ListAltOutlined from '@mui/icons-material/ListAltOutlined';
 import CalendarMonthOutlined from '@mui/icons-material/CalendarMonthOutlined';
@@ -27,6 +26,8 @@ import SettingsOutlined from '@mui/icons-material/SettingsOutlined';
 import SidebarBase from '@/components/layout/SidebarBase';
 import { useSidebar } from '@/components/layout/SidebarProvider';
 
+export type SidebarProps = { userLabel?: string };
+
 type Nav = {
   href: string;
   label: string;
@@ -36,39 +37,27 @@ type Nav = {
 };
 
 const NAV_ITEMS: Nav[] = [
-  { href: '/dashboard/admin',               label: 'Painel',                 icon: <DashboardOutlined />, exact: true, activePrefix: '/dashboard/admin' },
-  { href: '/dashboard/admin/approvals',     label: 'Aprovações',             icon: <CheckCircleOutlined />, activePrefix: '/dashboard/admin/approvals' },
-  { href: '/dashboard/admin/users',         label: 'Utilizadores',           icon: <GroupOutlined />, activePrefix: '/dashboard/admin/users' },
-  { href: '/dashboard/admin/clients',       label: 'Clientes',               icon: <AccessibilityNewOutlined />, activePrefix: '/dashboard/admin/clients' },
-  { href: '/dashboard/admin/exercises',     label: 'Exercícios',             icon: <FitnessCenterOutlined />, activePrefix: '/dashboard/admin/exercises' },
-  { href: '/dashboard/admin/plans',         label: 'Planos',                 icon: <ListAltOutlined />, activePrefix: '/dashboard/admin/plans' },
-  { href: '/dashboard/admin/pts-schedule',  label: 'Agenda PTs',             icon: <CalendarMonthOutlined />, activePrefix: '/dashboard/admin/pts-schedule' },
-  { href: '/dashboard/admin/notifications', label: 'Notificações',           icon: <NotificationsOutlined />, activePrefix: '/dashboard/admin/notifications' },
-  { href: '/dashboard/admin/history',       label: 'Histórico',              icon: <HistoryOutlined />, activePrefix: '/dashboard/admin/history' },
-  { href: '/dashboard/system',              label: 'Sistema',                icon: <SettingsOutlined />, activePrefix: '/dashboard/system' },
+  { href: '/dashboard/admin',               label: 'Painel',        icon: <DashboardOutlined />, exact: true, activePrefix: '/dashboard/admin' },
+  { href: '/dashboard/admin/approvals',     label: 'Aprovações',    icon: <CheckCircleOutlined />, activePrefix: '/dashboard/admin/approvals' },
+  { href: '/dashboard/admin/users',         label: 'Utilizadores',  icon: <GroupOutlined />, activePrefix: '/dashboard/admin/users' },
+  // 🔧 Removido “Clientes” (já coberto por Utilizadores)
+  { href: '/dashboard/admin/exercises',     label: 'Exercícios',    icon: <FitnessCenterOutlined />, activePrefix: '/dashboard/admin/exercises' },
+  { href: '/dashboard/admin/plans',         label: 'Planos',        icon: <ListAltOutlined />, activePrefix: '/dashboard/admin/plans' },
+  { href: '/dashboard/admin/pts-schedule',  label: 'Agenda PTs',    icon: <CalendarMonthOutlined />, activePrefix: '/dashboard/admin/pts-schedule' },
+  { href: '/dashboard/admin/notifications', label: 'Notificações',  icon: <NotificationsOutlined />, activePrefix: '/dashboard/admin/notifications' },
+  { href: '/dashboard/admin/history',       label: 'Histórico',     icon: <HistoryOutlined />, activePrefix: '/dashboard/admin/history' },
+  { href: '/dashboard/system',              label: 'Sistema',       icon: <SettingsOutlined />, activePrefix: '/dashboard/system' },
 ];
 
-function isActive(path: string, it: Nav) {
-  if (it.exact) return path === it.href;
-  if (it.activePrefix) return path.startsWith(it.activePrefix);
-  return path.startsWith(it.href);
-}
-
-function Header({ userLabel, collapsed }: { userLabel?: string; collapsed: boolean }) {
+function Header({ collapsed }: { collapsed: boolean }) {
+  // ⚠️ Como pediste: sem nome/cargo do utilizador na sidebar.
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0, py: 1 }}>
-      <Avatar
-        src="/logo.png"
-        alt="Logo"
-        sx={{ width: 28, height: 28, fontWeight: 800 }}
-        imgProps={{ referrerPolicy: 'no-referrer' }}
-      >
-        FP
-      </Avatar>
-      {!collapsed && !!userLabel && (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0, p: 1.5 }}>
+      <Avatar src="/logo.png" alt="Fitness Pro" sx={{ width: 28, height: 28, fontWeight: 800 }}>FP</Avatar>
+      {!collapsed && (
         <Box sx={{ lineHeight: 1.1, minWidth: 0 }}>
-          <Box component="div" sx={{ fontSize: 11, color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            🛠️ Admin • {userLabel}
+          <Box component="div" sx={{ fontSize: 14, fontWeight: 700, letterSpacing: .2 }}>
+            Fitness Pro
           </Box>
         </Box>
       )}
@@ -76,17 +65,19 @@ function Header({ userLabel, collapsed }: { userLabel?: string; collapsed: boole
   );
 }
 
-function SidebarAdminInner({ userLabel }: { userLabel?: string }) {
+export default function SidebarAdmin(_: SidebarProps) {
   const path = usePathname();
   const { collapsed, isMobile, closeMobile } = useSidebar();
 
+  const isActive = (it: Nav) =>
+    it.exact ? path === it.href : (it.activePrefix ? path.startsWith(it.activePrefix) : path.startsWith(it.href));
+
   return (
-    <SidebarBase header={<Header userLabel={userLabel} collapsed={collapsed} />}>
+    <SidebarBase header={<Header collapsed={collapsed} />}>
       <List dense disablePadding sx={{ px: 0.5, py: 0.5, display: 'grid', gap: 0.5 }}>
         {NAV_ITEMS.map((it) => {
-          const active = isActive(path, it);
-
-          const Button = (
+          const active = isActive(it);
+          const Btn = (
             <ListItemButton
               component={Link}
               href={it.href}
@@ -98,14 +89,8 @@ function SidebarAdminInner({ userLabel }: { userLabel?: string }) {
               sx={{
                 borderRadius: 1.5,
                 height: 40,
-                '&.Mui-selected': {
-                  bgcolor: 'action.selected',
-                  '&:hover': { bgcolor: 'action.selected' },
-                },
-                '&.Mui-selected .MuiListItemText-primary': {
-                  color: 'primary.main',
-                  fontWeight: 700,
-                },
+                '&.Mui-selected': { bgcolor: 'action.selected', '&:hover': { bgcolor: 'action.selected' } },
+                '&.Mui-selected .MuiListItemText-primary': { color: 'primary.main', fontWeight: 700 },
               }}
             >
               <ListItemIcon
@@ -126,16 +111,11 @@ function SidebarAdminInner({ userLabel }: { userLabel?: string }) {
               )}
             </ListItemButton>
           );
-
           return (
             <React.Fragment key={it.href}>
               {collapsed ? (
-                <Tooltip title={it.label} placement="right" arrow disableInteractive>
-                  {Button}
-                </Tooltip>
-              ) : (
-                Button
-              )}
+                <Tooltip title={it.label} placement="right" arrow disableInteractive>{Btn}</Tooltip>
+              ) : Btn}
             </React.Fragment>
           );
         })}
@@ -143,5 +123,3 @@ function SidebarAdminInner({ userLabel }: { userLabel?: string }) {
     </SidebarBase>
   );
 }
-
-export default React.memo(SidebarAdminInner);

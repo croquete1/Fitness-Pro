@@ -1,25 +1,16 @@
 'use client';
 import * as React from 'react';
 import { IconButton, Tooltip } from '@mui/material';
-import DarkModeOutlined from '@mui/icons-material/DarkModeOutlined';
-import LightModeOutlined from '@mui/icons-material/LightModeOutlined';
+import LightMode from '@mui/icons-material/LightMode';
+import DarkMode from '@mui/icons-material/DarkMode';
+import { useColorMode } from '@/components/layout/ColorModeProvider';
 
 export default function ThemeToggle() {
-  const [mode, setMode] = React.useState<'light'|'dark'>(() =>
-    (typeof window !== 'undefined' && (localStorage.getItem('theme') as any)) || 'light'
-  );
-
-  React.useEffect(() => {
-    if (typeof document !== 'undefined') {
-      document.documentElement.setAttribute('data-theme', mode);
-      localStorage.setItem('theme', mode);
-    }
-  }, [mode]);
-
+  const { mode, toggle } = useColorMode();
   return (
     <Tooltip title={mode === 'dark' ? 'Modo claro' : 'Modo escuro'}>
-      <IconButton onClick={() => setMode(mode === 'dark' ? 'light' : 'dark')}>
-        {mode === 'dark' ? <LightModeOutlined /> : <DarkModeOutlined />}
+      <IconButton onClick={toggle} aria-label="Alternar tema">
+        {mode === 'dark' ? <LightMode /> : <DarkMode />}
       </IconButton>
     </Tooltip>
   );

@@ -1,37 +1,33 @@
 import { createServerClient } from '@/lib/supabaseServer';
-import UsersGrid, { type Row } from './users.client';
+import UsersGrid, { type Row, type Role } from './users.client';
 
 export const dynamic = 'force-dynamic';
 
-export default async function AdminUsersPage({ searchParams }: { searchParams?: { q?: string } }) {
+function asRole(x: unknown): Role {
+  const v = String(x ?? '').toUpperCase();
+  return (v === 'ADMIN' || v === 'TRAINER' || v === 'CLIENT') ? (v as Role) : 'CLIENT';
+}
+
+export default async function AdminUsersPage() {
   const sb = createServerClient();
-  const q = (searchParams?.q ?? '').trim();
+  const { data, error } = await sb
+    .from('users')
+    .select('id, name, email, role, approved, is_active, created_at')
+    .order('created_at', { ascending: false })
+    .limit(200);
 
-  let rows: Row[] = [];
-  try {
-    const query = sb.from('users' as any)
-      .select('id, email, name, role, approved, is_active, created_at')
-      .order('created_at', { ascending: false });
+  if (error) console.warn('[admin/users] fetch error:', error);
 
-    if (q) {
-      // pesquisa simples por nome/email
-      query.or(`name.ilike.%${q}%,email.ilike.%${q}%`);
-    }
+  const rows: Row[] = (data ?? []).map((u: any): Row => ({
+    id: String(u.id),
+    name: u.name ?? null,
+    email: u.email ?? null,
+    role: asRole(u.role),
+    approved: !!u.approved,
+    active: (u.is_active ?? true) as boolean,
+    created_at: u.created_at ?? null,
+  }));
 
-    const { data, error } = await query;
-
-    if (!error && Array.isArray(data)) {
-      rows = data.map((u: any) => ({
-        id: String(u.id),
-        email: u.email ?? '',
-        name: u.name ?? '',
-        role: String(u.role ?? 'CLIENT').toUpperCase(),
-        approved: u.approved ?? null,
-        active: Boolean(u.is_active ?? true),
-        created_at: u.created_at ?? null,
-      }));
-    }
-  } catch {}
-
-  return <UsersGrid rows={rows} initialQuickFilter={q} />;
+  // ✅ UsersGrid espera "initial"
+  return <UsersGrid initial={rows} />;
 }
