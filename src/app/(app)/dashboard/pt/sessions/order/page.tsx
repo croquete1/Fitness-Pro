@@ -25,11 +25,6 @@ export default async function PTSessionsOrderPage() {
     }));
   }
 
-  async function onSave(ids: string[]) {
-    'use server';
-    // opcional: podes deixar o client chamar o endpoint; aqui mostro server action
-  }
-
   return (
     <Box sx={{ py: 3 }}>
       <Container maxWidth="lg">

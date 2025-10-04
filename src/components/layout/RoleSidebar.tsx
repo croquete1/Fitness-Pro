@@ -1,3 +1,4 @@
+// src/components/layout/RoleSidebar.tsx
 'use client';
 
 import * as React from 'react';
@@ -10,6 +11,10 @@ type Props = {
   userLabel?: string;
 };
 
+/**
+ * Seleciona a sidebar pelo role.
+ * Mantém MUI + emojis nos headers das sidebars específicas.
+ */
 export default function RoleSidebar({ role = 'CLIENT', userLabel }: Props) {
   const r = String(role || 'CLIENT').toUpperCase();
 

@@ -1,3 +1,4 @@
+// src/components/layout/SidebarContext.tsx
 'use client';
 
 export type { SidebarCtx } from './SidebarProvider';

@@ -5,25 +5,23 @@ import { createServerClient } from '@/lib/supabaseServer';
 export async function POST(req: Request) {
   try {
     const sb = createServerClient();
-    const { data: { user } } = await sb.auth.getUser();
+    const { data: { user} } = await sb.auth.getUser();
     if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
     const body = await req.json().catch(() => ({}));
     const ids: string[] = Array.isArray(body?.ids) ? body.ids : [];
     if (!ids.length) return NextResponse.json({ error: 'ids required' }, { status: 400 });
 
-    // garante que todas as sessões pertencem ao PT autenticado
-    const { data: existing, error: selErr } = await sb
+    const { data: rows, error: selErr } = await sb
       .from('sessions' as any)
       .select('id, trainer_id')
       .in('id', ids as any);
 
     if (selErr) return NextResponse.json({ error: selErr.message }, { status: 500 });
 
-    const allMine = (existing ?? []).every((r: any) => String(r.trainer_id) === String(user.id));
+    const allMine = (rows ?? []).every((r: any) => String(r.trainer_id) === String(user.id));
     if (!allMine) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
 
-    // updates sequenciais (claros, evitam “excessively deep TS instantiation”)
     for (let i = 0; i < ids.length; i++) {
       const id = ids[i];
       const { error: upErr } = await sb

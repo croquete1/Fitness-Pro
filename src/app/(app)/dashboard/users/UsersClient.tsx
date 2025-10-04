@@ -1,93 +1,134 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import * as React from 'react';
+import Link from 'next/link';
+import { Paper, Stack, Typography, Button } from '@mui/material';
+import {
+  DataGrid,
+  GridToolbar,
+  useGridApiRef,
+  type GridColDef,
+} from '@mui/x-data-grid';
 
-export type AdminUserRow = {
+export type Role = 'ADMIN' | 'TRAINER' | 'CLIENT';
+
+export type UserRow = {
   id: string;
   name: string | null;
-  email: string;
-  role: 'ADMIN' | 'TRAINER' | 'CLIENT';
-  status: 'ACTIVE' | 'SUSPENDED' | 'PENDING';
-  createdAt?: string | null;
+  email: string | null;
+  role: Role;
+  approved: boolean;
+  active: boolean;
+  created_at: string | null;
 };
 
-export default function UsersClient({ initial }: { initial: AdminUserRow[] }) {
-  const [q, setQ] = useState('');
-  const [role, setRole] = useState<'ALL' | 'ADMIN' | 'TRAINER' | 'CLIENT'>('ALL');
-  const [status, setStatus] = useState<'ALL' | 'ACTIVE' | 'SUSPENDED' | 'PENDING'>('ALL');
-  const [rows, setRows] = useState<AdminUserRow[]>(initial);
+type Props = {
+  /** Linhas iniciais vindas do servidor */
+  initial: UserRow[];
+  /** (Opcional) callback depois de um update com sucesso */
+  onUpdated?: (row: UserRow) => void;
+};
 
-  // fetch com debounce quando há pesquisa (server continua a poder paginar se quiseres)
-  useEffect(() => {
-    const id = setTimeout(async () => {
-      const url = `/api/admin/users/search?q=${encodeURIComponent(q)}&role=${role}&status=${status}`;
-      const res = await fetch(url, { cache: 'no-store' });
-      if (res.ok) {
-        const data = (await res.json()) as AdminUserRow[];
-        setRows(Array.isArray(data) ? data : []);
-      }
-    }, 200);
-    return () => clearTimeout(id);
-  }, [q, role, status]);
+export default function UsersClient({ initial, onUpdated }: Props) {
+  const apiRef = useGridApiRef();
+  const [rows, setRows] = React.useState<UserRow[]>(initial);
 
-  const filtered = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    return rows.filter(r => {
-      const okRole = role === 'ALL' || r.role === role;
-      const okStatus = status === 'ALL' || r.status === status;
-      const okText = !s || (r.name ?? '').toLowerCase().includes(s) || r.email.toLowerCase().includes(s);
-      return okRole && okStatus && okText;
+  const cols = React.useMemo<GridColDef<UserRow>[]>(() => [
+    {
+      field: 'name',
+      headerName: 'Nome',
+      flex: 1,
+      minWidth: 200,
+      editable: true,
+      renderCell: (p) => (
+        <Link href={`/dashboard/admin/users/${p.row.id}`}>
+          {p.value ?? '—'}
+        </Link>
+      ),
+      valueGetter: (_v, row) => row.name ?? '—',
+    },
+    { field: 'email', headerName: 'Email', flex: 1, minWidth: 220 },
+    {
+      field: 'role',
+      headerName: 'Cargo',
+      width: 130,
+      editable: true,
+      type: 'singleSelect',
+      valueOptions: ['ADMIN', 'TRAINER', 'CLIENT'],
+    },
+    { field: 'approved', headerName: 'Aprovado', width: 120, type: 'boolean' },
+    { field: 'active', headerName: 'Ativo', width: 100, type: 'boolean' },
+    {
+      field: 'created_at',
+      headerName: 'Registo',
+      width: 170,
+      valueGetter: (_v, row) =>
+        row.created_at ? new Date(row.created_at).toLocaleString() : '—',
+    },
+  ], []);
+
+  async function patchUser(row: UserRow) {
+    const res = await fetch(`/api/admin/users/${row.id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: row.name,
+        role: row.role,
+        approved: row.approved,
+        active: row.active,
+      }),
     });
-  }, [rows, q, role, status]);
+    if (!res.ok) throw new Error(await res.text());
+    return (await res.json()) as { ok: true; user?: Partial<UserRow> };
+  }
+
+  async function processRowUpdate(newRow: UserRow, oldRow: UserRow) {
+    if (JSON.stringify(newRow) === JSON.stringify(oldRow)) return oldRow;
+    await patchUser(newRow);
+    onUpdated?.(newRow);
+    return newRow;
+  }
 
   return (
-    <div style={{ display: 'grid', gap: 12 }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-        <div style={{ position: 'relative' }}>
-          <input
-            aria-label="Pesquisar utilizadores"
-            placeholder="Pesquisar por nome ou email…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            className="input"
-            style={{ paddingLeft: 28, minWidth: 260 }}
-          />
-          <span aria-hidden style={{ position: 'absolute', left: 8, top: 8, opacity: .5 }}>🔎</span>
-        </div>
-        <select aria-label="Filtrar por role" className="input" value={role} onChange={(e) => setRole(e.target.value as any)}>
-          <option value="ALL">Todos os perfis</option>
-          <option value="ADMIN">ADMIN</option>
-          <option value="TRAINER">TRAINER</option>
-          <option value="CLIENT">CLIENT</option>
-        </select>
-        <select aria-label="Filtrar por estado" className="input" value={status} onChange={(e) => setStatus(e.target.value as any)}>
-          <option value="ALL">Todos os estados</option>
-          <option value="ACTIVE">ACTIVE</option>
-          <option value="SUSPENDED">SUSPENDED</option>
-          <option value="PENDING">PENDING</option>
-        </select>
-      </div>
+    <Paper sx={{ p: 1.5, borderRadius: 3, border: 1, borderColor: 'divider' }}>
+      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+        <Typography variant="h6" fontWeight={800}>🧑‍🤝‍🧑 Utilizadores</Typography>
+        <Button
+          size="small"
+          variant="outlined"
+          onClick={() => {
+            const root = apiRef.current.rootElementRef?.current as HTMLElement | undefined;
+            const input = root?.querySelector<HTMLInputElement>('input[placeholder*="Quick filter"]');
+            input?.focus();
+          }}
+        >
+          🔎 Procurar
+        </Button>
+      </Stack>
 
-      <div className="card" role="table" aria-label="Lista de utilizadores">
-        <div role="row" style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr 1fr 1fr', padding: '10px 12px', fontSize: 12, opacity: .6 }}>
-          <div>Nome</div><div>Email</div><div>Role</div><div>Estado</div><div>Criado</div>
-        </div>
-        {filtered.map(u => (
-          <div key={u.id} role="row" style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr 1fr 1fr', padding: '10px 12px', borderTop: '1px solid var(--border)' }}>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <div style={{ width: 26, height: 26, borderRadius: 999, background: '#eef2ff', display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 700 }}>
-                {(u.name ?? u.email).slice(0,1).toUpperCase()}
-              </div>
-              <a href={`/dashboard/users/${u.id}`} className="link">{u.name ?? '—'}</a>
-            </div>
-            <div>{u.email}</div>
-            <div><span className="chip">{u.role}</span></div>
-            <div><span className="chip">{u.status}</span></div>
-            <div style={{ fontSize: 12, opacity: .7 }}>{u.createdAt ? new Date(u.createdAt).toLocaleString('pt-PT') : '—'}</div>
-          </div>
-        ))}
-        {filtered.length === 0 && <div style={{ padding: 16, opacity: .6 }}>Sem resultados.</div>}
-      </div>
-    </div>
+      <DataGrid<UserRow>
+        apiRef={apiRef}
+        rows={rows}
+        columns={cols}
+        autoHeight
+        density="comfortable"
+        disableRowSelectionOnClick
+        slots={{ toolbar: GridToolbar }}
+        slotProps={{
+          toolbar: {
+            showQuickFilter: true,
+            quickFilterProps: { debounceMs: 300, placeholder: 'Quick filter…' },
+            printOptions: { disableToolbarButton: false },
+            csvOptions: { fileName: 'utilizadores' },
+          },
+        }}
+        processRowUpdate={async (n, o) => {
+          const saved = await processRowUpdate(n, o);
+          setRows((cur) => cur.map((r) => (r.id === saved.id ? saved : r)));
+          return saved;
+        }}
+        onProcessRowUpdateError={(e) => console.error('users.update', e)}
+      />
+    </Paper>
   );
 }

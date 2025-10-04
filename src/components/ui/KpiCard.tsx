@@ -1,95 +1,76 @@
-// src/components/ui/KpiCard.tsx
 'use client';
 
 import * as React from 'react';
-import { Card, CardContent, Box, Typography, Chip } from '@mui/material';
-import ArrowDropUp from '@mui/icons-material/ArrowDropUp';
-import ArrowDropDown from '@mui/icons-material/ArrowDropDown';
+import { Card, CardContent, Stack, Typography, Box } from '@mui/material';
 
-type Props = {
-  title: string;
-  value: number | string;
-  delta?: number;         // ex.: +3.2 / -1.8
-  sparkData?: number[];   // ex.: [110,112,114,...]
-  accent?: 'blue' | 'violet' | 'green' | 'amber';
-};
-
-function gradientBg(mode: 'light'|'dark', accent: NonNullable<Props['accent']>) {
-  if (mode === 'dark') {
-    const map = {
-      blue:   'linear-gradient(180deg, #0b244a, #0f2d63)',
-      violet: 'linear-gradient(180deg, #2b1a55, #3a1f7a)',
-      green:  'linear-gradient(180deg, #0f3b29, #11543a)',
-      amber:  'linear-gradient(180deg, #4a2c0b, #633e0f)',
-    } as const;
-    return map[accent];
-  }
-  const map = {
-    blue:   'linear-gradient(180deg, #e9f1ff, #deebff)',
-    violet: 'linear-gradient(180deg, #f0e8ff, #eadbff)',
-    green:  'linear-gradient(180deg, #e8fff3, #d4fae8)',
-    amber:  'linear-gradient(180deg, #fff6e7, #fee6bd)',
-  } as const;
-  return map[accent];
-}
-
+/** Pequena sparkline SVG (opcional) */
 function Sparkline({ data }: { data: number[] }) {
-  if (!data || data.length < 2) return null;
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const norm = (v: number) => (max === min ? 0.5 : (v - min) / (max - min));
-  const points = data.map((v, i) => {
-    const x = (i / (data.length - 1)) * 100;
-    const y = 24 - norm(v) * 24;
-    return `${x},${y}`;
-  }).join(' ');
+  if (!data?.length) return null;
+  const w = 120, h = 28, pad = 2;
+  const min = Math.min(...data), max = Math.max(...data);
+  const norm = (v: number) => max === min ? h / 2 : h - pad - ((v - min) / (max - min)) * (h - pad * 2);
+  const step = (w - pad * 2) / (data.length - 1);
+  const d = data.map((v, i) => `${i === 0 ? 'M' : 'L'} ${pad + i * step},${norm(v)}`).join(' ');
   return (
-    <svg viewBox="0 0 100 24" preserveAspectRatio="none" style={{ width: '100%', height: 28 }}>
-      <polyline points={points} fill="none" stroke="currentColor" strokeWidth="2" opacity={0.85} />
-    </svg>
+    <Box component="svg" width={w} height={h} viewBox={`0 0 ${w} ${h}`} sx={{ opacity: 0.9 }}>
+      <path d={d} fill="none" stroke="currentColor" strokeWidth={1.5} />
+    </Box>
   );
 }
 
-export default function KpiCard({ title, value, delta, sparkData, accent = 'blue' }: Props) {
+export type KpiCardProps = {
+  title: string;
+  value: number | string;
+  /** variação em % (positivo/negativo) */
+  delta?: number | null;
+  /** dados para sparkline (opcional) */
+  sparkData?: number[];
+  /** cor do acento (opcional) */
+  color?: 'primary' | 'success' | 'warning' | 'error';
+};
+
+export default function KpiCard({ title, value, delta = null, sparkData, color = 'primary' }: KpiCardProps) {
+  const up = typeof delta === 'number' && delta > 0;
+  const down = typeof delta === 'number' && delta < 0;
+  const deltaLabel =
+    typeof delta === 'number'
+      ? `${up ? '⬆️' : down ? '⬇️' : '•'} ${Math.abs(delta).toFixed(1)}%`
+      : '—';
+
   return (
     <Card
-      elevation={0}
-      sx={(theme) => ({
-        border: 1,
-        borderColor: 'divider',
+      variant="outlined"
+      sx={(t) => ({
         borderRadius: 3,
-        background: gradientBg(theme.palette.mode as 'light'|'dark', accent),
-        boxShadow: theme.palette.mode === 'dark'
-          ? '0 12px 36px rgba(0,0,0,.28)'
-          : '0 10px 28px rgba(15,23,42,.10)',
+        borderColor: 'divider',
+        background: t.palette.mode === 'light'
+          ? `linear-gradient(180deg, ${t.palette.background.paper}, ${t.palette.background.default})`
+          : `linear-gradient(180deg, ${t.palette.background.paper}, ${t.palette.background.default})`,
       })}
     >
-      <CardContent sx={{ p: 2.25, display: 'grid', gap: 0.75 }}>
-        <Typography variant="caption" sx={{ opacity: 0.9 }}>{title}</Typography>
-
-        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
-          <Typography variant="h5" fontWeight={800} lineHeight={1}>
-            {value}
+      <CardContent>
+        <Stack spacing={1}>
+          <Typography variant="caption" color="text.secondary" fontWeight={700}>
+            {title}
           </Typography>
-          {typeof delta === 'number' && delta !== 0 && (
-            <Chip
-              size="small"
-              icon={delta > 0 ? <ArrowDropUp /> : <ArrowDropDown />}
-              label={`${Math.abs(delta).toFixed(1)}%`}
-              color={delta > 0 ? 'success' : 'error'}
-              sx={{ bgcolor: 'background.paper' }}
-            />
-          )}
-          {typeof delta === 'number' && delta === 0 && (
-            <Chip size="small" label="0%" variant="outlined" />
-          )}
-        </Box>
-
-        {sparkData && sparkData.length > 1 && (
-          <Box sx={{ color: 'text.secondary' }}>
-            <Sparkline data={sparkData} />
-          </Box>
-        )}
+          <Stack direction="row" alignItems="baseline" justifyContent="space-between">
+            <Typography variant="h5" fontWeight={800}>{value}</Typography>
+            {sparkData?.length ? (
+              <Box sx={{ color: (theme) => theme.palette[color].main }}>
+                <Sparkline data={sparkData} />
+              </Box>
+            ) : null}
+          </Stack>
+          <Typography
+            variant="body2"
+            sx={{
+              fontWeight: 700,
+              color: up ? 'success.main' : down ? 'error.main' : 'text.secondary',
+            }}
+          >
+            {deltaLabel}
+          </Typography>
+        </Stack>
       </CardContent>
     </Card>
   );

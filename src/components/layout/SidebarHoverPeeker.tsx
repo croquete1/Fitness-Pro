@@ -1,3 +1,4 @@
+// src/components/layout/SidebarHoverPeeker.tsx
 'use client';
 
 import * as React from 'react';
@@ -5,8 +6,9 @@ import { Box } from '@mui/material';
 import { useSidebar } from './SidebarProvider';
 
 /**
- * Tira partido do “peek” ao passar o rato junto à margem esquerda quando a sidebar
- * está colapsada no desktop. No mobile não renderiza.
+ * Mostra uma “zona quente” de 12px na margem esquerda quando a sidebar está colapsada
+ * (apenas desktop). Ao pairar, ativa o `peek` no contexto — útil para animares/expanderes
+ * a rail temporariamente via CSS ou lógica na SidebarBase.
  */
 export default function SidebarHoverPeeker() {
   const { isMobile, collapsed, setPeek } = useSidebar();
@@ -16,18 +18,20 @@ export default function SidebarHoverPeeker() {
   return (
     <Box
       aria-hidden
-      sx={{
-        position: 'fixed',
-        left: 0,
-        top: 0,
-        bottom: 0,
-        width: 12,             // “zona quente”
-        zIndex: 30,
-        // invisível mas clicável para hover
-        background: 'transparent',
-      }}
       onMouseEnter={() => setPeek(true)}
       onMouseLeave={() => setPeek(false)}
+      sx={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        bottom: 0,
+        width: 12,
+        zIndex: 1200,
+        // transparente e “não intrusivo”
+        background: 'transparent',
+        // permitir hover por cima de conteúdos
+        pointerEvents: 'auto',
+      }}
     />
   );
 }

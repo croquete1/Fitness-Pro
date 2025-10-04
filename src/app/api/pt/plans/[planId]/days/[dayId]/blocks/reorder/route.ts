@@ -1,27 +1,51 @@
+// src/app/api/pt/plans/[planId]/days/[dayId]/blocks/reorder/route.ts
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
 
-export async function POST(req: Request, { params }: { params: { planId: string; dayId: string } }) {
-  const body = await req.json().catch(() => ({}));
+type Pair = { id: string; order_index: number };
+
+export async function POST(
+  req: Request,
+  { params }: { params: { planId: string; dayId: string } }
+) {
+  const { dayId } = params;
   const sb = createServerClient();
 
-  let pairs: Array<{ id: string; order_index: number }> = [];
-
-  if (Array.isArray(body?.ids)) {
-    pairs = body.ids.map((id: string, i: number) => ({ id, order_index: i + 1 }));
-  } else if (Array.isArray(body?.pairs)) {
-    pairs = body.pairs.map((p: any) => ({ id: String(p.id), order_index: Number(p.order_index) || 0 }));
+  let body: { pairs?: Pair[] } = {};
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
-
+  const pairs = Array.isArray(body.pairs) ? body.pairs : [];
   if (!pairs.length) {
-    return NextResponse.json({ error: 'payload inválido' }, { status: 400 });
+    return NextResponse.json({ ok: true }); // nada para fazer
   }
 
-  // updates sequenciais simples → evita “excessively deep” de tipos
+  // (opcional) valida se todos pertencem ao mesmo day_id
+  const ids = pairs.map((p) => p.id);
+  const { data: belongs, error: belongsErr } = await sb
+    .from('plan_blocks')
+    .select('id, day_id')
+    .in('id', ids);
+
+  if (belongsErr) {
+    return NextResponse.json({ error: 'Falha a validar blocos' }, { status: 400 });
+  }
+  if ((belongs ?? []).some((b) => b.day_id !== dayId)) {
+    return NextResponse.json({ error: 'Blocos não pertencem ao dia' }, { status: 400 });
+  }
+
+  // Atualiza sequencialmente (simples e robusto)
   for (const p of pairs) {
-    const { error } = await sb.from('plan_day').update({ order_index: p.order_index }).eq('id', p.id);
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    const { error } = await sb
+      .from('plan_blocks')
+      .update({ order_index: p.order_index })
+      .eq('id', p.id);
+    if (error) {
+      return NextResponse.json({ error: 'Falha ao atualizar ordem' }, { status: 500 });
+    }
   }
 
-  return NextResponse.json({ ok: true, count: pairs.length });
+  return NextResponse.json({ ok: true });
 }

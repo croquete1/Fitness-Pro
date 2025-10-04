@@ -1,58 +1,52 @@
-// src/app/api/admin/users/[id]/route.ts
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@/lib/supabaseServer';
 
-async function getAdmin() {
-  try {
-    // tenta utilitário do teu projeto, se existir
-    const mod = await import('@/lib/supabaseAdmin');
-    const maybe = (mod as any).supabaseAdmin ?? (mod as any).getSupabaseAdmin ?? (mod as any).default;
-    return typeof maybe === 'function' ? maybe() : maybe;
-  } catch {}
-  // fallback: cria client com service role
-  const { createClient } = await import('@supabase/supabase-js');
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const service = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+function getServiceClient() {
+  if (!url || !service) return null;
+  return createClient(url, service, { auth: { autoRefreshToken: false, persistSession: false } });
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+const PatchSchema = z.object({
+  name: z.string().trim().max(200).nullable().optional(),
+  role: z.enum(['ADMIN', 'TRAINER', 'CLIENT']).optional(),
+  approved: z.boolean().optional(),
+  active: z.boolean().optional(),
+});
+
+export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const id = params.id;
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
 
-  const body = await req.json().catch(() => ({}));
-  const allowed: any = {};
-  if ('name' in body) allowed.name = body.name ?? null;
-  if ('role' in body) {
-    const r = String(body.role).toUpperCase();
-    if (!['ADMIN', 'TRAINER', 'CLIENT'].includes(r)) {
-      return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
-    }
-    allowed.role = r;
+  const json = await req.json().catch(() => ({}));
+  const parsed = PatchSchema.safeParse(json);
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+
+  const update: Record<string, any> = {};
+  for (const k of ['name', 'role', 'approved', 'active'] as const) {
+    if (parsed.data[k] !== undefined) update[k] = parsed.data[k];
   }
-  if ('approved' in body) allowed.approved = !!body.approved;
-  if ('active' in body) allowed.is_active = !!body.active;
+  if (Object.keys(update).length === 0) return NextResponse.json({ ok: true, noop: true });
 
-  if (Object.keys(allowed).length === 0) {
-    return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
-  }
-
-  const sb = await getAdmin();
-  const { data, error } = await sb
-    .from('users')
-    .update(allowed)
-    .eq('id', id)
-    .select('id, name, email, role, approved, is_active, created_at')
-    .single();
-
+  const sb = getServiceClient() ?? createServerClient();
+  const { error } = await sb.from('users').update(update).eq('id', id);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-  return NextResponse.json({
-    id: String(data.id),
-    name: data.name ?? null,
-    email: data.email,
-    role: data.role,
-    approved: Boolean(data.approved),
-    active: Boolean(data.is_active ?? true),
-    created_at: data.created_at ?? null,
-  });
+  return NextResponse.json({ ok: true });
+}
+
+export async function GET(_req: Request, { params }: { params: { id: string } }) {
+  const id = params.id;
+  const sb = getServiceClient() ?? createServerClient();
+  const { data, error } = await sb
+    .from('users')
+    .select('id,name,email,role,approved,active,created_at')
+    .eq('id', id)
+    .single();
+  if (error) return NextResponse.json({ error: error.message }, { status: 404 });
+  return NextResponse.json({ user: data });
 }

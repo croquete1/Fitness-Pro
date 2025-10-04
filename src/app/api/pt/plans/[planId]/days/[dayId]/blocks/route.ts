@@ -2,19 +2,34 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
 
-export const dynamic = 'force-dynamic';
-
-export async function GET(_req: Request, { params }: { params: { dayId: string } }) {
+export async function GET(
+  _req: Request,
+  { params }: { params: { planId: string; dayId: string } }
+) {
+  const { dayId } = params;
   const sb = createServerClient();
-  const { data: { user } } = await sb.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Auth' }, { status: 401 });
+
+  // Confirma que o dia existe (opcional)
+  const { data: day, error: dayErr } = await sb
+    .from('training_days')
+    .select('id, plan_id, title, order_index')
+    .eq('id', dayId)
+    .single();
+
+  if (dayErr || !day) {
+    return NextResponse.json({ items: [] });
+  }
 
   const { data, error } = await sb
-    .from('training_plan_blocks' as any)
+    .from('plan_blocks')
     .select('id, title, order_index')
-    .eq('day_id', params.dayId)
-    .order('order_index', { ascending: true });
+    .eq('day_id', dayId)
+    .order('order_index', { ascending: true, nullsFirst: true })
+    .order('title', { ascending: true, nullsFirst: true });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+    return NextResponse.json({ items: [] });
+  }
+
   return NextResponse.json({ items: data ?? [] });
 }

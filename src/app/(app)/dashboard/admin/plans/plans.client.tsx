@@ -1,14 +1,12 @@
-// src/app/(app)/dashboard/admin/plans/plans.client.tsx
 'use client';
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Box, Paper, Button } from '@mui/material';
 import {
-  DataGrid, type GridColDef, type GridRowModel,
-  GridToolbarContainer, GridToolbarColumnsButton, GridToolbarFilterButton,
-  GridToolbarDensitySelector, GridToolbarExport, GridToolbarQuickFilter,
+  DataGrid, GridToolbar, useGridApiRef,
+  type GridColDef,
 } from '@mui/x-data-grid';
+import { Paper, Stack, Typography, Button } from '@mui/material';
 import Add from '@mui/icons-material/Add';
 
 export type PlanRow = {
@@ -17,71 +15,61 @@ export type PlanRow = {
   updated_at: string | null;
 };
 
-type Props = { initial: PlanRow[] };
-
-function Toolbar({ onCreate }: { onCreate: () => void }) {
-  return (
-    <GridToolbarContainer>
-      <Button startIcon={<Add />} onClick={onCreate}>Criar plano</Button>
-      <GridToolbarColumnsButton />
-      <GridToolbarFilterButton />
-      <GridToolbarDensitySelector />
-      <GridToolbarExport />
-      <Box sx={{ flex: 1 }} />
-      <GridToolbarQuickFilter placeholder="Pesquisar planos…" />
-    </GridToolbarContainer>
-  );
-}
-
-export default function PlansGrid({ initial }: Props) {
+export default function PlansGrid({ initial }: { initial: PlanRow[] }) {
+  const apiRef = useGridApiRef();
   const [rows, setRows] = React.useState<PlanRow[]>(initial);
-
-  const onCreate = async () => {
-    const res = await fetch('/api/admin/plans', { method: 'POST' });
-    if (!res.ok) return;
-    const row = (await res.json()) as PlanRow;
-    setRows((cur) => [row, ...cur]);
-  };
-
-  const processRowUpdate = async (next: GridRowModel<PlanRow>) => {
-    const payload = { title: next.title ?? null };
-    const res = await fetch(`/api/admin/plans/${next.id}`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) throw new Error(await res.text());
-    const saved = (await res.json()) as PlanRow;
-    setRows((cur) => cur.map((r) => (r.id === saved.id ? saved : r)));
-    return saved;
-  };
 
   const cols: GridColDef<PlanRow>[] = [
     {
-      field: 'title', headerName: 'Título', flex: 1, minWidth: 220, editable: true,
-      renderCell: (p) => <Link href={`/dashboard/admin/plans/${p.row.id}`}>{p.row.title ?? '—'}</Link>,
+      field: 'title', headerName: '📒 Título', flex: 1, minWidth: 220, editable: true,
+      renderCell: (p) => <Link href={`/dashboard/admin/plans/${p.row.id}`}>{p.value ?? '—'}</Link>,
+      valueGetter: (_v, row) => row.title ?? '—',
     },
     {
-      field: 'updated_at', headerName: 'Atualizado', width: 170,
-      renderCell: (p) => <>{p.row.updated_at ? new Date(p.row.updated_at).toLocaleString() : '—'}</>,
+      field: 'updated_at', headerName: '🕓 Atualizado', width: 170,
+      valueGetter: (_v, row) => row.updated_at ? new Date(row.updated_at).toLocaleString() : '—',
     },
   ];
 
+  async function processRowUpdate(newRow: PlanRow, oldRow: PlanRow) {
+    if (JSON.stringify(newRow) === JSON.stringify(oldRow)) return oldRow;
+    const res = await fetch(`/api/admin/plans/${newRow.id}`, {
+      method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(newRow),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const saved = await res.json(); // devolve updated_at
+    return { ...newRow, updated_at: saved.updated_at ?? newRow.updated_at };
+  }
+
+  async function handleCreate() {
+    const res = await fetch('/api/admin/plans', { method: 'POST' });
+    if (!res.ok) return;
+    const row: PlanRow = await res.json();
+    setRows((cur) => [row, ...cur]);
+    apiRef.current?.startRowEditMode({ id: row.id });
+  }
+
   return (
-    <Paper sx={{ p: 1, border: 1, borderColor: 'divider', borderRadius: 3 }} elevation={0}>
-      <Box sx={{ height: 640, width: '100%' }}>
-        <DataGrid<PlanRow>
-          rows={rows}
-          columns={cols}
-          getRowId={(r) => r.id}
-          disableRowSelectionOnClick
-          slots={{ toolbar: () => <Toolbar onCreate={onCreate} /> }}
-          paginationModel={{ page: 0, pageSize: 25 }}
-          pageSizeOptions={[10, 25, 50, 100]}
-          processRowUpdate={processRowUpdate}
-          onProcessRowUpdateError={(e) => console.error('plans.update', e)}
-        />
-      </Box>
+    <Paper sx={{ p: 1.5, borderRadius: 3 }}>
+      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+        <Typography variant="h6" fontWeight={800}>🗂️ Planos</Typography>
+        <Button onClick={handleCreate} startIcon={<Add />} variant="contained">Criar</Button>
+      </Stack>
+      <DataGrid
+        apiRef={apiRef}
+        rows={rows}
+        columns={cols}
+        processRowUpdate={async (n, o) => {
+          const saved = await processRowUpdate(n, o);
+          setRows((cur) => cur.map((r) => (r.id === saved.id ? saved : r)));
+          return saved;
+        }}
+        onProcessRowUpdateError={(e) => console.error(e)}
+        slots={{ toolbar: GridToolbar }}
+        slotProps={{ toolbar: { showQuickFilter: true } }}
+        disableRowSelectionOnClick
+        autoHeight
+      />
     </Paper>
   );
 }
