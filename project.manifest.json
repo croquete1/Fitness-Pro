@@ -2,7 +2,6 @@
   "required": [
     "package.json",
     "scripts/check-duplicate-routes.cjs",
-    "src/lib/prisma.ts",
     "src/lib/auth.ts",
     "src/types/next-auth.d.ts",
     "src/middleware.ts",

@@ -1,78 +1,28 @@
-'use client';
-
 import * as React from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { Box, Button, Container, MenuItem, Stack, Switch, TextField, Typography, Alert, FormControlLabel } from '@mui/material';
-import { toast } from '@/components/ui/Toaster';
+import { notFound } from 'next/navigation';
+import { createServerClient } from '@/lib/supabaseServer';
+import AdminExerciseFormClient from '../AdminExerciseFormClient';
 
-export default function EditExercisePage() {
-  const router = useRouter();
-  const { id } = useParams<{ id: string }>();
-  const [item, setItem] = React.useState<any | null>(null);
-  const [loading, setLoading] = React.useState(true);
-  const [err, setErr] = React.useState<string | null>(null);
-  const [saving, setSaving] = React.useState(false);
+export const dynamic = 'force-dynamic';
 
-  React.useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch(`/api/admin/exercises/${id}`, { cache: 'no-store' });
-        const j = res.ok ? await res.json() : null;
-        setItem(j?.item ?? null);
-      } catch {}
-      setLoading(false);
-    })();
-  }, [id]);
+function mapRow(u: any) {
+  return {
+    id: String(u.id),
+    name: u.name ?? '',
+    muscle_group: u.muscle_group ?? u.group ?? null,
+    equipment: u.equipment ?? null,
+    difficulty: u.difficulty ?? null,
+    description: u.description ?? u.instructions ?? null,
+    video_url: u.video_url ?? u.video ?? null,
+  };
+}
 
-  async function onSave(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault(); setErr(null); setSaving(true);
-    const f = new FormData(e.currentTarget);
-    const payload = Object.fromEntries(f.entries());
-    try {
-      const res = await fetch(`/api/admin/exercises/${id}`, { method: 'PATCH', headers: { 'content-type':'application/json' }, body: JSON.stringify(payload) });
-      if (!res.ok) throw new Error(await res.text());
-      toast('Exercício guardado 💾', 2000, 'success');
-      router.push('/dashboard/admin/exercises');
-    } catch (e: any) {
-      setErr(e.message || 'Falha ao guardar'); toast('Falha ao guardar', 2500, 'error');
-    } finally { setSaving(false); }
-  }
+export default async function Page({ params }: { params: { id: string } }) {
+  const sb = createServerClient();
+  const { data, error } = await sb.from('exercises').select('*').eq('id', params.id).single();
 
-  async function onDelete() {
-    if (!confirm('Apagar exercício?')) return;
-    try {
-      const res = await fetch(`/api/admin/exercises/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error(await res.text());
-      toast('Exercício apagado 🗑️', 2000, 'success');
-      router.push('/dashboard/admin/exercises');
-    } catch (e: any) {
-      toast('Falha ao apagar', 2500, 'error'); setErr(e.message || 'Falha ao apagar');
-    }
-  }
+  if (error || !data) return notFound();
 
-  if (loading) return <Container maxWidth="sm"><Typography>Carregando…</Typography></Container>;
-  if (!item) return <Container maxWidth="sm"><Typography>Não encontrado.</Typography></Container>;
-
-  return (
-    <Container maxWidth="sm" sx={{ display:'grid', gap:2 }}>
-      <Typography variant="h5" fontWeight={800}>✏️ Editar exercício</Typography>
-      <Box component="form" onSubmit={onSave} sx={{ p:3, borderRadius:3, bgcolor:'background.paper', border:'1px solid', borderColor:'divider', display:'grid', gap:2 }}>
-        {err && <Alert severity="error">{err}</Alert>}
-        <TextField name="name" label="Nome" defaultValue={item.name} required />
-        <TextField name="muscle_group" label="Grupo muscular" defaultValue={item.muscle_group ?? ''} />
-        <TextField name="equipment" label="Equipamento" defaultValue={item.equipment ?? ''} />
-        <TextField select name="difficulty" label="Dificuldade" defaultValue={item.difficulty ?? 'média'}>
-          <MenuItem value="fácil">Fácil</MenuItem>
-          <MenuItem value="média">Média</MenuItem>
-          <MenuItem value="difícil">Difícil</MenuItem>
-        </TextField>
-        <FormControlLabel control={<Switch name="is_active" defaultChecked={!!item.is_active} />} label="Ativo" />
-        <Stack direction="row" gap={1} justifyContent="flex-end">
-          <Button onClick={()=>history.back()}>❌ Cancelar</Button>
-          <Button color="error" onClick={onDelete}>🗑️ Apagar</Button>
-          <Button variant="contained" type="submit" disabled={saving}>{saving ? 'A guardar…' : '💾 Guardar'}</Button>
-        </Stack>
-      </Box>
-    </Container>
-  );
+  const initial = mapRow(data);
+  return <AdminExerciseFormClient mode="edit" initial={initial} />;
 }

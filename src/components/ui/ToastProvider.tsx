@@ -1,98 +1,77 @@
 'use client';
 
 import * as React from 'react';
-import { AlertColor, Button, Snackbar, Alert, Stack } from '@mui/material';
+import { Snackbar, Alert } from '@mui/material';
 
-type ToastAction = { label: string; onClick: () => void };
-type ToastState = {
-  open: boolean;
-  message: string;
-  severity: AlertColor;
-  action?: ToastAction;
-  autoHideDuration?: number;
+type Sev = 'success' | 'error' | 'info' | 'warning';
+type ToastItem = { msg: string; sev: Sev; duration?: number };
+
+type ToastCtx = {
+  show: (msg: string, sev?: Sev, durationMs?: number) => void;
+  success: (msg: string, durationMs?: number) => void;
+  error: (msg: string, durationMs?: number) => void;
+  info: (msg: string, durationMs?: number) => void;
+  warning: (msg: string, durationMs?: number) => void;
 };
 
-const ToastCtx = React.createContext<{
-  toast: (opts: { message: string; severity?: AlertColor; action?: ToastAction; autoHideDuration?: number }) => void;
-  success: (message: string, action?: ToastAction) => void;
-  error: (message: string, action?: ToastAction) => void;
-  info: (message: string, action?: ToastAction) => void;
-  warning: (message: string, action?: ToastAction) => void;
-} | null>(null);
+const Ctx = React.createContext<ToastCtx | null>(null);
 
-export default function ToastProvider({ children }: { children: React.ReactNode }) {
-  const [s, setS] = React.useState<ToastState>({ open: false, message: '', severity: 'info' });
-  const [queue, setQueue] = React.useState<ToastState[]>([]);
+export function ToastProvider({ children }: { children: React.ReactNode }) {
+  const [queue, setQueue] = React.useState<ToastItem[]>([]);
+  const [open, setOpen] = React.useState(false);
+  const [current, setCurrent] = React.useState<ToastItem | null>(null);
 
-  const show = (next: ToastState) => {
-    if (s.open) setQueue(q => [...q, next]);
-    else setS(next);
-  };
+  const next = React.useCallback(() => {
+    setCurrent(null);
+    setOpen(false);
+    setQueue((q) => {
+      if (q.length <= 1) return [];
+      const [, ...rest] = q;
+      return rest;
+    });
+  }, []);
 
-  const toast = (opts: { message: string; severity?: AlertColor; action?: ToastAction; autoHideDuration?: number }) =>
-    show({ open: true, message: opts.message, severity: opts.severity ?? 'info', action: opts.action, autoHideDuration: opts.autoHideDuration ?? 3000 });
+  React.useEffect(() => {
+    if (!open && !current && queue.length) {
+      setCurrent(queue[0]);
+      setOpen(true);
+    }
+  }, [queue, open, current]);
 
-  const api = React.useMemo(() => ({
-    toast,
-    success: (message: string, action?: ToastAction) => toast({ message, severity: 'success', action }),
-    error: (message: string, action?: ToastAction) => toast({ message, severity: 'error', action }),
-    info: (message: string, action?: ToastAction) => toast({ message, severity: 'info', action }),
-    warning: (message: string, action?: ToastAction) => toast({ message, severity: 'warning', action }),
+  const api = React.useMemo<ToastCtx>(() => ({
+    show: (msg, sev = 'info', durationMs = 3000) => setQueue((q) => [...q, { msg, sev, duration: durationMs }]),
+    success: (msg, d) => setQueue((q) => [...q, { msg, sev: 'success', duration: d }]),
+    error: (msg, d) => setQueue((q) => [...q, { msg, sev: 'error', duration: d }]),
+    info: (msg, d) => setQueue((q) => [...q, { msg, sev: 'info', duration: d }]),
+    warning: (msg, d) => setQueue((q) => [...q, { msg, sev: 'warning', duration: d }]),
   }), []);
 
-  const handleClose = (_?: any, reason?: string) => {
-    if (reason === 'clickaway') return;
-    setS(p => ({ ...p, open: false }));
-  };
-  const handleExited = () => {
-    if (queue.length > 0) {
-      const [n, ...rest] = queue;
-      setQueue(rest);
-      setS(n);
-    }
-  };
-
   return (
-    <ToastCtx.Provider value={api}>
+    <Ctx.Provider value={api}>
       {children}
       <Snackbar
-        open={s.open}
-        onClose={handleClose}
-        autoHideDuration={s.autoHideDuration}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-        TransitionProps={{ onExited: handleExited }}
+        open={open}
+        autoHideDuration={current?.duration ?? 3000}
+        onClose={(_, reason) => { if (reason !== 'clickaway') setOpen(false); }}
+        // ✅ MUI v5: onExited vai dentro de TransitionProps
+        TransitionProps={{ onExited: next }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
         <Alert
-          severity={s.severity}
+          onClose={() => setOpen(false)}
+          severity={current?.sev ?? 'info'}
           variant="filled"
-          onClose={handleClose}
-          sx={{ alignItems: 'center', pr: s.action ? 0 : 2 }}
-          iconMapping={{ success: <>✅</>, error: <>❌</>, info: <>ℹ️</>, warning: <>⚠️</> }}
-          action={
-            s.action ? (
-              <Stack direction="row" spacing={0.5} sx={{ pl: 1, pr: 1 }}>
-                <Button
-                  size="small"
-                  color="inherit"
-                  onClick={() => {
-                    try { s.action?.onClick(); } finally { handleClose(); }
-                  }}
-                >
-                  {s.action.label}
-                </Button>
-              </Stack>
-            ) : null
-          }
+          sx={{ width: '100%' }}
         >
-          {s.message}
+          {current?.msg ?? ''}
         </Alert>
       </Snackbar>
-    </ToastCtx.Provider>
+    </Ctx.Provider>
   );
 }
 
 export function useToast() {
-  const ctx = React.useContext(ToastCtx);
+  const ctx = React.useContext(Ctx);
   if (!ctx) throw new Error('useToast must be used within <ToastProvider>');
   return ctx;
 }

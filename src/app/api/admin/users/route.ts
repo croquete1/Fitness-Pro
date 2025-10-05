@@ -1,70 +1,55 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
 
-export async function GET(req: NextRequest) {
-  const sb = createServerClient();
-  const { data: { user } } = await sb.auth.getUser();
-  if (!user) return NextResponse.json({ rows: [], total: 0 }, { status: 401 });
+type DBUser = Record<string, any>;
 
-  const url = new URL(req.url);
-  const page = Number(url.searchParams.get('page') || '1');
-  const perPage = Number(url.searchParams.get('perPage') || url.searchParams.get('limit') || '20');
-  const search = (url.searchParams.get('search') || '').trim();
-  const role = (url.searchParams.get('role') || '').trim();
-  const status = (url.searchParams.get('status') || '').trim();
-  const sort = (url.searchParams.get('sort') || 'desc').toLowerCase();
-
-  let q = sb.from('profiles')
-    .select('id, full_name, email, role, status, created_at', { count: 'exact' });
-
-  if (search) {
-    q = q.or(`full_name.ilike.%${search}%,email.ilike.%${search}%`);
-  }
-  if (role) q = q.eq('role', role);
-  if (status) q = q.eq('status', status);
-
-  q = q.order('created_at', { ascending: sort !== 'desc' });
-
-  const from = (page - 1) * perPage;
-  const to = from + perPage - 1;
-
-  const { data, error, count } = await q.range(from, to);
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-
-  const rows = (data ?? []).map(r => ({
-    id: r.id,
-    name: r.full_name,
-    email: r.email,
-    role: r.role,
-    status: r.status,
-    createdAt: r.created_at,
-  }));
-
-  // Compatibilidade: "users" (ApprovalsClient) e "rows" (UsersClient)
-  const res = NextResponse.json({ rows, users: rows, total: count ?? rows.length });
-  res.headers.set('x-total-count', String(count ?? rows.length));
-  return res;
+function normalizeRole(v: any): string {
+  const s = String(v ?? '').toLowerCase();
+  if (!s) return '';
+  if (['adm', 'administrator'].includes(s)) return 'admin';
+  if (['pt', 'trainer', 'coach', 'personal'].includes(s)) return 'pt';
+  if (['client', 'user', 'aluno', 'utente'].includes(s)) return 'client';
+  return s;
 }
 
-export async function PATCH(req: NextRequest) {
+export async function GET(req: NextRequest) {
   const sb = createServerClient();
-  const { data: { user } } = await sb.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Auth' }, { status: 401 });
+  const { searchParams } = new URL(req.url);
 
-  const body = await req.json().catch(() => ({} as any));
-  const id = String(body.id || '');
-  if (!id) return NextResponse.json({ error: 'id obrigatório' }, { status: 400 });
+  const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+  const pageSize = Math.min(200, Math.max(1, parseInt(searchParams.get('pageSize') || '20', 10)));
+  const q = (searchParams.get('q') || '').trim().toLowerCase();
+  const role = normalizeRole(searchParams.get('role'));
 
-  const patch: any = {};
-  if (body.role) patch.role = String(body.role);
-  if (body.status) patch.status = String(body.status);
+  const { data, error } = await sb.from('users').select('*');
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-  // 1ª tentativa: profiles
-  let { error } = await sb.from('profiles').update(patch).eq('id', id);
-  if (error) {
-    // 2ª tentativa: users
-    const r2 = await sb.from('users').update(patch).eq('id', id);
-    if (r2.error) return NextResponse.json({ error: r2.error.message }, { status: 400 });
-  }
-  return NextResponse.json({ ok: true });
+  const rowsAll = (data ?? []) as DBUser[];
+
+  const mapped = rowsAll.map((u) => ({
+    id: String(u.id),
+    name: u.name ?? u.full_name ?? null,
+    email: u.email ?? null,
+    role: u.role ?? u.type ?? null,
+    status: u.status ?? null,
+    approved: Boolean(u.approved ?? u.is_approved ?? false),
+    active: Boolean(u.active ?? u.is_active ?? false),
+    created_at: u.created_at ?? u.createdAt ?? null,
+  }));
+
+  const filtered = mapped.filter((r) => {
+    const okRole = role ? normalizeRole(r.role) === role : true;
+    const okQ = q
+      ? (String(r.name ?? '').toLowerCase().includes(q) ||
+         String(r.email ?? '').toLowerCase().includes(q))
+      : true;
+    return okRole && okQ;
+  });
+
+  const count = filtered.length;
+  const from = (page - 1) * pageSize;
+  const to = Math.min(from + pageSize, count);
+  const pageRows = filtered.slice(from, to);
+
+  return NextResponse.json({ rows: pageRows, count });
 }

@@ -8,7 +8,7 @@
   },
   "scripts": {
     "postinstall": "node scripts/check-duplicate-routes.cjs",
-    "prebuild": "node scripts/check-duplicate-routes.cjs && node scripts/verify-manifest.cjs && node scripts/verify-sidebar.cjs && node scripts/find-invalid-catchall.cjs",
+    "prebuild": "node scripts/check-duplicate-routes.cjs && node scripts/verify-manifest.cjs && node scripts/verify-sidebar-routes.cjs && node scripts/find-invalid-catchall.cjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

@@ -1,11 +1,10 @@
-// src/components/layout/SidebarPT.tsx
 'use client';
 
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  Avatar, Box, List, ListItemButton, ListItemIcon, ListItemText, Tooltip,
+  Avatar, Box, List, ListItemButton, ListItemIcon, ListItemText, Tooltip, IconButton,
 } from '@mui/material';
 
 import DashboardOutlined from '@mui/icons-material/DashboardOutlined';
@@ -16,6 +15,8 @@ import ChatBubbleOutline from '@mui/icons-material/ChatBubbleOutline';
 import NotificationsOutlined from '@mui/icons-material/NotificationsOutlined';
 import HistoryOutlined from '@mui/icons-material/HistoryOutlined';
 import AccountCircleOutlined from '@mui/icons-material/AccountCircleOutlined';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 
 import SidebarBase from '@/components/layout/SidebarBase';
 import { useSidebar } from '@/components/layout/SidebarProvider';
@@ -24,7 +25,7 @@ type Nav = { href: string; label: string; icon: React.ReactNode; exact?: boolean
 
 export default function SidebarPT({ userLabel }: { userLabel?: string }) {
   const path = usePathname();
-  const { collapsed, isMobile, closeMobile } = useSidebar();
+  const { collapsed, isMobile, closeMobile, toggleCollapse } = useSidebar();
 
   const items: Nav[] = [
     { href: '/dashboard/pt', label: 'Painel', icon: <DashboardOutlined />, exact: true, activePrefix: '/dashboard/pt' },
@@ -38,16 +39,21 @@ export default function SidebarPT({ userLabel }: { userLabel?: string }) {
   ];
 
   const header = (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0, p: 1.5 }}>
-      <Avatar src="/logo.png" alt="Fitness Pro" sx={{ width: 28, height: 28, fontWeight: 800 }} imgProps={{ referrerPolicy: 'no-referrer' }}>
-        FP
-      </Avatar>
-      {!collapsed && (
-        <Box sx={{ lineHeight: 1.1, minWidth: 0 }}>
-          <Box component="div" sx={{ fontSize: 14, fontWeight: 700, letterSpacing: .2 }}>Fitness Pro</Box>
-          {/* ❌ sem nome/cargo aqui para não duplicar com o header global */}
-        </Box>
-      )}
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.25, minWidth: 0, p: 1.5 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
+        <Avatar src="/logo.png" alt="Fitness Pro" sx={{ width: 28, height: 28, fontWeight: 800 }} imgProps={{ referrerPolicy: 'no-referrer' }}>
+          FP
+        </Avatar>
+        {!collapsed && (
+          <Box sx={{ lineHeight: 1.1, minWidth: 0 }}>
+            <Box component="div" sx={{ fontSize: 14, fontWeight: 700, letterSpacing: 0.2 }}>Fitness Pro</Box>
+            {/* ❌ sem nome/cargo aqui para não duplicar com o header global */}
+          </Box>
+        )}
+      </Box>
+      <IconButton onClick={toggleCollapse} sx={{ ml: 'auto', width: 32, height: 32, borderRadius: 1.25, border: 1, borderColor: 'divider', bgcolor: 'background.paper', '&:hover': { bgcolor: 'action.hover' } }}>
+        {collapsed ? <ChevronRightIcon fontSize="small" /> : <ChevronLeftIcon fontSize="small" />}
+      </IconButton>
     </Box>
   );
 

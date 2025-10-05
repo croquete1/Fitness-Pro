@@ -1,12 +1,22 @@
-import AppThemeProvider from '@/components/theme/AppThemeProvider';
+import './globals.css';
+import type { Metadata } from 'next';
+import ColorModeProvider from '@/components/layout/ColorModeProvider';
+import { ToastProvider } from '@/components/ui/ToastProvider';
+
+export const metadata: Metadata = {
+  title: 'Fitness Pro',
+  description: 'Dashboard Fitness Pro (MUI puro)',
+};
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt">
+    <html lang="pt-PT">
       <body>
-        <AppThemeProvider>
-          {children}
-        </AppThemeProvider>
+        <ColorModeProvider>
+          <ToastProvider>
+            {children}
+          </ToastProvider>
+        </ColorModeProvider>
       </body>
     </html>
   );

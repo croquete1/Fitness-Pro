@@ -24,6 +24,13 @@ export default function SidebarBase({ header, children }: Props) {
         height: '100dvh',
         display: 'grid',
         gridTemplateRows: 'auto 1fr',
+        transition: (t) => t.transitions.create('width', { duration: t.transitions.duration.standard }),
+        // Hover-peak quando colapsada (desktop)
+        ...(collapsed && {
+          '&:hover': {
+            width: PANEL,
+          },
+        }),
       }}
     >
       <Box sx={{ px: 1.25, py: 1 }}>{header}</Box>
@@ -33,15 +40,13 @@ export default function SidebarBase({ header, children }: Props) {
 
   if (isMobile) {
     return (
-      <>
-        <Drawer
-          open={mobileOpen}
-          onClose={closeMobile}
-          PaperProps={{ sx: { width: PANEL, borderRight: 1, borderColor: 'divider' } }}
-        >
-          {content}
-        </Drawer>
-      </>
+      <Drawer
+        open={mobileOpen}
+        onClose={closeMobile}
+        PaperProps={{ sx: { width: PANEL, borderRight: 1, borderColor: 'divider' } }}
+      >
+        {content}
+      </Drawer>
     );
   }
 

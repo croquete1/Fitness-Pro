@@ -5,17 +5,20 @@ export async function POST(req: NextRequest) {
   const sb = createServerClient();
 
   const body = await req.json().catch(() => ({}));
-  const { name, muscle_group, description } = body ?? {};
+  const { name, muscle_group, description, equipment, difficulty, video_url } = body ?? {};
 
   if (!name || typeof name !== 'string') {
     return NextResponse.json({ error: 'Nome obrigatório' }, { status: 400 });
   }
 
-  // ⚠️ Sem owner_id: insere apenas colunas conhecidas (ajusta aos teus nomes).
+  // Monta o payload somente com colunas conhecidas da tabela "exercises"
   const payload: Record<string, any> = {
     name: name.trim(),
     muscle_group: muscle_group ?? null,
     description: description ?? null,
+    equipment: equipment ?? null,
+    difficulty: difficulty ?? null,
+    video_url: video_url ?? null,
   };
 
   const { error } = await sb.from('exercises').insert(payload);

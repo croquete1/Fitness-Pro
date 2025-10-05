@@ -1,46 +1,68 @@
 import * as React from 'react';
-import { createServerClient } from '@/lib/supabaseServer';
-import { Grid, Card, CardContent, Typography } from '@mui/material';
+import Link from 'next/link';
 
-const Kpi = ({ title, value, hint }: { title: string; value: string | number; hint?: string }) => (
-  <Card variant="outlined">
-    <CardContent>
-      <Typography variant="subtitle2" color="text.secondary">{title}</Typography>
-      <Typography variant="h5" fontWeight={800} sx={{ mt: .5 }}>{value}</Typography>
-      {hint && <Typography variant="caption" color="text.secondary">{hint}</Typography>}
-    </CardContent>
-  </Card>
-);
+export const dynamic = 'force-dynamic';
 
-export default async function ClientDashboard() {
-  const sb = createServerClient();
-  const { data: { user } } = await sb.auth.getUser();
-
-  let weeks = 0, sessionsDone = 0, upcoming = 0, plans = 0;
-  if (user) {
-    const { count: w } = await sb.from('checkins').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
-    weeks = w ?? 0;
-
-    const { count: s } = await sb.from('sessions').select('*', { count: 'exact', head: true })
-      .eq('client_id', user.id).eq('status', 'DONE');
-    sessionsDone = s ?? 0;
-
-    const now = new Date().toISOString();
-    const { count: u } = await sb.from('sessions').select('*', { count: 'exact', head: true })
-      .eq('client_id', user.id).gt('start_at', now);
-    upcoming = u ?? 0;
-
-    const { count: p } = await sb.from('training_plans').select('*', { count: 'exact', head: true })
-      .eq('client_id', user.id);
-    plans = p ?? 0;
-  }
-
+export default async function ClientDashboardPage() {
   return (
-    <Grid container spacing={2}>
-      <Grid item xs={12} sm={6} lg={3}><Kpi title="Semanas de treino" value={weeks} /></Grid>
-      <Grid item xs={12} sm={6} lg={3}><Kpi title="Sessões concluídas" value={sessionsDone} /></Grid>
-      <Grid item xs={12} sm={6} lg={3}><Kpi title="Próximas sessões" value={upcoming} /></Grid>
-      <Grid item xs={12} sm={6} lg={3}><Kpi title="Planos ativos" value={plans} /></Grid>
-    </Grid>
+    <div style={{ padding: 16 }}>
+      <h1 style={{ marginBottom: 16 }}>Painel do Cliente</h1>
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+          gap: 12,
+        }}
+      >
+        <Link href="/dashboard/sessions" prefetch={false}>
+          <div
+            style={{
+              border: '1px solid #e2e8f0',
+              borderRadius: 12,
+              padding: 16,
+              background: 'var(--card-bg, #fff)',
+            }}
+          >
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>Próximas sessões</div>
+            <div style={{ color: '#6b7280', fontSize: 14 }}>
+              Consulta e gere as tuas marcações.
+            </div>
+          </div>
+        </Link>
+
+        <Link href="/dashboard/my-plan" prefetch={false}>
+          <div
+            style={{
+              border: '1px solid #e2e8f0',
+              borderRadius: 12,
+              padding: 16,
+              background: 'var(--card-bg, #fff)',
+            }}
+          >
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>Os meus planos</div>
+            <div style={{ color: '#6b7280', fontSize: 14 }}>
+              Planos de treino e nutrição atribuídos.
+            </div>
+          </div>
+        </Link>
+
+        <Link href="/dashboard/messages" prefetch={false}>
+          <div
+            style={{
+              border: '1px solid #e2e8f0',
+              borderRadius: 12,
+              padding: 16,
+              background: 'var(--card-bg, #fff)',
+            }}
+          >
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>Mensagens</div>
+            <div style={{ color: '#6b7280', fontSize: 14 }}>
+              Comunica com o teu PT.
+            </div>
+          </div>
+        </Link>
+      </div>
+    </div>
   );
 }

@@ -1,32 +1,50 @@
+import * as React from 'react';
+import { notFound } from 'next/navigation';
+import { Container } from '@mui/material';
 import { createServerClient } from '@/lib/supabaseServer';
-import { Container, Typography, Stack, Chip } from '@mui/material';
+import UserFormClient, { type Role, type Status } from '../UserFormClient';
 
-export default async function AdminUserProfilePage({ params }: { params: { id: string } }) {
+export const dynamic = 'force-dynamic';
+
+function asRole(v: any): Role {
+  const s = String(v ?? '').toLowerCase();
+  if (s === 'admin' || s === 'trainer' || s === 'client') return s as Role;
+  return 'client';
+}
+function asStatus(v: any): Status {
+  const s = String(v ?? '').toLowerCase();
+  if (s === 'active' || s === 'inactive') return s as Status;
+  return 'active';
+}
+
+function mapRow(r: any) {
+  return {
+    id: String(r.id),
+    name: r.name ?? r.full_name ?? '',
+    email: r.email ?? r.mail ?? '',
+    role: asRole(r.role ?? r.user_role),
+    status: asStatus(r.status ?? r.state),
+    approved: Boolean(r.approved ?? r.is_approved ?? true),
+    active: Boolean(r.active ?? r.is_active ?? true),
+  };
+}
+
+export default async function Page({ params }: { params: { id: string } }) {
   const sb = createServerClient();
-  const { data: user } = await sb.from('users')
-    .select('id, name, email, role, approved, active, created_at')
-    .eq('id', params.id)
-    .single();
+
+  // tenta em users; se falhar, tenta em profiles
+  let data: any | null = null;
+  const a = await sb.from('users').select('*').eq('id', params.id).maybeSingle();
+  if (a?.data) data = a.data;
+  else {
+    const b = await sb.from('profiles').select('*').eq('id', params.id).maybeSingle();
+    if (b?.data) data = b.data;
+  }
+  if (!data) return notFound();
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
-      <Typography variant="h5" fontWeight={800} sx={{ mb: 1 }}>
-        Perfil do utilizador
-      </Typography>
-
-      {user ? (
-        <Stack spacing={1}>
-          <Typography variant="h6" fontWeight={700}>{user.name ?? '—'}</Typography>
-          <Typography color="text.secondary">{user.email}</Typography>
-          <Stack direction="row" spacing={1}>
-            <Chip label={String(user.role).toUpperCase()} />
-            <Chip label={user.approved ? 'Aprovado ✅' : 'Por aprovar'} />
-            <Chip label={user.active ? 'Ativo' : 'Inativo'} />
-          </Stack>
-        </Stack>
-      ) : (
-        <Typography color="text.secondary">Utilizador não encontrado.</Typography>
-      )}
+    <Container maxWidth="sm" sx={{ display: 'grid', gap: 2 }}>
+      <UserFormClient mode="edit" initial={mapRow(data)} />
     </Container>
   );
 }

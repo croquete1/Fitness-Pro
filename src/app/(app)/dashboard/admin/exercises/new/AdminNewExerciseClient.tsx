@@ -1,108 +1,133 @@
 'use client';
 
 import * as React from 'react';
+import { Stack, TextField, Button, Alert, Snackbar, Autocomplete } from '@mui/material';
 import { useRouter } from 'next/navigation';
-import type { Route } from 'next';
+import { z } from 'zod';
+import { useToast } from '@/components/ui/ToastProvider';
 
-type FormState = {
-  name: string;
-  muscleGroup: string;
-  equipment: string;
-  difficulty: string;
-  instructions: string;
-  videoUrl: string;
-};
+const schema = z.object({
+  name: z.string().min(1, 'O nome é obrigatório').max(120, 'Máx. 120 caracteres'),
+  muscle_group: z.string().optional().nullable(),
+  equipment: z.string().optional().nullable(),
+  difficulty: z.string().optional().nullable(),
+  description: z.string().optional().nullable(),
+  video_url: z.string().url('URL inválida').optional().nullable().or(z.literal('').transform(() => null)),
+});
+type FormState = z.infer<typeof schema>;
 
 export default function AdminNewExerciseClient() {
   const router = useRouter();
+  const toast = useToast();
   const [saving, setSaving] = React.useState(false);
   const [err, setErr] = React.useState<string | null>(null);
-  const [f, setF] = React.useState<FormState>({
-    name: '',
-    muscleGroup: '',
-    equipment: '',
-    difficulty: '',
-    instructions: '',
-    videoUrl: '',
-  });
+  const [snack, setSnack] = React.useState<{open:boolean; msg:string; sev:'success'|'error'|'info'|'warning'}>({ open: false, msg: '', sev: 'success' });
+
+  const [f, setF] = React.useState<FormState>({ name: '', muscle_group: '', equipment: '', difficulty: '', description: '', video_url: '' });
+
+  const [muscles, setMuscles] = React.useState<string[]>([]);
+  const [difficulties, setDifficulties] = React.useState<string[]>([]);
+  const [equipments, setEquipments] = React.useState<string[]>([]);
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/admin/exercises?facets=1');
+        const data = await res.json();
+        setMuscles((data?.muscles ?? []).filter(Boolean));
+        setDifficulties((data?.difficulties ?? []).filter(Boolean));
+        setEquipments((data?.equipments ?? []).filter(Boolean));
+      } catch {}
+    })();
+  }, []);
+
+  const on = (k: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF((s) => ({ ...s, [k]: e.target.value }));
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
-    if (!f.name.trim()) {
-      setErr('O nome é obrigatório.');
+
+    const parsed = schema.safeParse({
+      ...f,
+      muscle_group: f.muscle_group || null,
+      equipment: f.equipment || null,
+      difficulty: f.difficulty || null,
+      description: f.description || null,
+      video_url: f.video_url || null,
+    });
+
+    if (!parsed.success) {
+      const first = parsed.error.issues[0]?.message ?? 'Dados inválidos';
+      setErr(first);
+      setSnack({ open: true, msg: first, sev: 'error' });
       return;
     }
+
     setSaving(true);
     try {
-      const res = await fetch('/api/exercises', {
+      const res = await fetch('/api/admin/exercises', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(f),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(parsed.data),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
-      router.push(('/dashboard/admin/exercises' as Route));
-      router.refresh();
+
+      setSnack({ open: true, msg: 'Exercício criado', sev: 'success' });
+      toast.success('Exercício criado');
+      setTimeout(() => {
+        router.push('/dashboard/admin/exercises');
+        router.refresh();
+      }, 250);
     } catch (e: any) {
-      setErr(e.message || 'Falha ao criar exercício.');
+      const msg = e.message || 'Falha ao criar exercício.';
+      setErr(msg);
+      setSnack({ open: true, msg, sev: 'error' });
     } finally {
       setSaving(false);
     }
   }
 
-  const on = (k: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-    setF((s) => ({ ...s, [k]: e.target.value }));
-
   return (
-    <div className="card" style={{ padding: 12, display: 'grid', gap: 12 }}>
-      <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>Novo exercício</h1>
-      {err && (
-        <div className="badge-danger" role="alert" aria-live="polite">
-          {err}
-        </div>
-      )}
-      <form onSubmit={onSubmit} style={{ display: 'grid', gap: 10 }}>
-        <label className="auth-label">
-          Nome *
-          <input className="auth-input" value={f.name} onChange={on('name')} required />
-        </label>
+    <form onSubmit={onSubmit}>
+      <Stack spacing={2}>
+        {err && <Alert severity="error">{err}</Alert>}
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          <label className="auth-label">
-            Grupo muscular
-            <input className="auth-input" value={f.muscleGroup} onChange={on('muscleGroup')} />
-          </label>
-          <label className="auth-label">
-            Equipamento
-            <input className="auth-input" value={f.equipment} onChange={on('equipment')} />
-          </label>
-        </div>
+        <TextField label="Nome *" value={f.name ?? ''} onChange={on('name')} required />
 
-        <label className="auth-label">
-          Dificuldade
-          <input className="auth-input" value={f.difficulty} onChange={on('difficulty')} />
-        </label>
+        <Autocomplete
+          freeSolo options={muscles} value={(f.muscle_group as string) ?? ''}
+          onChange={(_e, val) => setF((s) => ({ ...s, muscle_group: (val as string) ?? '' }))}
+          onInputChange={(_e, val) => setF((s) => ({ ...s, muscle_group: val as string }))}
+          renderInput={(params) => <TextField {...params} label="Grupo muscular" />}
+        />
 
-        <label className="auth-label">
-          Instruções
-          <textarea className="auth-input" rows={5} value={f.instructions} onChange={on('instructions')} />
-        </label>
+        <Autocomplete
+          freeSolo options={equipments} value={(f.equipment as string) ?? ''}
+          onChange={(_e, val) => setF((s) => ({ ...s, equipment: (val as string) ?? '' }))}
+          onInputChange={(_e, val) => setF((s) => ({ ...s, equipment: val as string }))}
+          renderInput={(params) => <TextField {...params} label="Equipamento" />}
+        />
 
-        <label className="auth-label">
-          Vídeo (URL)
-          <input className="auth-input" value={f.videoUrl} onChange={on('videoUrl')} />
-        </label>
+        <Autocomplete
+          freeSolo options={difficulties} value={(f.difficulty as string) ?? ''}
+          onChange={(_e, val) => setF((s) => ({ ...s, difficulty: (val as string) ?? '' }))}
+          onInputChange={(_e, val) => setF((s) => ({ ...s, difficulty: val as string }))}
+          renderInput={(params) => <TextField {...params} label="Dificuldade" />}
+        />
 
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button type="button" className="btn" onClick={() => history.back()} disabled={saving}>
-            Cancelar
-          </button>
-          <button type="submit" className="btn primary" disabled={saving}>
-            {saving ? 'A criar…' : 'Criar exercício'}
-          </button>
-        </div>
-      </form>
-    </div>
+        <TextField label="Vídeo URL" value={f.video_url ?? ''} onChange={on('video_url')} />
+        <TextField label="Instruções" value={f.description ?? ''} onChange={on('description')} multiline rows={5} />
+
+        <Stack direction="row" spacing={1} justifyContent="flex-end">
+          <Button variant="outlined" onClick={() => history.back()} disabled={saving}>Cancelar</Button>
+          <Button variant="contained" type="submit" disabled={saving}>{saving ? 'A criar…' : 'Criar exercício'}</Button>
+        </Stack>
+      </Stack>
+
+      <Snackbar open={snack.open} autoHideDuration={3000} onClose={() => setSnack((s) => ({ ...s, open: false }))}>
+        <Alert severity={snack.sev} variant="filled" onClose={() => setSnack((s) => ({ ...s, open: false }))}>{snack.msg}</Alert>
+      </Snackbar>
+    </form>
   );
 }
