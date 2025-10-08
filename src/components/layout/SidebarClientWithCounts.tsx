@@ -1,20 +1,21 @@
 'use client';
-
 import * as React from 'react';
 import SidebarClient from './SidebarClient';
-import { useHybridClientCounts } from '@/lib/hooks/useCounts';
+import { useClientCounts } from '@/lib/hooks/useCounts';
+import { Skeleton } from '@mui/material';
 
 export default function SidebarClientWithCounts() {
-  // valores iniciais seguros; se quiseres, podes recebê-los por props via SSR
-  const { messagesCount, notificationsCount } = useHybridClientCounts({
-    messagesCount: 0,
-    notificationsCount: 0,
-  });
+  const { messagesCount, notificationsCount, loading } = useClientCounts();
 
-  return (
-    <SidebarClient
-      messagesCount={messagesCount}
-      notificationsCount={notificationsCount}
-    />
-  );
+  if (loading) {
+    return (
+      <div style={{ padding: 12 }}>
+        <Skeleton variant="rounded" height={36} sx={{ mb: 1 }} />
+        <Skeleton variant="rounded" height={36} sx={{ mb: 1 }} />
+        <Skeleton variant="rounded" height={36} />
+      </div>
+    );
+  }
+
+  return <SidebarClient messagesCount={messagesCount} notificationsCount={notificationsCount} />;
 }

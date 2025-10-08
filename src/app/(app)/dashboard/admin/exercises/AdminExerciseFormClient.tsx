@@ -6,7 +6,7 @@ import {
 } from '@mui/material';
 import { z } from 'zod';
 
-// ===== Tipos públicos (export) =====
+/** ===== Tipos públicos (export) ===== */
 export type Difficulty = 'Fácil' | 'Média' | 'Difícil';
 
 export type ExerciseFormValues = {
@@ -19,10 +19,11 @@ export type ExerciseFormValues = {
   video_url?: string;
 };
 
-// ===== Schema Zod (compatível com versões sem `required_error`) =====
+/** ===== Constantes ===== */
 const diffLiterals: readonly Difficulty[] = ['Fácil', 'Média', 'Difícil'] as const;
 
-const ExerciseSchema = z.object({
+/** ===== Schema Zod (compatível com versões sem `required_error`) ===== */
+export const ExerciseSchema = z.object({
   id: z.string().optional(),
   // Em vez de `required_error`, usamos min(1) + min(2)
   name: z.string().min(1, 'Nome é obrigatório').min(2, 'Nome muito curto'),
@@ -42,7 +43,7 @@ const ExerciseSchema = z.object({
     .refine((v) => !v || /^https?:\/\//i.test(v), { message: 'URL deve começar por http(s)://' }),
 });
 
-// ===== Utils =====
+/** ===== Utils ===== */
 function normalizeDifficulty(v?: string | null): Difficulty | undefined {
   if (!v) return undefined;
   const s = v.toString().normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
@@ -52,7 +53,7 @@ function normalizeDifficulty(v?: string | null): Difficulty | undefined {
   return undefined;
 }
 
-// ===== Componente =====
+/** ===== Componente ===== */
 export default function AdminExerciseFormClient({
   mode,
   initial,

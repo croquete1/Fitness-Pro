@@ -1,18 +1,96 @@
 'use client';
 
-import React from 'react';
+import * as React from 'react';
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v14-appRouter';
-import { CssBaseline, ThemeProvider } from '@mui/material';
-import theme from '@/theme';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { CssBaseline } from '@mui/material';
 import { ToastProvider } from '@/components/ui/ToastProvider';
 
+/**
+ * Modo de cor (light/dark) – compatível com MUI 5.x.
+ * Sem CssVarsProvider / experimental_extendTheme.
+ */
+export type Mode = 'light' | 'dark';
+
+const ColorModeContext = React.createContext<{ mode: Mode; setMode: (m: Mode) => void }>({
+  mode: 'light',
+  setMode: () => {},
+});
+
+/** ✅ Hook exportado (named export) — usa-o no ThemeToggleButton */
+export function useColorMode() {
+  return React.useContext(ColorModeContext);
+}
+
+function getSystemMode(): Mode {
+  if (typeof window === 'undefined') return 'light';
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+function readStoredMode(): Mode | null {
+  if (typeof window === 'undefined') return null;
+  const v = window.localStorage.getItem('color-mode');
+  return v === 'dark' || v === 'light' ? (v as Mode) : null;
+}
+function storeMode(m: Mode) {
+  try { window.localStorage.setItem('color-mode', m); } catch {}
+}
+
 export default function AppProviders({ children }: { children: React.ReactNode }) {
+  const [mode, setMode] = React.useState<Mode>(() => readStoredMode() ?? getSystemMode());
+
+  // Atualiza com mudanças do sistema se o utilizador não fixou manualmente
+  React.useEffect(() => {
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = () => {
+      const stored = readStoredMode();
+      if (!stored) setMode(media.matches ? 'dark' : 'light');
+    };
+    media.addEventListener?.('change', handler);
+    return () => media.removeEventListener?.('change', handler);
+  }, []);
+
+  const theme = React.useMemo(
+    () =>
+      createTheme({
+        palette: {
+          mode,
+          primary: { main: mode === 'dark' ? '#60a5fa' : '#2563eb' },
+          secondary: { main: mode === 'dark' ? '#a78bfa' : '#7c3aed' },
+          background: {
+            default: mode === 'dark' ? '#0b0f19' : '#fafafa',
+            paper: mode === 'dark' ? '#0f1524' : '#ffffff',
+          },
+        },
+        shape: { borderRadius: 12 },
+        typography: {
+          fontFamily:
+            'Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Helvetica Neue, Arial, Noto Sans, "Apple Color Emoji","Segoe UI Emoji"',
+          button: { textTransform: 'none', fontWeight: 600 },
+        },
+        components: {
+          MuiPaper: { styleOverrides: { root: { borderRadius: 16 } } },
+          MuiButton: { defaultProps: { disableElevation: true }, styleOverrides: { root: { fontWeight: 600 } } },
+        },
+      }),
+    [mode],
+  );
+
+  const ctx = React.useMemo(
+    () => ({
+      mode,
+      setMode: (m: Mode) => { storeMode(m); setMode(m); },
+    }),
+    [mode],
+  );
+
   return (
-    <AppRouterCacheProvider options={{ key: 'mui' }}>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <ToastProvider>{children}</ToastProvider>
-      </ThemeProvider>
+    <AppRouterCacheProvider>
+      <ColorModeContext.Provider value={ctx}>
+        <ThemeProvider theme={theme}>
+          <CssBaseline />
+          <ToastProvider>{children}</ToastProvider>
+        </ThemeProvider>
+      </ColorModeContext.Provider>
     </AppRouterCacheProvider>
   );
 }

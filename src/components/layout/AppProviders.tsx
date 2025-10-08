@@ -1,55 +1,103 @@
 'use client';
 
 import * as React from 'react';
-import { createTheme, ThemeProvider, CssBaseline } from '@mui/material';
+import { AppRouterCacheProvider } from '@mui/material-nextjs/v14-appRouter';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { CssBaseline } from '@mui/material';
+import { ToastProvider } from '@/components/ui/ToastProvider';
 
-type Mode = 'light' | 'dark';
-export const ColorModeCtx = React.createContext<{mode: Mode; toggle: () => void}>({
+/**
+ * Color mode (light/dark) – compatível com MUI 5.x (sem CssVarsProvider/experimental_extendTheme).
+ * Guarda preferência em localStorage e respeita o esquema do sistema.
+ */
+export type Mode = 'light' | 'dark';
+
+const ColorModeContext = React.createContext<{ mode: Mode; setMode: (m: Mode) => void }>({
   mode: 'light',
-  toggle: () => {},
+  setMode: () => {},
 });
 
-function getInitialMode(): Mode {
+/** ✅ Named export usado pelo ThemeToggleButton */
+export function useColorMode() {
+  return React.useContext(ColorModeContext);
+}
+
+function getSystemMode(): Mode {
   if (typeof window === 'undefined') return 'light';
-  const stored = window.localStorage.getItem('fp:mode') as Mode | null;
-  if (stored) return stored;
-  const sys = window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  return sys;
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function readStoredMode(): Mode | null {
+  if (typeof window === 'undefined') return null;
+  const v = window.localStorage.getItem('color-mode');
+  return v === 'dark' || v === 'light' ? (v as Mode) : null;
+}
+
+function storeMode(m: Mode) {
+  try {
+    window.localStorage.setItem('color-mode', m);
+  } catch {}
 }
 
 export default function AppProviders({ children }: { children: React.ReactNode }) {
-  const [mode, setMode] = React.useState<Mode>(getInitialMode);
+  const [mode, setMode] = React.useState<Mode>(() => readStoredMode() ?? getSystemMode());
 
+  // Respeita alterações do sistema se o utilizador não tiver guardado preferência
   React.useEffect(() => {
-    document.documentElement.setAttribute('data-theme', mode);
-    window.localStorage.setItem('fp:mode', mode);
-  }, [mode]);
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = () => {
+      const stored = readStoredMode();
+      if (!stored) setMode(media.matches ? 'dark' : 'light');
+    };
+    media.addEventListener?.('change', handler);
+    return () => media.removeEventListener?.('change', handler);
+  }, []);
 
   const theme = React.useMemo(
     () =>
       createTheme({
         palette: {
           mode,
+          primary: { main: mode === 'dark' ? '#60a5fa' : '#2563eb' },
+          secondary: { main: mode === 'dark' ? '#a78bfa' : '#7c3aed' },
           background: {
-            default: mode === 'dark' ? '#0b0b10' : '#f6f8fb',
-            paper: mode === 'dark' ? '#111317' : '#ffffff',
+            default: mode === 'dark' ? '#0b0f19' : '#fafafa',
+            paper: mode === 'dark' ? '#0f1524' : '#ffffff',
           },
         },
         shape: { borderRadius: 12 },
+        typography: {
+          fontFamily:
+            'Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Helvetica Neue, Arial, Noto Sans, "Apple Color Emoji","Segoe UI Emoji"',
+          button: { textTransform: 'none', fontWeight: 600 },
+        },
         components: {
-          MuiPaper: { styleOverrides: { root: { border: '1px solid', borderColor: 'divider' } } },
-          MuiAppBar: { styleOverrides: { root: { backdropFilter: 'saturate(140%) blur(6px)' } } },
+          MuiPaper: { styleOverrides: { root: { borderRadius: 16 } } },
+          MuiButton: { defaultProps: { disableElevation: true }, styleOverrides: { root: { fontWeight: 600 } } },
         },
       }),
     [mode],
   );
 
+  const ctx = React.useMemo(
+    () => ({
+      mode,
+      setMode: (m: Mode) => {
+        storeMode(m);
+        setMode(m);
+      },
+    }),
+    [mode],
+  );
+
   return (
-    <ColorModeCtx.Provider value={{ mode, toggle: () => setMode(m => (m === 'light' ? 'dark' : 'light')) }}>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        {children}
-      </ThemeProvider>
-    </ColorModeCtx.Provider>
+    <AppRouterCacheProvider>
+      <ColorModeContext.Provider value={ctx}>
+        <ThemeProvider theme={theme}>
+          <CssBaseline />
+          <ToastProvider>{children}</ToastProvider>
+        </ThemeProvider>
+      </ColorModeContext.Provider>
+    </AppRouterCacheProvider>
   );
 }

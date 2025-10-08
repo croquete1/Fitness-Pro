@@ -2,401 +2,240 @@
 
 import * as React from 'react';
 import {
-  Box, Button, Chip, Container, Dialog, DialogActions, DialogContent, DialogTitle,
-  MenuItem, Select, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography
+  Box, Stack, TextField, MenuItem, Button, IconButton, Tooltip, Paper, Divider,
+  CircularProgress, Snackbar, Alert,
 } from '@mui/material';
-import { toast } from '@/components/ui/Toaster';
+import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
+import DeleteOutline from '@mui/icons-material/DeleteOutline';
+import FileDownloadOutlined from '@mui/icons-material/FileDownloadOutlined';
+import PrintOutlined from '@mui/icons-material/PrintOutlined';
+import { DataGrid, GridColDef, GridToolbar } from '@mui/x-data-grid';
+import OpenInNewToggle from '@/components/ui/OpenInNewToggle';
+import { navigate } from '@/lib/nav';
 
-type Role = 'ADMIN' | 'TRAINER' | 'CLIENT' | string;
-type Status = 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'REJECTED' | string;
-
-type PendingRow = {
+type Row = {
   id: string;
-  name: string;
-  email?: string;
-  requestedRole?: Role;
-  status?: Status;          // normalmente "PENDING"
-  createdAt?: string;
-  meta?: any;
+  user_id: string;
+  name?: string | null;
+  email?: string | null;
+  requested_at?: string | null;
+  status?: 'pending' | 'approved' | 'rejected' | string | null;
 };
 
-type PageResult = { items: any[]; total?: number };
-
-/* =========================
-   Utils – fetchers tolerantes
-   ========================= */
-
-async function fetchFirstOkPaged(page: number, limit: number): Promise<PageResult> {
-  const urls = [
-    `/api/admin/approvals?page=${page}&limit=${limit}`,
-    `/api/admin/users?status=PENDING&page=${page}&limit=${limit}`,
-    `/api/admin/pending-users?page=${page}&limit=${limit}`,
-  ];
-  for (const u of urls) {
-    try {
-      const r = await fetch(u, { credentials: 'include', cache: 'no-store' });
-      if (r.ok) {
-        const total = Number(r.headers.get('x-total-count') ?? '') || undefined;
-        const j = await r.json();
-        if (Array.isArray(j)) return { items: j, total };
-        if (Array.isArray(j?.data)) return { items: j.data, total: j.total ?? total };
-        if (Array.isArray(j?.users)) return { items: j.users, total: j.total ?? total };
-        if (Array.isArray(j?.pending)) return { items: j.pending, total: j.total ?? total };
-      }
-    } catch {}
-  }
-  for (const u of ['/api/admin/approvals', '/api/admin/users?status=PENDING', '/api/admin/pending-users']) {
-    try {
-      const r = await fetch(u, { credentials: 'include', cache: 'no-store' });
-      if (r.ok) {
-        const j = await r.json();
-        const arr =
-          Array.isArray(j) ? j :
-          Array.isArray(j?.data) ? j.data :
-          Array.isArray(j?.users) ? j.users :
-          Array.isArray(j?.pending) ? j.pending : [];
-        const start = (page - 1) * limit;
-        return { items: arr.slice(start, start + limit), total: arr.length };
-      }
-    } catch {}
-  }
-  return { items: [], total: 0 };
-}
-
-function coerce(items: any[]): PendingRow[] {
-  return items.map((x: any, i: number) => ({
-    id: String(x.id ?? x.userId ?? x._id ?? i),
-    name: String(x.name ?? x.fullName ?? x.username ?? '—'),
-    email: x.email ?? x.mail ?? undefined,
-    requestedRole: (x.requestedRole ?? x.role ?? x.type ?? 'CLIENT') as Role,
-    status: (x.status ?? x.state ?? 'PENDING') as Status,
-    createdAt: x.createdAt ?? x.created_at ?? x.when ?? undefined,
-    meta: x,
-  }));
-}
-
-async function postApprove(id: string, role: Role) {
-  const bodies = [
-    { url: `/api/admin/approvals/${id}/approve`, method: 'POST', body: { role } },
-    { url: `/api/admin/users/${id}/status`, method: 'POST', body: { status: 'ACTIVE', role } },
-    { url: `/api/admin/users/${id}`, method: 'PATCH', body: { status: 'ACTIVE', role } },
-  ];
-  for (const b of bodies) {
-    try {
-      const r = await fetch(b.url, {
-        method: b.method,
-        headers: { 'content-type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(b.body),
-      });
-      if (r.ok) return await r.json().catch(() => ({}));
-    } catch {}
-  }
-  throw new Error('Falha ao aprovar utilizador.');
-}
-
-async function postReject(id: string, reason?: string) {
-  const bodies = [
-    { url: `/api/admin/approvals/${id}/reject`, method: 'POST', body: { reason } },
-    { url: `/api/admin/users/${id}/status`, method: 'POST', body: { status: 'SUSPENDED', reason } },
-    { url: `/api/admin/users/${id}`, method: 'PATCH', body: { status: 'SUSPENDED', reason } },
-  ];
-  for (const b of bodies) {
-    try {
-      const r = await fetch(b.url, {
-        method: b.method,
-        headers: { 'content-type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(b.body),
-      });
-      if (r.ok) return await r.json().catch(() => ({}));
-    } catch {}
-  }
-  throw new Error('Falha ao rejeitar pedido.');
-}
-
-/* =========================
-   Componente (MUI)
-   ========================= */
-
-export default function ApprovalsClient() {
-  const [items, setItems] = React.useState<PendingRow[]>([]);
-  const [loading, setLoading] = React.useState(true);
+export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }) {
   const [q, setQ] = React.useState('');
-  const [role, setRole] = React.useState<Role | 'ALL'>('ALL');
-  const [page, setPage] = React.useState(1);
-  const [limit, setLimit] = React.useState(20);
-  const [total, setTotal] = React.useState(0);
+  const [status, setStatus] = React.useState('');
+  const [rows, setRows] = React.useState<Row[]>([]);
+  const [count, setCount] = React.useState(0);
+  const [loading, setLoading] = React.useState(false);
+  const [paginationModel, setPaginationModel] = React.useState({ page: 0, pageSize });
 
-  const [viewU, setViewU] = React.useState<PendingRow | null>(null);
-  const [editU, setEditU] = React.useState<PendingRow | null>(null);
-  const [approveRole, setApproveRole] = React.useState<Role>('CLIENT');
-  const [busy, setBusy] = React.useState(false);
-  const [rejectReason, setRejectReason] = React.useState('');
+  const [openInNew, setOpenInNew] = React.useState(false);
 
-  // carregar página
-  React.useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      const res = await fetchFirstOkPaged(page, limit);
-      if (!cancelled) {
-        setItems(coerce(res.items));
-        setTotal(res.total ?? res.items.length);
-        setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [page, limit]);
+  const [snack, setSnack] = React.useState<{open:boolean; msg:string; sev:'success'|'error'|'info'|'warning'}>({ open:false, msg:'', sev:'success' });
+  const closeSnack = () => setSnack(s => ({ ...s, open:false }));
+  const [undo, setUndo] = React.useState<{ open:boolean; row?: Row }>({ open:false });
+  const closeUndo = () => setUndo({ open:false });
 
-  // SSE (tempo-real)
-  const esRef = React.useRef<EventSource | null>(null);
-  React.useEffect(() => {
-    const candidates = ['/api/admin/approvals/stream', '/api/events?topic=approvals'];
-    let opened = false;
-    for (const url of candidates) {
-      try {
-        const es = new EventSource(url, { withCredentials: true });
-        es.onmessage = (ev) => {
-          opened = true;
-          try {
-            const data = JSON.parse(ev.data);
-            const arr = Array.isArray(data) ? data : [data];
-            setItems((current) => {
-              const map = new Map(current.map(x => [x.id, x]));
-              for (const raw of arr) {
-                const p = coerce([raw])[0];
-                if (p.status && String(p.status).toUpperCase() !== 'PENDING') {
-                  map.delete(p.id);
-                } else {
-                  map.set(p.id, { ...(map.get(p.id) ?? p), ...p });
-                }
-              }
-              return Array.from(map.values());
-            });
-          } catch {}
-        };
-        es.onerror = () => {};
-        esRef.current = es;
-        break;
-      } catch {}
-    }
-    const poll = setInterval(async () => {
-      if (opened) return;
-      try {
-        const res = await fetchFirstOkPaged(page, limit);
-        setItems(coerce(res.items));
-        setTotal(res.total ?? res.items.length);
-      } catch {}
-    }, 10000);
-    return () => {
-      if (esRef.current) { esRef.current.close(); esRef.current = null; }
-      clearInterval(poll);
-    };
-  }, [page, limit]);
+  async function fetchRows() {
+    setLoading(true);
+    const u = new URL('/api/admin/approvals', window.location.origin);
+    u.searchParams.set('page', String(paginationModel.page));
+    u.searchParams.set('pageSize', String(paginationModel.pageSize));
+    if (q) u.searchParams.set('q', q);
+    if (status) u.searchParams.set('status', status);
 
-  const view = React.useMemo(() => {
-    const t = q.trim().toLowerCase();
-    return items.filter(u => {
-      const okRole = role === 'ALL' ? true : (u.requestedRole ?? '').toUpperCase().includes(String(role));
-      const okQ = !t
-        ? true
-        : (u.name?.toLowerCase().includes(t) ||
-           (u.email ?? '').toLowerCase().includes(t) ||
-           (u.requestedRole ?? '').toLowerCase().includes(t));
-      return okRole && okQ;
-    });
-  }, [items, q, role]);
-
-  const effectiveTotal = total || view.length || 0;
-  const pageCount = Math.max(1, Math.ceil(effectiveTotal / limit));
-
-  async function handleApprove(u: PendingRow, r: Role) {
-    setBusy(true);
     try {
-      await postApprove(u.id, r);
-      setItems(list => list.filter(x => x.id !== u.id));
-      setEditU(null);
-      toast('Utilizador aprovado ✅', 2500, 'success');
-    } catch (e) {
-      toast((e as Error).message || 'Falha ao aprovar', 3000, 'error');
+      const r = await fetch(u.toString(), { cache: 'no-store' });
+      const j = await r.json();
+      setRows((j.rows ?? []).map((r:any) => ({
+        id: String(r.id),
+        user_id: String(r.user_id ?? r.uid ?? r.user ?? ''),
+        name: r.name ?? null,
+        email: r.email ?? null,
+        requested_at: r.requested_at ?? r.created_at ?? null,
+        status: r.status ?? 'pending',
+      })));
+      setCount(j.count ?? 0);
+    } catch {
+      setRows([]); setCount(0);
+      setSnack({ open:true, msg:'Falha ao carregar aprovações', sev:'error' });
     } finally {
-      setBusy(false);
+      setLoading(false);
     }
   }
 
-  async function handleReject(u: PendingRow, reason?: string) {
-    setBusy(true);
-    try {
-      await postReject(u.id, reason);
-      setItems(list => list.filter(x => x.id !== u.id));
-      setEditU(null);
-      toast('Pedido rejeitado 🗑️', 2500, 'success');
-    } catch (e) {
-      toast((e as Error).message || 'Falha ao rejeitar', 3000, 'error');
-    } finally {
-      setBusy(false);
+  React.useEffect(() => { void fetchRows(); // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, status, paginationModel.page, paginationModel.pageSize]);
+
+  const columns = React.useMemo<GridColDef<Row>[]>(() => [
+    { field: 'name', headerName: 'Nome', flex: 1, minWidth: 180, valueFormatter: (p:any) => String(p?.value ?? '') },
+    { field: 'email', headerName: 'Email', flex: 1.2, minWidth: 220, valueFormatter: (p:any) => String(p?.value ?? '') },
+    { field: 'status', headerName: 'Estado', width: 130, valueFormatter: (p:any) => String(p?.value ?? '') },
+    { field: 'requested_at', headerName: 'Pedido em', minWidth: 180, valueFormatter: (p:any) => (p?.value ? new Date(String(p.value)).toLocaleString() : '') },
+    {
+      field: 'actions', headerName: 'Ações', width: 200, sortable:false, filterable:false,
+      renderCell: (p) => (
+        <Stack direction="row" spacing={0.5}>
+          {/* Opcional: Ver utilizador */}
+          <Tooltip title="Ver utilizador">
+            <IconButton size="small" onClick={() => navigate(`/dashboard/admin/users/${p.row.user_id}`, openInNew)}>
+              {/* reutiliza CheckCircleOutline se não tiveres um ícone 'ver', ou troca por VisibilityOutlined */}
+              <CheckCircleOutline fontSize="small" />
+            </IconButton>
+          </Tooltip>
+
+          <Tooltip title="Aprovar">
+            <IconButton
+              size="small"
+              color="success"
+              onClick={async () => {
+                try {
+                  const res = await fetch(`/api/admin/approvals/${p.row.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: 'approved' }),
+                  });
+                  if (!res.ok) throw new Error(await res.text());
+                  setSnack({ open:true, msg:'Aprovação concluída ✅', sev:'success' });
+                  void fetchRows();
+                } catch (e:any) {
+                  setSnack({ open:true, msg: e?.message || 'Falha ao aprovar', sev:'error' });
+                }
+              }}
+            >
+              <CheckCircleOutline fontSize="small" />
+            </IconButton>
+          </Tooltip>
+
+          <Tooltip title="Remover">
+            <IconButton
+              size="small"
+              color="error"
+              onClick={async () => {
+                const removed = p.row as Row;
+                if (!confirm(`Remover pedido de ${removed.email || removed.name || removed.id}?`)) return;
+
+                setRows(prev => prev.filter(r => r.id !== removed.id));
+                setUndo({ open:true, row: removed });
+
+                try {
+                  const res = await fetch(`/api/admin/approvals/${removed.id}`, { method: 'DELETE' });
+                  if (!res.ok) throw new Error(await res.text());
+                } catch (e:any) {
+                  setRows(prev => [removed, ...prev]);
+                  setUndo({ open:false });
+                  setSnack({ open:true, msg: e?.message || 'Falha ao remover', sev:'error' });
+                }
+              }}
+            >
+              <DeleteOutline fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Stack>
+      )
     }
+  ], [openInNew]);
+
+  function exportCSV() {
+    const header = ['id','user_id','name','email','status','requested_at'];
+    const lines = [
+      header.join(','),
+      ...rows.map(r => [
+        r.id, r.user_id, r.name ?? '', r.email ?? '', r.status ?? '', r.requested_at ?? '',
+      ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')),
+    ].join('\n');
+
+    const blob = new Blob([lines], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `approvals${status?`-${status}`:''}${q?`-q-${q}`:''}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function printList() {
+    const w = window.open('', '_blank', 'noopener,noreferrer,width=1000,height=700'); if (!w) return;
+    const rowsHtml = rows.map(r => {
+      const cells = [
+        r.name ?? '', r.email ?? '', r.status ?? '', r.requested_at ? new Date(String(r.requested_at)).toLocaleString() : ''
+      ].map(c => `<td>${String(c)}</td>`).join('');
+      return `<tr>${cells}</tr>`;
+    }).join('');
+    const html =
+      '<html><head><meta charset="utf-8" /><title>Aprovações</title>' +
+      '<style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto; padding:16px;}h1{font-size:18px;margin:0 0 12px;}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #e5e7eb;padding:6px 8px;text-align:left;font-size:12px;}th{background:#f8fafc;}</style>' +
+      '</head><body><h1>Aprovações</h1><table><thead><tr><th>Nome</th><th>Email</th><th>Estado</th><th>Pedido em</th></tr></thead><tbody>' +
+      rowsHtml +
+      '</tbody></table><script>window.onload=function(){window.print();}</script></body></html>';
+    w.document.open(); w.document.write(html); w.document.close();
+  }
+
+  async function undoDelete() {
+    const r = undo.row; if (!r) { closeUndo(); return; }
+    try {
+      const res = await fetch('/api/admin/approvals', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: r.user_id, name: r.name, email: r.email, status: r.status ?? 'pending' }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setSnack({ open:true, msg:'Pedido restaurado', sev:'success' });
+      void fetchRows();
+    } catch (e:any) {
+      setSnack({ open:true, msg: e?.message || 'Falha ao restaurar', sev:'error' });
+    } finally { closeUndo(); }
   }
 
   return (
-    <Container maxWidth="lg" sx={{ display:'grid', gap: 2 }}>
-      <Typography variant="h5" fontWeight={800}>Aprovações de Conta</Typography>
-
-      {/* Filtros */}
-      <Box sx={{ p: 2, borderRadius: 3, bgcolor:'background.paper', border:'1px solid', borderColor:'divider' }}>
-        <Stack direction="row" gap={2} flexWrap="wrap" alignItems="center">
-          <TextField
-            type="search"
-            label="🔎 Pesquisar"
-            placeholder="nome, email, role…"
-            value={q}
-            onChange={(e) => { setQ(e.target.value); setPage(1); }}
-            sx={{ minWidth: 280 }}
-          />
-          <Select
-            value={role}
-            onChange={(e) => { setRole(e.target.value as any); setPage(1); }}
-            displayEmpty
-            renderValue={(v) => (v === 'ALL' ? 'Todos os roles' : String(v))}
-            sx={{ minWidth: 220 }}
-          >
-            <MenuItem value="ALL">Todos os roles</MenuItem>
-            <MenuItem value="TRAINER">Personal Trainers</MenuItem>
-            <MenuItem value="CLIENT">Clientes</MenuItem>
-            <MenuItem value="ADMIN">Admins</MenuItem>
-          </Select>
-
-          <Stack direction="row" gap={1} sx={{ ml: 'auto' }} alignItems="center">
-            <Typography variant="caption" sx={{ opacity:.75 }}>
-              {view.length} itens nesta página • {effectiveTotal} total
-            </Typography>
-            <Select
-              value={limit}
-              onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
-              size="small"
-            >
-              <MenuItem value={10}>10</MenuItem>
-              <MenuItem value={20}>20</MenuItem>
-              <MenuItem value={50}>50</MenuItem>
-            </Select>
+    <Box sx={{ display: 'grid', gap: 1.5 }}>
+      <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+        <Stack direction={{ xs:'column', sm:'row' }} spacing={1} alignItems="center" justifyContent="space-between">
+          <Stack direction="row" spacing={1} sx={{ flexWrap:'wrap' }}>
+            <TextField label="Pesquisar" value={q} onChange={(e)=>setQ(e.target.value)} sx={{ minWidth: 220 }} />
+            <TextField select label="Estado" value={status} onChange={(e)=>setStatus(e.target.value)} sx={{ minWidth: 160 }}>
+              <MenuItem value="">Todos</MenuItem>
+              <MenuItem value="pending">pending</MenuItem>
+              <MenuItem value="approved">approved</MenuItem>
+              <MenuItem value="rejected">rejected</MenuItem>
+            </TextField>
+          </Stack>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <OpenInNewToggle checked={openInNew} onChange={setOpenInNew} />
+            <Tooltip title="Exportar CSV"><IconButton onClick={exportCSV}><FileDownloadOutlined /></IconButton></Tooltip>
+            <Tooltip title="Imprimir"><IconButton onClick={printList}><PrintOutlined /></IconButton></Tooltip>
           </Stack>
         </Stack>
-      </Box>
+      </Paper>
 
-      {/* Tabela */}
-      <Box sx={{ borderRadius: 3, bgcolor:'background.paper', border:'1px solid', borderColor:'divider', overflow:'hidden' }}>
-        <Table size="small">
-          <TableHead sx={{ bgcolor: 'action.hover' }}>
-            <TableRow>
-              <TableCell>Nome</TableCell>
-              <TableCell>Email</TableCell>
-              <TableCell>Role pedido</TableCell>
-              <TableCell>Criado</TableCell>
-              <TableCell align="right" width={280}>Ações</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading && (
-              <TableRow><TableCell colSpan={5} align="center" sx={{ py: 4 }}>A carregar…</TableCell></TableRow>
-            )}
-            {!loading && view.length === 0 && (
-              <TableRow><TableCell colSpan={5} align="center" sx={{ py: 4, opacity:.7 }}>Sem pedidos pendentes.</TableCell></TableRow>
-            )}
-            {view.map((u) => (
-              <TableRow key={u.id} hover>
-                <TableCell><strong>{u.name}</strong></TableCell>
-                <TableCell>{u.email ?? '—'}</TableCell>
-                <TableCell>
-                  <Chip
-                    label={u.requestedRole ?? 'CLIENT'}
-                    size="small"
-                    color={String(u.requestedRole).toUpperCase() === 'ADMIN' ? 'secondary' :
-                           String(u.requestedRole).toUpperCase() === 'TRAINER' ? 'primary' : 'default'}
-                  />
-                </TableCell>
-                <TableCell>{u.createdAt ? new Date(u.createdAt).toLocaleString() : '—'}</TableCell>
-                <TableCell align="right">
-                  <Stack direction="row" gap={1} justifyContent="flex-end">
-                    <Button size="small" onClick={() => setViewU(u)}>👁️ Ver</Button>
-                    <Button
-                      size="small" variant="contained"
-                      onClick={() => { setEditU(u); setApproveRole((u.requestedRole as Role) ?? 'CLIENT'); setRejectReason(''); }}
-                    >
-                      ✅ Aprovar / ❌ Rejeitar
-                    </Button>
-                  </Stack>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Box>
+      <Divider />
 
-      {/* paginação */}
-      <Stack direction="row" gap={1} alignItems="center" sx={{ ml:'auto' }}>
-        <Button disabled={page<=1} onClick={() => setPage(p => Math.max(1, p-1))}>◀ Anterior</Button>
-        <Typography variant="caption">Página {page} de {pageCount}</Typography>
-        <Button disabled={page>=pageCount} onClick={() => setPage(p => Math.min(pageCount, p+1))}>Seguinte ▶</Button>
-      </Stack>
+      <div style={{ width: '100%' }}>
+        <DataGrid
+          rows={rows}
+          columns={columns as unknown as GridColDef[]}
+          loading={loading}
+          rowCount={count}
+          paginationMode="server"
+          paginationModel={paginationModel}
+          onPaginationModelChange={setPaginationModel}
+          disableRowSelectionOnClick
+          slots={{ toolbar: GridToolbar, loadingOverlay: () => <CircularProgress size={24} /> }}
+          autoHeight
+          density="compact"
+          pageSizeOptions={[10,20,50,100]}
+        />
+      </div>
 
-      {/* Dialog Ver */}
-      <Dialog open={!!viewU} onClose={() => setViewU(null)} fullWidth maxWidth="sm">
-        <DialogTitle>👁️ {viewU?.name ?? 'Pedido'}</DialogTitle>
-        <DialogContent dividers>
-          <Stack gap={1} sx={{ fontSize: 14 }}>
-            <div><b>Nome:</b> {viewU?.name}</div>
-            <div><b>Email:</b> {viewU?.email ?? '—'}</div>
-            <div><b>Role pedido:</b> {viewU?.requestedRole ?? 'CLIENT'}</div>
-            <div><b>Criado:</b> {viewU?.createdAt ? new Date(viewU.createdAt).toLocaleString() : '—'}</div>
-            {viewU?.meta && (
-              <Box component="pre" sx={{ bgcolor:'action.hover', p:1.5, borderRadius:2, overflow:'auto' }}>
-                {JSON.stringify(viewU.meta, null, 2)}
-              </Box>
-            )}
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setViewU(null)}>Fechar</Button>
-        </DialogActions>
-      </Dialog>
+      <Snackbar open={undo.open} autoHideDuration={4000} onClose={closeUndo} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+        <Alert severity="info" variant="filled" onClose={closeUndo} action={<Button color="inherit" size="small" onClick={undoDelete}>Desfazer</Button>} sx={{ width:'100%' }}>
+          Pedido removido
+        </Alert>
+      </Snackbar>
 
-      {/* Dialog Aprovar/Rejeitar */}
-      <Dialog open={!!editU} onClose={() => setEditU(null)} fullWidth maxWidth="sm">
-        <DialogTitle>✅ Aprovar / ❌ Rejeitar — {editU?.name}</DialogTitle>
-        <DialogContent dividers>
-          <Stack gap={2}>
-            <TextField
-              select label="Role a atribuir"
-              value={approveRole}
-              onChange={(e) => setApproveRole(e.target.value as Role)}
-            >
-              <MenuItem value="CLIENT">Cliente</MenuItem>
-              <MenuItem value="TRAINER">Personal Trainer</MenuItem>
-              <MenuItem value="ADMIN">Admin</MenuItem>
-            </TextField>
-            <Typography variant="caption" sx={{ opacity:.8 }}>
-              Ao aprovar, o estado passa para <b>ACTIVE</b> com o papel escolhido.
-            </Typography>
-            <TextField
-              label="Motivo da rejeição (opcional)"
-              placeholder="ex.: dados inválidos"
-              value={rejectReason}
-              onChange={(e)=>setRejectReason(e.target.value)}
-              multiline minRows={2}
-            />
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setEditU(null)}>❌ Cancelar</Button>
-          <Button color="error" disabled={busy || !editU} onClick={() => editU && handleReject(editU, rejectReason)}>
-            {busy ? 'A rejeitar…' : '🗑️ Rejeitar'}
-          </Button>
-          <Button variant="contained" disabled={busy || !editU} onClick={() => editU && handleApprove(editU, approveRole)}>
-            {busy ? 'A aprovar…' : '✅ Aprovar'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Container>
+      <Snackbar open={snack.open} autoHideDuration={3000} onClose={closeSnack}>
+        <Alert severity={snack.sev} variant="filled" onClose={closeSnack} sx={{ width: '100%' }}>
+          {snack.msg}
+        </Alert>
+      </Snackbar>
+    </Box>
   );
 }

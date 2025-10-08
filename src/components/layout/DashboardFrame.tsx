@@ -1,45 +1,36 @@
 'use client';
-
 import * as React from 'react';
-import { Box, Container, Stack } from '@mui/material';
-import AppHeader from './AppHeader';
-import RoleSidebar from './RoleSidebar';
-import { useSidebar } from './SidebarProvider';
+import { Box, Container } from '@mui/material';
+import AppHeader from '@/components/layout/AppHeader';
+import RoleSidebar from '@/components/layout/RoleSidebar';
+import type { AdminCounts, ClientCounts } from '@/lib/hooks/useCounts';
 
 type Props = {
-  role?: string;
+  role?: string | null;
   userLabel?: string | null;
+  initialCounts?: { admin?: AdminCounts; client?: ClientCounts };
   children: React.ReactNode;
 };
 
-const RAIL_WIDTH = 64;   // sidebar colapsada
-const PANEL_WIDTH = 260; // sidebar expandida
-
-export default function DashboardFrame({ role = 'CLIENT', userLabel, children }: Props) {
-  const { collapsed, isMobile, peek } = useSidebar();
-
-  // No mobile a sidebar é Drawer → 1 coluna; no desktop usamos as larguras locais
-  const gridCols = isMobile ? '1fr' : `${collapsed && !peek ? RAIL_WIDTH : PANEL_WIDTH}px 1fr`;
-
+export default function DashboardFrame({ role, userLabel, initialCounts, children }: Props) {
   return (
     <Box sx={{ minHeight: '100dvh', bgcolor: 'background.default', display: 'grid', gridTemplateRows: 'auto 1fr' }}>
-      <AppHeader role={role} userLabel={userLabel ?? undefined} />
+      <AppHeader userLabel={userLabel ?? undefined} />
 
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: gridCols,
-          transition: 'grid-template-columns .26s cubic-bezier(.18,.9,.22,1)',
-          minHeight: 0,
+          gridTemplateColumns: { xs: '1fr', md: '280px 1fr' },
+          gap: 0,
         }}
       >
-        {/* Sidebar fixa (desktop) ou Drawer (mobile) */}
-        <RoleSidebar role={role} userLabel={userLabel ?? undefined} />
+        <Box component="aside" sx={{ display: { xs: 'none', md: 'block' } }}>
+          <RoleSidebar role={role} initialCounts={initialCounts} />
+        </Box>
 
-        {/* Conteúdo */}
-        <Box component="main" sx={{ py: 3, minWidth: 0 }}>
-          <Container maxWidth="xl">
-            <Stack spacing={2}>{children}</Stack>
+        <Box component="main" sx={{ p: 2 }}>
+          <Container maxWidth="lg" disableGutters>
+            {children}
           </Container>
         </Box>
       </Box>

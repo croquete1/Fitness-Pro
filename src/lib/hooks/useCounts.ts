@@ -2,55 +2,42 @@
 
 import useSWR from 'swr';
 
-const fetcher = async (url: string) => {
-  const r = await fetch(url, { cache: 'no-store' });
-  if (!r.ok) throw new Error(await r.text().catch(() => 'Request failed'));
-  return (await r.json()) as { count: number };
+type SWROpts = { revalidateOnFocus?: boolean; dedupingInterval?: number };
+
+export type AdminCounts = {
+  approvalsCount: number;
+  notificationsCount: number;
 };
 
-type SWROpts = {
-  refreshInterval?: number;
+export type ClientCounts = {
+  messagesCount: number;
+  notificationsCount: number;
 };
 
-export function useHybridCount(
-  url: string,
-  initialCount: number,
-  opts?: SWROpts
-) {
-  const { data, isLoading } = useSWR<{ count: number }>(
-    url,
-    fetcher,
-    {
-      fallbackData: { count: initialCount },
-      revalidateOnFocus: true,
-      refreshInterval: opts?.refreshInterval ?? 25_000,
-      keepPreviousData: true,
-    }
-  );
+const fetcher = (url: string) =>
+  fetch(url, { cache: 'no-store' }).then((r) => {
+    if (!r.ok) throw new Error(`Falha em ${url}`);
+    return r.json();
+  });
 
-  return { count: data?.count ?? initialCount, loading: isLoading };
-}
-
-export function useHybridAdminCounts(
-  initial: { approvalsCount: number; notificationsCount: number }
-) {
-  const approvals = useHybridCount('/api/admin/approvals/count', initial.approvalsCount, { refreshInterval: 30_000 });
-  const notifications = useHybridCount('/api/notifications/unread', initial.notificationsCount, { refreshInterval: 20_000 });
+export function useAdminCounts(opts: SWROpts = { revalidateOnFocus: true, dedupingInterval: 5000 }) {
+  const { data, error, isLoading, mutate } = useSWR<AdminCounts>('/api/admin/counts', fetcher, opts);
   return {
-    approvalsCount: approvals.count,
-    notificationsCount: notifications.count,
-    loading: approvals.loading || notifications.loading,
+    approvalsCount: data?.approvalsCount ?? 0,
+    notificationsCount: data?.notificationsCount ?? 0,
+    loading: isLoading,
+    error,
+    refresh: mutate,
   };
 }
 
-export function useHybridClientCounts(
-  initial: { messagesCount: number; notificationsCount: number }
-) {
-  const messages = useHybridCount('/api/messages/unread', initial.messagesCount, { refreshInterval: 20_000 });
-  const notifications = useHybridCount('/api/notifications/unread', initial.notificationsCount, { refreshInterval: 20_000 });
+export function useClientCounts(opts: SWROpts = { revalidateOnFocus: true, dedupingInterval: 5000 }) {
+  const { data, error, isLoading, mutate } = useSWR<ClientCounts>('/api/client/counts', fetcher, opts);
   return {
-    messagesCount: messages.count,
-    notificationsCount: notifications.count,
-    loading: messages.loading || notifications.loading,
+    messagesCount: data?.messagesCount ?? 0,
+    notificationsCount: data?.notificationsCount ?? 0,
+    loading: isLoading,
+    error,
+    refresh: mutate,
   };
 }

@@ -1,54 +1,44 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabaseServer';
+import { z } from 'zod';
+import { serverSB } from '@/lib/supabase/server';
 
-export const dynamic = 'force-dynamic';
+const PatchSchema = z.object({
+  trainer_id: z.string().optional(),
+  client_id: z.string().optional(),
+  start_time: z.string().optional(),
+  end_time: z.string().optional(),
+  status: z.enum(['scheduled','done','cancelled']).optional(),
+  location: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const sb = createServerClient();
+export async function PATCH(_req: Request, ctx: { params: { id: string } }) {
+  try {
+    const sb = serverSB();
+    const body = await _req.json();
+    const patch = PatchSchema.parse(body);
 
-  let r = await sb.from('pt_sessions').select('*').eq('id', params.id).maybeSingle();
-  if (!r.data && !r.error) r = await sb.from('sessions').select('*').eq('id', params.id).maybeSingle();
+    const { error } = await sb.from('pts_sessions')
+      .update(patch)
+      .eq('id', ctx.params.id);
 
-  if (!r.data) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  return NextResponse.json({ row: r.data });
-}
-
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const sb = createServerClient();
-  const body = await req.json().catch(() => ({}));
-
-  const payload = {
-    trainer_id: body.trainer_id,
-    client_id: body.client_id,
-    start_time: body.start_time,
-    end_time: body.end_time,
-    status: body.status ?? 'scheduled',
-    location: body.location ?? null,
-    notes: body.notes ?? null,
-  };
-
-  const tryUpdate = async (table: string) =>
-    sb.from(table).update(payload).eq('id', params.id).select('*').maybeSingle();
-
-  let r = await tryUpdate('pt_sessions');
-  if ((r.error && r.error.code === '42P01') || (!r.data && !r.error)) {
-    r = await tryUpdate('sessions');
+    if (error) throw error;
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    return NextResponse.json({ error: String(e?.message || e) }, { status: 400 });
   }
-
-  if (r.error) return NextResponse.json({ error: r.error.message }, { status: 400 });
-  if (!r.data) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-
-  return NextResponse.json({ ok: true, row: r.data });
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const sb = createServerClient();
+export async function DELETE(_req: Request, ctx: { params: { id: string } }) {
+  try {
+    const sb = serverSB();
+    const { error } = await sb.from('pts_sessions')
+      .delete()
+      .eq('id', ctx.params.id);
 
-  const tryDelete = async (table: string) => sb.from(table).delete().eq('id', params.id);
-
-  let r = await tryDelete('pt_sessions');
-  if (r.error?.code === '42P01' || (!r.data && !r.error)) r = await tryDelete('sessions');
-  if (r.error) return NextResponse.json({ error: r.error.message }, { status: 400 });
-
-  return NextResponse.json({ ok: true });
+    if (error) throw error;
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    return NextResponse.json({ error: String(e?.message || e) }, { status: 400 });
+  }
 }

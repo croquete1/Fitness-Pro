@@ -1,341 +1,400 @@
 'use client';
 
-import React from 'react';
+import * as React from 'react';
 import {
-  Box, Stack, TextField, IconButton, Tooltip,
-  CircularProgress, Snackbar, Alert, InputAdornment, Chip, Switch, Dialog, DialogTitle, DialogContent, DialogActions, Button,
-  Autocomplete,
+  Box, Stack, TextField, MenuItem, Button, IconButton, Tooltip, Paper, Divider,
+  CircularProgress, Snackbar, Alert, Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
-import { DataGrid, GridColDef } from '@mui/x-data-grid';
-import SearchIcon from '@mui/icons-material/Search';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteOutline from '@mui/icons-material/DeleteOutline';
+import EditOutlined from '@mui/icons-material/EditOutlined';
+import ContentCopyOutlined from '@mui/icons-material/ContentCopyOutlined';
+import FileDownloadOutlined from '@mui/icons-material/FileDownloadOutlined';
+import PrintOutlined from '@mui/icons-material/PrintOutlined';
+import { DataGrid, GridColDef, GridToolbar } from '@mui/x-data-grid';
 import { useRouter } from 'next/navigation';
-import { useToast } from '@/components/ui/ToastProvider';
 
-export type Role = string;
-export type Status = string;
+export type Role = 'ADMIN' | 'TRAINER' | 'CLIENT' | string;
+export type Status = 'active' | 'invited' | 'blocked' | string;
 
 export type Row = {
   id: string;
-  name: string | null;
-  email: string | null;
-  role: Role | null;
-  status: Status | null;
-  approved: boolean;
-  active: boolean;
-  created_at: string | null;
+  name?: string | null;
+  email?: string | null;
+  role?: Role;
+  status?: Status;
+  approved?: boolean;
+  active?: boolean;
+  created_at?: string | null;
 };
 
-function roleLabel(v: string | null | undefined) {
-  const s = String(v ?? '').toLowerCase();
-  if (['admin', 'administrator', 'adm'].includes(s)) return 'Admin';
-  if (['trainer', 'pt', 'personal', 'coach'].includes(s)) return 'PT';
-  if (['client', 'aluno', 'utente', 'user'].includes(s)) return 'Cliente';
-  return s || '—';
-}
+const RoleOptions: Role[] = ['ADMIN', 'TRAINER', 'CLIENT'];
+const StatusOptions: Status[] = ['active', 'invited', 'blocked'];
 
-function mapUser(u: any): Row {
-  return {
-    id: String(u.id),
-    name: u.name ?? u.full_name ?? null,
-    email: u.email ?? null,
-    role: (u.role ?? u.type ?? null),
-    status: u.status ?? null,
-    approved: Boolean(u.approved ?? u.is_approved ?? false),
-    active: Boolean(u.active ?? u.is_active ?? false),
-    created_at: u.created_at ?? u.createdAt ?? null,
-  };
-}
-
-export default function UsersGrid({
-  initial, total, pageSize: pageSizeProp,
-}: { initial?: Row[]; total?: number; pageSize?: number; }) {
+export default function UsersClient({
+  pageSize = 20,
+}: {
+  pageSize?: number;
+}) {
   const router = useRouter();
-  const toast = useToast();
-
-  const [rows, setRows] = React.useState<Row[]>(initial ?? []);
-  const [count, setCount] = React.useState<number>(total ?? 0);
-  const [loading, setLoading] = React.useState<boolean>(!initial);
-
-  const [page, setPage] = React.useState(0);
-  const [pageSize, setPageSize] = React.useState(pageSizeProp ?? 20);
 
   const [q, setQ] = React.useState('');
-  const [roleFilter, setRoleFilter] = React.useState('');     // string para autocomplete
-  const [statusFilter, setStatusFilter] = React.useState(''); // string para autocomplete
+  const [role, setRole] = React.useState<Role | ''>('');
+  const [status, setStatus] = React.useState<Status | ''>('');
 
-  const [roleOpts, setRoleOpts] = React.useState<string[]>([]);
-  const [statusOpts, setStatusOpts] = React.useState<string[]>([]);
-  const [optsLoading, setOptsLoading] = React.useState(false);
+  const [rows, setRows] = React.useState<Row[]>([]);
+  const [count, setCount] = React.useState(0);
+  const [loading, setLoading] = React.useState(false);
+  const [paginationModel, setPaginationModel] = React.useState({ page: 0, pageSize });
+  const [openInNew, setOpenInNew] = React.useState(false);
 
-  const [snack, setSnack] = React.useState<{open:boolean; msg:string; sev:'success'|'error'|'info'|'warning'; action?: React.ReactNode}>({
-    open: false, msg: '', sev: 'success', action: undefined,
-  });
-  const closeSnack = () => setSnack((s) => ({ ...s, open: false, action: undefined }));
-  const show = (msg: string, sev: 'success'|'error'|'info'|'warning' = 'success', action?: React.ReactNode) =>
-    setSnack({ open: true, msg, sev, action });
+  const [snack, setSnack] = React.useState<{ open:boolean; msg:string; sev:'success'|'error'|'info'|'warning' }>({ open:false, msg:'', sev:'success' });
+  const closeSnack = () => setSnack(s => ({ ...s, open:false }));
 
-  const [delOpen, setDelOpen] = React.useState(false);
-  const [delTarget, setDelTarget] = React.useState<Row | null>(null);
-  const [lastDeleted, setLastDeleted] = React.useState<{row: Row; soft: boolean} | null>(null);
+  // UNDO
+  const [undo, setUndo] = React.useState<{ open:boolean; row?: Row }>({ open:false });
+  const closeUndo = () => setUndo({ open:false });
 
-  // Carrega opções de role/status distintas da BD
-  React.useEffect(() => {
-    let alive = true;
-    (async () => {
-      setOptsLoading(true);
-      try {
-        const res = await fetch('/api/admin/users/distinct?fields=role,status');
-        const data = await res.json().catch(() => ({}));
-        if (alive && res.ok) {
-          setRoleOpts(Array.isArray(data?.role) ? data.role : []);
-          setStatusOpts(Array.isArray(data?.status) ? data.status : []);
-        }
-      } finally {
-        if (alive) setOptsLoading(false);
-      }
-    })();
-    return () => { alive = false; };
-  }, []);
+  // Dialog “Criar a partir deste”
+  const [openClone, setOpenClone] = React.useState(false);
+  const [cloneInitial, setCloneInitial] = React.useState<Partial<Row> | null>(null);
+  const closeClone = (refresh?: boolean) => {
+    setOpenClone(false);
+    setCloneInitial(null);
+    if (refresh) void fetchRows();
+  };
 
-  const fetchData = React.useCallback(async () => {
+  async function fetchRows(signal?: AbortSignal) {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page: String(page + 1), pageSize: String(pageSize) });
-      if (q) params.set('q', q);
-      if (roleFilter) params.set('role', roleFilter);
-      if (statusFilter) params.set('status', statusFilter);
-      const res = await fetch('/api/admin/users?' + params.toString());
-      const data = await res.json();
-      setRows((data.rows ?? []).map(mapUser));
-      setCount(data.count ?? (data.rows?.length ?? 0));
-    } catch (e: any) {
-      show(e.message || 'Falha ao carregar utilizadores', 'error');
+      const u = new URL('/api/admin/users', window.location.origin);
+      u.searchParams.set('page', String(paginationModel.page));
+      u.searchParams.set('pageSize', String(paginationModel.pageSize));
+      if (q) u.searchParams.set('q', q);
+      if (role) u.searchParams.set('role', String(role));
+      if (status) u.searchParams.set('status', String(status));
+
+      const r = await fetch(u.toString(), { cache: 'no-store', signal });
+      const j = await r.json();
+      const mapped: Row[] = (j.rows ?? []).map((r:any) => ({
+        id: String(r.id),
+        name: r.name ?? null,
+        email: r.email ?? null,
+        role: (r.role ?? r.profile ?? '') as Role,
+        status: (r.status ?? r.state ?? '') as Status,
+        approved: Boolean(r.approved ?? r.is_approved ?? false),
+        active: Boolean(r.active ?? r.is_active ?? r.enabled ?? false),
+        created_at: r.created_at ?? null,
+      }));
+      setRows(mapped);
+      setCount(j.count ?? mapped.length);
+    } catch {
+      setRows([]); setCount(0);
+      setSnack({ open:true, msg:'Falha ao carregar utilizadores', sev:'error' });
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, q, roleFilter, statusFilter]);
-
-  React.useEffect(() => { if (!initial) fetchData(); /* eslint-disable-next-line */ }, []);
-  React.useEffect(() => { fetchData(); }, [fetchData]);
-
-  async function patchUser(id: string, payload: Partial<Pick<Row, 'approved'|'active'|'role'|'status'>>) {
-    const res = await fetch(`/api/admin/users/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data?.error || 'Falha ao atualizar utilizador.');
   }
 
-  async function toggleApproved(id: string, next: boolean) {
-    try {
-      await patchUser(id, { approved: next });
-      setRows((prev) => prev.map((r) => r.id === id ? { ...r, approved: next } : r));
-      show(next ? 'Utilizador aprovado' : 'Utilizador desmarcado como aprovado');
-    } catch (e: any) { show(e.message || 'Erro ao atualizar aprovação', 'error'); }
-  }
-  async function toggleActive(id: string, next: boolean) {
-    try {
-      await patchUser(id, { active: next });
-      setRows((prev) => prev.map((r) => r.id === id ? { ...r, active: next } : r));
-      show(next ? 'Utilizador ativado' : 'Utilizador desativado');
-    } catch (e: any) { show(e.message || 'Erro ao atualizar estado', 'error'); }
-  }
+  React.useEffect(() => {
+    const ctrl = new AbortController();
+    void fetchRows(ctrl.signal);
+    return () => ctrl.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, role, status, paginationModel.page, paginationModel.pageSize]);
 
-  async function doDelete() {
-    if (!delTarget) return;
-    const target = delTarget;
-    setDelOpen(false);
-    try {
-      const res = await fetch(`/api/admin/users/${target.id}`, { method: 'DELETE' });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || 'Falha ao remover utilizador.');
-      const soft = Boolean(data?.soft);
-      setRows((prev) => prev.filter((r) => r.id !== target.id));
-      setLastDeleted({ row: target, soft });
+  const columns = React.useMemo<GridColDef<Row>[]>(() => [
+    { field: 'name', headerName: 'Nome', flex: 1.1, minWidth: 180, valueFormatter: (p:any) => String(p?.value ?? '') },
+    { field: 'email', headerName: 'Email', flex: 1.2, minWidth: 220, valueFormatter: (p:any) => String(p?.value ?? '') },
+    { field: 'role', headerName: 'Perfil', width: 120, valueFormatter: (p:any) => String(p?.value ?? '') },
+    { field: 'status', headerName: 'Estado', width: 120, valueFormatter: (p:any) => String(p?.value ?? '') },
+    { field: 'approved', headerName: 'Aprovado', width: 110, valueFormatter: (p:any) => (p?.value ? 'Sim' : 'Não') },
+    { field: 'active', headerName: 'Ativo', width: 90, valueFormatter: (p:any) => (p?.value ? 'Sim' : 'Não') },
+    { field: 'created_at', headerName: 'Criado em', minWidth: 180, valueFormatter: (p:any) => (p?.value ? new Date(String(p.value)).toLocaleString() : '') },
+    {
+      field: 'actions',
+      headerName: 'Ações',
+      width: 210,
+      sortable: false,
+      filterable: false,
+      renderCell: (p) => (
+        <Stack direction="row" spacing={0.5}>
+          <Tooltip title="Editar">
+            <IconButton size="small" onClick={() => router.push(`/dashboard/admin/users/${p.row.id}`)}>
+              <EditOutlined fontSize="small" />
+            </IconButton>
+          </Tooltip>
 
-      const undo = async () => {
-        try {
-          if (soft) {
-            await patchUser(target.id, { active: true });
-          } else {
-            await fetch('/api/admin/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: target.id, name: target.name, email: target.email, role: target.role, status: target.status, approved: target.approved, active: true }) }).catch(() => {});
-          }
-          setRows((prev) => [target, ...prev]);
-          show('Remoção anulada', 'success');
-          setLastDeleted(null);
-        } catch (e: any) {
-          show(e.message || 'Falha ao anular remoção', 'error');
-        }
-      };
+          {/* ➕ Criar a partir deste (Dialog com sombra) */}
+          <Tooltip title="Criar a partir deste">
+            <IconButton
+              size="small"
+              onClick={() => {
+                setCloneInitial({
+                  name: p.row.name ?? '',
+                  email: (p.row.email ?? '').replace(/(\+clone)?@/, '+clone@'), // evita conflito trivial
+                  role: (p.row.role as Role) ?? 'CLIENT',
+                  status: (p.row.status as Status) ?? 'active',
+                });
+                setOpenClone(true);
+              }}
+            >
+              <ContentCopyOutlined fontSize="small" />
+            </IconButton>
+          </Tooltip>
 
-      show('Utilizador removido', 'success', <Button color="inherit" size="small" onClick={undo}>Anular</Button>);
-    } catch (e: any) {
-      show(e.message || 'Falha ao remover utilizador.', 'error');
-    } finally {
-      setDelTarget(null);
-    }
-  }
+          <Tooltip title="Remover">
+            <IconButton
+              size="small"
+              color="error"
+              onClick={async () => {
+                const removed = p.row as Row;
+                if (!confirm(`Remover utilizador "${removed.email || removed.name || removed.id}"?`)) return;
 
-  const columns: GridColDef[] = React.useMemo(() => [
-    { field: 'name', headerName: 'Nome', flex: 1, minWidth: 160, sortable: true, valueFormatter: (p: any) => String(p?.value ?? '') },
-    { field: 'email', headerName: 'Email', flex: 1.2, minWidth: 200, sortable: true, valueFormatter: (p: any) => String(p?.value ?? '') },
-    { field: 'role', headerName: 'Função', width: 130, sortable: true, valueFormatter: (p: any) => roleLabel(p?.value) },
-    {
-      field: 'approved', headerName: 'Aprovado', width: 120, sortable: false,
-      renderCell: (p) => {
-        const id = String((p as any).row?.id);
-        const val = Boolean((p as any).row?.approved);
-        return <Switch size="small" checked={val} onChange={(e) => toggleApproved(id, e.target.checked)} inputProps={{ 'aria-label': 'Aprovado' }} />;
-      },
-    },
-    {
-      field: 'active', headerName: 'Ativo', width: 100, sortable: false,
-      renderCell: (p) => {
-        const id = String((p as any).row?.id);
-        const val = Boolean((p as any).row?.active);
-        return <Switch size="small" checked={val} onChange={(e) => toggleActive(id, e.target.checked)} inputProps={{ 'aria-label': 'Ativo' }} />;
-      },
-    },
-    {
-      field: 'status', headerName: 'Estado', width: 140, sortable: true,
-      renderCell: (p) => {
-        const s = String((p as any).row?.status ?? '').toLowerCase();
-        if (!s) return <Chip size="small" label="—" />;
-        const sev = s.includes('blocked') || s.includes('ban') ? 'error' : s.includes('pending') ? 'warning' : 'success';
-        return <Chip size="small" color={sev as any} label={s} />;
-      },
-    },
-    {
-      field: 'created_at', headerName: 'Criado em', width: 170,
-      valueFormatter: (p: any) => {
-        const v = p?.value as string | null;
-        if (!v) return '';
-        const d = new Date(v);
-        if (Number.isNaN(d.getTime())) return v;
-        return d.toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' });
-      },
-    },
-    {
-      field: 'actions', headerName: 'Ações', width: 150, sortable: false, filterable: false,
-      renderCell: (p) => {
-        const id = String((p as any).row?.id ?? '');
-        const row = (p as any).row as Row;
-        return (
-          <Stack direction="row" spacing={1}>
-            <Tooltip title="Ver"><IconButton size="small" onClick={() => router.push(`/dashboard/admin/users/${id}`)}><VisibilityIcon fontSize="small" /></IconButton></Tooltip>
-            <Tooltip title="Editar"><IconButton size="small" onClick={() => router.push(`/dashboard/admin/users/${id}?edit=1`)}><EditIcon fontSize="small" /></IconButton></Tooltip>
-            <Tooltip title="Remover">
-              <IconButton size="small" onClick={() => { setDelTarget(row); setDelOpen(true); }}>
-                <DeleteOutlineIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Stack>
-        );
-      },
+                // Optimistic + UNDO
+                setRows(prev => prev.filter(r => r.id !== removed.id));
+                setUndo({ open: true, row: removed });
+
+                try {
+                  const res = await fetch(`/api/admin/users/${removed.id}`, { method: 'DELETE' });
+                  if (!res.ok) throw new Error(await res.text());
+                } catch (e:any) {
+                  // rollback
+                  setRows(prev => [removed, ...prev]);
+                  setUndo({ open:false });
+                  setSnack({ open:true, msg: e?.message || 'Falha ao remover', sev:'error' });
+                }
+              }}
+            >
+              <DeleteOutline fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Stack>
+      ),
     },
   ], [router]);
 
+  function exportCSV() {
+    const header = ['id','name','email','role','status','approved','active','created_at'];
+    const lines = [
+      header.join(','),
+      ...rows.map(r => [
+        r.id,
+        r.name ?? '',
+        r.email ?? '',
+        r.role ?? '',
+        r.status ?? '',
+        r.approved ? 'true' : 'false',
+        r.active ? 'true' : 'false',
+        r.created_at ?? '',
+      ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')),
+    ].join('\n');
+
+    const blob = new Blob([lines], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const name = `users${q?`-q-${q}`:''}${role?`-role-${role}`:''}${status?`-status-${status}`:''}.csv`;
+    a.href = url; a.download = name; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function printList() {
+    const w = window.open('', '_blank', 'noopener,noreferrer,width=1000,height=700');
+    if (!w) return;
+
+    const rowsHtml = rows.map(r => {
+      const cells = [
+        r.name ?? '',
+        r.email ?? '',
+        r.role ?? '',
+        r.status ?? '',
+        r.approved ? 'Sim' : 'Não',
+        r.active ? 'Sim' : 'Não',
+        r.created_at ? new Date(String(r.created_at)).toLocaleString() : '',
+      ].map(c => `<td>${String(c)}</td>`).join('');
+      return `<tr>${cells}</tr>`;
+    }).join('');
+
+    const title = 'Lista de Utilizadores';
+    const html =
+      '<html><head><meta charset="utf-8" />' +
+      `<title>${title}</title>` +
+      '<style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Helvetica Neue,Arial,Noto Sans; padding:16px;}h1{font-size:18px;margin:0 0 12px;}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #e5e7eb;padding:6px 8px;text-align:left;font-size:12px;}th{background:#f8fafc;}@media print{@page{margin:12mm;}}</style></head>' +
+      `<body><h1>${title}</h1><table><thead><tr><th>Nome</th><th>Email</th><th>Perfil</th><th>Estado</th><th>Aprovado</th><th>Ativo</th><th>Criado</th></tr></thead><tbody>${rowsHtml}</tbody></table><script>window.onload=function(){window.print();}</script></body></html>`;
+    w.document.open(); w.document.write(html); w.document.close();
+  }
+
+  async function undoDelete() {
+    const r = undo.row;
+    if (!r) { closeUndo(); return; }
+    try {
+      // recria o utilizador com os dados básicos que tínhamos
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: r.name ?? null,
+          email: r.email ?? null,
+          role: r.role ?? 'CLIENT',
+          status: r.status ?? 'active',
+          approved: Boolean(r.approved),
+          active: Boolean(r.active),
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setSnack({ open:true, msg:'Utilizador restaurado', sev:'success' });
+      void fetchRows();
+    } catch (e:any) {
+      setSnack({ open:true, msg: e?.message || 'Falha ao restaurar', sev:'error' });
+    } finally {
+      closeUndo();
+    }
+  }
+
   return (
-    <Stack spacing={2}>
-      {/* Barra de filtros com Autocomplete */}
-      <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between" sx={{ flexWrap: 'wrap' }}>
-        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-          <TextField
-            size="small" label="Pesquisar" placeholder="Nome ou email…"
-            value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }}
-            InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>,
-                          endAdornment: loading ? <CircularProgress size={16} /> : undefined }}
-          />
-
-          <Autocomplete
-            size="small"
-            options={roleOpts}
-            loading={optsLoading}
-            value={roleFilter || ''}
-            onChange={(_e, v) => { setRoleFilter((v as string) || ''); setPage(0); }}
-            onInputChange={(_e, v) => { setRoleFilter(v || ''); }}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Função"
-                placeholder="admin / pt / client…"
-                InputProps={{
-                  ...params.InputProps,
-                  endAdornment: (
-                    <>
-                      {optsLoading ? <CircularProgress size={16} /> : null}
-                      {params.InputProps.endAdornment}
-                    </>
-                  ),
-                }}
-                sx={{ minWidth: 180 }}
-              />
-            )}
-            freeSolo
-          />
-
-          <Autocomplete
-            size="small"
-            options={statusOpts}
-            loading={optsLoading}
-            value={statusFilter || ''}
-            onChange={(_e, v) => { setStatusFilter((v as string) || ''); setPage(0); }}
-            onInputChange={(_e, v) => { setStatusFilter(v || ''); }}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Estado"
-                placeholder="active / pending / blocked…"
-                InputProps={{
-                  ...params.InputProps,
-                  endAdornment: (
-                    <>
-                      {optsLoading ? <CircularProgress size={16} /> : null}
-                      {params.InputProps.endAdornment}
-                    </>
-                  ),
-                }}
-                sx={{ minWidth: 180 }}
-              />
-            )}
-            freeSolo
-          />
+    <Box sx={{ display: 'grid', gap: 1.5 }}>
+      <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+        <Stack direction={{ xs:'column', sm:'row' }} spacing={1} alignItems="center" justifyContent="space-between">
+          <Stack direction="row" spacing={1} sx={{ flexWrap:'wrap' }}>
+            <TextField label="Pesquisar" value={q} onChange={(e)=>setQ(e.target.value)} sx={{ minWidth: 220 }} />
+            <TextField select label="Perfil" value={role} onChange={(e)=>setRole(e.target.value as Role| '')} sx={{ minWidth: 160 }}>
+              <MenuItem value="">Todos</MenuItem>
+              {RoleOptions.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+            </TextField>
+            <TextField select label="Estado" value={status} onChange={(e)=>setStatus(e.target.value as Status| '')} sx={{ minWidth: 160 }}>
+              <MenuItem value="">Todos</MenuItem>
+              {StatusOptions.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+            </TextField>
+          </Stack>
+          <Stack direction="row" spacing={1}>
+            <Tooltip title="Exportar CSV"><IconButton onClick={exportCSV}><FileDownloadOutlined /></IconButton></Tooltip>
+            <Tooltip title="Imprimir"><IconButton onClick={printList}><PrintOutlined /></IconButton></Tooltip>
+            <Button variant="contained" startIcon={<AddIcon />} onClick={() => router.push('/dashboard/admin/users/new')}>Novo utilizador</Button>
+          </Stack>
         </Stack>
-      </Stack>
+      </Paper>
 
-      <Box sx={{ height: 640, width: '100%', '& .MuiDataGrid-columnHeaders': { position: 'sticky', top: 0, zIndex: 1, bgcolor: 'background.paper' } }}>
+      <Divider />
+
+      <div style={{ width: '100%' }}>
         <DataGrid
           rows={rows}
-          columns={columns}
-          getRowId={(r) => r.id}
+          columns={columns as unknown as GridColDef[]}
           loading={loading}
           rowCount={count}
           paginationMode="server"
-          paginationModel={{ page, pageSize }}
-          onPaginationModelChange={(m) => { setPage(m.page); setPageSize(m.pageSize); }}
-          pageSizeOptions={[10, 20, 50, 100]}
-          checkboxSelection={false}
+          paginationModel={paginationModel}
+          onPaginationModelChange={setPaginationModel}
           disableRowSelectionOnClick
+          slots={{ toolbar: GridToolbar, loadingOverlay: () => <CircularProgress size={24} /> }}
+          autoHeight
           density="compact"
+          pageSizeOptions={[10, 20, 50, 100]}
         />
-      </Box>
+      </div>
 
-      {/* Confirmação de remoção */}
-      <Dialog open={delOpen} onClose={() => setDelOpen(false)}>
-        <DialogTitle>Remover utilizador</DialogTitle>
-        <DialogContent>
-          Tem a certeza que pretende remover <b>{delTarget?.name || delTarget?.email || 'este utilizador'}</b>?
+      {/* UNDO */}
+      <Snackbar open={undo.open} autoHideDuration={4000} onClose={closeUndo} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+        <Alert severity="info" variant="filled" onClose={closeUndo} action={<Button color="inherit" size="small" onClick={undoDelete}>Desfazer</Button>} sx={{ width:'100%' }}>
+          Utilizador removido
+        </Alert>
+      </Snackbar>
+
+      {/* Feedback */}
+      <Snackbar open={snack.open} autoHideDuration={3000} onClose={closeSnack}>
+        <Alert severity={snack.sev} variant="filled" onClose={closeSnack} sx={{ width: '100%' }}>
+          {snack.msg}
+        </Alert>
+      </Snackbar>
+
+      {/* Dialog: Criar a partir deste (mini-form inline) */}
+      <Dialog
+        open={openClone}
+        onClose={() => closeClone()}
+        fullWidth
+        maxWidth="sm"
+        PaperProps={{ elevation: 8, sx: { borderRadius: 2 } }}
+      >
+        <DialogTitle>Criar utilizador a partir deste</DialogTitle>
+        <DialogContent dividers>
+          <QuickUserCreateForm
+            initial={{
+              name: cloneInitial?.name ?? '',
+              email: cloneInitial?.email ?? '',
+              role: (cloneInitial?.role as Role) ?? 'CLIENT',
+              status: (cloneInitial?.status as Status) ?? 'active',
+              approved: true,
+              active: true,
+            }}
+            onDone={() => closeClone(true)}
+          />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDelOpen(false)}>Cancelar</Button>
-          <Button color="error" variant="contained" startIcon={<DeleteOutlineIcon />} onClick={doDelete}>Remover</Button>
+          <Button onClick={() => closeClone()}>Fechar</Button>
         </DialogActions>
       </Dialog>
+    </Box>
+  );
+}
 
-      <Snackbar open={snack.open} autoHideDuration={3000} onClose={closeSnack} action={snack.action}>
-        <Alert severity={snack.sev} variant="filled" onClose={closeSnack} sx={{ width: '100%' }}>{snack.msg}</Alert>
-      </Snackbar>
-    </Stack>
+/* --- Mini-form inline para criação rápida -------------------------------- */
+
+function QuickUserCreateForm(props: {
+  initial: { name?: string; email?: string; role?: Role; status?: Status; approved?: boolean; active?: boolean };
+  onDone?: () => void;
+}) {
+  const [v, setV] = React.useState(props.initial);
+  const [saving, setSaving] = React.useState(false);
+  const [err, setErr] = React.useState<string | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setErr(null);
+    if (!v.email) { setErr('Email é obrigatório'); return; }
+    if (!v.role) { setErr('Perfil é obrigatório'); return; }
+
+    setSaving(true);
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json' },
+        body: JSON.stringify({
+          name: v.name ?? null,
+          email: v.email ?? null,
+          role: v.role ?? 'CLIENT',
+          status: v.status ?? 'active',
+          approved: Boolean(v.approved ?? true),
+          active: Boolean(v.active ?? true),
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      props.onDone?.();
+    } catch (e:any) {
+      setErr(e?.message || 'Falha ao criar');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Box component="form" onSubmit={submit} sx={{ display:'grid', gap: 1.5 }}>
+      {err && <Alert severity="error">{err}</Alert>}
+
+      <TextField label="Nome" value={v.name ?? ''} onChange={(e)=>setV(s=>({ ...s, name:e.target.value }))} />
+      <TextField label="Email" value={v.email ?? ''} onChange={(e)=>setV(s=>({ ...s, email:e.target.value }))} required />
+
+      <TextField select label="Perfil" value={v.role ?? ''} onChange={(e)=>setV(s=>({ ...s, role: e.target.value as Role }))} required sx={{ minWidth: 180 }}>
+        {RoleOptions.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+      </TextField>
+
+      <TextField select label="Estado" value={v.status ?? 'active'} onChange={(e)=>setV(s=>({ ...s, status: e.target.value as Status }))} sx={{ minWidth: 180 }}>
+        {StatusOptions.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+      </TextField>
+
+      <Stack direction="row" spacing={1} justifyContent="flex-end">
+        <Button type="button" onClick={()=>props.onDone?.()} disabled={saving}>Cancelar</Button>
+        <Button variant="contained" type="submit" disabled={saving}>{saving ? 'A criar…' : 'Criar'}</Button>
+      </Stack>
+    </Box>
   );
 }

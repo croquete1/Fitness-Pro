@@ -7,10 +7,8 @@ import AdminExerciseFormClient, {
   type Difficulty,
 } from '@/app/(app)/dashboard/admin/exercises/AdminExerciseFormClient';
 
-// Normalização robusta da dificuldade (reutilizada se necessário)
-function normalizeDifficulty(
-  v?: string | null
-): Difficulty | undefined {
+/** Normalização robusta da dificuldade (mesma lógica do form) */
+function normalizeDifficulty(v?: string | null): Difficulty | undefined {
   if (!v) return undefined;
   const s = v.toString().normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
   if (s.startsWith('fac')) return 'Fácil';
@@ -22,7 +20,8 @@ function normalizeDifficulty(
 export default function AdminEditExerciseClient({
   initial,
 }: {
-  initial: ExerciseFormValues;
+  /** Aceita parcial para ser à prova de dados incompletos vindos da BD/SSR */
+  initial: Partial<ExerciseFormValues>;
 }) {
   // Garante shape correto (defensivo)
   const safeInitial: Partial<ExerciseFormValues> = {
@@ -30,14 +29,14 @@ export default function AdminEditExerciseClient({
     name: initial.name ?? '',
     muscle_group: initial.muscle_group ?? '',
     equipment: initial.equipment ?? '',
-    difficulty: normalizeDifficulty(initial.difficulty),
+    difficulty: normalizeDifficulty(initial.difficulty as any),
     description: initial.description ?? '',
     video_url: initial.video_url ?? '',
   };
 
   return (
     <Container maxWidth="sm" sx={{ display: 'grid', gap: 2 }}>
-      {/* ✅ props corretas e componente certo */}
+      {/* O form já valida com Zod e faz PATCH/POST conforme `mode` */}
       <AdminExerciseFormClient mode="edit" initial={safeInitial} />
     </Container>
   );

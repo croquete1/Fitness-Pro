@@ -21,7 +21,14 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import SidebarBase from '@/components/layout/SidebarBase';
 import { useSidebar } from '@/components/layout/SidebarProvider';
 
-type Nav = { href: string; label: string; icon: React.ReactNode; exact?: boolean; activePrefix?: string; badge?: number };
+type Nav = {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+  exact?: boolean;
+  activePrefix?: string;
+  badge?: number;
+};
 
 export default function SidebarClient({
   messagesCount = 0,
@@ -33,17 +40,18 @@ export default function SidebarClient({
   const path = usePathname();
   const { collapsed, isMobile, closeMobile, toggleCollapse } = useSidebar();
 
-  const painel: Nav[] = [
-    { href: '/dashboard/clients', label: 'Painel', icon: <DashboardOutlined />, exact: true, activePrefix: '/dashboard/clients' },
-  ];
+  const painel: Nav[] = [{ href: '/dashboard/clients', label: 'Painel', icon: <DashboardOutlined />, exact: true, activePrefix: '/dashboard/clients' }];
+
   const treino: Nav[] = [
     { href: '/dashboard/my-plan', label: 'Os meus planos', icon: <ListAltOutlined />, activePrefix: '/dashboard/my-plan' },
     { href: '/dashboard/sessions', label: 'Sessões', icon: <CalendarMonthOutlined />, activePrefix: '/dashboard/sessions' },
   ];
+
   const comunicacao: Nav[] = [
     { href: '/dashboard/messages', label: 'Mensagens', icon: <ChatBubbleOutline />, activePrefix: '/dashboard/messages', badge: messagesCount },
     { href: '/dashboard/notifications', label: 'Notificações', icon: <NotificationsOutlined />, activePrefix: '/dashboard/notifications', badge: notificationsCount },
   ];
+
   const conta: Nav[] = [
     { href: '/dashboard/history', label: 'Histórico', icon: <HistoryOutlined />, activePrefix: '/dashboard/history' },
     { href: '/dashboard/profile', label: 'Perfil', icon: <AccountCircleOutlined />, activePrefix: '/dashboard/profile' },
@@ -52,20 +60,33 @@ export default function SidebarClient({
   const header = (
     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.25, minWidth: 0, p: 1.5 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
-        <Avatar src="/logo.png" alt="Fitness Pro" sx={{ width: 28, height: 28, fontWeight: 800 }} imgProps={{ referrerPolicy: 'no-referrer' }}>
+        <Avatar
+          src="/logo.png"
+          alt="Fitness Pro"
+          sx={{ width: 28, height: 28, fontWeight: 800 }}
+          imgProps={{ referrerPolicy: 'no-referrer' }}
+        >
           FP
         </Avatar>
         {!collapsed && (
           <Box sx={{ lineHeight: 1.1, minWidth: 0 }}>
-            <Box component="div" sx={{ fontSize: 14, fontWeight: 700, letterSpacing: 0.2 }}>Fitness Pro</Box>
+            <Box component="div" sx={{ fontSize: 14, fontWeight: 700, letterSpacing: 0.2 }}>
+              Fitness Pro
+            </Box>
           </Box>
         )}
       </Box>
       <IconButton
         onClick={toggleCollapse}
         sx={{
-          ml: 'auto', width: 32, height: 32, borderRadius: 1.25, border: 1, borderColor: 'divider',
-          bgcolor: 'background.paper', '&:hover': { bgcolor: 'action.hover' },
+          ml: 'auto',
+          width: 32,
+          height: 32,
+          borderRadius: 1.25,
+          border: 1,
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+          '&:hover': { bgcolor: 'action.hover' },
         }}
         aria-label={collapsed ? 'Expandir sidebar' : 'Recolher sidebar'}
       >
@@ -87,12 +108,15 @@ export default function SidebarClient({
         )}
         <List dense disablePadding sx={{ px: 0.5, display: 'grid', gap: 0.5 }}>
           {items.map((it) => {
-            const active = it.exact ? path === it.href
-              : (it.activePrefix ? path.startsWith(it.activePrefix) : path.startsWith(it.href));
-
-            const icon = it.badge && it.badge > 0
-              ? <Badge color="error" badgeContent={it.badge} overlap="circular" max={99}>{it.icon as any}</Badge>
-              : it.icon;
+            const active = it.exact ? path === it.href : (it.activePrefix ? path.startsWith(it.activePrefix) : path.startsWith(it.href));
+            const iconWrapped =
+              it.badge && it.badge > 0 ? (
+                <Badge color="error" badgeContent={it.badge} overlap="circular" max={99}>
+                  <span style={{ display: 'inline-flex' }}>{it.icon}</span>
+                </Badge>
+              ) : (
+                it.icon
+              );
 
             const Button = (
               <ListItemButton
@@ -100,7 +124,9 @@ export default function SidebarClient({
                 component={Link}
                 href={it.href}
                 prefetch={false}
-                onClick={() => { if (isMobile) closeMobile(); }}
+                onClick={() => {
+                  if (isMobile) closeMobile();
+                }}
                 selected={active}
                 aria-current={active ? 'page' : undefined}
                 aria-label={collapsed ? it.label : undefined}
@@ -121,13 +147,10 @@ export default function SidebarClient({
                     color: active ? 'primary.main' : 'text.secondary',
                   }}
                 >
-                  {icon}
+                  {iconWrapped}
                 </ListItemIcon>
                 {!collapsed && (
-                  <ListItemText
-                    primary={it.label}
-                    primaryTypographyProps={{ fontSize: 14, fontWeight: active ? 700 : 500, noWrap: true }}
-                  />
+                  <ListItemText primary={it.label} primaryTypographyProps={{ fontSize: 14, fontWeight: active ? 700 : 500, noWrap: true }} />
                 )}
               </ListItemButton>
             );

@@ -1,61 +1,47 @@
 import * as React from 'react';
 import { createServerClient } from '@/lib/supabaseServer';
+import DashboardFrame from '@/components/layout/DashboardFrame';
 import SidebarClientHydrated from '@/components/layout/SidebarClientHydrated';
+import { HeaderCountsProvider } from '@/components/header/HeaderCountsContext';
 
-async function getClientCounts() {
-  const sb = createServerClient();
-
-  let uid: string | null = null;
+async function safeCount(
+  sb: ReturnType<typeof createServerClient>,
+  table: string,
+  where?: [string, string]
+) {
   try {
-    const { data: auth } = await sb.auth.getUser();
-    uid = auth?.user?.id ?? null;
+    let q = sb.from(table).select('id', { count: 'exact', head: true });
+    if (where) q = q.eq(where[0], where[1]);
+    const { count = 0 } = await q;
+    return count;
   } catch {
-    uid = null;
+    return 0;
   }
-
-  if (!uid) return { messagesCount: 0, notificationsCount: 0 };
-
-  let messagesCount = 0;
-  try {
-    const m1 = await sb.from('messages').select('id', { count: 'exact', head: true }).eq('recipient_id', uid).eq('read', false);
-    messagesCount = m1.count ?? messagesCount;
-
-    if (!messagesCount) {
-      const m2 = await sb.from('messages').select('id', { count: 'exact', head: true }).eq('recipient_id', uid).eq('is_read', false);
-      messagesCount = m2.count ?? messagesCount;
-    }
-    if (!messagesCount) {
-      const m3 = await sb.from('messages_unread').select('id', { count: 'exact', head: true }).eq('recipient_id', uid);
-      messagesCount = m3.count ?? messagesCount;
-    }
-  } catch {}
-
-  let notificationsCount = 0;
-  try {
-    const n1 = await sb.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', uid).eq('read', false);
-    notificationsCount = n1.count ?? notificationsCount;
-
-    if (!notificationsCount) {
-      const n2 = await sb.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', uid).eq('is_read', false);
-      notificationsCount = n2.count ?? notificationsCount;
-    }
-    if (!notificationsCount) {
-      const n3 = await sb.from('notifications_unread').select('id', { count: 'exact', head: true }).eq('user_id', uid);
-      notificationsCount = n3.count ?? notificationsCount;
-    }
-  } catch {}
-
-  return { messagesCount: messagesCount || 0, notificationsCount: notificationsCount || 0 };
 }
 
 export default async function SectionLayout({ children }: { children: React.ReactNode }) {
-  const initial = await getClientCounts();
+  const sb = createServerClient();
+
+  const messagesCount =
+    (await safeCount(sb, 'messages')) ||
+    (await safeCount(sb, 'client_messages')) ||
+    0;
+
+  const notificationsCount =
+    (await safeCount(sb, 'notifications', ['read', 'false'])) ||
+    (await safeCount(sb, 'client_notifications', ['is_read', 'false'])) ||
+    0;
+
+  const initialClient = { messagesCount, notificationsCount };
 
   return (
-    <div style={{ display:'grid', gridTemplateColumns:'auto 1fr', minHeight:'100dvh' }}>
-      {/* Híbrido: SSR + refresh no cliente */}
-      <SidebarClientHydrated initial={initial} />
-      <main style={{ minWidth: 0 }}>{children}</main>
-    </div>
+    <HeaderCountsProvider role="CLIENT" initial={{ client: initialClient }}>
+      <DashboardFrame>
+        <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', minHeight: '100dvh' }}>
+          <SidebarClientHydrated initial={initialClient} />
+          <main style={{ minWidth: 0 }}>{children}</main>
+        </div>
+      </DashboardFrame>
+    </HeaderCountsProvider>
   );
 }

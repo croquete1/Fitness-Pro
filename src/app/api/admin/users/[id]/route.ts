@@ -1,22 +1,23 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
 
-// ... (GET e PATCH que já entreguei antes, mantêm-se iguais)
-
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  const body = await req.json().catch(() => ({}));
   const sb = createServerClient();
 
-  // 1) Tentar "remoção suave" (desativar) para permitir UNDO seguro
-  let softTried = false;
-  try {
-    softTried = true;
-    await sb.from('users').update({ active: false, is_active: false }).eq('id', params.id);
-    return NextResponse.json({ ok: true, soft: true });
-  } catch { /* cai para hard delete */ }
+  const upd: any = {};
+  ['name','email','role','status','approved','active'].forEach(k => {
+    if (k in body) upd[k] = body[k];
+  });
 
-  // 2) Remoção real (fallback quando não há coluna active)
-  const a = await sb.from('users').delete().eq('id', params.id);
-  if (!a.error) return NextResponse.json({ ok: true, soft: false });
+  const { data, error } = await sb.from('users').update(upd).eq('id', params.id).select('*').maybeSingle();
+  if (error || !data) return NextResponse.json({ error: error?.message ?? 'Not found' }, { status: 400 });
+  return NextResponse.json(data);
+}
 
-  return NextResponse.json({ error: a.error.message, soft: softTried }, { status: 400 });
+export async function DELETE(_: Request, { params }: { params: { id: string } }) {
+  const sb = createServerClient();
+  const { error } = await sb.from('users').delete().eq('id', params.id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  return NextResponse.json({ ok: true });
 }

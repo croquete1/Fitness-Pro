@@ -1,107 +1,74 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabaseServer';
+import { z } from 'zod';
+import { serverSB } from '@/lib/supabase/server';
+import { readPageParams, rangeFor } from '@/app/api/_utils/pagination';
 
-export const dynamic = 'force-dynamic';
-
-// Helpers para naming variável
-function colStart() { return ['start_time', 'start', 'starts_at', 'begin_at', 'begin']; }
-function colEnd() { return ['end_time', 'end', 'ends_at', 'finish_at', 'finish']; }
-function colTrainer() { return ['trainer_id', 'pt_id']; }
-function colClient() { return ['client_id', 'member_id']; }
-
-function pickFirst<T extends Record<string, any>>(row: T, keys: string[]) {
-  for (const k of keys) if (k in row && row[k] != null) return row[k];
-  return null;
-}
+const SessionSchema = z.object({
+  trainer_id: z.string().min(1),
+  client_id: z.string().min(1),
+  start_time: z.string().min(1),
+  end_time: z.string().min(1),
+  status: z.enum(['scheduled','done','cancelled']).default('scheduled'),
+  location: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
 
 export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const page = Number(url.searchParams.get('page') ?? '0');
-  const pageSize = Math.min(Number(url.searchParams.get('pageSize') ?? '20'), 100);
-  const trainer = url.searchParams.get('trainer') || '';
-  const from = url.searchParams.get('from');
-  const to = url.searchParams.get('to');
-  const status = url.searchParams.get('status') || '';
+  try {
+    const sb = serverSB();
+    const { page, pageSize, searchParams } = readPageParams(req);
+    const status = searchParams.get('status') || '';
+    const { from, to } = rangeFor(page, pageSize);
 
-  const sb = createServerClient();
+    let query = sb.from('pts_sessions')
+      .select('id,trainer_id,client_id,start_time,end_time,status,location,notes,created_at', { count: 'exact' })
+      .order('start_time', { ascending: false });
 
-  // Tenta primeiro pt_sessions; se não existir, sessions
-  async function queryFrom(table: string) {
-    let q = sb.from(table).select('*', { count: 'exact' });
+    if (status) query = query.eq('status', status);
 
-    if (trainer) {
-      // tentar trainer_id e pt_id
-      q = q.or(`${colTrainer().map(c => `${c}.eq.${trainer}`).join(',')}`);
-    }
-    if (status) {
-      q = q.or(`status.eq.${status},state.eq.${status}`);
-    }
-    if (from) {
-      q = q.or(colStart().map(c => `${c}.gte.${from}`).join(','));
-    }
-    if (to) {
-      q = q.or(colEnd().map(c => `${c}.lte.${to}`).join(','));
-    }
+    const { data, error, count } = await query.range(from, to);
+    if (error) throw error;
 
-    const fromIdx = page * pageSize;
-    const toIdx = fromIdx + pageSize - 1;
-    q = q.range(fromIdx, toIdx).order(colStart()[0], { ascending: true }).order('id', { ascending: true });
-    return q;
+    const rows = (data ?? []).map(r => ({
+      id: String(r.id),
+      trainer_id: r.trainer_id ?? null,
+      client_id: r.client_id ?? null,
+      start_time: r.start_time ?? null,
+      end_time: r.end_time ?? null,
+      status: r.status ?? null,
+      location: r.location ?? null,
+      notes: r.notes ?? null,
+      created_at: r.created_at ?? null,
+    }));
+    return NextResponse.json({ rows, count: count ?? rows.length });
+  } catch (e: any) {
+    return NextResponse.json({ rows: [], count: 0, error: String(e?.message || e) }, { status: 500 });
   }
-
-  let data: any[] | null = null;
-  let count = 0;
-  let err: any = null;
-
-  let r = await queryFrom('pt_sessions');
-  if (r.data || r.count || r.error) {
-    data = r.data ?? null; count = r.count ?? 0; err = r.error ?? null;
-  }
-  if (!data && !err) {
-    const r2 = await queryFrom('sessions');
-    data = r2.data ?? null; count = r2.count ?? 0; err = r2.error ?? null;
-  }
-  if (err) return NextResponse.json({ error: err.message || String(err) }, { status: 500 });
-
-  const rows = (data ?? []).map(d => ({
-    id: String(d.id),
-    trainer_id: String(pickFirst(d, colTrainer()) ?? ''),
-    client_id: String(pickFirst(d, colClient()) ?? ''),
-    start_time: String(pickFirst(d, colStart()) ?? ''),
-    end_time: String(pickFirst(d, colEnd()) ?? ''),
-    status: (d.status ?? d.state ?? 'scheduled') as 'scheduled'|'completed'|'cancelled',
-    location: d.location ?? d.place ?? '',
-    notes: d.notes ?? d.note ?? '',
-  }));
-
-  return NextResponse.json({ rows, count });
 }
 
 export async function POST(req: Request) {
-  const sb = createServerClient();
-  const body = await req.json().catch(() => ({}));
+  try {
+    const sb = serverSB();
+    const body = await req.json();
+    const parsed = SessionSchema.parse(body);
 
-  const payload = {
-    trainer_id: body.trainer_id,
-    client_id: body.client_id,
-    start_time: body.start_time,
-    end_time: body.end_time,
-    status: body.status ?? 'scheduled',
-    location: body.location ?? null,
-    notes: body.notes ?? null,
-  };
+    const { data, error } = await sb.from('pts_sessions')
+      .insert({
+        trainer_id: parsed.trainer_id,
+        client_id: parsed.client_id,
+        start_time: parsed.start_time,
+        end_time: parsed.end_time,
+        status: parsed.status,
+        location: parsed.location ?? null,
+        notes: parsed.notes ?? null,
+      })
+      .select('id')
+      .single();
 
-  // tenta pt_sessions, senão sessions
-  const tryInsert = async (table: string) => {
-    const res = await sb.from(table).insert(payload).select('*').single();
-    return res;
-  };
+    if (error) throw error;
 
-  let r = await tryInsert('pt_sessions');
-  if (r.error?.message?.includes('relation') || r.error?.code === '42P01') {
-    r = await tryInsert('sessions');
+    return NextResponse.json({ id: data?.id });
+  } catch (e: any) {
+    return NextResponse.json({ error: String(e?.message || e) }, { status: 400 });
   }
-  if (r.error) return NextResponse.json({ error: r.error.message }, { status: 400 });
-
-  return NextResponse.json({ ok: true, row: r.data });
 }

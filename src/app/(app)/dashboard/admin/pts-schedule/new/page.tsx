@@ -1,34 +1,31 @@
+'use client';
+
 import * as React from 'react';
-import { Container } from '@mui/material';
-import SessionFormClient from '@/app/(app)/dashboard/admin/pts-schedule/SessionFormClient';
+import { Container, Box, Typography } from '@mui/material';
+import SessionFormClient from '../SessionFormClient';
+import { useSearchParams } from 'next/navigation';
 
-export const dynamic = 'force-dynamic';
+export default function Page() {
+  const sp = useSearchParams();
 
-function toIso(v?: string | null) {
-  if (!v) return '';
-  const d = new Date(v);
-  return Number.isNaN(d.getTime()) ? '' : d.toISOString();
-}
-
-export default function Page({
-  searchParams,
-}: {
-  searchParams?: { trainer?: string; client?: string; from?: string; to?: string; location?: string };
-}) {
-  const initial = {
-    trainer_id: searchParams?.trainer ?? '',
-    client_id: searchParams?.client ?? '',
-    start_time: toIso(searchParams?.from) || new Date().toISOString(),
-    end_time:
-      toIso(searchParams?.to) ||
-      new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-    status: 'scheduled' as const,
-    location: searchParams?.location ?? '',
-    notes: '',
-  };
+  // lê presets da toolbar (se existirem)
+  const initial = React.useMemo(() => {
+    const get = (k: string) => sp.get(k) ?? '';
+    return {
+      start_time: get('start_time'),
+      end_time: get('end_time'),
+      trainer_id: get('trainer_id') || undefined,
+      client_id: get('client_id') || undefined,
+    };
+  }, [sp]);
 
   return (
-    <Container maxWidth="sm" sx={{ display: 'grid', gap: 2 }}>
+    <Container maxWidth="md" sx={{ display: 'grid', gap: 2 }}>
+      <Box>
+        <Typography variant="h6" fontWeight={800}>
+          ➕ Nova sessão
+        </Typography>
+      </Box>
       <SessionFormClient mode="create" initial={initial} />
     </Container>
   );

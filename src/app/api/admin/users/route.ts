@@ -1,55 +1,42 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
 
-type DBUser = Record<string, any>;
-
-function normalizeRole(v: any): string {
-  const s = String(v ?? '').toLowerCase();
-  if (!s) return '';
-  if (['adm', 'administrator'].includes(s)) return 'admin';
-  if (['pt', 'trainer', 'coach', 'personal'].includes(s)) return 'pt';
-  if (['client', 'user', 'aluno', 'utente'].includes(s)) return 'client';
-  return s;
-}
-
-export async function GET(req: NextRequest) {
-  const sb = createServerClient();
+export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
+  const page = Number(searchParams.get('page') ?? 0);
+  const pageSize = Math.min(Number(searchParams.get('pageSize') ?? 20), 100);
+  const q = searchParams.get('q');
+  const role = searchParams.get('role');
+  const status = searchParams.get('status');
 
-  const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
-  const pageSize = Math.min(200, Math.max(1, parseInt(searchParams.get('pageSize') || '20', 10)));
-  const q = (searchParams.get('q') || '').trim().toLowerCase();
-  const role = normalizeRole(searchParams.get('role'));
+  const sb = createServerClient();
+  let s = sb.from('users').select('*', { count: 'exact' }).order('created_at', { ascending: false });
+  if (q) s = s.or(`name.ilike.%${q}%,email.ilike.%${q}%`);
+  if (role) s = s.eq('role', role);
+  if (status) s = s.eq('status', status);
 
-  const { data, error } = await sb.from('users').select('*');
+  const from = page * pageSize;
+  const to = from + pageSize - 1;
+  const { data, error, count } = await s.range(from, to);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-  const rowsAll = (data ?? []) as DBUser[];
+  return NextResponse.json({ rows: data, count: count ?? data?.length ?? 0 });
+}
 
-  const mapped = rowsAll.map((u) => ({
-    id: String(u.id),
-    name: u.name ?? u.full_name ?? null,
-    email: u.email ?? null,
-    role: u.role ?? u.type ?? null,
-    status: u.status ?? null,
-    approved: Boolean(u.approved ?? u.is_approved ?? false),
-    active: Boolean(u.active ?? u.is_active ?? false),
-    created_at: u.created_at ?? u.createdAt ?? null,
-  }));
+export async function POST(req: Request) {
+  const body = await req.json().catch(() => ({}));
+  const sb = createServerClient();
 
-  const filtered = mapped.filter((r) => {
-    const okRole = role ? normalizeRole(r.role) === role : true;
-    const okQ = q
-      ? (String(r.name ?? '').toLowerCase().includes(q) ||
-         String(r.email ?? '').toLowerCase().includes(q))
-      : true;
-    return okRole && okQ;
-  });
+  const payload = {
+    name: body.name ?? null,
+    email: body.email ?? null,
+    role: body.role ?? 'CLIENT',
+    status: body.status ?? 'active',
+    approved: Boolean(body.approved ?? false),
+    active: Boolean(body.active ?? true),
+  };
 
-  const count = filtered.length;
-  const from = (page - 1) * pageSize;
-  const to = Math.min(from + pageSize, count);
-  const pageRows = filtered.slice(from, to);
-
-  return NextResponse.json({ rows: pageRows, count });
+  const { data, error } = await sb.from('users').insert(payload).select('*').single();
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  return NextResponse.json(data);
 }
