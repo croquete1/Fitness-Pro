@@ -1,36 +1,58 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabaseServer';
+import { tryCreateServerClient } from '@/lib/supabaseServer';
+import { supabaseFallbackJson } from '@/lib/supabase/responses';
+import { getSampleUsers } from '@/lib/fallback/users';
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const q = (url.searchParams.get('q') || '').trim();
   const limit = Number(url.searchParams.get('limit') || '20');
 
-  const sb = createServerClient();
-
-  // 1) tentar em "users"
-  let { data, error } = await sb
-    .from('users')
-    .select('id,name,email,role')
-    .or(q ? `name.ilike.%${q}%,email.ilike.%${q}%` : '')
-    .in('role', ['CLIENT'])
-    .limit(limit);
-
-  // 2) fallback: "profiles"
-  if (error || !data || data.length === 0) {
-    const r2 = await sb
-      .from('profiles')
-      .select('id,name,email,role')
-      .or(q ? `name.ilike.%${q}%,email.ilike.%${q}%` : '')
-      .in('role', ['CLIENT'])
-      .limit(limit);
-    data = r2.data || [];
+  const sb = tryCreateServerClient();
+  if (!sb) {
+    const fallback = getSampleUsers({ page: 0, pageSize: limit, search: q, role: 'CLIENT' });
+    const rows = fallback.rows.map((u) => ({
+      id: String(u.id),
+      name: u.name,
+      email: u.email,
+      label: String(u.name || u.email || u.id),
+    }));
+    return supabaseFallbackJson({ rows });
   }
 
-  const options = (data || []).map((u: any) => ({
+  let query = sb
+    .from('users')
+    .select('id,name,email,role')
+    .in('role', ['CLIENT'])
+    .limit(limit);
+  if (q) {
+    query = query.or(`name.ilike.%${q}%,email.ilike.%${q}%`);
+  }
+
+  const { data, error } = await query;
+
+  const primaryOptions = (data ?? []).map((u: any) => ({
     id: String(u.id),
+    name: u.name ?? null,
+    email: u.email ?? null,
     label: String(u.name || u.email || u.id),
   }));
 
-  return NextResponse.json(options);
+  if (primaryOptions.length && !error) {
+    return NextResponse.json({ rows: primaryOptions });
+  }
+
+  const { data: profiles } = await sb
+    .from('profiles')
+    .select('id,full_name,email,role')
+    .eq('role', 'CLIENT')
+    .limit(limit);
+  const fallbackOptions = (profiles ?? []).map((p: any) => ({
+    id: String(p.id),
+    name: p.full_name ?? p.name ?? null,
+    email: p.email ?? null,
+    label: String(p.full_name || p.email || p.id),
+  }));
+
+  return NextResponse.json({ rows: fallbackOptions });
 }

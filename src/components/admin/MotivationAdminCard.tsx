@@ -7,20 +7,66 @@ import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import Switch from '@mui/material/Switch';
 import IconButton from '@mui/material/IconButton';
+import Chip from '@mui/material/Chip';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 
 type Quote = { id: string; text: string; author?: string | null; active?: boolean };
+
+const LOCAL_KEY = 'hms.admin.motivations';
+
+function createId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `quote-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function loadLocalQuotes(): Quote[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const stored = window.localStorage.getItem(LOCAL_KEY);
+    if (!stored) return [];
+    const parsed = JSON.parse(stored);
+    if (!Array.isArray(parsed)) return [];
+    return parsed as Quote[];
+  } catch {
+    return [];
+  }
+}
+
+function persistLocalQuotes(quotes: Quote[]) {
+  try {
+    window.localStorage.setItem(LOCAL_KEY, JSON.stringify(quotes));
+  } catch {
+    // ignore
+  }
+}
 
 export default function MotivationAdminCard() {
   const [items, setItems] = React.useState<Quote[]>([]);
   const [text, setText] = React.useState('');
   const [author, setAuthor] = React.useState('');
   const [busy, setBusy] = React.useState(false);
+  const [usingLocal, setUsingLocal] = React.useState(false);
 
   async function load() {
-    const r = await fetch('/api/motivation');
-    const j = await r.json().catch(() => ({}));
-    setItems(j.items || []);
+    try {
+      const r = await fetch('/api/admin/motivations', { cache: 'no-store' });
+      if (r.status === 503) throw new Error('SUPABASE_UNCONFIGURED');
+      const j = await r.json().catch(() => ({}));
+      if (j?._supabaseConfigured === false || j?.error === 'SUPABASE_UNCONFIGURED') {
+        setUsingLocal(true);
+        setItems(loadLocalQuotes());
+        return;
+      }
+      setUsingLocal(false);
+      setItems(j.items || []);
+    } catch (err: any) {
+      if (err?.message === 'SUPABASE_UNCONFIGURED') {
+        setUsingLocal(true);
+        setItems(loadLocalQuotes());
+      }
+    }
   }
   React.useEffect(() => { load(); }, []);
 
@@ -28,23 +74,57 @@ export default function MotivationAdminCard() {
     if (!text.trim()) return;
     setBusy(true);
     try {
-      await fetch('/api/motivation', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, author }) });
+      if (usingLocal) {
+        const next = [
+          ...items,
+          { id: createId(), text, author, active: true },
+        ];
+        setItems(next);
+        persistLocalQuotes(next);
+        setText('');
+        setAuthor('');
+        return;
+      }
+      await fetch('/api/admin/motivations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, author }),
+      });
       setText(''); setAuthor(''); load();
     } finally { setBusy(false); }
   }
 
   async function toggleActive(q: Quote) {
-    await fetch(`/api/motivation/${q.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ active: !q.active }) });
+    if (usingLocal) {
+      const next = items.map((item) => (item.id === q.id ? { ...item, active: !q.active } : item));
+      setItems(next);
+      persistLocalQuotes(next);
+      return;
+    }
+    await fetch(`/api/admin/motivations/${q.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ active: !q.active }),
+    });
     load();
   }
   async function remove(id: string) {
-    await fetch(`/api/motivation/${id}`, { method: 'DELETE' });
+    if (usingLocal) {
+      const next = items.filter((item) => item.id !== id);
+      setItems(next);
+      persistLocalQuotes(next);
+      return;
+    }
+    await fetch(`/api/admin/motivations/${id}`, { method: 'DELETE' });
     load();
   }
 
   return (
     <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
-      <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1 }}>Frases motivadoras</Typography>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+        <Typography variant="subtitle2" fontWeight={800}>Frases motivadoras</Typography>
+        {usingLocal && <Chip label="Modo offline" color="warning" size="small" />}
+      </Stack>
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 1 }}>
         <TextField size="small" label="Frase" value={text} onChange={(e) => setText(e.target.value)} fullWidth />

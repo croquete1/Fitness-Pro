@@ -120,7 +120,15 @@ export default function AdminNewExerciseClient() {
         <TextField label="Instruções" value={f.description ?? ''} onChange={on('description')} multiline rows={5} />
 
         <Stack direction="row" spacing={1} justifyContent="flex-end">
-          <Button variant="outlined" onClick={() => history.back()} disabled={saving}>Cancelar</Button>
+          <Button
+            variant="outlined"
+            onClick={() => {
+              router.push('/dashboard/admin/exercises');
+            }}
+            disabled={saving}
+          >
+            Cancelar
+          </Button>
           <Button variant="contained" type="submit" disabled={saving}>{saving ? 'A criar…' : 'Criar exercício'}</Button>
         </Stack>
       </Stack>

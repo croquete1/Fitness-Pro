@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getSBC } from '@/lib/supabase/server';
+import { tryGetSBC } from '@/lib/supabase/server';
+import { supabaseFallbackJson, supabaseUnavailableResponse } from '@/lib/supabase/responses';
 import { getTrainerId } from '@/lib/auth/getTrainerId';
 
 const PatchSchema = z.object({
@@ -15,11 +16,17 @@ const PatchSchema = z.object({
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const { trainerId, reason } = await getTrainerId();
   if (!trainerId) {
+    if (reason === 'SUPABASE_OFFLINE') {
+      return supabaseFallbackJson({ error: 'SUPABASE_OFFLINE' }, { status: 503 });
+    }
     const code = reason === 'NO_SESSION' ? 401 : 403;
     return NextResponse.json({ error: reason }, { status: code });
   }
 
-  const sb = getSBC();
+  const sb = tryGetSBC();
+  if (!sb) {
+    return supabaseFallbackJson({ error: 'SUPABASE_OFFLINE' }, { status: 503 });
+  }
   const patch = PatchSchema.parse(await req.json());
 
   const { error } = await sb.from('sessions')
@@ -34,11 +41,17 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
   const { trainerId, reason } = await getTrainerId();
   if (!trainerId) {
+    if (reason === 'SUPABASE_OFFLINE') {
+      return supabaseFallbackJson({ error: 'SUPABASE_OFFLINE' }, { status: 503 });
+    }
     const code = reason === 'NO_SESSION' ? 401 : 403;
     return NextResponse.json({ error: reason }, { status: code });
   }
 
-  const sb = getSBC();
+  const sb = tryGetSBC();
+  if (!sb) {
+    return supabaseFallbackJson({ error: 'SUPABASE_OFFLINE' }, { status: 503 });
+  }
   const { error } = await sb.from('sessions')
     .delete()
     .eq('id', params.id)

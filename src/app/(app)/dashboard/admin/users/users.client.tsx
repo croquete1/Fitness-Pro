@@ -12,7 +12,7 @@ import EditOutlined from '@mui/icons-material/EditOutlined';
 import FileDownloadOutlined from '@mui/icons-material/FileDownloadOutlined';
 import PrintOutlined from '@mui/icons-material/PrintOutlined';
 import ContentCopyOutlined from '@mui/icons-material/ContentCopyOutlined';
-import { DataGrid, GridColDef, GridToolbar, GridToolbarQuickFilter } from '@mui/x-data-grid';
+import { DataGrid, GridColDef, GridToolbar, GridToolbarQuickFilter, GridFilterModel } from '@mui/x-data-grid';
 import { useRouter } from 'next/navigation';
 
 export type Role = 'ADMIN' | 'TRAINER' | 'CLIENT' | string;
@@ -27,6 +27,9 @@ export type Row = {
   approved?: boolean;
   active?: boolean;
   created_at?: string | null;
+  last_login_at?: string | null;
+  last_seen_at?: string | null;
+  online?: boolean;
 };
 
 export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
@@ -37,6 +40,7 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
   const [count, setCount] = React.useState(0);
   const [loading, setLoading] = React.useState(false);
   const [paginationModel, setPaginationModel] = React.useState({ page: 0, pageSize });
+  const [filterModel, setFilterModel] = React.useState<GridFilterModel>({ items: [], quickFilterValues: [] });
 
   // Dialogs
   const [openClone, setOpenClone] = React.useState<{ open: boolean; from?: Row }>({ open: false });
@@ -46,23 +50,35 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
   const [snack, setSnack] = React.useState<{ open:boolean; msg:string; sev:'success'|'error'|'info'|'warning' }>({ open:false, msg:'', sev:'success' });
   const closeSnack = () => setSnack(s => ({ ...s, open:false }));
 
+  const quickFilter = filterModel.quickFilterValues?.[0]?.trim() ?? '';
+
   async function fetchRows() {
     setLoading(true);
     try {
-      const u = new URL('/api/admin/users', window.location.origin);
-      u.searchParams.set('page', String(paginationModel.page));
-      u.searchParams.set('pageSize', String(paginationModel.pageSize));
-      const r = await fetch(u.toString(), { cache: 'no-store' });
+      const params = new URLSearchParams();
+      params.set('page', String(paginationModel.page));
+      params.set('pageSize', String(paginationModel.pageSize));
+      if (quickFilter) params.set('q', quickFilter);
+      const r = await fetch(`/api/admin/users?${params.toString()}`, { cache: 'no-store' });
       const j = await r.json();
+      if (j?._supabaseConfigured === false) {
+        setSnack({ open: true, msg: 'Supabase não está configurado — a lista mostra dados locais.', sev: 'info' });
+      }
+
       const mapped: Row[] = (j.rows ?? []).map((x: any) => ({
         id: String(x.id),
         name: x.name ?? null,
         email: x.email ?? null,
         role: (x.role ?? x.profile ?? '') as Role,
-        status: (x.status ?? x.state ?? '') as Status,
+        status: (x.status ?? x.state ?? '')
+          ? (String(x.status ?? x.state ?? '').toLowerCase() as Status)
+          : ('' as Status),
         approved: Boolean(x.approved ?? x.is_approved ?? false),
         active: Boolean(x.active ?? x.is_active ?? x.enabled ?? false),
-        created_at: x.created_at ?? null,
+        created_at: x.created_at ?? x.createdAt ?? null,
+        last_login_at: x.lastLoginAt ?? x.last_login_at ?? null,
+        last_seen_at: x.lastSeenAt ?? x.last_seen_at ?? null,
+        online: Boolean(x.online ?? false),
       }));
       setRows(mapped);
       setCount(j.count ?? mapped.length);
@@ -74,7 +90,7 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
     }
   }
 
-  React.useEffect(() => { void fetchRows(); }, [paginationModel.page, paginationModel.pageSize]);
+  React.useEffect(() => { void fetchRows(); }, [paginationModel.page, paginationModel.pageSize, quickFilter]);
 
   // --------- Helpers UI ----------
   const roleColor = (role?: Role) => {
@@ -96,7 +112,7 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
   };
 
   function exportCSV() {
-    const header = ['id','name','email','role','status','approved','active','created_at'];
+    const header = ['id','name','email','role','status','approved','active','created_at','last_login_at','last_seen_at','online'];
     const lines = [
       header.join(','),
       ...rows.map(r => [
@@ -108,6 +124,9 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
         r.approved ? 'true' : 'false',
         r.active ? 'true' : 'false',
         r.created_at ?? '',
+        r.last_login_at ?? '',
+        r.last_seen_at ?? '',
+        r.online ? 'true' : 'false',
       ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')),
     ].join('\n');
 
@@ -131,6 +150,9 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
         r.approved ? 'Sim' : 'Não',
         r.active ? 'Sim' : 'Não',
         r.created_at ? new Date(String(r.created_at)).toLocaleString() : '',
+        r.last_login_at ? new Date(String(r.last_login_at)).toLocaleString() : '',
+        r.last_seen_at ? new Date(String(r.last_seen_at)).toLocaleString() : '',
+        r.online ? 'Online' : 'Offline',
       ].map(c => `<td>${String(c)}</td>`).join('');
       return `<tr>${cells}</tr>`;
     }).join('');
@@ -140,7 +162,7 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
       '<html><head><meta charset="utf-8" />' +
       `<title>${title}</title>` +
       '<style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Helvetica Neue,Arial,Noto Sans; padding:16px;}h1{font-size:18px;margin:0 0 12px;}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #e5e7eb;padding:6px 8px;text-align:left;font-size:12px;}th{background:#f8fafc;}@media print{@page{margin:12mm;}}</style></head>' +
-      `<body><h1>${title}</h1><table><thead><tr><th>Nome</th><th>Email</th><th>Perfil</th><th>Estado</th><th>Aprovado</th><th>Ativo</th><th>Criado</th></tr></thead><tbody>${rowsHtml}</tbody></table><script>window.onload=function(){window.print();}</script></body></html>`;
+      `<body><h1>${title}</h1><table><thead><tr><th>Nome</th><th>Email</th><th>Perfil</th><th>Estado</th><th>Aprovado</th><th>Ativo</th><th>Criado</th><th>Último login</th><th>Última atividade</th><th>Status</th></tr></thead><tbody>${rowsHtml}</tbody></table><script>window.onload=function(){window.print();}</script></body></html>`;
     w.document.open(); w.document.write(html); w.document.close();
   }
 
@@ -206,6 +228,26 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
       field: 'status', headerName: 'Estado', width: 120,
       renderCell: (p) => <Chip size="small" label={String(p?.value ?? '')} color={statusColor(p?.value as Status)} variant="outlined" />,
       valueGetter: (v, r) => r.status ?? '',
+    },
+    {
+      field: 'online', headerName: 'Online', width: 110,
+      valueGetter: (_v, r) => Boolean(r.online),
+      renderCell: (p) => (
+        <Chip
+          size="small"
+          label={p?.value ? 'Online' : 'Offline'}
+          color={p?.value ? 'success' : 'default'}
+          variant={p?.value ? 'filled' : 'outlined'}
+        />
+      ),
+    },
+    {
+      field: 'last_login_at', headerName: 'Último login', minWidth: 180,
+      valueFormatter: (p: any) => (p?.value ? new Date(String(p.value)).toLocaleString() : ''),
+    },
+    {
+      field: 'last_seen_at', headerName: 'Última atividade', minWidth: 180,
+      valueFormatter: (p: any) => (p?.value ? new Date(String(p.value)).toLocaleString() : ''),
     },
     {
       field: 'created_at', headerName: 'Criado em', minWidth: 160,
@@ -277,9 +319,15 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
         paginationMode="server"
         paginationModel={paginationModel}
         onPaginationModelChange={setPaginationModel}
+        filterModel={filterModel}
+        onFilterModelChange={setFilterModel}
         disableRowSelectionOnClick
         autoHeight
         density="compact"
+        sx={{
+          width: '100%',
+          '& .MuiDataGrid-main': { overflowX: 'auto' },
+        }}
         slots={{
           toolbar: () => (
             <Stack direction={{ xs:'column', sm:'row' }} spacing={1} sx={{ p: 1 }}>

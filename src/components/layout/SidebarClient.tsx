@@ -2,9 +2,10 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
-  Avatar, Box, List, ListItemButton, ListItemIcon, ListItemText, Tooltip, IconButton,
+  Box, List, ListItemButton, ListItemIcon, ListItemText, Tooltip, IconButton,
   Badge, ListSubheader, Divider,
 } from '@mui/material';
 
@@ -38,7 +39,9 @@ export default function SidebarClient({
   notificationsCount?: number;
 }) {
   const path = usePathname();
-  const { collapsed, isMobile, closeMobile, toggleCollapse } = useSidebar();
+  const { collapsed, peek, isMobile, closeMobile, toggleCollapse } = useSidebar();
+  const showLabels = !collapsed || peek;
+  const isRail = collapsed && !peek;
 
   const painel: Nav[] = [{ href: '/dashboard/clients', label: 'Painel', icon: <DashboardOutlined />, exact: true, activePrefix: '/dashboard/clients' }];
 
@@ -59,22 +62,22 @@ export default function SidebarClient({
 
   const header = (
     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.25, minWidth: 0, p: 1.5 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
-        <Avatar
-          src="/logo.png"
-          alt="Fitness Pro"
-          sx={{ width: 28, height: 28, fontWeight: 800 }}
-          imgProps={{ referrerPolicy: 'no-referrer' }}
-        >
-          FP
-        </Avatar>
-        {!collapsed && (
-          <Box sx={{ lineHeight: 1.1, minWidth: 0 }}>
-            <Box component="div" sx={{ fontSize: 14, fontWeight: 700, letterSpacing: 0.2 }}>
-              Fitness Pro
-            </Box>
-          </Box>
-        )}
+      <Box
+        sx={{
+          width: 36,
+          height: 36,
+          borderRadius: '12px',
+          border: '1px solid',
+          borderColor: 'divider',
+          overflow: 'hidden',
+          bgcolor: 'background.paper',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+        aria-label="HMS Personal Trainer"
+      >
+        <Image src="/branding/hms-personal-trainer.svg" alt="HMS" width={32} height={32} priority />
       </Box>
       <IconButton
         onClick={toggleCollapse}
@@ -98,7 +101,7 @@ export default function SidebarClient({
   function renderSection(title: string, items: Nav[]) {
     return (
       <React.Fragment key={title}>
-        {!collapsed && (
+        {showLabels && (
           <ListSubheader
             disableSticky
             sx={{ bgcolor: 'transparent', color: 'text.secondary', fontSize: 11, letterSpacing: 0.6, py: 1.25, mt: 0.5 }}
@@ -129,7 +132,7 @@ export default function SidebarClient({
                 }}
                 selected={active}
                 aria-current={active ? 'page' : undefined}
-                aria-label={collapsed ? it.label : undefined}
+                aria-label={isRail ? it.label : undefined}
                 sx={{
                   borderRadius: 1.5,
                   height: 40,
@@ -141,15 +144,15 @@ export default function SidebarClient({
               >
                 <ListItemIcon
                   sx={{
-                    minWidth: collapsed ? 0 : 36,
-                    mr: collapsed ? 0 : 1,
+                    minWidth: showLabels ? 36 : 0,
+                    mr: showLabels ? 1 : 0,
                     justifyContent: 'center',
                     color: active ? 'primary.main' : 'text.secondary',
                   }}
                 >
                   {iconWrapped}
                 </ListItemIcon>
-                {!collapsed && (
+                {showLabels && (
                   <ListItemText primary={it.label} primaryTypographyProps={{ fontSize: 14, fontWeight: active ? 700 : 500, noWrap: true }} />
                 )}
               </ListItemButton>
@@ -157,7 +160,7 @@ export default function SidebarClient({
 
             return (
               <React.Fragment key={it.href}>
-                {collapsed ? (
+                {isRail ? (
                   <Tooltip title={it.label} placement="right" arrow disableInteractive>
                     {Button}
                   </Tooltip>

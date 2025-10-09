@@ -2,7 +2,8 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabaseServer';
+import { tryCreateServerClient } from '@/lib/supabaseServer';
+import { supabaseFallbackJson } from '@/lib/supabase/responses';
 
 function hashIdx(seed: string, len: number) {
   let h = 2166136261 >>> 0;
@@ -14,7 +15,10 @@ function hashIdx(seed: string, len: number) {
 }
 
 export async function GET() {
-  const sb = createServerClient();
+  const sb = tryCreateServerClient();
+  if (!sb) {
+    return supabaseFallbackJson({ ok: true, item: { text: 'Foco, disciplina e consistência 💪', author: 'HMS Personal Trainer' } });
+  }
   const { data: auth } = await sb.auth.getUser();
   const meId = auth?.user?.id ?? null;
 
@@ -28,7 +32,7 @@ export async function GET() {
 
   const all = list ?? [];
   if (!all.length) {
-    return NextResponse.json({ ok:true, item: { text: 'Foco, disciplina e consistência 💪', author: 'Fitness Pro' } });
+    return NextResponse.json({ ok:true, item: { text: 'Foco, disciplina e consistência 💪', author: 'HMS Personal Trainer' } });
   }
 
   const today = new Date().toISOString().slice(0,10);

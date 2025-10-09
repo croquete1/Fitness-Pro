@@ -2,6 +2,7 @@ import './globals.css';
 import type { Metadata } from 'next';
 import ColorModeProvider from '@/components/layout/ColorModeProvider';
 import { ToastProvider } from '@/components/ui/ToastProvider';
+import OptionalSpeedInsights from '@/components/analytics/OptionalSpeedInsights';
 
 export const metadata: Metadata = {
   title: 'Fitness Pro',
@@ -17,6 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {children}
           </ToastProvider>
         </ColorModeProvider>
+        <OptionalSpeedInsights />
       </body>
     </html>
   );
