@@ -4,14 +4,15 @@ import * as React from 'react';
 import {
   Box, Stack, TextField, MenuItem, Button, IconButton, Tooltip, Paper, Divider,
   CircularProgress, Snackbar, Alert, Dialog, DialogTitle, DialogContent, DialogActions,
+  Chip, Typography,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutline from '@mui/icons-material/DeleteOutline';
 import EditOutlined from '@mui/icons-material/EditOutlined';
-import ContentCopyOutlined from '@mui/icons-material/ContentCopyOutlined';
 import FileDownloadOutlined from '@mui/icons-material/FileDownloadOutlined';
 import PrintOutlined from '@mui/icons-material/PrintOutlined';
-import { DataGrid, GridColDef, GridToolbar } from '@mui/x-data-grid';
+import ContentCopyOutlined from '@mui/icons-material/ContentCopyOutlined';
+import { DataGrid, GridColDef, GridToolbar, GridToolbarQuickFilter } from '@mui/x-data-grid';
 import { useRouter } from 'next/navigation';
 
 export type Role = 'ADMIN' | 'TRAINER' | 'CLIENT' | string;
@@ -28,151 +29,71 @@ export type Row = {
   created_at?: string | null;
 };
 
-const RoleOptions: Role[] = ['ADMIN', 'TRAINER', 'CLIENT'];
-const StatusOptions: Status[] = ['active', 'invited', 'blocked'];
-
-export default function UsersClient({
-  pageSize = 20,
-}: {
-  pageSize?: number;
-}) {
+export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
   const router = useRouter();
 
-  const [q, setQ] = React.useState('');
-  const [role, setRole] = React.useState<Role | ''>('');
-  const [status, setStatus] = React.useState<Status | ''>('');
-
+  // Estado da grelha
   const [rows, setRows] = React.useState<Row[]>([]);
   const [count, setCount] = React.useState(0);
   const [loading, setLoading] = React.useState(false);
   const [paginationModel, setPaginationModel] = React.useState({ page: 0, pageSize });
-  const [openInNew, setOpenInNew] = React.useState(false);
 
+  // Dialogs
+  const [openClone, setOpenClone] = React.useState<{ open: boolean; from?: Row }>({ open: false });
+  const [openCreate, setOpenCreate] = React.useState(false);
+
+  // Feedback
   const [snack, setSnack] = React.useState<{ open:boolean; msg:string; sev:'success'|'error'|'info'|'warning' }>({ open:false, msg:'', sev:'success' });
   const closeSnack = () => setSnack(s => ({ ...s, open:false }));
 
-  // UNDO
-  const [undo, setUndo] = React.useState<{ open:boolean; row?: Row }>({ open:false });
-  const closeUndo = () => setUndo({ open:false });
-
-  // Dialog “Criar a partir deste”
-  const [openClone, setOpenClone] = React.useState(false);
-  const [cloneInitial, setCloneInitial] = React.useState<Partial<Row> | null>(null);
-  const closeClone = (refresh?: boolean) => {
-    setOpenClone(false);
-    setCloneInitial(null);
-    if (refresh) void fetchRows();
-  };
-
-  async function fetchRows(signal?: AbortSignal) {
+  async function fetchRows() {
     setLoading(true);
     try {
       const u = new URL('/api/admin/users', window.location.origin);
       u.searchParams.set('page', String(paginationModel.page));
       u.searchParams.set('pageSize', String(paginationModel.pageSize));
-      if (q) u.searchParams.set('q', q);
-      if (role) u.searchParams.set('role', String(role));
-      if (status) u.searchParams.set('status', String(status));
-
-      const r = await fetch(u.toString(), { cache: 'no-store', signal });
+      const r = await fetch(u.toString(), { cache: 'no-store' });
       const j = await r.json();
-      const mapped: Row[] = (j.rows ?? []).map((r:any) => ({
-        id: String(r.id),
-        name: r.name ?? null,
-        email: r.email ?? null,
-        role: (r.role ?? r.profile ?? '') as Role,
-        status: (r.status ?? r.state ?? '') as Status,
-        approved: Boolean(r.approved ?? r.is_approved ?? false),
-        active: Boolean(r.active ?? r.is_active ?? r.enabled ?? false),
-        created_at: r.created_at ?? null,
+      const mapped: Row[] = (j.rows ?? []).map((x: any) => ({
+        id: String(x.id),
+        name: x.name ?? null,
+        email: x.email ?? null,
+        role: (x.role ?? x.profile ?? '') as Role,
+        status: (x.status ?? x.state ?? '') as Status,
+        approved: Boolean(x.approved ?? x.is_approved ?? false),
+        active: Boolean(x.active ?? x.is_active ?? x.enabled ?? false),
+        created_at: x.created_at ?? null,
       }));
       setRows(mapped);
       setCount(j.count ?? mapped.length);
-    } catch {
+    } catch (e: any) {
       setRows([]); setCount(0);
-      setSnack({ open:true, msg:'Falha ao carregar utilizadores', sev:'error' });
+      setSnack({ open:true, msg: e?.message || 'Falha ao carregar utilizadores', sev:'error' });
     } finally {
       setLoading(false);
     }
   }
 
-  React.useEffect(() => {
-    const ctrl = new AbortController();
-    void fetchRows(ctrl.signal);
-    return () => ctrl.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, role, status, paginationModel.page, paginationModel.pageSize]);
+  React.useEffect(() => { void fetchRows(); }, [paginationModel.page, paginationModel.pageSize]);
 
-  const columns = React.useMemo<GridColDef<Row>[]>(() => [
-    { field: 'name', headerName: 'Nome', flex: 1.1, minWidth: 180, valueFormatter: (p:any) => String(p?.value ?? '') },
-    { field: 'email', headerName: 'Email', flex: 1.2, minWidth: 220, valueFormatter: (p:any) => String(p?.value ?? '') },
-    { field: 'role', headerName: 'Perfil', width: 120, valueFormatter: (p:any) => String(p?.value ?? '') },
-    { field: 'status', headerName: 'Estado', width: 120, valueFormatter: (p:any) => String(p?.value ?? '') },
-    { field: 'approved', headerName: 'Aprovado', width: 110, valueFormatter: (p:any) => (p?.value ? 'Sim' : 'Não') },
-    { field: 'active', headerName: 'Ativo', width: 90, valueFormatter: (p:any) => (p?.value ? 'Sim' : 'Não') },
-    { field: 'created_at', headerName: 'Criado em', minWidth: 180, valueFormatter: (p:any) => (p?.value ? new Date(String(p.value)).toLocaleString() : '') },
-    {
-      field: 'actions',
-      headerName: 'Ações',
-      width: 210,
-      sortable: false,
-      filterable: false,
-      renderCell: (p) => (
-        <Stack direction="row" spacing={0.5}>
-          <Tooltip title="Editar">
-            <IconButton size="small" onClick={() => router.push(`/dashboard/admin/users/${p.row.id}`)}>
-              <EditOutlined fontSize="small" />
-            </IconButton>
-          </Tooltip>
+  // --------- Helpers UI ----------
+  const roleColor = (role?: Role) => {
+    switch (role) {
+      case 'ADMIN': return 'error';
+      case 'TRAINER': return 'primary';
+      case 'CLIENT': return 'success';
+      default: return 'default';
+    }
+  };
 
-          {/* ➕ Criar a partir deste (Dialog com sombra) */}
-          <Tooltip title="Criar a partir deste">
-            <IconButton
-              size="small"
-              onClick={() => {
-                setCloneInitial({
-                  name: p.row.name ?? '',
-                  email: (p.row.email ?? '').replace(/(\+clone)?@/, '+clone@'), // evita conflito trivial
-                  role: (p.row.role as Role) ?? 'CLIENT',
-                  status: (p.row.status as Status) ?? 'active',
-                });
-                setOpenClone(true);
-              }}
-            >
-              <ContentCopyOutlined fontSize="small" />
-            </IconButton>
-          </Tooltip>
-
-          <Tooltip title="Remover">
-            <IconButton
-              size="small"
-              color="error"
-              onClick={async () => {
-                const removed = p.row as Row;
-                if (!confirm(`Remover utilizador "${removed.email || removed.name || removed.id}"?`)) return;
-
-                // Optimistic + UNDO
-                setRows(prev => prev.filter(r => r.id !== removed.id));
-                setUndo({ open: true, row: removed });
-
-                try {
-                  const res = await fetch(`/api/admin/users/${removed.id}`, { method: 'DELETE' });
-                  if (!res.ok) throw new Error(await res.text());
-                } catch (e:any) {
-                  // rollback
-                  setRows(prev => [removed, ...prev]);
-                  setUndo({ open:false });
-                  setSnack({ open:true, msg: e?.message || 'Falha ao remover', sev:'error' });
-                }
-              }}
-            >
-              <DeleteOutline fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Stack>
-      ),
-    },
-  ], [router]);
+  const statusColor = (s?: Status) => {
+    switch (s) {
+      case 'active': return 'success';
+      case 'invited': return 'warning';
+      case 'blocked': return 'default';
+      default: return 'default';
+    }
+  };
 
   function exportCSV() {
     const header = ['id','name','email','role','status','approved','active','created_at'];
@@ -193,8 +114,7 @@ export default function UsersClient({
     const blob = new Blob([lines], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    const name = `users${q?`-q-${q}`:''}${role?`-role-${role}`:''}${status?`-status-${status}`:''}.csv`;
-    a.href = url; a.download = name; a.click();
+    a.href = url; a.download = `users-page${paginationModel.page + 1}.csv`; a.click();
     URL.revokeObjectURL(url);
   }
 
@@ -224,81 +144,182 @@ export default function UsersClient({
     w.document.open(); w.document.write(html); w.document.close();
   }
 
-  async function undoDelete() {
-    const r = undo.row;
-    if (!r) { closeUndo(); return; }
-    try {
-      // recria o utilizador com os dados básicos que tínhamos
-      const res = await fetch('/api/admin/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: r.name ?? null,
-          email: r.email ?? null,
-          role: r.role ?? 'CLIENT',
-          status: r.status ?? 'active',
-          approved: Boolean(r.approved),
-          active: Boolean(r.active),
-        }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      setSnack({ open:true, msg:'Utilizador restaurado', sev:'success' });
-      void fetchRows();
-    } catch (e:any) {
-      setSnack({ open:true, msg: e?.message || 'Falha ao restaurar', sev:'error' });
-    } finally {
-      closeUndo();
+  // --------- Clone form (dialog) ----------
+  function CloneUserForm({ from, onSuccess }: { from: Row; onSuccess?: () => void }) {
+    const [name, setName] = React.useState(from.name ?? '');
+    const [email, setEmail] = React.useState('');
+    const [role, setRole] = React.useState<Role>((from.role as Role) ?? 'CLIENT');
+    const [saving, setSaving] = React.useState(false);
+
+    async function submit() {
+      setSaving(true);
+      try {
+        const res = await fetch('/api/admin/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name,
+            email,
+            role,
+            approved: false,
+            active: true,
+          }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        onSuccess?.();
+      } catch (e: any) {
+        setSnack({ open:true, msg: e?.message || 'Falha ao criar utilizador', sev:'error' });
+      } finally {
+        setSaving(false);
+      }
     }
+
+    return (
+      <Stack spacing={1.5} sx={{ mt: 1 }}>
+        <TextField label="Nome" value={name} onChange={(e)=>setName(e.target.value)} />
+        <TextField label="Email" value={email} onChange={(e)=>setEmail(e.target.value)} required />
+        <TextField select label="Perfil" value={role} onChange={(e)=>setRole(e.target.value as Role)}>
+          <MenuItem value="ADMIN">ADMIN</MenuItem>
+          <MenuItem value="TRAINER">TRAINER</MenuItem>
+          <MenuItem value="CLIENT">CLIENT</MenuItem>
+        </TextField>
+        <Stack direction="row" justifyContent="flex-end" spacing={1}>
+          <Button onClick={() => setOpenClone({ open:false })}>Cancelar</Button>
+          <Button variant="contained" onClick={submit} disabled={saving}>
+            {saving ? 'A criar…' : 'Criar utilizador'}
+          </Button>
+        </Stack>
+      </Stack>
+    );
   }
 
+  // --------- Colunas ----------
+  const columns: GridColDef<Row>[] = [
+    { field: 'name', headerName: 'Nome', flex: 1.2, minWidth: 180 },
+    { field: 'email', headerName: 'Email', flex: 1.5, minWidth: 200 },
+    {
+      field: 'role', headerName: 'Perfil', width: 120,
+      renderCell: (p) => <Chip size="small" label={String(p?.value ?? '')} color={roleColor(p?.value as Role)} variant="outlined" />,
+      valueGetter: (v, r) => r.role ?? '',
+    },
+    {
+      field: 'status', headerName: 'Estado', width: 120,
+      renderCell: (p) => <Chip size="small" label={String(p?.value ?? '')} color={statusColor(p?.value as Status)} variant="outlined" />,
+      valueGetter: (v, r) => r.status ?? '',
+    },
+    {
+      field: 'created_at', headerName: 'Criado em', minWidth: 160,
+      valueFormatter: (p: any) => (p?.value ? new Date(String(p.value)).toLocaleString() : ''),
+    },
+    {
+      field: 'actions',
+      headerName: 'Ações',
+      width: 200,
+      sortable: false,
+      filterable: false,
+      renderCell: (p) => (
+        <Stack direction="row" spacing={0.5}>
+          <Tooltip title="Duplicar (Criar a partir de…)">
+            <IconButton size="small" onClick={() => setOpenClone({ open:true, from:p.row })}>
+              <ContentCopyOutlined fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Editar">
+            <IconButton size="small" onClick={() => router.push(`/dashboard/admin/users/${p.row.id}`)}>
+              <EditOutlined fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Remover">
+            <IconButton
+              size="small"
+              color="error"
+              onClick={async () => {
+                if (!confirm('Remover utilizador?')) return;
+                try {
+                  const res = await fetch(`/api/admin/users/${p.row.id}`, { method: 'DELETE' });
+                  if (!res.ok) throw new Error(await res.text());
+                  setSnack({ open:true, msg: 'Utilizador removido', sev:'success' });
+                  void fetchRows();
+                } catch (e:any) {
+                  setSnack({ open:true, msg: e?.message || 'Falha ao remover', sev:'error' });
+                }
+              }}
+            >
+              <DeleteOutline fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Stack>
+      ),
+    },
+  ];
+
+  // --------- Render ----------
   return (
-    <Box sx={{ display: 'grid', gap: 1.5 }}>
-      <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
-        <Stack direction={{ xs:'column', sm:'row' }} spacing={1} alignItems="center" justifyContent="space-between">
-          <Stack direction="row" spacing={1} sx={{ flexWrap:'wrap' }}>
-            <TextField label="Pesquisar" value={q} onChange={(e)=>setQ(e.target.value)} sx={{ minWidth: 220 }} />
-            <TextField select label="Perfil" value={role} onChange={(e)=>setRole(e.target.value as Role| '')} sx={{ minWidth: 160 }}>
-              <MenuItem value="">Todos</MenuItem>
-              {RoleOptions.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-            </TextField>
-            <TextField select label="Estado" value={status} onChange={(e)=>setStatus(e.target.value as Status| '')} sx={{ minWidth: 160 }}>
-              <MenuItem value="">Todos</MenuItem>
-              {StatusOptions.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-            </TextField>
-          </Stack>
+    <Box sx={{ display:'grid', gap:1.5 }}>
+      <Paper variant="outlined" sx={{ p:1.5, borderRadius:2 }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+          <Typography variant="h6" fontWeight={800}>Utilizadores</Typography>
           <Stack direction="row" spacing={1}>
             <Tooltip title="Exportar CSV"><IconButton onClick={exportCSV}><FileDownloadOutlined /></IconButton></Tooltip>
             <Tooltip title="Imprimir"><IconButton onClick={printList}><PrintOutlined /></IconButton></Tooltip>
-            <Button variant="contained" startIcon={<AddIcon />} onClick={() => router.push('/dashboard/admin/users/new')}>Novo utilizador</Button>
+            <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpenCreate(true)}>Novo utilizador</Button>
           </Stack>
         </Stack>
       </Paper>
 
       <Divider />
 
-      <div style={{ width: '100%' }}>
-        <DataGrid
-          rows={rows}
-          columns={columns as unknown as GridColDef[]}
-          loading={loading}
-          rowCount={count}
-          paginationMode="server"
-          paginationModel={paginationModel}
-          onPaginationModelChange={setPaginationModel}
-          disableRowSelectionOnClick
-          slots={{ toolbar: GridToolbar, loadingOverlay: () => <CircularProgress size={24} /> }}
-          autoHeight
-          density="compact"
-          pageSizeOptions={[10, 20, 50, 100]}
-        />
-      </div>
+      <DataGrid
+        rows={rows}
+        columns={columns}
+        loading={loading}
+        rowCount={count}
+        paginationMode="server"
+        paginationModel={paginationModel}
+        onPaginationModelChange={setPaginationModel}
+        disableRowSelectionOnClick
+        autoHeight
+        density="compact"
+        slots={{
+          toolbar: () => (
+            <Stack direction={{ xs:'column', sm:'row' }} spacing={1} sx={{ p: 1 }}>
+              <GridToolbarQuickFilter debounceMs={300} />
+              <Box sx={{ flex: 1 }} />
+              <GridToolbar />
+            </Stack>
+          ),
+          loadingOverlay: () => <CircularProgress size={24} />,
+        }}
+        pageSizeOptions={[10, 20, 50, 100]}
+      />
 
-      {/* UNDO */}
-      <Snackbar open={undo.open} autoHideDuration={4000} onClose={closeUndo} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
-        <Alert severity="info" variant="filled" onClose={closeUndo} action={<Button color="inherit" size="small" onClick={undoDelete}>Desfazer</Button>} sx={{ width:'100%' }}>
-          Utilizador removido
-        </Alert>
-      </Snackbar>
+      {/* Dialog: Novo (atalho para página dedicada) */}
+      <Dialog open={openCreate} onClose={() => setOpenCreate(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Novo utilizador</DialogTitle>
+        <DialogContent dividers>
+          <Alert severity="info">Para criar completo, usa a página “Novo utilizador”.</Alert>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenCreate(false)}>Fechar</Button>
+          <Button variant="contained" onClick={() => router.push('/dashboard/admin/users/new')}>Abrir página</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog: Duplicar */}
+      <Dialog open={openClone.open} onClose={() => setOpenClone({ open:false })} fullWidth maxWidth="sm">
+        <DialogTitle>📄 Criar utilizador a partir de…</DialogTitle>
+        <DialogContent dividers>
+          {openClone.from && (
+            <CloneUserForm
+              from={openClone.from}
+              onSuccess={() => { setOpenClone({ open:false }); void fetchRows(); }}
+            />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenClone({ open:false })}>Fechar</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Feedback */}
       <Snackbar open={snack.open} autoHideDuration={3000} onClose={closeSnack}>
@@ -306,95 +327,6 @@ export default function UsersClient({
           {snack.msg}
         </Alert>
       </Snackbar>
-
-      {/* Dialog: Criar a partir deste (mini-form inline) */}
-      <Dialog
-        open={openClone}
-        onClose={() => closeClone()}
-        fullWidth
-        maxWidth="sm"
-        PaperProps={{ elevation: 8, sx: { borderRadius: 2 } }}
-      >
-        <DialogTitle>Criar utilizador a partir deste</DialogTitle>
-        <DialogContent dividers>
-          <QuickUserCreateForm
-            initial={{
-              name: cloneInitial?.name ?? '',
-              email: cloneInitial?.email ?? '',
-              role: (cloneInitial?.role as Role) ?? 'CLIENT',
-              status: (cloneInitial?.status as Status) ?? 'active',
-              approved: true,
-              active: true,
-            }}
-            onDone={() => closeClone(true)}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => closeClone()}>Fechar</Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
-  );
-}
-
-/* --- Mini-form inline para criação rápida -------------------------------- */
-
-function QuickUserCreateForm(props: {
-  initial: { name?: string; email?: string; role?: Role; status?: Status; approved?: boolean; active?: boolean };
-  onDone?: () => void;
-}) {
-  const [v, setV] = React.useState(props.initial);
-  const [saving, setSaving] = React.useState(false);
-  const [err, setErr] = React.useState<string | null>(null);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setErr(null);
-    if (!v.email) { setErr('Email é obrigatório'); return; }
-    if (!v.role) { setErr('Perfil é obrigatório'); return; }
-
-    setSaving(true);
-    try {
-      const res = await fetch('/api/admin/users', {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json' },
-        body: JSON.stringify({
-          name: v.name ?? null,
-          email: v.email ?? null,
-          role: v.role ?? 'CLIENT',
-          status: v.status ?? 'active',
-          approved: Boolean(v.approved ?? true),
-          active: Boolean(v.active ?? true),
-        }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      props.onDone?.();
-    } catch (e:any) {
-      setErr(e?.message || 'Falha ao criar');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Box component="form" onSubmit={submit} sx={{ display:'grid', gap: 1.5 }}>
-      {err && <Alert severity="error">{err}</Alert>}
-
-      <TextField label="Nome" value={v.name ?? ''} onChange={(e)=>setV(s=>({ ...s, name:e.target.value }))} />
-      <TextField label="Email" value={v.email ?? ''} onChange={(e)=>setV(s=>({ ...s, email:e.target.value }))} required />
-
-      <TextField select label="Perfil" value={v.role ?? ''} onChange={(e)=>setV(s=>({ ...s, role: e.target.value as Role }))} required sx={{ minWidth: 180 }}>
-        {RoleOptions.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-      </TextField>
-
-      <TextField select label="Estado" value={v.status ?? 'active'} onChange={(e)=>setV(s=>({ ...s, status: e.target.value as Status }))} sx={{ minWidth: 180 }}>
-        {StatusOptions.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-      </TextField>
-
-      <Stack direction="row" spacing={1} justifyContent="flex-end">
-        <Button type="button" onClick={()=>props.onDone?.()} disabled={saving}>Cancelar</Button>
-        <Button variant="contained" type="submit" disabled={saving}>{saving ? 'A criar…' : 'Criar'}</Button>
-      </Stack>
     </Box>
   );
 }

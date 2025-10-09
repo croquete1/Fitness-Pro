@@ -1,27 +1,32 @@
 import { NextResponse } from 'next/server';
 import { serverSB } from '@/lib/supabase/server';
-import { readPageParams, rangeFor } from '@/app/api/_utils/pagination';
 
 export async function GET(req: Request) {
-  try {
-    const sb = serverSB();
-    const { page, pageSize, q } = readPageParams(req);
-    const { from, to } = rangeFor(page, pageSize);
+  const sb = serverSB();
+  const { searchParams } = new URL(req.url);
+  const q = searchParams.get('q')?.trim() ?? '';
+  const page = Number(searchParams.get('page') ?? '0');
+  const pageSize = Number(searchParams.get('pageSize') ?? '20');
+  const from = page * pageSize;
+  const to = from + pageSize - 1;
 
-    let query = sb.from('users')
-      .select('id,name,email,role', { count: 'exact' })
-      .eq('role', 'CLIENT');
+  let query = sb
+    .from('users')
+    .select('id,name,email', { count: 'exact' })
+    .eq('role', 'CLIENT');
 
-    if (q) {
-      query = query.or(`name.ilike.%${q}%,email.ilike.%${q}%`);
-    }
-
-    const { data, error, count } = await query.range(from, to);
-    if (error) throw error;
-
-    const rows = (data ?? []).map(u => ({ id: String(u.id), name: u.name ?? null, email: u.email ?? null }));
-    return NextResponse.json({ rows, count: count ?? rows.length });
-  } catch (e: any) {
-    return NextResponse.json({ rows: [], count: 0, error: String(e?.message || e) }, { status: 500 });
+  if (q) {
+    query = query.or(`name.ilike.%${q}%,email.ilike.%${q}%`);
   }
+
+  const { data, error, count } = await query.range(from, to);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const rows = (data ?? []).map((r: any) => ({
+    id: String(r.id),
+    name: r.name ?? null,
+    email: r.email ?? null,
+  }));
+
+  return NextResponse.json({ rows, count: count ?? 0 });
 }

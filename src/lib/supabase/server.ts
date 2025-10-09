@@ -20,6 +20,4 @@ export function getSBC() {
 }
 
 /** Alias estável para usar nos endpoints */
-export function serverSB() {
-  return getSBC();
-}
+export const serverSB = getSBC;
