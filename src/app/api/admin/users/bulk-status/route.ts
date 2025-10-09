@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole } from '@/lib/roles';
 import { createServerClient } from '@/lib/supabaseServer';
+import { logAudit, AUDIT_KINDS, AUDIT_TARGET_TYPES } from '@/lib/audit';
 
 type Body = {
   ids: string[];
@@ -54,6 +55,17 @@ export async function PATCH(req: Request): Promise<NextResponse> {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (data?.length) {
+    await logAudit(sb, {
+      kind: body.status === 'SUSPENDED' ? AUDIT_KINDS.USER_SUSPEND : AUDIT_KINDS.USER_UPDATE,
+      target_type: AUDIT_TARGET_TYPES.USER,
+      target_id: null,
+      actor_id: me.id,
+      note: `Bulk status -> ${body.status}`,
+      details: { ids: body.ids },
+    });
   }
 
   return NextResponse.json({

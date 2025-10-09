@@ -4,7 +4,15 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  Avatar, Box, List, ListItemButton, ListItemIcon, ListItemText, Tooltip, IconButton,
+  Avatar,
+  Badge,
+  Box,
+  IconButton,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Tooltip,
 } from '@mui/material';
 
 import DashboardOutlined from '@mui/icons-material/DashboardOutlined';
@@ -21,19 +29,43 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import SidebarBase from '@/components/layout/SidebarBase';
 import { useSidebar } from '@/components/layout/SidebarProvider';
 
-type Nav = { href: string; label: string; icon: React.ReactNode; exact?: boolean; activePrefix?: string };
+type Nav = {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+  exact?: boolean;
+  activePrefix?: string;
+  badge?: number;
+};
 
-export default function SidebarPT({ userLabel }: { userLabel?: string }) {
+type Props = {
+  messagesCount?: number;
+  notificationsCount?: number;
+};
+
+export default function SidebarPT({ messagesCount = 0, notificationsCount = 0 }: Props) {
   const path = usePathname();
   const { collapsed, isMobile, closeMobile, toggleCollapse } = useSidebar();
 
   const items: Nav[] = [
     { href: '/dashboard/pt', label: 'Painel', icon: <DashboardOutlined />, exact: true, activePrefix: '/dashboard/pt' },
     { href: '/dashboard/pt/clients', label: 'Clientes', icon: <GroupOutlined />, activePrefix: '/dashboard/pt/clients' },
-    { href: '/dashboard/pt/sessions', label: 'Sessões', icon: <CalendarMonthOutlined />, activePrefix: '/dashboard/pt/sessions' },
-    { href: '/dashboard/pt/my-plan', label: 'Planos', icon: <ListAltOutlined />, activePrefix: '/dashboard/pt/my-plan' },
-    { href: '/dashboard/pt/messages', label: 'Mensagens', icon: <ChatBubbleOutline />, activePrefix: '/dashboard/pt/messages' },
-    { href: '/dashboard/notifications', label: 'Notificações', icon: <NotificationsOutlined />, activePrefix: '/dashboard/notifications' },
+    { href: '/dashboard/pt/schedule', label: 'Agenda', icon: <CalendarMonthOutlined />, activePrefix: '/dashboard/pt/schedule' },
+    { href: '/dashboard/pt/workouts', label: 'Treinos', icon: <ListAltOutlined />, activePrefix: '/dashboard/pt/workouts' },
+    {
+      href: '/dashboard/pt/messages',
+      label: 'Mensagens',
+      icon: <ChatBubbleOutline />,
+      activePrefix: '/dashboard/pt/messages',
+      badge: messagesCount,
+    },
+    {
+      href: '/dashboard/notifications',
+      label: 'Notificações',
+      icon: <NotificationsOutlined />,
+      activePrefix: '/dashboard/notifications',
+      badge: notificationsCount,
+    },
     { href: '/dashboard/history', label: 'Histórico', icon: <HistoryOutlined />, activePrefix: '/dashboard/history' },
     { href: '/dashboard/profile', label: 'Perfil', icon: <AccountCircleOutlined />, activePrefix: '/dashboard/profile' },
   ];
@@ -47,7 +79,6 @@ export default function SidebarPT({ userLabel }: { userLabel?: string }) {
         {!collapsed && (
           <Box sx={{ lineHeight: 1.1, minWidth: 0 }}>
             <Box component="div" sx={{ fontSize: 14, fontWeight: 700, letterSpacing: 0.2 }}>Fitness Pro</Box>
-            {/* ❌ sem nome/cargo aqui para não duplicar com o header global */}
           </Box>
         )}
       </Box>
@@ -62,6 +93,14 @@ export default function SidebarPT({ userLabel }: { userLabel?: string }) {
       <List dense disablePadding sx={{ px: 0.5, py: 0.5, display: 'grid', gap: 0.5 }}>
         {items.map((it) => {
           const active = it.exact ? path === it.href : (it.activePrefix ? path.startsWith(it.activePrefix) : path.startsWith(it.href));
+          const iconWrapped = (it.badge ?? 0) > 0
+            ? (
+                <Badge color="error" badgeContent={it.badge} overlap="circular" max={99}>
+                  {it.icon as any}
+                </Badge>
+              )
+            : it.icon;
+
           const Button = (
             <ListItemButton
               component={Link}
@@ -78,7 +117,7 @@ export default function SidebarPT({ userLabel }: { userLabel?: string }) {
               }}
             >
               <ListItemIcon sx={{ minWidth: collapsed ? 0 : 36, mr: collapsed ? 0 : 1, justifyContent: 'center', color: active ? 'primary.main' : 'text.secondary' }}>
-                {it.icon}
+                {iconWrapped}
               </ListItemIcon>
               {!collapsed && <ListItemText primary={it.label} primaryTypographyProps={{ fontSize: 14, fontWeight: active ? 700 : 500, noWrap: true }} />}
             </ListItemButton>

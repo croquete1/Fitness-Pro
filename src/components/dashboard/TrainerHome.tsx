@@ -98,7 +98,7 @@ export default function TrainerHome() {
               x.trainerName && x.clientName
                 ? `${x.trainerName} → ${x.clientName}`
                 : x.clientName ?? "",
-            href: "/dashboard/trainer/workouts",
+            href: "/dashboard/pt/workouts",
           };
         })
         .sort((a, b) => +new Date(a.when) - +new Date(b.when))
@@ -144,7 +144,7 @@ export default function TrainerHome() {
         {/* CTAs */}
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
           <a href="/dashboard/sessions?new=1" className="fp-pill" title="Marcar sessão"><span aria-hidden>🗓️</span><span className="label">Marcar sessão</span></a>
-          <a href="/dashboard/trainer/workouts/new" className="fp-pill" title="Criar treino"><span aria-hidden>💪</span><span className="label">Criar treino</span></a>
+          <a href="/dashboard/pt/workouts/new" className="fp-pill" title="Criar treino"><span aria-hidden>💪</span><span className="label">Criar treino</span></a>
           <a href="/dashboard/pt/plans/new" className="fp-pill" title="Novo plano"><span aria-hidden>📘</span><span className="label">Novo plano</span></a>
         </div>
       </div>
