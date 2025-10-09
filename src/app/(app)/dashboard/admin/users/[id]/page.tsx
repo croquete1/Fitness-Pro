@@ -2,6 +2,7 @@ import * as React from 'react';
 import { notFound } from 'next/navigation';
 import { Container } from '@mui/material';
 import { createServerClient } from '@/lib/supabaseServer';
+import { fetchUserById } from '@/lib/userRepo';
 import UserFormClient, { type Role, type Status } from '../UserFormClient';
 
 export const dynamic = 'force-dynamic';
@@ -32,14 +33,7 @@ function mapRow(r: any) {
 export default async function Page({ params }: { params: { id: string } }) {
   const sb = createServerClient();
 
-  // tenta em users; se falhar, tenta em profiles
-  let data: any | null = null;
-  const a = await sb.from('users').select('*').eq('id', params.id).maybeSingle();
-  if (a?.data) data = a.data;
-  else {
-    const b = await sb.from('profiles').select('*').eq('id', params.id).maybeSingle();
-    if (b?.data) data = b.data;
-  }
+  const data = await fetchUserById(params.id, { client: sb });
   if (!data) return notFound();
 
   return (

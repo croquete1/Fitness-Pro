@@ -2,6 +2,13 @@
 import { unstable_cache } from 'next/cache';
 import { createServerClient } from '@/lib/supabaseServer';
 import { toAppRole, type AppRole } from '@/lib/roles';
+import {
+  countUsersByRole,
+  countPendingUsers,
+  countNewUsersSince,
+  countNewUsersBetween,
+  listSignupsSince,
+} from '@/lib/userRepo';
 import { dirAndPct } from './metrics';
 import { TAG } from './cache-tags';
 
@@ -19,13 +26,11 @@ async function safeCount(sb: SB, table: string, build?: (q: any) => any) {
 
 async function countRole(sb: SB, role: AppRole) {
   if (role === 'PT') {
-    let c = await safeCount(sb, 'users',    (q: any) => q.in('role', ['PT','TRAINER']));
-    if (c > 0) return c;
-    return await safeCount(sb, 'profiles',  (q: any) => q.in('role', ['PT','TRAINER']));
+    const trainer = await countUsersByRole('TRAINER', { client: sb as any });
+    if (trainer > 0) return trainer;
+    return await countUsersByRole('PT', { client: sb as any });
   }
-  let c = await safeCount(sb, 'users',    (q: any) => q.eq('role', role));
-  if (c > 0) return c;
-  return await safeCount(sb, 'profiles',  (q: any) => q.eq('role', role));
+  return await countUsersByRole(role, { client: sb as any });
 }
 
 /* ========================= ADMIN ========================= */
@@ -47,26 +52,13 @@ export const getAdminDashboardStats = unstable_cache(
       countRole(sb, 'PT'),
       safeCount(sb, 'sessions', (q: any) => q.gte('scheduled_at', now.toISOString()).lt('scheduled_at', in7.toISOString())),
       safeCount(sb, 'notifications', (q: any) => q.eq('user_id', userId).eq('read', false)),
-      (async () => {
-        let c = await safeCount(sb, 'users', (q: any) => q.eq('approved', false));
-        if (c === 0) c = await safeCount(sb, 'users', (q: any) => q.eq('status', 'PENDING'));
-        if (c === 0) c = await safeCount(sb, 'profiles', (q: any) => q.eq('approved', false));
-        return c;
-      })(),
-      (async () => {
-        let c = await safeCount(sb, 'users', (q: any) => q.gte('created_at', startToday.toISOString()));
-        if (c === 0) c = await safeCount(sb, 'profiles', (q: any) => q.gte('created_at', startToday.toISOString()));
-        return c;
-      })(),
+      countPendingUsers({ client: sb as any }),
+      countNewUsersSince(startToday.toISOString(), { client: sb as any }),
     ]);
 
     const [sessionsPrev7, newYesterday] = await Promise.all([
       safeCount(sb, 'sessions', (q: any) => q.gte('scheduled_at', prev7PrevStart.toISOString()).lt('scheduled_at', prev7Start.toISOString())),
-      (async () => {
-        let c = await safeCount(sb, 'users', (q: any) => q.gte('created_at', startYesterday.toISOString()).lt('created_at', endYesterday.toISOString()));
-        if (c === 0) c = await safeCount(sb, 'profiles', (q: any) => q.gte('created_at', startYesterday.toISOString()).lt('created_at', endYesterday.toISOString()));
-        return c;
-      })(),
+      countNewUsersBetween(startYesterday.toISOString(), endYesterday.toISOString(), { client: sb as any }),
     ]);
 
     const sessionsTrend = dirAndPct(sessions7d, sessionsPrev7);
@@ -74,9 +66,7 @@ export const getAdminDashboardStats = unstable_cache(
 
     // Série inscrições 14d (users/profiles fallback)
     const since14d = new Date(now); since14d.setDate(now.getDate() - 13); since14d.setHours(0,0,0,0);
-    const { data: regUsers } = await sb.from('users').select('id, created_at').gte('created_at', since14d.toISOString());
-    const { data: regProf }  = regUsers?.length ? { data: null } : await sb.from('profiles').select('id, created_at').gte('created_at', since14d.toISOString());
-    const regRows = (regUsers ?? regProf ?? []) as any[];
+    const regRows = await listSignupsSince(since14d.toISOString(), { client: sb as any });
     const perDay = new Array<number>(14).fill(0);
     regRows.forEach((u: any) => {
       const d = new Date(u.created_at); d.setHours(0,0,0,0);
