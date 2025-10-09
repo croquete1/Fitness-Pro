@@ -23,5 +23,7 @@ module.exports = {
       'warn',
       { 'ts-expect-error': 'allow-with-description', 'ts-ignore': 'allow-with-description' },
     ],
+    // durante a migração aceitamos {} como tipo sem travar o lint
+    '@typescript-eslint/ban-types': 'warn',
   },
 };
