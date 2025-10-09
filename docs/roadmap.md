@@ -7,7 +7,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Proteger a exportação CSV de utilizadores com guarda de administrador. Fonte: `src/app/api/admin/users.csv/route.ts`.
 - [x] Implementar listagem de utilizadores com filtros, paginação e normalização de campos (`rows`/`count`). Fonte: `src/app/api/admin/users/route.ts`.
 - [x] Permitir edição e remoção directa de utilizadores por ID com validação de role/status. Fonte: `src/app/api/admin/users/[id]/route.ts`.
-- [ ] Uniformizar rotas e navegação da área de PT (persistem caminhos mistos `pt`/`trainer`).
+- [x] Uniformizar rotas e navegação da área de PT (prefixo único `/dashboard/pt` com legados a redirecionar).
 - [ ] Limpar código legado da transição Prisma→Supabase e definir fonte única de verdade para utilizadores.
 - [ ] Activar logging/auditoria em todas as acções críticas (logs ainda não são escritos nas operações recentes).
 - [ ] Melhorar feedback de UI e tratamento de erros silenciosos (tostas e mensagens pendentes de revisão).
