@@ -32,7 +32,7 @@ export default function SidebarProvider({ children }: { children: React.ReactNod
 
   // 👇 novo estado para “hover peek”
   const [peek, _setPeek] = React.useState(false);
-  const setPeek = (v: boolean) => _setPeek(Boolean(v));
+  const setPeek = React.useCallback((v: boolean) => _setPeek(Boolean(v)), []);
 
   const openMobile  = (v: boolean) => setMobileOpen(v);
   const closeMobile = () => setMobileOpen(false);
@@ -54,7 +54,7 @@ export default function SidebarProvider({ children }: { children: React.ReactNod
 
   const value: SidebarCtx = React.useMemo(() => ({
     collapsed, isMobile, mobileOpen, openMobile, closeMobile, toggleCollapse, peek, setPeek,
-  }), [collapsed, isMobile, mobileOpen, peek]);
+  }), [collapsed, isMobile, mobileOpen, peek, setPeek]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

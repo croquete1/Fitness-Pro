@@ -38,7 +38,9 @@ export default function SidebarClient({
   notificationsCount?: number;
 }) {
   const path = usePathname();
-  const { collapsed, isMobile, closeMobile, toggleCollapse } = useSidebar();
+  const { collapsed, peek, isMobile, closeMobile, toggleCollapse } = useSidebar();
+  const showLabels = !collapsed || peek;
+  const isRail = collapsed && !peek;
 
   const painel: Nav[] = [{ href: '/dashboard/clients', label: 'Painel', icon: <DashboardOutlined />, exact: true, activePrefix: '/dashboard/clients' }];
 
@@ -68,7 +70,7 @@ export default function SidebarClient({
         >
           FP
         </Avatar>
-        {!collapsed && (
+        {showLabels && (
           <Box sx={{ lineHeight: 1.1, minWidth: 0 }}>
             <Box component="div" sx={{ fontSize: 14, fontWeight: 700, letterSpacing: 0.2 }}>
               Fitness Pro
@@ -98,7 +100,7 @@ export default function SidebarClient({
   function renderSection(title: string, items: Nav[]) {
     return (
       <React.Fragment key={title}>
-        {!collapsed && (
+        {showLabels && (
           <ListSubheader
             disableSticky
             sx={{ bgcolor: 'transparent', color: 'text.secondary', fontSize: 11, letterSpacing: 0.6, py: 1.25, mt: 0.5 }}
@@ -129,7 +131,7 @@ export default function SidebarClient({
                 }}
                 selected={active}
                 aria-current={active ? 'page' : undefined}
-                aria-label={collapsed ? it.label : undefined}
+                aria-label={isRail ? it.label : undefined}
                 sx={{
                   borderRadius: 1.5,
                   height: 40,
@@ -141,15 +143,15 @@ export default function SidebarClient({
               >
                 <ListItemIcon
                   sx={{
-                    minWidth: collapsed ? 0 : 36,
-                    mr: collapsed ? 0 : 1,
+                    minWidth: showLabels ? 36 : 0,
+                    mr: showLabels ? 1 : 0,
                     justifyContent: 'center',
                     color: active ? 'primary.main' : 'text.secondary',
                   }}
                 >
                   {iconWrapped}
                 </ListItemIcon>
-                {!collapsed && (
+                {showLabels && (
                   <ListItemText primary={it.label} primaryTypographyProps={{ fontSize: 14, fontWeight: active ? 700 : 500, noWrap: true }} />
                 )}
               </ListItemButton>
@@ -157,7 +159,7 @@ export default function SidebarClient({
 
             return (
               <React.Fragment key={it.href}>
-                {collapsed ? (
+                {isRail ? (
                   <Tooltip title={it.label} placement="right" arrow disableInteractive>
                     {Button}
                   </Tooltip>

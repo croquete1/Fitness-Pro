@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
+import { requireAdminGuard, isGuardErr } from '@/lib/api-guards';
+import { logAudit, AUDIT_KINDS, AUDIT_TARGET_TYPES } from '@/lib/audit';
 
 export async function GET(req: Request) {
+  const guard = await requireAdminGuard();
+  if (isGuardErr(guard)) return guard.response;
   const { searchParams } = new URL(req.url);
   const page = Number(searchParams.get('page') ?? 0);
-  const pageSize = Math.min(Number(searchParams.get('pageSize') ?? 20), 100);
-  const q = searchParams.get('q');
+  const pageSize = Math.min(Number(searchParams.get('pageSize') ?? searchParams.get('perPage') ?? 20), 100);
+  const q = searchParams.get('q') ?? searchParams.get('search') ?? undefined;
   const role = searchParams.get('role');
   const status = searchParams.get('status');
 
@@ -20,23 +24,38 @@ export async function GET(req: Request) {
   const { data, error, count } = await s.range(from, to);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-  return NextResponse.json({ rows: data, count: count ?? data?.length ?? 0 });
+  const rows = (data ?? []).map((row) => ({
+    ...row,
+    createdAt: row?.created_at ?? null,
+  }));
+
+  return NextResponse.json({ rows, count: count ?? rows.length });
 }
 
 export async function POST(req: Request) {
+  const guard = await requireAdminGuard();
+  if (isGuardErr(guard)) return guard.response;
   const body = await req.json().catch(() => ({}));
   const sb = createServerClient();
 
   const payload = {
     name: body.name ?? null,
     email: body.email ?? null,
-    role: body.role ?? 'CLIENT',
-    status: body.status ?? 'active',
+    role: typeof body.role === 'string' ? body.role.toUpperCase() : 'CLIENT',
+    status: typeof body.status === 'string' ? body.status.toUpperCase() : 'ACTIVE',
     approved: Boolean(body.approved ?? false),
     active: Boolean(body.active ?? true),
   };
 
   const { data, error } = await sb.from('users').insert(payload).select('*').single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  await logAudit(sb, {
+    kind: AUDIT_KINDS.USER_CREATE,
+    target_type: AUDIT_TARGET_TYPES.USER,
+    target_id: data.id,
+    note: `Utilizador criado (${payload.role})`,
+  });
+
   return NextResponse.json(data);
 }

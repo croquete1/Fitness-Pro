@@ -1,6 +1,7 @@
 // src/app/api/admin/users.csv/route.ts
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseServer';
+import { requireAdminGuard, isGuardErr } from '@/lib/api-guards';
 
 // Evita cache estática no build
 export const dynamic = 'force-dynamic';
@@ -15,6 +16,8 @@ function esc(v: unknown) {
 }
 
 export async function GET() {
+  const guard = await requireAdminGuard();
+  if (isGuardErr(guard)) return guard.response;
   // 👇 ERA: const s = supabaseAdmin();
   const s = supabaseAdmin;
 
