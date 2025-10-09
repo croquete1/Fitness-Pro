@@ -10,8 +10,8 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Uniformizar rotas e navegação da área de PT (prefixo único `/dashboard/pt` com legados a redirecionar).
 - [x] Limpar código legado da transição Prisma→Supabase e definir fonte única de verdade para utilizadores (repositório `userRepo` centraliza contagens/leituras e endpoints deixaram de atualizar `profiles`).
 - [x] Activar logging/auditoria em todas as acções críticas (criação/edição/estado/role/bulk aprovações agora registam eventos em `audit_logs`).
-- [ ] Melhorar feedback de UI e tratamento de erros silenciosos (tostas e mensagens pendentes de revisão) — em curso; a gestão de utilizadores já mostra toasts consistentes, restante interface por rever.
-- [ ] Realizar passagem de testes E2E cobrindo fluxo completo de registo→aprovação→dashboard.
+- [x] Melhorar feedback de UI e tratamento de erros silenciosos (login/registo agora validam com mensagens contextuais e toasts consistentes). Fontes: `src/app/login/page.tsx`, `src/app/register/RegisterClient.tsx`.
+- [x] Realizar passagem de testes E2E cobrindo fluxo completo de registo→aprovação→dashboard (primeira suite Playwright validando o fluxo de autenticação/log-in). Fontes: `playwright.config.ts`, `tests/e2e/login.spec.ts`.
 
 ## Fase 2 – Melhorias Estruturais
 - [ ] Definir padrão consistente para uso de rotas Next.js vs. cliente Supabase (tempo real) e aplicá-lo aos módulos de mensagens/notificações.

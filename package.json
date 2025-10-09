@@ -20,7 +20,8 @@
     "find:supabase-browser": "rg -n \"createBrowserClient|supabaseBrowser\\(\" src || true",
     "find:tables": "rg -n \"plan_day_items|plan_day_exercises\" src || true",
     "doctor:mui": "npm ls @emotion/react @emotion/styled @emotion/cache @emotion/server @mui/material @mui/system @mui/utils @mui/styled-engine @mui/x-data-grid || echo ok",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -56,6 +57,7 @@
     "zod": "^4.1.11"
   },
   "devDependencies": {
+    "@playwright/test": "^1.56.0",
     "@types/node": "20.12.7",
     "@types/react": "18.2.66",
     "autoprefixer": "^10.4.19",
