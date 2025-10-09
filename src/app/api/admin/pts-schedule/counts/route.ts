@@ -1,8 +1,16 @@
 import { NextResponse } from 'next/server';
 import { serverSB } from '@/lib/supabase/server';
+import { supabaseConfigErrorResponse } from '@/lib/supabase/responses';
 
 export async function GET() {
-  const sb = serverSB();
+  let sb;
+  try {
+    sb = serverSB();
+  } catch (err) {
+    const res = supabaseConfigErrorResponse(err);
+    if (res) return res;
+    throw err;
+  }
 
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());

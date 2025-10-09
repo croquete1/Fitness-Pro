@@ -1,8 +1,16 @@
 import { NextResponse } from 'next/server';
 import { getSBC } from '@/lib/supabase/server';
+import { supabaseConfigErrorResponse } from '@/lib/supabase/responses';
 
 export async function GET() {
-  const sb = getSBC();
+  let sb;
+  try {
+    sb = getSBC();
+  } catch (err) {
+    const res = supabaseConfigErrorResponse(err);
+    if (res) return res;
+    throw err;
+  }
   const { data: auth } = await sb.auth.getUser();
   const authUser = auth?.user;
 

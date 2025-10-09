@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { serverSB } from '@/lib/supabase/server';
+import { supabaseConfigErrorResponse } from '@/lib/supabase/responses';
 
 const PatchSchema = z.object({
   trainer_id: z.string().optional(),
@@ -25,6 +26,8 @@ export async function PATCH(_req: Request, ctx: { params: { id: string } }) {
     if (error) throw error;
     return NextResponse.json({ ok: true });
   } catch (e: any) {
+    const config = supabaseConfigErrorResponse(e);
+    if (config) return config;
     return NextResponse.json({ error: String(e?.message || e) }, { status: 400 });
   }
 }
@@ -39,6 +42,8 @@ export async function DELETE(_req: Request, ctx: { params: { id: string } }) {
     if (error) throw error;
     return NextResponse.json({ ok: true });
   } catch (e: any) {
+    const config = supabaseConfigErrorResponse(e);
+    if (config) return config;
     return NextResponse.json({ error: String(e?.message || e) }, { status: 400 });
   }
 }

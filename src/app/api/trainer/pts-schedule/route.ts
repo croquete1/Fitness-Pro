@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getSBC } from '@/lib/supabase/server';
 import { getTrainerId } from '@/lib/auth/getTrainerId';
+import { supabaseConfigErrorResponse } from '@/lib/supabase/responses';
 
 function readPage(req: Request) {
   const url = new URL(req.url);
@@ -27,11 +28,24 @@ const Body = z.object({
 export async function GET(req: Request) {
   const { trainerId, reason } = await getTrainerId();
   if (!trainerId) {
+    if (reason === 'SUPABASE_OFFLINE') {
+      return NextResponse.json(
+        { rows: [], count: 0, error: 'SUPABASE_OFFLINE' },
+        { status: 503 }
+      );
+    }
     const code = reason === 'NO_SESSION' ? 401 : 403;
     return NextResponse.json({ rows: [], count: 0, error: reason }, { status: code });
   }
 
-  const sb = getSBC();
+  let sb;
+  try {
+    sb = getSBC();
+  } catch (err) {
+    const res = supabaseConfigErrorResponse(err);
+    if (res) return res;
+    throw err;
+  }
   const { page, pageSize, searchParams } = readPage(req);
   const status = searchParams.get('status') || '';
   const { from, to } = rangeFor(page, pageSize);
@@ -63,6 +77,9 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const { trainerId, reason } = await getTrainerId();
   if (!trainerId) {
+    if (reason === 'SUPABASE_OFFLINE') {
+      return NextResponse.json({ error: 'SUPABASE_OFFLINE' }, { status: 503 });
+    }
     const code = reason === 'NO_SESSION' ? 401 : 403;
     return NextResponse.json({ error: reason }, { status: code });
   }
@@ -86,6 +103,8 @@ export async function POST(req: Request) {
     if (error) throw error;
     return NextResponse.json({ id: data?.id });
   } catch (e:any) {
+    const config = supabaseConfigErrorResponse(e);
+    if (config) return config;
     return NextResponse.json({ error: String(e?.message || e) }, { status: 400 });
   }
 }

@@ -1,8 +1,16 @@
 import { NextResponse } from 'next/server';
 import { serverSB } from '@/lib/supabase/server';
+import { supabaseConfigErrorResponse } from '@/lib/supabase/responses';
 
 export async function GET(req: Request) {
-  const sb = serverSB();
+  let sb;
+  try {
+    sb = serverSB();
+  } catch (err) {
+    const res = supabaseConfigErrorResponse(err);
+    if (res) return res;
+    throw err;
+  }
   const { searchParams } = new URL(req.url);
   const q = searchParams.get('q')?.trim() ?? '';
   const page = Number(searchParams.get('page') ?? '0');
