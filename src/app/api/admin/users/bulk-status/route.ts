@@ -2,7 +2,9 @@
 import { NextResponse } from 'next/server';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole } from '@/lib/roles';
-import { createServerClient } from '@/lib/supabaseServer';
+import { tryCreateServerClient } from '@/lib/supabaseServer';
+import { logAudit, AUDIT_KINDS, AUDIT_TARGET_TYPES } from '@/lib/audit';
+import { supabaseFallbackJson, supabaseUnavailableResponse } from '@/lib/supabase/responses';
 
 type Body = {
   ids: string[];
@@ -45,7 +47,13 @@ export async function PATCH(req: Request): Promise<NextResponse> {
   }
 
   // Atualização em bulk via Supabase
-  const sb = createServerClient();
+  const sb = tryCreateServerClient();
+  if (!sb) {
+    return supabaseFallbackJson(
+      { ok: false, error: 'SUPABASE_UNCONFIGURED' },
+      { status: 503 }
+    );
+  }
   const { data, error } = await sb
     .from('users')
     .update({ status: body.status })
@@ -54,6 +62,17 @@ export async function PATCH(req: Request): Promise<NextResponse> {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (data?.length) {
+    await logAudit(sb, {
+      kind: body.status === 'SUSPENDED' ? AUDIT_KINDS.USER_SUSPEND : AUDIT_KINDS.USER_UPDATE,
+      target_type: AUDIT_TARGET_TYPES.USER,
+      target_id: null,
+      actor_id: me.id,
+      note: `Bulk status -> ${body.status}`,
+      details: { ids: body.ids },
+    });
   }
 
   return NextResponse.json({

@@ -27,6 +27,7 @@ import Brightness4Outlined from '@mui/icons-material/Brightness4Outlined';
 import ThemeToggleButton from '@/components/theme/ThemeToggleButton';
 import { useSidebar } from '@/components/layout/SidebarProvider';
 import { useHeaderCounts } from '@/components/header/HeaderCountsContext';
+import Image from 'next/image';
 
 type Props = {
   userLabel?: string;
@@ -99,15 +100,30 @@ export default function AppHeader({
         </IconButton>
 
         {/* brand */}
-        <Typography
+        <Box
           component={Link}
           href="/dashboard"
           prefetch={false}
-          variant="h6"
-          sx={{ textDecoration: 'none', color: 'inherit', fontWeight: 800, letterSpacing: 0.2 }}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            textDecoration: 'none',
+            color: 'inherit',
+          }}
         >
-          Fitness Pro
-        </Typography>
+          <Image
+            src="/branding/hms-personal-trainer.svg"
+            alt="HMS Personal Trainer"
+            width={32}
+            height={32}
+            priority
+            style={{ display: 'block' }}
+          />
+          <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: 0.4 }}>
+            HMS Personal Trainer
+          </Typography>
+        </Box>
 
         <Box sx={{ flex: 1 }} />
 

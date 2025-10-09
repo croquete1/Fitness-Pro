@@ -27,6 +27,9 @@ export type Row = {
   approved?: boolean;
   active?: boolean;
   created_at?: string | null;
+  last_login_at?: string | null;
+  last_seen_at?: string | null;
+  online?: boolean;
 };
 
 export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
@@ -54,15 +57,24 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
       u.searchParams.set('pageSize', String(paginationModel.pageSize));
       const r = await fetch(u.toString(), { cache: 'no-store' });
       const j = await r.json();
+      if (j?._supabaseConfigured === false) {
+        setSnack({ open: true, msg: 'Supabase não está configurado — a lista mostra dados locais.', sev: 'info' });
+      }
+
       const mapped: Row[] = (j.rows ?? []).map((x: any) => ({
         id: String(x.id),
         name: x.name ?? null,
         email: x.email ?? null,
         role: (x.role ?? x.profile ?? '') as Role,
-        status: (x.status ?? x.state ?? '') as Status,
+        status: (x.status ?? x.state ?? '')
+          ? (String(x.status ?? x.state ?? '').toLowerCase() as Status)
+          : ('' as Status),
         approved: Boolean(x.approved ?? x.is_approved ?? false),
         active: Boolean(x.active ?? x.is_active ?? x.enabled ?? false),
-        created_at: x.created_at ?? null,
+        created_at: x.created_at ?? x.createdAt ?? null,
+        last_login_at: x.lastLoginAt ?? x.last_login_at ?? null,
+        last_seen_at: x.lastSeenAt ?? x.last_seen_at ?? null,
+        online: Boolean(x.online ?? false),
       }));
       setRows(mapped);
       setCount(j.count ?? mapped.length);
@@ -96,7 +108,7 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
   };
 
   function exportCSV() {
-    const header = ['id','name','email','role','status','approved','active','created_at'];
+    const header = ['id','name','email','role','status','approved','active','created_at','last_login_at','last_seen_at','online'];
     const lines = [
       header.join(','),
       ...rows.map(r => [
@@ -108,6 +120,9 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
         r.approved ? 'true' : 'false',
         r.active ? 'true' : 'false',
         r.created_at ?? '',
+        r.last_login_at ?? '',
+        r.last_seen_at ?? '',
+        r.online ? 'true' : 'false',
       ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')),
     ].join('\n');
 
@@ -131,6 +146,9 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
         r.approved ? 'Sim' : 'Não',
         r.active ? 'Sim' : 'Não',
         r.created_at ? new Date(String(r.created_at)).toLocaleString() : '',
+        r.last_login_at ? new Date(String(r.last_login_at)).toLocaleString() : '',
+        r.last_seen_at ? new Date(String(r.last_seen_at)).toLocaleString() : '',
+        r.online ? 'Online' : 'Offline',
       ].map(c => `<td>${String(c)}</td>`).join('');
       return `<tr>${cells}</tr>`;
     }).join('');
@@ -140,7 +158,7 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
       '<html><head><meta charset="utf-8" />' +
       `<title>${title}</title>` +
       '<style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Helvetica Neue,Arial,Noto Sans; padding:16px;}h1{font-size:18px;margin:0 0 12px;}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #e5e7eb;padding:6px 8px;text-align:left;font-size:12px;}th{background:#f8fafc;}@media print{@page{margin:12mm;}}</style></head>' +
-      `<body><h1>${title}</h1><table><thead><tr><th>Nome</th><th>Email</th><th>Perfil</th><th>Estado</th><th>Aprovado</th><th>Ativo</th><th>Criado</th></tr></thead><tbody>${rowsHtml}</tbody></table><script>window.onload=function(){window.print();}</script></body></html>`;
+      `<body><h1>${title}</h1><table><thead><tr><th>Nome</th><th>Email</th><th>Perfil</th><th>Estado</th><th>Aprovado</th><th>Ativo</th><th>Criado</th><th>Último login</th><th>Última atividade</th><th>Status</th></tr></thead><tbody>${rowsHtml}</tbody></table><script>window.onload=function(){window.print();}</script></body></html>`;
     w.document.open(); w.document.write(html); w.document.close();
   }
 
@@ -206,6 +224,26 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
       field: 'status', headerName: 'Estado', width: 120,
       renderCell: (p) => <Chip size="small" label={String(p?.value ?? '')} color={statusColor(p?.value as Status)} variant="outlined" />,
       valueGetter: (v, r) => r.status ?? '',
+    },
+    {
+      field: 'online', headerName: 'Online', width: 110,
+      valueGetter: (_v, r) => Boolean(r.online),
+      renderCell: (p) => (
+        <Chip
+          size="small"
+          label={p?.value ? 'Online' : 'Offline'}
+          color={p?.value ? 'success' : 'default'}
+          variant={p?.value ? 'filled' : 'outlined'}
+        />
+      ),
+    },
+    {
+      field: 'last_login_at', headerName: 'Último login', minWidth: 180,
+      valueFormatter: (p: any) => (p?.value ? new Date(String(p.value)).toLocaleString() : ''),
+    },
+    {
+      field: 'last_seen_at', headerName: 'Última atividade', minWidth: 180,
+      valueFormatter: (p: any) => (p?.value ? new Date(String(p.value)).toLocaleString() : ''),
     },
     {
       field: 'created_at', headerName: 'Criado em', minWidth: 160,

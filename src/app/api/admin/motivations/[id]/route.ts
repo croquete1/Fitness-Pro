@@ -2,11 +2,18 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabaseServer';
+import { tryCreateServerClient } from '@/lib/supabaseServer';
 import { toAppRole } from '@/lib/roles';
+import { supabaseFallbackJson, supabaseUnavailableResponse } from '@/lib/supabase/responses';
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const sb = createServerClient();
+  const sb = tryCreateServerClient();
+  if (!sb) {
+    return supabaseFallbackJson(
+      { ok: false, error: 'SUPABASE_UNCONFIGURED' },
+      { status: 503 }
+    );
+  }
   const { data: auth } = await sb.auth.getUser();
   if (!auth?.user) return NextResponse.json({ ok:false, error:'UNAUTHENTICATED' }, { status:401 });
   const role = toAppRole((auth.user as any)?.role) ?? 'CLIENT';
@@ -24,7 +31,13 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 }
 
 export async function DELETE(_: Request, { params }: { params: { id: string } }) {
-  const sb = createServerClient();
+  const sb = tryCreateServerClient();
+  if (!sb) {
+    return supabaseFallbackJson(
+      { ok: false, error: 'SUPABASE_UNCONFIGURED' },
+      { status: 503 }
+    );
+  }
   const { data: auth } = await sb.auth.getUser();
   if (!auth?.user) return NextResponse.json({ ok:false, error:'UNAUTHENTICATED' }, { status:401 });
   const role = toAppRole((auth.user as any)?.role) ?? 'CLIENT';

@@ -85,7 +85,15 @@ export default function SessionFormClient({ mode, initial, onSuccess }: Props) {
       setLoading(true);
       fetch(u.toString(), { cache: 'no-store', signal: ctrl.signal })
         .then((r) => r.json())
-        .then((j) => setter(j.rows ?? []))
+        .then((j) => {
+          const rows = Array.isArray(j.rows) ? j.rows : Array.isArray(j) ? j : [];
+          const mapped: Option[] = rows.map((row: any) => ({
+            id: String(row.id),
+            name: row.name ?? row.label ?? null,
+            email: row.email ?? null,
+          }));
+          setter(mapped);
+        })
         .catch(() => setter([]))
         .finally(() => setLoading(false));
       return () => ctrl.abort();

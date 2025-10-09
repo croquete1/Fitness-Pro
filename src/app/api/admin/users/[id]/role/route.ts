@@ -1,27 +1,28 @@
 // src/app/api/admin/users/[id]/role/route.ts
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabaseServer';
+import { tryCreateServerClient } from '@/lib/supabaseServer';
 import { toAppRole, appRoleToDbRole } from '@/lib/roles';
-import { touchUsers, touchProfiles } from '@/lib/revalidate';
+import { touchUsers } from '@/lib/revalidate';
+import { getUserRole } from '@/lib/userRepo';
+import { logAudit, AUDIT_KINDS, AUDIT_TARGET_TYPES } from '@/lib/audit';
+import { supabaseFallbackJson, supabaseUnavailableResponse } from '@/lib/supabase/responses';
 
 export async function PATCH(req: Request, ctx: { params: { id: string } }) {
   const id = ctx.params?.id;
   if (!id) return NextResponse.json({ ok: false, error: 'MISSING_ID' }, { status: 400 });
 
-  const sb = createServerClient();
+  const sb = tryCreateServerClient();
+  if (!sb) {
+    return supabaseFallbackJson(
+      { ok: false, error: 'SUPABASE_UNCONFIGURED' },
+      { status: 503 }
+    );
+  }
   const { data: meAuth } = await sb.auth.getUser();
   if (!meAuth?.user?.id) return NextResponse.json({ ok: false, error: 'UNAUTHENTICATED' }, { status: 401 });
 
   // só ADMIN pode mudar roles
-  let myRole: string | null = null;
-  {
-    const { data: u } = await sb.from('users').select('role').eq('id', meAuth.user.id).maybeSingle();
-    myRole = (u?.role as string) ?? null;
-    if (!myRole) {
-      const { data: p } = await sb.from('profiles').select('role').eq('id', meAuth.user.id).maybeSingle();
-      myRole = (p?.role as string) ?? null;
-    }
-  }
+  const myRole = await getUserRole(meAuth.user.id, { client: sb });
   if (toAppRole(myRole) !== 'ADMIN') {
     return NextResponse.json({ ok: false, error: 'FORBIDDEN' }, { status: 403 });
   }
@@ -42,24 +43,20 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
     return NextResponse.json({ ok: false, error: 'ADMIN_LOCKED' }, { status: 409 });
   }
 
-  // gravar em users (fallback profiles)
+  // gravar em users
   const dbRole = appRoleToDbRole(nextAppRole) ?? 'TRAINER';
-  let updated = false;
+  const { error } = await sb.from('users').update({ role: dbRole }).eq('id', id);
+  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
 
-  {
-    const { data, error } =
-      await sb.from('users').update({ role: dbRole }).eq('id', id).select('id').maybeSingle();
-    if (!error && data?.id) updated = true;
-  }
-  if (!updated) {
-    const { data, error } =
-      await sb.from('profiles').update({ role: dbRole }).eq('id', id).select('id').maybeSingle();
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
-    updated = !!data?.id;
-  }
+  await logAudit(sb, {
+    kind: AUDIT_KINDS.USER_UPDATE,
+    target_type: AUDIT_TARGET_TYPES.USER,
+    target_id: id,
+    actor_id: meAuth.user.id,
+    note: `Role alterado para ${nextAppRole}`,
+  });
 
-  // revalidar dashboards
-  void touchUsers(); void touchProfiles();
+  void touchUsers();
 
   return NextResponse.json({ ok: true, id, role: nextAppRole });
 }

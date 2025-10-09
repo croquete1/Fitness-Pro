@@ -4,7 +4,14 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  Avatar, Box, List, ListItemButton, ListItemIcon, ListItemText, Tooltip, IconButton,
+  Badge,
+  Box,
+  IconButton,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Tooltip,
 } from '@mui/material';
 
 import DashboardOutlined from '@mui/icons-material/DashboardOutlined';
@@ -21,36 +28,64 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import SidebarBase from '@/components/layout/SidebarBase';
 import { useSidebar } from '@/components/layout/SidebarProvider';
 
-type Nav = { href: string; label: string; icon: React.ReactNode; exact?: boolean; activePrefix?: string };
+type Nav = {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+  exact?: boolean;
+  activePrefix?: string;
+  badge?: number;
+};
 
-export default function SidebarPT({ userLabel }: { userLabel?: string }) {
+type Props = {
+  messagesCount?: number;
+  notificationsCount?: number;
+};
+
+export default function SidebarPT({ messagesCount = 0, notificationsCount = 0 }: Props) {
   const path = usePathname();
-  const { collapsed, isMobile, closeMobile, toggleCollapse } = useSidebar();
+  const { collapsed, peek, isMobile, closeMobile, toggleCollapse } = useSidebar();
+  const showLabels = !collapsed || peek;
+  const isRail = collapsed && !peek;
 
   const items: Nav[] = [
     { href: '/dashboard/pt', label: 'Painel', icon: <DashboardOutlined />, exact: true, activePrefix: '/dashboard/pt' },
     { href: '/dashboard/pt/clients', label: 'Clientes', icon: <GroupOutlined />, activePrefix: '/dashboard/pt/clients' },
-    { href: '/dashboard/pt/sessions', label: 'Sessões', icon: <CalendarMonthOutlined />, activePrefix: '/dashboard/pt/sessions' },
-    { href: '/dashboard/pt/my-plan', label: 'Planos', icon: <ListAltOutlined />, activePrefix: '/dashboard/pt/my-plan' },
-    { href: '/dashboard/pt/messages', label: 'Mensagens', icon: <ChatBubbleOutline />, activePrefix: '/dashboard/pt/messages' },
-    { href: '/dashboard/notifications', label: 'Notificações', icon: <NotificationsOutlined />, activePrefix: '/dashboard/notifications' },
+    { href: '/dashboard/pt/schedule', label: 'Agenda', icon: <CalendarMonthOutlined />, activePrefix: '/dashboard/pt/schedule' },
+    { href: '/dashboard/pt/workouts', label: 'Treinos', icon: <ListAltOutlined />, activePrefix: '/dashboard/pt/workouts' },
+    {
+      href: '/dashboard/pt/messages',
+      label: 'Mensagens',
+      icon: <ChatBubbleOutline />,
+      activePrefix: '/dashboard/pt/messages',
+      badge: messagesCount,
+    },
+    {
+      href: '/dashboard/notifications',
+      label: 'Notificações',
+      icon: <NotificationsOutlined />,
+      activePrefix: '/dashboard/notifications',
+      badge: notificationsCount,
+    },
     { href: '/dashboard/history', label: 'Histórico', icon: <HistoryOutlined />, activePrefix: '/dashboard/history' },
     { href: '/dashboard/profile', label: 'Perfil', icon: <AccountCircleOutlined />, activePrefix: '/dashboard/profile' },
   ];
 
   const header = (
     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.25, minWidth: 0, p: 1.5 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
-        <Avatar src="/logo.png" alt="Fitness Pro" sx={{ width: 28, height: 28, fontWeight: 800 }} imgProps={{ referrerPolicy: 'no-referrer' }}>
-          FP
-        </Avatar>
-        {!collapsed && (
-          <Box sx={{ lineHeight: 1.1, minWidth: 0 }}>
-            <Box component="div" sx={{ fontSize: 14, fontWeight: 700, letterSpacing: 0.2 }}>Fitness Pro</Box>
-            {/* ❌ sem nome/cargo aqui para não duplicar com o header global */}
-          </Box>
-        )}
-      </Box>
+      <Box
+        sx={{
+          width: 36,
+          height: 36,
+          borderRadius: '50%',
+          background: (theme) =>
+            theme.palette.mode === 'dark'
+              ? 'linear-gradient(145deg, rgba(103,58,183,0.45), rgba(255,64,129,0.45))'
+              : 'linear-gradient(145deg, rgba(103,58,183,0.25), rgba(255,64,129,0.35))',
+          border: '1px solid',
+          borderColor: 'divider',
+        }}
+      />
       <IconButton onClick={toggleCollapse} sx={{ ml: 'auto', width: 32, height: 32, borderRadius: 1.25, border: 1, borderColor: 'divider', bgcolor: 'background.paper', '&:hover': { bgcolor: 'action.hover' } }}>
         {collapsed ? <ChevronRightIcon fontSize="small" /> : <ChevronLeftIcon fontSize="small" />}
       </IconButton>
@@ -62,6 +97,14 @@ export default function SidebarPT({ userLabel }: { userLabel?: string }) {
       <List dense disablePadding sx={{ px: 0.5, py: 0.5, display: 'grid', gap: 0.5 }}>
         {items.map((it) => {
           const active = it.exact ? path === it.href : (it.activePrefix ? path.startsWith(it.activePrefix) : path.startsWith(it.href));
+          const iconWrapped = (it.badge ?? 0) > 0
+            ? (
+                <Badge color="error" badgeContent={it.badge} overlap="circular" max={99}>
+                  {it.icon as any}
+                </Badge>
+              )
+            : it.icon;
+
           const Button = (
             <ListItemButton
               component={Link}
@@ -70,20 +113,20 @@ export default function SidebarPT({ userLabel }: { userLabel?: string }) {
               onClick={() => { if (isMobile) closeMobile(); }}
               selected={active}
               aria-current={active ? 'page' : undefined}
-              aria-label={collapsed ? it.label : undefined}
+              aria-label={isRail ? it.label : undefined}
               sx={{
                 borderRadius: 1.5, height: 40,
                 '&.Mui-selected': { bgcolor: 'action.selected', '&:hover': { bgcolor: 'action.selected' } },
                 '&.Mui-selected .MuiListItemText-primary': { color: 'primary.main', fontWeight: 700 },
               }}
             >
-              <ListItemIcon sx={{ minWidth: collapsed ? 0 : 36, mr: collapsed ? 0 : 1, justifyContent: 'center', color: active ? 'primary.main' : 'text.secondary' }}>
-                {it.icon}
+              <ListItemIcon sx={{ minWidth: showLabels ? 36 : 0, mr: showLabels ? 1 : 0, justifyContent: 'center', color: active ? 'primary.main' : 'text.secondary' }}>
+                {iconWrapped}
               </ListItemIcon>
-              {!collapsed && <ListItemText primary={it.label} primaryTypographyProps={{ fontSize: 14, fontWeight: active ? 700 : 500, noWrap: true }} />}
+              {showLabels && <ListItemText primary={it.label} primaryTypographyProps={{ fontSize: 14, fontWeight: active ? 700 : 500, noWrap: true }} />}
             </ListItemButton>
           );
-          return <React.Fragment key={it.href}>{collapsed ? <Tooltip title={it.label} placement="right" arrow disableInteractive>{Button}</Tooltip> : Button}</React.Fragment>;
+          return <React.Fragment key={it.href}>{isRail ? <Tooltip title={it.label} placement="right" arrow disableInteractive>{Button}</Tooltip> : Button}</React.Fragment>;
         })}
       </List>
     </SidebarBase>

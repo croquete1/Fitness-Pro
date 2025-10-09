@@ -1,6 +1,7 @@
 // src/app/(app)/dashboard/page.tsx
 import { redirect } from 'next/navigation';
 import { createServerClient } from '@/lib/supabaseServer';
+import { getUserRole } from '@/lib/userRepo';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -13,8 +14,7 @@ export default async function DashboardIndex() {
   if (!user) redirect('/login');
 
   // 2) obtém role e envia para o painel certo
-  const { data: profile } = await sb.from('profiles').select('role').eq('id', user.id).single();
-  const role = (profile as any)?.role as string | null;
+  const role = await getUserRole(user.id, { client: sb });
 
   if (role === 'ADMIN')  redirect('/dashboard/admin');
   if (role === 'TRAINER') redirect('/dashboard/pt');

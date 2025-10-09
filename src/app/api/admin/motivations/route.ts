@@ -2,11 +2,13 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabaseServer';
+import { tryCreateServerClient } from '@/lib/supabaseServer';
 import { toAppRole } from '@/lib/roles';
+import { supabaseFallbackJson } from '@/lib/supabase/responses';
 
 export async function GET() {
-  const sb = createServerClient();
+  const sb = tryCreateServerClient();
+  if (!sb) return supabaseFallbackJson({ ok: true, items: [] });
   const { data: auth } = await sb.auth.getUser();
   if (!auth?.user) return NextResponse.json({ ok:false, error:'UNAUTHENTICATED' }, { status:401 });
 
@@ -19,7 +21,13 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const sb = createServerClient();
+  const sb = tryCreateServerClient();
+  if (!sb) {
+    return supabaseFallbackJson(
+      { ok: false, error: 'SUPABASE_UNCONFIGURED' },
+      { status: 503 }
+    );
+  }
   const { data: auth } = await sb.auth.getUser();
   if (!auth?.user) return NextResponse.json({ ok:false, error:'UNAUTHENTICATED' }, { status:401 });
   const role = toAppRole((auth.user as any)?.role) ?? 'CLIENT';

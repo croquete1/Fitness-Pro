@@ -4,13 +4,13 @@ import SidebarAdminWithCounts from './SidebarAdminWithCounts';
 import SidebarAdminHydrated from './SidebarAdminHydrated';
 import SidebarClientWithCounts from './SidebarClientWithCounts';
 import SidebarClientHydrated from './SidebarClientHydrated';
-import SidebarClient from './SidebarClient'; // fallback p/ TRAINER/PT enquanto não existir SidebarPT
+import SidebarPTWithCounts from './SidebarPTWithCounts';
 
 import type { AdminCounts, ClientCounts } from '@/lib/hooks/useCounts';
 
 type Props = {
   role?: string | null;
-  initialCounts?: { admin?: AdminCounts; client?: ClientCounts };
+  initialCounts?: { admin?: AdminCounts; client?: ClientCounts; trainer?: ClientCounts };
 };
 
 export default function RoleSidebar({ role, initialCounts }: Props) {
@@ -23,8 +23,9 @@ export default function RoleSidebar({ role, initialCounts }: Props) {
   }
 
   if (r === 'TRAINER' || r === 'PT') {
-    // TODO: quando adicionares SidebarPT, troca aqui:
-    return <SidebarClientWithCounts />;
+    return initialCounts?.trainer
+      ? <SidebarPTWithCounts initial={initialCounts.trainer} />
+      : <SidebarPTWithCounts />;
   }
 
   // CLIENT
