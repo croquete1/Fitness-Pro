@@ -4,35 +4,27 @@ import SidebarAdminWithCounts from './SidebarAdminWithCounts';
 import SidebarAdminHydrated from './SidebarAdminHydrated';
 import SidebarClientWithCounts from './SidebarClientWithCounts';
 import SidebarClientHydrated from './SidebarClientHydrated';
-import SidebarPT from './SidebarPT';
+import SidebarClient from './SidebarClient'; // fallback p/ TRAINER/PT enquanto não existir SidebarPT
 
-import type { Role } from '@/components/header/HeaderCountsContext';
-import type { DashboardCountsSnapshot } from '@/types/dashboard-counts';
+import type { AdminCounts, ClientCounts } from '@/lib/hooks/useCounts';
 
 type Props = {
-  role?: Role | string | null;
-  initialCounts?: DashboardCountsSnapshot;
+  role?: string | null;
+  initialCounts?: { admin?: AdminCounts; client?: ClientCounts };
 };
 
-function normalizeRole(role?: Role | string | null): Role {
-  const value = String(role ?? 'CLIENT').toUpperCase();
-  if (value === 'ADMIN' || value === 'TRAINER' || value === 'CLIENT') {
-    return value;
-  }
-  return 'CLIENT';
-}
-
 export default function RoleSidebar({ role, initialCounts }: Props) {
-  const normalized = normalizeRole(role);
+  const r = String(role || 'CLIENT').toUpperCase();
 
-  if (normalized === 'ADMIN') {
+  if (r === 'ADMIN') {
     return initialCounts?.admin
       ? <SidebarAdminHydrated initial={initialCounts.admin} />
       : <SidebarAdminWithCounts />;
   }
 
-  if (normalized === 'TRAINER') {
-    return <SidebarPT />;
+  if (r === 'TRAINER' || r === 'PT') {
+    // TODO: quando adicionares SidebarPT, troca aqui:
+    return <SidebarClientWithCounts />;
   }
 
   // CLIENT
