@@ -33,12 +33,7 @@ export default async function AdminWeekTable() {
   let trainerNames = new Map<string, string>();
   if (trainerIds.length) {
     const { data: tUsers } = await sb.from('users').select('id,name,email').in('id', trainerIds);
-    if (tUsers?.length) {
-      trainerNames = new Map((tUsers ?? []).map((u: any) => [u.id, u.name ?? u.email ?? u.id]));
-    } else {
-      const { data: tProf } = await sb.from('profiles').select('id,name,email').in('id', trainerIds);
-      trainerNames = new Map((tProf ?? []).map((u: any) => [u.id, u.name ?? u.email ?? u.id]));
-    }
+    trainerNames = new Map((tUsers ?? []).map((u: any) => [u.id, u.name ?? u.email ?? u.id]));
   }
 
   const weekRows = Array.from(byPT.entries())

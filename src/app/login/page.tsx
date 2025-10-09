@@ -4,7 +4,6 @@ import * as React from 'react';
 import { Box, Button, Container, Stack, TextField, Typography, Alert, Link as MuiLink, Paper } from '@mui/material';
 import { signIn } from 'next-auth/react';
 import { toast } from '@/components/ui/Toaster';
-import BrandLogo from '@/components/branding/BrandLogo';
 
 export default function LoginPage() {
   const [loading, setLoading] = React.useState(false);
@@ -42,7 +41,24 @@ export default function LoginPage() {
       <Container maxWidth="xs">
         <Paper elevation={6} sx={{ p: 3, borderRadius: 4 }}>
           <Stack alignItems="center" gap={1} sx={{ mb: 1 }}>
-            <BrandLogo size={56} />
+            <Box
+              component="img"
+              src="/logo.png"
+              alt="Fitness Pro"
+              sx={{ width: 64, height: 64, objectFit: 'contain' }}
+              onError={(ev: React.SyntheticEvent<HTMLImageElement>) => {
+                const img = ev.currentTarget;
+                const parent = img.parentElement;
+                if (parent) {
+                  const fallback = document.createElement('strong');
+                  fallback.textContent = 'Fitness Pro';
+                  fallback.style.fontSize = '1.5rem';
+                  fallback.style.fontWeight = '800';
+                  fallback.style.color = '#1976d2';
+                  parent.replaceChild(fallback, img);
+                }
+              }}
+            />
             <Typography variant="h5" fontWeight={800} textAlign="center">
               Bem-vindo ao Fitness Pro
             </Typography>

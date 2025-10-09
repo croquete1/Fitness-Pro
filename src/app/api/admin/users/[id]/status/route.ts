@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
 import { requireAdminGuard, isGuardErr } from '@/lib/api-guards';
+import { logAudit, AUDIT_KINDS, AUDIT_TARGET_TYPES } from '@/lib/audit';
 
 type AllowedStatus = 'ACTIVE' | 'SUSPENDED' | 'PENDING';
 type IncomingStatus = AllowedStatus | 'DISABLED';
@@ -31,6 +32,17 @@ async function updateStatus(req: Request, { params }: { params: { id: string } }
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
+
+  await logAudit(sb, {
+    kind: finalStatus === 'ACTIVE'
+      ? AUDIT_KINDS.USER_APPROVE
+      : finalStatus === 'SUSPENDED'
+        ? AUDIT_KINDS.USER_SUSPEND
+        : AUDIT_KINDS.USER_UPDATE,
+    target_type: AUDIT_TARGET_TYPES.USER,
+    target_id: params.id,
+    note: `Estado alterado para ${finalStatus}`,
+  });
 
   return NextResponse.json({ ok: true });
 }

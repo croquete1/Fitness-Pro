@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
 import { requireAdminGuard, isGuardErr } from '@/lib/api-guards';
+import { logAudit, AUDIT_KINDS, AUDIT_TARGET_TYPES } from '@/lib/audit';
 
 export async function GET(req: Request) {
   const guard = await requireAdminGuard();
@@ -48,5 +49,13 @@ export async function POST(req: Request) {
 
   const { data, error } = await sb.from('users').insert(payload).select('*').single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  await logAudit(sb, {
+    kind: AUDIT_KINDS.USER_CREATE,
+    target_type: AUDIT_TARGET_TYPES.USER,
+    target_id: data.id,
+    note: `Utilizador criado (${payload.role})`,
+  });
+
   return NextResponse.json(data);
 }

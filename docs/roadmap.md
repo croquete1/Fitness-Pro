@@ -8,9 +8,9 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Implementar listagem de utilizadores com filtros, paginação e normalização de campos (`rows`/`count`). Fonte: `src/app/api/admin/users/route.ts`.
 - [x] Permitir edição e remoção directa de utilizadores por ID com validação de role/status. Fonte: `src/app/api/admin/users/[id]/route.ts`.
 - [x] Uniformizar rotas e navegação da área de PT (prefixo único `/dashboard/pt` com legados a redirecionar).
-- [ ] Limpar código legado da transição Prisma→Supabase e definir fonte única de verdade para utilizadores.
-- [ ] Activar logging/auditoria em todas as acções críticas (logs ainda não são escritos nas operações recentes).
-- [ ] Melhorar feedback de UI e tratamento de erros silenciosos (tostas e mensagens pendentes de revisão).
+- [x] Limpar código legado da transição Prisma→Supabase e definir fonte única de verdade para utilizadores (repositório `userRepo` centraliza contagens/leituras e endpoints deixaram de atualizar `profiles`).
+- [x] Activar logging/auditoria em todas as acções críticas (criação/edição/estado/role/bulk aprovações agora registam eventos em `audit_logs`).
+- [ ] Melhorar feedback de UI e tratamento de erros silenciosos (tostas e mensagens pendentes de revisão) — em curso; a gestão de utilizadores já mostra toasts consistentes, restante interface por rever.
 - [ ] Realizar passagem de testes E2E cobrindo fluxo completo de registo→aprovação→dashboard.
 
 ## Fase 2 – Melhorias Estruturais

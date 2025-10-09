@@ -8,26 +8,15 @@ export async function GET(req: Request) {
 
   const sb = createServerClient();
 
-  // 1) tentar em "users"
-  let { data, error } = await sb
+  const { data, error } = await sb
     .from('users')
     .select('id,name,email,role')
     .or(q ? `name.ilike.%${q}%,email.ilike.%${q}%` : '')
     .in('role', ['CLIENT'])
     .limit(limit);
+  if (error) return NextResponse.json([], { status: 200 });
 
-  // 2) fallback: "profiles"
-  if (error || !data || data.length === 0) {
-    const r2 = await sb
-      .from('profiles')
-      .select('id,name,email,role')
-      .or(q ? `name.ilike.%${q}%,email.ilike.%${q}%` : '')
-      .in('role', ['CLIENT'])
-      .limit(limit);
-    data = r2.data || [];
-  }
-
-  const options = (data || []).map((u: any) => ({
+  const options = (data ?? []).map((u: any) => ({
     id: String(u.id),
     label: String(u.name || u.email || u.id),
   }));
