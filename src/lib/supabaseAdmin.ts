@@ -1,7 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
-
-export const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!, // server only
-  { auth: { autoRefreshToken: false, persistSession: false } }
-);
+// src/lib/supabaseAdmin.ts
+// Compatibilidade: reexporta o cliente server do Supabase sem inicialização eagler.
+export { supabaseAdmin } from '@/lib/supabaseServer';
+export { createServerClient, getSupabaseServer, MissingSupabaseEnvError } from '@/lib/supabaseServer';

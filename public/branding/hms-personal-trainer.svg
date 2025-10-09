@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">HMS Personal Trainer</title>
+  <desc id="desc">Stylised HMS logomark with red chevron</desc>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1f2c46" />
+      <stop offset="100%" stop-color="#111726" />
+    </linearGradient>
+    <linearGradient id="shadow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#02060f" stop-opacity="0.6" />
+      <stop offset="100%" stop-color="#010308" stop-opacity="0" />
+    </linearGradient>
+    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="20" flood-color="#000" flood-opacity="0.35" />
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="64" fill="url(#bg)" />
+  <rect width="512" height="512" rx="64" fill="url(#shadow)" />
+  <g filter="url(#softShadow)" transform="translate(0, 24)">
+    <text x="50%" y="210" text-anchor="middle" font-family="'Poppins', 'Segoe UI', sans-serif" font-size="140" font-weight="700" fill="#f5f7fb" letter-spacing="6">HMS</text>
+    <polygon points="188,252 255.5,332 324,252" fill="#d73531" />
+    <text x="50%" y="390" text-anchor="middle" font-family="'Poppins', 'Segoe UI', sans-serif" font-size="54" font-weight="600" fill="#f5f7fb" letter-spacing="5">PERSONAL TRAINER</text>
+  </g>
+</svg>

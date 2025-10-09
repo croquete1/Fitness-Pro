@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { serverSB } from '@/lib/supabase/server';
+import { tryGetSBC } from '@/lib/supabase/server';
+import { supabaseConfigErrorResponse, supabaseFallbackJson } from '@/lib/supabase/responses';
 
 const PatchSchema = z.object({
   trainer_id: z.string().optional(),
@@ -14,7 +15,13 @@ const PatchSchema = z.object({
 
 export async function PATCH(_req: Request, ctx: { params: { id: string } }) {
   try {
-    const sb = serverSB();
+    const sb = tryGetSBC();
+    if (!sb) {
+      return supabaseFallbackJson(
+        { ok: false, message: 'Supabase não está configurado.' },
+        { status: 503 }
+      );
+    }
     const body = await _req.json();
     const patch = PatchSchema.parse(body);
 
@@ -25,13 +32,21 @@ export async function PATCH(_req: Request, ctx: { params: { id: string } }) {
     if (error) throw error;
     return NextResponse.json({ ok: true });
   } catch (e: any) {
+    const config = supabaseConfigErrorResponse(e);
+    if (config) return config;
     return NextResponse.json({ error: String(e?.message || e) }, { status: 400 });
   }
 }
 
 export async function DELETE(_req: Request, ctx: { params: { id: string } }) {
   try {
-    const sb = serverSB();
+    const sb = tryGetSBC();
+    if (!sb) {
+      return supabaseFallbackJson(
+        { ok: false, message: 'Supabase não está configurado.' },
+        { status: 503 }
+      );
+    }
     const { error } = await sb.from('pts_sessions')
       .delete()
       .eq('id', ctx.params.id);
@@ -39,6 +54,8 @@ export async function DELETE(_req: Request, ctx: { params: { id: string } }) {
     if (error) throw error;
     return NextResponse.json({ ok: true });
   } catch (e: any) {
+    const config = supabaseConfigErrorResponse(e);
+    if (config) return config;
     return NextResponse.json({ error: String(e?.message || e) }, { status: 400 });
   }
 }

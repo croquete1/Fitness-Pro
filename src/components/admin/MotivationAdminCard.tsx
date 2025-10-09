@@ -18,7 +18,7 @@ export default function MotivationAdminCard() {
   const [busy, setBusy] = React.useState(false);
 
   async function load() {
-    const r = await fetch('/api/motivation');
+    const r = await fetch('/api/admin/motivations', { cache: 'no-store' });
     const j = await r.json().catch(() => ({}));
     setItems(j.items || []);
   }
@@ -28,17 +28,25 @@ export default function MotivationAdminCard() {
     if (!text.trim()) return;
     setBusy(true);
     try {
-      await fetch('/api/motivation', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, author }) });
+      await fetch('/api/admin/motivations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, author }),
+      });
       setText(''); setAuthor(''); load();
     } finally { setBusy(false); }
   }
 
   async function toggleActive(q: Quote) {
-    await fetch(`/api/motivation/${q.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ active: !q.active }) });
+    await fetch(`/api/admin/motivations/${q.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ active: !q.active }),
+    });
     load();
   }
   async function remove(id: string) {
-    await fetch(`/api/motivation/${id}`, { method: 'DELETE' });
+    await fetch(`/api/admin/motivations/${id}`, { method: 'DELETE' });
     load();
   }
 

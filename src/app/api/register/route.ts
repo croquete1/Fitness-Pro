@@ -1,7 +1,7 @@
 // src/app/api/register/route.ts
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { createClient } from '@supabase/supabase-js';
+import { createServerClient, MissingSupabaseEnvError } from '@/lib/supabaseServer';
 
 const zBody = z.object({
   name: z.string().trim().max(120).optional().nullable(),
@@ -13,18 +13,12 @@ const zBody = z.object({
   role: z.enum(['CLIENT', 'PT', 'TRAINER', 'ADMIN']).optional().default('CLIENT'),
 });
 
-function supabaseAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-  return createClient(url, key, { auth: { persistSession: false } });
-}
-
 export async function POST(req: Request) {
   try {
     const json = await req.json();
     const body = zBody.parse(json);
 
-    const sb = supabaseAdmin();
+    const sb = createServerClient();
     const email = body.email.toLowerCase();
     const username = body.username?.toLowerCase().trim() || null;
 
@@ -95,6 +89,12 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, id: ins.data.id });
   } catch (err: any) {
+    if (err instanceof MissingSupabaseEnvError) {
+      return NextResponse.json(
+        { message: 'Configuração do Supabase em falta.' },
+        { status: 503 }
+      );
+    }
     if (err?.name === 'ZodError') {
       return NextResponse.json({ message: 'Dados inválidos', details: err.issues }, { status: 400 });
     }
