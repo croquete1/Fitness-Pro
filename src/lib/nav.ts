@@ -68,6 +68,7 @@ const NAV_SOURCE = [
   { kind: 'link',  key: 'pt-clients',  label: 'Clientes (PT)',  href: '/dashboard/pt/clients',    icon: 'clients',   showFor: ['TRAINER'] },
   { kind: 'link',  key: 'pt-plans',    label: 'Planos (PT)',    href: '/dashboard/pt/plans',      icon: 'plans',     showFor: ['TRAINER'] },
   { kind: 'link',  key: 'pt-library',  label: 'Biblioteca',     href: '/dashboard/pt/library',    icon: 'library',   showFor: ['TRAINER'] },
+  { kind: 'link',  key: 'pt-approv',   label: 'Aprovações',     href: '/dashboard/pt/approvals',  icon: 'approvals', showFor: ['TRAINER'] },
   { kind: 'link',  key: 'pt-work',     label: 'Treinos',        href: '/dashboard/pt/workouts',   icon: 'workouts',  showFor: ['TRAINER'] },
 
   // ===== Admin — Grupo + links =====

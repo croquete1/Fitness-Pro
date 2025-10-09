@@ -10,18 +10,14 @@ export async function GET(req: Request) {
   const sb = tryCreateServerClient();
   if (!sb) return supabaseFallbackJson({ rows: [] });
 
-  let query = sb
+  const { data, error } = await sb
     .from('users')
     .select('id,name,email,role')
     .in('role', ['CLIENT'])
     .limit(limit);
-  if (q) {
-    query = query.or(`name.ilike.%${q}%,email.ilike.%${q}%`);
-  }
+  if (error) return NextResponse.json([], { status: 200 });
 
-  const { data, error } = await query;
-
-  let options = (data ?? []).map((u: any) => ({
+  const options = (data ?? []).map((u: any) => ({
     id: String(u.id),
     name: u.name ?? null,
     email: u.email ?? null,

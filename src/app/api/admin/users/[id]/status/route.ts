@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
-import { tryCreateServerClient } from '@/lib/supabaseServer';
+import { createServerClient } from '@/lib/supabaseServer';
 import { requireAdminGuard, isGuardErr } from '@/lib/api-guards';
 import { logAudit, AUDIT_KINDS, AUDIT_TARGET_TYPES } from '@/lib/audit';
-import { supabaseFallbackJson, supabaseUnavailableResponse } from '@/lib/supabase/responses';
 
 type AllowedStatus = 'ACTIVE' | 'SUSPENDED' | 'PENDING';
 type IncomingStatus = AllowedStatus | 'DISABLED';
@@ -22,13 +21,7 @@ async function updateStatus(req: Request, { params }: { params: { id: string } }
     return NextResponse.json({ error: 'Estado inválido.' }, { status: 400 });
   }
 
-  const sb = tryCreateServerClient();
-  if (!sb) {
-    return supabaseFallbackJson(
-      { ok: false, error: 'SUPABASE_UNCONFIGURED' },
-      { status: 503 }
-    );
-  }
+  const sb = createServerClient();
   const finalStatus: AllowedStatus = normalized === 'DISABLED' ? 'SUSPENDED' : normalized;
   const approved = finalStatus === 'ACTIVE' ? true : finalStatus === 'PENDING' ? null : false;
   const { error } = await sb

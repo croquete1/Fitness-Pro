@@ -5,7 +5,6 @@ import { toAppRole, appRoleToDbRole } from '@/lib/roles';
 import { touchUsers } from '@/lib/revalidate';
 import { getUserRole } from '@/lib/userRepo';
 import { logAudit, AUDIT_KINDS, AUDIT_TARGET_TYPES } from '@/lib/audit';
-import { supabaseFallbackJson, supabaseUnavailableResponse } from '@/lib/supabase/responses';
 
 export async function PATCH(req: Request, ctx: { params: { id: string } }) {
   const id = ctx.params?.id;
