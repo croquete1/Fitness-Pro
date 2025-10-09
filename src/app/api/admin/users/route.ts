@@ -13,7 +13,8 @@ export async function GET(req: Request) {
   const role = searchParams.get('role');
   const status = searchParams.get('status');
 
-  const sb = createServerClient();
+  const sb = tryCreateServerClient();
+  if (!sb) return supabaseFallbackJson({ rows: [], count: 0 });
   let s = sb.from('users').select('*', { count: 'exact' }).order('created_at', { ascending: false });
   if (q) s = s.or(`name.ilike.%${q}%,email.ilike.%${q}%`);
   if (role) s = s.eq('role', role);
@@ -36,7 +37,8 @@ export async function POST(req: Request) {
   const guard = await requireAdminGuard();
   if (isGuardErr(guard)) return guard.response;
   const body = await req.json().catch(() => ({}));
-  const sb = createServerClient();
+  const sb = tryCreateServerClient();
+  if (!sb) return supabaseUnavailableResponse();
 
   const payload = {
     name: body.name ?? null,

@@ -2,33 +2,78 @@
 import 'server-only';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  process.env.SUPABASE_URL ||
+  '';
+const ANON =
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.SUPABASE_ANON_KEY ||
+  '';
 const SERVICE =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ??
-  process.env.SUPABASE_SERVICE_ROLE ??
-  process.env.SUPABASE_SERVICE_KEY; // cobre nomes comuns
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_SERVICE_ROLE ||
+  process.env.SUPABASE_SERVICE_KEY ||
+  '';
 
-if (!URL) throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL');
-if (!ANON && !SERVICE) throw new Error('Missing SUPABASE keys');
-
-// singleton em dev/SSR
-const g = globalThis as unknown as { __sb_admin?: SupabaseClient };
-
-function makeAdmin(): SupabaseClient {
-  // Em server usamos SERVICE se existir, senão ANON
-  const key = SERVICE || ANON;
-  return createClient(URL, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+export class MissingSupabaseEnvError extends Error {
+  constructor() {
+    super('Supabase env vars em falta (URL e/ou chave).');
+    this.name = 'MissingSupabaseEnvError';
+  }
 }
 
-export const supabaseAdmin: SupabaseClient = g.__sb_admin ?? makeAdmin();
-if (!g.__sb_admin) g.__sb_admin = supabaseAdmin;
+type GlobalWithSupabase = typeof globalThis & { __sb_admin?: SupabaseClient | null };
+const g = globalThis as GlobalWithSupabase;
 
-// ✅ default export para usares sem função
-export default supabaseAdmin;
+function ensureClient(opts?: { optional?: boolean }): SupabaseClient | null {
+  if (g.__sb_admin) return g.__sb_admin;
 
-// ✅ aliases de compatibilidade (para ficheiros antigos)
-export function getSupabaseServer() { return supabaseAdmin; }
-export function createServerClient() { return supabaseAdmin; }
+  const url = URL.trim();
+  const key = (SERVICE || ANON).trim();
+
+  if (!url || !key) {
+    if (opts?.optional) {
+      g.__sb_admin = null;
+      return null;
+    }
+    throw new MissingSupabaseEnvError();
+  }
+
+  g.__sb_admin = createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  return g.__sb_admin;
+}
+
+export function isSupabaseConfigured(): boolean {
+  return Boolean(URL && (SERVICE || ANON));
+}
+
+const supabaseProxy: SupabaseClient = new Proxy({} as SupabaseClient, {
+  get(_target, prop, receiver) {
+    const client = ensureClient();
+    const value = Reflect.get(client as unknown as object, prop, receiver);
+    return typeof value === 'function' ? value.bind(client) : value;
+  },
+});
+
+export const supabaseAdmin = supabaseProxy;
+export default supabaseProxy;
+
+export function getSupabaseServer() {
+  const client = ensureClient();
+  if (!client) throw new MissingSupabaseEnvError();
+  return client;
+}
+
+export function createServerClient() {
+  const client = ensureClient();
+  if (!client) throw new MissingSupabaseEnvError();
+  return client;
+}
+
+export function tryCreateServerClient(): SupabaseClient | null {
+  return ensureClient({ optional: true });
+}

@@ -46,7 +46,13 @@ export async function PATCH(req: Request): Promise<NextResponse> {
   }
 
   // Atualização em bulk via Supabase
-  const sb = createServerClient();
+  const sb = tryCreateServerClient();
+  if (!sb) {
+    return supabaseFallbackJson(
+      { ok: false, error: 'SUPABASE_UNCONFIGURED' },
+      { status: 503 }
+    );
+  }
   const { data, error } = await sb
     .from('users')
     .update({ status: body.status })

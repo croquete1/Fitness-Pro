@@ -7,7 +7,13 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const guard = await requireAdminGuard();
   if (isGuardErr(guard)) return guard.response;
   const body = await req.json().catch(() => ({}));
-  const sb = createServerClient();
+  const sb = tryCreateServerClient();
+  if (!sb) {
+    return supabaseFallbackJson(
+      { ok: false, message: 'Supabase não está configurado.' },
+      { status: 503 }
+    );
+  }
 
   const upd: any = {};
   ['name','email','role','status','approved','active'].forEach(k => {

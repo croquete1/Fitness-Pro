@@ -96,7 +96,7 @@ export default function LoginPage() {
               Bem-vindo de volta 👋
             </Typography>
             <Typography variant="body2" sx={{ opacity: .75, textAlign: 'center' }}>
-              Inicia sessão para acederes ao teu painel.
+              Introduz as tuas credenciais para acederes ao painel HMS.
             </Typography>
           </Stack>
 

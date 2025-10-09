@@ -1,6 +1,6 @@
 // src/app/api/admin/users/[id]/role/route.ts
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabaseServer';
+import { tryCreateServerClient } from '@/lib/supabaseServer';
 import { toAppRole, appRoleToDbRole } from '@/lib/roles';
 import { touchUsers } from '@/lib/revalidate';
 import { getUserRole } from '@/lib/userRepo';
@@ -10,7 +10,13 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
   const id = ctx.params?.id;
   if (!id) return NextResponse.json({ ok: false, error: 'MISSING_ID' }, { status: 400 });
 
-  const sb = createServerClient();
+  const sb = tryCreateServerClient();
+  if (!sb) {
+    return supabaseFallbackJson(
+      { ok: false, error: 'SUPABASE_UNCONFIGURED' },
+      { status: 503 }
+    );
+  }
   const { data: meAuth } = await sb.auth.getUser();
   if (!meAuth?.user?.id) return NextResponse.json({ ok: false, error: 'UNAUTHENTICATED' }, { status: 401 });
 

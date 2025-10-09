@@ -1,25 +1,42 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabaseServer';
+import { tryCreateServerClient } from '@/lib/supabaseServer';
+import { supabaseFallbackJson } from '@/lib/supabase/responses';
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const q = (url.searchParams.get('q') || '').trim();
   const limit = Number(url.searchParams.get('limit') || '20');
 
-  const sb = createServerClient();
+  const sb = tryCreateServerClient();
+  if (!sb) return supabaseFallbackJson({ rows: [] });
 
   const { data, error } = await sb
     .from('users')
     .select('id,name,email,role')
-    .or(q ? `name.ilike.%${q}%,email.ilike.%${q}%` : '')
     .in('role', ['TRAINER', 'PT'])
     .limit(limit);
   if (error) return NextResponse.json([], { status: 200 });
 
   const options = (data ?? []).map((u: any) => ({
     id: String(u.id),
+    name: u.name ?? null,
+    email: u.email ?? null,
     label: String(u.name || u.email || u.id),
   }));
 
-  return NextResponse.json(options);
+  if ((!options.length || error) && sb) {
+    const { data: profiles } = await sb
+      .from('profiles')
+      .select('id,full_name,email,role')
+      .in('role', ['TRAINER', 'PT'])
+      .limit(limit);
+    options = (profiles ?? []).map((p: any) => ({
+      id: String(p.id),
+      name: p.full_name ?? p.name ?? null,
+      email: p.email ?? null,
+      label: String(p.full_name || p.email || p.id),
+    }));
+  }
+
+  return NextResponse.json({ rows: options });
 }

@@ -1,13 +1,24 @@
 // src/app/(app)/dashboard/pt/summary/route.ts
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabaseServer';
+import { createServerClient, MissingSupabaseEnvError } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 
 export async function GET() {
   const me = await getSessionUserSafe();
   if (!me?.id) return new NextResponse('Unauthorized', { status: 401 });
 
-  const sb = createServerClient();
+  let sb;
+  try {
+    sb = createServerClient();
+  } catch (err) {
+    if (err instanceof MissingSupabaseEnvError) {
+      return NextResponse.json(
+        { message: 'Supabase não está configurado.' },
+        { status: 503 }
+      );
+    }
+    throw err;
+  }
   const now = new Date();
   const in7 = new Date(now); in7.setDate(now.getDate() + 7);
 
