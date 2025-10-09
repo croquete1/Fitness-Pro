@@ -3,6 +3,7 @@
 import React from 'react';
 import Badge from '@/components/ui/Badge';
 import UIButton from '@/components/ui/UIButton';
+import { toast } from '@/components/ui/Toaster';
 import type { UiUser } from '@/types/user';
 
 export default function UsersClientView({ users }: { users: UiUser[] }) {
@@ -33,11 +34,11 @@ export default function UsersClientView({ users }: { users: UiUser[] }) {
         body: JSON.stringify({ ids: [...selected], status }),
       });
       if (!res.ok) throw new Error(await res.text());
-      // Reload simples:
+      toast('Estados actualizados ✅', 2000, 'success');
       window.location.reload();
     } catch (e) {
       console.error(e);
-      alert('Falha ao atualizar utilizadores.');
+      toast('Falha ao actualizar utilizadores', 3000, 'error');
     } finally {
       setBusy(null);
     }
@@ -59,9 +60,10 @@ export default function UsersClientView({ users }: { users: UiUser[] }) {
       a.download = selected.size ? 'users_selected.csv' : 'users.csv';
       a.click();
       URL.revokeObjectURL(url);
+      toast('Exportação pronta 📄', 2000, 'success');
     } catch (e) {
       console.error(e);
-      alert('Falha ao exportar CSV.');
+      toast('Falha ao exportar CSV', 3000, 'error');
     } finally {
       setBusy(null);
     }

@@ -1,4 +1,5 @@
 import { getSBC } from '@/lib/supabase/server';
+import { MissingSupabaseEnvError } from '@/lib/supabaseServer';
 import { getAuthUser } from './getUser';
 
 /**
@@ -9,10 +10,23 @@ import { getAuthUser } from './getUser';
  *  3) valida que role === 'TRAINER'
  */
 export async function getTrainerId() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  if (!url || !anon) {
+    return { trainerId: null, reason: 'SUPABASE_OFFLINE' as const };
+  }
   const user = await getAuthUser();
   if (!user) return { trainerId: null, reason: 'NO_SESSION' };
 
-  const sb = getSBC();
+  let sb;
+  try {
+    sb = getSBC();
+  } catch (err) {
+    if (err instanceof MissingSupabaseEnvError) {
+      return { trainerId: null, reason: 'SUPABASE_OFFLINE' as const };
+    }
+    throw err;
+  }
 
   // 1) auth_id -> id
   const byAuth = await sb

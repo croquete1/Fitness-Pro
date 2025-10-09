@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
-import { serverSB } from '@/lib/supabase/server';
+import { tryGetSBC } from '@/lib/supabase/server';
+import { supabaseFallbackJson, supabaseConfigErrorResponse } from '@/lib/supabase/responses';
 
 export async function GET(req: Request) {
   try {
-    const sb = serverSB();
+    const sb = tryGetSBC();
+    if (!sb) return supabaseFallbackJson({ hasConflict: false });
     const { searchParams } = new URL(req.url);
     const start = searchParams.get('start_time');
     const end = searchParams.get('end_time');
@@ -36,6 +38,8 @@ export async function GET(req: Request) {
     const hasConflict = (data ?? []).length > 0;
     return NextResponse.json({ hasConflict });
   } catch (e: any) {
-    return NextResponse.json({ hasConflict: false, error: String(e?.message || e) }, { status: 200 });
+    const config = supabaseConfigErrorResponse(e);
+    if (config) return config;
+    return NextResponse.json({ hasConflict: false, error: String(e?.message || e) }, { status: 400 });
   }
 }

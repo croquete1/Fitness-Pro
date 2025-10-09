@@ -1,20 +1,33 @@
 // src/components/dashboard/PhraseOfDay.tsx
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
-import { createServerClient } from '@/lib/supabaseServer';
+import { tryCreateServerClient } from '@/lib/supabaseServer';
 
 export default async function PhraseOfDay() {
-  const sb = createServerClient();
-
+  const sb = tryCreateServerClient();
   let phrases: { text: string; author?: string | null }[] = [];
-  try {
-    const { data } = await sb.from('motivations').select('text,author').eq('active', true).limit(200);
-    phrases = data ?? [];
-  } catch {}
+  if (!sb) {
+    phrases = [
+      { text: 'Foco, disciplina e consistência 💪', author: 'HMS Personal Trainer' },
+      { text: 'Pequenos passos todos os dias.' },
+      { text: 'O progresso é o que interessa.' },
+    ];
+  } else {
+    try {
+      const { data } = await sb
+        .from('motivational_quotes')
+        .select('text,author')
+        .eq('active', true)
+        .limit(200);
+      phrases = data ?? [];
+    } catch {
+      phrases = [];
+    }
+  }
 
   if (phrases.length === 0) {
     phrases = [
-      { text: 'Foco, disciplina e consistência 💪', author: 'Fitness Pro' },
+      { text: 'Foco, disciplina e consistência 💪', author: 'HMS Personal Trainer' },
       { text: 'Pequenos passos todos os dias.' },
       { text: 'O progresso é o que interessa.' },
     ];

@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
-import { serverSB } from '@/lib/supabase/server';
+import { tryGetSBC } from '@/lib/supabase/server';
+import { supabaseFallbackJson } from '@/lib/supabase/responses';
 
 export async function GET(req: Request) {
-  const sb = serverSB();
+  const sb = tryGetSBC();
+  if (!sb) return supabaseFallbackJson({ rows: [], count: 0 });
   const { searchParams } = new URL(req.url);
   const q = searchParams.get('q')?.trim() ?? '';
   const page = Number(searchParams.get('page') ?? '0');
@@ -13,7 +15,7 @@ export async function GET(req: Request) {
   let query = sb
     .from('users')
     .select('id,name,email', { count: 'exact' })
-    .eq('role', 'TRAINER');
+    .in('role', ['TRAINER', 'PT']);
 
   if (q) {
     // procura em name/email (ajusta p/ as tuas colunas)

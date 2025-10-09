@@ -1,14 +1,18 @@
 import { cookies } from 'next/headers';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { MissingSupabaseEnvError } from '@/lib/supabaseServer';
 
 export function getSBC() {
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    throw new Error('Supabase env vars em falta: NEXT_PUBLIC_SUPABASE_URL/ANON_KEY');
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+
+  if (!url || !anonKey) {
+    throw new MissingSupabaseEnvError();
   }
   const cookieStore = cookies();
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    url,
+    anonKey,
     {
       cookies: {
         get(name: string) { return cookieStore.get(name)?.value; },
@@ -21,3 +25,15 @@ export function getSBC() {
 
 /** Alias estável para usar nos endpoints */
 export const serverSB = getSBC;
+
+export function tryGetSBC() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  if (!url || !anonKey) return null;
+  try {
+    return getSBC();
+  } catch (err) {
+    if (err instanceof MissingSupabaseEnvError) return null;
+    throw err;
+  }
+}

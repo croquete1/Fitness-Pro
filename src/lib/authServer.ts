@@ -1,5 +1,6 @@
 // src/lib/authServer.ts
 import { createServerClient } from '@/lib/supabaseServer';
+import { getUserRole } from '@/lib/userRepo';
 
 export type CurrentUser = {
   id: string;
@@ -48,8 +49,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
 
     let role: string | null = null;
     try {
-      const { data: profile } = await sb.from('profiles').select('role').eq('id', user.id).single();
-      role = (profile as any)?.role ?? null;
+      role = await getUserRole(user.id, { client: sb });
     } catch {
       role = null;
     }
