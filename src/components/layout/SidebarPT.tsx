@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   Badge,
@@ -77,15 +78,19 @@ export default function SidebarPT({ messagesCount = 0, notificationsCount = 0 }:
         sx={{
           width: 36,
           height: 36,
-          borderRadius: '50%',
-          background: (theme) =>
-            theme.palette.mode === 'dark'
-              ? 'linear-gradient(145deg, rgba(103,58,183,0.45), rgba(255,64,129,0.45))'
-              : 'linear-gradient(145deg, rgba(103,58,183,0.25), rgba(255,64,129,0.35))',
+          borderRadius: '12px',
           border: '1px solid',
           borderColor: 'divider',
+          overflow: 'hidden',
+          bgcolor: 'background.paper',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
-      />
+        aria-label="HMS Personal Trainer"
+      >
+        <Image src="/branding/hms-personal-trainer.svg" alt="HMS" width={32} height={32} priority />
+      </Box>
       <IconButton onClick={toggleCollapse} sx={{ ml: 'auto', width: 32, height: 32, borderRadius: 1.25, border: 1, borderColor: 'divider', bgcolor: 'background.paper', '&:hover': { bgcolor: 'action.hover' } }}>
         {collapsed ? <ChevronRightIcon fontSize="small" /> : <ChevronLeftIcon fontSize="small" />}
       </IconButton>

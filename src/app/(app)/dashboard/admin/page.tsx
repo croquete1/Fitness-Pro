@@ -24,6 +24,7 @@ import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
 import { tryCreateServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import MotivationAdminCard from '@/components/admin/MotivationAdminCard';
+import AdminQuickNotesCard from '@/components/admin/AdminQuickNotesCard';
 
 async function loadAdminDashboard() {
   const sb = tryCreateServerClient();
@@ -203,7 +204,7 @@ export default async function AdminDashboardPage() {
           </Typography>
           <Grid container spacing={2}>
             {quickMetrics.map((metric) => (
-              <Grid item xs={12} sm={6} md={3} key={metric.label}>
+              <Grid item xs={6} sm={6} md={3} key={metric.label}>
                 <Box
                   sx={{
                     borderRadius: 3,
@@ -243,11 +244,11 @@ export default async function AdminDashboardPage() {
           overflow: 'hidden',
           borderRadius: 4,
           p: { xs: 2.5, md: 3 },
-          background: (theme) =>
-            theme.palette.mode === 'dark'
-              ? 'radial-gradient(circle at top left, rgba(33,150,243,0.35), transparent 55%), radial-gradient(circle at 80% 20%, rgba(156,39,176,0.28), transparent 60%), linear-gradient(120deg, rgba(18,18,18,0.9), rgba(48,48,48,0.85))'
-              : 'radial-gradient(circle at top left, rgba(33,150,243,0.28), transparent 55%), radial-gradient(circle at 80% 20%, rgba(156,39,176,0.22), transparent 60%), linear-gradient(120deg, rgba(248,250,252,0.95), rgba(236,239,241,0.9))',
-          border: (theme) => `1px solid ${theme.palette.divider}`,
+          background:
+            'radial-gradient(circle at top left, color-mix(in srgb, var(--mui-palette-primary-main) 32%, transparent), transparent 55%), ' +
+            'radial-gradient(circle at 80% 20%, color-mix(in srgb, var(--mui-palette-secondary-main) 24%, transparent), transparent 60%), ' +
+            'linear-gradient(120deg, color-mix(in srgb, var(--mui-palette-background-paper) 94%, transparent), color-mix(in srgb, var(--mui-palette-background-default) 92%, transparent))',
+          border: '1px solid var(--mui-palette-divider)',
         }}
       >
         <Box
@@ -372,25 +373,7 @@ export default async function AdminDashboardPage() {
           <MotivationAdminCard />
         </Grid>
         <Grid item xs={12} md={6}>
-          <Card variant="outlined" sx={{ borderRadius: 3, height: '100%' }}>
-            <CardHeader
-              title="Notas rápidas"
-              subheader="Assinala tarefas internas ou decisões recentes"
-            />
-            <CardContent>
-              <Typography variant="body2" color="text.secondary">
-                Usa este espaço para registar decisões importantes, alinhamentos de equipa ou tópicos a acompanhar na próxima reunião.
-              </Typography>
-              <Box sx={{ mt: 2, p: 2, borderRadius: 2, bgcolor: 'action.hover', border: '1px dashed', borderColor: 'divider' }}>
-                <Typography variant="caption" color="text.secondary">
-                  Sugestão
-                </Typography>
-                <Typography variant="body2">
-                  Activar alertas automáticos quando um PT fica sem sessões atribuídas durante mais de 7 dias.
-                </Typography>
-              </Box>
-            </CardContent>
-          </Card>
+          <AdminQuickNotesCard />
         </Grid>
       </Grid>
     </Stack>

@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   Box, List, ListItemButton, ListItemIcon, ListItemText, Tooltip, IconButton,
@@ -65,15 +66,19 @@ export default function SidebarClient({
         sx={{
           width: 36,
           height: 36,
-          borderRadius: '50%',
-          background: (theme) =>
-            theme.palette.mode === 'dark'
-              ? 'linear-gradient(145deg, rgba(0,188,212,0.45), rgba(76,175,80,0.45))'
-              : 'linear-gradient(145deg, rgba(0,188,212,0.25), rgba(76,175,80,0.35))',
+          borderRadius: '12px',
           border: '1px solid',
           borderColor: 'divider',
+          overflow: 'hidden',
+          bgcolor: 'background.paper',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
-      />
+        aria-label="HMS Personal Trainer"
+      >
+        <Image src="/branding/hms-personal-trainer.svg" alt="HMS" width={32} height={32} priority />
+      </Box>
       <IconButton
         onClick={toggleCollapse}
         sx={{
@@ -166,7 +171,7 @@ export default function SidebarClient({
             );
           })}
         </List>
-        <Divider sx={{ my: 1 }} />
+        {!isRail && <Divider sx={{ my: 1 }} />}
       </React.Fragment>
     );
   }

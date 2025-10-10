@@ -16,10 +16,13 @@ import {
   MenuItem,
   ListItemIcon,
   Divider,
+  CircularProgress,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
 } from '@mui/material';
-import MenuIcon from '@mui/icons-material/Menu';
 import NotificationsIcon from '@mui/icons-material/Notifications';
-import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
 import ChatBubbleOutline from '@mui/icons-material/ChatBubbleOutline';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
@@ -54,13 +57,13 @@ export default function AppHeader({
   userName,
   onSignOut,
 }: Props) {
-  const { openMobile } = useSidebar();
+  const { openMobile, isMobile } = useSidebar();
   const counts = useHeaderCounts?.();
   const role = counts?.role ?? null;
 
-  const approvalsCount = Number(counts?.approvalsCount ?? 0);
   const messagesCount = Number(counts?.messagesCount ?? 0);
   const notificationsCount = Number(counts?.notificationsCount ?? 0);
+  const setCounts = counts?.setCounts;
 
   const renderBadge = (value: number, icon: React.ReactElement) =>
     value > 0 ? (
@@ -91,14 +94,60 @@ export default function AppHeader({
     }
   }
 
+  type NotificationItem = { id: string; title: string; href?: string | null; created_at?: string | null };
+  const [notifAnchor, setNotifAnchor] = React.useState<null | HTMLElement>(null);
+  const [notifItems, setNotifItems] = React.useState<NotificationItem[]>([]);
+  const [notifLoading, setNotifLoading] = React.useState(false);
+  const [notifError, setNotifError] = React.useState<string | null>(null);
+  const [notifHydrated, setNotifHydrated] = React.useState(false);
+  const notifMenuOpen = Boolean(notifAnchor);
+
+  const loadNotifications = React.useCallback(async () => {
+    setNotifLoading(true);
+    setNotifError(null);
+    try {
+      const res = await fetch('/api/notifications/dropdown', {
+        cache: 'no-store',
+        credentials: 'same-origin',
+      });
+      if (!res.ok) throw new Error('REQUEST_FAILED');
+      const data = await res.json();
+      const items: NotificationItem[] = Array.isArray(data?.items)
+        ? data.items.map((item: any) => ({
+            id: String(item?.id ?? crypto.randomUUID?.() ?? Date.now()),
+            title: String(item?.title ?? 'Notificação'),
+            href: item?.href ?? null,
+            created_at: item?.created_at ?? null,
+          }))
+        : [];
+      setNotifItems(items);
+      setNotifHydrated(true);
+      if (setCounts) {
+        setCounts({ notificationsCount: items.length });
+      }
+    } catch (error) {
+      console.warn('[header] notifications dropdown failed');
+      setNotifError('Não foi possível carregar notificações.');
+      setNotifItems([]);
+    } finally {
+      setNotifLoading(false);
+    }
+  }, [notificationsCount, setCounts]);
+
+  const handleOpenNotifications = (event: React.MouseEvent<HTMLElement>) => {
+    setNotifAnchor(event.currentTarget);
+    if (!notifHydrated) {
+      void loadNotifications();
+    }
+  };
+
+  const handleCloseNotifications = () => {
+    setNotifAnchor(null);
+  };
+
   return (
     <AppBar position="sticky" color="default" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
       <Toolbar sx={{ gap: 1, minHeight: 64 }}>
-        {/* menu mobile (abre sidebar) */}
-        <IconButton aria-label="Abrir menu" onClick={() => openMobile(true)} size="small">
-          <MenuIcon />
-        </IconButton>
-
         {/* brand */}
         <Box
           component={Link}
@@ -110,6 +159,12 @@ export default function AppHeader({
             gap: 1,
             textDecoration: 'none',
             color: 'inherit',
+          }}
+          onClick={(event) => {
+            if (isMobile) {
+              event.preventDefault();
+              openMobile(true);
+            }
           }}
         >
           <Image
@@ -127,15 +182,6 @@ export default function AppHeader({
 
         <Box sx={{ flex: 1 }} />
 
-        {/* badges role-aware */}
-        {role === 'ADMIN' && (
-          <Tooltip title="Aprovações">
-            <IconButton component={Link} href="/dashboard/admin/approvals" prefetch={false} size="small" sx={{ mr: 0.5 }} aria-label="Ir para Aprovações">
-              {renderBadge(approvalsCount, <CheckCircleOutline />)}
-            </IconButton>
-          </Tooltip>
-        )}
-
         {(role === 'CLIENT' || role === 'TRAINER') && (
           <Tooltip title="Mensagens">
             <IconButton component={Link} href="/dashboard/messages" prefetch={false} size="small" sx={{ mr: 0.5 }} aria-label="Ir para Mensagens">
@@ -146,12 +192,10 @@ export default function AppHeader({
 
         <Tooltip title="Notificações">
           <IconButton
-            component={Link}
-            href={role === 'ADMIN' ? '/dashboard/admin/notifications' : '/dashboard/notifications'}
-            prefetch={false}
             size="small"
             sx={{ mr: 1 }}
-            aria-label="Ir para Notificações"
+            aria-label="Abrir notificações"
+            onClick={handleOpenNotifications}
           >
             {renderBadge(notificationsCount, <NotificationsIcon />)}
           </IconButton>
@@ -228,6 +272,65 @@ export default function AppHeader({
             </ListItemIcon>
             Terminar sessão
           </MenuItem>
+        </Menu>
+
+        <Menu
+          id="notifications-menu"
+          anchorEl={notifAnchor}
+          open={notifMenuOpen}
+          onClose={handleCloseNotifications}
+          keepMounted
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          MenuListProps={{ sx: { p: 0, width: 320, maxWidth: '90vw' } }}
+        >
+          <Box sx={{ px: 2, py: 1.5 }}>
+            <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
+              Notificações recentes
+            </Typography>
+            {notifLoading ? (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CircularProgress size={16} />
+                <Typography variant="caption" color="text.secondary">
+                  A sincronizar…
+                </Typography>
+              </Box>
+            ) : notifError ? (
+              <Typography variant="body2" color="text.secondary">
+                {notifError}
+              </Typography>
+            ) : notifItems.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                Sem notificações no momento.
+              </Typography>
+            ) : (
+              <List dense disablePadding sx={{ maxHeight: 260, overflowY: 'auto' }}>
+                {notifItems.map((item) => (
+                  <ListItem
+                    key={item.id}
+                    disablePadding
+                    sx={{ borderBottom: '1px solid', borderColor: 'divider' }}
+                  >
+                    <ListItemButton
+                      onClick={() => {
+                        handleCloseNotifications();
+                        if (item.href) {
+                          window.location.href = item.href;
+                        }
+                      }}
+                    >
+                      <ListItemText
+                        primaryTypographyProps={{ fontSize: 13, fontWeight: 600 }}
+                        primary={item.title}
+                        secondary={item.created_at ? new Date(item.created_at).toLocaleString() : undefined}
+                        secondaryTypographyProps={{ fontSize: 11, color: 'text.secondary' }}
+                      />
+                    </ListItemButton>
+                  </ListItem>
+                ))}
+              </List>
+            )}
+          </Box>
         </Menu>
       </Toolbar>
     </AppBar>

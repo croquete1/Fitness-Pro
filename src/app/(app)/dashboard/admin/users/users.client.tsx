@@ -12,7 +12,7 @@ import EditOutlined from '@mui/icons-material/EditOutlined';
 import FileDownloadOutlined from '@mui/icons-material/FileDownloadOutlined';
 import PrintOutlined from '@mui/icons-material/PrintOutlined';
 import ContentCopyOutlined from '@mui/icons-material/ContentCopyOutlined';
-import { DataGrid, GridColDef, GridToolbar, GridToolbarQuickFilter } from '@mui/x-data-grid';
+import { DataGrid, GridColDef, GridToolbar, GridToolbarQuickFilter, GridFilterModel } from '@mui/x-data-grid';
 import { useRouter } from 'next/navigation';
 
 export type Role = 'ADMIN' | 'TRAINER' | 'CLIENT' | string;
@@ -40,6 +40,7 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
   const [count, setCount] = React.useState(0);
   const [loading, setLoading] = React.useState(false);
   const [paginationModel, setPaginationModel] = React.useState({ page: 0, pageSize });
+  const [filterModel, setFilterModel] = React.useState<GridFilterModel>({ items: [], quickFilterValues: [] });
 
   // Dialogs
   const [openClone, setOpenClone] = React.useState<{ open: boolean; from?: Row }>({ open: false });
@@ -49,13 +50,16 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
   const [snack, setSnack] = React.useState<{ open:boolean; msg:string; sev:'success'|'error'|'info'|'warning' }>({ open:false, msg:'', sev:'success' });
   const closeSnack = () => setSnack(s => ({ ...s, open:false }));
 
+  const quickFilter = filterModel.quickFilterValues?.[0]?.trim() ?? '';
+
   async function fetchRows() {
     setLoading(true);
     try {
-      const u = new URL('/api/admin/users', window.location.origin);
-      u.searchParams.set('page', String(paginationModel.page));
-      u.searchParams.set('pageSize', String(paginationModel.pageSize));
-      const r = await fetch(u.toString(), { cache: 'no-store' });
+      const params = new URLSearchParams();
+      params.set('page', String(paginationModel.page));
+      params.set('pageSize', String(paginationModel.pageSize));
+      if (quickFilter) params.set('q', quickFilter);
+      const r = await fetch(`/api/admin/users?${params.toString()}`, { cache: 'no-store', credentials: 'same-origin' });
       const j = await r.json();
       if (j?._supabaseConfigured === false) {
         setSnack({ open: true, msg: 'Supabase não está configurado — a lista mostra dados locais.', sev: 'info' });
@@ -86,7 +90,7 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
     }
   }
 
-  React.useEffect(() => { void fetchRows(); }, [paginationModel.page, paginationModel.pageSize]);
+  React.useEffect(() => { void fetchRows(); }, [paginationModel.page, paginationModel.pageSize, quickFilter]);
 
   // --------- Helpers UI ----------
   const roleColor = (role?: Role) => {
@@ -315,9 +319,15 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
         paginationMode="server"
         paginationModel={paginationModel}
         onPaginationModelChange={setPaginationModel}
+        filterModel={filterModel}
+        onFilterModelChange={setFilterModel}
         disableRowSelectionOnClick
         autoHeight
         density="compact"
+        sx={{
+          width: '100%',
+          '& .MuiDataGrid-main': { overflowX: 'auto' },
+        }}
         slots={{
           toolbar: () => (
             <Stack direction={{ xs:'column', sm:'row' }} spacing={1} sx={{ p: 1 }}>

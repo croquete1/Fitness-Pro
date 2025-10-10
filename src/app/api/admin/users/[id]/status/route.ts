@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabaseServer';
+import { tryCreateServerClient } from '@/lib/supabaseServer';
 import { requireAdminGuard, isGuardErr } from '@/lib/api-guards';
 import { logAudit, AUDIT_KINDS, AUDIT_TARGET_TYPES } from '@/lib/audit';
+import { supabaseFallbackJson, supabaseUnavailableResponse } from '@/lib/supabase/responses';
 
 type AllowedStatus = 'ACTIVE' | 'SUSPENDED' | 'PENDING';
 type IncomingStatus = AllowedStatus | 'DISABLED';
@@ -21,7 +22,13 @@ async function updateStatus(req: Request, { params }: { params: { id: string } }
     return NextResponse.json({ error: 'Estado inválido.' }, { status: 400 });
   }
 
-  const sb = createServerClient();
+  const sb = tryCreateServerClient();
+  if (!sb) {
+    return supabaseFallbackJson(
+      { ok: false, error: 'SUPABASE_UNCONFIGURED' },
+      { status: 503 }
+    );
+  }
   const finalStatus: AllowedStatus = normalized === 'DISABLED' ? 'SUSPENDED' : normalized;
   const approved = finalStatus === 'ACTIVE' ? true : finalStatus === 'PENDING' ? null : false;
   const { error } = await sb
@@ -30,7 +37,9 @@ async function updateStatus(req: Request, { params }: { params: { id: string } }
     .eq('id', params.id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    const code = typeof error === 'object' && error && 'code' in error ? (error as any).code : 'unknown';
+    console.warn('[admin/users] status update failed', { code });
+    return NextResponse.json({ error: 'REQUEST_FAILED' }, { status: 400 });
   }
 
   await logAudit(sb, {

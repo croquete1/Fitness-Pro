@@ -93,7 +93,7 @@ export default function LoginPage() {
               sx={{ width: 88, height: 88, objectFit: 'contain' }}
             />
             <Typography variant="h5" component="h1" fontWeight={800} textAlign="center">
-              Bem-vindo de volta 👋
+              Entrar na conta
             </Typography>
             <Typography variant="body2" sx={{ opacity: .75, textAlign: 'center' }}>
               Introduz as tuas credenciais para acederes ao painel HMS.

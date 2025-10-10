@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabaseServer';
+import { tryCreateServerClient } from '@/lib/supabaseServer';
 import { requireAdminGuard, isGuardErr } from '@/lib/api-guards';
 import { logAudit, AUDIT_KINDS, AUDIT_TARGET_TYPES } from '@/lib/audit';
 import { touchUsers } from '@/lib/revalidate';
+import { supabaseFallbackJson, supabaseUnavailableResponse } from '@/lib/supabase/responses';
 
 type Body = {
   id: string;
@@ -26,7 +27,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: 'MISSING_ID' }, { status: 400 });
   }
 
-  const sb = createServerClient();
+  const sb = tryCreateServerClient();
+  if (!sb) {
+    return supabaseFallbackJson(
+      { ok: false, error: 'SUPABASE_UNCONFIGURED' },
+      { status: 503 }
+    );
+  }
   const { data: target } = await sb.from('users').select('id, role, status, approved').eq('id', body.id).maybeSingle();
   if (!target) {
     return NextResponse.json({ ok: false, error: 'NOT_FOUND' }, { status: 404 });

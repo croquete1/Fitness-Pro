@@ -3,27 +3,20 @@ import { NextResponse } from 'next/server';
 import { tryCreateServerClient } from '@/lib/supabaseServer';
 import { toAppRole, appRoleToDbRole } from '@/lib/roles';
 import { touchUsers } from '@/lib/revalidate';
-import { getUserRole } from '@/lib/userRepo';
 import { logAudit, AUDIT_KINDS, AUDIT_TARGET_TYPES } from '@/lib/audit';
+import { supabaseUnavailableResponse } from '@/lib/supabase/responses';
+import { requireAdminGuard, isGuardErr } from '@/lib/api-guards';
 
 export async function PATCH(req: Request, ctx: { params: { id: string } }) {
   const id = ctx.params?.id;
   if (!id) return NextResponse.json({ ok: false, error: 'MISSING_ID' }, { status: 400 });
 
+  const guard = await requireAdminGuard();
+  if (isGuardErr(guard)) return guard.response;
+
   const sb = tryCreateServerClient();
   if (!sb) {
-    return supabaseFallbackJson(
-      { ok: false, error: 'SUPABASE_UNCONFIGURED' },
-      { status: 503 }
-    );
-  }
-  const { data: meAuth } = await sb.auth.getUser();
-  if (!meAuth?.user?.id) return NextResponse.json({ ok: false, error: 'UNAUTHENTICATED' }, { status: 401 });
-
-  // só ADMIN pode mudar roles
-  const myRole = await getUserRole(meAuth.user.id, { client: sb });
-  if (toAppRole(myRole) !== 'ADMIN') {
-    return NextResponse.json({ ok: false, error: 'FORBIDDEN' }, { status: 403 });
+    return supabaseUnavailableResponse();
   }
 
   // novo role (apenas CLIENT ou PT)
@@ -45,13 +38,17 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
   // gravar em users
   const dbRole = appRoleToDbRole(nextAppRole) ?? 'TRAINER';
   const { error } = await sb.from('users').update({ role: dbRole }).eq('id', id);
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
+  if (error) {
+    const code = typeof error === 'object' && error && 'code' in error ? (error as any).code : 'unknown';
+    console.warn('[admin/users] role update failed', { code });
+    return NextResponse.json({ ok: false, error: 'REQUEST_FAILED' }, { status: 400 });
+  }
 
   await logAudit(sb, {
     kind: AUDIT_KINDS.USER_UPDATE,
     target_type: AUDIT_TARGET_TYPES.USER,
     target_id: id,
-    actor_id: meAuth.user.id,
+    actor_id: guard.me.id,
     note: `Role alterado para ${nextAppRole}`,
   });
 

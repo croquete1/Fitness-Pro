@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabaseServer';
+import { tryCreateServerClient } from '@/lib/supabaseServer';
 import { requireAdminGuard, isGuardErr } from '@/lib/api-guards';
 import { logAudit, AUDIT_KINDS, AUDIT_TARGET_TYPES } from '@/lib/audit';
+import { supabaseFallbackJson, supabaseUnavailableResponse } from '@/lib/supabase/responses';
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const guard = await requireAdminGuard();
@@ -44,7 +45,13 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 export async function DELETE(_: Request, { params }: { params: { id: string } }) {
   const guard = await requireAdminGuard();
   if (isGuardErr(guard)) return guard.response;
-  const sb = createServerClient();
+  const sb = tryCreateServerClient();
+  if (!sb) {
+    return supabaseFallbackJson(
+      { ok: false, message: 'Supabase não está configurado.' },
+      { status: 503 }
+    );
+  }
   const { error } = await sb.from('users').delete().eq('id', params.id);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
