@@ -90,13 +90,6 @@ export default async function UsersAdminPage() {
                 <TableCell sx={metaCellSx}>{u.role || '—'}</TableCell>
                 <TableCell sx={metaCellSx}>{u.status ?? (u.approved ? 'ACTIVE' : 'PENDING')}</TableCell>
                 <TableCell sx={metaCellSx}>{u.created_at ? new Date(u.created_at).toLocaleString('pt-PT') : '—'}</TableCell>
-                <TableCell sx={trainerCellSx}>
-                  {(() => {
-                    const trainer = trainerAssignments.get(u.id);
-                    if (!trainer) return '—';
-                    return trainer.name || trainer.email || trainer.id;
-                  })()}
-                </TableCell>
                 <TableCell align="right">
                   <AdminUserRowActions id={u.id} currRole={u.role || 'CLIENT'} currStatus={u.status || (u.approved ? 'ACTIVE' : 'PENDING')} />
                 </TableCell>
