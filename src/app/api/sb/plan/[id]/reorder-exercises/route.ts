@@ -6,7 +6,10 @@ import { toAppRole } from '@/lib/roles';
 type Item = { id: string; dayId: string; index: number };
 type Payload = { items: Item[] };
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+type Ctx = { params: Promise<{ id: string }> };
+
+export async function PATCH(req: Request, ctx: Ctx) {
+  const { id } = await ctx.params;
   const session = await getSessionUserSafe();
   const user = (session as any)?.user as { id: string; role?: string } | null;
   if (!user?.id) return NextResponse.json({ ok:false, error:'Unauthorized' }, { status:401 });
@@ -24,7 +27,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const { data: plan } = await sb
     .from('training_plans')
     .select('id, trainer_id')
-    .eq('id', params.id)
+    .eq('id', id)
     .maybeSingle();
   if (!plan) return NextResponse.json({ ok:false, error:'Not found' }, { status:404 });
   if (role !== 'ADMIN' && plan.trainer_id !== user.id) return NextResponse.json({ ok:false, error:'Forbidden' }, { status:403 });

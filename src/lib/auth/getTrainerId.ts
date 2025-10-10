@@ -20,7 +20,7 @@ export async function getTrainerId() {
 
   let sb;
   try {
-    sb = getSBC();
+    sb = await getSBC();
   } catch (err) {
     if (err instanceof MissingSupabaseEnvError) {
       return { trainerId: null, reason: 'SUPABASE_OFFLINE' as const };

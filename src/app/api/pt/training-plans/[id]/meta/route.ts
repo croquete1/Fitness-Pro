@@ -5,9 +5,11 @@ import { requirePtOrAdminGuard, isGuardErr } from '@/lib/api-guards';
 
 type Body = { title?: string | null; status?: 'DRAFT' | 'ACTIVE' | 'ARCHIVED' };
 
+type Ctx = { params: Promise<{ id: string }> };
+
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  ctx: Ctx
 ): Promise<Response> {
   const guard = await requirePtOrAdminGuard();
   if (isGuardErr(guard)) return guard.response;
@@ -28,7 +30,8 @@ export async function PATCH(
   }
 
   const sb = createServerClient();
-  const { error } = await sb.from('training_plans' as const).update(updates).eq('id', params.id);
+  const { id } = await ctx.params;
+  const { error } = await sb.from('training_plans' as const).update(updates).eq('id', id);
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
 }

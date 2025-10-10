@@ -2,11 +2,13 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
 
+type Ctx = { params: Promise<{ planId: string; dayId: string }> };
+
 export async function GET(
   _req: Request,
-  { params }: { params: { planId: string; dayId: string } }
+  ctx: Ctx
 ) {
-  const { dayId } = params;
+  const { dayId } = await ctx.params;
   const sb = createServerClient();
 
   // Confirma que o dia existe (opcional)

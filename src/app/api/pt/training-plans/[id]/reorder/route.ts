@@ -2,14 +2,16 @@ import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
 import { requirePtOrAdminGuard, isGuardErr } from '@/lib/api-guards';
 
+type Ctx = { params: Promise<{ id: string }> };
+
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  ctx: Ctx
 ): Promise<Response> {
   const guard = await requirePtOrAdminGuard();
   if (isGuardErr(guard)) return guard.response;
 
-  const planId = params.id;
+  const { id: planId } = await ctx.params;
   const body = await req.json().catch(() => ({}));
 
   const sb = createServerClient();

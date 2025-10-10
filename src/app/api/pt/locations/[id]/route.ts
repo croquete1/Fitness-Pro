@@ -4,10 +4,13 @@ import { getSessionUserSafe } from '@/lib/session-bridge';
 import { createServerClient } from '@/lib/supabaseServer';
 import { toAppRole } from '@/lib/roles';
 
+type Ctx = { params: Promise<{ id: string }> };
+
 export async function DELETE(
   _req: Request,
-  { params }: { params: { id: string } }
+  ctx: Ctx
 ): Promise<Response> {
+  const { id } = await ctx.params;
   const me = await getSessionUserSafe();
   if (!me?.id) return new NextResponse('Unauthorized', { status: 401 });
 
@@ -20,7 +23,7 @@ export async function DELETE(
 
   try {
     // Admin pode apagar qualquer registo; PT só os seus
-    let q = sb.from('pt_locations' as any).delete().eq('id', params.id);
+    let q = sb.from('pt_locations' as any).delete().eq('id', id);
     if (role !== 'ADMIN') q = q.eq('trainer_id', me.id);
 
     // select('id') para sabermos se algo foi apagado

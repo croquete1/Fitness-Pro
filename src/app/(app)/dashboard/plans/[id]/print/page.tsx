@@ -69,7 +69,8 @@ async function fetchPlan(sb: SB, id: string) {
   return { ...plan, days: composedDays };
 }
 
-export default async function PrintPlanPage({ params }: { params: { id: string } }) {
+export default async function PrintPlanPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSessionUserSafe();
   const me = session?.user;
   if (!me?.id) redirect('/login');
@@ -78,7 +79,7 @@ export default async function PrintPlanPage({ params }: { params: { id: string }
   if (role === 'CLIENT') redirect('/dashboard'); // Cliente não exporta
 
   const sb = createServerClient();
-  const plan = await fetchPlan(sb, params.id);
+  const plan = await fetchPlan(sb, id);
   if (!plan) notFound();
 
   // PT só exporta se for o treinador do plano; ADMIN pode sempre

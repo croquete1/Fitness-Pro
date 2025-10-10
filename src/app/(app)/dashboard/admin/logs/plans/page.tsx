@@ -62,7 +62,7 @@ export default async function PlanLogsPage({ searchParams }: { searchParams?: Re
   if (!session.user?.id) redirect('/login');
   if ((toAppRole(session.user.role) ?? 'CLIENT') !== 'ADMIN') redirect('/dashboard');
 
-  const h = headers();
+  const h = await headers();
   const host = h.get('x-forwarded-host') ?? h.get('host')!;
   const proto = h.get('x-forwarded-proto') ?? 'http';
   const base = `${proto}://${host}`;

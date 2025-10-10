@@ -36,7 +36,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ rows: [], count: 0, error: reason }, { status: code });
   }
 
-  const sb = tryGetSBC();
+  const sb = await tryGetSBC();
   if (!sb) {
     return supabaseFallbackJson({ rows: [], count: 0, error: 'SUPABASE_OFFLINE' });
   }
@@ -79,7 +79,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const sb = tryGetSBC();
+    const sb = await tryGetSBC();
     if (!sb) {
       return supabaseFallbackJson({ error: 'SUPABASE_OFFLINE' }, { status: 503 });
     }

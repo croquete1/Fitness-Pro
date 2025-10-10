@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
 
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
-  const planId = params.id;
+type Ctx = { params: Promise<{ id: string }> };
+
+export async function POST(_req: Request, ctx: Ctx) {
+  const { id: planId } = await ctx.params;
   const body = await _req.json(); // [{id, order_index}, ...]
   if (!Array.isArray(body)) return NextResponse.json({ error: 'bad_request' }, { status: 400 });
 

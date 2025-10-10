@@ -8,13 +8,16 @@ import { toAppRole } from '@/lib/roles';
 import { createServerClient } from '@/lib/supabaseServer';
 import { logAudit, AUDIT_KINDS, AUDIT_TARGET_TYPES } from '@/lib/audit';
 
+type Ctx = { params: Promise<{ id: string }> };
+
 /**
  * PATCH /api/admin/exercises/:id/publish
  * Body opcional: { publish?: boolean }
  *  - Se publish não vier, faz toggle com base no estado atual.
  */
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, ctx: Ctx) {
   try {
+    const { id } = await ctx.params;
     const user = await getSessionUser();
     if (!user) return new NextResponse('Unauthorized', { status: 401 });
 
@@ -22,7 +25,6 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (role !== 'ADMIN') return new NextResponse('Forbidden', { status: 403 });
 
     const supabase = createServerClient();
-    const id = params.id;
 
     // 1) Ler body (publish opcional)
     let desired: boolean | undefined;

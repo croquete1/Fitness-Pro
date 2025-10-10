@@ -7,7 +7,7 @@ import { supabaseFallbackJson } from '@/lib/supabase/responses';
  * Tabela usada: "sessions" (ajusta nomes de colunas se diferentes)
  */
 export async function GET(req: Request) {
-  const sb = tryGetSBC();
+  const sb = await tryGetSBC();
   if (!sb) return supabaseFallbackJson({ hasConflict: false });
   const { searchParams } = new URL(req.url);
   const start = searchParams.get('start_time');

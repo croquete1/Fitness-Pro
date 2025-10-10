@@ -9,8 +9,8 @@ export const dynamic = 'force-dynamic';
 
 type Params = { planId: string; dayId: string };
 
-export default async function PlanDayPage({ params }: { params: Params }) {
-  const { planId, dayId } = params;
+export default async function PlanDayPage({ params }: { params: Promise<Params> }) {
+  const { planId, dayId } = await params;
   const sb = createServerClient();
 
   const { data: { user } } = await sb.auth.getUser();

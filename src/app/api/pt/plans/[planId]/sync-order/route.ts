@@ -9,10 +9,13 @@ type Body = {
   exercises: { id: string; day_id: string; order_index: number }[];
 };
 
+type Ctx = { params: Promise<{ planId: string }> };
+
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  ctx: Ctx
 ) {
+  const { planId } = await ctx.params;
   const me = await getSessionUserSafe();
   if (!me?.id) return new NextResponse('Unauthorized', { status: 401 });
 
@@ -23,7 +26,7 @@ export async function PATCH(
   const { data: plan } = await sb
     .from('training_plans')
     .select('id, trainer_id')
-    .eq('id', params.id)
+    .eq('id', planId)
     .maybeSingle();
 
   if (!plan) return new NextResponse('Not found', { status: 404 });

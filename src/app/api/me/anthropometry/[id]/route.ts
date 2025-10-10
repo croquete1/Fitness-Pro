@@ -12,7 +12,10 @@ type Body = Partial<{
   body_fat_pct: number | null;
 }>;
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+type Ctx = { params: Promise<{ id: string }> };
+
+export async function PUT(req: Request, ctx: Ctx) {
+  const { id } = await ctx.params;
   const session = (await getSessionUserSafe()) as SessionLike;
   const user = session?.user;
   if (!user?.id) return new NextResponse('Unauthorized', { status: 401 });
@@ -21,18 +24,19 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   if (!payload) return new NextResponse('Bad request', { status: 400 });
 
   const sb = createServerClient();
-  const { error } = await sb.from('anthropometry').update(payload).eq('id', params.id).eq('user_id', user.id);
+  const { error } = await sb.from('anthropometry').update(payload).eq('id', id).eq('user_id', user.id);
   if (error) return new NextResponse(error.message, { status: 500 });
   return NextResponse.json({ ok: true });
 }
 
-export async function DELETE(_: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_: Request, ctx: Ctx) {
+  const { id } = await ctx.params;
   const session = (await getSessionUserSafe()) as SessionLike;
   const user = session?.user;
   if (!user?.id) return new NextResponse('Unauthorized', { status: 401 });
 
   const sb = createServerClient();
-  const { error } = await sb.from('anthropometry').delete().eq('id', params.id).eq('user_id', user.id);
+  const { error } = await sb.from('anthropometry').delete().eq('id', id).eq('user_id', user.id);
   if (error) return new NextResponse(error.message, { status: 500 });
   return NextResponse.json({ ok: true });
 }

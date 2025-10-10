@@ -4,14 +4,14 @@ import { getSessionUserSafe } from '@/lib/session-bridge';
 import { createServerClient } from '@/lib/supabaseServer';
 import { toAppRole } from '@/lib/roles';
 
-type Params = { params: { id: string } };
+type Ctx = { params: Promise<{ id: string }> };
 
 /**
  * DELETE /api/pt/folgas/[id]
  * - ADMIN pode remover qualquer folga.
  * - PT só pode remover folgas do próprio (trainer_id = me.id).
  */
-export async function DELETE(_req: Request, { params }: Params): Promise<Response> {
+export async function DELETE(_req: Request, ctx: Ctx): Promise<Response> {
   const me = await getSessionUserSafe();
   if (!me?.id) return new NextResponse('Unauthorized', { status: 401 });
 
@@ -20,7 +20,7 @@ export async function DELETE(_req: Request, { params }: Params): Promise<Respons
     return new NextResponse('Forbidden', { status: 403 });
   }
 
-  const id = params?.id;
+  const { id } = await ctx.params;
   if (!id) {
     return NextResponse.json({ ok: false, error: 'id_required' }, { status: 400 });
   }

@@ -9,8 +9,8 @@ export const metadata: Metadata = {
   description: 'Plataforma inteligente para gerir clientes, planos e sessões HMS.',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const cookieStore = cookies();
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const cookieStore = await cookies();
   const storedMode = cookieStore.get('fp-mode')?.value === 'dark' ? 'dark' : 'light';
   return (
     <html lang="pt-PT" data-theme={storedMode}>

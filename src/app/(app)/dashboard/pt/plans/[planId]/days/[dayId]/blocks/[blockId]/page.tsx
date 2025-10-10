@@ -22,8 +22,8 @@ async function loadBlock(planId: string, dayId: string, blockId: string) {
   return { user, block };
 }
 
-export default async function BlockPage({ params }: { params: Params }) {
-  const { planId, dayId, blockId } = params;
+export default async function BlockPage({ params }: { params: Promise<Params> }) {
+  const { planId, dayId, blockId } = await params;
   const { user, block } = await loadBlock(planId, dayId, blockId);
   if (!user) redirect('/login');
 

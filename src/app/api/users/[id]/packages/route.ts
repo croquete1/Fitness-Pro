@@ -1,8 +1,10 @@
 import { mem, json } from '@/app/api/_memdb';
 export const dynamic = 'force-dynamic';
 
-export async function GET(_req: Request, ctx: { params: { userId: string } }) {
-  const { userId } = ctx.params;
-  const data = mem.packages.get(userId) ?? { current: null, history: [] };
+type Ctx = { params: Promise<{ id: string }> };
+
+export async function GET(_req: Request, ctx: Ctx) {
+  const { id } = await ctx.params;
+  const data = mem.packages.get(id) ?? { current: null, history: [] };
   return json(data);
 }

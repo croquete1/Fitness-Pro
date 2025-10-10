@@ -3,7 +3,7 @@ import { tryGetSBC } from '@/lib/supabase/server';
 import { supabaseFallbackJson } from '@/lib/supabase/responses';
 
 export async function GET(req: Request) {
-  const sb = tryGetSBC();
+  const sb = await tryGetSBC();
   if (!sb) return supabaseFallbackJson({ rows: [], count: 0 });
   const { searchParams } = new URL(req.url);
   const q = searchParams.get('q')?.trim() ?? '';

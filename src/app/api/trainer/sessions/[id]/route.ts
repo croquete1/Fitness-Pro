@@ -13,10 +13,13 @@ type SessionRow = {
   created_at: string | null;
 };
 
+type Ctx = { params: Promise<{ id: string }> };
+
 export async function GET(
   _req: Request,
-  { params }: { params: { id: string } }
+  ctx: Ctx
 ): Promise<Response> {
+  const { id } = await ctx.params;
   const guard = await requirePtOrAdminGuard();
   if (isGuardErr(guard)) return guard.response;
 
@@ -24,7 +27,7 @@ export async function GET(
   const { data, error } = await sb
     .from('sessions')
     .select('*')
-    .eq('id', params.id)
+    .eq('id', id)
     .maybeSingle();
 
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });

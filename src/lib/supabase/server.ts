@@ -2,14 +2,14 @@ import { cookies } from 'next/headers';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { MissingSupabaseEnvError } from '@/lib/supabaseServer';
 
-export function getSBC() {
+export async function getSBC() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
 
   if (!url || !anonKey) {
     throw new MissingSupabaseEnvError();
   }
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   return createServerClient(
     url,
     anonKey,
@@ -26,12 +26,12 @@ export function getSBC() {
 /** Alias estável para usar nos endpoints */
 export const serverSB = getSBC;
 
-export function tryGetSBC() {
+export async function tryGetSBC() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
   if (!url || !anonKey) return null;
   try {
-    return getSBC();
+    return await getSBC();
   } catch (err) {
     if (err instanceof MissingSupabaseEnvError) return null;
     throw err;
