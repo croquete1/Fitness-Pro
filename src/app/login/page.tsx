@@ -77,20 +77,47 @@ export default function LoginPage() {
         minHeight: '100dvh',
         display: 'grid',
         placeItems: 'center',
-        // fundo com gradiente suave (legível em claro e escuro)
-        background:
-          'radial-gradient(1200px 600px at 15% -10%, rgba(25,118,210,.25), transparent), ' +
-          'radial-gradient(900px 500px at 100% 0%, rgba(156,39,176,.20), transparent)',
+        position: 'relative',
+        overflow: 'hidden',
+        backgroundColor: 'background.default',
+        '&::before': {
+          content: "''",
+          position: 'absolute',
+          inset: '-40%',
+          background:
+            'radial-gradient(35% 40% at 20% 20%, rgba(51,153,255,.35), transparent 70%), ' +
+            'radial-gradient(25% 30% at 85% 15%, rgba(136,84,255,.28), transparent 60%), ' +
+            'radial-gradient(45% 45% at 70% 75%, rgba(255,94,133,.18), transparent 70%)',
+          filter: 'blur(12px)',
+          transform: 'translate3d(0,0,0)',
+        },
       }}
     >
-      <Container maxWidth="xs">
-        <Paper elevation={6} sx={{ p: 3, borderRadius: 4 }}>
-          <Stack alignItems="center" gap={1} sx={{ mb: 1 }}>
+      <Container maxWidth="xs" sx={{ position: 'relative', zIndex: 1 }}>
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 3, sm: 4 },
+            borderRadius: 4,
+            backgroundColor: (theme) =>
+              theme.palette.mode === 'dark'
+                ? 'rgba(12,15,25,0.85)'
+                : 'rgba(255,255,255,0.9)',
+            border: '1px solid',
+            borderColor: 'divider',
+            backdropFilter: 'blur(14px)',
+            boxShadow: (theme) =>
+              theme.palette.mode === 'dark'
+                ? '0 25px 80px -40px rgba(15,23,42,0.85)'
+                : '0 35px 90px -45px rgba(15,23,42,0.25)',
+          }}
+        >
+          <Stack alignItems="center" gap={1.5} sx={{ mb: 1.5 }}>
             <Box
               component="img"
               src="/branding/hms-personal-trainer.svg"
               alt="HMS Personal Trainer"
-              sx={{ width: 88, height: 88, objectFit: 'contain' }}
+              sx={{ width: 104, height: 104, objectFit: 'contain' }}
             />
             <Typography variant="h5" component="h1" fontWeight={800} textAlign="center">
               Entrar na conta

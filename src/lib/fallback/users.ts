@@ -145,6 +145,152 @@ const BASE_USERS: FallbackUser[] = [
   },
 ];
 
+type SampleSession = {
+  id: string;
+  trainer_id: string;
+  client_id: string;
+  start_time: string;
+  location?: string | null;
+};
+
+const SAMPLE_SESSIONS: SampleSession[] = (() => {
+  const now = Date.now();
+  const hours = (h: number) => new Date(now + h * 3600_000).toISOString();
+  const combos: Array<{ trainer: string; client: string; hours: number; location: string }> = [
+    { trainer: '1002', client: '1003', hours: 3, location: 'Estúdio Norte' },
+    { trainer: '1006', client: '1007', hours: 7, location: 'Sala Funcional' },
+    { trainer: '1008', client: '1009', hours: 11, location: 'Box HIIT' },
+    { trainer: '1002', client: '1005', hours: 26, location: 'Estúdio Norte' },
+    { trainer: '1006', client: '1003', hours: 32, location: 'Outdoor Parque' },
+    { trainer: '1008', client: '1007', hours: 40, location: 'Sala Cardio' },
+  ];
+  return combos.map((item, index) => ({
+    id: `sample-session-${index + 1}`,
+    trainer_id: item.trainer,
+    client_id: item.client,
+    start_time: hours(item.hours),
+    location: item.location,
+  }));
+})();
+
+const USER_LOOKUP = new Map(BASE_USERS.map((user) => [user.id, user] as const));
+
+function safeName(id?: string | null) {
+  if (!id) return '—';
+  const user = USER_LOOKUP.get(id);
+  return user?.name ?? user?.email ?? id;
+}
+
+function isSameDay(a: Date, b: Date) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+export type SampleAdminDashboard = {
+  totals: {
+    users: number;
+    clients: number;
+    trainers: number;
+    sessionsToday: number;
+    pendingApprovals: number;
+  };
+  recentUsers: Array<{ id: string; name: string; email: string | null; createdAt: string | null }>;
+  topTrainers: Array<{ id: string; name: string; total: number }>;
+  agenda: Array<{
+    id: string;
+    start_time: string;
+    trainer_id: string;
+    trainer_name: string;
+    client_id: string;
+    client_name: string;
+    location?: string | null;
+  }>;
+};
+
+export function getSampleAdminDashboard(): SampleAdminDashboard {
+  const totals = {
+    users: BASE_USERS.length,
+    clients: BASE_USERS.filter((u) => u.role === 'CLIENT').length,
+    trainers: BASE_USERS.filter((u) => u.role === 'TRAINER').length,
+    sessionsToday: 0,
+    pendingApprovals: BASE_USERS.filter((u) => u.status !== 'ACTIVE' || !u.approved).length,
+  };
+
+  const agenda = SAMPLE_SESSIONS
+    .map((session) => ({
+      ...session,
+      trainer_name: safeName(session.trainer_id),
+      client_name: safeName(session.client_id),
+    }))
+    .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+
+  totals.sessionsToday = agenda.filter((session) => isSameDay(new Date(session.start_time), new Date())).length;
+
+  const trainerTotals = new Map<string, number>();
+  for (const session of agenda) {
+    trainerTotals.set(session.trainer_id, (trainerTotals.get(session.trainer_id) ?? 0) + 1);
+  }
+
+  const topTrainers = Array.from(trainerTotals.entries())
+    .map(([id, total]) => ({ id, total, name: safeName(id) }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 5);
+
+  const recentUsers = [...BASE_USERS]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, 5)
+    .map((u) => ({
+      id: u.id,
+      name: u.name ?? u.email ?? 'Utilizador',
+      email: u.email ?? null,
+      createdAt: u.created_at ?? null,
+    }));
+
+  return { totals, recentUsers, topTrainers, agenda };
+}
+
+const SAMPLE_TRAINER_CLIENTS: Record<string, string[]> = {
+  '1002': ['1003', '1005'],
+  '1006': ['1007', '1003'],
+  '1008': ['1007', '1009'],
+};
+
+export type SampleTrainerDashboard = {
+  trainerId: string;
+  clients: Array<{ id: string; name: string }>;
+  stats: {
+    totalClients: number;
+    activePlans: number;
+    sessionsThisWeek: number;
+    pendingRequests: number;
+  };
+  upcoming: SampleAdminDashboard['agenda'];
+};
+
+export function getSampleTrainerDashboard(trainerId: string): SampleTrainerDashboard {
+  const mappedClients = SAMPLE_TRAINER_CLIENTS[trainerId] ?? Array.from(USER_LOOKUP.keys()).filter((id) => USER_LOOKUP.get(id)?.role === 'CLIENT').slice(0, 3);
+  const clients = mappedClients.map((id) => ({ id, name: safeName(id) }));
+  const upcoming = SAMPLE_SESSIONS
+    .filter((session) => session.trainer_id === trainerId)
+    .map((session) => ({
+      ...session,
+      trainer_name: safeName(session.trainer_id),
+      client_name: safeName(session.client_id),
+    }))
+    .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+
+  return {
+    trainerId,
+    clients,
+    stats: {
+      totalClients: clients.length,
+      activePlans: Math.max(2, clients.length),
+      sessionsThisWeek: upcoming.length,
+      pendingRequests: Math.max(0, 3 - clients.length),
+    },
+    upcoming,
+  };
+}
+
 export type SampleQuery = {
   page: number;
   pageSize: number;
