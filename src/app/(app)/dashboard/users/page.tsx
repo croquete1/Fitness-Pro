@@ -26,30 +26,34 @@ export default async function UsersAdminPage() {
   const { data } = await sb.from('users').select('id,name,email,role,status,approved,created_at').order('created_at', { ascending: false }).limit(500);
   const rows = (data ?? []) as U[];
 
+  const nameCellSx = { whiteSpace: 'normal', wordBreak: 'break-word', maxWidth: { xs: '100%', md: 220 } } as const;
+  const infoCellSx = { whiteSpace: 'normal', wordBreak: 'break-word' } as const;
+  const metaCellSx = { whiteSpace: { xs: 'normal', md: 'nowrap' } } as const;
+
   return (
     <Paper elevation={0} sx={{ p: 2 }}>
       <Typography variant="h6" fontWeight={800} sx={{ mb: 2 }}>Utilizadores</Typography>
 
-      <Box sx={{ borderRadius: 2, overflow: 'hidden', border: 1, borderColor: 'divider' }}>
-        <Table size="small">
+      <Box sx={{ borderRadius: 2, border: 1, borderColor: 'divider', width: '100%' }}>
+        <Table size="small" sx={{ width: '100%' }}>
           <TableHead>
             <TableRow>
-              <TableCell>Nome</TableCell>
-              <TableCell>Email</TableCell>
-              <TableCell>Role</TableCell>
-              <TableCell>Estado</TableCell>
-              <TableCell>Registo</TableCell>
+              <TableCell sx={nameCellSx}>Nome</TableCell>
+              <TableCell sx={nameCellSx}>Email</TableCell>
+              <TableCell sx={metaCellSx}>Role</TableCell>
+              <TableCell sx={metaCellSx}>Estado</TableCell>
+              <TableCell sx={metaCellSx}>Registo</TableCell>
               <TableCell align="right">Ações</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {rows.map((u) => (
               <TableRow key={u.id}>
-                <TableCell>{u.name || '—'}</TableCell>
-                <TableCell>{u.email || '—'}</TableCell>
-                <TableCell>{u.role || '—'}</TableCell>
-                <TableCell>{u.status ?? (u.approved ? 'ACTIVE' : 'PENDING')}</TableCell>
-                <TableCell>{u.created_at ? new Date(u.created_at).toLocaleString('pt-PT') : '—'}</TableCell>
+                <TableCell sx={nameCellSx}>{u.name || '—'}</TableCell>
+                <TableCell sx={infoCellSx}>{u.email || '—'}</TableCell>
+                <TableCell sx={metaCellSx}>{u.role || '—'}</TableCell>
+                <TableCell sx={metaCellSx}>{u.status ?? (u.approved ? 'ACTIVE' : 'PENDING')}</TableCell>
+                <TableCell sx={metaCellSx}>{u.created_at ? new Date(u.created_at).toLocaleString('pt-PT') : '—'}</TableCell>
                 <TableCell align="right">
                   <AdminUserRowActions id={u.id} currRole={u.role || 'CLIENT'} currStatus={u.status || (u.approved ? 'ACTIVE' : 'PENDING')} />
                 </TableCell>
