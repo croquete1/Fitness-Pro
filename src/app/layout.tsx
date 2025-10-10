@@ -1,22 +1,24 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import ColorModeProvider from '@/components/layout/ColorModeProvider';
-import { ToastProvider } from '@/components/ui/ToastProvider';
+import { cookies } from 'next/headers';
+import AppProviders from '@/components/AppProviders';
+import OptionalSpeedInsights from '@/components/analytics/OptionalSpeedInsights';
 
 export const metadata: Metadata = {
-  title: 'Fitness Pro',
-  description: 'Dashboard Fitness Pro (MUI puro)',
+  title: 'HMS Personal Trainer',
+  description: 'Plataforma inteligente para gerir clientes, planos e sessões HMS.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const cookieStore = cookies();
+  const storedMode = cookieStore.get('fp-mode')?.value === 'dark' ? 'dark' : 'light';
   return (
-    <html lang="pt-PT">
-      <body>
-        <ColorModeProvider>
-          <ToastProvider>
-            {children}
-          </ToastProvider>
-        </ColorModeProvider>
+    <html lang="pt-PT" data-theme={storedMode}>
+      <body suppressHydrationWarning>
+        <AppProviders initialMode={storedMode}>
+          {children}
+        </AppProviders>
+        <OptionalSpeedInsights />
       </body>
     </html>
   );

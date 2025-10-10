@@ -1,9 +1,17 @@
 import { getSBC } from '@/lib/supabase/server';
+import { MissingSupabaseEnvError } from '@/lib/supabaseServer';
 
 /** Devolve o auth.user do Supabase (ou null) no lado do servidor. */
 export async function getAuthUser() {
-  const sb = getSBC();
-  const { data, error } = await sb.auth.getUser();
-  if (error) return null;
-  return data.user ?? null;
+  try {
+    const sb = getSBC();
+    const { data, error } = await sb.auth.getUser();
+    if (error) return null;
+    return data.user ?? null;
+  } catch (err) {
+    if (err instanceof MissingSupabaseEnvError) {
+      return null;
+    }
+    throw err;
+  }
 }

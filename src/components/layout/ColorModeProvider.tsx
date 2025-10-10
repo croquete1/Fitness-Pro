@@ -66,18 +66,44 @@ function makeTheme(mode: PaletteMode) {
   );
 }
 
-export default function ColorModeProvider({ children }: { children: React.ReactNode }) {
-  const [mode, setMode] = React.useState<PaletteMode>(() => {
-    if (typeof window === 'undefined') return 'light';
-    const saved = (localStorage.getItem('fp-mode') as PaletteMode | null) ?? null;
-    if (saved) return saved;
-    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  });
+type Props = { children: React.ReactNode; initialMode?: PaletteMode };
+
+export default function ColorModeProvider({ children, initialMode = 'light' }: Props) {
+  const [mode, setMode] = React.useState<PaletteMode>(initialMode);
+  const [hydrated, setHydrated] = React.useState(false);
 
   React.useEffect(() => {
+    if (hydrated) return;
+    try {
+      const stored = (localStorage.getItem('fp-mode') as PaletteMode | null) ?? null;
+      const system = window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      const preferred = stored ?? system;
+      if (preferred && preferred !== mode) {
+        setMode(preferred);
+      }
+    } catch {
+      // ignore localStorage errors
+    } finally {
+      setHydrated(true);
+    }
+  }, [hydrated, mode]);
+
+  React.useEffect(() => {
+    if (typeof document === 'undefined') return;
     const html = document.documentElement;
-    html.setAttribute('data-theme', mode === 'dark' ? 'dark' : 'light');
-    localStorage.setItem('fp-mode', mode);
+    const value = mode === 'dark' ? 'dark' : 'light';
+    html.setAttribute('data-theme', value);
+    try {
+      localStorage.setItem('fp-mode', mode);
+    } catch {
+      // ignore
+    }
+    try {
+      const secure = typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : '';
+      document.cookie = `fp-mode=${mode}; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax${secure}`;
+    } catch {
+      // ignore cookie errors
+    }
   }, [mode]);
 
   const value = React.useMemo<Ctx>(

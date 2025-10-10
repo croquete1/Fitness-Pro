@@ -16,17 +16,26 @@ import {
   MenuItem,
   ListItemIcon,
   Divider,
+  CircularProgress,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
+  OutlinedInput,
+  InputAdornment,
 } from '@mui/material';
-import MenuIcon from '@mui/icons-material/Menu';
 import NotificationsIcon from '@mui/icons-material/Notifications';
-import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
 import ChatBubbleOutline from '@mui/icons-material/ChatBubbleOutline';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import Brightness4Outlined from '@mui/icons-material/Brightness4Outlined';
+import SearchIcon from '@mui/icons-material/Search';
+import { useRouter } from 'next/navigation';
+import { signOut } from 'next-auth/react';
 import ThemeToggleButton from '@/components/theme/ThemeToggleButton';
 import { useSidebar } from '@/components/layout/SidebarProvider';
 import { useHeaderCounts } from '@/components/header/HeaderCountsContext';
+import BrandLogo from '@/components/BrandLogo';
 
 type Props = {
   userLabel?: string;
@@ -53,13 +62,16 @@ export default function AppHeader({
   userName,
   onSignOut,
 }: Props) {
-  const { openMobile } = useSidebar();
+  const { openMobile, isMobile } = useSidebar();
   const counts = useHeaderCounts?.();
   const role = counts?.role ?? null;
+  const router = useRouter();
+  const [query, setQuery] = React.useState('');
+  const [showMobileSearch, setShowMobileSearch] = React.useState(false);
 
-  const approvalsCount = Number(counts?.approvalsCount ?? 0);
   const messagesCount = Number(counts?.messagesCount ?? 0);
   const notificationsCount = Number(counts?.notificationsCount ?? 0);
+  const setCounts = counts?.setCounts;
 
   const renderBadge = (value: number, icon: React.ReactElement) =>
     value > 0 ? (
@@ -81,44 +93,156 @@ export default function AppHeader({
       if (onSignOut) {
         await onSignOut();
       } else {
-        // fallback genérico: API local de signout; se não existir, redireciona
-        await fetch('/api/auth/signout', { method: 'POST' }).catch(() => {});
+        await signOut({ callbackUrl: '/login' });
       }
     } finally {
-      // pós-logout: volta à landing/login
-      window.location.href = '/';
+      // signOut já trata do redirect; o finally evita estados inconsistentes
     }
   }
+
+  const submitSearch = React.useCallback(() => {
+    const trimmed = query.trim();
+    if (!trimmed) return;
+    router.push(`/dashboard/search?q=${encodeURIComponent(trimmed)}`);
+    setShowMobileSearch(false);
+  }, [query, router, setShowMobileSearch]);
+
+  type NotificationItem = { id: string; title: string; href?: string | null; created_at?: string | null };
+  const [notifAnchor, setNotifAnchor] = React.useState<null | HTMLElement>(null);
+  const [notifItems, setNotifItems] = React.useState<NotificationItem[]>([]);
+  const [notifLoading, setNotifLoading] = React.useState(false);
+  const [notifError, setNotifError] = React.useState<string | null>(null);
+  const [notifHydrated, setNotifHydrated] = React.useState(false);
+  const notifMenuOpen = Boolean(notifAnchor);
+
+  const loadNotifications = React.useCallback(async () => {
+    setNotifLoading(true);
+    setNotifError(null);
+    try {
+      const res = await fetch('/api/notifications/dropdown', {
+        cache: 'no-store',
+        credentials: 'same-origin',
+      });
+      if (!res.ok) throw new Error('REQUEST_FAILED');
+      const data = await res.json();
+      const items: NotificationItem[] = Array.isArray(data?.items)
+        ? data.items.map((item: any) => ({
+            id: String(item?.id ?? crypto.randomUUID?.() ?? Date.now()),
+            title: String(item?.title ?? 'Notificação'),
+            href: item?.href ?? null,
+            created_at: item?.created_at ?? null,
+          }))
+        : [];
+      setNotifItems(items);
+      setNotifHydrated(true);
+      if (setCounts) {
+        setCounts({ notificationsCount: items.length });
+      }
+    } catch (error) {
+      console.warn('[header] notifications dropdown failed');
+      setNotifError('Não foi possível carregar notificações.');
+      setNotifItems([]);
+    } finally {
+      setNotifLoading(false);
+    }
+  }, [setCounts]);
+
+  const handleOpenNotifications = (event: React.MouseEvent<HTMLElement>) => {
+    setNotifAnchor(event.currentTarget);
+    if (!notifHydrated) {
+      void loadNotifications();
+    }
+  };
+
+  const handleCloseNotifications = () => {
+    setNotifAnchor(null);
+  };
 
   return (
     <AppBar position="sticky" color="default" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
       <Toolbar sx={{ gap: 1, minHeight: 64 }}>
-        {/* menu mobile (abre sidebar) */}
-        <IconButton aria-label="Abrir menu" onClick={() => openMobile(true)} size="small">
-          <MenuIcon />
-        </IconButton>
-
         {/* brand */}
-        <Typography
+        <Box
           component={Link}
           href="/dashboard"
           prefetch={false}
-          variant="h6"
-          sx={{ textDecoration: 'none', color: 'inherit', fontWeight: 800, letterSpacing: 0.2 }}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            textDecoration: 'none',
+            color: 'inherit',
+          }}
+          onClick={(event) => {
+            if (isMobile) {
+              event.preventDefault();
+              openMobile(true);
+            }
+          }}
         >
-          Fitness Pro
-        </Typography>
+          <BrandLogo size={32} priority />
+          <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: 0.4 }}>
+            HMS Personal Trainer
+          </Typography>
+        </Box>
 
-        <Box sx={{ flex: 1 }} />
+        <Box
+          sx={{
+            flex: 1,
+            maxWidth: 420,
+            display: { xs: showMobileSearch ? 'flex' : 'none', sm: 'flex' },
+          }}
+        >
+          <OutlinedInput
+            fullWidth
+            size="small"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                submitSearch();
+              }
+            }}
+            placeholder="Pesquisar utilizadores, planos ou sessões"
+            sx={{ borderRadius: 3 }}
+            startAdornment={
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" />
+              </InputAdornment>
+            }
+            endAdornment={
+              query ? (
+                <InputAdornment position="end">
+                  <IconButton
+                    size="small"
+                    edge="end"
+                    aria-label="Pesquisar"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      submitSearch();
+                    }}
+                  >
+                    <SearchIcon fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ) : undefined
+            }
+          />
+        </Box>
 
-        {/* badges role-aware */}
-        {role === 'ADMIN' && (
-          <Tooltip title="Aprovações">
-            <IconButton component={Link} href="/dashboard/admin/approvals" prefetch={false} size="small" sx={{ mr: 0.5 }} aria-label="Ir para Aprovações">
-              {renderBadge(approvalsCount, <CheckCircleOutline />)}
-            </IconButton>
-          </Tooltip>
-        )}
+        <Box sx={{ flex: { xs: showMobileSearch ? 0 : 1, sm: 0 } }} />
+
+        <Tooltip title="Pesquisar" sx={{ display: { xs: 'inline-flex', sm: 'none' } }}>
+          <IconButton
+            size="small"
+            sx={{ mr: 1 }}
+            aria-label="Alternar pesquisa"
+            onClick={() => setShowMobileSearch((value) => !value)}
+          >
+            <SearchIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
 
         {(role === 'CLIENT' || role === 'TRAINER') && (
           <Tooltip title="Mensagens">
@@ -130,12 +254,10 @@ export default function AppHeader({
 
         <Tooltip title="Notificações">
           <IconButton
-            component={Link}
-            href={role === 'ADMIN' ? '/dashboard/admin/notifications' : '/dashboard/notifications'}
-            prefetch={false}
             size="small"
             sx={{ mr: 1 }}
-            aria-label="Ir para Notificações"
+            aria-label="Abrir notificações"
+            onClick={handleOpenNotifications}
           >
             {renderBadge(notificationsCount, <NotificationsIcon />)}
           </IconButton>
@@ -212,6 +334,65 @@ export default function AppHeader({
             </ListItemIcon>
             Terminar sessão
           </MenuItem>
+        </Menu>
+
+        <Menu
+          id="notifications-menu"
+          anchorEl={notifAnchor}
+          open={notifMenuOpen}
+          onClose={handleCloseNotifications}
+          keepMounted
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          MenuListProps={{ sx: { p: 0, width: 320, maxWidth: '90vw' } }}
+        >
+          <Box sx={{ px: 2, py: 1.5 }}>
+            <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
+              Notificações recentes
+            </Typography>
+            {notifLoading ? (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CircularProgress size={16} />
+                <Typography variant="caption" color="text.secondary">
+                  A sincronizar…
+                </Typography>
+              </Box>
+            ) : notifError ? (
+              <Typography variant="body2" color="text.secondary">
+                {notifError}
+              </Typography>
+            ) : notifItems.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                Sem notificações no momento.
+              </Typography>
+            ) : (
+              <List dense disablePadding sx={{ maxHeight: 260, overflowY: 'auto' }}>
+                {notifItems.map((item) => (
+                  <ListItem
+                    key={item.id}
+                    disablePadding
+                    sx={{ borderBottom: '1px solid', borderColor: 'divider' }}
+                  >
+                    <ListItemButton
+                      onClick={() => {
+                        handleCloseNotifications();
+                        if (item.href) {
+                          window.location.href = item.href;
+                        }
+                      }}
+                    >
+                      <ListItemText
+                        primaryTypographyProps={{ fontSize: 13, fontWeight: 600 }}
+                        primary={item.title}
+                        secondary={item.created_at ? new Date(item.created_at).toLocaleString() : undefined}
+                        secondaryTypographyProps={{ fontSize: 11, color: 'text.secondary' }}
+                      />
+                    </ListItemButton>
+                  </ListItem>
+                ))}
+              </List>
+            )}
+          </Box>
         </Menu>
       </Toolbar>
     </AppBar>

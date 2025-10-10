@@ -31,6 +31,20 @@ export default function DashboardFrame({
   initialCounts,
   children,
 }: Props) {
+  const adminInitial = initialCounts
+    ? {
+        approvalsCount: initialCounts.approvalsCount ?? 0,
+        notificationsCount: initialCounts.notificationsCount ?? 0,
+      }
+    : undefined;
+
+  const audienceInitial = initialCounts
+    ? {
+        messagesCount: initialCounts.messagesCount ?? 0,
+        notificationsCount: initialCounts.notificationsCount ?? 0,
+      }
+    : undefined;
+
   return (
     <HeaderCountsProvider
       role={(role as any) ?? null}
@@ -58,7 +72,14 @@ export default function DashboardFrame({
         >
           {/* Sidebar só em md+ (no mobile usas o menu do AppHeader/SidebarProvider) */}
           <Box component="aside" sx={{ display: { xs: 'none', md: 'block' } }}>
-            <RoleSidebar />
+            <RoleSidebar
+              role={role}
+              initialCounts={{
+                admin: adminInitial,
+                client: audienceInitial,
+                trainer: audienceInitial,
+              }}
+            />
           </Box>
 
           <Box component="main" sx={{ p: 2 }}>
