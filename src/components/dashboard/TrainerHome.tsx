@@ -126,6 +126,11 @@ async function loadTrainerDashboard(trainerId: string | null): Promise<{ data: T
     console.warn('[trainer dashboard] fallback sample data', error);
     return { data: fallback, supabase: false };
   }
+  const date = new Date(value);
+  return {
+    day: date.toLocaleDateString('pt-PT', { weekday: 'short', day: '2-digit', month: 'short' }),
+    time: date.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }),
+  };
 }
 
 function firstName(full?: string | null) {

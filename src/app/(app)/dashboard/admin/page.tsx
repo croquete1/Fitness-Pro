@@ -136,6 +136,14 @@ function firstName(full?: string | null) {
   return parts[0] ?? full;
 }
 
+function firstName(full?: string | null) {
+  if (!full) return 'Admin';
+  const parts = full.trim().split(/\s+/);
+  return parts[0] ?? full;
+}
+
+export const dynamic = 'force-dynamic';
+
 export default async function AdminDashboardPage() {
   const session = await getSessionUserSafe();
   const name = firstName(session?.user?.name ?? session?.user?.email ?? undefined);
