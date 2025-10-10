@@ -111,7 +111,7 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
       renderCell: (p) => (
         <Stack direction="row" spacing={0.5}>
           <Tooltip title="Editar">
-            <IconButton size="small" onClick={() => router.push(`/dashboard/trainer/schedule/${p.row.id}`)}>
+            <IconButton size="small" onClick={() => router.push(`/dashboard/pt/schedule/${p.row.id}`)}>
               <EditOutlined fontSize="small" />
             </IconButton>
           </Tooltip>

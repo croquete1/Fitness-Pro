@@ -4,6 +4,7 @@ import { notFound, redirect } from 'next/navigation';
 import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole } from '@/lib/roles';
+import { fetchUserById } from '@/lib/userRepo';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardHeader from '@mui/material/CardHeader';
@@ -30,7 +31,7 @@ export default async function UserProfileView({ params }: { params: { id: string
     }
   }
 
-  const { data: u } = await sb.from('profiles').select('id,name,email,username,avatar_url,role').eq('id', targetId).maybeSingle();
+  const u = await fetchUserById(targetId, { client: sb, withProfile: true });
   if (!u) notFound();
 
   return (

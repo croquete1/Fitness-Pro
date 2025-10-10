@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server';
-import { serverSB } from '@/lib/supabase/server';
+import { tryGetSBC } from '@/lib/supabase/server';
+import { supabaseFallbackJson } from '@/lib/supabase/responses';
 
 /**
  * GET /api/admin/pts-schedule/conflicts?start_time=...&end_time=...&trainer_id=...&client_id=...&exclude_id=...
  * Tabela usada: "sessions" (ajusta nomes de colunas se diferentes)
  */
 export async function GET(req: Request) {
-  const sb = serverSB();
+  const sb = tryGetSBC();
+  if (!sb) return supabaseFallbackJson({ hasConflict: false });
   const { searchParams } = new URL(req.url);
   const start = searchParams.get('start_time');
   const end = searchParams.get('end_time');

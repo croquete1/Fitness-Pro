@@ -2,6 +2,7 @@
 import { headers, cookies } from 'next/headers';
 import { getToken } from 'next-auth/jwt';
 import { toAppRole, type AppRole } from '@/lib/roles';
+import { getCurrentUser } from '@/lib/authServer';
 
 /**
  * Estrutura principal da sessão.
@@ -37,29 +38,50 @@ export async function getSessionUserSafe(): Promise<SessionBridge | null> {
   };
 
   const token = await getToken({ req: reqLike, secret: process.env.NEXTAUTH_SECRET });
-  if (!token) return null;
+  if (token) {
+    const roleRaw =
+      (token as any)?.role ??
+      (token as any)?.user?.role ??
+      (token as any)?.user?.['app_role'];
 
-  const roleRaw =
-    (token as any)?.role ??
-    (token as any)?.user?.role ??
-    (token as any)?.user?.['app_role'];
+    const u = {
+      id: (token as any)?.id ?? (token as any)?.user?.id,
+      name: (token as any)?.name ?? (token as any)?.user?.name,
+      email: (token as any)?.email ?? (token as any)?.user?.email,
+      image: (token as any)?.picture ?? (token as any)?.user?.image,
+      role: toAppRole(roleRaw) ?? undefined,
+    };
 
-  const u = {
-    id: (token as any)?.id ?? (token as any)?.user?.id,
-    name: (token as any)?.name ?? (token as any)?.user?.name,
-    email: (token as any)?.email ?? (token as any)?.user?.email,
-    image: (token as any)?.picture ?? (token as any)?.user?.image,
-    role: toAppRole(roleRaw) ?? undefined,
-  };
+    return {
+      session: token,
+      user: u,
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      image: u.image,
+      role: u.role,
+    };
+  }
 
-  // devolvemos ambos: nested e flat
+  // fallback: tenta sessão Supabase (caso NextAuth não esteja disponível)
+  const fallback = await getCurrentUser().catch(() => null);
+  if (!fallback?.id) return null;
+
+  const role = toAppRole(fallback.role) ?? undefined;
+
   return {
-    session: token,
-    user: u,
-    id: u.id,
-    name: u.name,
-    email: u.email,
-    image: u.image,
-    role: u.role,
+    session: fallback,
+    user: {
+      id: fallback.id,
+      name: undefined,
+      email: undefined,
+      image: undefined,
+      role,
+    },
+    id: fallback.id,
+    name: undefined,
+    email: undefined,
+    image: undefined,
+    role,
   };
 }
