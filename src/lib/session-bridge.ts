@@ -1,8 +1,10 @@
 // src/lib/session-bridge.ts
 import { headers, cookies } from 'next/headers';
 import { getToken } from 'next-auth/jwt';
+import { getServerSession } from 'next-auth';
 import { toAppRole, type AppRole } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/authServer';
+import { authOptions } from '@/lib/authOptions';
 
 /**
  * Estrutura principal da sessão.
@@ -37,7 +39,13 @@ export async function getSessionUserSafe(): Promise<SessionBridge | null> {
     cookies: Object.fromEntries(cookies().getAll().map((c) => [c.name, c.value])),
   };
 
-  const token = await getToken({ req: reqLike, secret: process.env.NEXTAUTH_SECRET });
+  let token: any | null = null;
+  try {
+    token = await getToken({ req: reqLike, secret: process.env.NEXTAUTH_SECRET });
+  } catch (error) {
+    console.warn('[session-bridge] getToken falhou — a tentar getServerSession', error);
+  }
+
   if (token) {
     const roleRaw =
       (token as any)?.role ??
@@ -61,6 +69,32 @@ export async function getSessionUserSafe(): Promise<SessionBridge | null> {
       image: u.image,
       role: u.role,
     };
+  }
+
+  // fallback: tenta obter sessão NextAuth via getServerSession (v4)
+  try {
+    const session = await getServerSession(authOptions);
+    const user = session?.user as any;
+    if (user?.id) {
+      const role = toAppRole(user.role) ?? undefined;
+      return {
+        session,
+        user: {
+          id: user.id,
+          name: user.name ?? undefined,
+          email: user.email ?? undefined,
+          image: user.image ?? undefined,
+          role,
+        },
+        id: user.id,
+        name: user.name ?? undefined,
+        email: user.email ?? undefined,
+        image: user.image ?? undefined,
+        role,
+      };
+    }
+  } catch (error) {
+    console.warn('[session-bridge] getServerSession fallback falhou', error);
   }
 
   // fallback: tenta sessão Supabase (caso NextAuth não esteja disponível)

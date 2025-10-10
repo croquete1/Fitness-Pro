@@ -11,14 +11,14 @@ type Props = {
   src?: string; // permite override (ex.: /branding/logo.svg)
 };
 
-export default function Logo({ size = 28, className, alt = 'Fitness Pro', src }: Props) {
+export default function Logo({ size = 28, className, alt = 'HMS Personal Trainer', src }: Props) {
   const [failed, setFailed] = React.useState(false);
-  const url = src ?? '/logo.png'; // por omissão usa /public/logo.png
+  const url = src ?? '/branding/hms-logo.svg';
 
   if (failed) {
     return (
       <div className={className} aria-label={alt} title={alt} style={{ fontWeight: 700 }}>
-        Fitness&nbsp;Pro
+        HMS
       </div>
     );
   }

@@ -5,7 +5,9 @@ test.describe('Login flow smoke', () => {
     await page.goto('/login');
 
     await expect(page.locator('img[alt="HMS Personal Trainer"]')).toBeVisible();
-    await expect(page.getByRole('heading', { level: 1, name: /bem-vindo de volta/i })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 1, name: /acede ao ecossistema hms/i })
+    ).toBeVisible();
     await expect(page.getByRole('link', { name: /criar conta/i })).toBeVisible();
 
     await page.getByRole('button', { name: /entrar/i }).click();

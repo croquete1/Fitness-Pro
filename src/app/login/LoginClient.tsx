@@ -104,18 +104,41 @@ export default function LoginClient() {
 
   return (
     <Box
-      sx={{
+      sx={(theme) => ({
         minHeight: '100dvh',
         display: 'grid',
         placeItems: 'center',
-        p: 3,
-        bgcolor: 'background.default',
-        backgroundImage: `
-          radial-gradient(1200px 700px at 50% -10%, rgba(255,255,255,0.06), transparent),
-          radial-gradient(900px 500px at 120% 10%, rgba(99,102,241,0.12), transparent),
-          linear-gradient(180deg, rgba(255,255,255,0.02), transparent 160px)
-        `,
-      }}
+        p: { xs: 2.5, md: 4 },
+        position: 'relative',
+        overflow: 'hidden',
+        background:
+          theme.palette.mode === 'dark'
+            ? 'linear-gradient(120deg, #020617 0%, #07112c 40%, #020617 100%)'
+            : 'linear-gradient(120deg, #e9f1ff 0%, #f0f4ff 45%, #e6efff 100%)',
+        '&::before': {
+          content: "''",
+          position: 'absolute',
+          inset: '-30% -15%',
+          background:
+            'radial-gradient(30% 40% at 10% 20%, rgba(59,130,246,0.28), transparent 70%),' +
+            'radial-gradient(24% 34% at 85% 18%, rgba(14,165,233,0.28), transparent 74%),' +
+            'radial-gradient(36% 50% at 50% 120%, rgba(236,72,153,0.2), transparent 75%)',
+          filter: 'blur(60px)',
+          opacity: theme.palette.mode === 'dark' ? 0.55 : 0.4,
+          pointerEvents: 'none',
+        },
+        '&::after': {
+          content: "''",
+          position: 'absolute',
+          inset: '0',
+          background:
+            theme.palette.mode === 'dark'
+              ? 'radial-gradient(65% 65% at 50% 0%, rgba(148,163,255,0.12), transparent 70%)'
+              : 'radial-gradient(65% 65% at 50% 0%, rgba(79,70,229,0.12), transparent 70%)',
+          mixBlendMode: 'screen',
+          pointerEvents: 'none',
+        },
+      })}
     >
       <Fade in timeout={400}>
         <Paper
@@ -124,30 +147,57 @@ export default function LoginClient() {
             width: '100%',
             maxWidth: 520,
             p: { xs: 3, sm: 4 },
-            borderRadius: 5,
-            bgcolor: 'rgba(18,18,18,0.65)',
-            color: 'text.primary',
-            backdropFilter: 'saturate(140%) blur(8px)',
-            border: (t) => `1px solid ${t.palette.divider}`,
-            boxShadow: '0 10px 40px rgba(0,0,0,0.35)',
+            borderRadius: 4,
             position: 'relative',
+            bgcolor: (theme) =>
+              theme.palette.mode === 'dark'
+                ? 'rgba(8, 13, 26, 0.82)'
+                : 'rgba(255, 255, 255, 0.85)',
+            border: (theme) =>
+              theme.palette.mode === 'dark'
+                ? '1px solid rgba(96,165,250,0.22)'
+                : '1px solid rgba(99,102,241,0.18)',
+            boxShadow: (theme) =>
+              theme.palette.mode === 'dark'
+                ? '0 40px 120px -60px rgba(15,23,42,0.95)'
+                : '0 40px 120px -70px rgba(15,23,42,0.25)',
+            backdropFilter: 'blur(18px)',
           }}
         >
-          <Box sx={{ position: 'absolute', top: 10, right: 10 }}>
+          <Box sx={{ position: 'absolute', top: 12, right: 12 }}>
             <ThemeToggle />
           </Box>
 
-          <Stack alignItems="center" spacing={1.2} sx={{ mb: 1 }}>
-            <BrandLogo size={64} />
-            <Typography variant="h4" fontWeight={800} textAlign="center" sx={{ letterSpacing: 0.2 }}>
-              Bem-vindo ao Fitness Pro
+          <Stack alignItems="center" spacing={1.6} sx={{ mb: 2 }}>
+            <BrandLogo size={88} priority />
+            <Typography
+              variant="h4"
+              component="h1"
+              fontWeight={800}
+              textAlign="center"
+              sx={{ letterSpacing: 0.6, lineHeight: 1.15 }}
+            >
+              Acede ao ecossistema HMS
             </Typography>
-            <Typography variant="body2" color="text.secondary" textAlign="center">
-              Entra para aceder ao teu painel <b>Admin</b>, <b>PT</b> ou <b>Cliente</b>.
+            <Typography
+              variant="body1"
+              color="text.secondary"
+              textAlign="center"
+              sx={{ maxWidth: 380 }}
+            >
+              Gere clientes, planos e sessões num painel desenhado para personal trainers e equipas premium.
             </Typography>
           </Stack>
 
-          <Divider sx={{ my: 2.2, opacity: 0.6 }} />
+          <Divider sx={{ my: 2, opacity: 0.5 }}>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ textTransform: 'uppercase', letterSpacing: 1.4, fontWeight: 600 }}
+            >
+              Entrar na conta
+            </Typography>
+          </Divider>
 
           <form onSubmit={onSubmit} noValidate>
             <Stack spacing={2.2}>

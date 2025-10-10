@@ -14,6 +14,7 @@ import PrintOutlined from '@mui/icons-material/PrintOutlined';
 import ContentCopyOutlined from '@mui/icons-material/ContentCopyOutlined';
 import { DataGrid, GridColDef, GridToolbar, GridToolbarQuickFilter, GridFilterModel } from '@mui/x-data-grid';
 import { useRouter } from 'next/navigation';
+import { getSampleUsers } from '@/lib/fallback/users';
 
 export type Role = 'ADMIN' | 'TRAINER' | 'CLIENT' | string;
 export type Status = 'active' | 'invited' | 'blocked' | string;
@@ -59,7 +60,40 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
       params.set('page', String(paginationModel.page));
       params.set('pageSize', String(paginationModel.pageSize));
       if (quickFilter) params.set('q', quickFilter);
-      const r = await fetch(`/api/admin/users?${params.toString()}`, { cache: 'no-store', credentials: 'same-origin' });
+      const endpoint = `/api/admin/users?${params.toString()}`;
+      const r = await fetch(endpoint, { cache: 'no-store', credentials: 'same-origin' });
+
+      if (r.status === 401 || r.status === 403) {
+        const fallback = getSampleUsers({
+          page: paginationModel.page,
+          pageSize: paginationModel.pageSize,
+          search: quickFilter,
+          role: undefined,
+          status: undefined,
+        });
+        const mapped = fallback.rows.map((user) => ({
+          id: String(user.id),
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          status: user.status.toLowerCase() as Status,
+          approved: user.approved,
+          active: user.active,
+          created_at: user.created_at,
+          last_login_at: user.last_login_at,
+          last_seen_at: user.last_seen_at,
+          online: user.online,
+        }));
+        setRows(mapped);
+        setCount(fallback.count);
+        setSnack({
+          open: true,
+          msg: 'Sessão expirada: a mostrar dados de exemplo. Faz login novamente para veres dados reais.',
+          sev: 'warning',
+        });
+        return;
+      }
+
       const j = await r.json();
       if (j?._supabaseConfigured === false) {
         setSnack({ open: true, msg: 'Supabase não está configurado — a lista mostra dados locais.', sev: 'info' });
@@ -83,8 +117,29 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
       setRows(mapped);
       setCount(j.count ?? mapped.length);
     } catch (e: any) {
-      setRows([]); setCount(0);
-      setSnack({ open:true, msg: e?.message || 'Falha ao carregar utilizadores', sev:'error' });
+      const fallback = getSampleUsers({
+        page: paginationModel.page,
+        pageSize: paginationModel.pageSize,
+        search: quickFilter,
+        role: undefined,
+        status: undefined,
+      });
+      const mapped = fallback.rows.map((user) => ({
+        id: String(user.id),
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        status: user.status.toLowerCase() as Status,
+        approved: user.approved,
+        active: user.active,
+        created_at: user.created_at,
+        last_login_at: user.last_login_at,
+        last_seen_at: user.last_seen_at,
+        online: user.online,
+      }));
+      setRows(mapped);
+      setCount(fallback.count);
+      setSnack({ open:true, msg: e?.message || 'Falha ao carregar utilizadores — a mostrar dados de exemplo.', sev:'error' });
     } finally {
       setLoading(false);
     }

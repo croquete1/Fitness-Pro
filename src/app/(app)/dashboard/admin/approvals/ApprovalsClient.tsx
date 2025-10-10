@@ -12,6 +12,7 @@ import PrintOutlined from '@mui/icons-material/PrintOutlined';
 import { DataGrid, GridColDef, GridToolbar } from '@mui/x-data-grid';
 import OpenInNewToggle from '@/components/ui/OpenInNewToggle';
 import { navigate } from '@/lib/nav';
+import { getSampleApprovals } from '@/lib/fallback/users';
 
 type Row = {
   id: string;
@@ -47,6 +48,30 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
 
     try {
       const r = await fetch(u.toString(), { cache: 'no-store', credentials: 'same-origin' });
+      if (r.status === 401 || r.status === 403) {
+        const fallback = getSampleApprovals({
+          page: paginationModel.page,
+          pageSize: paginationModel.pageSize,
+          search: q,
+          status: status || null,
+        });
+        setRows(fallback.rows.map((row) => ({
+          id: String(row.id),
+          user_id: String(row.user_id),
+          name: row.name,
+          email: row.email,
+          requested_at: row.requested_at,
+          status: row.status,
+        })));
+        setCount(fallback.count);
+        setSnack({
+          open: true,
+          msg: 'Sessão expirada — a mostrar pedidos de exemplo. Autentica-te novamente para gerir pedidos reais.',
+          sev: 'warning',
+        });
+        return;
+      }
+
       const j = await r.json();
       setRows((j.rows ?? []).map((r:any) => ({
         id: String(r.id),
@@ -57,9 +82,23 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
         status: r.status ?? 'pending',
       })));
       setCount(j.count ?? 0);
-    } catch {
-      setRows([]); setCount(0);
-      setSnack({ open:true, msg:'Falha ao carregar aprovações', sev:'error' });
+    } catch (error: any) {
+      const fallback = getSampleApprovals({
+        page: paginationModel.page,
+        pageSize: paginationModel.pageSize,
+        search: q,
+        status: status || null,
+      });
+      setRows(fallback.rows.map((row) => ({
+        id: String(row.id),
+        user_id: String(row.user_id),
+        name: row.name,
+        email: row.email,
+        requested_at: row.requested_at,
+        status: row.status,
+      })));
+      setCount(fallback.count);
+      setSnack({ open:true, msg: error?.message || 'Falha ao carregar aprovações — a mostrar dados de exemplo.', sev:'error' });
     } finally {
       setLoading(false);
     }

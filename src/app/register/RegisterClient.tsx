@@ -13,6 +13,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import BrandLogo from '@/components/BrandLogo';
 import { toast } from '@/components/ui/Toaster';
 
 export default function RegisterClient() {
@@ -93,12 +94,7 @@ export default function RegisterClient() {
     >
       <Paper sx={{ p: 3.5, width: '100%', maxWidth: 520, borderRadius: 4, backdropFilter: 'blur(6px)' }} elevation={6}>
         <Stack spacing={0.5} sx={{ mb: 2 }} alignItems="center">
-          <Box
-            component="img"
-            src="/branding/hms-personal-trainer.svg"
-            alt="HMS Personal Trainer"
-            sx={{ width: 72, height: 72 }}
-          />
+          <BrandLogo size={72} />
           <Typography variant="h5" component="h1" fontWeight={800} textAlign="center">
             Criar conta
           </Typography>

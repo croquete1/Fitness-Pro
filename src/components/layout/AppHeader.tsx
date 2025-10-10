@@ -21,16 +21,21 @@ import {
   ListItem,
   ListItemButton,
   ListItemText,
+  OutlinedInput,
+  InputAdornment,
 } from '@mui/material';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import ChatBubbleOutline from '@mui/icons-material/ChatBubbleOutline';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import Brightness4Outlined from '@mui/icons-material/Brightness4Outlined';
+import SearchIcon from '@mui/icons-material/Search';
+import { useRouter } from 'next/navigation';
+import { signOut } from 'next-auth/react';
 import ThemeToggleButton from '@/components/theme/ThemeToggleButton';
 import { useSidebar } from '@/components/layout/SidebarProvider';
 import { useHeaderCounts } from '@/components/header/HeaderCountsContext';
-import Image from 'next/image';
+import BrandLogo from '@/components/BrandLogo';
 
 type Props = {
   userLabel?: string;
@@ -60,6 +65,9 @@ export default function AppHeader({
   const { openMobile, isMobile } = useSidebar();
   const counts = useHeaderCounts?.();
   const role = counts?.role ?? null;
+  const router = useRouter();
+  const [query, setQuery] = React.useState('');
+  const [showMobileSearch, setShowMobileSearch] = React.useState(false);
 
   const messagesCount = Number(counts?.messagesCount ?? 0);
   const notificationsCount = Number(counts?.notificationsCount ?? 0);
@@ -85,14 +93,19 @@ export default function AppHeader({
       if (onSignOut) {
         await onSignOut();
       } else {
-        // fallback genérico: API local de signout; se não existir, redireciona
-        await fetch('/api/auth/signout', { method: 'POST' }).catch(() => {});
+        await signOut({ callbackUrl: '/login' });
       }
     } finally {
-      // pós-logout: volta à landing/login
-      window.location.href = '/';
+      // signOut já trata do redirect; o finally evita estados inconsistentes
     }
   }
+
+  const submitSearch = React.useCallback(() => {
+    const trimmed = query.trim();
+    if (!trimmed) return;
+    router.push(`/dashboard/search?q=${encodeURIComponent(trimmed)}`);
+    setShowMobileSearch(false);
+  }, [query, router, setShowMobileSearch]);
 
   type NotificationItem = { id: string; title: string; href?: string | null; created_at?: string | null };
   const [notifAnchor, setNotifAnchor] = React.useState<null | HTMLElement>(null);
@@ -132,7 +145,7 @@ export default function AppHeader({
     } finally {
       setNotifLoading(false);
     }
-  }, [notificationsCount, setCounts]);
+  }, [setCounts]);
 
   const handleOpenNotifications = (event: React.MouseEvent<HTMLElement>) => {
     setNotifAnchor(event.currentTarget);
@@ -167,20 +180,69 @@ export default function AppHeader({
             }
           }}
         >
-          <Image
-            src="/branding/hms-personal-trainer.svg"
-            alt="HMS Personal Trainer"
-            width={32}
-            height={32}
-            priority
-            style={{ display: 'block' }}
-          />
+          <BrandLogo size={32} priority />
           <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: 0.4 }}>
             HMS Personal Trainer
           </Typography>
         </Box>
 
-        <Box sx={{ flex: 1 }} />
+        <Box
+          sx={{
+            flex: 1,
+            maxWidth: 420,
+            display: { xs: showMobileSearch ? 'flex' : 'none', sm: 'flex' },
+          }}
+        >
+          <OutlinedInput
+            fullWidth
+            size="small"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                submitSearch();
+              }
+            }}
+            placeholder="Pesquisar utilizadores, planos ou sessões"
+            sx={{ borderRadius: 3 }}
+            startAdornment={
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" />
+              </InputAdornment>
+            }
+            endAdornment={
+              query ? (
+                <InputAdornment position="end">
+                  <IconButton
+                    size="small"
+                    edge="end"
+                    aria-label="Pesquisar"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      submitSearch();
+                    }}
+                  >
+                    <SearchIcon fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ) : undefined
+            }
+          />
+        </Box>
+
+        <Box sx={{ flex: { xs: showMobileSearch ? 0 : 1, sm: 0 } }} />
+
+        <Tooltip title="Pesquisar" sx={{ display: { xs: 'inline-flex', sm: 'none' } }}>
+          <IconButton
+            size="small"
+            sx={{ mr: 1 }}
+            aria-label="Alternar pesquisa"
+            onClick={() => setShowMobileSearch((value) => !value)}
+          >
+            <SearchIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
 
         {(role === 'CLIENT' || role === 'TRAINER') && (
           <Tooltip title="Mensagens">

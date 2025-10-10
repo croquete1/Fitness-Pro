@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabaseServer';
+import { tryCreateServerClient } from '@/lib/supabaseServer';
+import { requireAdminGuard, isGuardErr } from '@/lib/api-guards';
+import { supabaseFallbackJson, supabaseUnavailableResponse } from '@/lib/supabase/responses';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,13 +11,18 @@ function pick<T extends Record<string, any>>(row: T, keys: string[]) {
 }
 
 export async function GET(req: Request) {
+  const guard = await requireAdminGuard();
+  if (isGuardErr(guard)) return guard.response;
   const url = new URL(req.url);
   const page = Number(url.searchParams.get('page') ?? '0');
   const pageSize = Math.min(Number(url.searchParams.get('pageSize') ?? '20'), 100);
   const q = (url.searchParams.get('q') || '').trim();
   const difficulty = (url.searchParams.get('difficulty') || '').trim();
 
-  const sb = createServerClient();
+  const sb = tryCreateServerClient();
+  if (!sb) {
+    return supabaseFallbackJson({ rows: [], count: 0 });
+  }
 
   async function base(table: string) {
     let sel = sb.from(table).select('*', { count: 'exact' });
@@ -40,7 +47,10 @@ export async function GET(req: Request) {
     const r2 = await base('programs');
     data = r2.data ?? null; count = r2.count ?? 0; err = r2.error ?? null;
   }
-  if (err) return NextResponse.json({ error: err.message || String(err) }, { status: 500 });
+  if (err) {
+    console.warn('[admin/plans] list failed', err);
+    return NextResponse.json({ error: 'REQUEST_FAILED' }, { status: 400 });
+  }
 
   const rows = (data ?? []).map((d: any) => ({
     id: String(d.id),
@@ -56,7 +66,10 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const sb = createServerClient();
+  const guard = await requireAdminGuard();
+  if (isGuardErr(guard)) return guard.response;
+  const sb = tryCreateServerClient();
+  if (!sb) return supabaseUnavailableResponse();
   const body = await req.json().catch(() => ({}));
 
   const payload = {
@@ -73,7 +86,10 @@ export async function POST(req: Request) {
   if (r.error?.code === '42P01' || r.error?.message?.includes('relation')) {
     r = await tryInsert('programs');
   }
-  if (r.error) return NextResponse.json({ error: r.error.message }, { status: 400 });
+  if (r.error) {
+    console.warn('[admin/plans] insert failed', r.error);
+    return NextResponse.json({ error: 'REQUEST_FAILED' }, { status: 400 });
+  }
 
   return NextResponse.json({ ok: true, row: r.data });
 }

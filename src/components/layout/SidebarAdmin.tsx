@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   Box, List, ListItemButton, ListItemIcon, ListItemText, Tooltip, IconButton,
-  Badge, ListSubheader, Divider,
+  Badge, ListSubheader, Divider, Typography,
 } from '@mui/material';
 
 import DashboardOutlined from '@mui/icons-material/DashboardOutlined';
@@ -61,23 +61,11 @@ export default function SidebarAdmin({
 
   const header = (
     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.25, minWidth: 0, p: 1.5 }}>
-      <Box
-        sx={{
-          width: 36,
-          height: 36,
-          borderRadius: '12px',
-          border: '1px solid',
-          borderColor: 'divider',
-          overflow: 'hidden',
-          bgcolor: 'background.paper',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-        aria-label="HMS Personal Trainer"
-      >
-        <Image src="/branding/hms-personal-trainer.svg" alt="HMS" width={32} height={32} priority />
-      </Box>
+      {!isRail && (
+        <Typography variant="subtitle2" fontWeight={800} sx={{ letterSpacing: 0.6 }}>
+          Navegação
+        </Typography>
+      )}
       <IconButton
         onClick={toggleCollapse}
         sx={{

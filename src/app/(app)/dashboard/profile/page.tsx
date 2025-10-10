@@ -2,7 +2,7 @@
 export const dynamic = 'force-dynamic';
 
 import { redirect } from 'next/navigation';
-import { createServerClient } from '@/lib/supabaseServer';
+import { tryCreateServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import ProfileClient from './profile-client';
 
@@ -10,12 +10,14 @@ export default async function ProfilePage() {
   const session = await getSessionUserSafe();
   const me = session?.user; if (!me?.id) redirect('/login');
 
-  const sb = createServerClient();
-  const { data: u } = await sb
-    .from('profiles')
-    .select('id,name,username,email,avatar_url,role')
-    .eq('id', me.id)
-    .maybeSingle();
+  const sb = tryCreateServerClient();
+  const { data: u } = sb
+    ? await sb
+        .from('profiles')
+        .select('id,name,username,email,avatar_url,role')
+        .eq('id', me.id)
+        .maybeSingle()
+    : { data: null };
 
   const model = {
     id: me.id,

@@ -3,15 +3,22 @@
 import * as React from 'react';
 import Image from 'next/image';
 
-export default function BrandLogo({ size = 56 }: { size?: number }) {
+type Props = {
+  size?: number;
+  className?: string;
+  priority?: boolean;
+};
+
+export default function BrandLogo({ size = 56, className, priority = false }: Props) {
   return (
     <Image
-      src="/logo.png" // garante que existe /public/logo.png
-      alt="Fitness Pro"
+      src="/branding/hms-logo.svg"
+      alt="HMS Personal Trainer"
       width={size}
       height={size}
-      priority
-      style={{ borderRadius: 12 }}
+      priority={priority}
+      className={className}
+      style={{ display: 'block' }}
     />
   );
 }
