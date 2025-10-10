@@ -171,7 +171,7 @@ export default function SidebarClient({
             );
           })}
         </List>
-        <Divider sx={{ my: 1 }} />
+        {!isRail && <Divider sx={{ my: 1 }} />}
       </React.Fragment>
     );
   }

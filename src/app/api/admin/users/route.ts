@@ -28,7 +28,11 @@ export async function GET(req: Request) {
   const from = page * pageSize;
   const to = from + pageSize - 1;
   const { data, error, count } = await s.range(from, to);
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+    const code = typeof error === 'object' && error && 'code' in error ? (error as any).code : 'unknown';
+    console.warn('[admin/users] list failed', { code });
+    return NextResponse.json({ error: 'REQUEST_FAILED' }, { status: 400 });
+  }
 
   const rowsRaw = data ?? [];
   const ids = rowsRaw.map((row: any) => row?.id).filter(Boolean);
@@ -106,7 +110,11 @@ export async function POST(req: Request) {
   };
 
   const { data, error } = await sb.from('users').insert(payload).select('*').single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+    const code = typeof error === 'object' && error && 'code' in error ? (error as any).code : 'unknown';
+    console.warn('[admin/users] create failed', { code });
+    return NextResponse.json({ error: 'REQUEST_FAILED' }, { status: 400 });
+  }
 
   await logAudit(sb, {
     kind: AUDIT_KINDS.USER_CREATE,

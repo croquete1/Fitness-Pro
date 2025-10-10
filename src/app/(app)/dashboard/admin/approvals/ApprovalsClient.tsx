@@ -46,7 +46,7 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
     if (status) u.searchParams.set('status', status);
 
     try {
-      const r = await fetch(u.toString(), { cache: 'no-store' });
+      const r = await fetch(u.toString(), { cache: 'no-store', credentials: 'same-origin' });
       const j = await r.json();
       setRows((j.rows ?? []).map((r:any) => ({
         id: String(r.id),

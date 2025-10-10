@@ -51,7 +51,7 @@ export default function MotivationAdminCard() {
 
   async function load() {
     try {
-      const r = await fetch('/api/admin/motivations', { cache: 'no-store' });
+      const r = await fetch('/api/admin/motivations', { cache: 'no-store', credentials: 'same-origin' });
       if (r.status === 503) throw new Error('SUPABASE_UNCONFIGURED');
       const j = await r.json().catch(() => ({}));
       if (j?._supabaseConfigured === false || j?.error === 'SUPABASE_UNCONFIGURED') {
@@ -89,6 +89,7 @@ export default function MotivationAdminCard() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, author }),
+        credentials: 'same-origin',
       });
       setText(''); setAuthor(''); load();
     } finally { setBusy(false); }
@@ -105,6 +106,7 @@ export default function MotivationAdminCard() {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ active: !q.active }),
+      credentials: 'same-origin',
     });
     load();
   }
@@ -115,7 +117,7 @@ export default function MotivationAdminCard() {
       persistLocalQuotes(next);
       return;
     }
-    await fetch(`/api/admin/motivations/${id}`, { method: 'DELETE' });
+    await fetch(`/api/admin/motivations/${id}`, { method: 'DELETE', credentials: 'same-origin' });
     load();
   }
 

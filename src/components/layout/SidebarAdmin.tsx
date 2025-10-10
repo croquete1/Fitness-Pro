@@ -167,7 +167,7 @@ export default function SidebarAdmin({
             );
           })}
         </List>
-        <Divider sx={{ my: 1 }} />
+        {!isRail && <Divider sx={{ my: 1 }} />}
       </React.Fragment>
     );
   }

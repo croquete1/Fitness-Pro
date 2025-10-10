@@ -3,10 +3,12 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
 import { tryCreateServerClient } from '@/lib/supabaseServer';
-import { toAppRole } from '@/lib/roles';
-import { supabaseFallbackJson, supabaseUnavailableResponse } from '@/lib/supabase/responses';
+import { supabaseFallbackJson } from '@/lib/supabase/responses';
+import { requireAdminGuard, isGuardErr } from '@/lib/api-guards';
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  const guard = await requireAdminGuard();
+  if (isGuardErr(guard)) return guard.response;
   const sb = tryCreateServerClient();
   if (!sb) {
     return supabaseFallbackJson(
@@ -14,10 +16,6 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       { status: 503 }
     );
   }
-  const { data: auth } = await sb.auth.getUser();
-  if (!auth?.user) return NextResponse.json({ ok:false, error:'UNAUTHENTICATED' }, { status:401 });
-  const role = toAppRole((auth.user as any)?.role) ?? 'CLIENT';
-  if (role !== 'ADMIN') return NextResponse.json({ ok:false, error:'FORBIDDEN' }, { status:403 });
 
   let body:any; try { body = await req.json(); } catch { return NextResponse.json({ ok:false, error:'INVALID_JSON' }, { status:400 }); }
   const patch:any = {};
@@ -26,11 +24,17 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if ('active' in body) patch.active = !!body.active;
 
   const { error } = await sb.from('motivational_quotes').update(patch).eq('id', params.id);
-  if (error) return NextResponse.json({ ok:false, error:error.message }, { status:400 });
+  if (error) {
+    const code = typeof error === 'object' && error && 'code' in error ? (error as any).code : 'unknown';
+    console.warn('[admin/motivations] update failed', { code });
+    return NextResponse.json({ ok:false, error:'REQUEST_FAILED' }, { status:400 });
+  }
   return NextResponse.json({ ok:true });
 }
 
 export async function DELETE(_: Request, { params }: { params: { id: string } }) {
+  const guard = await requireAdminGuard();
+  if (isGuardErr(guard)) return guard.response;
   const sb = tryCreateServerClient();
   if (!sb) {
     return supabaseFallbackJson(
@@ -38,12 +42,12 @@ export async function DELETE(_: Request, { params }: { params: { id: string } })
       { status: 503 }
     );
   }
-  const { data: auth } = await sb.auth.getUser();
-  if (!auth?.user) return NextResponse.json({ ok:false, error:'UNAUTHENTICATED' }, { status:401 });
-  const role = toAppRole((auth.user as any)?.role) ?? 'CLIENT';
-  if (role !== 'ADMIN') return NextResponse.json({ ok:false, error:'FORBIDDEN' }, { status:403 });
 
   const { error } = await sb.from('motivational_quotes').delete().eq('id', params.id);
-  if (error) return NextResponse.json({ ok:false, error:error.message }, { status:400 });
+  if (error) {
+    const code = typeof error === 'object' && error && 'code' in error ? (error as any).code : 'unknown';
+    console.warn('[admin/motivations] delete failed', { code });
+    return NextResponse.json({ ok:false, error:'REQUEST_FAILED' }, { status:400 });
+  }
   return NextResponse.json({ ok:true });
 }

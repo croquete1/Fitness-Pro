@@ -59,7 +59,7 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
       params.set('page', String(paginationModel.page));
       params.set('pageSize', String(paginationModel.pageSize));
       if (quickFilter) params.set('q', quickFilter);
-      const r = await fetch(`/api/admin/users?${params.toString()}`, { cache: 'no-store' });
+      const r = await fetch(`/api/admin/users?${params.toString()}`, { cache: 'no-store', credentials: 'same-origin' });
       const j = await r.json();
       if (j?._supabaseConfigured === false) {
         setSnack({ open: true, msg: 'Supabase não está configurado — a lista mostra dados locais.', sev: 'info' });

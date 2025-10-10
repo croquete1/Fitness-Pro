@@ -37,7 +37,9 @@ async function updateStatus(req: Request, { params }: { params: { id: string } }
     .eq('id', params.id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    const code = typeof error === 'object' && error && 'code' in error ? (error as any).code : 'unknown';
+    console.warn('[admin/users] status update failed', { code });
+    return NextResponse.json({ error: 'REQUEST_FAILED' }, { status: 400 });
   }
 
   await logAudit(sb, {
