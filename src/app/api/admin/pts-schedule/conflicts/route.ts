@@ -4,7 +4,7 @@ import { supabaseFallbackJson, supabaseConfigErrorResponse } from '@/lib/supabas
 
 export async function GET(req: Request) {
   try {
-    const sb = tryGetSBC();
+    const sb = await tryGetSBC();
     if (!sb) return supabaseFallbackJson({ hasConflict: false });
     const { searchParams } = new URL(req.url);
     const start = searchParams.get('start_time');

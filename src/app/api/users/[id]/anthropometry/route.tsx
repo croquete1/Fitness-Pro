@@ -2,15 +2,17 @@ import { mem, json, AnthropometryEntry } from '@/app/api/_memdb';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(_req: Request, ctx: { params: { userId: string } }) {
-  const { userId } = ctx.params;
-  const rows = mem.anthrop.get(userId) ?? [];
+type Ctx = { params: Promise<{ id: string }> };
+
+export async function GET(_req: Request, ctx: Ctx) {
+  const { id } = await ctx.params;
+  const rows = mem.anthrop.get(id) ?? [];
   const sorted = [...rows].sort((a, b) => (a.takenAt > b.takenAt ? -1 : 1));
   return json(sorted);
 }
 
-export async function POST(req: Request, ctx: { params: { userId: string } }) {
-  const { userId } = ctx.params;
+export async function POST(req: Request, ctx: Ctx) {
+  const { id } = await ctx.params;
   const form = await req.formData();
   const nowId = `anth_${Date.now()}`;
   const entry: AnthropometryEntry = {
@@ -26,8 +28,8 @@ export async function POST(req: Request, ctx: { params: { userId: string } }) {
     armCm: toNum(form.get('armCm')),
     notes: (form.get('notes') as string) || null,
   };
-  const list = mem.anthrop.get(userId) ?? [];
-  mem.anthrop.set(userId, [entry, ...list]);
+  const list = mem.anthrop.get(id) ?? [];
+  mem.anthrop.set(id, [entry, ...list]);
   return json(entry, { status: 201 });
 }
 

@@ -11,7 +11,10 @@ type Body = {
   status?: PlanStatus;
 };
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+type Ctx = { params: Promise<{ id: string }> };
+
+export async function GET(_req: Request, ctx: Ctx) {
+  const { id } = await ctx.params;
   const session = await getSessionUserSafe();
   const user = (session as any)?.user as { id: string; role?: string } | null;
   if (!user?.id) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
@@ -20,7 +23,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const { data, error } = await sb
     .from('training_plans')
     .select('id, title, status, trainer_id, client_id')
-    .eq('id', params.id)
+    .eq('id', id)
     .maybeSingle();
 
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
@@ -34,7 +37,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   return NextResponse.json({ ok: true, plan: data });
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, ctx: Ctx) {
+  const { id } = await ctx.params;
   const session = await getSessionUserSafe();
   const user = (session as any)?.user as { id: string; role?: string } | null;
   if (!user?.id) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
@@ -71,7 +75,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const { data: plan } = await sb
     .from('training_plans')
     .select('id, trainer_id')
-    .eq('id', params.id)
+    .eq('id', id)
     .maybeSingle();
 
   if (!plan) return NextResponse.json({ ok: false, error: 'Not found' }, { status: 404 });
@@ -82,11 +86,11 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const { error } = await sb
     .from('training_plans')
     .update(updates)
-    .eq('id', params.id);
+    .eq('id', id);
 
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, id: params.id });
+  return NextResponse.json({ ok: true, id });
 }

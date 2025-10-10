@@ -25,10 +25,12 @@ async function getSession() {
   } catch { return null; }
 }
 
+type Ctx = { params: Promise<{ planId: string }> };
+
 // POST /api/pt/plans/:id/assign
 // body: { clientId, trainerId? }
-export async function POST(req: Request, ctx: { params: { id: string } }) {
-  const id = ctx.params.id;
+export async function POST(req: Request, ctx: Ctx) {
+  const { planId } = await ctx.params;
   const body = await req.json().catch(() => ({} as any));
   const model = firstModel(PLAN_MODELS);
   if (!model) return NextResponse.json({ error: "Plan model not found" }, { status: 500 });
@@ -39,7 +41,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   try {
     // atualiza campos diretos se existirem
     const updated = await (prisma as any)[model].update({
-      where: { id },
+      where: { id: planId },
       data: {
         clientId: body.clientId ?? undefined,
         trainerId: body.trainerId ?? undefined,

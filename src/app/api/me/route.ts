@@ -3,7 +3,7 @@ import { tryGetSBC } from '@/lib/supabase/server';
 import { supabaseFallbackJson } from '@/lib/supabase/responses';
 
 export async function GET() {
-  const sb = tryGetSBC();
+  const sb = await tryGetSBC();
   if (!sb) return supabaseFallbackJson({ label: null });
   const { data: auth } = await sb.auth.getUser();
   const authUser = auth?.user;

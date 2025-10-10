@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
 
+type Ctx = { params: Promise<{ id: string }> };
+
 export const dynamic = 'force-dynamic';
 
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
+export async function POST(_req: Request, ctx: Ctx) {
+  const { id } = await ctx.params;
   const sb = createServerClient();
-  const id = params.id;
 
   // 1) ler plano (plans → programs fallback)
   let src: any | null = null;

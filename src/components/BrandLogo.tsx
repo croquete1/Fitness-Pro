@@ -10,15 +10,21 @@ type Props = {
 };
 
 export default function BrandLogo({ size = 56, className, priority = false }: Props) {
+  const [useFallback, setUseFallback] = React.useState(false);
+  const src = useFallback ? '/hms-personal-trainer.png' : '/branding/hms-personal-trainer.svg';
+
   return (
     <Image
-      src="/branding/hms-personal-trainer.svg"
+      key={src}
+      src={src}
       alt="HMS Personal Trainer"
       width={size}
       height={size}
       priority={priority}
       className={className}
-      style={{ display: 'block' }}
+      style={{ display: 'block', width: size, height: 'auto' }}
+      unoptimized={!useFallback}
+      onError={() => setUseFallback(true)}
     />
   );
 }

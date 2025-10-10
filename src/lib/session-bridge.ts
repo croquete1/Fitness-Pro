@@ -33,10 +33,11 @@ export type SessionBridge = {
  * devolve objeto com `user.*` e campos "flat" (id/role/...) para compat.
  */
 export async function getSessionUserSafe(): Promise<SessionBridge | null> {
-  const hdrs = headers();
+  const hdrs = await headers();
+  const cookieStore = await cookies();
   const reqLike: any = {
     headers: Object.fromEntries(hdrs.entries()),
-    cookies: Object.fromEntries(cookies().getAll().map((c) => [c.name, c.value])),
+    cookies: Object.fromEntries(cookieStore.getAll().map((c) => [c.name, c.value])),
   };
 
   let token: any | null = null;

@@ -2,8 +2,10 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const planId = params.id;
+type Ctx = { params: Promise<{ planId: string }> };
+
+export async function POST(req: NextRequest, ctx: Ctx) {
+  const { planId } = await ctx.params;
   const sb = createServerClient();
 
   // auth básica

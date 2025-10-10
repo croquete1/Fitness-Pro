@@ -13,9 +13,12 @@ const PatchSchema = z.object({
   notes: z.string().optional().nullable(),
 });
 
-export async function PATCH(_req: Request, ctx: { params: { id: string } }) {
+type Ctx = { params: Promise<{ id: string }> };
+
+export async function PATCH(_req: Request, ctx: Ctx) {
+  const { id } = await ctx.params;
   try {
-    const sb = tryGetSBC();
+    const sb = await tryGetSBC();
     if (!sb) {
       return supabaseFallbackJson(
         { ok: false, message: 'Supabase não está configurado.' },
@@ -27,7 +30,7 @@ export async function PATCH(_req: Request, ctx: { params: { id: string } }) {
 
     const { error } = await sb.from('pts_sessions')
       .update(patch)
-      .eq('id', ctx.params.id);
+      .eq('id', id);
 
     if (error) throw error;
     return NextResponse.json({ ok: true });
@@ -38,9 +41,10 @@ export async function PATCH(_req: Request, ctx: { params: { id: string } }) {
   }
 }
 
-export async function DELETE(_req: Request, ctx: { params: { id: string } }) {
+export async function DELETE(_req: Request, ctx: Ctx) {
+  const { id } = await ctx.params;
   try {
-    const sb = tryGetSBC();
+    const sb = await tryGetSBC();
     if (!sb) {
       return supabaseFallbackJson(
         { ok: false, message: 'Supabase não está configurado.' },
@@ -49,7 +53,7 @@ export async function DELETE(_req: Request, ctx: { params: { id: string } }) {
     }
     const { error } = await sb.from('pts_sessions')
       .delete()
-      .eq('id', ctx.params.id);
+      .eq('id', id);
 
     if (error) throw error;
     return NextResponse.json({ ok: true });

@@ -41,9 +41,11 @@ async function ensureCanAccess(clientId: string) {
   return data ? { ok: true as const, user, role } : { ok: false as const, code: 403 as const };
 }
 
+type Ctx = { params: Promise<{ clientId: string }> };
+
 /** GET: lista últimas medições do cliente */
-export async function GET(_: Request, { params }: { params: { clientId: string } }) {
-  const clientId = params.clientId;
+export async function GET(_: Request, ctx: Ctx) {
+  const { clientId } = await ctx.params;
   const access = await ensureCanAccess(clientId);
   if (!access.ok) {
     return new NextResponse(access.code === 401 ? 'Unauthorized' : 'Forbidden', { status: access.code });
@@ -63,8 +65,8 @@ export async function GET(_: Request, { params }: { params: { clientId: string }
 }
 
 /** POST: cria uma medição para o cliente (ADMIN, TRAINER com vínculo, ou o próprio CLIENT) */
-export async function POST(req: Request, { params }: { params: { clientId: string } }) {
-  const clientId = params.clientId;
+export async function POST(req: Request, ctx: Ctx) {
+  const { clientId } = await ctx.params;
   const access = await ensureCanAccess(clientId);
   if (!access.ok) {
     return new NextResponse(access.code === 401 ? 'Unauthorized' : 'Forbidden', { status: access.code });

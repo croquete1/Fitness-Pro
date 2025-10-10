@@ -17,7 +17,8 @@ type PlanRow = {
   updated_at: string | null;
 };
 
-export default async function PTPlanDetail({ params }: { params: { id: string } }) {
+export default async function PTPlanDetail({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   // sessão “flat” (sem .user)
   const viewer = await getSessionUserSafe();
   if (!viewer?.id) redirect('/login');
@@ -29,7 +30,7 @@ export default async function PTPlanDetail({ params }: { params: { id: string } 
   const { data, error } = await sb
     .from('training_plans')
     .select('id,title,status,client_id,trainer_id,updated_at')
-    .eq('id', params.id)
+    .eq('id', id)
     .maybeSingle();
 
   if (error || !data) return notFound();

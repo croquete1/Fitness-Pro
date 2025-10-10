@@ -64,7 +64,8 @@ function formatDatePT(iso: string | null) {
   }
 }
 
-export default async function PTClientDetailPage({ params }: { params: { id: string } }) {
+export default async function PTClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id: clientId } = await params;
   // Sessão
   const me = await getSessionUserSafe();
   if (!me?.user?.id) redirect('/login');
@@ -73,8 +74,6 @@ export default async function PTClientDetailPage({ params }: { params: { id: str
   if (role !== 'ADMIN' && role !== 'PT') redirect('/dashboard');
 
   const sb = createServerClient();
-  const clientId = params.id;
-
   // 1) Carregar cliente
   const { data: client, error: clientErr } = await sb
     .from('users')

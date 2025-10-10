@@ -18,9 +18,10 @@ function mapRow(r: any) {
   };
 }
 
-export default async function Page({ params }: { params: { id: string } }) {
+export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const sb = createServerClient();
-  const { data, error } = await sb.from('exercises').select('*').eq('id', params.id).maybeSingle();
+  const { data, error } = await sb.from('exercises').select('*').eq('id', id).maybeSingle();
   if (error || !data) return notFound();
 
   const initial = mapRow(data);

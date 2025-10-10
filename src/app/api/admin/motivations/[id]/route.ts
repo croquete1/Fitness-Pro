@@ -6,7 +6,10 @@ import { tryCreateServerClient } from '@/lib/supabaseServer';
 import { supabaseFallbackJson } from '@/lib/supabase/responses';
 import { requireAdminGuard, isGuardErr } from '@/lib/api-guards';
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+type Ctx = { params: Promise<{ id: string }> };
+
+export async function PATCH(req: Request, ctx: Ctx) {
+  const { id } = await ctx.params;
   const guard = await requireAdminGuard();
   if (isGuardErr(guard)) return guard.response;
   const sb = tryCreateServerClient();
@@ -23,7 +26,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if ('author' in body) patch.author = body.author ? String(body.author) : null;
   if ('active' in body) patch.active = !!body.active;
 
-  const { error } = await sb.from('motivational_quotes').update(patch).eq('id', params.id);
+  const { error } = await sb.from('motivational_quotes').update(patch).eq('id', id);
   if (error) {
     const code = typeof error === 'object' && error && 'code' in error ? (error as any).code : 'unknown';
     console.warn('[admin/motivations] update failed', { code });
@@ -32,7 +35,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   return NextResponse.json({ ok:true });
 }
 
-export async function DELETE(_: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_: Request, ctx: Ctx) {
+  const { id } = await ctx.params;
   const guard = await requireAdminGuard();
   if (isGuardErr(guard)) return guard.response;
   const sb = tryCreateServerClient();
@@ -43,7 +47,7 @@ export async function DELETE(_: Request, { params }: { params: { id: string } })
     );
   }
 
-  const { error } = await sb.from('motivational_quotes').delete().eq('id', params.id);
+  const { error } = await sb.from('motivational_quotes').delete().eq('id', id);
   if (error) {
     const code = typeof error === 'object' && error && 'code' in error ? (error as any).code : 'unknown';
     console.warn('[admin/motivations] delete failed', { code });

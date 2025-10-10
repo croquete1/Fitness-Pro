@@ -11,7 +11,9 @@ type Body =
   | { action: 'reorder_days'; order: string[] }
   | { action: 'reorder_exercises'; day_id: string; order: string[] };
 
-export async function PATCH(req: Request, ctx: { params: { id: string } }): Promise<Response> {
+type Ctx = { params: Promise<{ id: string }> };
+
+export async function PATCH(req: Request, ctx: Ctx): Promise<Response> {
   const me = await getSessionUserSafe();
   if (!me?.id) return new NextResponse('Unauthorized', { status: 401 });
 
@@ -20,7 +22,7 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }): Prom
     return new NextResponse('Forbidden', { status: 403 });
   }
 
-  const planId = ctx.params.id;
+  const { id: planId } = await ctx.params;
   const sb = createServerClient();
 
   let body: Body;

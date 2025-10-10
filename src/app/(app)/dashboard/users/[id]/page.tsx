@@ -12,11 +12,11 @@ import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
 import { default as Link } from 'next/link';
 
-export default async function UserProfileView({ params }: { params: { id: string } }) {
+export default async function UserProfileView({ params }: { params: Promise<{ id: string }> }) {
+  const { id: targetId } = await params;
   const session = await getSessionUserSafe();
   const me = session?.user; if (!me?.id) redirect('/login');
   const role = toAppRole(me.role) ?? 'CLIENT';
-  const targetId = params.id;
 
   const sb = createServerClient();
 

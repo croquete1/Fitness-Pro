@@ -6,11 +6,13 @@ type Body =
   | { ids: string[] }
   | { order: Pair[] };
 
+type Ctx = { params: Promise<{ planId: string; dayId: string }> };
+
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string; dayId: string } }
+  ctx: Ctx
 ) {
-  const { id: planId, dayId } = params;
+  const { planId, dayId } = await ctx.params;
   const sb = createServerClient();
 
   // 1) Auth

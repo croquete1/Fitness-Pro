@@ -3,12 +3,14 @@ import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
 import { touchSessions } from '@/lib/revalidate';
 
-export async function PATCH(req: Request, ctx: { params: { id: string } }) {
+type Ctx = { params: Promise<{ id: string }> };
+
+export async function PATCH(req: Request, ctx: Ctx) {
   const sb = createServerClient();
   const { data: auth } = await sb.auth.getUser();
   if (!auth?.user?.id) return NextResponse.json({ ok: false, error: 'UNAUTHENTICATED' }, { status: 401 });
 
-  const id = ctx.params?.id;
+  const { id } = await ctx.params;
   if (!id) return NextResponse.json({ ok: false, error: 'MISSING_ID' }, { status: 400 });
 
   let body: any;
@@ -29,12 +31,12 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
   return NextResponse.json({ ok: true });
 }
 
-export async function DELETE(_req: Request, ctx: { params: { id: string } }) {
+export async function DELETE(_req: Request, ctx: Ctx) {
   const sb = createServerClient();
   const { data: auth } = await sb.auth.getUser();
   if (!auth?.user?.id) return NextResponse.json({ ok: false, error: 'UNAUTHENTICATED' }, { status: 401 });
 
-  const id = ctx.params?.id;
+  const { id } = await ctx.params;
   if (!id) return NextResponse.json({ ok: false, error: 'MISSING_ID' }, { status: 400 });
 
   const { error } = await sb.from('sessions').delete().eq('id', id);

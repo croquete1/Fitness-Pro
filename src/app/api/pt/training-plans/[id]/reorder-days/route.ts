@@ -4,7 +4,9 @@ import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole } from '@/lib/roles';
 import { createServerClient } from '@/lib/supabaseServer';
 
-export async function POST(req: Request, { params }: { params: { id: string } }): Promise<Response> {
+type Ctx = { params: Promise<{ id: string }> };
+
+export async function POST(req: Request, ctx: Ctx): Promise<Response> {
   const me = (await getSessionUserSafe()) as any;
   const meId = me?.id ?? me?.user?.id;
   const role = toAppRole(me?.role ?? me?.user?.role) ?? 'CLIENT';
@@ -16,7 +18,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const order = Array.isArray(body?.order) ? (body.order as Array<{ id: string; day_index: number }>) : [];
   if (!order.length) return NextResponse.json({ ok: true });
 
-  const { data: days } = await sb.from('plan_days').select('id').eq('plan_id', params.id);
+  const { id } = await ctx.params;
+  const { data: days } = await sb.from('plan_days').select('id').eq('plan_id', id);
   const allowed = new Set((days ?? []).map((d) => d.id));
 
   await Promise.all(

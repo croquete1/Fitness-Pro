@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+type Ctx = { params: Promise<{ id: string }> };
+
+export async function GET(_req: Request, ctx: Ctx) {
+  const { id } = await ctx.params;
   const session = await getSessionUserSafe();
   const user = (session as any)?.user as { id: string } | null;
   if (!user?.id) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
@@ -12,7 +15,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const { data: plan, error: e1 } = await sb
     .from('training_plans')
     .select('id, title, status, trainer_id, client_id')
-    .eq('id', params.id)
+    .eq('id', id)
     .maybeSingle();
 
   if (e1) return NextResponse.json({ ok: false, error: e1.message }, { status: 500 });

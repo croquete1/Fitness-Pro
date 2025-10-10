@@ -1,14 +1,14 @@
 import { cookies, headers } from "next/headers";
 
 /** Resolve o fuso horário do utilizador (server-side). */
-export function getUserTimeZone(): string {
+export async function getUserTimeZone(): Promise<string> {
   try {
-    const c = cookies().get("tz")?.value;
+    const c = (await cookies()).get("tz")?.value;
     if (c) return decodeURIComponent(c);
   } catch {/* ignore */}
 
   try {
-    const h = headers();
+    const h = await headers();
     const fromEdge =
       h.get("x-vercel-ip-timezone") || // Vercel Edge hint
       h.get("x-timezone");             // fallback se definires este header

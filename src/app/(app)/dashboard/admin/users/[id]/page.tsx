@@ -30,10 +30,11 @@ function mapRow(r: any) {
   };
 }
 
-export default async function Page({ params }: { params: { id: string } }) {
+export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const sb = createServerClient();
 
-  const data = await fetchUserById(params.id, { client: sb });
+  const data = await fetchUserById(id, { client: sb });
   if (!data) return notFound();
 
   return (

@@ -54,13 +54,14 @@ async function loadPlan(planId: string, userId: string, appRole: 'CLIENT' | 'PT'
   return { ...p, days };
 }
 
-export default async function PlanDetailPage({ params }: { params: { id: string } }) {
+export default async function PlanDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSessionUserSafe();
   const me = session?.user;
   if (!me?.id) redirect('/login');
 
   const appRole = toAppRole(me.role) ?? 'CLIENT';
-  const plan = await loadPlan(params.id, me.id, appRole);
+  const plan = await loadPlan(id, me.id, appRole);
   if (!plan) notFound();
 
   return <PlanDetailClient meId={me.id} role={appRole} plan={plan} />;

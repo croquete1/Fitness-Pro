@@ -39,7 +39,8 @@ function formatDatePT(iso?: string | null) {
   }
 }
 
-export default async function PTPlanViewPage({ params }: { params: { id: string } }) {
+export default async function PTPlanViewPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id: planId } = await params;
   // Sessão
   const me = await getSessionUserSafe();
 
@@ -54,7 +55,6 @@ export default async function PTPlanViewPage({ params }: { params: { id: string 
 
   const sb = createServerClient();
   const userId = me.user.id; // Totalmente seguro agora
-  const planId = params.id;
 
   // 1) Plano
   const { data: planArr, error: planErr } = await sb

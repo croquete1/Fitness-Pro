@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
 
+type Ctx = { params: Promise<{ id: string }> };
+
 export const dynamic = 'force-dynamic';
 
 function pick<T extends Record<string, any>>(row: T, keys: string[]) {
@@ -9,9 +11,9 @@ function pick<T extends Record<string, any>>(row: T, keys: string[]) {
 }
 
 // GET: listar exercícios do plano
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, ctx: Ctx) {
+  const { id: planId } = await ctx.params;
   const sb = createServerClient();
-  const planId = params.id;
 
   // lê pivot
   let pvt = await sb.from('plan_exercises').select('*').eq('plan_id', planId).order('sort', { ascending: true });
@@ -48,9 +50,9 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 }
 
 // POST: adicionar exercícios (array de { exercise_id, sort? })
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, ctx: Ctx) {
+  const { id: planId } = await ctx.params;
   const sb = createServerClient();
-  const planId = params.id;
   const body = await req.json().catch(() => ({}));
   const items = Array.isArray(body?.items) ? body.items : [];
 
@@ -71,9 +73,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 }
 
 // PATCH: reordenar (array { id, sort })
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, ctx: Ctx) {
+  const { id: planId } = await ctx.params;
   const sb = createServerClient();
-  const planId = params.id;
   const body = await req.json().catch(() => ({}));
   const items = Array.isArray(body?.items) ? body.items : [];
 
@@ -88,10 +90,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 }
 
 // DELETE: remover um exercício (query param exId)
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, ctx: Ctx) {
+  const { id: planId } = await ctx.params;
   const sb = createServerClient();
   const url = new URL(req.url);
-  const planId = params.id;
   const exId = url.searchParams.get('exercise_id');
 
   if (!exId) return NextResponse.json({ error: 'exercise_id required' }, { status: 400 });

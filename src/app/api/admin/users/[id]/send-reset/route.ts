@@ -2,12 +2,14 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabaseServer';
 
+type Ctx = { params: Promise<{ id: string }> };
+
 export async function POST(
   _req: Request,
-  { params }: { params: { id: string } }
+  ctx: Ctx
 ) {
   const sb = getSupabaseServer();
-  const id = params.id;
+  const { id } = await ctx.params;
 
   const { data: u, error } = await sb
     .from('users')

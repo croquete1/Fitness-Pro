@@ -3,7 +3,7 @@ import { tryGetSBC } from '@/lib/supabase/server';
 import { supabaseFallbackJson, supabaseUnavailableResponse } from '@/lib/supabase/responses';
 
 export async function GET() {
-  const sb = tryGetSBC();
+  const sb = await tryGetSBC();
   if (!sb) return supabaseFallbackJson({ today: 0, next7: 0 });
 
   const now = new Date();

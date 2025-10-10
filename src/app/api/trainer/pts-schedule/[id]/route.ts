@@ -13,7 +13,10 @@ const PatchSchema = z.object({
   notes: z.string().optional().nullable(),
 });
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+type Ctx = { params: Promise<{ id: string }> };
+
+export async function PATCH(req: Request, ctx: Ctx) {
+  const { id } = await ctx.params;
   const { trainerId, reason } = await getTrainerId();
   if (!trainerId) {
     if (reason === 'SUPABASE_OFFLINE') {
@@ -23,7 +26,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     return NextResponse.json({ error: reason }, { status: code });
   }
 
-  const sb = tryGetSBC();
+  const sb = await tryGetSBC();
   if (!sb) {
     return supabaseFallbackJson({ error: 'SUPABASE_OFFLINE' }, { status: 503 });
   }
@@ -31,14 +34,15 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   const { error } = await sb.from('sessions')
     .update(patch)
-    .eq('id', params.id)
+    .eq('id', id)
     .eq('trainer_id', trainerId);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json({ ok: true });
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, ctx: Ctx) {
+  const { id } = await ctx.params;
   const { trainerId, reason } = await getTrainerId();
   if (!trainerId) {
     if (reason === 'SUPABASE_OFFLINE') {
@@ -48,13 +52,13 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
     return NextResponse.json({ error: reason }, { status: code });
   }
 
-  const sb = tryGetSBC();
+  const sb = await tryGetSBC();
   if (!sb) {
     return supabaseFallbackJson({ error: 'SUPABASE_OFFLINE' }, { status: 503 });
   }
   const { error } = await sb.from('sessions')
     .delete()
-    .eq('id', params.id)
+    .eq('id', id)
     .eq('trainer_id', trainerId);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });

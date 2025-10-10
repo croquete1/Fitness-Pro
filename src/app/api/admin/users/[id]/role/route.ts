@@ -7,8 +7,10 @@ import { logAudit, AUDIT_KINDS, AUDIT_TARGET_TYPES } from '@/lib/audit';
 import { supabaseUnavailableResponse } from '@/lib/supabase/responses';
 import { requireAdminGuard, isGuardErr } from '@/lib/api-guards';
 
-export async function PATCH(req: Request, ctx: { params: { id: string } }) {
-  const id = ctx.params?.id;
+type Ctx = { params: Promise<{ id: string }> };
+
+export async function PATCH(req: Request, ctx: Ctx) {
+  const { id } = await ctx.params;
   if (!id) return NextResponse.json({ ok: false, error: 'MISSING_ID' }, { status: 400 });
 
   const guard = await requireAdminGuard();

@@ -7,7 +7,10 @@ import { supabaseFallbackJson, supabaseUnavailableResponse } from '@/lib/supabas
 type AllowedStatus = 'ACTIVE' | 'SUSPENDED' | 'PENDING';
 type IncomingStatus = AllowedStatus | 'DISABLED';
 
-async function updateStatus(req: Request, { params }: { params: { id: string } }) {
+type Ctx = { params: Promise<{ id: string }> };
+
+async function updateStatus(req: Request, ctx: Ctx) {
+  const { id } = await ctx.params;
   const guard = await requireAdminGuard();
   if (isGuardErr(guard)) return guard.response;
 
@@ -34,7 +37,7 @@ async function updateStatus(req: Request, { params }: { params: { id: string } }
   const { error } = await sb
     .from('users')
     .update({ status: finalStatus, approved })
-    .eq('id', params.id);
+    .eq('id', id);
 
   if (error) {
     const code = typeof error === 'object' && error && 'code' in error ? (error as any).code : 'unknown';
@@ -44,22 +47,22 @@ async function updateStatus(req: Request, { params }: { params: { id: string } }
 
   await logAudit(sb, {
     kind: finalStatus === 'ACTIVE'
-      ? AUDIT_KINDS.USER_APPROVE
-      : finalStatus === 'SUSPENDED'
-        ? AUDIT_KINDS.USER_SUSPEND
-        : AUDIT_KINDS.USER_UPDATE,
+    ? AUDIT_KINDS.USER_APPROVE
+    : finalStatus === 'SUSPENDED'
+      ? AUDIT_KINDS.USER_SUSPEND
+      : AUDIT_KINDS.USER_UPDATE,
     target_type: AUDIT_TARGET_TYPES.USER,
-    target_id: params.id,
+    target_id: id,
     note: `Estado alterado para ${finalStatus}`,
   });
 
   return NextResponse.json({ ok: true });
 }
 
-export async function POST(req: Request, ctx: { params: { id: string } }) {
+export async function POST(req: Request, ctx: Ctx) {
   return updateStatus(req, ctx);
 }
 
-export async function PATCH(req: Request, ctx: { params: { id: string } }) {
+export async function PATCH(req: Request, ctx: Ctx) {
   return updateStatus(req, ctx);
 }

@@ -32,7 +32,7 @@ export async function writeAudit(kind: AuditKind, payload: AuditPayload = {}) {
   const sb = createServerClient();
   const me = await getSessionUserSafe().catch(() => null);
 
-  const hdrs = nextHeaders();
+  const hdrs = await nextHeaders();
   const ip =
     hdrs.get('x-forwarded-for')?.split(',')[0]?.trim() ||
     hdrs.get('x-real-ip') ||

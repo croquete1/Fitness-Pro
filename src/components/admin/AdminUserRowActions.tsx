@@ -14,6 +14,11 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
+import Tooltip from '@mui/material/Tooltip';
+import IconButton from '@mui/material/IconButton';
+import ManageAccountsOutlinedIcon from '@mui/icons-material/ManageAccountsOutlined';
+import HandshakeOutlinedIcon from '@mui/icons-material/HandshakeOutlined';
+import PowerSettingsNewOutlinedIcon from '@mui/icons-material/PowerSettingsNewOutlined';
 
 type TrainerOption = {
   id: string;
@@ -22,7 +27,15 @@ type TrainerOption = {
   label: string;
 };
 
-export default function AdminUserRowActions({ id, currRole, currStatus }: { id: string; currRole: string; currStatus: string; }) {
+type Props = {
+  id: string;
+  currRole: string;
+  currStatus: string;
+  compact?: boolean;
+  onActionComplete?: () => Promise<void> | void;
+};
+
+export default function AdminUserRowActions({ id, currRole, currStatus, compact = false, onActionComplete }: Props) {
   const [busy, setBusy] = React.useState(false);
   const [anchor, setAnchor] = React.useState<null | HTMLElement>(null);
   const [assignOpen, setAssignOpen] = React.useState(false);
@@ -32,11 +45,23 @@ export default function AdminUserRowActions({ id, currRole, currStatus }: { id: 
   const [trainerError, setTrainerError] = React.useState<string | null>(null);
   const [selectedTrainer, setSelectedTrainer] = React.useState<TrainerOption | null>(null);
 
+  const isCompact = compact;
+
   async function post(url: string, body?: any) {
     setBusy(true);
     try {
-      await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
-      location.reload();
+      const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+      if (!res.ok) throw new Error(await res.text());
+      if (onActionComplete) {
+        await onActionComplete();
+      } else {
+        location.reload();
+      }
+    } catch (error) {
+      console.error('[admin] update user failed', error);
+      if (typeof window !== 'undefined' && 'alert' in window) {
+        window.alert('Não foi possível guardar as alterações. Tenta novamente.');
+      }
     } finally {
       setBusy(false);
     }
@@ -92,22 +117,52 @@ export default function AdminUserRowActions({ id, currRole, currStatus }: { id: 
         body: JSON.stringify({ user_id: id, trainer_id: selectedTrainer.id }),
       });
       if (!res.ok) throw new Error(await res.text());
-      location.reload();
+      if (onActionComplete) {
+        await onActionComplete();
+      } else {
+        location.reload();
+      }
+      setAssignOpen(false);
     } catch (error) {
       console.error('[admin] assign trainer failed', error);
       setTrainerError('Não foi possível atribuir o cliente. Tenta novamente.');
       setBusy(false);
+      return;
     }
+    setBusy(false);
+    setSelectedTrainer(null);
   };
 
   const normalizedRole = currRole?.toUpperCase?.() ?? 'CLIENT';
   const isClient = normalizedRole.includes('CLIENT');
 
   return (
-    <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ flexWrap: 'wrap' }} useFlexGap>
-      <Button size="small" variant="outlined" onClick={(e) => setAnchor(e.currentTarget)} disabled={busy}>
-        Role: {currRole}
-      </Button>
+    <Stack
+      component="span"
+      direction="row"
+      spacing={isCompact ? 0.5 : 1}
+      justifyContent={isCompact ? 'flex-start' : 'flex-end'}
+      sx={{ flexWrap: isCompact ? 'nowrap' : 'wrap', alignItems: 'center' }}
+      useFlexGap
+    >
+      <Tooltip
+        title="Alterar perfil"
+        disableFocusListener={!isCompact}
+        disableHoverListener={!isCompact}
+        disableTouchListener={!isCompact}
+      >
+        <span>
+          {isCompact ? (
+            <IconButton size="small" onClick={(e) => setAnchor(e.currentTarget)} disabled={busy} color="primary">
+              <ManageAccountsOutlinedIcon fontSize="small" />
+            </IconButton>
+          ) : (
+            <Button size="small" variant="outlined" onClick={(e) => setAnchor(e.currentTarget)} disabled={busy}>
+              Role: {currRole}
+            </Button>
+          )}
+        </span>
+      </Tooltip>
       <Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)}>
         {['CLIENT','PT','TRAINER','ADMIN'].map((r) => (
           <MenuItem key={r} onClick={() => { setAnchor(null); post(`/api/admin/users/${id}/role`, { role: r }); }}>
@@ -117,20 +172,45 @@ export default function AdminUserRowActions({ id, currRole, currStatus }: { id: 
       </Menu>
 
       {isClient && (
-        <Button size="small" variant="contained" onClick={openAssignDialog} disabled={busy}>
-          Atribuir PT
-        </Button>
+        <Tooltip title="Atribuir personal trainer">
+          <span>
+            {isCompact ? (
+              <IconButton size="small" color="secondary" onClick={openAssignDialog} disabled={busy}>
+                <HandshakeOutlinedIcon fontSize="small" />
+              </IconButton>
+            ) : (
+              <Button size="small" variant="contained" onClick={openAssignDialog} disabled={busy}>
+                Atribuir PT
+              </Button>
+            )}
+          </span>
+        </Tooltip>
       )}
 
-      <Button
-        size="small"
-        variant={currStatus === 'ACTIVE' ? 'outlined' : 'contained'}
-        color={currStatus === 'ACTIVE' ? 'warning' : 'success'}
-        onClick={() => post(`/api/admin/users/${id}/status`, { status: currStatus === 'ACTIVE' ? 'DISABLED' : 'ACTIVE' })}
-        disabled={busy}
-      >
-        {currStatus === 'ACTIVE' ? 'Desativar' : 'Ativar'}
-      </Button>
+      <Tooltip title={currStatus === 'ACTIVE' ? 'Desativar utilizador' : 'Ativar utilizador'}>
+        <span>
+          {isCompact ? (
+            <IconButton
+              size="small"
+              color={currStatus === 'ACTIVE' ? 'warning' : 'success'}
+              onClick={() => post(`/api/admin/users/${id}/status`, { status: currStatus === 'ACTIVE' ? 'DISABLED' : 'ACTIVE' })}
+              disabled={busy}
+            >
+              <PowerSettingsNewOutlinedIcon fontSize="small" />
+            </IconButton>
+          ) : (
+            <Button
+              size="small"
+              variant={currStatus === 'ACTIVE' ? 'outlined' : 'contained'}
+              color={currStatus === 'ACTIVE' ? 'warning' : 'success'}
+              onClick={() => post(`/api/admin/users/${id}/status`, { status: currStatus === 'ACTIVE' ? 'DISABLED' : 'ACTIVE' })}
+              disabled={busy}
+            >
+              {currStatus === 'ACTIVE' ? 'Desativar' : 'Ativar'}
+            </Button>
+          )}
+        </span>
+      </Tooltip>
 
       <Dialog open={assignOpen} onClose={closeAssignDialog} fullWidth maxWidth="xs">
         <DialogTitle>Atribuir cliente a um personal trainer</DialogTitle>

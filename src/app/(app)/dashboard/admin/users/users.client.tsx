@@ -4,7 +4,7 @@ import * as React from 'react';
 import {
   Box, Stack, TextField, MenuItem, Button, IconButton, Tooltip, Paper, Divider,
   CircularProgress, Snackbar, Alert, Dialog, DialogTitle, DialogContent, DialogActions,
-  Chip, Typography,
+  Chip, Typography, useMediaQuery, useTheme,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutline from '@mui/icons-material/DeleteOutline';
@@ -15,6 +15,7 @@ import ContentCopyOutlined from '@mui/icons-material/ContentCopyOutlined';
 import { DataGrid, GridColDef, GridToolbar, GridToolbarQuickFilter, GridFilterModel } from '@mui/x-data-grid';
 import { useRouter } from 'next/navigation';
 import { getSampleUsers } from '@/lib/fallback/users';
+import AdminUserRowActions from '@/components/admin/AdminUserRowActions';
 
 export type Role = 'ADMIN' | 'TRAINER' | 'CLIENT' | string;
 export type Status = 'active' | 'invited' | 'blocked' | string;
@@ -35,6 +36,9 @@ export type Row = {
 
 export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
   const router = useRouter();
+  const theme = useTheme();
+  const downMd = useMediaQuery(theme.breakpoints.down('md'));
+  const downSm = useMediaQuery(theme.breakpoints.down('sm'));
 
   // Estado da grelha
   const [rows, setRows] = React.useState<Row[]>([]);
@@ -53,7 +57,7 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
 
   const quickFilter = filterModel.quickFilterValues?.[0]?.trim() ?? '';
 
-  async function fetchRows() {
+  const fetchRows = React.useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -143,9 +147,9 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [paginationModel.page, paginationModel.pageSize, quickFilter]);
 
-  React.useEffect(() => { void fetchRows(); }, [paginationModel.page, paginationModel.pageSize, quickFilter]);
+  React.useEffect(() => { void fetchRows(); }, [fetchRows]);
 
   // --------- Helpers UI ----------
   const roleColor = (role?: Role) => {
@@ -221,6 +225,15 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
     w.document.open(); w.document.write(html); w.document.close();
   }
 
+  const formatDateTime = React.useCallback((value?: string | null) => {
+    if (!value) return '—';
+    try {
+      return new Date(String(value)).toLocaleString('pt-PT');
+    } catch {
+      return String(value);
+    }
+  }, []);
+
   // --------- Clone form (dialog) ----------
   function CloneUserForm({ from, onSuccess }: { from: Row; onSuccess?: () => void }) {
     const [name, setName] = React.useState(from.name ?? '');
@@ -271,82 +284,188 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
   }
 
   // --------- Colunas ----------
+  const columnVisibilityModel = React.useMemo(
+    () => ({
+      profile: !downSm,
+      activity: !downMd,
+      created_at: !downSm,
+    }),
+    [downMd, downSm],
+  );
+
   const columns: GridColDef<Row>[] = [
-    { field: 'name', headerName: 'Nome', flex: 1.2, minWidth: 180 },
-    { field: 'email', headerName: 'Email', flex: 1.5, minWidth: 200 },
     {
-      field: 'role', headerName: 'Perfil', width: 120,
-      renderCell: (p) => <Chip size="small" label={String(p?.value ?? '')} color={roleColor(p?.value as Role)} variant="outlined" />,
-      valueGetter: (v, r) => r.role ?? '',
-    },
-    {
-      field: 'status', headerName: 'Estado', width: 120,
-      renderCell: (p) => <Chip size="small" label={String(p?.value ?? '')} color={statusColor(p?.value as Status)} variant="outlined" />,
-      valueGetter: (v, r) => r.status ?? '',
-    },
-    {
-      field: 'online', headerName: 'Online', width: 110,
-      valueGetter: (_v, r) => Boolean(r.online),
-      renderCell: (p) => (
-        <Chip
-          size="small"
-          label={p?.value ? 'Online' : 'Offline'}
-          color={p?.value ? 'success' : 'default'}
-          variant={p?.value ? 'filled' : 'outlined'}
-        />
+      field: 'user',
+      headerName: 'Utilizador',
+      flex: 1.4,
+      minWidth: 190,
+      sortable: false,
+      filterable: false,
+      valueGetter: (_value, row) => row.name ?? '',
+      renderCell: (params) => (
+        <Stack spacing={0.25} sx={{ minWidth: 0 }}>
+          <Typography fontWeight={600} sx={{ wordBreak: 'break-word' }}>
+            {params.row.name ?? '—'}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ wordBreak: 'break-word' }}>
+            {params.row.email ?? '—'}
+          </Typography>
+          {downSm && (
+            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
+              {params.row.role ? (
+                <Chip
+                  size="small"
+                  label={String(params.row.role ?? '').toUpperCase()}
+                  color={roleColor(params.row.role as Role)}
+                  variant="outlined"
+                />
+              ) : null}
+              {params.row.status ? (
+                <Chip
+                  size="small"
+                  label={String(params.row.status ?? '').toUpperCase()}
+                  color={statusColor(params.row.status as Status)}
+                  variant="outlined"
+                />
+              ) : null}
+              <Chip
+                size="small"
+                label={params.row.online ? 'Online' : 'Offline'}
+                color={params.row.online ? 'success' : 'default'}
+                variant={params.row.online ? 'filled' : 'outlined'}
+              />
+            </Stack>
+          )}
+        </Stack>
       ),
     },
     {
-      field: 'last_login_at', headerName: 'Último login', minWidth: 180,
-      valueFormatter: (p: any) => (p?.value ? new Date(String(p.value)).toLocaleString() : ''),
+      field: 'profile',
+      headerName: 'Perfil',
+      flex: 1,
+      minWidth: 200,
+      sortable: false,
+      filterable: false,
+      valueGetter: (_value, row) => `${row.role ?? ''} ${row.status ?? ''}`,
+      renderCell: (params) => (
+        <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ alignItems: 'center', minWidth: 0 }}>
+          {params.row.role ? (
+            <Chip
+              size="small"
+              label={String(params.row.role ?? '').toUpperCase()}
+              color={roleColor(params.row.role as Role)}
+              variant="outlined"
+            />
+          ) : null}
+          {params.row.status ? (
+            <Chip
+              size="small"
+              label={String(params.row.status ?? '').toUpperCase()}
+              color={statusColor(params.row.status as Status)}
+              variant="outlined"
+            />
+          ) : null}
+          <Chip
+            size="small"
+            label={params.row.online ? 'Online' : 'Offline'}
+            color={params.row.online ? 'success' : 'default'}
+            variant={params.row.online ? 'filled' : 'outlined'}
+          />
+        </Stack>
+      ),
     },
     {
-      field: 'last_seen_at', headerName: 'Última atividade', minWidth: 180,
-      valueFormatter: (p: any) => (p?.value ? new Date(String(p.value)).toLocaleString() : ''),
+      field: 'activity',
+      headerName: 'Atividade',
+      flex: 1.1,
+      minWidth: 220,
+      sortable: false,
+      filterable: false,
+      valueGetter: (_value, row) => row.last_seen_at ?? row.last_login_at ?? '',
+      renderCell: (params) => (
+        <Stack spacing={0.25} sx={{ minWidth: 0 }}>
+          <Typography variant="body2" color="text.secondary">
+            Último login: {formatDateTime(params.row.last_login_at)}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Última atividade: {formatDateTime(params.row.last_seen_at)}
+          </Typography>
+        </Stack>
+      ),
     },
     {
-      field: 'created_at', headerName: 'Criado em', minWidth: 160,
-      valueFormatter: (p: any) => (p?.value ? new Date(String(p.value)).toLocaleString() : ''),
+      field: 'created_at',
+      headerName: 'Criado',
+      flex: 0.8,
+      minWidth: 160,
+      valueGetter: (_value, row) => row.created_at ?? '',
+      renderCell: (params) => (
+        <Typography variant="body2" color="text.secondary">
+          {formatDateTime(params.row.created_at)}
+        </Typography>
+      ),
     },
     {
       field: 'actions',
       headerName: 'Ações',
-      width: 200,
+      flex: 0.9,
+      minWidth: 170,
       sortable: false,
       filterable: false,
-      renderCell: (p) => (
-        <Stack direction="row" spacing={0.5}>
-          <Tooltip title="Duplicar (Criar a partir de…)">
-            <IconButton size="small" onClick={() => setOpenClone({ open:true, from:p.row })}>
-              <ContentCopyOutlined fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Editar">
-            <IconButton size="small" onClick={() => router.push(`/dashboard/admin/users/${p.row.id}`)}>
-              <EditOutlined fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Remover">
-            <IconButton
-              size="small"
-              color="error"
-              onClick={async () => {
-                if (!confirm('Remover utilizador?')) return;
-                try {
-                  const res = await fetch(`/api/admin/users/${p.row.id}`, { method: 'DELETE' });
-                  if (!res.ok) throw new Error(await res.text());
-                  setSnack({ open:true, msg: 'Utilizador removido', sev:'success' });
-                  void fetchRows();
-                } catch (e:any) {
-                  setSnack({ open:true, msg: e?.message || 'Falha ao remover', sev:'error' });
-                }
-              }}
-            >
-              <DeleteOutline fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Stack>
-      ),
+      renderCell: (params) => {
+        const statusValue = params.row.status
+          ? String(params.row.status).toUpperCase()
+          : params.row.active
+            ? 'ACTIVE'
+            : 'PENDING';
+        const roleValue = String(params.row.role ?? 'CLIENT').toUpperCase();
+        return (
+          <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ alignItems: 'center', maxWidth: '100%' }}>
+            <AdminUserRowActions
+              id={params.row.id}
+              currRole={roleValue || 'CLIENT'}
+              currStatus={statusValue}
+              compact
+              onActionComplete={fetchRows}
+            />
+            <Tooltip title="Duplicar (Criar a partir de…)">
+              <span>
+                <IconButton size="small" onClick={() => setOpenClone({ open:true, from:params.row })}>
+                  <ContentCopyOutlined fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Editar">
+              <span>
+                <IconButton size="small" onClick={() => router.push(`/dashboard/admin/users/${params.row.id}`)}>
+                  <EditOutlined fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Remover">
+              <span>
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={async () => {
+                    if (!confirm('Remover utilizador?')) return;
+                    try {
+                      const res = await fetch(`/api/admin/users/${params.row.id}`, { method: 'DELETE' });
+                      if (!res.ok) throw new Error(await res.text());
+                      setSnack({ open:true, msg: 'Utilizador removido', sev:'success' });
+                      await fetchRows();
+                    } catch (e:any) {
+                      setSnack({ open:true, msg: e?.message || 'Falha ao remover', sev:'error' });
+                    }
+                  }}
+                >
+                  <DeleteOutline fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
+          </Stack>
+        );
+      },
     },
   ];
 
@@ -379,9 +498,24 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
         disableRowSelectionOnClick
         autoHeight
         density="compact"
+        getRowHeight={() => 'auto'}
+        columnVisibilityModel={columnVisibilityModel}
         sx={{
           width: '100%',
-          '& .MuiDataGrid-main': { overflowX: 'auto' },
+          '& .MuiDataGrid-cell': {
+            py: 1.5,
+            alignItems: 'flex-start',
+            whiteSpace: 'normal',
+            lineHeight: 1.4,
+          },
+          '& .MuiDataGrid-cellContent': {
+            whiteSpace: 'normal',
+            width: '100%',
+          },
+          '& .MuiDataGrid-columnHeaders': {
+            lineHeight: 1.2,
+            whiteSpace: 'normal',
+          },
         }}
         slots={{
           toolbar: () => (

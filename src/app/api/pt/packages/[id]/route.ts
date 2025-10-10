@@ -4,10 +4,11 @@ import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole } from '@/lib/roles';
 
-type Params = { params: { id: string } };
+type Ctx = { params: Promise<{ id: string }> };
 
 // GET /api/pt/packages/[id] — obter um pacote
-export async function GET(_req: Request, { params }: Params): Promise<Response> {
+export async function GET(_req: Request, ctx: Ctx): Promise<Response> {
+  const { id } = await ctx.params;
   const me = await getSessionUserSafe();
   if (!me?.id) return new NextResponse('Unauthorized', { status: 401 });
 
@@ -18,7 +19,7 @@ export async function GET(_req: Request, { params }: Params): Promise<Response> 
   const { data, error } = await sb
     .from('pt_packages' as any)
     .select('*')
-    .eq('id', params.id)
+    .eq('id', id)
     .maybeSingle();
 
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
@@ -32,7 +33,8 @@ export async function GET(_req: Request, { params }: Params): Promise<Response> 
 }
 
 // PATCH /api/pt/packages/[id] — atualizar um pacote
-export async function PATCH(req: Request, { params }: Params): Promise<Response> {
+export async function PATCH(req: Request, ctx: Ctx): Promise<Response> {
+  const { id } = await ctx.params;
   const me = await getSessionUserSafe();
   if (!me?.id) return new NextResponse('Unauthorized', { status: 401 });
 
@@ -56,7 +58,7 @@ export async function PATCH(req: Request, { params }: Params): Promise<Response>
           )
         );
 
-  let q = sb.from('pt_packages' as any).update(safePayload).eq('id', params.id);
+  let q = sb.from('pt_packages' as any).update(safePayload).eq('id', id);
   if (role === 'PT') q = q.eq('trainer_id', me.id);
 
   const { data, error } = await q.select('*').maybeSingle();
@@ -67,7 +69,8 @@ export async function PATCH(req: Request, { params }: Params): Promise<Response>
 }
 
 // DELETE /api/pt/packages/[id] — remover um pacote
-export async function DELETE(_req: Request, { params }: Params): Promise<Response> {
+export async function DELETE(_req: Request, ctx: Ctx): Promise<Response> {
+  const { id } = await ctx.params;
   const me = await getSessionUserSafe();
   if (!me?.id) return new NextResponse('Unauthorized', { status: 401 });
 
@@ -76,7 +79,7 @@ export async function DELETE(_req: Request, { params }: Params): Promise<Respons
 
   const sb = createServerClient();
 
-  let q = sb.from('pt_packages' as any).delete().eq('id', params.id);
+  let q = sb.from('pt_packages' as any).delete().eq('id', id);
   if (role === 'PT') q = q.eq('trainer_id', me.id);
 
   const { error } = await q;

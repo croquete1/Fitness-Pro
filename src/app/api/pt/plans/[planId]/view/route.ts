@@ -14,8 +14,10 @@ async function getSession() {
   }
 }
 
-export async function POST(_req: Request, ctx: { params: { id: string } }) {
-  const planId = ctx.params.id;
+type Ctx = { params: Promise<{ planId: string }> };
+
+export async function POST(_req: Request, ctx: Ctx) {
+  const { planId } = await ctx.params;
   const session = await getSession();
   const user = (session as any)?.user ?? null;
   const role = (user?.role ?? "").toString().toUpperCase();

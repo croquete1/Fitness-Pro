@@ -15,10 +15,13 @@ export type RowClientPackage = {
   [k: string]: unknown;
 };
 
+type Ctx = { params: Promise<{ id: string }> };
+
 export async function GET(
   _req: Request,
-  { params }: { params: { id: string } }
+  ctx: Ctx
 ): Promise<Response> {
+  const { id } = await ctx.params;
   const session = await getSessionUserSafe();
   const meId = session?.id ?? null;
   const role = toAppRole(session?.role) ?? null;
@@ -30,7 +33,7 @@ export async function GET(
   let query = sb
     .from('client_packages')
     .select('*')
-    .eq('id', params.id)
+    .eq('id', id)
     .maybeSingle();
 
   // Cliente só pode ver o próprio registo
@@ -38,7 +41,7 @@ export async function GET(
     query = sb
       .from('client_packages')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', meId)
       .maybeSingle();
   }

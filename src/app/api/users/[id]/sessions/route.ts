@@ -1,13 +1,15 @@
 import { mem, json } from '@/app/api/_memdb';
 export const dynamic = 'force-dynamic';
 
-export async function GET(_req: Request, ctx: { params: { userId: string } }) {
-  const { userId } = ctx.params;
-  return json(mem.sessions.get(userId) ?? []);
+type Ctx = { params: Promise<{ id: string }> };
+
+export async function GET(_req: Request, ctx: Ctx) {
+  const { id } = await ctx.params;
+  return json(mem.sessions.get(id) ?? []);
 }
 
-export async function POST(req: Request, ctx: { params: { userId: string } }) {
-  const { userId } = ctx.params;
+export async function POST(req: Request, ctx: Ctx) {
+  const { id } = await ctx.params;
   const form = await req.formData();
   const session = {
     id: `s_${Date.now()}`,
@@ -16,8 +18,8 @@ export async function POST(req: Request, ctx: { params: { userId: string } }) {
     durationMin: Number(form.get('durationMin') || 60),
     location: (form.get('location') as string) || null,
   };
-  const list = mem.sessions.get(userId) ?? [];
-  mem.sessions.set(userId, [session, ...list]);
+  const list = mem.sessions.get(id) ?? [];
+  mem.sessions.set(id, [session, ...list]);
   // TODO: opcional — disparar criação na agenda (admin/PT/cliente)
   return json(session, { status: 201 });
 }

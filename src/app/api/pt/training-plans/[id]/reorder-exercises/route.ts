@@ -5,9 +5,11 @@ import { isGuardErr, requirePtOrAdminGuard } from '@/lib/api-guards';
 
 type Body = { dayId: string; exerciseIds: string[] };
 
+type Ctx = { params: Promise<{ id: string }> };
+
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  ctx: Ctx
 ): Promise<Response> {
   const guard = await requirePtOrAdminGuard();
 if (isGuardErr(guard)) return guard.response;

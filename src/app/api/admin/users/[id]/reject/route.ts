@@ -3,9 +3,11 @@ import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole } from '@/lib/roles';
 import { createServerClient } from '@/lib/supabaseServer';
 
+type Ctx = { params: Promise<{ id: string }> };
+
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  ctx: Ctx
 ): Promise<NextResponse> {
   // Autenticação
   const me = await getSessionUserSafe();
@@ -19,7 +21,7 @@ export async function POST(
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
 
-  const userId = params.id;
+  const { id: userId } = await ctx.params;
   const sb = createServerClient();
 
   // (Opcional) receber motivo do body, útil para auditoria
