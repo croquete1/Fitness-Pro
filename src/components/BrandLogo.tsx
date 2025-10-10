@@ -12,7 +12,7 @@ type Props = {
 export default function BrandLogo({ size = 56, className, priority = false }: Props) {
   return (
     <Image
-      src="/branding/hms-logo.svg"
+      src="/branding/hms-personal-trainer.svg"
       alt="HMS Personal Trainer"
       width={size}
       height={size}

@@ -46,63 +46,63 @@ async function loadAdminDashboard(): Promise<{ data: AdminDashboardData; supabas
       .lt('start_time', sevenDays.toISOString())
       .order('start_time', { ascending: true });
 
-  const trainerCounts = new Map<string, number>();
-  const trainerIds = new Set<string>();
-  const clientIds = new Set<string>();
-  for (const row of sessionsUpcoming ?? []) {
-    if (!row?.trainer_id) continue;
-    const trainerId = String(row.trainer_id);
-    trainerCounts.set(trainerId, (trainerCounts.get(trainerId) ?? 0) + 1);
-    trainerIds.add(trainerId);
-    if (row?.client_id) clientIds.add(String(row.client_id));
-  }
-
-  const trainerProfiles: Record<string, { name: string }> = {};
-  if (trainerIds.size) {
-    const { data: trainers } = await sb
-      .from('users')
-      .select('id,name,email')
-      .in('id', Array.from(trainerIds));
-    for (const t of trainers ?? []) {
-      if (!t?.id) continue;
-      trainerProfiles[String(t.id)] = { name: t.name ?? t.email ?? String(t.id) };
+    const trainerCounts = new Map<string, number>();
+    const trainerIds = new Set<string>();
+    const clientIds = new Set<string>();
+    for (const row of sessionsUpcoming ?? []) {
+      if (!row?.trainer_id) continue;
+      const trainerId = String(row.trainer_id);
+      trainerCounts.set(trainerId, (trainerCounts.get(trainerId) ?? 0) + 1);
+      trainerIds.add(trainerId);
+      if (row?.client_id) clientIds.add(String(row.client_id));
     }
-  }
 
-  const clientProfiles: Record<string, { name: string }> = {};
-  if (clientIds.size) {
-    const { data: clients } = await sb
-      .from('users')
-      .select('id,name,email')
-      .in('id', Array.from(clientIds));
-    for (const c of clients ?? []) {
-      if (!c?.id) continue;
-      clientProfiles[String(c.id)] = { name: c.name ?? c.email ?? String(c.id) };
+    const trainerProfiles: Record<string, { name: string }> = {};
+    if (trainerIds.size) {
+      const { data: trainers } = await sb
+        .from('users')
+        .select('id,name,email')
+        .in('id', Array.from(trainerIds));
+      for (const t of trainers ?? []) {
+        if (!t?.id) continue;
+        trainerProfiles[String(t.id)] = { name: t.name ?? t.email ?? String(t.id) };
+      }
     }
-  }
 
-  const topTrainers = Array.from(trainerCounts.entries())
-    .map(([id, total]) => ({
-      id,
-      name: trainerProfiles[id]?.name ?? id,
-      total,
-    }))
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 5);
+    const clientProfiles: Record<string, { name: string }> = {};
+    if (clientIds.size) {
+      const { data: clients } = await sb
+        .from('users')
+        .select('id,name,email')
+        .in('id', Array.from(clientIds));
+      for (const c of clients ?? []) {
+        if (!c?.id) continue;
+        clientProfiles[String(c.id)] = { name: c.name ?? c.email ?? String(c.id) };
+      }
+    }
 
-  const agenda = (sessionsUpcoming ?? []).map((session, index) => ({
-    id: session?.id ? String(session.id) : `session-${index}`,
-    start_time: session.start_time ?? null,
-    trainer_id: session.trainer_id ? String(session.trainer_id) : null,
-    trainer_name:
-      (session.trainer_id && trainerProfiles[String(session.trainer_id)]?.name) ||
-      (session.trainer_id ? String(session.trainer_id) : '—'),
-    client_id: session.client_id ? String(session.client_id) : null,
-    client_name:
-      (session.client_id && clientProfiles[String(session.client_id)]?.name) ||
-      (session.client_id ? String(session.client_id) : '—'),
-    location: session.location ?? null,
-  }));
+    const topTrainers = Array.from(trainerCounts.entries())
+      .map(([id, total]) => ({
+        id,
+        name: trainerProfiles[id]?.name ?? id,
+        total,
+      }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5);
+
+    const agenda = (sessionsUpcoming ?? []).map((session, index) => ({
+      id: session?.id ? String(session.id) : `session-${index}`,
+      start_time: session.start_time ?? null,
+      trainer_id: session.trainer_id ? String(session.trainer_id) : null,
+      trainer_name:
+        (session.trainer_id && trainerProfiles[String(session.trainer_id)]?.name) ||
+        (session.trainer_id ? String(session.trainer_id) : '-'),
+      client_id: session.client_id ? String(session.client_id) : null,
+      client_name:
+        (session.client_id && clientProfiles[String(session.client_id)]?.name) ||
+        (session.client_id ? String(session.client_id) : '-'),
+      location: session.location ?? null,
+    }));
 
     const data: AdminDashboardData = {
       totals: {
@@ -135,14 +135,6 @@ function firstName(full?: string | null) {
   const parts = full.trim().split(/\s+/);
   return parts[0] ?? full;
 }
-
-function firstName(full?: string | null) {
-  if (!full) return 'Admin';
-  const parts = full.trim().split(/\s+/);
-  return parts[0] ?? full;
-}
-
-export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboardPage() {
   const session = await getSessionUserSafe();

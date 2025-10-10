@@ -67,7 +67,6 @@ export default function AppHeader({
   const role = counts?.role ?? null;
   const router = useRouter();
   const [query, setQuery] = React.useState('');
-  const [showMobileSearch, setShowMobileSearch] = React.useState(false);
 
   const messagesCount = Number(counts?.messagesCount ?? 0);
   const notificationsCount = Number(counts?.notificationsCount ?? 0);
@@ -104,8 +103,7 @@ export default function AppHeader({
     const trimmed = query.trim();
     if (!trimmed) return;
     router.push(`/dashboard/search?q=${encodeURIComponent(trimmed)}`);
-    setShowMobileSearch(false);
-  }, [query, router, setShowMobileSearch]);
+  }, [query, router]);
 
   type NotificationItem = { id: string; title: string; href?: string | null; created_at?: string | null };
   const [notifAnchor, setNotifAnchor] = React.useState<null | HTMLElement>(null);
@@ -160,7 +158,7 @@ export default function AppHeader({
 
   return (
     <AppBar position="sticky" color="default" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
-      <Toolbar sx={{ gap: 1, minHeight: 64 }}>
+      <Toolbar sx={{ gap: 1, minHeight: 64, flexWrap: 'wrap' }}>
         {/* brand */}
         <Box
           component={Link}
@@ -189,8 +187,9 @@ export default function AppHeader({
         <Box
           sx={{
             flex: 1,
-            maxWidth: 420,
-            display: { xs: showMobileSearch ? 'flex' : 'none', sm: 'flex' },
+            maxWidth: { xs: '100%', md: 420 },
+            display: 'flex',
+            mr: { xs: 0, sm: 2 },
           }}
         >
           <OutlinedInput
@@ -230,19 +229,6 @@ export default function AppHeader({
             }
           />
         </Box>
-
-        <Box sx={{ flex: { xs: showMobileSearch ? 0 : 1, sm: 0 } }} />
-
-        <Tooltip title="Pesquisar" sx={{ display: { xs: 'inline-flex', sm: 'none' } }}>
-          <IconButton
-            size="small"
-            sx={{ mr: 1 }}
-            aria-label="Alternar pesquisa"
-            onClick={() => setShowMobileSearch((value) => !value)}
-          >
-            <SearchIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
 
         {(role === 'CLIENT' || role === 'TRAINER') && (
           <Tooltip title="Mensagens">
@@ -304,7 +290,12 @@ export default function AppHeader({
           anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
           transformOrigin={{ vertical: 'top', horizontal: 'right' }}
         >
-          <MenuItem component={Link} href="/dashboard/profile" prefetch={false} onClick={handleCloseMenu}>
+          <MenuItem
+            onClick={() => {
+              handleCloseMenu();
+              router.push('/dashboard/profile');
+            }}
+          >
             <ListItemIcon>
               <PersonOutlineIcon fontSize="small" />
             </ListItemIcon>
@@ -328,7 +319,12 @@ export default function AppHeader({
 
           <Divider />
 
-          <MenuItem onClick={handleSignOut}>
+          <MenuItem
+            onClick={() => {
+              handleCloseMenu();
+              void handleSignOut();
+            }}
+          >
             <ListItemIcon>
               <LogoutIcon fontSize="small" />
             </ListItemIcon>

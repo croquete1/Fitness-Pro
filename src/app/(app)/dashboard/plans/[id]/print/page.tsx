@@ -107,7 +107,7 @@ export default async function PrintPlanPage({ params }: { params: { id: string }
 
       {/* Branding header */}
       <Box className="brand-h" sx={{ mb: 1 }}>
-        <Image src="/logo.png" alt="Fitness Pro" width={32} height={32} />
+        <Image src="/branding/hms-personal-trainer.svg" alt="HMS Personal Trainer" width={32} height={32} />
         <div>
           <Typography variant="h5" fontWeight={800}>Plano de treino</Typography>
           <Typography className="muted" variant="body2">

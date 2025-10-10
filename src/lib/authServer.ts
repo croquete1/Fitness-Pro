@@ -16,22 +16,30 @@ async function tryNextAuthSafe(): Promise<CurrentUser | null> {
   try {
     // import dinâmico para não exigir dependência no build
     const na: any = await import('next-auth');
+    let authOptions: any = null;
+    try {
+      authOptions = (await import('@/lib/authOptions')).authOptions;
+    } catch {
+      authOptions = null;
+    }
 
     // v5 (se existir)
     if (typeof na.auth === 'function') {
-      const session = await na.auth().catch(() => null);
+      const session = await na.auth(authOptions ?? undefined).catch(() => null);
       const u = (session?.user ?? null) as any;
       if (u?.id) return { id: String(u.id), role: (u.role as string) ?? null, source: 'nextauth' };
     }
 
     // v4 (fallback): tentar sem options; se o teu setup exigir options isto vai devolver null
     if (typeof na.getServerSession === 'function') {
-      const session = await na.getServerSession().catch(() => null);
+      const session = authOptions
+        ? await na.getServerSession(authOptions).catch(() => null)
+        : await na.getServerSession().catch(() => null);
       const u = (session?.user ?? null) as any;
       if (u?.id) return { id: String(u.id), role: (u.role as string) ?? null, source: 'nextauth' };
     }
   } catch {
-    // next-auth não instalado ou não configurado — ignorar
+    // next-auth não instalado ou não configurado - ignorar
   }
   return null;
 }

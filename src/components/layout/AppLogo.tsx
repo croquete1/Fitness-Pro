@@ -8,7 +8,7 @@ export default function AppLogo({
 }: { size?: number; className?: string; title?: string }) {
   return (
     <img
-      src="/logo.png"                         // ← ficheiro em public/logo.png
+      src="/branding/hms-personal-trainer.svg"
       width={size}
       height={size}
       alt={title}

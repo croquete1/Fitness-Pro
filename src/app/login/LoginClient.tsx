@@ -13,6 +13,7 @@ import LockOutlined from '@mui/icons-material/LockOutlined';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import LoginIcon from '@mui/icons-material/Login';
+import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
 import ThemeToggle from '@/components/ThemeToggle';
 import BrandLogo from '@/components/BrandLogo';
 import { useSearchParams } from 'next/navigation';
@@ -168,107 +169,155 @@ export default function LoginClient() {
             <ThemeToggle />
           </Box>
 
-          <Stack alignItems="center" spacing={1.6} sx={{ mb: 2 }}>
-            <BrandLogo size={88} priority />
-            <Typography
-              variant="h4"
-              component="h1"
-              fontWeight={800}
-              textAlign="center"
-              sx={{ letterSpacing: 0.6, lineHeight: 1.15 }}
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={{ xs: 3, md: 4 }}>
+            <Box
+              sx={(theme) => ({
+                flex: 1,
+                borderRadius: 3,
+                p: { xs: 2.75, md: 3.5 },
+                background:
+                  theme.palette.mode === 'dark'
+                    ? 'linear-gradient(135deg, rgba(59,130,246,0.22) 0%, rgba(99,102,241,0.2) 35%, rgba(16,185,129,0.18) 100%)'
+                    : 'linear-gradient(135deg, rgba(59,130,246,0.16) 0%, rgba(99,102,241,0.12) 40%, rgba(16,185,129,0.12) 100%)',
+                border: theme.palette.mode === 'dark'
+                  ? '1px solid rgba(96,165,250,0.28)'
+                  : '1px solid rgba(37,99,235,0.14)',
+                position: 'relative',
+                overflow: 'hidden',
+                boxShadow: theme.palette.mode === 'dark'
+                  ? '0 40px 120px -70px rgba(8,20,45,0.9)'
+                  : '0 48px 120px -80px rgba(15,23,42,0.28)',
+              })}
             >
-              Acede ao ecossistema HMS
-            </Typography>
-            <Typography
-              variant="body1"
-              color="text.secondary"
-              textAlign="center"
-              sx={{ maxWidth: 380 }}
-            >
-              Gere clientes, planos e sessões num painel desenhado para personal trainers e equipas premium.
-            </Typography>
-          </Stack>
-
-          <Divider sx={{ my: 2, opacity: 0.5 }}>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ textTransform: 'uppercase', letterSpacing: 1.4, fontWeight: 600 }}
-            >
-              Entrar na conta
-            </Typography>
-          </Divider>
-
-          <form onSubmit={onSubmit} noValidate>
-            <Stack spacing={2.2}>
-              <TextField
-                label="Email *"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onBlur={(e) => validateField('email', e.target.value)}
-                required
-                fullWidth
-                autoFocus
-                autoComplete="username"
-                error={!!fieldErr.email}
-                helperText={fieldErr.email}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <MailOutline fontSize="small" />
-                    </InputAdornment>
-                  ),
+              <Box
+                sx={{
+                  position: 'absolute',
+                  inset: -28,
+                  background:
+                    'radial-gradient(32% 32% at 20% 20%, rgba(255,255,255,0.22), transparent 70%),' +
+                    'radial-gradient(50% 60% at 120% -10%, rgba(59,130,246,0.25), transparent 70%)',
+                  opacity: 0.65,
+                  pointerEvents: 'none',
                 }}
               />
-
-              <TextField
-                label="Palavra-passe *"
-                type={show ? 'text' : 'password'}
-                value={pw}
-                onChange={(e) => setPw(e.target.value)}
-                onBlur={(e) => validateField('password', e.target.value)}
-                required
-                fullWidth
-                inputProps={{ minLength: 6 }}
-                autoComplete="current-password"
-                error={!!fieldErr.password}
-                helperText={fieldErr.password}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <LockOutlined fontSize="small" />
-                    </InputAdornment>
-                  ),
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton onClick={() => setShow((v) => !v)} edge="end" aria-label="Mostrar/ocultar palavra-passe">
-                        {show ? <VisibilityOff /> : <Visibility />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-              />
-
-              <Button
-                type="submit"
-                variant="contained"
-                size="large"
-                startIcon={loading ? undefined : <LoginIcon />}
-                disabled={!isFormValid}
-                sx={{ py: 1.2, fontWeight: 700, textTransform: 'none', borderRadius: 2.5 }}
-              >
-                {loading ? <CircularProgress size={20} /> : 'Entrar'}
-              </Button>
-
-              {err && <Alert severity="error">{err}</Alert>}
-
-              <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={1}>
-                <Button component={Link} href="/login/forgot" variant="text">Esqueceste-te da palavra-passe?</Button>
-                <Button component={Link} href="/register" variant="text">Criar conta</Button>
+              <Stack spacing={2.2} sx={{ position: 'relative' }}>
+                <BrandLogo size={84} priority />
+                <Typography
+                  variant="h4"
+                  component="h1"
+                  fontWeight={800}
+                  sx={{ letterSpacing: 0.4, lineHeight: 1.1 }}
+                >
+                  Acede ao ecossistema HMS
+                </Typography>
+                <Typography
+                  variant="body1"
+                  sx={{ maxWidth: 420, opacity: 0.9 }}
+                >
+                  Introduz as tuas credenciais para acederes ao painel HMS e acelerar o trabalho da tua equipa.
+                </Typography>
+                <Stack spacing={1.2} sx={{ pt: 0.5 }}>
+                  {[
+                    'Gestão integrada de clientes, planos e sessões.',
+                    'Alertas inteligentes para aprovações e acompanhamento.',
+                    'Visão 360º do negócio com métricas em tempo real.',
+                  ].map((item) => (
+                    <Stack key={item} direction="row" spacing={1.2} alignItems="center">
+                      <CheckCircleOutline fontSize="small" color="success" />
+                      <Typography variant="body2" sx={{ opacity: 0.75 }}>
+                        {item}
+                      </Typography>
+                    </Stack>
+                  ))}
+                </Stack>
               </Stack>
-            </Stack>
-          </form>
+            </Box>
+
+            <Box sx={{ flex: 1 }}>
+              <Divider sx={{ mb: 2.5, opacity: 0.5 }}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ textTransform: 'uppercase', letterSpacing: 1.4, fontWeight: 600 }}
+                >
+                  Entrar na conta
+                </Typography>
+              </Divider>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                Introduz as tuas credenciais para acederes ao painel HMS.
+              </Typography>
+              <form onSubmit={onSubmit} noValidate>
+                <Stack spacing={2.2}>
+                  <TextField
+                    label="Email *"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    onBlur={(e) => validateField('email', e.target.value)}
+                    required
+                    fullWidth
+                    autoFocus
+                    autoComplete="username"
+                    error={!!fieldErr.email}
+                    helperText={fieldErr.email}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <MailOutline fontSize="small" />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+
+                  <TextField
+                    label="Palavra-passe *"
+                    type={show ? 'text' : 'password'}
+                    value={pw}
+                    onChange={(e) => setPw(e.target.value)}
+                    onBlur={(e) => validateField('password', e.target.value)}
+                    required
+                    fullWidth
+                    inputProps={{ minLength: 6 }}
+                    autoComplete="current-password"
+                    error={!!fieldErr.password}
+                    helperText={fieldErr.password}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <LockOutlined fontSize="small" />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton onClick={() => setShow((v) => !v)} edge="end" aria-label="Mostrar/ocultar palavra-passe">
+                            {show ? <VisibilityOff /> : <Visibility />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    size="large"
+                    startIcon={loading ? undefined : <LoginIcon />}
+                    disabled={!isFormValid}
+                    sx={{ py: 1.2, fontWeight: 700, textTransform: 'none', borderRadius: 2.5 }}
+                  >
+                    {loading ? <CircularProgress size={20} /> : 'Entrar'}
+                  </Button>
+
+                  {err && <Alert severity="error">{err}</Alert>}
+
+                  <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={1}>
+                    <Button component={Link} href="/login/forgot" variant="text">Esqueceste-te da palavra-passe?</Button>
+                    <Button component={Link} href="/register" variant="text">Criar conta</Button>
+                  </Stack>
+                </Stack>
+              </form>
+            </Box>
+          </Stack>
         </Paper>
       </Fade>
     </Box>

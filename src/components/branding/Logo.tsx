@@ -13,7 +13,7 @@ type Props = {
 
 export default function Logo({ size = 28, className, alt = 'HMS Personal Trainer', src }: Props) {
   const [failed, setFailed] = React.useState(false);
-  const url = src ?? '/branding/hms-logo.svg';
+  const url = src ?? '/branding/hms-personal-trainer.svg';
 
   if (failed) {
     return (

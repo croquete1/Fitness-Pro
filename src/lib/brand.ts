@@ -12,9 +12,9 @@ export const brand: BrandConfig = {
   short: "FP",
 
   // coloca os teus ficheiros aqui (ou altera os caminhos):
-  // /public/brand/logo-light.png e /public/brand/logo-dark.png
-  logoLight: "/brand/hms-logo-light.png",
-  logoDark: "/brand/hms-logo-dark.png",
+  // /public/brand/hms-personal-trainer.svg
+  logoLight: "/brand/hms-personal-trainer.svg",
+  logoDark: "/brand/hms-personal-trainer.svg",
 
   size: 30,
 };
