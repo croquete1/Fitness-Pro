@@ -9,6 +9,8 @@ import { toAppRole, isPT, isAdmin } from '@/lib/roles';
 import PageHeader from '@/components/ui/PageHeader';
 import Badge from '@/components/ui/Badge';
 import Card, { CardContent } from '@/components/ui/Card';
+import CreateTrainingPlanButton from '@/components/pt/CreateTrainingPlanButton';
+import PlanEditor from '@/components/pt/PlanEditor';
 
 // ... (os teus types PlanRow, ProfileRow e a função formatDatePT ficam iguais)
 type PlanRow = {
@@ -112,6 +114,7 @@ export default async function PTPlanViewPage({ params }: { params: { id: string 
             </Badge>
           </>
         }
+        actions={<CreateTrainingPlanButton variant="outlined" />}
       />
 
       <Card>
@@ -139,17 +142,14 @@ export default async function PTPlanViewPage({ params }: { params: { id: string 
           </div>
 
           <div className="flex gap-2 flex-wrap">
-            {isPT(role) && (
-              <a className="btn chip" href={`/dashboard/pt/plans/${plan.id}/edit`}>
-                ✏️ Editar plano
-              </a>
-            )}
             <a className="btn chip" href="/dashboard/pt/plans">
               ⟵ Voltar à lista
             </a>
           </div>
         </CardContent>
       </Card>
+
+      <PlanEditor planId={plan.id} initialTitle={plan.title ?? 'Plano de treino'} />
     </main>
   );
 }

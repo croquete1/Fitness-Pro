@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Box, Button, Card, CardContent, Container, IconButton, List, ListItem, ListItemIcon, ListItemText,
-  Stack, TextField, Typography, Tooltip
+  MenuItem, Stack, TextField, Typography, Tooltip,
 } from '@mui/material';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -17,6 +17,7 @@ type Sess = {
   start_at: string;
   end_at: string | null;
   exercises: string[] | null;
+  client_id: string | null;
 };
 
 export default function EditSessionPage() {
@@ -31,6 +32,8 @@ export default function EditSessionPage() {
   const [endAt, setEndAt] = React.useState('');
   const [exercises, setExercises] = React.useState<string[]>([]);
   const [newEx, setNewEx] = React.useState('');
+  const [clients, setClients] = React.useState<{ id: string; full_name: string | null }[]>([]);
+  const [clientId, setClientId] = React.useState('');
 
   React.useEffect(() => {
     (async () => {
@@ -44,10 +47,23 @@ export default function EditSessionPage() {
         setStartAt(s.start_at?.slice(0,16) ?? '');
         setEndAt(s.end_at ? s.end_at.slice(0,16) : '');
         setExercises(Array.isArray(s.exercises) ? s.exercises : []);
+        setClientId(s.client_id ?? '');
       } catch {}
       setLoading(false);
     })();
   }, [id]);
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/pt/clients', { cache: 'no-store' });
+        const json = res.ok ? await res.json() : { items: [] };
+        setClients(Array.isArray(json.items) ? json.items : []);
+      } catch {
+        setClients([]);
+      }
+    })();
+  }, []);
 
   async function save() {
     try {
@@ -55,7 +71,8 @@ export default function EditSessionPage() {
         title, kind,
         start_at: startAt ? new Date(startAt).toISOString() : null,
         end_at: endAt ? new Date(endAt).toISOString() : null,
-        exercises
+        exercises,
+        client_id: clientId || null,
       };
       const r = await fetch(`/api/pt/sessions/${id}`, { method: 'PATCH', headers: { 'content-type':'application/json' }, body: JSON.stringify(payload) });
       if (!r.ok) throw new Error(await r.text());
@@ -120,7 +137,23 @@ export default function EditSessionPage() {
         <CardContent>
           <Stack gap={2}>
             <TextField label="Título" value={title} onChange={(e)=>setTitle(e.target.value)} />
-            <TextField label="Tipo" value={kind} onChange={(e)=>setKind(e.target.value)} />
+            <TextField select label="Tipo" value={kind} onChange={(e)=>setKind(e.target.value)}>
+              <MenuItem value="presencial">Presencial</MenuItem>
+              <MenuItem value="online">Online</MenuItem>
+              <MenuItem value="outro">Outro</MenuItem>
+            </TextField>
+            <TextField
+              select
+              label="Cliente"
+              value={clientId}
+              onChange={(e) => setClientId(e.target.value)}
+              helperText="Escolhe o cliente associado a esta sessão"
+            >
+              <MenuItem value="">Sem cliente</MenuItem>
+              {clients.map((c) => (
+                <MenuItem key={c.id} value={c.id}>{c.full_name ?? c.id}</MenuItem>
+              ))}
+            </TextField>
             <Stack direction="row" gap={2}>
               <TextField
                 label="Início"

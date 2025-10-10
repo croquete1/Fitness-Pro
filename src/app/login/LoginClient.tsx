@@ -146,7 +146,7 @@ export default function LoginClient() {
           elevation={24}
           sx={{
             width: '100%',
-            maxWidth: 520,
+            maxWidth: 680,
             p: { xs: 3, sm: 4 },
             borderRadius: 4,
             position: 'relative',
@@ -169,12 +169,12 @@ export default function LoginClient() {
             <ThemeToggle />
           </Box>
 
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={{ xs: 3, md: 4 }}>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={{ xs: 3, md: 5 }} alignItems="stretch">
             <Box
               sx={(theme) => ({
                 flex: 1,
                 borderRadius: 3,
-                p: { xs: 2.75, md: 3.5 },
+                p: { xs: 2.75, md: 3.75 },
                 background:
                   theme.palette.mode === 'dark'
                     ? 'linear-gradient(135deg, rgba(59,130,246,0.22) 0%, rgba(99,102,241,0.2) 35%, rgba(16,185,129,0.18) 100%)'
@@ -214,13 +214,13 @@ export default function LoginClient() {
                   variant="body1"
                   sx={{ maxWidth: 420, opacity: 0.9 }}
                 >
-                  Introduz as tuas credenciais para acederes ao painel HMS e acelerar o trabalho da tua equipa.
+                  Conecta-te à tua jornada de fitness: gere planos, acompanha evolução e mantém o contacto entre clientes e personal trainers.
                 </Typography>
                 <Stack spacing={1.2} sx={{ pt: 0.5 }}>
                   {[
-                    'Gestão integrada de clientes, planos e sessões.',
-                    'Alertas inteligentes para aprovações e acompanhamento.',
-                    'Visão 360º do negócio com métricas em tempo real.',
+                    'Clientes acompanham planos, sessões e métricas em tempo real.',
+                    'Personal trainers organizam treinos, avaliações e comunicação num único lugar.',
+                    'Notificações inteligentes mantêm todos alinhados e informados.',
                   ].map((item) => (
                     <Stack key={item} direction="row" spacing={1.2} alignItems="center">
                       <CheckCircleOutline fontSize="small" color="success" />
@@ -244,7 +244,7 @@ export default function LoginClient() {
                 </Typography>
               </Divider>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                Introduz as tuas credenciais para acederes ao painel HMS.
+                Introduz as tuas credenciais para acederes à tua área HMS, quer sejas cliente ou personal trainer.
               </Typography>
               <form onSubmit={onSubmit} noValidate>
                 <Stack spacing={2.2}>

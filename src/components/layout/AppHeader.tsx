@@ -156,6 +156,14 @@ export default function AppHeader({
     setNotifAnchor(null);
   };
 
+  const isClient = role === 'CLIENT';
+  const displayLabel = React.useMemo(() => {
+    if (!userLabel) return undefined;
+    if (!isClient) return userLabel;
+    const cleaned = userLabel.replace(/^[\s·•\-–:]*?(cliente|client[ea]?)([\s·•\-–:]+|\s+)/i, '').trim();
+    return cleaned || undefined;
+  }, [userLabel, isClient]);
+
   return (
     <AppBar position="sticky" color="default" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
       <Toolbar sx={{ gap: 1, minHeight: 64, flexWrap: 'wrap' }}>
@@ -230,56 +238,61 @@ export default function AppHeader({
           />
         </Box>
 
-        {(role === 'CLIENT' || role === 'TRAINER') && (
-          <Tooltip title="Mensagens">
-            <IconButton component={Link} href="/dashboard/messages" prefetch={false} size="small" sx={{ mr: 0.5 }} aria-label="Ir para Mensagens">
-              {renderBadge(messagesCount, <ChatBubbleOutline />)}
+        <Box
+          sx={{
+            ml: 'auto',
+            display: 'flex',
+            alignItems: 'center',
+            gap: { xs: 0.75, sm: 1.25 },
+            flexWrap: 'wrap',
+            justifyContent: 'flex-end',
+          }}
+        >
+          {rightSlot && <Box sx={{ mr: { xs: 0, sm: 0.5 } }}>{rightSlot}</Box>}
+
+          {(role === 'CLIENT' || role === 'TRAINER') && (
+            <Tooltip title="Mensagens">
+              <IconButton component={Link} href="/dashboard/messages" prefetch={false} size="small" aria-label="Ir para Mensagens">
+                {renderBadge(messagesCount, <ChatBubbleOutline />)}
+              </IconButton>
+            </Tooltip>
+          )}
+
+          <Tooltip title="Notificações">
+            <IconButton
+              size="small"
+              aria-label="Abrir notificações"
+              onClick={handleOpenNotifications}
+            >
+              {renderBadge(notificationsCount, <NotificationsIcon />)}
             </IconButton>
           </Tooltip>
-        )}
 
-        <Tooltip title="Notificações">
+          {displayLabel && (
+            <Typography variant="body2" sx={{ color: 'text.secondary' }} title={userLabel || displayLabel}>
+              {displayLabel}
+            </Typography>
+          )}
+
+          <ThemeToggleButton />
+
           <IconButton
+            onClick={handleOpenMenu}
             size="small"
-            sx={{ mr: 1 }}
-            aria-label="Abrir notificações"
-            onClick={handleOpenNotifications}
+            aria-controls={open ? 'user-menu' : undefined}
+            aria-haspopup="menu"
+            aria-expanded={open ? 'true' : undefined}
           >
-            {renderBadge(notificationsCount, <NotificationsIcon />)}
+            <Avatar
+              src={userAvatarUrl || undefined}
+              alt={userName || userLabel || 'Utilizador'}
+              sx={{ width: 28, height: 28, fontSize: 12, fontWeight: 700 }}
+              imgProps={{ referrerPolicy: 'no-referrer' }}
+            >
+              {initialsFrom(userName || userLabel)}
+            </Avatar>
           </IconButton>
-        </Tooltip>
-
-        {/* slot opcional (ex.: "Nova sessão") */}
-        {rightSlot && <Box sx={{ mr: 1 }}>{rightSlot}</Box>}
-
-        {/* etiqueta do utilizador (texto) */}
-        {userLabel && (
-          <Typography variant="body2" sx={{ mr: 1, color: 'text.secondary' }} title={userLabel}>
-            {userLabel}
-          </Typography>
-        )}
-
-        {/* toggle de tema rápido */}
-        <ThemeToggleButton />
-
-        {/* avatar + menu */}
-        <IconButton
-          onClick={handleOpenMenu}
-          size="small"
-          sx={{ ml: 0.5 }}
-          aria-controls={open ? 'user-menu' : undefined}
-          aria-haspopup="menu"
-          aria-expanded={open ? 'true' : undefined}
-        >
-          <Avatar
-            src={userAvatarUrl || undefined}
-            alt={userName || userLabel || 'Utilizador'}
-            sx={{ width: 28, height: 28, fontSize: 12, fontWeight: 700 }}
-            imgProps={{ referrerPolicy: 'no-referrer' }}
-          >
-            {initialsFrom(userName || userLabel)}
-          </Avatar>
-        </IconButton>
+        </Box>
 
         <Menu
           id="user-menu"

@@ -3,8 +3,8 @@
 import * as React from 'react';
 import { formatISO, startOfWeek, endOfWeek } from 'date-fns';
 import {
-  Box, Button, Card, CardContent, Container, Stack, Table, TableBody, TableCell,
-  TableHead, TableRow, TextField, Typography, IconButton, Tooltip
+  Box, Button, Card, CardContent, Container, MenuItem, Stack, Table, TableBody, TableCell,
+  TableHead, TableRow, TextField, Typography, IconButton, Tooltip,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -38,6 +38,15 @@ export default function TrainerSessionsPage() {
   const [rows, setRows] = React.useState<Sess[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [sortMode, setSortMode] = React.useState(false); // ativa arrastar-e-soltar
+  const [clients, setClients] = React.useState<{ id: string; full_name: string | null }[]>([]);
+  const [clientsLoaded, setClientsLoaded] = React.useState(false);
+  const clientNameById = React.useMemo(() => {
+    const map = new Map<string, string>();
+    clients.forEach((c) => {
+      if (c.id) map.set(c.id, c.full_name ?? c.id);
+    });
+    return map;
+  }, [clients]);
 
   const wr = weekRange(cursor);
   const fromISO = formatISO(wr.start);
@@ -54,6 +63,20 @@ export default function TrainerSessionsPage() {
     setLoading(false);
   }
   React.useEffect(() => { load(); }, [cursor]); // eslint-disable-line
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/pt/clients', { cache: 'no-store' });
+        const json = res.ok ? await res.json() : { items: [] };
+        setClients(Array.isArray(json.items) ? json.items : []);
+      } catch {
+        setClients([]);
+      } finally {
+        setClientsLoaded(true);
+      }
+    })();
+  }, []);
 
   async function remove(id: string) {
     if (!confirm('Apagar sessão?')) return;
@@ -95,12 +118,20 @@ export default function TrainerSessionsPage() {
     const start = String(f.get('start') || '');
     const title = String(f.get('title') || '');
     const kind = String(f.get('kind') || 'presencial');
+    const clientId = String(f.get('client_id') || '');
+    const durationMin = Number(f.get('durationMin') || 60);
     if (!start) return toast('Indica data/hora', 2000, 'warning');
 
     try {
       const res = await fetch('/api/pt/sessions', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ start, durationMin: 60, title, kind }),
+        body: JSON.stringify({
+          start,
+          durationMin,
+          title,
+          kind,
+          client_id: clientId || undefined,
+        }),
       });
       if (!res.ok) throw new Error(await res.text());
       toast('Sessão criada 🗓️', 1800, 'success');
@@ -126,6 +157,20 @@ export default function TrainerSessionsPage() {
             <TextField name="start" type="datetime-local" label="Início" InputLabelProps={{ shrink: true }} required />
             <TextField name="title" label="Título (opcional)" placeholder="Sessão com cliente" sx={{ minWidth: 260 }} />
             <TextField name="kind" label="Tipo" defaultValue="presencial" />
+            <TextField select name="client_id" label="Cliente" sx={{ minWidth: 220 }} disabled={!clientsLoaded}>
+              <MenuItem value="">Sem cliente</MenuItem>
+              {clients.map((c) => (
+                <MenuItem key={c.id} value={c.id}>{c.full_name ?? c.id}</MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              name="durationMin"
+              label="Duração (min)"
+              type="number"
+              inputProps={{ min: 15, step: 15 }}
+              defaultValue={60}
+              sx={{ maxWidth: 140 }}
+            />
             <Button type="submit" variant="contained">➕ Criar</Button>
             <Button onClick={() => setSortMode(v => !v)}>{sortMode ? '✅ Terminar ordenação' : '↕️ Ordenar sessões'}</Button>
           </Stack>
@@ -154,7 +199,7 @@ export default function TrainerSessionsPage() {
               const d = new Date(s.start_at);
               const date = d.toLocaleDateString();
               const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-              const cliente = s.client_id ? s.client_id.slice(0, 6) + '…' : '—';
+              const cliente = s.client_id ? clientNameById.get(s.client_id) ?? s.client_id : null;
               return (
                 <TableRow
                   key={s.id}
@@ -171,7 +216,7 @@ export default function TrainerSessionsPage() {
                   <TableCell>{time}</TableCell>
                   <TableCell>{s.title ?? 'Sessão'}</TableCell>
                   <TableCell>{s.kind ?? '—'}</TableCell>
-                  <TableCell>{cliente}</TableCell>
+                  <TableCell>{cliente ?? '—'}</TableCell>
                   <TableCell align="right">
                     <Tooltip title="Editar">
                       <IconButton size="small" href={`/dashboard/pt/sessions/${s.id}`}><EditIcon fontSize="small" /></IconButton>

@@ -1,13 +1,13 @@
 export const dynamic = 'force-dynamic';
 
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { createServerClient } from '@/lib/supabaseServer';
 import { toAppRole, type AppRole } from '@/lib/roles';
 import PageHeader from '@/components/ui/PageHeader';
 import Card, { CardContent } from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
+import CreateTrainingPlanButton from '@/components/pt/CreateTrainingPlanButton';
 
 type PlanRow = {
   id: string;
@@ -45,11 +45,7 @@ export default async function PTTrainingPlansPage() {
       <PageHeader
         title="Planos de treino"
         subtitle={role === 'ADMIN' ? 'Todos os planos' : 'Os teus planos'}
-        actions={
-          <Link href="/dashboard/pt/plans/new" className="btn chip">
-            + Novo plano
-          </Link>
-        }
+        actions={<CreateTrainingPlanButton variant="contained" />}
       />
 
       {plans.length === 0 ? (
@@ -91,18 +87,18 @@ export default async function PTTrainingPlansPage() {
                 </div>
 
                 <div className="flex gap-2 pt-1">
-                  <Link
+                  <a
                     href={`/dashboard/pt/plans/${p.id}`}
                     className="btn chip"
                   >
                     Ver
-                  </Link>
-                  <Link
+                  </a>
+                  <a
                     href={`/dashboard/pt/plans/${p.id}/edit`}
                     className="btn chip"
                   >
                     Editar
-                  </Link>
+                  </a>
                 </div>
               </CardContent>
             </Card>
