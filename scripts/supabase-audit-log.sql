@@ -201,4 +201,143 @@ begin
 end;
 $$;
 
+--
+-- Garante que logins e logouts de sessões autenticadas ficam registados
+-- automaticamente na tabela de auditoria. Estes eventos alimentam o dashboard
+-- de utilizadores com informação sobre último login, última actividade e
+-- estado online.
+--
+
+create or replace function public.audit_log_on_session_login()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+begin
+  insert into public.audit_log (
+    kind,
+    category,
+    action,
+    target_type,
+    target_id,
+    actor_id,
+    note,
+    details
+  )
+  values (
+    'LOGIN',
+    'auth.session',
+    'login',
+    'AUTH_SESSION',
+    new.id::text,
+    new.user_id,
+    'Sessão iniciada através do Supabase Auth',
+    jsonb_build_object(
+      'session_id', new.id,
+      'created_at', new.created_at,
+      'not_after', new.not_after
+    )
+  );
+
+  return new;
+end;
+$$;
+
+create or replace function public.audit_log_on_session_logout_update()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+begin
+  if coalesce(old.revoked, false) = false and coalesce(new.revoked, false) = true then
+    insert into public.audit_log (
+      kind,
+      category,
+      action,
+      target_type,
+      target_id,
+      actor_id,
+      note,
+      details
+    )
+    values (
+      'LOGOUT',
+      'auth.session',
+      'logout',
+      'AUTH_SESSION',
+      new.id::text,
+      new.user_id,
+      'Sessão terminada (revogada)',
+      jsonb_build_object(
+        'session_id', new.id,
+        'revoked_at', new.updated_at,
+        'not_after', new.not_after
+      )
+    );
+  end if;
+
+  return new;
+end;
+$$;
+
+create or replace function public.audit_log_on_session_logout_delete()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+begin
+  if coalesce(old.revoked, false) then
+    return old;
+  end if;
+
+  insert into public.audit_log (
+    kind,
+    category,
+    action,
+    target_type,
+    target_id,
+    actor_id,
+    note,
+    details
+  )
+  values (
+    'LOGOUT',
+    'auth.session',
+    'logout',
+    'AUTH_SESSION',
+    old.id::text,
+    old.user_id,
+    'Sessão terminada (removida)',
+    jsonb_build_object(
+      'session_id', old.id,
+      'revoked_at', now(),
+      'not_after', old.not_after
+    )
+  );
+
+  return old;
+end;
+$$;
+
+drop trigger if exists audit_log_session_login on auth.sessions;
+create trigger audit_log_session_login
+after insert on auth.sessions
+for each row
+execute function public.audit_log_on_session_login();
+
+drop trigger if exists audit_log_session_logout_update on auth.sessions;
+create trigger audit_log_session_logout_update
+after update on auth.sessions
+for each row
+execute function public.audit_log_on_session_logout_update();
+
+drop trigger if exists audit_log_session_logout_delete on auth.sessions;
+create trigger audit_log_session_logout_delete
+after delete on auth.sessions
+for each row
+execute function public.audit_log_on_session_logout_delete();
+
 commit;
