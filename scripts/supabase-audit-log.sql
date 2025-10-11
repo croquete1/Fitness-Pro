@@ -42,6 +42,115 @@ create table if not exists public.audit_log (
   user_agent text null
 );
 
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'audit_log' and column_name = 'created_at'
+  ) then
+    alter table public.audit_log add column created_at timestamptz not null default timezone('utc', now());
+  end if;
+
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'audit_log' and column_name = 'kind'
+  ) then
+    alter table public.audit_log add column kind text not null default 'OTHER';
+  end if;
+
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'audit_log' and column_name = 'category'
+  ) then
+    alter table public.audit_log add column category text null;
+  end if;
+
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'audit_log' and column_name = 'action'
+  ) then
+    alter table public.audit_log add column action text null;
+  end if;
+
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'audit_log' and column_name = 'target_type'
+  ) then
+    alter table public.audit_log add column target_type text null;
+  end if;
+
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'audit_log' and column_name = 'target_id'
+  ) then
+    alter table public.audit_log add column target_id text null;
+  end if;
+
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'audit_log' and column_name = 'target'
+  ) then
+    alter table public.audit_log add column target text null;
+  end if;
+
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'audit_log' and column_name = 'actor_id'
+  ) then
+    alter table public.audit_log add column actor_id uuid null;
+  end if;
+
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'audit_log' and column_name = 'actor'
+  ) then
+    alter table public.audit_log add column actor text null;
+  end if;
+
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'audit_log' and column_name = 'note'
+  ) then
+    alter table public.audit_log add column note text null;
+  end if;
+
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'audit_log' and column_name = 'details'
+  ) then
+    alter table public.audit_log add column details jsonb null;
+  end if;
+
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'audit_log' and column_name = 'meta'
+  ) then
+    alter table public.audit_log add column meta jsonb null;
+  end if;
+
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'audit_log' and column_name = 'payload'
+  ) then
+    alter table public.audit_log add column payload jsonb null;
+  end if;
+
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'audit_log' and column_name = 'ip'
+  ) then
+    alter table public.audit_log add column ip text null;
+  end if;
+
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'audit_log' and column_name = 'user_agent'
+  ) then
+    alter table public.audit_log add column user_agent text null;
+  end if;
+end;
+$$;
+
 -- Índices para acelerar as consultas mais comuns.
 create index if not exists audit_log_created_at_idx on public.audit_log (created_at desc);
 create index if not exists audit_log_actor_id_idx on public.audit_log (actor_id);
@@ -63,17 +172,31 @@ begin
   if not exists (
     select 1 from pg_policies where schemaname = 'public' and tablename = 'audit_log' and policyname = 'audit_log_read_admin'
   ) then
-    execute $$create policy audit_log_read_admin on public.audit_log as permissive for select to authenticated using (
-      public.is_admin(auth.uid())
-    )$$;
+    execute '
+      create policy audit_log_read_admin
+      on public.audit_log
+      as permissive
+      for select
+      to authenticated
+      using (
+        public.is_admin(auth.uid())
+      )
+    ';
   end if;
 
   if not exists (
     select 1 from pg_policies where schemaname = 'public' and tablename = 'audit_log' and policyname = 'audit_log_insert_service'
   ) then
-    execute $$create policy audit_log_insert_service on public.audit_log as permissive for insert to authenticated with check (
-      auth.role() = 'service_role' or public.is_admin(auth.uid())
-    )$$;
+    execute '
+      create policy audit_log_insert_service
+      on public.audit_log
+      as permissive
+      for insert
+      to authenticated
+      with check (
+        auth.role() = ''service_role'' or public.is_admin(auth.uid())
+      )
+    ';
   end if;
 end;
 $$;
