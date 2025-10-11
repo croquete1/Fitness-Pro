@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
+import { syncUserProfile } from '@/lib/profileSync';
 
 type SessionUser = { id?: string };
 type SessionLike = { user?: SessionUser } | null;
@@ -20,13 +21,15 @@ export async function PUT(req: Request) {
   if (!payload) return new NextResponse('Bad request', { status: 400 });
 
   const sb = createServerClient();
-  const update = {
-    name: payload.name ?? undefined,
-    phone: payload.phone ?? undefined,
-    birth_date: payload.birth_date ?? undefined,
-  };
+  const patch: Record<string, unknown> = {};
+  if (payload.name !== undefined) patch.name = payload.name;
+  if (payload.phone !== undefined) patch.phone = payload.phone;
+  if (payload.birth_date !== undefined) patch.birth_date = payload.birth_date;
 
-  const { data, error } = await sb.from('profiles').upsert({ id: user.id, ...update }).select('id').maybeSingle();
-  if (error) return new NextResponse(error.message, { status: 500 });
-  return NextResponse.json({ ok: true, id: data?.id ?? user.id });
+  if (!Object.keys(patch).length) return NextResponse.json({ ok: true, id: user.id });
+
+  const result = await syncUserProfile(sb, user.id, patch);
+  if (!result.ok) return new NextResponse(result.error, { status: 500 });
+
+  return NextResponse.json({ ok: true, id: user.id });
 }

@@ -9,14 +9,14 @@ import type { Route } from 'next';
 
 export default function LoginForm() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [pw, setPw] = useState('');
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   const callbackUrl = '/dashboard' as Route; // alvo por omissão
-  const canSubmit = email.trim().length > 0 && pw.length > 0 && !loading;
+  const canSubmit = identifier.trim().length > 0 && pw.length > 0 && !loading;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -26,7 +26,7 @@ export default function LoginForm() {
 
     // usamos redirect:false para controlar a navegação e manter typedRoutes
     const res = await signIn('credentials', {
-      email,
+      identifier,
       password: pw,
       redirect: false,
       callbackUrl, // ainda assim passamos para NextAuth saber o alvo
@@ -53,16 +53,19 @@ export default function LoginForm() {
 
   return (
     <form onSubmit={onSubmit} className="auth-fields" style={{ display: 'grid', gap: 12 }}>
-      <label className="auth-label" htmlFor="lemail">Email</label>
+      <label className="auth-label" htmlFor="lemail">Email ou nome de utilizador</label>
       <input
         id="lemail"
-        type="email"
-        placeholder="o.teu@email.com"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
+        type="text"
+        placeholder="utilizador ou email"
+        value={identifier}
+        onChange={(e) => setIdentifier(e.target.value)}
         required
         className="auth-input"
       />
+      <p className="text-sm" style={{ marginTop: -4, marginBottom: 4, color: 'var(--muted, #6b7280)' }}>
+        Podes entrar com o teu email ou com o username escolhido no perfil.
+      </p>
 
       <label className="auth-label" htmlFor="lpw">Palavra-passe</label>
       <div className="auth-password" style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8 }}>

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
+import { syncUserProfile } from '@/lib/profileSync';
 
 type SessionUser = { id?: string };
 type SessionLike = { user?: SessionUser } | null;
@@ -28,8 +29,8 @@ export async function POST(req: Request) {
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const publicUrl = `${base}/storage/v1/object/public/avatars/${encodeURIComponent(path)}`;
 
-  const { error: updErr } = await sb.from('profiles').upsert({ id: user.id, avatar_url: publicUrl });
-  if (updErr) return new NextResponse(updErr.message, { status: 500 });
+  const result = await syncUserProfile(sb, user.id, { avatar_url: publicUrl });
+  if (!result.ok) return new NextResponse(result.error, { status: 500 });
 
   return NextResponse.json({ ok: true, avatar_url: publicUrl });
 }

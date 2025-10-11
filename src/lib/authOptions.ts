@@ -8,6 +8,7 @@ import { checkPassword } from '@/lib/hash';
 type BaseUser = { id: string; email: string; password_hash: string };
 type ExtraUser = Partial<{
   name: string | null;
+  username: string | null;
   role: 'ADMIN' | 'TRAINER' | 'CLIENT' | string | null;
   is_active: boolean | null;
   status: string | null;
@@ -15,21 +16,34 @@ type ExtraUser = Partial<{
 }>;
 
 // 1) Só pedimos colunas garantidas; 2) depois tentamos extras (se existirem)
-async function getUserByEmail(email: string) {
+async function getUserBy(column: 'email' | 'username', value: string) {
+  const normalized = value.trim();
+  if (!normalized) return null;
+
   const base = await supabaseAdmin
     .from('users')
     .select('id,email,password_hash')
-    .eq('email', email)
+    .ilike(column, normalized)
     .maybeSingle<BaseUser>();
   if (!base.data) return null;
 
   const extra = await supabaseAdmin
     .from('users')
-    .select('name,role,is_active,status,approved')
+    .select('name,role,is_active,status,approved,username')
     .eq('id', base.data.id)
     .maybeSingle<ExtraUser>();
 
   return { ...base.data, ...(extra.data ?? {}) };
+}
+
+async function getUserByIdentifier(identifier: string) {
+  const normalized = identifier.trim();
+  if (!normalized) return null;
+
+  const byEmail = await getUserBy('email', normalized);
+  if (byEmail) return byEmail;
+
+  return getUserBy('username', normalized.toLowerCase());
 }
 
 export const authOptions: NextAuthOptions = {
@@ -40,26 +54,26 @@ export const authOptions: NextAuthOptions = {
     Credentials({
       name: 'Credentials',
       credentials: {
-        email: { label: 'Email', type: 'email' },
+        identifier: { label: 'Email ou utilizador', type: 'text' },
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
         const parsed = LoginSchema.safeParse({
-          email: credentials?.email,
+          identifier: credentials?.identifier,
           password: credentials?.password,
         });
         if (!parsed.success) return null;
 
-        const { email, password } = parsed.data;
-        const user = await getUserByEmail(email);
+        const { identifier, password } = parsed.data;
+        const user = await getUserByIdentifier(identifier);
         if (!user) {
-          console.warn('[auth] user not found (public.users):', email);
+          console.warn('[auth] user not found (public.users):', identifier);
           return null;
         }
 
         const ok = await checkPassword(password, user.password_hash);
         if (!ok) {
-          console.warn('[auth] bad password:', email);
+          console.warn('[auth] bad password:', identifier);
           return null;
         }
 
@@ -69,11 +83,13 @@ export const authOptions: NextAuthOptions = {
         const sessionUser = {
           id: user.id,
           email: user.email,
-          name: user.name ?? user.email.split('@')[0],
+          name: user.name ?? user.username ?? user.email.split('@')[0],
           role: (user.role as any) ?? 'CLIENT',
         } as any;
 
-        console.log('[auth] login LOCAL OK para', email);
+        if (user.username) (sessionUser as any).username = user.username;
+
+        console.log('[auth] login LOCAL OK para', identifier);
         return sessionUser;
       },
     }),

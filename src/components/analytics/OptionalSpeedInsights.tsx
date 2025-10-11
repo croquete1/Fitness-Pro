@@ -4,23 +4,27 @@ import React from 'react';
 
 const require = createRequire(import.meta.url);
 
+const ENABLED = process.env.NEXT_PUBLIC_ENABLE_SPEED_INSIGHTS === 'true';
+
 let Impl: ComponentType | null = null;
 
-try {
-  const mod = require('@vercel/speed-insights/next') as {
-    SpeedInsights?: ComponentType;
-    default?: ComponentType;
-  };
-  Impl = mod.SpeedInsights ?? mod.default ?? null;
-} catch (error) {
-  if (process.env.NODE_ENV !== 'production') {
-    console.warn('[SpeedInsights] módulo não encontrado; ignorado.', error);
+if (ENABLED) {
+  try {
+    const mod = require('@vercel/speed-insights/next') as {
+      SpeedInsights?: ComponentType;
+      default?: ComponentType;
+    };
+    Impl = mod.SpeedInsights ?? mod.default ?? null;
+  } catch (error) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[SpeedInsights] módulo não encontrado; ignorado.', error);
+    }
+    Impl = null;
   }
-  Impl = null;
 }
 
 export default function OptionalSpeedInsights() {
-  if (!Impl) {
+  if (!ENABLED || !Impl) {
     return null;
   }
 
