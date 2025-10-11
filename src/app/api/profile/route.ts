@@ -1,6 +1,7 @@
 // src/app/api/profile/route.ts
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
+import { saveProfilePrivate } from '@/lib/profilePrivate';
 import { syncUserProfile } from '@/lib/profileSync';
 import { isGuardErr, requireUserGuard } from '@/lib/api-guards';
 import { checkUsernameAvailability, validateUsernameCandidate } from '@/lib/username';
@@ -148,11 +149,10 @@ export async function PATCH(req: Request) {
   }
 
   if (Object.keys(privatePatch).length) {
-    const { error } = await sb
-      .from('profile_private')
-      .upsert({ user_id: guard.me.id, ...privatePatch }, { onConflict: 'user_id' });
-    if (error) {
-      return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
+    const result = await saveProfilePrivate(sb, guard.me.id, privatePatch);
+    if (result.ok === false) {
+      const { error, status } = result;
+      return NextResponse.json({ ok: false, error }, { status });
     }
   }
 
