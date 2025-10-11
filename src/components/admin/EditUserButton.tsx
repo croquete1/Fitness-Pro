@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import type { Role, Status } from '@prisma/client';
+import { appRoleToDbRole, toAppRole, type AppRole } from '@/lib/roles';
+import type { Status } from '@/types/user';
 
 type U = {
   id: string;
   name: string | null;
   email: string;
-  role: Role;
+  role: AppRole;
   status: Status;
 };
 
@@ -25,7 +26,7 @@ export default function EditUserButton({
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(user.name ?? '');
   const [email, setEmail] = useState(user.email);
-  const [role, setRole] = useState<Role>(user.role);
+  const [role, setRole] = useState<AppRole>(user.role);
   const [status, setStatus] = useState<Status>(user.status);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -72,18 +73,29 @@ export default function EditUserButton({
 
     setSaving(true);
     try {
+      const payload: Record<string, any> = { ...patchData };
+      if ('role' in payload) {
+        payload.role = appRoleToDbRole(role) ?? payload.role;
+      }
+
       const res = await fetch(`/api/admin/users/${user.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(patchData),
+        body: JSON.stringify(payload),
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) {
         setErr(j?.error || 'Erro ao guardar');
         return;
       }
-      // atualiza no caller (otimista)
-      const merged: U = { ...user, ...(j.user ?? patchData) } as U;
+      const nextRole = toAppRole(j?.role ?? payload.role ?? role) ?? role;
+      const merged: U = {
+        ...user,
+        name: 'name' in patchData ? (j?.name ?? (name || null)) : user.name,
+        email: 'email' in patchData ? (j?.email ?? email) : user.email,
+        role: nextRole,
+        status: (j?.status ?? status) as Status,
+      };
       onSaved?.(merged);
       setOpen(false);
     } catch (e) {
@@ -149,10 +161,10 @@ export default function EditUserButton({
                 <select
                   className="rounded-lg border p-2"
                   value={role}
-                  onChange={(e) => setRole(e.target.value as Role)}
+                  onChange={(e) => setRole(e.target.value as AppRole)}
                 >
                   <option value="ADMIN">ADMIN</option>
-                  <option value="TRAINER">TRAINER</option>
+                  <option value="PT">PT</option>
                   <option value="CLIENT">CLIENT</option>
                 </select>
               </label>

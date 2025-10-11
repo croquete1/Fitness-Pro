@@ -1,53 +1,54 @@
-import { NextResponse } from "next/server";
-import prismaAny from "@/lib/prisma";
+import { NextResponse } from 'next/server';
+import { tryCreateServerClient } from '@/lib/supabaseServer';
+import { toAppRole } from '@/lib/roles';
+import { getSampleUsers } from '@/lib/fallback/users';
 
-const prisma: any =
-  (prismaAny as any).prisma ??
-  (prismaAny as any).default ??
-  prismaAny;
+const TABLE_CANDIDATES = ['profiles', 'users', 'app_users', 'people'];
 
-const CANDIDATE_USER_MODELS = ["user", "User", "accountUser", "AccountUser"];
-
-function firstModel(names: string[]) {
-  for (const n of names) {
-    const m = (prisma as any)[n];
-    if (m && typeof m.findMany === "function") return n;
-  }
-  return null;
-}
-function like(q: string) {
-  return { contains: q, mode: "insensitive" as const };
+function mapRow(row: any) {
+  return {
+    id: String(row?.id ?? row?.user_id ?? ''),
+    name: row?.name ?? row?.full_name ?? row?.fullName ?? null,
+    email: row?.email ?? row?.contact_email ?? null,
+    role: toAppRole(row?.role ?? null) ?? row?.role ?? 'TRAINER',
+    status: String(row?.status ?? row?.state ?? 'ACTIVE').toUpperCase(),
+  };
 }
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const q = (searchParams.get("q") ?? "").trim();
-  const limit = Math.min(50, Math.max(1, Number(searchParams.get("limit") ?? 10)));
+  const q = (searchParams.get('q') ?? '').trim().toLowerCase();
+  const limit = Math.min(50, Math.max(1, Number(searchParams.get('limit') ?? 10)));
 
-  const model = firstModel(CANDIDATE_USER_MODELS);
-  if (!model) return NextResponse.json({ data: [] });
-
-  const where: any = {};
-  try { where.role = "TRAINER"; } catch {}
-
-  if (q) {
-    where.OR = [{ name: like(q) }, { email: like(q) }, { fullName: like(q) }];
+  const sb = tryCreateServerClient();
+  if (!sb) {
+    const fallback = getSampleUsers({ page: 0, pageSize: limit, search: q, role: 'TRAINER' });
+    return NextResponse.json({ data: fallback.rows });
   }
 
-  let items: any[] = [];
-  try {
-    items = await (prisma as any)[model].findMany({ where, take: limit, orderBy: { createdAt: "desc" } });
-  } catch {
-    items = await (prisma as any)[model].findMany({ where, take: limit });
+  for (const table of TABLE_CANDIDATES) {
+    try {
+      let builder: any = sb.from(table).select('*').limit(limit).in('role', ['TRAINER', 'PT']);
+      if (q) {
+        builder = builder.or(`name.ilike.%${q}%,full_name.ilike.%${q}%,email.ilike.%${q}%`);
+      }
+      const res = await builder;
+      if (res.error) {
+        const code = res.error.code ?? '';
+        if (code === 'PGRST205' || code === 'PGRST301' || code === '42703') continue;
+        return NextResponse.json({ error: res.error.message }, { status: 400 });
+      }
+      if (!res.data?.length) continue;
+      const data = res.data.map(mapRow).filter((row) => row.id);
+      if (!data.length) continue;
+      return NextResponse.json({ data });
+    } catch (error: any) {
+      const code = error?.code ?? error?.message ?? '';
+      if (code.includes('PGRST205') || code.includes('PGRST301')) continue;
+      return NextResponse.json({ error: error?.message ?? 'REQUEST_FAILED' }, { status: 400 });
+    }
   }
 
-  const data = items.map((u: any) => ({
-    id: String(u.id ?? ""),
-    name: u.name ?? u.fullName ?? null,
-    email: u.email ?? null,
-    role: (u.role ?? "TRAINER").toString().toUpperCase(),
-    status: (u.status ?? "ACTIVE").toString().toUpperCase(),
-  }));
-
-  return NextResponse.json({ data });
+  const fallback = getSampleUsers({ page: 0, pageSize: limit, search: q, role: 'TRAINER' });
+  return NextResponse.json({ data: fallback.rows });
 }

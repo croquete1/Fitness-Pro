@@ -1,12 +1,13 @@
 'use client';
 
-import { Role } from '@prisma/client';
+import type { AppRole } from '@/lib/roles';
 
-export default function RolePill({ role }: { role: Role }) {
+export default function RolePill({ role }: { role: AppRole | 'TRAINER' }) {
+  const dbRole = role === 'PT' ? 'TRAINER' : role;
   const palette =
-    role === 'ADMIN'
+    dbRole === 'ADMIN'
       ? { c: '#6d28d9', bg: 'rgba(124,58,237,.10)', b: 'rgba(124,58,237,.25)' }
-      : role === 'TRAINER'
+      : dbRole === 'TRAINER'
       ? { c: '#2563eb', bg: 'rgba(37,99,235,.10)', b: 'rgba(37,99,235,.25)' }
       : { c: '#0f766e', bg: 'rgba(15,118,110,.10)', b: 'rgba(15,118,110,.25)' };
 
@@ -15,7 +16,7 @@ export default function RolePill({ role }: { role: Role }) {
       className="badge"
       style={{ color: palette.c, background: palette.bg, borderColor: palette.b }}
     >
-      {role}
+      {role === 'PT' ? 'Personal Trainer' : role}
     </span>
   );
 }

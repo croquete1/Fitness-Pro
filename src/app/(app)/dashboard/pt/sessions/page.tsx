@@ -110,7 +110,7 @@ export default function TrainerSessionsPage() {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ display: 'grid', gap: 2 }}>
+    <Container maxWidth={false} sx={{ display: 'grid', gap: 2, px: { xs: 2, md: 3 }, width: '100%' }}>
       <Stack direction="row" alignItems="center" justifyContent="space-between">
         <Typography variant="h5" fontWeight={800}>🗓️ Agenda do PT (semana)</Typography>
         <Stack direction="row" gap={1}>

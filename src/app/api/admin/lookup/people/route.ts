@@ -1,41 +1,93 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabaseServer';
+import { tryCreateServerClient } from '@/lib/supabaseServer';
+import { toAppRole } from '@/lib/roles';
+
+const TABLE_CANDIDATES = ['profiles', 'users', 'app_users', 'people', 'people_view'];
+
+function normalizeRoleFilter(value: string) {
+  const appRole = toAppRole(value);
+  if (!appRole) return null;
+  if (appRole === 'PT') return ['PT', 'TRAINER'];
+  return [appRole];
+}
+
+function mapRow(row: any) {
+  const role = toAppRole(row?.role ?? null) ?? row?.role ?? null;
+  const name = row?.name ?? row?.full_name ?? row?.fullName ?? row?.display_name ?? null;
+  return {
+    id: String(row?.id ?? row?.user_id ?? ''),
+    name,
+    email: row?.email ?? row?.contact_email ?? null,
+    role,
+  };
+}
+
+type QueryResult = { rows: any[]; error?: any } | null;
+
+async function fetchFrom(
+  table: string,
+  opts: {
+    id?: string | null;
+    search?: string;
+    roles?: string[] | null;
+    limit?: number;
+  },
+): Promise<QueryResult> {
+  const sb = tryCreateServerClient();
+  if (!sb) return { rows: [] };
+
+  try {
+    let builder: any = sb.from(table).select('*');
+    if (opts.roles?.length) builder = builder.in('role', opts.roles);
+    if (opts.search) {
+      const term = opts.search;
+      builder = builder.or(`name.ilike.%${term}%,full_name.ilike.%${term}%,email.ilike.%${term}%`);
+    }
+
+    const res: any = opts.id
+      ? await builder.eq('id', opts.id).maybeSingle()
+      : await (opts.limit ? builder.limit(opts.limit) : builder);
+
+    if (res.error) {
+      const code = res.error.code ?? res.error.details ?? '';
+      if (code === 'PGRST205' || code === 'PGRST301' || code === '42703') return null;
+      if (code === 'PGRST116') return { rows: [] };
+      return { rows: [], error: res.error };
+    }
+    const rows = opts.id ? (res.data ? [res.data] : []) : res.data ?? [];
+    return { rows };
+  } catch (error: any) {
+    const code = error?.code ?? error?.message ?? '';
+    if (code.includes('PGRST205') || code.includes('PGRST301')) return null;
+    return { rows: [], error };
+  }
+}
 
 export async function GET(req: NextRequest) {
-  const sb = createServerClient();
   const { searchParams } = new URL(req.url);
-
-  const role = (searchParams.get('role') || '').toLowerCase(); // 'trainer' | 'pt' | 'client'
+  const role = (searchParams.get('role') || '').trim().toLowerCase();
   const q = (searchParams.get('q') || '').trim().toLowerCase();
-  const id = searchParams.get('id') || null;
+  const id = searchParams.get('id');
 
-  // Base: tabela 'users'
-  let query = sb.from('users').select('id, name, full_name, email, role').limit(50);
+  const roleFilters = role ? normalizeRoleFilter(role) : null;
 
-  if (id) {
-    const one = await query.eq('id', id).single();
-    if (one.error || !one.data) return NextResponse.json({ rows: [] });
-    const r = one.data as any;
-    return NextResponse.json({
-      rows: [{ id: String(r.id), name: r.name ?? r.full_name ?? null, email: r.email ?? null, role: r.role ?? null }],
+  for (const table of TABLE_CANDIDATES) {
+    const res = await fetchFrom(table, { id, search: q || undefined, roles: roleFilters, limit: id ? 1 : 50 });
+    if (!res) continue;
+    if (res.error) return NextResponse.json({ rows: [], error: res.error.message ?? String(res.error) }, { status: 400 });
+    if (res.rows.length === 0) continue;
+    const mapped = res.rows
+      .map(mapRow)
+      .filter((row) => row.id);
+    if (mapped.length === 0) continue;
+    const filtered = mapped.filter((row) => {
+      if (!q || id) return true;
+      const cmp = (value?: string | null) => String(value ?? '').toLowerCase();
+      return cmp(row.name).includes(q) || cmp(row.email).includes(q);
     });
+    return NextResponse.json({ rows: id ? filtered.slice(0, 1) : filtered.slice(0, 50) });
   }
 
-  if (role) query = query.ilike('role', `%${role}%`);
-  const { data, error } = await query;
-  if (error) return NextResponse.json({ rows: [], error: error.message }, { status: 400 });
-
-  const mapped = (data ?? [])
-    .map((r: any) => ({
-      id: String(r.id),
-      name: r.name ?? r.full_name ?? null,
-      email: r.email ?? null,
-      role: r.role ?? null,
-    }))
-    .filter((r) => {
-      if (!q) return true;
-      return String(r.name ?? '').toLowerCase().includes(q) || String(r.email ?? '').toLowerCase().includes(q);
-    });
-
-  return NextResponse.json({ rows: mapped.slice(0, 50) });
+  // fallback: no table matched → empty list
+  return NextResponse.json({ rows: [] });
 }

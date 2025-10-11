@@ -27,7 +27,6 @@ export async function GET(req: Request) {
   async function base(table: string) {
     let sel = sb.from(table).select('*', { count: 'exact' });
     if (q) {
-      // tenta match por name/title
       sel = sel.or(`name.ilike.%${q}%,title.ilike.%${q}%`);
     }
     if (difficulty) {
@@ -35,24 +34,35 @@ export async function GET(req: Request) {
     }
     const fromIdx = page * pageSize;
     const toIdx = fromIdx + pageSize - 1;
-    sel = sel.range(fromIdx, toIdx).order('created_at', { ascending: false }).order('id', { ascending: true });
-    return sel;
+    return sel
+      .range(fromIdx, toIdx)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true });
   }
 
-  let data: any[] | null = null, count = 0, err: any = null;
-  let r = await base('plans');
-  if (r.data || r.count || r.error) { data = r.data ?? null; count = r.count ?? 0; err = r.error ?? null; }
+  const candidates = ['plans', 'training_plans', 'programs'];
+  let data: any[] | null = null;
+  let count = 0;
 
-  if (!data && !err) {
-    const r2 = await base('programs');
-    data = r2.data ?? null; count = r2.count ?? 0; err = r2.error ?? null;
-  }
-  if (err) {
-    console.warn('[admin/plans] list failed', err);
-    return NextResponse.json({ error: 'REQUEST_FAILED' }, { status: 400 });
+  for (const table of candidates) {
+    const r = await base(table);
+    if (r.error) {
+      const code = r.error.code ?? '';
+      if (code === 'PGRST205' || code === 'PGRST301') continue;
+      console.warn('[admin/plans] list failed', r.error);
+      return NextResponse.json({ error: 'REQUEST_FAILED' }, { status: 400 });
+    }
+    if ((r.data?.length ?? 0) === 0 && (r.count ?? 0) === 0) continue;
+    data = r.data ?? [];
+    count = r.count ?? data.length;
+    break;
   }
 
-  const rows = (data ?? []).map((d: any) => ({
+  if (!data) {
+    return NextResponse.json({ rows: [], count: 0 }, { headers: { 'cache-control': 'no-store' } });
+  }
+
+  const rows = data.map((d: any) => ({
     id: String(d.id),
     name: pick(d, ['name', 'title']) ?? '',
     description: pick(d, ['description', 'details']) ?? '',
@@ -62,7 +72,7 @@ export async function GET(req: Request) {
     created_at: d.created_at ?? null,
   }));
 
-  return NextResponse.json({ rows, count });
+  return NextResponse.json({ rows, count }, { headers: { 'cache-control': 'no-store' } });
 }
 
 export async function POST(req: Request) {
@@ -82,14 +92,18 @@ export async function POST(req: Request) {
 
   const tryInsert = async (table: string) => sb.from(table).insert(payload).select('*').single();
 
-  let r = await tryInsert('plans');
-  if (r.error?.code === '42P01' || r.error?.message?.includes('relation')) {
-    r = await tryInsert('programs');
-  }
-  if (r.error) {
-    console.warn('[admin/plans] insert failed', r.error);
-    return NextResponse.json({ error: 'REQUEST_FAILED' }, { status: 400 });
+  for (const table of ['plans', 'training_plans', 'programs']) {
+    const r = await tryInsert(table);
+    if (r.error) {
+      const code = r.error.code ?? '';
+      if (code === 'PGRST205' || code === '42P01' || code === 'PGRST301' || r.error.message?.includes('relation')) {
+        continue;
+      }
+      console.warn('[admin/plans] insert failed', r.error);
+      return NextResponse.json({ error: 'REQUEST_FAILED' }, { status: 400 });
+    }
+    return NextResponse.json({ ok: true, row: r.data });
   }
 
-  return NextResponse.json({ ok: true, row: r.data });
+  return NextResponse.json({ error: 'REQUEST_FAILED' }, { status: 400 });
 }
