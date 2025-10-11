@@ -18,8 +18,10 @@ language sql
 stable
 as $$
   select exists(
-    select 1 from public.users u
-    where u.id = uid and upper(coalesce(u.role, '')) = 'ADMIN'
+    select 1
+    from public.users u
+    where u.id = uid
+      and coalesce(u.role, '') ilike 'admin'
   );
 $$;
 
@@ -29,8 +31,10 @@ language sql
 stable
 as $$
   select exists(
-    select 1 from public.users u
-    where u.id = uid and upper(coalesce(u.role, '')) in ('TRAINER', 'PT')
+    select 1
+    from public.users u
+    where u.id = uid
+      and coalesce(u.role, '') ilike any (array['trainer', 'pt'])
   );
 $$;
 
@@ -40,8 +44,10 @@ language sql
 stable
 as $$
   select exists(
-    select 1 from public.users u
-    where u.id = uid and upper(coalesce(u.role, '')) = 'CLIENT'
+    select 1
+    from public.users u
+    where u.id = uid
+      and coalesce(u.role, '') ilike 'client'
   );
 $$;
 
