@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import {
   Box, Stack, TextField, MenuItem, Button, IconButton, Tooltip, Paper, Divider,
   CircularProgress, Snackbar, Alert, Dialog, DialogTitle, DialogContent, DialogActions,
@@ -13,11 +14,13 @@ import FileDownloadOutlined from '@mui/icons-material/FileDownloadOutlined';
 import PrintOutlined from '@mui/icons-material/PrintOutlined';
 import ContentCopyOutlined from '@mui/icons-material/ContentCopyOutlined';
 import { DataGrid, GridColDef, GridToolbar, GridToolbarQuickFilter, GridFilterModel } from '@mui/x-data-grid';
+import { alpha } from '@mui/material/styles';
 import { useRouter } from 'next/navigation';
 import { getSampleUsers } from '@/lib/fallback/users';
 import AdminUserRowActions from '@/components/admin/AdminUserRowActions';
+import { toAppRole } from '@/lib/roles';
 
-export type Role = 'ADMIN' | 'TRAINER' | 'CLIENT' | string;
+export type Role = 'ADMIN' | 'TRAINER' | 'PT' | 'CLIENT' | string;
 export type Status = 'active' | 'invited' | 'blocked' | string;
 
 export type Row = {
@@ -37,6 +40,7 @@ export type Row = {
 export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
   const router = useRouter();
   const theme = useTheme();
+  const isLight = theme.palette.mode === 'light';
   const downMd = useMediaQuery(theme.breakpoints.down('md'));
   const downSm = useMediaQuery(theme.breakpoints.down('sm'));
 
@@ -103,11 +107,13 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
         setSnack({ open: true, msg: 'Supabase não está configurado — a lista mostra dados locais.', sev: 'info' });
       }
 
-      const mapped: Row[] = (j.rows ?? []).map((x: any) => ({
-        id: String(x.id),
-        name: x.name ?? null,
-        email: x.email ?? null,
-        role: (x.role ?? x.profile ?? '') as Role,
+      const mapped: Row[] = (j.rows ?? []).map((x: any) => {
+        const normalizedRole = toAppRole(x.role ?? x.profile ?? null);
+        return {
+          id: String(x.id),
+          name: x.name ?? null,
+          email: x.email ?? null,
+          role: (normalizedRole ?? (x.role ?? x.profile ?? '')) as Role,
         status: (x.status ?? x.state ?? '')
           ? (String(x.status ?? x.state ?? '').toLowerCase() as Status)
           : ('' as Status),
@@ -117,7 +123,8 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
         last_login_at: x.lastLoginAt ?? x.last_login_at ?? null,
         last_seen_at: x.lastSeenAt ?? x.last_seen_at ?? null,
         online: Boolean(x.online ?? false),
-      }));
+        };
+      });
       setRows(mapped);
       setCount(j.count ?? mapped.length);
     } catch (e: any) {
@@ -153,13 +160,22 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
 
   // --------- Helpers UI ----------
   const roleColor = (role?: Role) => {
-    switch (role) {
+    const appRole = toAppRole(role ?? null);
+    switch (appRole) {
       case 'ADMIN': return 'error';
-      case 'TRAINER': return 'primary';
+      case 'PT': return 'secondary';
       case 'CLIENT': return 'success';
       default: return 'default';
     }
   };
+
+  const roleLabel = React.useCallback((role?: Role) => {
+    const appRole = toAppRole(role ?? null);
+    if (appRole === 'ADMIN') return 'Admin';
+    if (appRole === 'PT') return 'Personal trainer';
+    if (appRole === 'CLIENT') return 'Cliente';
+    return role ? String(role) : '—';
+  }, []);
 
   const statusColor = (s?: Status) => {
     switch (s) {
@@ -302,11 +318,32 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
       sortable: false,
       filterable: false,
       valueGetter: (_value, row) => row.name ?? '',
-      renderCell: (params) => (
-        <Stack spacing={0.25} sx={{ minWidth: 0 }}>
-          <Typography fontWeight={600} sx={{ wordBreak: 'break-word' }}>
-            {params.row.name ?? '—'}
-          </Typography>
+      renderCell: (params) => {
+        const profileHref = params.row.id ? `/dashboard/users/${params.row.id}` : null;
+        const linkProps: any = profileHref
+          ? { component: Link, href: profileHref, prefetch: false }
+          : { component: 'span' };
+        const isClickable = Boolean(profileHref);
+        const displayName = params.row.name ?? params.row.email ?? '—';
+        return (
+          <Stack spacing={0.25} sx={{ minWidth: 0 }}>
+            <Typography
+              {...linkProps}
+              fontWeight={700}
+              sx={{
+                wordBreak: 'break-word',
+                color: isClickable
+                  ? (isLight ? theme.palette.primary.main : theme.palette.primary.light)
+                  : theme.palette.text.secondary,
+                textDecoration: 'none',
+                cursor: isClickable ? 'pointer' : 'default',
+                '&:hover': {
+                  textDecoration: isClickable ? 'underline' : 'none',
+                },
+              }}
+            >
+              {displayName}
+            </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ wordBreak: 'break-word' }}>
             {params.row.email ?? '—'}
           </Typography>
@@ -315,7 +352,7 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
               {params.row.role ? (
                 <Chip
                   size="small"
-                  label={String(params.row.role ?? '').toUpperCase()}
+                  label={roleLabel(params.row.role)}
                   color={roleColor(params.row.role as Role)}
                   variant="outlined"
                 />
@@ -336,8 +373,9 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
               />
             </Stack>
           )}
-        </Stack>
-      ),
+          </Stack>
+        );
+      },
     },
     {
       field: 'profile',
@@ -346,13 +384,13 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
       minWidth: 200,
       sortable: false,
       filterable: false,
-      valueGetter: (_value, row) => `${row.role ?? ''} ${row.status ?? ''}`,
+      valueGetter: (_value, row) => `${roleLabel(row.role)} ${row.status ?? ''}`,
       renderCell: (params) => (
         <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ alignItems: 'center', minWidth: 0 }}>
           {params.row.role ? (
             <Chip
               size="small"
-              label={String(params.row.role ?? '').toUpperCase()}
+              label={roleLabel(params.row.role)}
               color={roleColor(params.row.role as Role)}
               variant="outlined"
             />
@@ -384,11 +422,15 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
       valueGetter: (_value, row) => row.last_seen_at ?? row.last_login_at ?? '',
       renderCell: (params) => (
         <Stack spacing={0.25} sx={{ minWidth: 0 }}>
-          <Typography variant="body2" color="text.secondary">
-            Último login: {formatDateTime(params.row.last_login_at)}
+          <Typography
+            variant="body2"
+            color={params.row.online ? 'success.main' : 'text.secondary'}
+            fontWeight={params.row.online ? 600 : undefined}
+          >
+            {params.row.online ? 'Online agora' : `Último login: ${formatDateTime(params.row.last_login_at)}`}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Última atividade: {formatDateTime(params.row.last_seen_at)}
+            Última atividade: {params.row.online ? 'Em curso' : formatDateTime(params.row.last_seen_at)}
           </Typography>
         </Stack>
       ),
@@ -471,8 +513,26 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
 
   // --------- Render ----------
   return (
-    <Box sx={{ display:'grid', gap:1.5 }}>
-      <Paper variant="outlined" sx={{ p:1.5, borderRadius:2 }}>
+    <Box
+      sx={{
+        display: 'grid',
+        gap: 1.5,
+      }}
+    >
+      <Paper
+        variant="outlined"
+        sx={{
+          p: { xs: 1.25, sm: 1.5 },
+          borderRadius: 3,
+          backgroundColor: isLight ? alpha(theme.palette.background.paper, 0.92) : undefined,
+          backgroundImage: isLight
+            ? 'linear-gradient(135deg, rgba(59,130,246,0.08), rgba(59,130,246,0.02))'
+            : undefined,
+          backdropFilter: isLight ? 'blur(6px)' : undefined,
+          boxShadow: isLight ? '0 18px 45px rgba(15, 23, 42, 0.08)' : undefined,
+          borderColor: isLight ? alpha(theme.palette.primary.main, 0.12) : undefined,
+        }}
+      >
         <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
           <Typography variant="h6" fontWeight={800}>Utilizadores</Typography>
           <Stack direction="row" spacing={1}>
@@ -483,7 +543,7 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
         </Stack>
       </Paper>
 
-      <Divider />
+      <Divider sx={{ opacity: isLight ? 0.5 : 1 }} />
 
       <DataGrid
         rows={rows}
@@ -502,6 +562,11 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
         columnVisibilityModel={columnVisibilityModel}
         sx={{
           width: '100%',
+          bgcolor: isLight ? alpha(theme.palette.background.paper, 0.95) : 'transparent',
+          borderRadius: 3,
+          border: '1px solid',
+          borderColor: isLight ? alpha(theme.palette.primary.main, 0.12) : 'divider',
+          boxShadow: isLight ? '0 16px 40px rgba(15, 23, 42, 0.06)' : undefined,
           '& .MuiDataGrid-cell': {
             py: 1.5,
             alignItems: 'flex-start',
@@ -515,11 +580,32 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
           '& .MuiDataGrid-columnHeaders': {
             lineHeight: 1.2,
             whiteSpace: 'normal',
+            backgroundColor: isLight ? alpha(theme.palette.primary.light, 0.12) : undefined,
+            borderBottom: isLight ? `1px solid ${alpha(theme.palette.primary.main, 0.15)}` : undefined,
+          },
+          '& .MuiDataGrid-row:hover': {
+            backgroundColor: isLight
+              ? alpha(theme.palette.primary.light, 0.12)
+              : alpha(theme.palette.primary.main, 0.1),
+          },
+          '& .MuiDataGrid-footerContainer': {
+            borderTop: isLight ? `1px solid ${alpha(theme.palette.primary.main, 0.12)}` : undefined,
+            backgroundColor: isLight ? alpha(theme.palette.background.paper, 0.9) : undefined,
           },
         }}
         slots={{
           toolbar: () => (
-            <Stack direction={{ xs:'column', sm:'row' }} spacing={1} sx={{ p: 1 }}>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={1}
+              sx={{
+                p: 1,
+                '& .MuiInputBase-root': {
+                  backgroundColor: isLight ? alpha(theme.palette.common.white, 0.8) : undefined,
+                  borderRadius: 2,
+                },
+              }}
+            >
               <GridToolbarQuickFilter debounceMs={300} />
               <Box sx={{ flex: 1 }} />
               <GridToolbar />

@@ -19,6 +19,7 @@ import IconButton from '@mui/material/IconButton';
 import ManageAccountsOutlinedIcon from '@mui/icons-material/ManageAccountsOutlined';
 import HandshakeOutlinedIcon from '@mui/icons-material/HandshakeOutlined';
 import PowerSettingsNewOutlinedIcon from '@mui/icons-material/PowerSettingsNewOutlined';
+import { toAppRole, type AppRole } from '@/lib/roles';
 
 type TrainerOption = {
   id: string;
@@ -47,10 +48,14 @@ export default function AdminUserRowActions({ id, currRole, currStatus, compact 
 
   const isCompact = compact;
 
-  async function post(url: string, body?: any) {
+  async function request(url: string, body?: any, method: 'POST' | 'PATCH' = 'POST') {
     setBusy(true);
     try {
-      const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined,
+      });
       if (!res.ok) throw new Error(await res.text());
       if (onActionComplete) {
         await onActionComplete();
@@ -133,8 +138,21 @@ export default function AdminUserRowActions({ id, currRole, currStatus, compact 
     setSelectedTrainer(null);
   };
 
-  const normalizedRole = currRole?.toUpperCase?.() ?? 'CLIENT';
-  const isClient = normalizedRole.includes('CLIENT');
+  const currentRole = toAppRole(currRole) ?? 'CLIENT';
+  const isClient = currentRole === 'CLIENT';
+  const isAdmin = currentRole === 'ADMIN';
+  const canChangeRole = !isAdmin;
+
+  const roleLabels: Record<AppRole, string> = {
+    ADMIN: 'Administrador',
+    PT: 'Personal trainer',
+    CLIENT: 'Cliente',
+  };
+
+  const roleOptions: Array<{ value: AppRole; label: string }> = [
+    { value: 'CLIENT', label: 'Cliente' },
+    { value: 'PT', label: 'Personal trainer' },
+  ];
 
   return (
     <Stack
@@ -146,27 +164,44 @@ export default function AdminUserRowActions({ id, currRole, currStatus, compact 
       useFlexGap
     >
       <Tooltip
-        title="Alterar perfil"
+        title={canChangeRole ? 'Alterar perfil' : 'O perfil de administrador está protegido'}
         disableFocusListener={!isCompact}
         disableHoverListener={!isCompact}
         disableTouchListener={!isCompact}
       >
         <span>
           {isCompact ? (
-            <IconButton size="small" onClick={(e) => setAnchor(e.currentTarget)} disabled={busy} color="primary">
+            <IconButton
+              size="small"
+              onClick={(e) => { if (canChangeRole) setAnchor(e.currentTarget); }}
+              disabled={busy || !canChangeRole}
+              color="primary"
+            >
               <ManageAccountsOutlinedIcon fontSize="small" />
             </IconButton>
           ) : (
-            <Button size="small" variant="outlined" onClick={(e) => setAnchor(e.currentTarget)} disabled={busy}>
-              Role: {currRole}
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={(e) => { if (canChangeRole) setAnchor(e.currentTarget); }}
+              disabled={busy || !canChangeRole}
+            >
+              Perfil: {roleLabels[currentRole] ?? currentRole}
             </Button>
           )}
         </span>
       </Tooltip>
-      <Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)}>
-        {['CLIENT','PT','TRAINER','ADMIN'].map((r) => (
-          <MenuItem key={r} onClick={() => { setAnchor(null); post(`/api/admin/users/${id}/role`, { role: r }); }}>
-            {r}
+      <Menu anchorEl={anchor} open={!!anchor && canChangeRole} onClose={() => setAnchor(null)}>
+        {roleOptions.map((option) => (
+          <MenuItem
+            key={option.value}
+            onClick={() => {
+              setAnchor(null);
+              void request(`/api/admin/users/${id}/role`, { role: option.value }, 'PATCH');
+            }}
+            selected={option.value === currentRole}
+          >
+            {option.label}
           </MenuItem>
         ))}
       </Menu>
@@ -193,7 +228,7 @@ export default function AdminUserRowActions({ id, currRole, currStatus, compact 
             <IconButton
               size="small"
               color={currStatus === 'ACTIVE' ? 'warning' : 'success'}
-              onClick={() => post(`/api/admin/users/${id}/status`, { status: currStatus === 'ACTIVE' ? 'DISABLED' : 'ACTIVE' })}
+              onClick={() => request(`/api/admin/users/${id}/status`, { status: currStatus === 'ACTIVE' ? 'DISABLED' : 'ACTIVE' }, 'PATCH')}
               disabled={busy}
             >
               <PowerSettingsNewOutlinedIcon fontSize="small" />
@@ -203,7 +238,7 @@ export default function AdminUserRowActions({ id, currRole, currStatus, compact 
               size="small"
               variant={currStatus === 'ACTIVE' ? 'outlined' : 'contained'}
               color={currStatus === 'ACTIVE' ? 'warning' : 'success'}
-              onClick={() => post(`/api/admin/users/${id}/status`, { status: currStatus === 'ACTIVE' ? 'DISABLED' : 'ACTIVE' })}
+              onClick={() => request(`/api/admin/users/${id}/status`, { status: currStatus === 'ACTIVE' ? 'DISABLED' : 'ACTIVE' }, 'PATCH')}
               disabled={busy}
             >
               {currStatus === 'ACTIVE' ? 'Desativar' : 'Ativar'}

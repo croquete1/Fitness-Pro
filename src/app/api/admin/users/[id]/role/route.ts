@@ -58,3 +58,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
 
   return NextResponse.json({ ok: true, id, role: nextAppRole });
 }
+
+export async function POST(req: Request, ctx: Ctx) {
+  return PATCH(req, ctx);
+}
