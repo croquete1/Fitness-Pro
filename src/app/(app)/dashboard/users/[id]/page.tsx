@@ -5,6 +5,7 @@ import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole } from '@/lib/roles';
 import { fetchUserById } from '@/lib/userRepo';
+import { fetchPresenceMap, summarizePresence } from '@/lib/presence';
 import ClientProfileClient, {
   type ClientProfilePayload,
   type MeasurementSnapshot,
@@ -37,6 +38,12 @@ export default async function UserProfileView({ params }: { params: Promise<{ id
 
   const now = new Date();
   const nowIso = now.toISOString();
+
+  const presenceMap = await fetchPresenceMap(sb, [targetId]);
+  const presence = summarizePresence(presenceMap.get(String(targetId)), { now });
+  const lastLoginAt = presence.lastLoginAt ?? u.last_sign_in_at ?? null;
+  const lastSeenAt = presence.lastSeenAt ?? lastLoginAt;
+  const isOnline = presence.online;
 
   const trainerLinkPromise = sb
     .from('trainer_clients')
@@ -276,7 +283,9 @@ export default async function UserProfileView({ params }: { params: Promise<{ id
       role: toAppRole(u.role ?? null) ?? 'CLIENT',
       status: u.status ?? null,
       createdAt: u.created_at ?? null,
-      lastSignInAt: u.last_sign_in_at ?? null,
+      lastSignInAt: lastLoginAt,
+      lastSeenAt,
+      online: isOnline,
       avatarUrl: u.avatar_url ?? null,
       phone: u.phone ?? null,
       username: u.username ?? null,

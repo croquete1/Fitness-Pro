@@ -104,6 +104,8 @@ export type ProfileUser = {
   status: string | null;
   createdAt: string | null;
   lastSignInAt: string | null;
+  lastSeenAt: string | null;
+  online: boolean;
   avatarUrl: string | null;
   phone: string | null;
   username: string | null;
@@ -594,9 +596,29 @@ export default function ClientProfileClient({
 
                   <Stack spacing={0.5} sx={{ width: '100%' }}>
                     <Typography variant="caption" sx={{ opacity: 0.7 }}>
+                      Estado atual
+                    </Typography>
+                    <Stack direction="row" spacing={1} justifyContent="center" alignItems="center">
+                      <Chip
+                        size="small"
+                        label={user.online ? 'Online agora' : 'Offline'}
+                        color={user.online ? 'success' : 'default'}
+                        variant={user.online ? 'filled' : 'outlined'}
+                      />
+                      {!user.online && user.lastSeenAt ? (
+                        <Typography variant="body2" color="text.secondary">
+                          Visto {formatDate(user.lastSeenAt, { timeStyle: 'short' })}
+                        </Typography>
+                      ) : null}
+                    </Stack>
+                    <Typography variant="caption" sx={{ opacity: 0.7, mt: 1 }}>
                       Último acesso
                     </Typography>
                     <Typography variant="body2">{formatDate(user.lastSignInAt)}</Typography>
+                    <Typography variant="caption" sx={{ opacity: 0.7, mt: 1 }}>
+                      Última vez online
+                    </Typography>
+                    <Typography variant="body2">{formatDate(user.lastSeenAt)}</Typography>
                     <Typography variant="caption" sx={{ opacity: 0.7, mt: 1 }}>
                       Conta criada em
                     </Typography>
