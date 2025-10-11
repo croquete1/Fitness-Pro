@@ -51,38 +51,49 @@ as $$
   );
 $$;
 
-create or replace function public.ensure_policy(
-  p_table text,
-  p_policy text,
-  p_command text,
-  p_roles text,
-  p_using text,
-  p_check text default null
-) returns void
-language plpgsql
-as $$
+do $$
 begin
-  if exists (
-    select 1
-    from pg_policies
-    where schemaname = 'public'
-      and tablename = p_table
-      and policyname = p_policy
-  ) then
-    return;
-  end if;
+  -- Garantir que a função existe mesmo que o script seja executado parcialmente
+  execute 'drop function if exists public.ensure_policy(text, text, text, text, text)';
+  execute 'drop function if exists public.ensure_policy(text, text, text, text, text, text)';
 
-  execute format(
-    'create policy %I on public.%I as permissive for %s to %s using (%s)%s',
-    p_policy,
-    p_table,
-    p_command,
-    p_roles,
-    p_using,
-    case when p_check is not null then format(' with check (%s)', p_check) else '' end
-  );
-end;
+  execute $create$
+    create function public.ensure_policy(
+      p_table text,
+      p_policy text,
+      p_command text,
+      p_roles text,
+      p_using text,
+      p_check text default null
+    ) returns void
+    language plpgsql
+    as $body$
+    begin
+      if exists (
+        select 1
+        from pg_policies
+        where schemaname = 'public'
+          and tablename = p_table
+          and policyname = p_policy
+      ) then
+        return;
+      end if;
+
+      execute format(
+        'create policy %I on public.%I as permissive for %s to %s using (%s)%s',
+        p_policy,
+        p_table,
+        p_command,
+        p_roles,
+        p_using,
+        case when p_check is not null then format(' with check (%s)', p_check) else '' end
+      );
+    end;
+    $body$;
+  $create$;
+end
 $$;
+
 
 /* -------------------------------------------------------------------------- */
 /*  View onboarding_forms_with_user                                           */
@@ -136,6 +147,7 @@ alter table if exists public.audit_log                enable row level security;
 alter table if exists public.pt_sessions              enable row level security;
 alter table if exists public.motivation_phrases       enable row level security;
 alter table if exists public.auth_local_users         enable row level security;
+alter table if exists public.profile_private          enable row level security;
 
 /* --------------------------- onboarding forms ---------------------------- */
 
@@ -187,6 +199,33 @@ select public.ensure_policy(
   'authenticated',
   'public.is_admin(auth.uid()) or author_id = auth.uid()',
   'public.is_admin(auth.uid()) or author_id = auth.uid()'
+);
+
+/* ---------------------------- profile private ---------------------------- */
+
+select public.ensure_policy(
+  'profile_private',
+  'profile_private_select_owner',
+  'select',
+  'authenticated',
+  'auth.uid() = user_id or public.is_admin(auth.uid())',
+  null
+);
+select public.ensure_policy(
+  'profile_private',
+  'profile_private_write_owner',
+  'insert',
+  'authenticated',
+  'auth.uid() = user_id or public.is_admin(auth.uid())',
+  'auth.uid() = user_id or public.is_admin(auth.uid())'
+);
+select public.ensure_policy(
+  'profile_private',
+  'profile_private_update_owner',
+  'update',
+  'authenticated',
+  'auth.uid() = user_id or public.is_admin(auth.uid())',
+  'auth.uid() = user_id or public.is_admin(auth.uid())'
 );
 
 /* --------------------------- plan hierarchies --------------------------- */
@@ -441,3 +480,4 @@ select public.ensure_policy(
 );
 
 commit;
+
