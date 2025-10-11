@@ -44,6 +44,21 @@ type Nav = {
   exact?: boolean;
   activePrefix?: string | string[];
   badge?: number;
+  hint?: string;
+};
+
+type QuickAction = {
+  href: string;
+  label: string;
+  description: string;
+  icon: React.ReactNode;
+  hint?: string;
+};
+
+type FlowStep = {
+  href: string;
+  title: string;
+  description: string;
 };
 
 type QuickAction = {
@@ -65,23 +80,44 @@ export default function SidebarPT({ messagesCount = 0, notificationsCount = 0 }:
   const isRail = collapsed && !peek;
 
   const overview: Nav[] = [
-    { href: '/dashboard/pt', label: 'Painel', icon: <DashboardOutlined />, exact: true, activePrefix: '/dashboard/pt' },
-    { href: '/dashboard/pt/schedule', label: 'Agenda', icon: <CalendarMonthOutlined />, activePrefix: '/dashboard/pt/schedule' },
+    {
+      href: '/dashboard/pt',
+      label: 'Painel',
+      icon: <DashboardOutlined />,
+      exact: true,
+      activePrefix: '/dashboard/pt',
+      hint: 'Resumo diário das tarefas e métricas chave do teu trabalho.',
+    },
+    {
+      href: '/dashboard/pt/schedule',
+      label: 'Agenda',
+      icon: <CalendarMonthOutlined />,
+      activePrefix: '/dashboard/pt/schedule',
+      hint: 'Consulta sessões e eventos futuros num só calendário.',
+    },
   ];
 
   const clientes: Nav[] = [
-    { href: '/dashboard/pt/clients', label: 'Clientes', icon: <GroupOutlined />, activePrefix: ['/dashboard/pt/clients'] },
+    {
+      href: '/dashboard/pt/clients',
+      label: 'Clientes',
+      icon: <GroupOutlined />,
+      activePrefix: ['/dashboard/pt/clients'],
+      hint: 'Escolhe um cliente para ver progresso, planos ativos e notas.',
+    },
     {
       href: '/dashboard/pt/training-plans',
       label: 'Planos ativos',
       icon: <AssignmentTurnedInOutlined />,
       activePrefix: ['/dashboard/pt/training-plans'],
+      hint: 'Acompanha todos os planos ativos e o estado de cada um.',
     },
     {
       href: '/dashboard/pt/plans',
       label: 'Planeador semanal',
       icon: <ViewWeekOutlined />,
       activePrefix: ['/dashboard/pt/plans'],
+      hint: 'Organiza a semana com uma visão por dias e blocos de treino.',
     },
   ];
 
@@ -91,12 +127,14 @@ export default function SidebarPT({ messagesCount = 0, notificationsCount = 0 }:
       label: 'Biblioteca',
       icon: <MenuBookOutlined />,
       activePrefix: ['/dashboard/pt/library'],
+      hint: 'Centraliza recursos, modelos e conteúdos de apoio ao treino.',
     },
     {
       href: '/dashboard/pt/workouts',
       label: 'Treinos',
       icon: <FitnessCenterOutlined />,
       activePrefix: ['/dashboard/pt/workouts'],
+      hint: 'Explora treinos guardados para reutilizar em novos planos.',
     },
   ];
 
@@ -107,6 +145,7 @@ export default function SidebarPT({ messagesCount = 0, notificationsCount = 0 }:
       icon: <ChatBubbleOutline />,
       activePrefix: ['/dashboard/pt/messages'],
       badge: messagesCount,
+      hint: 'Fala com clientes e acompanha conversas em curso.',
     },
     {
       href: '/dashboard/notifications',
@@ -114,13 +153,32 @@ export default function SidebarPT({ messagesCount = 0, notificationsCount = 0 }:
       icon: <NotificationsOutlined />,
       activePrefix: ['/dashboard/notifications'],
       badge: notificationsCount,
+      hint: 'Alertas importantes sobre planos, sessões e pagamentos.',
     },
   ];
 
   const conta: Nav[] = [
-    { href: '/dashboard/history', label: 'Histórico', icon: <HistoryOutlined />, activePrefix: ['/dashboard/history'] },
-    { href: '/dashboard/profile', label: 'Perfil', icon: <AccountCircleOutlined />, activePrefix: ['/dashboard/profile'] },
-    { href: '/dashboard/settings', label: 'Definições', icon: <SettingsOutlined />, activePrefix: ['/dashboard/settings'] },
+    {
+      href: '/dashboard/history',
+      label: 'Histórico',
+      icon: <HistoryOutlined />,
+      activePrefix: ['/dashboard/history'],
+      hint: 'Exporta dados e revê registos de atividade anteriores.',
+    },
+    {
+      href: '/dashboard/profile',
+      label: 'Perfil',
+      icon: <AccountCircleOutlined />,
+      activePrefix: ['/dashboard/profile'],
+      hint: 'Atualiza dados pessoais e informação profissional.',
+    },
+    {
+      href: '/dashboard/settings',
+      label: 'Definições',
+      icon: <SettingsOutlined />,
+      activePrefix: ['/dashboard/settings'],
+      hint: 'Configura notificações, preferências e integrações.',
+    },
   ];
 
   const quickActions: QuickAction[] = [
@@ -129,12 +187,32 @@ export default function SidebarPT({ messagesCount = 0, notificationsCount = 0 }:
       label: 'Criar plano',
       description: 'Começa um novo plano do zero',
       icon: <AddCircleOutline fontSize="small" />,
+      hint: 'Segue o formulário orientado para definir metas, blocos e sessões.',
     },
     {
       href: '/dashboard/pt/sessions/new',
       label: 'Agendar sessão',
       description: 'Marca rapidamente uma sessão avulsa',
       icon: <EventAvailableOutlined fontSize="small" />,
+      hint: 'Regista uma sessão individual sem sair da agenda.',
+    },
+  ];
+
+  const planWizardSteps: FlowStep[] = [
+    {
+      href: '/dashboard/pt/clients',
+      title: '1. Escolhe o cliente',
+      description: 'Seleciona o atleta com quem vais trabalhar e revê o histórico.',
+    },
+    {
+      href: '/dashboard/pt/plans/new',
+      title: '2. Define objetivos',
+      description: 'Utiliza o formulário guiado para definir metas e blocos por dia.',
+    },
+    {
+      href: '/dashboard/pt/plans',
+      title: '3. Ajusta o calendário',
+      description: 'Organiza os dias de treino, arrasta blocos e confirma sequência.',
     },
   ];
 
@@ -192,9 +270,26 @@ export default function SidebarPT({ messagesCount = 0, notificationsCount = 0 }:
       </ListItemButton>
     );
 
-    if (isRail) {
+    if (isRail || it.hint) {
       return (
-        <Tooltip key={it.href} title={it.label} placement="right" arrow disableInteractive>
+        <Tooltip
+          key={it.href}
+          title={
+            <Box sx={{ display: 'grid', gap: 0.25 }}>
+              <Typography variant="subtitle2" fontSize={13} fontWeight={700}>
+                {it.label}
+              </Typography>
+              {it.hint && (
+                <Typography variant="caption" fontSize={11} sx={{ opacity: 0.85 }}>
+                  {it.hint}
+                </Typography>
+              )}
+            </Box>
+          }
+          placement="right"
+          arrow
+          disableInteractive
+        >
           {button}
         </Tooltip>
       );
@@ -294,8 +389,23 @@ export default function SidebarPT({ messagesCount = 0, notificationsCount = 0 }:
               </ListItemButton>
             );
 
-            return isRail ? (
-              <Tooltip key={action.href} title={action.label} placement="right" arrow disableInteractive>
+            return isRail || action.hint ? (
+              <Tooltip
+                key={action.href}
+                title={
+                  <Box sx={{ display: 'grid', gap: 0.25 }}>
+                    <Typography variant="subtitle2" fontSize={13} fontWeight={700}>
+                      {action.label}
+                    </Typography>
+                    <Typography variant="caption" fontSize={11} sx={{ opacity: 0.85 }}>
+                      {action.hint ?? action.description}
+                    </Typography>
+                  </Box>
+                }
+                placement="right"
+                arrow
+                disableInteractive
+              >
                 {button}
               </Tooltip>
             ) : (
@@ -303,6 +413,99 @@ export default function SidebarPT({ messagesCount = 0, notificationsCount = 0 }:
             );
           })}
         </List>
+      </Box>
+    );
+  };
+
+  const renderGuidedFlow = (steps: FlowStep[]) => {
+    if (!steps.length) return null;
+
+    return (
+      <Box sx={{ display: 'grid', gap: 0.75, px: 1.5, py: showLabels ? 1.5 : 1 }}>
+        {showLabels && (
+          <Typography
+            variant="caption"
+            sx={{
+              textTransform: 'uppercase',
+              letterSpacing: 0.6,
+              color: 'text.secondary',
+              fontWeight: 600,
+            }}
+          >
+            Guia rápido
+          </Typography>
+        )}
+        <Box component="nav" sx={{ display: 'grid', gap: 0.5 }} aria-label="Guia rápido: plano personalizado">
+          {steps.map((step, index) => {
+            const content = (
+              <ListItemButton
+                key={step.href}
+                component={Link}
+                href={step.href}
+                prefetch={false}
+                onClick={() => { if (isMobile) closeMobile(); }}
+                aria-label={isRail ? step.title : undefined}
+                sx={{
+                  alignItems: showLabels ? 'flex-start' : 'center',
+                  borderRadius: 1.5,
+                  minHeight: 44,
+                  gap: 1,
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: '50%',
+                    bgcolor: 'primary.main',
+                    color: 'primary.contrastText',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    flexShrink: 0,
+                  }}
+                >
+                  {index + 1}
+                </Box>
+                {showLabels && (
+                  <ListItemText
+                    primary={step.title}
+                    secondary={step.description}
+                    primaryTypographyProps={{ fontSize: 13, fontWeight: 600 }}
+                    secondaryTypographyProps={{ fontSize: 12, color: 'text.secondary' }}
+                  />
+                )}
+              </ListItemButton>
+            );
+
+            if (isRail) {
+              return (
+                <Tooltip
+                  key={step.href}
+                  title={
+                    <Box sx={{ display: 'grid', gap: 0.25 }}>
+                      <Typography variant="subtitle2" fontSize={13} fontWeight={700}>
+                        {step.title}
+                      </Typography>
+                      <Typography variant="caption" fontSize={11} sx={{ opacity: 0.85 }}>
+                        {step.description}
+                      </Typography>
+                    </Box>
+                  }
+                  placement="right"
+                  arrow
+                  disableInteractive
+                >
+                  {content}
+                </Tooltip>
+              );
+            }
+
+            return content;
+          })}
+        </Box>
       </Box>
     );
   };
@@ -330,6 +533,7 @@ export default function SidebarPT({ messagesCount = 0, notificationsCount = 0 }:
               {!isRail && index < arr.length - 1 && <Divider sx={{ mx: 1.5, my: 0.5 }} />}
             </React.Fragment>
           ))}
+        {renderGuidedFlow(planWizardSteps)}
         {renderQuickActions(quickActions)}
       </Box>
     </SidebarBase>
