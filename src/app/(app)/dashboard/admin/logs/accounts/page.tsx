@@ -9,6 +9,7 @@ import Badge from '@/components/ui/Badge';
 import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole } from '@/lib/roles';
+import { AUDIT_TABLE_CANDIDATES, isMissingAuditTableError } from '@/lib/audit';
 
 type AuditLog = {
   id: string;
@@ -29,17 +30,25 @@ export default async function AdminAccountLogsPage() {
   const sb = createServerClient();
 
   let rows: AuditLog[] = [];
-  try {
-    // Ajuste o nome da tabela/colunas ao seu SQL do Supabase, se necessário.
-    const { data, error } = await sb
-      .from('audit_logs')
-      .select('id, created_at, actor_id, action, details')
-      .ilike('category', 'account%') // se tiver coluna category
-      .order('created_at', { ascending: false })
-      .limit(100);
-    if (!error && data) rows = data as AuditLog[];
-  } catch {
-    // mantém rows = []
+  for (const table of AUDIT_TABLE_CANDIDATES) {
+    try {
+      const { data, error } = await sb
+        .from(table as any)
+        .select('id, created_at, actor_id, action, details')
+        .ilike('category', 'account%')
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (error) {
+        if (isMissingAuditTableError(error)) continue;
+      } else if (data) {
+        rows = data as AuditLog[];
+      }
+      break;
+    } catch (err) {
+      if (isMissingAuditTableError(err)) continue;
+      break;
+    }
   }
 
   return (
