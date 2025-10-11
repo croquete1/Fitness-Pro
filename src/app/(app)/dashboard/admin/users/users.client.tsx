@@ -319,10 +319,7 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
       filterable: false,
       valueGetter: (_value, row) => row.name ?? '',
       renderCell: (params) => {
-        const appRole = toAppRole(params.row.role ?? null);
-        const profileHref = appRole === 'CLIENT'
-          ? `/dashboard/admin/clients/${params.row.id}`
-          : null;
+        const profileHref = params.row.id ? `/dashboard/users/${params.row.id}` : null;
         const linkProps: any = profileHref
           ? { component: Link, href: profileHref, prefetch: false }
           : { component: 'span' };
