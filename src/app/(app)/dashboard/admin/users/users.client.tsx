@@ -319,10 +319,15 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
       filterable: false,
       valueGetter: (_value, row) => row.name ?? '',
       renderCell: (params) => {
-        const hasName = Boolean(params.row.name);
-        const linkProps: any = hasName
-          ? { component: Link, href: `/dashboard/admin/users/${params.row.id}`, prefetch: false }
+        const appRole = toAppRole(params.row.role ?? null);
+        const profileHref = appRole === 'CLIENT'
+          ? `/dashboard/admin/clients/${params.row.id}`
+          : null;
+        const linkProps: any = profileHref
+          ? { component: Link, href: profileHref, prefetch: false }
           : { component: 'span' };
+        const isClickable = Boolean(profileHref);
+        const displayName = params.row.name ?? params.row.email ?? '—';
         return (
           <Stack spacing={0.25} sx={{ minWidth: 0 }}>
             <Typography
@@ -330,17 +335,17 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
               fontWeight={700}
               sx={{
                 wordBreak: 'break-word',
-                color: hasName
+                color: isClickable
                   ? (isLight ? theme.palette.primary.main : theme.palette.primary.light)
                   : theme.palette.text.secondary,
                 textDecoration: 'none',
-                cursor: hasName ? 'pointer' : 'default',
+                cursor: isClickable ? 'pointer' : 'default',
                 '&:hover': {
-                  textDecoration: hasName ? 'underline' : 'none',
+                  textDecoration: isClickable ? 'underline' : 'none',
                 },
               }}
             >
-              {params.row.name ?? '—'}
+              {displayName}
             </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ wordBreak: 'break-word' }}>
             {params.row.email ?? '—'}
