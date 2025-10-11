@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { createServerClient } from '@/lib/supabaseServer';
+import { syncUserProfile } from '@/lib/profileSync';
 
 export async function POST(req: Request) {
   const form = await req.formData();
@@ -20,8 +21,8 @@ export async function POST(req: Request) {
   if (avatar_url !== '') payload.avatar_url = avatar_url;
 
   if (Object.keys(payload).length) {
-    const { error } = await sb.from('profiles').upsert({ id, ...payload }, { onConflict: 'id' });
-    if (error) console.warn('[profile] upsert error:', error.message);
+    const result = await syncUserProfile(sb, id, payload);
+    if (!result.ok) console.warn('[profile] sync error:', result.error);
   }
 
   return NextResponse.redirect(new URL('/dashboard/admin/profile', req.url));

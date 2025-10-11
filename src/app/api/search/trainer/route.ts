@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireAdminGuard, isGuardErr } from '@/lib/api-guards';
 import { tryCreateServerClient } from '@/lib/supabaseServer';
 import { toAppRole } from '@/lib/roles';
 import { getSampleUsers } from '@/lib/fallback/users';
@@ -16,6 +17,11 @@ function mapRow(row: any) {
 }
 
 export async function GET(req: Request) {
+  const guard = await requireAdminGuard();
+  if (isGuardErr(guard)) {
+    return guard.response;
+  }
+
   const { searchParams } = new URL(req.url);
   const q = (searchParams.get('q') ?? '').trim().toLowerCase();
   const limit = Math.min(50, Math.max(1, Number(searchParams.get('limit') ?? 10)));

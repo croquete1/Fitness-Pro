@@ -5,8 +5,18 @@ import * as React from 'react';
 import { signIn } from 'next-auth/react';
 import Link from 'next/link';
 import {
-  Box, Paper, Stack, TextField, Button, Alert, Typography,
-  CircularProgress, IconButton, InputAdornment, Divider, Fade
+  Box,
+  Paper,
+  Stack,
+  TextField,
+  Button,
+  Alert,
+  Typography,
+  CircularProgress,
+  IconButton,
+  InputAdornment,
+  Divider,
+  Fade,
 } from '@mui/material';
 import MailOutline from '@mui/icons-material/MailOutline';
 import LockOutlined from '@mui/icons-material/LockOutlined';
@@ -20,7 +30,7 @@ import { useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 
 const loginSchema = z.object({
-  email: z.string().email('Email inválido'),
+  identifier: z.string().trim().min(1, 'Indica o email ou o username'),
   password: z.string().min(6, 'Mínimo 6 caracteres'),
 });
 
@@ -55,32 +65,48 @@ export default function LoginClient() {
   const nextParam = sp.get('next');
   const errParam = sp.get('error');
 
-  const [email, setEmail] = React.useState('');
+  const [identifier, setIdentifier] = React.useState('');
   const [pw, setPw] = React.useState('');
   const [show, setShow] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [err, setErr] = React.useState<string | null>(null);
-  const [fieldErr, setFieldErr] = React.useState<{ email?: string; password?: string }>({});
+  const [fieldErr, setFieldErr] = React.useState<{ identifier?: string; password?: string }>({});
 
   React.useEffect(() => { setErr(mapAuthError(errParam)); }, [errParam]);
-  React.useEffect(() => { try { const last = localStorage.getItem('fp:lastEmail'); if (last) setEmail(last); } catch {} }, []);
-  React.useEffect(() => { try { if (email) localStorage.setItem('fp:lastEmail', email.trim()); } catch {} }, [email]);
+  React.useEffect(() => {
+    try {
+      const last =
+        localStorage.getItem('fp:lastIdentifier') ?? localStorage.getItem('fp:lastEmail');
+      if (last) setIdentifier(last);
+      if (localStorage.getItem('fp:lastEmail')) localStorage.removeItem('fp:lastEmail');
+    } catch {}
+  }, []);
+  React.useEffect(() => {
+    try {
+      const trimmed = identifier.trim();
+      if (trimmed) {
+        localStorage.setItem('fp:lastIdentifier', trimmed);
+      } else {
+        localStorage.removeItem('fp:lastIdentifier');
+      }
+    } catch {}
+  }, [identifier]);
 
-  const validateField = (key: 'email' | 'password', value: string) => {
-    const partial = key === 'email' ? loginSchema.pick({ email: true }) : loginSchema.pick({ password: true });
-    const res = partial.safeParse({ [key]: value } as any);
+  const validateField = (key: 'identifier' | 'password', value: string) => {
+    const schema = key === 'identifier' ? loginSchema.shape.identifier : loginSchema.shape.password;
+    const res = schema.safeParse(value);
     setFieldErr((prev) => ({ ...prev, [key]: res.success ? undefined : res.error.issues[0]?.message }));
     return res.success;
   };
 
-  const isFormValid = loginSchema.safeParse({ email, password: pw }).success && !loading;
+  const isFormValid = loginSchema.safeParse({ identifier, password: pw }).success && !loading;
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (loading) return;
 
     setErr(null);
-    const parsed = loginSchema.safeParse({ email, password: pw });
+    const parsed = loginSchema.safeParse({ identifier, password: pw });
     if (!parsed.success) {
       const nextErrors: any = {};
       for (const i of parsed.error.issues) nextErrors[i.path[0] as string] = i.message;
@@ -92,8 +118,8 @@ export default function LoginClient() {
     try {
       const callbackUrl = sanitizeNext(nextParam);
       await signIn('credentials', {
-        email: email.trim(),
-        password: pw,
+        identifier: parsed.data.identifier,
+        password: parsed.data.password,
         redirect: true,
         callbackUrl,
       });
@@ -146,14 +172,15 @@ export default function LoginClient() {
           elevation={24}
           sx={{
             width: '100%',
-            maxWidth: 680,
+            maxWidth: 750,
             p: { xs: 3, sm: 4 },
-            borderRadius: 4,
+            borderRadius: '50px',
             position: 'relative',
+            overflow: 'hidden',
             bgcolor: (theme) =>
               theme.palette.mode === 'dark'
                 ? 'rgba(8, 13, 26, 0.82)'
-                : 'rgba(255, 255, 255, 0.85)',
+                : 'rgba(255, 255, 255, 0.88)',
             border: (theme) =>
               theme.palette.mode === 'dark'
                 ? '1px solid rgba(96,165,250,0.22)'
@@ -168,6 +195,38 @@ export default function LoginClient() {
           <Box sx={{ position: 'absolute', top: 12, right: 12 }}>
             <ThemeToggle />
           </Box>
+
+          <Fade in={loading} unmountOnExit>
+            <Box
+              sx={{
+                position: 'absolute',
+                inset: 0,
+                zIndex: 2,
+                borderRadius: 'inherit',
+                display: 'grid',
+                placeItems: 'center',
+                bgcolor: (theme) =>
+                  theme.palette.mode === 'dark'
+                    ? 'rgba(15, 23, 42, 0.75)'
+                    : 'rgba(15, 23, 42, 0.55)',
+                backdropFilter: 'blur(12px)',
+              }}
+            >
+              <Stack spacing={2} alignItems="center" sx={{ color: 'common.white' }}>
+                <CircularProgress size={36} thickness={4} color="inherit" />
+                <Typography
+                  variant="body1"
+                  sx={{
+                    fontWeight: 600,
+                    color: 'common.white',
+                    letterSpacing: 0.4,
+                  }}
+                >
+                  A iniciar sessão…
+                </Typography>
+              </Stack>
+            </Box>
+          </Fade>
 
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={{ xs: 3, md: 5 }} alignItems="stretch">
             <Box
@@ -200,8 +259,17 @@ export default function LoginClient() {
                   pointerEvents: 'none',
                 }}
               />
-              <Stack spacing={2.2} sx={{ position: 'relative' }}>
-                <BrandLogo size={84} priority />
+              <Stack
+                spacing={2.2}
+                sx={{
+                  position: 'relative',
+                  '& .login-logo': {
+                    filter:
+                      'drop-shadow(0 12px 32px rgba(15,23,42,0.35)) drop-shadow(0 2px 6px rgba(15,23,42,0.25))',
+                  },
+                }}
+              >
+                <BrandLogo size={92} priority className="login-logo" />
                 <Typography
                   variant="h4"
                   component="h1"
@@ -249,17 +317,18 @@ export default function LoginClient() {
               <form onSubmit={onSubmit} noValidate>
                 <Stack spacing={2.2}>
                   <TextField
-                    label="Email *"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    onBlur={(e) => validateField('email', e.target.value)}
+                    label="Email ou nome de utilizador *"
+                    type="text"
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    onBlur={(e) => validateField('identifier', e.target.value)}
                     required
                     fullWidth
                     autoFocus
                     autoComplete="username"
-                    error={!!fieldErr.email}
-                    helperText={fieldErr.email}
+                    error={!!fieldErr.identifier}
+                    helperText={fieldErr.identifier ?? 'Podes usar o email ou o username definido no perfil.'}
+                    inputProps={{ autoCapitalize: 'none', autoCorrect: 'off', spellCheck: 'false' }}
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
