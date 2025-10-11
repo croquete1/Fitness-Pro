@@ -66,8 +66,8 @@ export default function OrderBlocksPage() {
   };
 
   return (
-    <Box sx={{ py: 3 }}>
-      <Container maxWidth="lg">
+    <Box sx={{ width: '100%', py: 3, px: { xs: 2, md: 3 } }}>
+      <Container maxWidth={false} sx={{ px: 0, width: '100%' }}>
         <Card variant="outlined" sx={{ overflow: 'hidden' }}>
           <CardHeader title="🧩 Ordenar blocos do dia" subheader="Arrasta ou usa ↑/↓ para reordenar." />
           <CardContent sx={{ pt: 1.5 }}>

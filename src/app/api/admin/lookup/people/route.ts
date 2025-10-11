@@ -1,119 +1,93 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabaseServer';
+import { tryCreateServerClient } from '@/lib/supabaseServer';
 import { toAppRole } from '@/lib/roles';
 
+const TABLE_CANDIDATES = ['profiles', 'users', 'app_users', 'people', 'people_view'];
+
+function normalizeRoleFilter(value: string) {
+  const appRole = toAppRole(value);
+  if (!appRole) return null;
+  if (appRole === 'PT') return ['PT', 'TRAINER'];
+  return [appRole];
+}
+
+function mapRow(row: any) {
+  const role = toAppRole(row?.role ?? null) ?? row?.role ?? null;
+  const name = row?.name ?? row?.full_name ?? row?.fullName ?? row?.display_name ?? null;
+  return {
+    id: String(row?.id ?? row?.user_id ?? ''),
+    name,
+    email: row?.email ?? row?.contact_email ?? null,
+    role,
+  };
+}
+
+type QueryResult = { rows: any[]; error?: any } | null;
+
+async function fetchFrom(
+  table: string,
+  opts: {
+    id?: string | null;
+    search?: string;
+    roles?: string[] | null;
+    limit?: number;
+  },
+): Promise<QueryResult> {
+  const sb = tryCreateServerClient();
+  if (!sb) return { rows: [] };
+
+  try {
+    let builder: any = sb.from(table).select('*');
+    if (opts.roles?.length) builder = builder.in('role', opts.roles);
+    if (opts.search) {
+      const term = opts.search;
+      builder = builder.or(`name.ilike.%${term}%,full_name.ilike.%${term}%,email.ilike.%${term}%`);
+    }
+
+    const res: any = opts.id
+      ? await builder.eq('id', opts.id).maybeSingle()
+      : await (opts.limit ? builder.limit(opts.limit) : builder);
+
+    if (res.error) {
+      const code = res.error.code ?? res.error.details ?? '';
+      if (code === 'PGRST205' || code === 'PGRST301' || code === '42703') return null;
+      if (code === 'PGRST116') return { rows: [] };
+      return { rows: [], error: res.error };
+    }
+    const rows = opts.id ? (res.data ? [res.data] : []) : res.data ?? [];
+    return { rows };
+  } catch (error: any) {
+    const code = error?.code ?? error?.message ?? '';
+    if (code.includes('PGRST205') || code.includes('PGRST301')) return null;
+    return { rows: [], error };
+  }
+}
+
 export async function GET(req: NextRequest) {
-  const sb = createServerClient();
   const { searchParams } = new URL(req.url);
-
-  const role = (searchParams.get('role') || '').toLowerCase(); // 'trainer' | 'pt' | 'client'
+  const role = (searchParams.get('role') || '').trim().toLowerCase();
   const q = (searchParams.get('q') || '').trim().toLowerCase();
-  const id = searchParams.get('id') || null;
+  const id = searchParams.get('id');
 
-  // Base: tabela 'users'
-  const selectColumns = 'id, name, email, role';
-  let query = sb.from('users').select(selectColumns).limit(50);
+  const roleFilters = role ? normalizeRoleFilter(role) : null;
 
-  const normalizeRoleFilter = (value: string) => {
-    const appRole = toAppRole(value);
-    if (!appRole) return null;
-    if (appRole === 'PT') return ['PT', 'TRAINER'];
-    return [appRole];
-  };
-
-  if (role) {
-    const roleFilters = normalizeRoleFilter(role);
-    if (roleFilters?.length) {
-      query = query.in('role', roleFilters);
-    }
-  }
-
-  const fetchProfilesByIds = async (ids: string[]) => {
-    if (!ids.length) return new Map<string, any>();
-    const { data } = await sb.from('profiles').select('id, full_name, name, email, role').in('id', ids);
-    return new Map<string, any>((data ?? []).map((row: any) => [String(row.id), row]));
-  };
-
-  if (id) {
-    const one = await query.eq('id', id).maybeSingle();
-    if (one.error && one.error.code !== 'PGRST116') {
-      return NextResponse.json({ rows: [], error: one.error.message }, { status: 400 });
-    }
-
-    const record = one.data as any | null;
-    if (!record) {
-      const profile = await sb.from('profiles').select('id, full_name, email, role').eq('id', id).maybeSingle();
-      if (profile.error || !profile.data) return NextResponse.json({ rows: [] });
-      const appRole = toAppRole(profile.data.role ?? null);
-      return NextResponse.json({
-        rows: [
-          {
-            id: String(profile.data.id),
-            name: profile.data.full_name ?? null,
-            email: profile.data.email ?? null,
-            role: appRole ?? profile.data.role ?? null,
-          },
-        ],
-      });
-    }
-
-    const profileMap = await fetchProfilesByIds([String(record.id)]);
-    const profile = profileMap.get(String(record.id));
-    const appRole = toAppRole(record.role ?? profile?.role ?? null);
-    return NextResponse.json({
-      rows: [
-        {
-          id: String(record.id),
-          name: record.name ?? profile?.full_name ?? profile?.name ?? null,
-          email: record.email ?? profile?.email ?? null,
-          role: appRole ?? record.role ?? null,
-        },
-      ],
+  for (const table of TABLE_CANDIDATES) {
+    const res = await fetchFrom(table, { id, search: q || undefined, roles: roleFilters, limit: id ? 1 : 50 });
+    if (!res) continue;
+    if (res.error) return NextResponse.json({ rows: [], error: res.error.message ?? String(res.error) }, { status: 400 });
+    if (res.rows.length === 0) continue;
+    const mapped = res.rows
+      .map(mapRow)
+      .filter((row) => row.id);
+    if (mapped.length === 0) continue;
+    const filtered = mapped.filter((row) => {
+      if (!q || id) return true;
+      const cmp = (value?: string | null) => String(value ?? '').toLowerCase();
+      return cmp(row.name).includes(q) || cmp(row.email).includes(q);
     });
+    return NextResponse.json({ rows: id ? filtered.slice(0, 1) : filtered.slice(0, 50) });
   }
 
-  const { data, error } = await query;
-  if (error) return NextResponse.json({ rows: [], error: error.message }, { status: 400 });
-
-  const userRows = (data ?? []).map((row: any) => ({
-    id: String(row.id),
-    name: row.name ?? null,
-    email: row.email ?? null,
-    role: row.role ?? null,
-  }));
-
-  const missingProfileIds = userRows.filter((row) => !row.name).map((row) => row.id);
-  const profiles = await fetchProfilesByIds(missingProfileIds);
-
-  const mapped = userRows
-    .map((row) => {
-      const profile = profiles.get(row.id);
-      const appRole = toAppRole(row.role ?? profile?.role ?? null);
-      return {
-        id: row.id,
-        name: row.name ?? profile?.full_name ?? profile?.name ?? null,
-        email: row.email ?? profile?.email ?? null,
-        role: appRole ?? row.role ?? null,
-      };
-    })
-    .filter((r) => {
-      if (!q) return true;
-      return String(r.name ?? '').toLowerCase().includes(q) || String(r.email ?? '').toLowerCase().includes(q);
-    });
-
-  if (mapped.length === 0 && !q) {
-    const { data: fallbackProfiles } = await sb
-      .from('profiles')
-      .select('id, full_name, email, role')
-      .limit(50);
-    const rows = (fallbackProfiles ?? []).map((profile: any) => ({
-      id: String(profile.id),
-      name: profile.full_name ?? profile.name ?? null,
-      email: profile.email ?? null,
-      role: toAppRole(profile.role ?? null) ?? profile.role ?? null,
-    }));
-    return NextResponse.json({ rows });
-  }
-
-  return NextResponse.json({ rows: mapped.slice(0, 50) });
+  // fallback: no table matched → empty list
+  return NextResponse.json({ rows: [] });
 }

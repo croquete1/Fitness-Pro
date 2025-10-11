@@ -24,7 +24,7 @@ export default async function PlanDayPage({ params }: { params: Promise<Params> 
 
   if (!day) {
     return (
-      <Container maxWidth="lg" sx={{ py: 3 }}>
+      <Container maxWidth={false} sx={{ py: 3, px: { xs: 2, md: 3 }, width: '100%' }}>
         <Typography variant="h5" fontWeight={800}>📅 Dia</Typography>
         <Typography color="text.secondary" sx={{ mt: 2 }}>Dia não encontrado.</Typography>
       </Container>
@@ -32,7 +32,7 @@ export default async function PlanDayPage({ params }: { params: Promise<Params> 
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 3 }}>
+    <Container maxWidth={false} sx={{ py: 3, px: { xs: 2, md: 3 }, width: '100%' }}>
       <Stack direction="row" spacing={1} alignItems="center">
         <Typography variant="h5" fontWeight={800}>📅 Dia {day.order_index ?? ''}{day.name ? ` — ${day.name}` : ''}</Typography>
         <Chip size="small" label="PT" />

@@ -1,77 +1,87 @@
-import { NextResponse } from "next/server";
-import prismaAny from "@/lib/prisma";
-import { appendPlanHistory, upsertPlanAssignment, writeEvent } from "@/lib/events";
+import { NextResponse } from 'next/server';
+import { tryCreateServerClient } from '@/lib/supabaseServer';
+import { appendPlanHistory, upsertPlanAssignment, writeEvent } from '@/lib/events';
 
-const prisma: any =
-  (prismaAny as any).prisma ??
-  (prismaAny as any).default ??
-  prismaAny;
+const PLAN_TABLES = ['training_plans', 'plans', 'programs'];
+const FIELD_VARIANTS: Array<{ client: string; trainer: string }> = [
+  { client: 'client_id', trainer: 'trainer_id' },
+  { client: 'clientId', trainer: 'trainerId' },
+  { client: 'client', trainer: 'trainer' },
+  { client: 'user_id', trainer: 'trainer_id' },
+];
 
-const PLAN_MODELS = ["plan", "Plan", "trainingPlan", "TrainingPlan"];
-function firstModel(cands: string[]) {
-  for (const n of cands) {
-    const m = (prisma as any)[n];
-    if (m?.update) return n;
+async function updatePlanAssignment(
+  planId: string,
+  clientId: string | null,
+  trainerId: string | null,
+) {
+  const sb = tryCreateServerClient();
+  if (!sb) return null;
+
+  for (const table of PLAN_TABLES) {
+    for (const fields of FIELD_VARIANTS) {
+      const payload: Record<string, any> = {};
+      if (clientId !== undefined) payload[fields.client] = clientId;
+      if (trainerId !== undefined) payload[fields.trainer] = trainerId;
+
+      try {
+        const res = await sb
+          .from(table)
+          .update(payload)
+          .eq('id', planId)
+          .select('*')
+          .maybeSingle();
+
+        if (res.error) {
+          const code = res.error.code ?? '';
+          if (code === '42703' || code === 'PGRST205' || code === 'PGRST301') continue;
+          return { error: res.error.message };
+        }
+
+        if (res.data) {
+          return { row: res.data };
+        }
+      } catch (error: any) {
+        const code = error?.code ?? error?.message ?? '';
+        if (code.includes('PGRST205') || code.includes('PGRST301') || code.includes('42703')) {
+          continue;
+        }
+        return { error: error?.message ?? 'REQUEST_FAILED' };
+      }
+    }
   }
-  return null;
+
+  return { row: null };
 }
 
-async function getSession() {
-  try {
-    const { getServerSession } = await import("next-auth");
-    // @ts-ignore
-    const auth = await import("@/lib/auth");
-    return await getServerSession((auth as any).authOptions ?? (auth as any).default ?? (auth as any));
-  } catch { return null; }
-}
-
-type Ctx = { params: Promise<{ planId: string }> };
-
-// POST /api/pt/plans/:id/assign
-// body: { clientId, trainerId? }
-export async function POST(req: Request, ctx: Ctx) {
+export async function POST(req: Request, ctx: { params: Promise<{ planId: string }> }) {
   const { planId } = await ctx.params;
-  const body = await req.json().catch(() => ({} as any));
-  const model = firstModel(PLAN_MODELS);
-  if (!model) return NextResponse.json({ error: "Plan model not found" }, { status: 500 });
+  const body = await req.json().catch(() => ({}));
+  const clientId = body.clientId ?? null;
+  const trainerId = body.trainerId ?? null;
 
-  const session = await getSession();
-  const actorId = (session as any)?.user?.id ?? null;
-
-  try {
-    // atualiza campos diretos se existirem
-    const updated = await (prisma as any)[model].update({
-      where: { id: planId },
-      data: {
-        clientId: body.clientId ?? undefined,
-        trainerId: body.trainerId ?? undefined,
-      },
-    });
-
-    // mantém tabela de atribuições se existir
-    await upsertPlanAssignment({
-      planId: String(updated.id),
-      clientId: body.clientId ?? updated.clientId ?? null,
-      trainerId: body.trainerId ?? updated.trainerId ?? null,
-    });
-
-    await writeEvent({
-      type: "PLAN_ASSIGNED",
-      actorId,
-      planId: updated.id,
-      userId: body.clientId ?? updated.clientId ?? null,
-      trainerId: body.trainerId ?? updated.trainerId ?? null,
-    });
-
-    await appendPlanHistory(String(updated.id), {
-      kind: "PLAN_ASSIGNED",
-      text: "Plano atribuído",
-      by: actorId,
-      extra: { clientId: body.clientId ?? updated.clientId ?? null },
-    });
-
-    return NextResponse.json({ data: updated });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Assign failed" }, { status: 400 });
+  if (!tryCreateServerClient()) {
+    return NextResponse.json({ error: 'SUPABASE_UNAVAILABLE' }, { status: 503 });
   }
+
+  const updated = await updatePlanAssignment(planId, clientId, trainerId);
+  if (updated?.error) {
+    return NextResponse.json({ error: updated.error }, { status: 400 });
+  }
+
+  await upsertPlanAssignment({ planId, clientId, trainerId });
+  await writeEvent({
+    type: 'PLAN_ASSIGNED',
+    planId,
+    userId: clientId,
+    trainerId,
+  });
+  await appendPlanHistory(planId, {
+    kind: 'PLAN_ASSIGNED',
+    text: 'Plano atribuído',
+    by: trainerId,
+    extra: { clientId },
+  });
+
+  return NextResponse.json({ ok: true, row: updated?.row ?? null });
 }

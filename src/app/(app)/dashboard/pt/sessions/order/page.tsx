@@ -27,7 +27,7 @@ export default async function PTSessionsOrderPage() {
 
   return (
     <Box sx={{ py: 3 }}>
-      <Container maxWidth="lg">
+      <Container maxWidth={false} sx={{ width: '100%', px: { xs: 2, md: 3 } }}>
         <SessionOrderPanel
           items={items}
           onSave={async (ids) => {

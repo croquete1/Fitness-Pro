@@ -1,13 +1,13 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import type { Role } from "@prisma/client";
+import type { UserRole } from "@/lib/rbac";
 
 type AuthUser = {
   id: string;
   name?: string | null;
   email?: string | null;
-  role: Role;
+  role: UserRole;
 };
 
 const AuthContext = createContext<{ user: AuthUser | null }>({ user: null });
@@ -26,7 +26,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             id: data.user.id,
             name: data.user.name ?? null,
             email: data.user.email ?? null,
-            role: (data.user.role as Role) ?? "CLIENT",
+            role: (data.user.role as UserRole) ?? "CLIENT",
           });
         } else {
           setUser(null);

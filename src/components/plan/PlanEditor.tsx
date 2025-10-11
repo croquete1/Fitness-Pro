@@ -10,9 +10,10 @@ import React, {
 } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { Status } from '@prisma/client';
 import { showToast } from '@/components/ui/Toasts';
 import UserSelect from '@/components/users/UserSelect';
+
+type PlanWorkflowStatus = 'PENDING' | 'ACTIVE' | 'ARCHIVED' | 'DRAFT' | 'APPROVED' | string;
 
 /** ========= Toast wrapper à prova de tipos =========
  *  Evita erros de compilação se o Alert mudar entre {message}|{text} ou (type, msg)
@@ -56,7 +57,7 @@ type InitialPlan = {
   clientName?: string | null;
   title: string;
   notes: string;
-  status: Status;
+  status: PlanWorkflowStatus;
   exercises: Exercise[];
 };
 
@@ -183,7 +184,7 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin: _adm
   const [clientId, setClientId] = useState(initial.clientId);
   const [title, setTitle] = useState(initial.title);
   const [notes, setNotes] = useState(initial.notes);
-  const [status, setStatus] = useState<Status>(initial.status ?? 'PENDING');
+  const [status, setStatus] = useState<PlanWorkflowStatus>(initial.status ?? 'PENDING');
   const [exercises, setExercises] = useState<Exercise[]>(initial.exercises ?? []);
   const [busy, setBusy] = useState(false);
 
@@ -303,7 +304,7 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin: _adm
               className="h-10 rounded-lg border px-3"
               style={{ background: 'var(--btn-bg)', borderColor: 'var(--border)' }}
               value={status}
-              onChange={(e) => setStatus(e.target.value as Status)}
+              onChange={(e) => setStatus(e.target.value as PlanWorkflowStatus)}
             >
               <option value="PENDING">PENDING</option>
               <option value="ACTIVE">ACTIVE</option>
