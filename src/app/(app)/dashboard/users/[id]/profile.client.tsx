@@ -2,9 +2,6 @@
 
 import * as React from 'react';
 import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
   Avatar,
   Box,
   Button,
@@ -13,6 +10,7 @@ import {
   CardContent,
   CardHeader,
   Chip,
+  Container,
   Divider,
   Grid,
   IconButton,
@@ -35,9 +33,12 @@ import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import NotesIcon from '@mui/icons-material/Notes';
 import LaunchIcon from '@mui/icons-material/Launch';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import HistoryEduIcon from '@mui/icons-material/HistoryEdu';
+import Inventory2Icon from '@mui/icons-material/Inventory2';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import HourglassBottomIcon from '@mui/icons-material/HourglassBottom';
 import { alpha, useTheme } from '@mui/material/styles';
 import Link from 'next/link';
 import { useToast } from '@/components/ui/ToastProvider';
@@ -74,6 +75,14 @@ export type MeasurementSnapshot = {
   height: number | null;
   bodyFatPct: number | null;
   notes: string | null;
+  waist: number | null;
+  hip: number | null;
+  chest: number | null;
+  shoulders: number | null;
+  neck: number | null;
+  arm: number | null;
+  thigh: number | null;
+  calf: number | null;
 };
 
 export type ActivitySnapshot = {
@@ -120,6 +129,29 @@ export type ClientProfilePayload = {
   recentSessions: SessionSummary[];
   measurement: MeasurementSnapshot | null;
   activity: ActivitySnapshot;
+};
+
+type NoteEntry = {
+  id: string;
+  createdAt: string;
+  author: string;
+  text: string;
+};
+
+type PackageRecord = {
+  id: string;
+  name?: string | null;
+  status?: string | null;
+  startedAt?: string | null;
+  endsAt?: string | null;
+  sessionsTotal?: number | null;
+  sessionsUsed?: number | null;
+  notes?: string | null;
+};
+
+type PackageState = {
+  current: PackageRecord | null;
+  history: PackageRecord[];
 };
 
 function roleDisplay(role: Role) {
@@ -176,6 +208,16 @@ function bmi(weight: number | null, height: number | null) {
   return Number.isFinite(val) ? Math.round(val * 10) / 10 : null;
 }
 
+function bmiClassification(value: number | null) {
+  if (!value) return null;
+  if (value < 18.5) return 'Abaixo do peso';
+  if (value < 25) return 'Peso saudável';
+  if (value < 30) return 'Pré-obesidade';
+  if (value < 35) return 'Obesidade grau I';
+  if (value < 40) return 'Obesidade grau II';
+  return 'Obesidade grau III';
+}
+
 function summarizeMeasurement(measurement: MeasurementSnapshot | null) {
   if (!measurement) return null;
   const bmiValue = bmi(measurement.weight ?? null, measurement.height ?? null);
@@ -186,7 +228,75 @@ function summarizeMeasurement(measurement: MeasurementSnapshot | null) {
     bodyFat: measurement.bodyFatPct,
     notes: measurement.notes,
     date: measurement.date,
+    waist: measurement.waist,
+    hip: measurement.hip,
+    chest: measurement.chest,
+    shoulders: measurement.shoulders,
+    neck: measurement.neck,
+    arm: measurement.arm,
+    thigh: measurement.thigh,
+    calf: measurement.calf,
   };
+}
+
+function formatMeasurementValue(value: number | null, unit: string) {
+  if (value == null) return '—';
+  return `${value}${unit}`;
+}
+
+function packageStatusLabel(status?: string | null) {
+  if (!status) return 'Sem estado';
+  switch (status.toUpperCase()) {
+    case 'ACTIVE':
+      return 'Ativo';
+    case 'PAUSED':
+      return 'Em pausa';
+    case 'ENDED':
+    case 'CANCELLED':
+      return 'Terminado';
+    case 'UPCOMING':
+      return 'Agendado';
+    default:
+      return status;
+  }
+}
+
+function formatSessionsProgress(total?: number | null, used?: number | null) {
+  if (total == null && used == null) return null;
+  if (total == null) return used == null ? null : `${used} sessões registadas`;
+  const safeUsed = Math.max(0, Math.min(used ?? 0, total));
+  return `${safeUsed}/${total} sessões utilizadas`;
+}
+
+function packageStatusIcon(status?: string | null) {
+  if (!status) return null;
+  switch (status.toUpperCase()) {
+    case 'ACTIVE':
+      return <CheckCircleOutlineIcon fontSize="small" color="success" />;
+    case 'PAUSED':
+      return <HourglassBottomIcon fontSize="small" color="warning" />;
+    case 'UPCOMING':
+      return <HourglassBottomIcon fontSize="small" color="info" />;
+    case 'ENDED':
+    case 'CANCELLED':
+      return <CheckCircleOutlineIcon fontSize="small" color="disabled" />;
+    default:
+      return null;
+  }
+}
+
+function packageStatusColor(status?: string | null): 'default' | 'success' | 'warning' | 'info' | 'error' {
+  if (!status) return 'default';
+  switch (status.toUpperCase()) {
+    case 'ACTIVE':
+      return 'success';
+    case 'PAUSED':
+      return 'warning';
+    case 'UPCOMING':
+      return 'info';
+    default:
+      return 'default';
+  }
 }
 
 function metricCard(
@@ -289,8 +399,38 @@ export default function ClientProfileClient({
   const toast = useToast();
   const [trainerId, setTrainerId] = React.useState<string>(trainer.current?.id ?? '');
   const [savingTrainer, setSavingTrainer] = React.useState(false);
+  const [packageState, setPackageState] = React.useState<PackageState>({ current: null, history: [] });
+  const [loadingPackages, setLoadingPackages] = React.useState(true);
+  const [notes, setNotes] = React.useState<NoteEntry[]>([]);
+  const [loadingNotes, setLoadingNotes] = React.useState(true);
+  const [noteText, setNoteText] = React.useState('');
+  const [savingNote, setSavingNote] = React.useState(false);
+  const noteTextTrimmed = noteText.trim();
 
   const measurementSummary = summarizeMeasurement(measurement);
+  const currentPackage = packageState.current;
+  const packageHistory = packageState.history;
+  const circumferenceMetrics = React.useMemo(
+    () =>
+      measurementSummary
+        ? (
+            [
+              { key: 'waist', label: 'Cintura', value: measurementSummary.waist },
+              { key: 'hip', label: 'Anca', value: measurementSummary.hip },
+              { key: 'chest', label: 'Peito', value: measurementSummary.chest },
+              { key: 'shoulders', label: 'Ombros', value: measurementSummary.shoulders },
+              { key: 'neck', label: 'Pescoço', value: measurementSummary.neck },
+              { key: 'arm', label: 'Braço', value: measurementSummary.arm },
+              { key: 'thigh', label: 'Coxa', value: measurementSummary.thigh },
+              { key: 'calf', label: 'Barriga da perna', value: measurementSummary.calf },
+            ] as const
+          )
+        : [],
+    [measurementSummary],
+  );
+  const hasCircumferenceData = circumferenceMetrics.some((metric) => metric.value != null);
+  const sessionNotes = React.useMemo(() => recentSessions.filter((session) => session.notes), [recentSessions]);
+  const hasAutoNotes = Boolean(measurement?.notes || sessionNotes.length);
 
   async function saveTrainerLink() {
     if (!trainer.allowEdit) return;
@@ -318,19 +458,105 @@ export default function ClientProfileClient({
     return match?.name ?? trainer.current?.name ?? null;
   }, [trainer.options, trainerId, trainer.current]);
 
+  React.useEffect(() => {
+    let active = true;
+    async function loadPackages() {
+      try {
+        setLoadingPackages(true);
+        const res = await fetch(`/api/users/${user.id}/packages`);
+        if (!res.ok) throw new Error('Não foi possível carregar os pacotes');
+        const json = await res.json().catch(() => null);
+        if (!active) return;
+        const data = (json?.data ?? json ?? { current: null, history: [] }) as PackageState;
+        setPackageState({
+          current: data.current ?? null,
+          history: Array.isArray(data.history) ? data.history : [],
+        });
+      } catch (error) {
+        if (active) {
+          setPackageState({ current: null, history: [] });
+          toast.error('Não foi possível carregar os pacotes deste cliente');
+        }
+      } finally {
+        if (active) setLoadingPackages(false);
+      }
+    }
+    loadPackages();
+    return () => {
+      active = false;
+    };
+  }, [toast, user.id]);
+
+  React.useEffect(() => {
+    let active = true;
+    async function loadNotes() {
+      try {
+        setLoadingNotes(true);
+        const res = await fetch(`/api/users/${user.id}/notes`);
+        if (!res.ok) throw new Error('Falha ao carregar notas');
+        const json = await res.json().catch(() => null);
+        if (!active) return;
+        const list = (json?.data ?? json ?? []) as NoteEntry[];
+        setNotes(Array.isArray(list) ? list : []);
+      } catch (error) {
+        if (active) {
+          toast.error('Não foi possível carregar as notas do cliente');
+          setNotes([]);
+        }
+      } finally {
+        if (active) setLoadingNotes(false);
+      }
+    }
+    loadNotes();
+    return () => {
+      active = false;
+    };
+  }, [toast, user.id]);
+
+  async function submitNote(event?: React.FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+    const value = noteTextTrimmed;
+    if (!value) {
+      toast.error('Escreva uma nota antes de guardar');
+      return;
+    }
+    try {
+      setSavingNote(true);
+      const body = new FormData();
+      body.append('text', value);
+      const res = await fetch(`/api/users/${user.id}/notes`, {
+        method: 'POST',
+        body,
+      });
+      if (!res.ok) throw new Error('Não foi possível guardar a nota');
+      const json = await res.json().catch(() => null);
+      const note = (json?.data ?? json) as NoteEntry | null;
+      if (note) {
+        setNotes((prev) => [note, ...prev]);
+        setNoteText('');
+        toast.success('Nota adicionada');
+      }
+    } catch (error) {
+      toast.error('Falha ao guardar a nota');
+    } finally {
+      setSavingNote(false);
+    }
+  }
+
   return (
     <Box
       sx={{
         position: 'relative',
-        py: { xs: 3, md: 6 },
-        px: { xs: 1.5, md: 4 },
+        minHeight: '100%',
+        py: { xs: 2, md: 4 },
         background: theme.palette.mode === 'dark'
           ? 'linear-gradient(180deg, rgba(22,30,45,0.95) 0%, rgba(11,16,28,0.98) 100%)'
           : 'linear-gradient(180deg, #f5f7fb 0%, #ffffff 65%)',
       }}
     >
-      <Grid container spacing={{ xs: 3, md: 4 }}>
-        <Grid item xs={12} md={4}>
+      <Container maxWidth="xl" sx={{ px: { xs: 1.5, sm: 3, lg: 4 }, py: { xs: 2, md: 3 } }}>
+        <Grid container spacing={{ xs: 3, md: 4, xl: 5 }} alignItems="stretch">
+          <Grid item xs={12} lg={4} xl={3}>
           <Stack spacing={3}>
             <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider' }}>
               <CardContent>
@@ -407,42 +633,88 @@ export default function ClientProfileClient({
                 title="Última avaliação física"
                 subheader={measurementSummary?.date ? formatDate(measurementSummary.date) : 'Sem registos ainda'}
               />
-              <CardContent>
-                {measurementSummary ? (
-                  <Stack spacing={2}>
-                    <Grid container spacing={2}>
-                      <Grid item xs={12} sm={4}>
-                        {metricCard('Peso', measurementSummary.weight ? `${measurementSummary.weight} kg` : '—', theme.palette.info.main)}
-                      </Grid>
-                      <Grid item xs={12} sm={4}>
-                        {metricCard('Altura', measurementSummary.height ? `${measurementSummary.height} cm` : '—', theme.palette.info.main)}
-                      </Grid>
-                      <Grid item xs={12} sm={4}>
-                        {metricCard('IMC', measurementSummary.bmi ? measurementSummary.bmi : '—', theme.palette.secondary.main)}
-                      </Grid>
+            <CardContent>
+              {measurementSummary ? (
+                <Stack spacing={3}>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6} md={3}>
+                      {metricCard(
+                        'Peso',
+                        measurementSummary.weight ? `${measurementSummary.weight} kg` : '—',
+                        theme.palette.info.main,
+                      )}
                     </Grid>
-                    <Stack spacing={1}>
-                      <Typography variant="body2">
-                        Gordura corporal: {measurementSummary.bodyFat != null ? `${measurementSummary.bodyFat}%` : '—'}
-                      </Typography>
-                      <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                        {measurementSummary.notes ?? 'Sem notas adicionais.'}
-                      </Typography>
+                    <Grid item xs={12} sm={6} md={3}>
+                      {metricCard(
+                        'Altura',
+                        measurementSummary.height ? `${measurementSummary.height} cm` : '—',
+                        theme.palette.info.main,
+                        measurementSummary.height && measurementSummary.height >= 3
+                          ? `${Math.round((measurementSummary.height / 100) * 100) / 100} m`
+                          : undefined,
+                      )}
+                    </Grid>
+                    <Grid item xs={12} sm={6} md={3}>
+                      {metricCard(
+                        'IMC',
+                        measurementSummary.bmi ?? '—',
+                        theme.palette.secondary.main,
+                        bmiClassification(measurementSummary.bmi ?? null) ?? undefined,
+                      )}
+                    </Grid>
+                    <Grid item xs={12} sm={6} md={3}>
+                      {metricCard(
+                        'Gordura corporal',
+                        measurementSummary.bodyFat != null ? `${measurementSummary.bodyFat}%` : '—',
+                        theme.palette.success.main,
+                      )}
+                    </Grid>
+                  </Grid>
+
+                  {hasCircumferenceData ? (
+                    <Stack spacing={2}>
+                      <Divider flexItem sx={{ opacity: 0.5 }}>
+                        <Typography variant="caption" sx={{ textTransform: 'uppercase', letterSpacing: 0.6 }}>
+                          Medidas corporais
+                        </Typography>
+                      </Divider>
+                      <Grid container spacing={2}>
+                        {circumferenceMetrics.map((metric) => (
+                          <Grid item xs={6} sm={4} md={3} key={metric.key}>
+                            {metricCard(
+                              metric.label,
+                              formatMeasurementValue(metric.value, ' cm'),
+                              theme.palette.primary.light,
+                            )}
+                          </Grid>
+                        ))}
+                      </Grid>
                     </Stack>
-                    <Button
-                      component={Link}
-                      href={`/dashboard/profile?tab=metrics&user=${encodeURIComponent(user.id)}`}
-                      endIcon={<LaunchIcon />}
-                      variant="outlined"
-                    >
-                      Abrir histórico completo
-                    </Button>
+                  ) : null}
+
+                  <Stack spacing={1.5}>
+                    <Typography variant="body2" sx={{ opacity: 0.7 }}>
+                      Registo efetuado em {formatDate(measurementSummary.date)}
+                    </Typography>
+                    <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+                      {measurementSummary.notes ?? 'Sem notas adicionais.'}
+                    </Typography>
                   </Stack>
-                ) : (
-                  <Typography variant="body2" sx={{ opacity: 0.75 }}>
-                    Ainda não existem medições registadas para este cliente.
-                  </Typography>
-                )}
+
+                  <Button
+                    component={Link}
+                    href={`/dashboard/profile?tab=metrics&user=${encodeURIComponent(user.id)}`}
+                    endIcon={<LaunchIcon />}
+                    variant="outlined"
+                  >
+                    Abrir histórico completo
+                  </Button>
+                </Stack>
+              ) : (
+                <Typography variant="body2" sx={{ opacity: 0.75 }}>
+                  Ainda não existem medições registadas para este cliente.
+                </Typography>
+              )}
               </CardContent>
             </Card>
           </Stack>
@@ -507,6 +779,125 @@ export default function ClientProfileClient({
                   </MuiLink>
                 </CardActions>
               ) : null}
+            </Card>
+
+            <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider' }}>
+              <CardHeader
+                avatar={<Inventory2Icon color="primary" />}
+                title="Pacotes de sessões"
+                subheader={
+                  loadingPackages
+                    ? 'A carregar pacotes…'
+                    : currentPackage
+                      ? `${currentPackage.name ?? 'Pacote sem título'} · ${packageStatusLabel(currentPackage.status)}`
+                      : 'Nenhum pacote ativo'
+                }
+              />
+              <CardContent>
+                {loadingPackages ? (
+                  <LinearProgress sx={{ borderRadius: 999 }} />
+                ) : currentPackage ? (
+                  <Stack spacing={3}>
+                    <Box
+                      sx={{
+                        borderRadius: 3,
+                        border: '1px solid',
+                        borderColor: alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.4 : 0.2),
+                        background: alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.2 : 0.08),
+                        p: 2.5,
+                      }}
+                    >
+                      <Stack spacing={1.5}>
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ xs: 'flex-start', sm: 'center' }}>
+                          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                            {currentPackage.name ?? 'Pacote sem título'}
+                          </Typography>
+                          <Chip
+                            size="small"
+                            icon={packageStatusIcon(currentPackage.status)}
+                            label={packageStatusLabel(currentPackage.status)}
+                            color={packageStatusColor(currentPackage.status)}
+                          />
+                        </Stack>
+                        <Stack spacing={0.5}>
+                          {formatSessionsProgress(currentPackage.sessionsTotal, currentPackage.sessionsUsed) ? (
+                            <Typography variant="body2">
+                              {formatSessionsProgress(currentPackage.sessionsTotal, currentPackage.sessionsUsed)}
+                            </Typography>
+                          ) : null}
+                          <Typography variant="body2" sx={{ opacity: 0.75 }}>
+                            Iniciado em {formatDate(currentPackage.startedAt)}
+                            {currentPackage.endsAt ? ` · Expira em ${formatDate(currentPackage.endsAt)}` : ''}
+                          </Typography>
+                          {currentPackage.notes ? (
+                            <Typography variant="body2" sx={{ opacity: 0.85, whiteSpace: 'pre-line' }}>
+                              {currentPackage.notes}
+                            </Typography>
+                          ) : null}
+                        </Stack>
+                      </Stack>
+                    </Box>
+
+                    {packageHistory.length ? (
+                      <Stack spacing={1.5}>
+                        <Typography variant="subtitle2" sx={{ textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                          Histórico recente
+                        </Typography>
+                        <List disablePadding>
+                          {packageHistory.map((pkg) => (
+                            <ListItem
+                              key={pkg.id}
+                              sx={{ borderBottom: '1px solid', borderColor: 'divider', py: 1.5, alignItems: 'flex-start' }}
+                            >
+                              <ListItemText
+                                primary={
+                                  <Stack
+                                    direction={{ xs: 'column', sm: 'row' }}
+                                    spacing={1.5}
+                                    alignItems={{ xs: 'flex-start', sm: 'center' }}
+                                  >
+                                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                                      {pkg.name ?? 'Pacote sem título'}
+                                    </Typography>
+                                    <Chip
+                                      size="small"
+                                      icon={packageStatusIcon(pkg.status)}
+                                      label={packageStatusLabel(pkg.status)}
+                                      color={packageStatusColor(pkg.status)}
+                                    />
+                                  </Stack>
+                                }
+                                secondary={
+                                  <Stack spacing={0.5} sx={{ mt: 0.75 }}>
+                                    <Typography variant="body2">
+                                      {formatDate(pkg.startedAt)}
+                                      {pkg.endsAt ? ` → ${formatDate(pkg.endsAt)}` : ''}
+                                    </Typography>
+                                    {formatSessionsProgress(pkg.sessionsTotal, pkg.sessionsUsed) ? (
+                                      <Typography variant="caption">
+                                        {formatSessionsProgress(pkg.sessionsTotal, pkg.sessionsUsed)}
+                                      </Typography>
+                                    ) : null}
+                                    {pkg.notes ? (
+                                      <Typography variant="caption" sx={{ opacity: 0.7, whiteSpace: 'pre-line' }}>
+                                        {pkg.notes}
+                                      </Typography>
+                                    ) : null}
+                                  </Stack>
+                                }
+                              />
+                            </ListItem>
+                          ))}
+                        </List>
+                      </Stack>
+                    ) : null}
+                  </Stack>
+                ) : (
+                  <Typography variant="body2" sx={{ opacity: 0.75 }}>
+                    Ainda não existem pacotes de sessões registados.
+                  </Typography>
+                )}
+              </CardContent>
             </Card>
 
             <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider' }}>
@@ -613,44 +1004,109 @@ export default function ClientProfileClient({
               </CardContent>
             </Card>
 
-            <Accordion defaultExpanded sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider' }}>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography sx={{ fontWeight: 600 }}>Notas e observações</Typography>
-              </AccordionSummary>
-              <AccordionDetails>
-                {measurement?.notes || recentSessions.some((s) => s.notes) ? (
-                  <Stack spacing={2}>
-                    {measurement?.notes ? (
-                      <Box sx={{ p: 2, borderRadius: 3, border: '1px dashed', borderColor: 'divider' }}>
-                        <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-                          Observação da avaliação física
+            <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider' }}>
+              <CardHeader
+                avatar={<HistoryEduIcon color="primary" />}
+                title="Notas e observações"
+                subheader={
+                  loadingNotes
+                    ? 'A carregar notas…'
+                    : notes.length
+                      ? `${notes.length} nota${notes.length > 1 ? 's' : ''} registada${notes.length > 1 ? 's' : ''}`
+                      : 'Sem notas personalizadas'
+                }
+              />
+              <CardContent>
+                <Stack spacing={3}>
+                  <Box component="form" onSubmit={submitNote}>
+                    <Stack spacing={1.5}>
+                      <TextField
+                        label="Adicionar nova nota"
+                        placeholder="Registe feedback, progresso ou alertas importantes"
+                        multiline
+                        minRows={3}
+                        fullWidth
+                        value={noteText}
+                        onChange={(event) => setNoteText(event.target.value)}
+                      />
+                      <Stack direction="row" spacing={1} justifyContent="flex-end">
+                        <Button type="submit" variant="contained" disabled={savingNote || !noteTextTrimmed}>
+                          {savingNote ? 'A guardar…' : 'Guardar nota'}
+                        </Button>
+                      </Stack>
+                    </Stack>
+                  </Box>
+
+                  {loadingNotes ? (
+                    <LinearProgress sx={{ borderRadius: 999 }} />
+                  ) : notes.length ? (
+                    <Stack spacing={2}>
+                      {notes.map((note) => (
+                        <Box key={note.id} sx={{ p: 2.5, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+                          <Stack
+                            direction={{ xs: 'column', sm: 'row' }}
+                            spacing={1}
+                            justifyContent="space-between"
+                            alignItems={{ xs: 'flex-start', sm: 'center' }}
+                          >
+                            <Typography variant="subtitle2">{note.author || 'Equipa'}</Typography>
+                            <Typography variant="caption" sx={{ opacity: 0.7 }}>
+                              {formatDate(note.createdAt)}
+                            </Typography>
+                          </Stack>
+                          <Typography variant="body2" sx={{ mt: 1.25, whiteSpace: 'pre-line' }}>
+                            {note.text}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Stack>
+                  ) : (
+                    <Typography variant="body2" sx={{ opacity: 0.75 }}>
+                      Ainda não existem notas registadas para este cliente.
+                    </Typography>
+                  )}
+
+                  {hasAutoNotes ? (
+                    <Stack spacing={1.5}>
+                      <Divider textAlign="left">
+                        <Typography variant="caption" sx={{ textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                          Observações automáticas
                         </Typography>
-                        <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
-                          {measurement.notes}
-                        </Typography>
-                      </Box>
-                    ) : null}
-                    {recentSessions.filter((s) => s.notes).map((session) => (
-                      <Box key={`note-${session.id}`} sx={{ p: 2, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
-                        <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-                          {`Sessão de ${formatDate(session.scheduledAt)}`}
-                        </Typography>
-                        <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
-                          {session.notes}
-                        </Typography>
-                      </Box>
-                    ))}
-                  </Stack>
-                ) : (
-                  <Typography variant="body2" sx={{ opacity: 0.7 }}>
-                    Sem notas registadas para este cliente.
-                  </Typography>
-                )}
-              </AccordionDetails>
-            </Accordion>
+                      </Divider>
+                      {measurement?.notes ? (
+                        <Box sx={{ p: 2, borderRadius: 3, border: '1px dashed', borderColor: 'divider' }}>
+                          <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                            Avaliação física ({formatDate(measurement.date)})
+                          </Typography>
+                          <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+                            {measurement.notes}
+                          </Typography>
+                        </Box>
+                      ) : null}
+                      {sessionNotes.map((session) => (
+                        <Box key={`auto-note-${session.id}`} sx={{ p: 2, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+                          <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                            Sessão de {formatDate(session.scheduledAt)}
+                          </Typography>
+                          <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+                            {session.notes}
+                          </Typography>
+                          {session.trainerName ? (
+                            <Typography variant="caption" sx={{ opacity: 0.6, display: 'block', mt: 0.75 }}>
+                              Personal trainer: {session.trainerName}
+                            </Typography>
+                          ) : null}
+                        </Box>
+                      ))}
+                    </Stack>
+                  ) : null}
+                </Stack>
+              </CardContent>
+            </Card>
           </Stack>
         </Grid>
       </Grid>
+      </Container>
     </Box>
   );
 }

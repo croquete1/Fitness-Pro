@@ -76,7 +76,7 @@ export default async function UserProfileView({ params }: { params: Promise<{ id
 
   const measurementPromise = sb
     .from('anthropometry')
-    .select('id,date,weight,height,body_fat_pct,notes')
+    .select('*')
     .eq('client_id', targetId)
     .order('date', { ascending: false })
     .limit(1)
@@ -227,14 +227,23 @@ export default async function UserProfileView({ params }: { params: Promise<{ id
   const upcomingSessions: SessionSummary[] = (upcomingSessionsRes.data ?? []).map(toSessionSummary);
   const recentSessions: SessionSummary[] = (recentSessionsRes.data ?? []).map(toSessionSummary);
 
-  const measurementData: MeasurementSnapshot | null = measurementRes.data
+  const measurementRow: any = measurementRes.data ?? null;
+  const measurementData: MeasurementSnapshot | null = measurementRow
     ? {
-        id: String(measurementRes.data.id),
-        date: measurementRes.data.date ?? null,
-        weight: measurementRes.data.weight ?? null,
-        height: measurementRes.data.height ?? null,
-        bodyFatPct: measurementRes.data.body_fat_pct ?? null,
-        notes: measurementRes.data.notes ?? null,
+        id: String(measurementRow.id),
+        date: measurementRow.date ?? measurementRow.measured_at ?? null,
+        weight: measurementRow.weight ?? measurementRow.weight_kg ?? null,
+        height: measurementRow.height ?? measurementRow.height_cm ?? null,
+        bodyFatPct: measurementRow.body_fat_pct ?? measurementRow.bodyFatPct ?? null,
+        notes: measurementRow.notes ?? null,
+        waist: measurementRow.waist ?? measurementRow.waist_cm ?? null,
+        hip: measurementRow.hip ?? measurementRow.hip_cm ?? null,
+        chest: measurementRow.chest ?? measurementRow.chest_cm ?? null,
+        shoulders: measurementRow.shoulders ?? measurementRow.shoulders_cm ?? null,
+        neck: measurementRow.neck ?? measurementRow.neck_cm ?? null,
+        arm: measurementRow.arm ?? measurementRow.arm_cm ?? null,
+        thigh: measurementRow.thigh ?? measurementRow.thigh_cm ?? null,
+        calf: measurementRow.calf ?? measurementRow.calf_cm ?? null,
       }
     : null;
 
