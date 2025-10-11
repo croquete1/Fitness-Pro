@@ -1,5 +1,6 @@
 // src/app/api/search/route.ts
 import { NextResponse, type NextRequest } from 'next/server';
+import { requireAdminGuard, isGuardErr } from '@/lib/api-guards';
 import { createServerClient } from '@/lib/supabaseServer';
 
 const LIMIT = 10;
@@ -89,6 +90,11 @@ async function fallbackSessions(sb: any, q: string, offset: number): Promise<Gro
 // GET /api/search
 // ------------------------------
 export async function GET(req: NextRequest) {
+  const guard = await requireAdminGuard();
+  if (isGuardErr(guard)) {
+    return guard.response;
+  }
+
   const u = new URL(req.url);
   const q = (u.searchParams.get('q') ?? '').trim();
   const role = (u.searchParams.get('role') ?? 'ADMIN').toUpperCase();
