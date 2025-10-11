@@ -61,6 +61,13 @@ type FlowStep = {
   description: string;
 };
 
+type QuickAction = {
+  href: string;
+  label: string;
+  description: string;
+  icon: React.ReactNode;
+};
+
 type Props = {
   messagesCount?: number;
   notificationsCount?: number;
