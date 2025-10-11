@@ -2,6 +2,7 @@
 import { headers as nextHeaders } from 'next/headers';
 import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
+import { AUDIT_TABLE_CANDIDATES, isMissingAuditTableError } from '@/lib/audit';
 
 /**
  * Tipos “amigáveis” e extensíveis: podes usar qualquer string,
@@ -48,7 +49,19 @@ export async function writeAudit(kind: AuditKind, payload: AuditPayload = {}) {
   };
 
   // Sem tipos gerados do Supabase => aceita qualquer shape (compila)
-  await sb.from('audit_logs').insert(row);
+  for (const table of AUDIT_TABLE_CANDIDATES) {
+    try {
+      const { error } = await sb.from(table as any).insert(row);
+      if (!error) return;
+      if (isMissingAuditTableError(error)) continue;
+      console.warn(`[logs] falha ao inserir na tabela ${table}`, error);
+      return;
+    } catch (err) {
+      if (isMissingAuditTableError(err)) continue;
+      console.warn(`[logs] erro inesperado ao inserir na tabela ${table}`, err);
+      return;
+    }
+  }
 }
 
 /** Alias p/ compatibilidade com código que use `audit(...)` */
