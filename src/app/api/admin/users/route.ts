@@ -4,7 +4,12 @@ import { requireAdminGuard, isGuardErr } from '@/lib/api-guards';
 import { logAudit, AUDIT_KINDS, AUDIT_TARGET_TYPES } from '@/lib/audit';
 import { supabaseFallbackJson, supabaseUnavailableResponse } from '@/lib/supabase/responses';
 import { getSampleUsers } from '@/lib/fallback/users';
-import { fetchPresenceMap, summarizePresence, DEFAULT_ONLINE_WINDOW_MS } from '@/lib/presence';
+import {
+  fetchPresenceMap,
+  summarizePresence,
+  DEFAULT_ONLINE_WINDOW_MS,
+  fallbackOnlineStatus,
+} from '@/lib/presence';
 
 export async function GET(req: Request) {
   const guard = await requireAdminGuard();
@@ -56,7 +61,15 @@ export async function GET(req: Request) {
 
     const lastLoginAt = presenceSummary.lastLoginAt ?? fallbackLastLogin;
     const lastSeenAt = presenceSummary.lastSeenAt ?? fallbackLastSeen;
-    const online = presenceSummary.online;
+    const online = rawPresence
+      ? presenceSummary.online
+      : fallbackOnlineStatus({
+          explicitOnline: row?.online ?? row?.is_online,
+          lastSeenAt: fallbackLastSeen,
+          lastLoginAt: fallbackLastLogin,
+          now,
+          onlineWindowMs: DEFAULT_ONLINE_WINDOW_MS,
+        });
 
     return {
       ...row,

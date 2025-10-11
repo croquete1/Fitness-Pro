@@ -5,7 +5,7 @@ import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole } from '@/lib/roles';
 import { fetchUserById } from '@/lib/userRepo';
-import { fetchPresenceMap, summarizePresence } from '@/lib/presence';
+import { fetchPresenceMap, summarizePresence, fallbackOnlineStatus } from '@/lib/presence';
 import ClientProfileClient, {
   type ClientProfilePayload,
   type MeasurementSnapshot,
@@ -40,10 +40,20 @@ export default async function UserProfileView({ params }: { params: Promise<{ id
   const nowIso = now.toISOString();
 
   const presenceMap = await fetchPresenceMap(sb, [targetId]);
-  const presence = summarizePresence(presenceMap.get(String(targetId)), { now });
-  const lastLoginAt = presence.lastLoginAt ?? u.last_sign_in_at ?? null;
-  const lastSeenAt = presence.lastSeenAt ?? lastLoginAt;
-  const isOnline = presence.online;
+  const rawPresence = presenceMap.get(String(targetId));
+  const presence = summarizePresence(rawPresence, { now });
+  const fallbackLastLogin = u.last_sign_in_at ?? (u as any).last_login_at ?? null;
+  const fallbackLastSeen = (u as any).last_seen_at ?? fallbackLastLogin;
+  const lastLoginAt = presence.lastLoginAt ?? fallbackLastLogin;
+  const lastSeenAt = presence.lastSeenAt ?? fallbackLastSeen;
+  const isOnline = rawPresence
+    ? presence.online
+    : fallbackOnlineStatus({
+        explicitOnline: (u as any).online ?? (u as any).is_online,
+        lastSeenAt: fallbackLastSeen,
+        lastLoginAt: fallbackLastLogin,
+        now,
+      });
 
   const trainerLinkPromise = sb
     .from('trainer_clients')
