@@ -184,14 +184,20 @@ function AccountSettingsCard({
     setSaving(true);
     setStatus({ type: 'idle' });
     try {
-      const res = await fetch('/api/profile', {
+      const updates: Record<string, unknown> = {};
+      const nextName = form.name.trim();
+      if (nextName !== (account.name ?? '').trim()) updates.name = nextName;
+      if ((form.phone ?? null) !== (account.phone ?? null)) updates.phone = form.phone;
+
+      const res = await fetch('/api/me/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: form.name, phone: form.phone }),
+        body: JSON.stringify(updates),
       });
       if (!res.ok) throw new Error('ERR');
       setStatus({ type: 'success', message: 'Alterações guardadas.' });
-      onSaved({ ...account, ...form });
+      onSaved({ ...account, name: nextName, phone: form.phone ?? null });
+      setForm((prev) => ({ ...prev, name: nextName }));
     } catch {
       setStatus({ type: 'error', message: 'Não foi possível guardar as alterações.' });
     } finally {

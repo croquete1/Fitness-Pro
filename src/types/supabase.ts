@@ -512,30 +512,67 @@ export type Database = {
         Row: {
           id: string;
           name: string | null;
+          username: string | null;
           avatar_url: string | null;
           phone: string | null;
+          bio: string | null;
           birthdate: string | null;
           height_cm: number | null;
+          weight_kg: number | null;
+          rejection_reason: string | null;
           created_at: string | null;
           updated_at: string | null;
         };
         Insert: {
           id: string;
           name?: string | null;
+          username?: string | null;
           avatar_url?: string | null;
           phone?: string | null;
+          bio?: string | null;
           birthdate?: string | null;
           height_cm?: number | null;
+          weight_kg?: number | null;
+          rejection_reason?: string | null;
           created_at?: string | null;
           updated_at?: string | null;
         };
         Update: {
           id?: string;
           name?: string | null;
+          username?: string | null;
           avatar_url?: string | null;
           phone?: string | null;
+          bio?: string | null;
           birthdate?: string | null;
           height_cm?: number | null;
+          weight_kg?: number | null;
+          rejection_reason?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [];
+      };
+
+      profile_private: {
+        Row: {
+          user_id: string;
+          phone: string | null;
+          settings: Json | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          user_id: string;
+          phone?: string | null;
+          settings?: Json | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          user_id?: string;
+          phone?: string | null;
+          settings?: Json | null;
           created_at?: string | null;
           updated_at?: string | null;
         };
