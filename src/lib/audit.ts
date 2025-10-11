@@ -1,6 +1,20 @@
 import { createServerClient } from '@/lib/supabaseServer';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+export const AUDIT_TABLE_CANDIDATES = ['audit_log', 'audit_logs', 'audits'] as const;
+
+export function isMissingAuditTableError(error: unknown): boolean {
+  if (!error) return false;
+  const code = typeof error === 'object' && error && 'code' in error ? String((error as any).code ?? '') : '';
+  if (code === '42P01') return true; // undefined_table
+  const message =
+    typeof error === 'object' && error && 'message' in error
+      ? String((error as any).message ?? '')
+      : '';
+  const normalized = message.toLowerCase();
+  return normalized.includes('relation') && normalized.includes('does not exist');
+}
+
 export const AUDIT_KINDS = {
   CREATE: 'CREATE',
   UPDATE: 'UPDATE',
@@ -96,16 +110,17 @@ export async function logAudit(clientOrPayload: SupabaseClient | InsertLike, may
     created_at: new Date().toISOString(),
   };
 
-  const candidateTables = ['audit_log', 'audit_logs', 'audits'];
-  for (const table of candidateTables) {
+  for (const table of AUDIT_TABLE_CANDIDATES) {
     try {
       const { error } = await sb.from(table as any).insert(row);
       if (!error) return;
-      const msg = String(error.message || '').toLowerCase();
-      if (msg.includes('relation') && msg.includes('does not exist')) continue;
+      if (isMissingAuditTableError(error)) continue;
+      console.warn(`[audit] falha ao escrever na tabela ${table}`, error);
       return;
-    } catch {
-      continue;
+    } catch (err) {
+      if (isMissingAuditTableError(err)) continue;
+      console.warn(`[audit] erro inesperado ao escrever na tabela ${table}`, err);
+      return;
     }
   }
 }

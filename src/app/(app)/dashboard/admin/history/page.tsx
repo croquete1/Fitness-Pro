@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { createServerClient } from '@/lib/supabaseServer';
+import { AUDIT_TABLE_CANDIDATES, isMissingAuditTableError } from '@/lib/audit';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,17 +19,35 @@ export default async function AdminHistoryPage() {
   let logs: Log[] = [];
   let errorMessage: string | null = null;
 
-  try {
-    const { data, error } = await sb
-      .from('audit_logs')
-      .select('id, created_at, actor, action, target, meta')
-      .order('created_at', { ascending: false })
-      .limit(50);
+  let tableChecked = false;
 
-    if (error) errorMessage = error.message;
-    else logs = (data ?? []) as Log[];
-  } catch (e: any) {
-    errorMessage = e?.message ?? 'Erro ao carregar o histórico.';
+  for (const table of AUDIT_TABLE_CANDIDATES) {
+    try {
+      const { data, error } = await sb
+        .from(table as any)
+        .select('id, created_at, actor, action, target, meta')
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) {
+        if (isMissingAuditTableError(error)) continue;
+        errorMessage = error.message;
+      } else {
+        logs = (data ?? []) as Log[];
+      }
+      tableChecked = true;
+      break;
+    } catch (e: any) {
+      if (isMissingAuditTableError(e)) continue;
+      errorMessage = e?.message ?? 'Erro ao carregar o histórico.';
+      tableChecked = true;
+      break;
+    }
+  }
+
+  if (!tableChecked && !errorMessage) {
+    errorMessage =
+      'Tabela de auditoria não encontrada. Garante que executaste o script SQL para criar a audit_log no Supabase.';
   }
 
   return (

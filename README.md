@@ -28,6 +28,19 @@ Prisma ORM com migrações e seed inicial.
 
 Pronto para CI/CD e previews no Vercel.
 
+## 🔐 Configuração do Audit Log no Supabase
+
+Para que a lista de utilizadores e os relatórios de histórico mostrem o último login,
+atividade recente e estado online, cria a tabela `audit_log` no teu projeto Supabase.
+
+1. Abre o SQL Editor no painel do Supabase.
+2. Copia o conteúdo de [`scripts/supabase-audit-log.sql`](scripts/supabase-audit-log.sql) e
+   executa-o.
+
+O script cria a tabela com todos os campos esperados pelo dashboard, adiciona índices
+para consultas rápidas e ativa as políticas necessárias para que o backoffice registe
+logins e outras ações automaticamente.
+
 🏗️ Stack Técnica
 
 Next.js 14+ (App Router)
