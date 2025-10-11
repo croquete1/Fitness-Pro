@@ -5,9 +5,10 @@ import PublishToggle from '@/components/exercise/PublishToggle';
 
 type Exercise = {
   id: string;
-  title?: string | null;
-  published?: boolean | null;
+  name?: string | null;
+  is_published?: boolean | null;
   muscle_group?: string | null;
+  owner?: { id: string; name: string | null; email: string | null } | null;
 };
 
 export default function AdminExerciseCatalog() {
@@ -19,10 +20,19 @@ export default function AdminExerciseCatalog() {
     setLoading(true);
     try {
       // Ajusta este endpoint ao que tiveres no projeto: /api/admin/exercises (GET)
-      const res = await fetch(`/api/admin/exercises?search=${encodeURIComponent(q)}`, { cache: 'no-store' });
+      const res = await fetch(`/api/admin/exercises?q=${encodeURIComponent(q)}&scope=global`, { cache: 'no-store' });
       if (!res.ok) throw new Error(await res.text());
-      const data = (await res.json()) as Exercise[];
-      setList(Array.isArray(data) ? data : []);
+      const json = await res.json();
+      const rows = Array.isArray(json?.rows) ? json.rows : Array.isArray(json) ? json : [];
+      setList(
+        rows.map((ex: any) => ({
+          id: String(ex.id),
+          name: ex.name ?? ex.title ?? '',
+          muscle_group: ex.muscle_group ?? ex.muscle ?? null,
+          is_published: ex.is_published ?? ex.published ?? false,
+          owner: ex.owner ?? null,
+        })),
+      );
     } catch (e) {
       console.error(e);
       setList([]);
@@ -58,27 +68,30 @@ export default function AdminExerciseCatalog() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 600, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {ex.title ?? `Exercício ${ex.id.slice(0,6)}`}
+                    {ex.name ?? `Exercício ${ex.id.slice(0,6)}`}
                   </div>
                   <div style={{ fontSize: 12, opacity: .7 }}>{ex.muscle_group ?? '—'}</div>
+                  {ex.owner?.name && (
+                    <div style={{ fontSize: 11, opacity: .7 }}>Autor: {ex.owner.name}</div>
+                  )}
                 </div>
 
                 {/* Badge de estado */}
                 <span
                   className="chip"
                   style={{
-                    background: ex.published ? 'rgba(16,185,129,.12)' : 'rgba(156,163,175,.12)',
-                    color: ex.published ? '#065f46' : '#374151',
-                    borderColor: ex.published ? '#10b98133' : '#9ca3af33',
+                    background: ex.is_published ? 'rgba(16,185,129,.12)' : 'rgba(156,163,175,.12)',
+                    color: ex.is_published ? '#065f46' : '#374151',
+                    borderColor: ex.is_published ? '#10b98133' : '#9ca3af33',
                     fontWeight: 600
                   }}
                 >
-                  {ex.published ? 'Publicado' : 'Não publicado'}
+                  {ex.is_published ? 'Publicado' : 'Não publicado'}
                 </span>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <PublishToggle id={ex.id} published={!!ex.published} onChange={() => load()} />
+                <PublishToggle id={ex.id} published={!!ex.is_published} onChange={() => load()} />
               </div>
             </li>
           ))}

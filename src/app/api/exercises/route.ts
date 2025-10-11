@@ -19,6 +19,12 @@ export async function POST(req: NextRequest) {
     equipment: equipment ?? null,
     difficulty: difficulty ?? null,
     video_url: video_url ?? null,
+    is_global: true,
+    owner_id: null,
+    is_published: false,
+    published_at: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   };
 
   const { error } = await sb.from('exercises').insert(payload);

@@ -51,10 +51,10 @@ async function fallbackPlans(sb: any, q: string, offset: number): Promise<Group>
 }
 
 async function fallbackExercises(sb: any, q: string, offset: number): Promise<Group> {
-  const or = [`name.ilike.%${q}%`, `muscle.ilike.%${q}%`, `equipment.ilike.%${q}%`].join(',');
+  const or = [`name.ilike.%${q}%`, `muscle_group.ilike.%${q}%`, `equipment.ilike.%${q}%`].join(',');
   const { data, count } = await sb
     .from('exercises')
-    .select('id, name, muscle, equipment, created_at', { count: 'estimated' })
+    .select('id, name, muscle_group, equipment, created_at', { count: 'estimated' })
     .or(or)
     .order('created_at', { ascending: false })
     .range(offset, offset + LIMIT - 1);
@@ -62,7 +62,7 @@ async function fallbackExercises(sb: any, q: string, offset: number): Promise<Gr
   const items = (data ?? []).map((e: any) => ({
     id: String(e.id),
     label: e.name ?? 'Exercício',
-    sub: [e.muscle, e.equipment].filter(Boolean).join(' • ') || null,
+    sub: [e.muscle_group, e.equipment].filter(Boolean).join(' • ') || null,
     href: `/dashboard/admin/exercises/${e.id}`,
   }));
   return makeGroup(items, count, offset);

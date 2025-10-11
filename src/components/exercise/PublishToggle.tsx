@@ -12,13 +12,17 @@ export default function PublishToggle({ id, published, onChange }: Props) {
   const [busy, setBusy] = React.useState(false);
   const [isOn, setIsOn] = React.useState(!!published);
 
+  React.useEffect(() => {
+    setIsOn(!!published);
+  }, [published]);
+
   async function toggle() {
     try {
       setBusy(true);
-      const res = await fetch(`/api/admin/exercises/${id}`, {
+      const res = await fetch(`/api/admin/exercises/${id}/publish`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ published: !isOn }),
+        body: JSON.stringify({ publish: !isOn }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setIsOn(!isOn);

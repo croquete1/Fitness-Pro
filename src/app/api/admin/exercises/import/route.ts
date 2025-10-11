@@ -64,6 +64,12 @@ export async function POST(req: NextRequest) {
     difficulty: r.difficulty ?? null,
     description: r.description ?? null,
     video_url: r.video_url ?? null,
+    is_global: true,
+    owner_id: null,
+    is_published: false,
+    published_at: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   }));
   let lastErr: any = null;
 
