@@ -20,7 +20,7 @@ import { useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 
 const loginSchema = z.object({
-  email: z.string().email('Email inválido'),
+  identifier: z.string().trim().min(1, 'Indica o email ou o username'),
   password: z.string().min(6, 'Mínimo 6 caracteres'),
 });
 
@@ -55,32 +55,48 @@ export default function LoginClient() {
   const nextParam = sp.get('next');
   const errParam = sp.get('error');
 
-  const [email, setEmail] = React.useState('');
+  const [identifier, setIdentifier] = React.useState('');
   const [pw, setPw] = React.useState('');
   const [show, setShow] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [err, setErr] = React.useState<string | null>(null);
-  const [fieldErr, setFieldErr] = React.useState<{ email?: string; password?: string }>({});
+  const [fieldErr, setFieldErr] = React.useState<{ identifier?: string; password?: string }>({});
 
   React.useEffect(() => { setErr(mapAuthError(errParam)); }, [errParam]);
-  React.useEffect(() => { try { const last = localStorage.getItem('fp:lastEmail'); if (last) setEmail(last); } catch {} }, []);
-  React.useEffect(() => { try { if (email) localStorage.setItem('fp:lastEmail', email.trim()); } catch {} }, [email]);
+  React.useEffect(() => {
+    try {
+      const last =
+        localStorage.getItem('fp:lastIdentifier') ?? localStorage.getItem('fp:lastEmail');
+      if (last) setIdentifier(last);
+      if (localStorage.getItem('fp:lastEmail')) localStorage.removeItem('fp:lastEmail');
+    } catch {}
+  }, []);
+  React.useEffect(() => {
+    try {
+      const trimmed = identifier.trim();
+      if (trimmed) {
+        localStorage.setItem('fp:lastIdentifier', trimmed);
+      } else {
+        localStorage.removeItem('fp:lastIdentifier');
+      }
+    } catch {}
+  }, [identifier]);
 
-  const validateField = (key: 'email' | 'password', value: string) => {
-    const partial = key === 'email' ? loginSchema.pick({ email: true }) : loginSchema.pick({ password: true });
-    const res = partial.safeParse({ [key]: value } as any);
+  const validateField = (key: 'identifier' | 'password', value: string) => {
+    const schema = key === 'identifier' ? loginSchema.shape.identifier : loginSchema.shape.password;
+    const res = schema.safeParse(value);
     setFieldErr((prev) => ({ ...prev, [key]: res.success ? undefined : res.error.issues[0]?.message }));
     return res.success;
   };
 
-  const isFormValid = loginSchema.safeParse({ email, password: pw }).success && !loading;
+  const isFormValid = loginSchema.safeParse({ identifier, password: pw }).success && !loading;
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (loading) return;
 
     setErr(null);
-    const parsed = loginSchema.safeParse({ email, password: pw });
+    const parsed = loginSchema.safeParse({ identifier, password: pw });
     if (!parsed.success) {
       const nextErrors: any = {};
       for (const i of parsed.error.issues) nextErrors[i.path[0] as string] = i.message;
@@ -92,8 +108,8 @@ export default function LoginClient() {
     try {
       const callbackUrl = sanitizeNext(nextParam);
       await signIn('credentials', {
-        email: email.trim(),
-        password: pw,
+        identifier: parsed.data.identifier,
+        password: parsed.data.password,
         redirect: true,
         callbackUrl,
       });
@@ -249,17 +265,18 @@ export default function LoginClient() {
               <form onSubmit={onSubmit} noValidate>
                 <Stack spacing={2.2}>
                   <TextField
-                    label="Email *"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    onBlur={(e) => validateField('email', e.target.value)}
+                    label="Email ou nome de utilizador *"
+                    type="text"
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    onBlur={(e) => validateField('identifier', e.target.value)}
                     required
                     fullWidth
                     autoFocus
                     autoComplete="username"
-                    error={!!fieldErr.email}
-                    helperText={fieldErr.email}
+                    error={!!fieldErr.identifier}
+                    helperText={fieldErr.identifier ?? 'Podes usar o email ou o username definido no perfil.'}
+                    inputProps={{ autoCapitalize: 'none', autoCorrect: 'off', spellCheck: 'false' }}
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
