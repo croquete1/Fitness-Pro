@@ -25,6 +25,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Disponibilizar pesquisa global no header com resultados para utilizadores/sessões/aprovações e fallback offline. Fontes: `src/components/layout/AppHeader.tsx`, `src/app/(app)/dashboard/search/page.tsx`, `src/app/(app)/dashboard/search/search.client.tsx`, `src/lib/fallback/users.ts`.
 - [x] Reestruturar os dashboards de admin e PT em componentes client-friendly para eliminar erros de serialização e garantir responsividade. Fontes: `src/app/(app)/dashboard/admin/AdminDashboardClient.tsx`, `src/components/dashboard/TrainerDashboardClient.tsx`, `src/components/dashboard/TrainerHome.tsx`.
 - [x] Endurecer o endpoint de planos administrativos com guarda de administrador e fallbacks Supabase. Fonte: `src/app/api/admin/plans/route.ts`.
+- [x] Modernizar a ficha detalhada de clientes/utentes com overview completo, métricas e gestão de PT em cartão único. Fontes: `src/app/(app)/dashboard/users/[id]/page.tsx`, `src/app/(app)/dashboard/users/[id]/profile.client.tsx`.
 
 ## Fase 2 - Melhorias Estruturais
 - [ ] Validar carregamento real da lista de utilizadores/aprovações no Supabase (remoção dos fallbacks quando a API estiver estável e seeds completos).
