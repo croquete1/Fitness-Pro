@@ -21,7 +21,7 @@ as $$
     select 1
     from public.users u
     where u.id = uid
-      and coalesce(u.role, '') ilike 'admin'
+      and u.role::text ilike 'admin'
   );
 $$;
 
@@ -34,7 +34,7 @@ as $$
     select 1
     from public.users u
     where u.id = uid
-      and coalesce(u.role, '') ilike any (array['trainer', 'pt'])
+      and u.role::text ilike any (array['trainer', 'pt'])
   );
 $$;
 
@@ -47,7 +47,7 @@ as $$
     select 1
     from public.users u
     where u.id = uid
-      and coalesce(u.role, '') ilike 'client'
+      and u.role::text ilike 'client'
   );
 $$;
 
