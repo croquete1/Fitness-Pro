@@ -43,7 +43,7 @@ export async function PATCH(req: Request) {
   const sb = createServerClient();
 
   const { data } = await sb
-    .from('profile_private' as any)
+    .from('profile_private')
     .select('settings')
     .eq('user_id', guard.me.id)
     .maybeSingle();
@@ -102,7 +102,7 @@ export async function PATCH(req: Request) {
   }
 
   const { error } = await sb
-    .from('profile_private' as any)
+    .from('profile_private')
     .upsert(
       { user_id: guard.me.id, settings: nextSettings },
       { onConflict: 'user_id' },
