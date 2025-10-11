@@ -88,3 +88,26 @@ export function summarizePresence(
     online,
   };
 }
+
+export function fallbackOnlineStatus(opts: {
+  explicitOnline?: unknown;
+  lastSeenAt?: string | null;
+  lastLoginAt?: string | null;
+  now?: number | Date;
+  onlineWindowMs?: number;
+}): boolean {
+  const { explicitOnline, lastSeenAt, lastLoginAt, now: nowInput, onlineWindowMs } = opts;
+  if (typeof explicitOnline === 'boolean') return explicitOnline;
+
+  const candidate = lastSeenAt ?? lastLoginAt;
+  if (!candidate) return false;
+
+  const timestamp = new Date(candidate).getTime();
+  if (!Number.isFinite(timestamp)) return false;
+
+  const nowRaw = nowInput ?? Date.now();
+  const now = nowRaw instanceof Date ? nowRaw.getTime() : Number(nowRaw) || Date.now();
+  const window = onlineWindowMs ?? DEFAULT_ONLINE_WINDOW_MS;
+
+  return now - timestamp <= window;
+}
