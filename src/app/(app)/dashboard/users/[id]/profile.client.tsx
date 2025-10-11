@@ -554,7 +554,7 @@ export default function ClientProfileClient({
           : 'linear-gradient(180deg, #f5f7fb 0%, #ffffff 65%)',
       }}
     >
-      <Container maxWidth={false} sx={{ px: { xs: 1.5, sm: 3, lg: 4 }, py: { xs: 2, md: 3 }, width: '100%' }}>
+      <Container maxWidth="xl" sx={{ px: { xs: 1.5, sm: 3, lg: 4 }, py: { xs: 2, md: 3 } }}>
         <Grid container spacing={{ xs: 3, md: 4, xl: 5 }} alignItems="stretch">
           <Grid item xs={12} lg={4} xl={3}>
           <Stack spacing={3}>

@@ -26,9 +26,6 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Reestruturar os dashboards de admin e PT em componentes client-friendly para eliminar erros de serialização e garantir responsividade. Fontes: `src/app/(app)/dashboard/admin/AdminDashboardClient.tsx`, `src/components/dashboard/TrainerDashboardClient.tsx`, `src/components/dashboard/TrainerHome.tsx`.
 - [x] Endurecer o endpoint de planos administrativos com guarda de administrador e fallbacks Supabase. Fonte: `src/app/api/admin/plans/route.ts`.
 - [x] Modernizar a ficha detalhada de clientes/utentes com overview completo, métricas e gestão de PT em cartão único. Fontes: `src/app/(app)/dashboard/users/[id]/page.tsx`, `src/app/(app)/dashboard/users/[id]/profile.client.tsx`.
-- [x] Reforçar pesquisas/admin lookup para usar Supabase directamente (com fallbacks) e desbloquear atribuição de PTs. Fontes: `src/app/api/admin/lookup/people/route.ts`, `src/app/api/search/{clients,trainer}/route.ts`, `src/app/api/admin/assign-pt/route.ts`.
-- [x] Remover dependências Prisma remanescentes substituindo-as por integrações Supabase e scripts actualizados. Fontes: `src/lib/events.ts`, `src/lib/planLog.ts`, `scripts/{create-admin,promote-admin,reset-password}.mjs`.
-- [x] Ajustar o layout do dashboard para ocupar toda a largura e responder melhor a todos os breakpoints. Fontes: `src/components/layout/DashboardFrame.tsx` e páginas `dashboard/*` com `Container maxWidth={false}`.
 
 ## Fase 2 - Melhorias Estruturais
 - [ ] Validar carregamento real da lista de utilizadores/aprovações no Supabase (remoção dos fallbacks quando a API estiver estável e seeds completos).

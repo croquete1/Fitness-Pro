@@ -91,17 +91,11 @@ export default function DashboardFrame({
           <Box
             component="main"
             sx={{
-              width: '100%',
-              px: { xs: 2, md: 3, lg: 4 },
-              py: { xs: 2, md: 3 },
+              p: 2,
               backgroundColor: isLight ? 'transparent' : undefined,
             }}
           >
-            <Container
-              maxWidth={false}
-              disableGutters
-              sx={{ width: '100%', maxWidth: '100%' }}
-            >
+            <Container maxWidth="lg" disableGutters>
               {children}
             </Container>
           </Box>
