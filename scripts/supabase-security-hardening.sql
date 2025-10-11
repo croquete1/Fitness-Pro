@@ -68,6 +68,11 @@ begin
     ) returns void
     language plpgsql
     as $body$
+    declare
+      v_command text := lower(trim(p_command));
+      v_check_clause text := '';
+      v_using_expr text := coalesce(nullif(trim(p_using), ''), 'true');
+      v_sql text;
     begin
       if exists (
         select 1
@@ -79,15 +84,32 @@ begin
         return;
       end if;
 
-      execute format(
-        'create policy %I on public.%I as permissive for %s to %s using (%s)%s',
-        p_policy,
-        p_table,
-        p_command,
-        p_roles,
-        p_using,
-        case when p_check is not null then format(' with check (%s)', p_check) else '' end
-      );
+      if p_check is not null then
+        v_check_clause := format(' with check (%s)', p_check);
+      end if;
+
+      if v_command = 'insert' then
+        v_sql := format(
+          'create policy %I on public.%I as permissive for %s to %s%s',
+          p_policy,
+          p_table,
+          p_command,
+          p_roles,
+          v_check_clause
+        );
+      else
+        v_sql := format(
+          'create policy %I on public.%I as permissive for %s to %s using (%s)%s',
+          p_policy,
+          p_table,
+          p_command,
+          p_roles,
+          v_using_expr,
+          v_check_clause
+        );
+      end if;
+
+      execute v_sql;
     end;
     $body$;
   $create$;
@@ -151,333 +173,341 @@ alter table if exists public.profile_private          enable row level security;
 
 /* --------------------------- onboarding forms ---------------------------- */
 
-select public.ensure_policy(
-  'onboarding_forms',
-  'onboarding_forms_select_owner',
-  'select',
-  'authenticated',
-  'auth.uid() = user_id or public.is_admin(auth.uid()) or public.is_trainer(auth.uid())',
-  null
-);
-select public.ensure_policy(
-  'onboarding_forms',
-  'onboarding_forms_write_owner',
-  'insert',
-  'authenticated',
-  'auth.uid() = user_id or public.is_admin(auth.uid()) or public.is_trainer(auth.uid())',
-  'auth.uid() = user_id or public.is_admin(auth.uid()) or public.is_trainer(auth.uid())'
-);
-select public.ensure_policy(
-  'onboarding_forms',
-  'onboarding_forms_update_owner',
-  'update',
-  'authenticated',
-  'auth.uid() = user_id or public.is_admin(auth.uid()) or public.is_trainer(auth.uid())',
-  'auth.uid() = user_id or public.is_admin(auth.uid()) or public.is_trainer(auth.uid())'
-);
+do $policies$
+begin
+  /* --------------------------- onboarding forms ---------------------------- */
 
-select public.ensure_policy(
-  'onboarding_notes',
-  'onboarding_notes_read',
-  'select',
-  'authenticated',
-  'public.is_admin(auth.uid()) or public.is_trainer(auth.uid()) or author_id = auth.uid()',
-  null
-);
-select public.ensure_policy(
-  'onboarding_notes',
-  'onboarding_notes_write_self',
-  'insert',
-  'authenticated',
-  'public.is_admin(auth.uid()) or public.is_trainer(auth.uid()) or author_id = auth.uid()',
-  'public.is_admin(auth.uid()) or public.is_trainer(auth.uid()) or author_id = auth.uid()'
-);
-select public.ensure_policy(
-  'onboarding_notes',
-  'onboarding_notes_update_self',
-  'update',
-  'authenticated',
-  'public.is_admin(auth.uid()) or author_id = auth.uid()',
-  'public.is_admin(auth.uid()) or author_id = auth.uid()'
-);
+  perform public.ensure_policy(
+    'onboarding_forms',
+    'onboarding_forms_select_owner',
+    'select',
+    'authenticated',
+    'auth.uid() = user_id or public.is_admin(auth.uid()) or public.is_trainer(auth.uid())',
+    null
+  );
+  perform public.ensure_policy(
+    'onboarding_forms',
+    'onboarding_forms_write_owner',
+    'insert',
+    'authenticated',
+    'auth.uid() = user_id or public.is_admin(auth.uid()) or public.is_trainer(auth.uid())',
+    'auth.uid() = user_id or public.is_admin(auth.uid()) or public.is_trainer(auth.uid())'
+  );
+  perform public.ensure_policy(
+    'onboarding_forms',
+    'onboarding_forms_update_owner',
+    'update',
+    'authenticated',
+    'auth.uid() = user_id or public.is_admin(auth.uid()) or public.is_trainer(auth.uid())',
+    'auth.uid() = user_id or public.is_admin(auth.uid()) or public.is_trainer(auth.uid())'
+  );
 
-/* ---------------------------- profile private ---------------------------- */
+  perform public.ensure_policy(
+    'onboarding_notes',
+    'onboarding_notes_read',
+    'select',
+    'authenticated',
+    'public.is_admin(auth.uid()) or public.is_trainer(auth.uid()) or author_id = auth.uid()',
+    null
+  );
+  perform public.ensure_policy(
+    'onboarding_notes',
+    'onboarding_notes_write_self',
+    'insert',
+    'authenticated',
+    'public.is_admin(auth.uid()) or public.is_trainer(auth.uid()) or author_id = auth.uid()',
+    'public.is_admin(auth.uid()) or public.is_trainer(auth.uid()) or author_id = auth.uid()'
+  );
+  perform public.ensure_policy(
+    'onboarding_notes',
+    'onboarding_notes_update_self',
+    'update',
+    'authenticated',
+    'public.is_admin(auth.uid()) or author_id = auth.uid()',
+    'public.is_admin(auth.uid()) or author_id = auth.uid()'
+  );
 
-select public.ensure_policy(
-  'profile_private',
-  'profile_private_select_owner',
-  'select',
-  'authenticated',
-  'auth.uid() = user_id or public.is_admin(auth.uid())',
-  null
-);
-select public.ensure_policy(
-  'profile_private',
-  'profile_private_write_owner',
-  'insert',
-  'authenticated',
-  'auth.uid() = user_id or public.is_admin(auth.uid())',
-  'auth.uid() = user_id or public.is_admin(auth.uid())'
-);
-select public.ensure_policy(
-  'profile_private',
-  'profile_private_update_owner',
-  'update',
-  'authenticated',
-  'auth.uid() = user_id or public.is_admin(auth.uid())',
-  'auth.uid() = user_id or public.is_admin(auth.uid())'
-);
+  /* ---------------------------- profile private ---------------------------- */
 
-/* --------------------------- plan hierarchies --------------------------- */
+  perform public.ensure_policy(
+    'profile_private',
+    'profile_private_select_owner',
+    'select',
+    'authenticated',
+    'auth.uid() = user_id or public.is_admin(auth.uid())',
+    null
+  );
+  perform public.ensure_policy(
+    'profile_private',
+    'profile_private_write_owner',
+    'insert',
+    'authenticated',
+    'auth.uid() = user_id or public.is_admin(auth.uid())',
+    'auth.uid() = user_id or public.is_admin(auth.uid())'
+  );
+  perform public.ensure_policy(
+    'profile_private',
+    'profile_private_update_owner',
+    'update',
+    'authenticated',
+    'auth.uid() = user_id or public.is_admin(auth.uid())',
+    'auth.uid() = user_id or public.is_admin(auth.uid())'
+  );
 
-select public.ensure_policy(
-  'training_plans',
-  'training_plans_read_related',
-  'select',
-  'authenticated',
-  'public.is_admin(auth.uid()) or trainer_id = auth.uid() or client_id = auth.uid()',
-  null
-);
+  /* --------------------------- plan hierarchies --------------------------- */
 
-select public.ensure_policy(
-  'training_days',
-  'training_days_read_related',
-  'select',
-  'authenticated',
-  'public.is_admin(auth.uid()) or exists (
-     select 1 from public.training_plans tp
-     where tp.id = training_days.plan_id
-       and (tp.trainer_id = auth.uid() or tp.client_id = auth.uid())
-   )',
-  null
-);
+  perform public.ensure_policy(
+    'training_plans',
+    'training_plans_read_related',
+    'select',
+    'authenticated',
+    'public.is_admin(auth.uid()) or trainer_id = auth.uid() or client_id = auth.uid()',
+    null
+  );
 
-select public.ensure_policy(
-  'plan_blocks',
-  'plan_blocks_read_related',
-  'select',
-  'authenticated',
-  'public.is_admin(auth.uid()) or exists (
-     select 1 from public.training_days td
-     join public.training_plans tp on tp.id = td.plan_id
-     where td.id = plan_blocks.day_id
-       and (tp.trainer_id = auth.uid() or tp.client_id = auth.uid())
-   )',
-  null
-);
+  perform public.ensure_policy(
+    'training_days',
+    'training_days_read_related',
+    'select',
+    'authenticated',
+    'public.is_admin(auth.uid()) or exists (
+       select 1 from public.training_plans tp
+       where tp.id = training_days.plan_id
+         and (tp.trainer_id = auth.uid() or tp.client_id = auth.uid())
+     )',
+    null
+  );
 
-select public.ensure_policy(
-  'training_plan_blocks',
-  'training_plan_blocks_read_related',
-  'select',
-  'authenticated',
-  'public.is_admin(auth.uid()) or exists (
-     select 1 from public.training_plans tp
-     where tp.id = training_plan_blocks.plan_id
-       and (tp.trainer_id = auth.uid() or tp.client_id = auth.uid())
-   )',
-  null
-);
+  perform public.ensure_policy(
+    'plan_blocks',
+    'plan_blocks_read_related',
+    'select',
+    'authenticated',
+    'public.is_admin(auth.uid()) or exists (
+       select 1 from public.training_days td
+       join public.training_plans tp on tp.id = td.plan_id
+       where td.id = plan_blocks.day_id
+         and (tp.trainer_id = auth.uid() or tp.client_id = auth.uid())
+     )',
+    null
+  );
 
-select public.ensure_policy(
-  'training_plan_changes',
-  'training_plan_changes_read_related',
-  'select',
-  'authenticated',
-  'public.is_admin(auth.uid()) or exists (
-     select 1 from public.training_plans tp
-     where tp.id = training_plan_changes.plan_id
-       and (tp.trainer_id = auth.uid() or tp.client_id = auth.uid())
-   )',
-  null
-);
+  perform public.ensure_policy(
+    'training_plan_blocks',
+    'training_plan_blocks_read_related',
+    'select',
+    'authenticated',
+    'public.is_admin(auth.uid()) or exists (
+       select 1
+       from public.training_days td
+       join public.training_plans tp on tp.id = td.plan_id
+       where td.id = training_plan_blocks.day_id
+         and (tp.trainer_id = auth.uid() or tp.client_id = auth.uid())
+     )',
+    null
+  );
 
-select public.ensure_policy(
-  'plan_change_logs',
-  'plan_change_logs_read_related',
-  'select',
-  'authenticated',
-  'public.is_admin(auth.uid()) or exists (
-     select 1 from public.training_plans tp
-     where tp.id = plan_change_logs.plan_id
-       and (tp.trainer_id = auth.uid() or tp.client_id = auth.uid())
-   )',
-  null
-);
+  perform public.ensure_policy(
+    'training_plan_changes',
+    'training_plan_changes_read_related',
+    'select',
+    'authenticated',
+    'public.is_admin(auth.uid()) or exists (
+       select 1 from public.training_plans tp
+       where tp.id = training_plan_changes.plan_id
+         and (tp.trainer_id = auth.uid() or tp.client_id = auth.uid())
+     )',
+    null
+  );
 
-/* -------------------------- trainer resources -------------------------- */
+  perform public.ensure_policy(
+    'plan_change_logs',
+    'plan_change_logs_read_related',
+    'select',
+    'authenticated',
+    'public.is_admin(auth.uid()) or exists (
+       select 1 from public.training_plans tp
+       where tp.id::text = plan_change_logs.plan_id
+         and (tp.trainer_id = auth.uid() or tp.client_id = auth.uid())
+     )',
+    null
+  );
 
-select public.ensure_policy(
-  'trainer_blocks',
-  'trainer_blocks_owner',
-  'select',
-  'authenticated',
-  'public.is_admin(auth.uid()) or trainer_id = auth.uid()',
-  null
-);
-select public.ensure_policy(
-  'trainer_blocks',
-  'trainer_blocks_write_owner',
-  'all',
-  'authenticated',
-  'public.is_admin(auth.uid()) or trainer_id = auth.uid()',
-  'public.is_admin(auth.uid()) or trainer_id = auth.uid()'
-);
+  /* -------------------------- trainer resources -------------------------- */
 
-select public.ensure_policy(
-  'trainer_locations',
-  'trainer_locations_owner',
-  'all',
-  'authenticated',
-  'public.is_admin(auth.uid()) or trainer_id = auth.uid()',
-  'public.is_admin(auth.uid()) or trainer_id = auth.uid()'
-);
+  perform public.ensure_policy(
+    'trainer_blocks',
+    'trainer_blocks_owner',
+    'select',
+    'authenticated',
+    'public.is_admin(auth.uid()) or trainer_id = auth.uid()',
+    null
+  );
+  perform public.ensure_policy(
+    'trainer_blocks',
+    'trainer_blocks_write_owner',
+    'all',
+    'authenticated',
+    'public.is_admin(auth.uid()) or trainer_id = auth.uid()',
+    'public.is_admin(auth.uid()) or trainer_id = auth.uid()'
+  );
 
-select public.ensure_policy(
-  'pt_sessions',
-  'pt_sessions_read_related',
-  'select',
-  'authenticated',
-  'public.is_admin(auth.uid()) or trainer_id = auth.uid() or client_id = auth.uid()',
-  null
-);
+  perform public.ensure_policy(
+    'trainer_locations',
+    'trainer_locations_owner',
+    'all',
+    'authenticated',
+    'public.is_admin(auth.uid()) or trainer_id = auth.uid()',
+    'public.is_admin(auth.uid()) or trainer_id = auth.uid()'
+  );
 
-/* --------------------------- client resources -------------------------- */
+  perform public.ensure_policy(
+    'pt_sessions',
+    'pt_sessions_read_related',
+    'select',
+    'authenticated',
+    'public.is_admin(auth.uid()) or trainer_id = auth.uid() or client_id = auth.uid()',
+    null
+  );
 
-select public.ensure_policy(
-  'push_subscriptions',
-  'push_subscriptions_owner',
-  'all',
-  'authenticated',
-  'public.is_admin(auth.uid()) or user_id = auth.uid()',
-  'public.is_admin(auth.uid()) or user_id = auth.uid()'
-);
+  /* --------------------------- client resources -------------------------- */
 
-select public.ensure_policy(
-  'client_wallet',
-  'client_wallet_owner',
-  'select',
-  'authenticated',
-  'public.is_admin(auth.uid()) or user_id = auth.uid()',
-  null
-);
-select public.ensure_policy(
-  'client_wallet',
-  'client_wallet_update_owner',
-  'update',
-  'authenticated',
-  'public.is_admin(auth.uid()) or user_id = auth.uid()',
-  'public.is_admin(auth.uid()) or user_id = auth.uid()'
-);
+  perform public.ensure_policy(
+    'push_subscriptions',
+    'push_subscriptions_owner',
+    'all',
+    'authenticated',
+    'public.is_admin(auth.uid()) or user_id = auth.uid()',
+    'public.is_admin(auth.uid()) or user_id = auth.uid()'
+  );
 
-select public.ensure_policy(
-  'notification_reads',
-  'notification_reads_owner',
-  'all',
-  'authenticated',
-  'public.is_admin(auth.uid()) or user_id = auth.uid()',
-  'public.is_admin(auth.uid()) or user_id = auth.uid()'
-);
+  perform public.ensure_policy(
+    'client_wallet',
+    'client_wallet_owner',
+    'select',
+    'authenticated',
+    'public.is_admin(auth.uid()) or user_id = auth.uid()',
+    null
+  );
+  perform public.ensure_policy(
+    'client_wallet',
+    'client_wallet_update_owner',
+    'update',
+    'authenticated',
+    'public.is_admin(auth.uid()) or user_id = auth.uid()',
+    'public.is_admin(auth.uid()) or user_id = auth.uid()'
+  );
 
-select public.ensure_policy(
-  'fitness_questionnaire',
-  'fitness_questionnaire_owner',
-  'select',
-  'authenticated',
-  'public.is_admin(auth.uid()) or public.is_trainer(auth.uid()) or user_id = auth.uid()',
-  null
-);
-select public.ensure_policy(
-  'fitness_questionnaire',
-  'fitness_questionnaire_write_owner',
-  'all',
-  'authenticated',
-  'public.is_admin(auth.uid()) or public.is_trainer(auth.uid()) or user_id = auth.uid()',
-  'public.is_admin(auth.uid()) or public.is_trainer(auth.uid()) or user_id = auth.uid()'
-);
+  perform public.ensure_policy(
+    'notification_reads',
+    'notification_reads_owner',
+    'all',
+    'authenticated',
+    'public.is_admin(auth.uid()) or user_id = auth.uid()',
+    'public.is_admin(auth.uid()) or user_id = auth.uid()'
+  );
 
-select public.ensure_policy(
-  'fitness_questionnaire_notes',
-  'fitness_questionnaire_notes_read',
-  'select',
-  'authenticated',
-  'public.is_admin(auth.uid()) or public.is_trainer(auth.uid()) or author_id = auth.uid() or exists (
-     select 1 from public.fitness_questionnaire fq
-     where fq.id = fitness_questionnaire_notes.questionnaire_id
-       and fq.user_id = auth.uid()
-   )',
-  null
-);
-select public.ensure_policy(
-  'fitness_questionnaire_notes',
-  'fitness_questionnaire_notes_write',
-  'all',
-  'authenticated',
-  'public.is_admin(auth.uid()) or public.is_trainer(auth.uid()) or author_id = auth.uid()',
-  'public.is_admin(auth.uid()) or public.is_trainer(auth.uid()) or author_id = auth.uid()'
-);
+  perform public.ensure_policy(
+    'fitness_questionnaire',
+    'fitness_questionnaire_owner',
+    'select',
+    'authenticated',
+    'public.is_admin(auth.uid()) or public.is_trainer(auth.uid()) or user_id = auth.uid()',
+    null
+  );
+  perform public.ensure_policy(
+    'fitness_questionnaire',
+    'fitness_questionnaire_write_owner',
+    'all',
+    'authenticated',
+    'public.is_admin(auth.uid()) or public.is_trainer(auth.uid()) or user_id = auth.uid()',
+    'public.is_admin(auth.uid()) or public.is_trainer(auth.uid()) or user_id = auth.uid()'
+  );
 
-select public.ensure_policy(
-  'register_requests',
-  'register_requests_public_insert',
-  'insert',
-  'anon, authenticated',
-  'true',
-  'true'
-);
-select public.ensure_policy(
-  'register_requests',
-  'register_requests_admin_read',
-  'select',
-  'authenticated',
-  'public.is_admin(auth.uid())',
-  null
-);
-select public.ensure_policy(
-  'register_requests',
-  'register_requests_admin_update',
-  'update',
-  'authenticated',
-  'public.is_admin(auth.uid())',
-  'public.is_admin(auth.uid())'
-);
+  perform public.ensure_policy(
+    'fitness_questionnaire_notes',
+    'fitness_questionnaire_notes_read',
+    'select',
+    'authenticated',
+    'public.is_admin(auth.uid()) or public.is_trainer(auth.uid()) or author_id = auth.uid() or exists (
+       select 1 from public.fitness_questionnaire fq
+       where fq.id = fitness_questionnaire_notes.questionnaire_id
+         and fq.user_id = auth.uid()
+     )',
+    null
+  );
+  perform public.ensure_policy(
+    'fitness_questionnaire_notes',
+    'fitness_questionnaire_notes_write',
+    'all',
+    'authenticated',
+    'public.is_admin(auth.uid()) or public.is_trainer(auth.uid()) or author_id = auth.uid()',
+    'public.is_admin(auth.uid()) or public.is_trainer(auth.uid()) or author_id = auth.uid()'
+  );
 
-/* ----------------------------- misc tables ----------------------------- */
+  perform public.ensure_policy(
+    'register_requests',
+    'register_requests_public_insert',
+    'insert',
+    'anon, authenticated',
+    'true',
+    'true'
+  );
+  perform public.ensure_policy(
+    'register_requests',
+    'register_requests_admin_read',
+    'select',
+    'authenticated',
+    'public.is_admin(auth.uid())',
+    null
+  );
+  perform public.ensure_policy(
+    'register_requests',
+    'register_requests_admin_update',
+    'update',
+    'authenticated',
+    'public.is_admin(auth.uid())',
+    'public.is_admin(auth.uid())'
+  );
 
-select public.ensure_policy(
-  'audit_log',
-  'audit_log_admin',
-  'select',
-  'authenticated',
-  'public.is_admin(auth.uid())',
-  null
-);
+  /* ----------------------------- misc tables ----------------------------- */
 
-select public.ensure_policy(
-  'motivation_phrases',
-  'motivation_phrases_read',
-  'select',
-  'authenticated',
-  'true',
-  null
-);
-select public.ensure_policy(
-  'motivation_phrases',
-  'motivation_phrases_admin_write',
-  'all',
-  'authenticated',
-  'public.is_admin(auth.uid()) or public.is_trainer(auth.uid())',
-  'public.is_admin(auth.uid()) or public.is_trainer(auth.uid())'
-);
+  perform public.ensure_policy(
+    'audit_log',
+    'audit_log_admin',
+    'select',
+    'authenticated',
+    'public.is_admin(auth.uid())',
+    null
+  );
 
-select public.ensure_policy(
-  'auth_local_users',
-  'auth_local_users_admin',
-  'select',
-  'authenticated',
-  'public.is_admin(auth.uid())',
-  null
-);
+  perform public.ensure_policy(
+    'motivation_phrases',
+    'motivation_phrases_read',
+    'select',
+    'authenticated',
+    'true',
+    null
+  );
+  perform public.ensure_policy(
+    'motivation_phrases',
+    'motivation_phrases_admin_write',
+    'all',
+    'authenticated',
+    'public.is_admin(auth.uid()) or public.is_trainer(auth.uid())',
+    'public.is_admin(auth.uid()) or public.is_trainer(auth.uid())'
+  );
+
+  perform public.ensure_policy(
+    'auth_local_users',
+    'auth_local_users_admin',
+    'select',
+    'authenticated',
+    'public.is_admin(auth.uid())',
+    null
+  );
+end
+$policies$;
 
 commit;
 
