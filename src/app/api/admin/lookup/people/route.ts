@@ -3,12 +3,10 @@ import { createServerClient } from '@/lib/supabaseServer';
 import { toAppRole } from '@/lib/roles';
 
 export async function GET(req: NextRequest) {
-  const sb = createServerClient();
   const { searchParams } = new URL(req.url);
-
-  const role = (searchParams.get('role') || '').toLowerCase(); // 'trainer' | 'pt' | 'client'
+  const role = (searchParams.get('role') || '').trim().toLowerCase();
   const q = (searchParams.get('q') || '').trim().toLowerCase();
-  const id = searchParams.get('id') || null;
+  const id = searchParams.get('id');
 
   // Base: tabela 'users'
   const selectColumns = 'id, name, email, role';
@@ -70,6 +68,7 @@ export async function GET(req: NextRequest) {
         },
       ],
     });
+    return NextResponse.json({ rows: id ? filtered.slice(0, 1) : filtered.slice(0, 50) });
   }
 
   const { data, error } = await query;

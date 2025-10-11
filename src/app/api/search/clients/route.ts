@@ -1,84 +1,55 @@
-import { NextResponse } from "next/server";
-import prismaAny from "@/lib/prisma";
+import { NextResponse } from 'next/server';
+import { tryCreateServerClient } from '@/lib/supabaseServer';
+import { toAppRole } from '@/lib/roles';
+import { getSampleUsers } from '@/lib/fallback/users';
 
-/** Acede ao client do Prisma mesmo que esteja exportado de formas diferentes */
-const prisma: any =
-  (prismaAny as any).prisma ??
-  (prismaAny as any).default ??
-  prismaAny;
+const TABLE_CANDIDATES = ['profiles', 'users', 'app_users', 'people'];
 
-/** Tenta descobrir qual é o modelo que representa utilizadores/clientes no teu schema */
-const CANDIDATE_USER_MODELS = ["user", "User", "client", "Client", "accountUser", "AccountUser"];
-
-function firstModel(names: string[]) {
-  for (const n of names) {
-    const m = (prisma as any)[n];
-    if (m && typeof m.findMany === "function") return n;
-  }
-  return null;
+function mapRow(row: any) {
+  return {
+    id: String(row?.id ?? row?.user_id ?? ''),
+    name: row?.name ?? row?.full_name ?? row?.fullName ?? null,
+    email: row?.email ?? row?.contact_email ?? null,
+    role: toAppRole(row?.role ?? null) ?? row?.role ?? 'CLIENT',
+    status: String(row?.status ?? row?.state ?? 'ACTIVE').toUpperCase(),
+  };
 }
 
-function like(q: string) {
-  return { contains: q, mode: "insensitive" as const };
-}
-
-/**
- * GET /api/search/clients?q=joana&limit=10
- * - Pesquisa por clientes (role=CLIENT) por nome/email (case-insensitive)
- * - Limite padrão: 10 (máx. 50)
- */
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const q = (searchParams.get("q") ?? "").trim();
-  const limitRaw = Number(searchParams.get("limit") ?? 10);
-  const limit = Math.min(50, Math.max(1, Number.isFinite(limitRaw) ? limitRaw : 10));
+  const q = (searchParams.get('q') ?? '').trim().toLowerCase();
+  const limit = Math.min(50, Math.max(1, Number(searchParams.get('limit') ?? 10)));
 
-  const model = firstModel(CANDIDATE_USER_MODELS);
-  if (!model) {
-    // Sem modelo – responde vazio para não rebentar o build nem o runtime
-    return NextResponse.json({ data: [] });
+  const sb = tryCreateServerClient();
+  if (!sb) {
+    const fallback = getSampleUsers({ page: 0, pageSize: limit, search: q, role: 'CLIENT' });
+    return NextResponse.json({ data: fallback.rows });
   }
 
-  const where: any = {};
-  // Força CLIENT quando o schema tiver role
-  try {
-    where.role = "CLIENT";
-  } catch {
-    // Se o schema não tiver "role", simplesmente ignora
+  for (const table of TABLE_CANDIDATES) {
+    try {
+      let builder: any = sb.from(table).select('*').limit(limit);
+      builder = builder.in('role', ['CLIENT', 'USER', 'MEMBER']);
+      if (q) {
+        builder = builder.or(`name.ilike.%${q}%,full_name.ilike.%${q}%,email.ilike.%${q}%`);
+      }
+      const res = await builder;
+      if (res.error) {
+        const code = res.error.code ?? '';
+        if (code === 'PGRST205' || code === 'PGRST301' || code === '42703') continue;
+        return NextResponse.json({ error: res.error.message }, { status: 400 });
+      }
+      if (!res.data?.length) continue;
+      const data = res.data.map(mapRow).filter((row) => row.id);
+      if (!data.length) continue;
+      return NextResponse.json({ data });
+    } catch (error: any) {
+      const code = error?.code ?? error?.message ?? '';
+      if (code.includes('PGRST205') || code.includes('PGRST301')) continue;
+      return NextResponse.json({ error: error?.message ?? 'REQUEST_FAILED' }, { status: 400 });
+    }
   }
 
-  if (q) {
-    where.OR = [
-      { name: like(q) },
-      { email: like(q) },
-      { fullName: like(q) }, // compat: se usares fullName
-    ];
-  }
-
-  let items: any[] = [];
-  try {
-    items = await (prisma as any)[model].findMany({
-      where,
-      take: limit,
-      orderBy: { createdAt: "desc" },
-    });
-  } catch {
-    // fallback se o schema não tiver createdAt
-    items = await (prisma as any)[model].findMany({
-      where,
-      take: limit,
-    });
-  }
-
-  const data = items.map((u: any) => ({
-    id: String(u.id ?? ""),
-    name: u.name ?? u.fullName ?? null,
-    email: u.email ?? null,
-    role: (u.role ?? "CLIENT").toString().toUpperCase(),
-    status: (u.status ?? "ACTIVE").toString().toUpperCase(),
-    createdAt: u.createdAt ?? null,
-    lastLoginAt: u.lastLoginAt ?? u.lastSeenAt ?? null,
-  }));
-
-  return NextResponse.json({ data });
+  const fallback = getSampleUsers({ page: 0, pageSize: limit, search: q, role: 'CLIENT' });
+  return NextResponse.json({ data: fallback.rows });
 }

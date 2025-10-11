@@ -23,7 +23,7 @@ export default async function PlanDayBlocksPage({ params }: { params: Promise<Pa
     .order('order_index', { ascending: true });
 
   return (
-    <Container maxWidth="lg" sx={{ py: 3 }}>
+    <Container maxWidth={false} sx={{ width: '100%', py: 3, px: { xs: 2, md: 3 } }}>
       <Stack direction="row" spacing={1} alignItems="center">
         <Typography variant="h5" fontWeight={800}>🏋️ Blocos do dia</Typography>
         <Chip size="small" label={`${(blocks ?? []).length}`} />

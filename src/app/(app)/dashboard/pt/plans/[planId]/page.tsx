@@ -25,7 +25,7 @@ export default async function PlanPage({ params }: { params: Promise<Params> }) 
 
   if (!plan) {
     return (
-      <Container maxWidth="lg" sx={{ py: 3 }}>
+      <Container maxWidth={false} sx={{ py: 3, px: { xs: 2, md: 3 }, width: '100%' }}>
         <Typography variant="h5" fontWeight={800}>🗂️ Plano</Typography>
         <Typography color="text.secondary" sx={{ mt: 2 }}>Plano não encontrado.</Typography>
       </Container>
@@ -40,7 +40,7 @@ export default async function PlanPage({ params }: { params: Promise<Params> }) 
     .order('order_index', { ascending: true });
 
   return (
-    <Container maxWidth="lg" sx={{ py: 3 }}>
+    <Container maxWidth={false} sx={{ py: 3, px: { xs: 2, md: 3 }, width: '100%' }}>
       <Stack direction="row" alignItems="center" spacing={1}>
         <Typography variant="h5" fontWeight={800}>🗂️ {plan.title || 'Plano'}</Typography>
         <Chip size="small" label="PT" color="primary" />

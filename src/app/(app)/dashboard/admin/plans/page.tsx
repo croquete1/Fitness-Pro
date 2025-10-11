@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function Page() {
   return (
-    <Container maxWidth="lg" sx={{ display: 'grid', gap: 2 }}>
+    <Container maxWidth={false} sx={{ display: 'grid', gap: 2, px: { xs: 2, md: 3 }, width: '100%' }}>
       <PlansClient />
     </Container>
   );

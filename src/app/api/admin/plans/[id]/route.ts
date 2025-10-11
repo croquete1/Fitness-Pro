@@ -8,10 +8,16 @@ export const dynamic = 'force-dynamic';
 export async function GET(_req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
   const sb = createServerClient();
-  let r = await sb.from('plans').select('*').eq('id', id).maybeSingle();
-  if (!r.data && !r.error) r = await sb.from('programs').select('*').eq('id', id).maybeSingle();
-  if (!r.data) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  return NextResponse.json({ row: r.data });
+  for (const table of ['plans', 'training_plans', 'programs']) {
+    const r = await sb.from(table).select('*').eq('id', id).maybeSingle();
+    if (r.error) {
+      const code = r.error.code ?? '';
+      if (code === 'PGRST205' || code === 'PGRST301') continue;
+      return NextResponse.json({ error: r.error.message }, { status: 400 });
+    }
+    if (r.data) return NextResponse.json({ row: r.data });
+  }
+  return NextResponse.json({ error: 'Not found' }, { status: 404 });
 }
 
 export async function PATCH(req: Request, ctx: Ctx) {
@@ -29,22 +35,31 @@ export async function PATCH(req: Request, ctx: Ctx) {
   const tryUpdate = async (table: string) =>
     sb.from(table).update(payload).eq('id', id).select('*').maybeSingle();
 
-  let r = await tryUpdate('plans');
-  if ((r.error && r.error.code === '42P01') || (!r.data && !r.error)) {
-    r = await tryUpdate('programs');
+  for (const table of ['plans', 'training_plans', 'programs']) {
+    const r = await tryUpdate(table);
+    if (r.error) {
+      const code = r.error.code ?? '';
+      if (code === 'PGRST205' || code === '42P01' || code === 'PGRST301' || r.error.message?.includes('relation')) continue;
+      return NextResponse.json({ error: r.error.message }, { status: 400 });
+    }
+    if (r.data) return NextResponse.json({ ok: true, row: r.data });
   }
 
-  if (r.error) return NextResponse.json({ error: r.error.message }, { status: 400 });
-  if (!r.data) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  return NextResponse.json({ ok: true, row: r.data });
+  return NextResponse.json({ error: 'Not found' }, { status: 404 });
 }
 
 export async function DELETE(_req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
   const sb = createServerClient();
   const tryDel = async (table: string) => sb.from(table).delete().eq('id', id);
-  let r = await tryDel('plans');
-  if (r.error?.code === '42P01' || (!r.data && !r.error)) r = await tryDel('programs');
-  if (r.error) return NextResponse.json({ error: r.error.message }, { status: 400 });
+  for (const table of ['plans', 'training_plans', 'programs']) {
+    const r = await tryDel(table);
+    if (r.error) {
+      const code = r.error.code ?? '';
+      if (code === 'PGRST205' || code === '42P01' || code === 'PGRST301') continue;
+      return NextResponse.json({ error: r.error.message }, { status: 400 });
+    }
+    if (r.count && r.count > 0) return NextResponse.json({ ok: true });
+  }
   return NextResponse.json({ ok: true });
 }

@@ -26,17 +26,29 @@ export async function GET(req: Request) {
     let sel = sb.from(table).select('*', { count: 'exact' });
     if (q) sel = sel.or(`name.ilike.%${q}%,email.ilike.%${q}%`);
     if (status) sel = sel.eq('status', status);
-    const from = page * pageSize, to = from + pageSize - 1;
+    const from = page * pageSize;
+    const to = from + pageSize - 1;
     return sel.range(from, to).order('created_at', { ascending: false }).order('id', { ascending: true });
   }
 
   try {
-    let r = await base('approvals');
-    if ((!r.data || r.data.length === 0) && !r.error) r = await base('pending_approvals');
-    if (r.error) throw r.error;
+    for (const table of ['approvals', 'pending_approvals']) {
+      const r = await base(table);
+      if (r.error) {
+        const code = r.error.code ?? '';
+        if (code === 'PGRST205' || code === 'PGRST301') continue;
+        throw r.error;
+      }
+      if ((r.data?.length ?? 0) === 0 && (r.count ?? 0) === 0) continue;
+      return NextResponse.json(
+        { rows: r.data ?? [], count: r.count ?? 0 },
+        { headers: { 'cache-control': 'no-store' } },
+      );
+    }
 
-    return NextResponse.json(
-      { rows: r.data ?? [], count: r.count ?? 0 },
+    // Nenhuma tabela encontrada → devolve fallback para manter a UI funcional
+    return supabaseFallbackJson(
+      getSampleApprovals({ page, pageSize, search: q, status }),
       { headers: { 'cache-control': 'no-store' } },
     );
   } catch (error) {
