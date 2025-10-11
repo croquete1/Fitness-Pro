@@ -13,6 +13,8 @@ export type UserRecord = {
   approved: boolean | null;
   active: boolean | null;
   created_at: string | null;
+  updated_at?: string | null;
+  last_sign_in_at?: string | null;
   avatar_url?: string | null;
   username?: string | null;
   phone?: string | null;
@@ -39,6 +41,8 @@ function mergeUserProfile(user: any, profile: any | null): UserRecord {
     approved: merged.approved ?? merged.is_approved ?? null,
     active: merged.active ?? merged.is_active ?? null,
     created_at: merged.created_at ?? merged.inserted_at ?? null,
+    updated_at: merged.updated_at ?? merged.modified_at ?? null,
+    last_sign_in_at: merged.last_sign_in_at ?? merged.last_signin_at ?? null,
     avatar_url: merged.avatar_url ?? null,
     username: merged.username ?? null,
     phone: merged.phone ?? null,

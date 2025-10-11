@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Box, Container } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import AppHeader from '@/components/layout/AppHeader';
 import RoleSidebar from '@/components/layout/RoleSidebar';
 import {
@@ -31,6 +32,8 @@ export default function DashboardFrame({
   initialCounts,
   children,
 }: Props) {
+  const theme = useTheme();
+  const isLight = theme.palette.mode === 'light';
   const adminInitial = initialCounts
     ? {
         approvalsCount: initialCounts.approvalsCount ?? 0,
@@ -54,7 +57,10 @@ export default function DashboardFrame({
       <Box
         sx={{
           minHeight: '100dvh',
-          bgcolor: 'background.default',
+          bgcolor: isLight ? 'transparent' : 'background.default',
+          backgroundImage: isLight
+            ? 'linear-gradient(180deg, #f7fbff 0%, #f1f5ff 45%, #eef2ff 100%)'
+            : undefined,
           display: 'grid',
           gridTemplateRows: 'auto 1fr',
         }}
@@ -82,7 +88,13 @@ export default function DashboardFrame({
             />
           </Box>
 
-          <Box component="main" sx={{ p: 2 }}>
+          <Box
+            component="main"
+            sx={{
+              p: 2,
+              backgroundColor: isLight ? 'transparent' : undefined,
+            }}
+          >
             <Container maxWidth="lg" disableGutters>
               {children}
             </Container>
