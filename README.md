@@ -41,6 +41,9 @@ O script cria a tabela com todos os campos esperados pelo dashboard, adiciona í
 para consultas rápidas e ativa as políticas necessárias para que o backoffice registe
 logins, logouts e outras ações automaticamente.
 
+Consulta também o guia [Políticas de segurança do Supabase](docs/supabase-security.md)
+para aplicar todas as regras de Row Level Security utilizadas pela aplicação.
+
 🏗️ Stack Técnica
 
 Next.js 14+ (App Router)
