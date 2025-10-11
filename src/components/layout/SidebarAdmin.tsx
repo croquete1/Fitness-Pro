@@ -53,9 +53,20 @@ export default function SidebarAdmin({
     // badge mostra Hoje; next7 fica disponível para futura UX (ex.: tooltip)
     { href: '/dashboard/admin/pts-schedule', label: 'Agenda PTs', icon: <CalendarMonthOutlined />, activePrefix: '/dashboard/admin/pts-schedule', badge: ptsTodayCount },
   ];
-  const sistema: Nav[] = [
-    { href: '/dashboard/admin/notifications', label: 'Notificações', icon: <NotificationsOutlined />, activePrefix: '/dashboard/admin/notifications', badge: notificationsCount },
-    { href: '/dashboard/system', label: 'Sistema', icon: <SettingsOutlined />, activePrefix: '/dashboard/system' },
+  const definicoes: Nav[] = [
+    {
+      href: '/dashboard/admin/notifications',
+      label: 'Notificações',
+      icon: <NotificationsOutlined />,
+      activePrefix: '/dashboard/admin/notifications',
+      badge: notificationsCount,
+    },
+    {
+      href: '/dashboard/settings',
+      label: 'Definições',
+      icon: <SettingsOutlined />,
+      activePrefix: '/dashboard/settings',
+    },
   ];
 
   const header = (
@@ -166,7 +177,7 @@ export default function SidebarAdmin({
         ...admin,
       ])}
       {renderSection('Gestão', gestao)}
-      {renderSection('Sistema', sistema)}
+      {renderSection('Definições', definicoes)}
     </SidebarBase>
   );
 }
