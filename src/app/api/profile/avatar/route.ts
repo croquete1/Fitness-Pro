@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
+import { syncUserProfile } from '@/lib/profileSync';
 
 export async function POST(req: Request) {
   const session = await getSessionUserSafe();
@@ -26,7 +27,8 @@ export async function POST(req: Request) {
   const avatarUrl = pub?.publicUrl ?? null;
 
   if (avatarUrl) {
-    await sb.from('profiles').update({ avatar_url: avatarUrl }).eq('id', session.user.id);
+    const result = await syncUserProfile(sb, session.user.id, { avatar_url: avatarUrl });
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
   }
 
   return NextResponse.json({ ok: true, url: avatarUrl });
@@ -37,7 +39,8 @@ export async function DELETE() {
   if (!session?.user?.id) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   const sb = createServerClient();
-  await sb.from('profiles').update({ avatar_url: null }).eq('id', session.user.id);
+  const result = await syncUserProfile(sb, session.user.id, { avatar_url: null });
+  if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
   // (Opcional) também poderias apagar ficheiros antigos do bucket aqui.
   return NextResponse.json({ ok: true });
 }

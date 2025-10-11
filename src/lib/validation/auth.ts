@@ -2,7 +2,13 @@
 import { z } from 'zod';
 
 export const LoginSchema = z.object({
-  email: z.string().email(),
+  identifier: z
+    .string()
+    .min(1)
+    .transform((value) => value.trim())
+    .refine((value) => value.length > 0, {
+      message: 'Identificador obrigatório',
+    }),
   password: z.string().min(6),
 });
 
