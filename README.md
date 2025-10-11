@@ -39,7 +39,7 @@ atividade recente e estado online, cria a tabela `audit_log` no teu projeto Supa
 
 O script cria a tabela com todos os campos esperados pelo dashboard, adiciona índices
 para consultas rápidas e ativa as políticas necessárias para que o backoffice registe
-logins e outras ações automaticamente.
+logins, logouts e outras ações automaticamente.
 
 🏗️ Stack Técnica
 
