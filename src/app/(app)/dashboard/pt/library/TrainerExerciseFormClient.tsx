@@ -2,7 +2,14 @@
 
 import * as React from 'react';
 import {
-  Box, Stack, TextField, MenuItem, Button, Alert, Snackbar, Typography,
+  Box,
+  Stack,
+  TextField,
+  MenuItem,
+  Button,
+  Snackbar,
+  Alert,
+  Typography,
 } from '@mui/material';
 import {
   DIFFICULTY_OPTIONS,
@@ -12,16 +19,13 @@ import {
   normalizeDifficulty,
 } from '@/lib/exercises/schema';
 
-/* ===== Componente ===== */
-export default function AdminExerciseFormClient({
-  mode,
-  initial,
-  onSuccess, // ✅ NOVO
-}: {
+interface Props {
   mode: 'create' | 'edit';
   initial?: Partial<ExerciseFormValues>;
-  onSuccess?: () => void; // ✅ NOVO
-}) {
+  onSuccess?: () => void;
+}
+
+export default function TrainerExerciseFormClient({ mode, initial, onSuccess }: Props) {
   const [values, setValues] = React.useState<ExerciseFormValues>(() => ({
     id: initial?.id,
     name: initial?.name ?? '',
@@ -35,15 +39,16 @@ export default function AdminExerciseFormClient({
   const [errors, setErrors] = React.useState<Partial<Record<keyof ExerciseFormValues, string>>>({});
   const [saving, setSaving] = React.useState(false);
   const [err, setErr] = React.useState<string | null>(null);
-  const [snack, setSnack] = React.useState<{
-    open: boolean; msg: string; sev: 'success' | 'error' | 'info' | 'warning'
-  }>({ open: false, msg: '', sev: 'success' });
-  const closeSnack = () => setSnack((s) => ({ ...s, open: false }));
+  const [snack, setSnack] = React.useState<{ open: boolean; msg: string; sev: 'success' | 'error' | 'info' | 'warning' }>(
+    { open: false, msg: '', sev: 'success' },
+  );
 
   function setField<K extends keyof ExerciseFormValues>(k: K, v: ExerciseFormValues[K]) {
     setValues((prev) => ({ ...prev, [k]: v }));
     setErrors((prev) => ({ ...prev, [k]: undefined }));
   }
+
+  const closeSnack = () => setSnack((s) => ({ ...s, open: false }));
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -60,7 +65,7 @@ export default function AdminExerciseFormClient({
       }
       setErrors(fieldErrors);
       setSaving(false);
-      setSnack({ open: true, msg: 'Verifique os campos destacados.', sev: 'error' });
+      setSnack({ open: true, msg: 'Revê os campos destacados.', sev: 'error' });
       return;
     }
 
@@ -69,7 +74,7 @@ export default function AdminExerciseFormClient({
     try {
       let res: Response;
       if (mode === 'edit' && payload.id) {
-        res = await fetch(`/api/admin/exercises/${payload.id}`, {
+        res = await fetch(`/api/pt/library/exercises/${payload.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -82,7 +87,7 @@ export default function AdminExerciseFormClient({
           }),
         });
       } else {
-        res = await fetch('/api/admin/exercises', {
+        res = await fetch('/api/pt/library/exercises', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -106,8 +111,7 @@ export default function AdminExerciseFormClient({
         msg: mode === 'edit' ? 'Exercício atualizado ✅' : 'Exercício criado ✅',
         sev: 'success',
       });
-
-      onSuccess?.(); // ✅ chama callback opcional (fechar dialog / refrescar lista)
+      onSuccess?.();
     } catch (e: any) {
       setErr(e?.message || 'Falha ao gravar exercício');
       setSnack({ open: true, msg: 'Erro ao gravar', sev: 'error' });

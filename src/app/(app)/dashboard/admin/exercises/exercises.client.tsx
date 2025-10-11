@@ -3,7 +3,7 @@
 import * as React from 'react';
 import {
   Box, Stack, TextField, MenuItem, Button, IconButton, Tooltip, Paper, Divider,
-  CircularProgress, Snackbar, Alert, Dialog, DialogTitle, DialogContent, DialogActions,
+  CircularProgress, Snackbar, Alert, Dialog, DialogTitle, DialogContent, DialogActions, Chip,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutline from '@mui/icons-material/DeleteOutline';
@@ -14,6 +14,7 @@ import ContentCopyOutlined from '@mui/icons-material/ContentCopyOutlined';
 import { DataGrid, GridColDef, GridToolbar } from '@mui/x-data-grid';
 import { useRouter } from 'next/navigation';
 import AdminExerciseFormClient from './AdminExerciseFormClient';
+import PublishToggle from '@/components/exercise/PublishToggle';
 
 type Difficulty = 'Fácil' | 'Média' | 'Difícil' | string;
 
@@ -26,6 +27,12 @@ export type Row = {
   description?: string | null;
   video_url?: string | null;
   created_at?: string | null;
+  updated_at?: string | null;
+  is_global?: boolean | null;
+  is_published?: boolean | null;
+  owner_id?: string | null;
+  owner_name?: string | null;
+  published_at?: string | null;
 };
 
 export default function ExercisesClient({ pageSize = 20, initialFilters }: {
@@ -38,6 +45,8 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
   const [muscle, setMuscle] = React.useState(initialFilters?.muscle_group ?? '');
   const [difficulty, setDifficulty] = React.useState(initialFilters?.difficulty ?? '');
   const [equipment, setEquipment] = React.useState(initialFilters?.equipment ?? '');
+  const [scope, setScope] = React.useState<'global' | 'personal' | 'all'>('global');
+  const [publishedState, setPublishedState] = React.useState<'all' | 'published' | 'draft'>('all');
 
   const [rows, setRows] = React.useState<Row[]>([]);
   const [count, setCount] = React.useState(0);
@@ -67,11 +76,23 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
     };
   }
 
+  const updateScope = React.useCallback((next: 'global' | 'personal' | 'all') => {
+    setScope(next);
+    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+  }, []);
+
+  const updatePublished = React.useCallback((next: 'all' | 'published' | 'draft') => {
+    setPublishedState(next);
+    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+  }, []);
+
   async function fetchRows() {
     setLoading(true);
     const u = new URL('/api/admin/exercises', window.location.origin);
     u.searchParams.set('page', String(paginationModel.page));
     u.searchParams.set('pageSize', String(paginationModel.pageSize));
+    u.searchParams.set('scope', scope);
+    u.searchParams.set('published', publishedState);
     if (q) u.searchParams.set('q', q);
     if (muscle) u.searchParams.set('muscle_group', muscle);
     if (difficulty) u.searchParams.set('difficulty', difficulty);
@@ -80,17 +101,24 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
     try {
       const r = await fetch(u.toString(), { cache: 'no-store' });
       const j = await r.json();
-      setRows((j.rows ?? []).map((r: any) => ({
-        id: String(r.id),
-        name: r.name ?? '',
-        muscle_group: r.muscle_group ?? r.muscle ?? null,
-        equipment: r.equipment ?? null,
-        difficulty: r.difficulty ?? r.level ?? null,
-        description: r.description ?? r.instructions ?? null,
-        video_url: r.video_url ?? r.video ?? null,
-        created_at: r.created_at ?? null,
-      })));
-      setCount(j.count ?? 0);
+      const mapped = (j.rows ?? []).map((row: any) => ({
+        id: String(row.id),
+        name: row.name ?? '',
+        muscle_group: row.muscle_group ?? row.muscle ?? null,
+        equipment: row.equipment ?? null,
+        difficulty: row.difficulty ?? row.level ?? null,
+        description: row.description ?? row.instructions ?? null,
+        video_url: row.video_url ?? row.video ?? null,
+        created_at: row.created_at ?? null,
+        updated_at: row.updated_at ?? null,
+        is_global: row.is_global ?? null,
+        is_published: row.is_published ?? row.published ?? null,
+        owner_id: row.owner_id ?? null,
+        owner_name: row.owner?.name ?? row.owner?.email ?? row.owner_name ?? null,
+        published_at: row.published_at ?? null,
+      })) as Row[];
+      setRows(mapped);
+      setCount(j.count ?? mapped.length ?? 0);
     } catch {
       setRows([]); setCount(0);
       setSnack({ open:true, msg:'Falha ao carregar exercícios', sev:'error' });
@@ -99,16 +127,104 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
     }
   }
 
-  React.useEffect(() => { void fetchRows(); /* eslint-disable-next-line */ }, [q, muscle, difficulty, equipment, paginationModel.page, paginationModel.pageSize]);
+  React.useEffect(() => {
+    void fetchRows();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, muscle, difficulty, equipment, scope, publishedState, paginationModel.page, paginationModel.pageSize]);
+
+  const handlePublishChange = React.useCallback((id: string, next: boolean) => {
+    setRows((prev) =>
+      prev.map((row) =>
+        row.id === id
+          ? {
+              ...row,
+              is_published: next,
+              published_at: next ? new Date().toISOString() : null,
+            }
+          : row,
+      ),
+    );
+  }, []);
 
   const columns: GridColDef<Row>[] = [
-    { field: 'name', headerName: 'Nome', flex: 1.4, minWidth: 220 },
-    { field: 'muscle_group', headerName: 'Grupo muscular', flex: 0.9, minWidth: 150, valueFormatter: (p:any) => String(p?.value ?? '') },
-    { field: 'equipment', headerName: 'Equipamento', flex: 0.9, minWidth: 150, valueFormatter: (p:any) => String(p?.value ?? '') },
-    { field: 'difficulty', headerName: 'Dificuldade', width: 130, valueFormatter: (p:any) => String(p?.value ?? '') },
-    { field: 'created_at', headerName: 'Criado em', minWidth: 180, valueFormatter: (p:any) => (p?.value ? new Date(String(p.value)).toLocaleString() : '') },
     {
-      field: 'actions', headerName: 'Ações', width: 190, sortable:false, filterable:false,
+      field: 'name',
+      headerName: 'Nome',
+      flex: 1.4,
+      minWidth: 240,
+      renderCell: (params) => (
+        <div style={{ display: 'grid', gap: 2 }}>
+          <div style={{ fontWeight: 600, lineHeight: 1.2 }}>{params.row.name}</div>
+          <div style={{ fontSize: 11, opacity: 0.6 }}>{params.row.description ? params.row.description.slice(0, 80) : ''}</div>
+          {params.row.owner_name && !params.row.is_global && (
+            <div style={{ fontSize: 11, opacity: 0.7 }}>Autor: {params.row.owner_name}</div>
+          )}
+        </div>
+      ),
+    },
+    {
+      field: 'muscle_group',
+      headerName: 'Grupo muscular',
+      flex: 0.9,
+      minWidth: 150,
+      valueFormatter: (p: any) => String(p?.value ?? ''),
+    },
+    {
+      field: 'equipment',
+      headerName: 'Equipamento',
+      flex: 0.9,
+      minWidth: 150,
+      valueFormatter: (p: any) => String(p?.value ?? ''),
+    },
+    {
+      field: 'difficulty',
+      headerName: 'Dificuldade',
+      width: 130,
+      valueFormatter: (p: any) => String(p?.value ?? ''),
+    },
+    {
+      field: 'is_global',
+      headerName: 'Origem',
+      width: 140,
+      renderCell: (params) => (
+        <Chip
+          size="small"
+          label={params.row.is_global ? 'Catálogo global' : 'Privado'}
+          color={params.row.is_global ? 'default' : 'primary'}
+          variant={params.row.is_global ? 'outlined' : 'filled'}
+        />
+      ),
+    },
+    {
+      field: 'status',
+      headerName: 'Estado',
+      width: 180,
+      sortable: false,
+      filterable: false,
+      renderCell: (params) => (
+        params.row.is_global ? (
+          <PublishToggle
+            id={params.row.id}
+            published={!!params.row.is_published}
+            onChange={(next) => handlePublishChange(params.row.id, next)}
+          />
+        ) : (
+          <Chip size="small" label="Rascunho privado" color="default" variant="outlined" />
+        )
+      ),
+    },
+    {
+      field: 'created_at',
+      headerName: 'Criado em',
+      minWidth: 180,
+      valueFormatter: (p: any) => (p?.value ? new Date(String(p.value)).toLocaleString() : ''),
+    },
+    {
+      field: 'actions',
+      headerName: 'Ações',
+      width: 210,
+      sortable: false,
+      filterable: false,
       renderCell: (p) => (
         <Stack direction="row" spacing={0.5}>
           <Tooltip title="Duplicar (Criar a partir de…)">
@@ -128,15 +244,16 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
               onClick={async () => {
                 const removed = p.row as Row;
                 if (!confirm(`Remover "${removed.name}"?`)) return;
-                setRows(prev => prev.filter(r => r.id !== removed.id));
+                setRows((prev) => prev.filter((r) => r.id !== removed.id));
                 setUndo({ open: true, row: removed });
                 try {
                   const res = await fetch(`/api/admin/exercises/${removed.id}`, { method: 'DELETE' });
                   if (!res.ok) throw new Error(await res.text());
-                } catch (e:any) {
-                  setRows(prev => [removed, ...prev]);
-                  setUndo({ open:false });
-                  setSnack({ open:true, msg: e?.message || 'Falha ao remover', sev:'error' });
+                  setCount((prev) => Math.max(prev - 1, 0));
+                } catch (e: any) {
+                  setRows((prev) => [removed, ...prev]);
+                  setUndo({ open: false });
+                  setSnack({ open: true, msg: e?.message || 'Falha ao remover', sev: 'error' });
                 }
               }}
             >
@@ -144,17 +261,27 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
             </IconButton>
           </Tooltip>
         </Stack>
-      )
-    }
+      ),
+    },
   ];
 
   function exportCSV() {
-    const header = ['id','name','muscle_group','equipment','difficulty','created_at','description','video_url'];
+    const header = ['id','name','muscle_group','equipment','difficulty','is_global','is_published','owner','created_at','published_at','description','video_url'];
     const lines = [
       header.join(','),
       ...rows.map(r => [
-        r.id, r.name, r.muscle_group ?? '', r.equipment ?? '', r.difficulty ?? '',
-        r.created_at ?? '', (r.description ?? '').replace(/\r?\n/g,' '), r.video_url ?? ''
+        r.id,
+        r.name,
+        r.muscle_group ?? '',
+        r.equipment ?? '',
+        r.difficulty ?? '',
+        r.is_global ? 'global' : 'privado',
+        r.is_published ? 'publicado' : 'rascunho',
+        r.owner_name ?? '',
+        r.created_at ?? '',
+        r.published_at ?? '',
+        (r.description ?? '').replace(/\r?\n/g,' '),
+        r.video_url ?? '',
       ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')),
     ].join('\n');
 
@@ -167,8 +294,15 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
     const w = window.open('', '_blank', 'noopener,noreferrer,width=900,height=700'); if (!w) return;
     const rowsHtml = rows.map(r => {
       const cells = [
-        r.name, r.muscle_group ?? '', r.equipment ?? '', r.difficulty ?? '',
-        r.created_at ? new Date(String(r.created_at)).toLocaleString() : '', (r.description ?? '').replace(/\r?\n/g, ' ')
+        r.name,
+        r.muscle_group ?? '',
+        r.equipment ?? '',
+        r.difficulty ?? '',
+        r.is_global ? 'Catálogo global' : 'Privado',
+        r.is_published ? 'Publicado' : 'Rascunho',
+        r.created_at ? new Date(String(r.created_at)).toLocaleString() : '',
+        r.published_at ? new Date(String(r.published_at)).toLocaleString() : '',
+        (r.description ?? '').replace(/\r?\n/g, ' '),
       ].map(c => `<td>${String(c)}</td>`).join('');
       return `<tr>${cells}</tr>`;
     }).join('');
@@ -176,7 +310,7 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
     w.document.open(); w.document.write(
       '<html><head><meta charset="utf-8" /><title>Exercícios</title>' +
       '<style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto; padding:16px;}h1{font-size:18px;margin:0 0 12px;}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #e5e7eb;padding:6px 8px;text-align:left;font-size:12px;}th{background:#f8fafc;}</style>' +
-      `</head><body><h1>Exercícios</h1><table><thead><tr><th>Nome</th><th>Grupo</th><th>Equipamento</th><th>Dificuldade</th><th>Criado</th><th>Descrição</th></tr></thead><tbody>${rowsHtml}</tbody></table><script>window.onload=function(){window.print();}</script></body></html>`
+      `</head><body><h1>Exercícios</h1><table><thead><tr><th>Nome</th><th>Grupo</th><th>Equipamento</th><th>Dificuldade</th><th>Origem</th><th>Estado</th><th>Criado</th><th>Publicado</th><th>Descrição</th></tr></thead><tbody>${rowsHtml}</tbody></table><script>window.onload=function(){window.print();}</script></body></html>`
     ); w.document.close();
   }
 
@@ -186,6 +320,28 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
         <Stack direction={{ xs:'column', sm:'row' }} spacing={1} alignItems="center" justifyContent="space-between">
           <Stack direction="row" spacing={1} sx={{ flexWrap:'wrap' }}>
             <TextField label="Pesquisar" value={q} onChange={(e)=>setQ(e.target.value)} sx={{ minWidth: 220 }} />
+            <TextField
+              select
+              label="Origem"
+              value={scope}
+              onChange={(e) => updateScope(e.target.value as 'global' | 'personal' | 'all')}
+              sx={{ minWidth: 180 }}
+            >
+              <MenuItem value="global">Catálogo global</MenuItem>
+              <MenuItem value="personal">Privados</MenuItem>
+              <MenuItem value="all">Todos</MenuItem>
+            </TextField>
+            <TextField
+              select
+              label="Estado"
+              value={publishedState}
+              onChange={(e) => updatePublished(e.target.value as 'all' | 'published' | 'draft')}
+              sx={{ minWidth: 160 }}
+            >
+              <MenuItem value="all">Todos</MenuItem>
+              <MenuItem value="published">Publicado</MenuItem>
+              <MenuItem value="draft">Rascunho</MenuItem>
+            </TextField>
             <TextField select label="Grupo muscular" value={muscle} onChange={(e)=>setMuscle(e.target.value)} sx={{ minWidth: 180 }}>
               <MenuItem value="">Todos</MenuItem>
               <MenuItem value="Peito">Peito</MenuItem>

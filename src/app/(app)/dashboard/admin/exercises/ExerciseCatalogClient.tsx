@@ -8,13 +8,18 @@ type ExerciseRow = {
   name: string;
   muscle_group?: string | null;
   level?: string | null;
-  published?: boolean | null;
+  is_published?: boolean | null;
   created_at?: string | null;
   updated_at?: string | null;
 };
 
 export default function ExerciseCatalogClient({ initial }: { initial: ExerciseRow[] }) {
-  const [rows, setRows] = useState<ExerciseRow[]>(initial ?? []);
+  const [rows, setRows] = useState<ExerciseRow[]>(() =>
+    (initial ?? []).map((r) => ({
+      ...r,
+      is_published: (r as any).is_published ?? (r as any).published ?? false,
+    })),
+  );
   const [q, setQ] = useState('');
 
   const filtered = useMemo(() => {
@@ -29,7 +34,7 @@ export default function ExerciseCatalogClient({ initial }: { initial: ExerciseRo
 
   const togglePublish = useCallback(async (id: string, publish: boolean) => {
     // otimista
-    setRows(prev => prev.map(r => r.id === id ? { ...r, published: publish } : r));
+    setRows(prev => prev.map(r => r.id === id ? { ...r, is_published: publish } : r));
     try {
       const res = await fetch(`/api/admin/exercises/${encodeURIComponent(id)}/publish`, {
         method: 'PATCH',
@@ -40,7 +45,7 @@ export default function ExerciseCatalogClient({ initial }: { initial: ExerciseRo
       okToast(publish ? 'Exercício publicado.' : 'Exercício retirado.');
     } catch (e) {
       // reverter
-      setRows(prev => prev.map(r => r.id === id ? { ...r, published: !publish } : r));
+      setRows(prev => prev.map(r => r.id === id ? { ...r, is_published: !publish } : r));
       errToast('Falhou atualizar o estado do exercício.');
     }
   }, []);
@@ -66,14 +71,14 @@ export default function ExerciseCatalogClient({ initial }: { initial: ExerciseRo
               <div style={{ display: 'grid', gap: 6 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                   <div style={{ fontWeight: 700 }}>{r.name}</div>
-                  <Badge published={!!r.published} />
+                  <Badge published={!!r.is_published} />
                 </div>
                 <div style={{ fontSize: 12, opacity: .7 }}>
                   {r.muscle_group ?? '—'} • {r.level ?? '—'}
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                {r.published ? (
+                {r.is_published ? (
                   <button className="btn chip" onClick={() => togglePublish(r.id, false)}>Retirar</button>
                 ) : (
                   <button className="btn primary" onClick={() => togglePublish(r.id, true)}>Publicar</button>

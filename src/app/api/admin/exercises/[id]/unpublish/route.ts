@@ -16,7 +16,12 @@ export async function POST(_: Request, ctx: Ctx) {
   if (role !== 'ADMIN') return new NextResponse('Forbidden', { status: 403 });
 
   const sb = createServerClient();
-  const { data, error } = await sb.from('exercises').update({ published: false }).eq('id', id).select('id, published').maybeSingle();
+  const { data, error } = await sb
+    .from('exercises')
+    .update({ is_published: false, published_at: null, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select('id, is_published')
+    .maybeSingle();
   if (error) return new NextResponse(error.message, { status: 500 });
   if (!data) return new NextResponse('Not found', { status: 404 });
   return NextResponse.json({ ok: true, ...data });

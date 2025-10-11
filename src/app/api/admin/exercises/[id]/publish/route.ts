@@ -52,6 +52,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
     // 3) Atualizar o exercício
     const patch = {
       is_published: desired,
+      is_global: true,
       published_at: desired ? new Date().toISOString() : null,
       updated_at: new Date().toISOString(),
     };

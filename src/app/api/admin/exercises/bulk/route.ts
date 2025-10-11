@@ -39,6 +39,12 @@ export async function POST(req: NextRequest) {
         difficulty: normDiff,
         description: typeof r.description === 'string' ? r.description.trim() : undefined,
         video_url: typeof r.video_url === 'string' ? r.video_url.trim() : undefined,
+        is_global: true,
+        owner_id: null,
+        is_published: false,
+        published_at: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       });
     })
     .filter((r) => r && (r as any).name) as any[];

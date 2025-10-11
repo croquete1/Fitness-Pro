@@ -170,6 +170,56 @@ alter table if exists public.pt_sessions              enable row level security;
 alter table if exists public.motivation_phrases       enable row level security;
 alter table if exists public.auth_local_users         enable row level security;
 alter table if exists public.profile_private          enable row level security;
+alter table if exists public.exercises               enable row level security;
+
+/* ---------------------------- exercises library ---------------------------- */
+
+alter table if exists public.exercises
+  add column if not exists owner_id uuid,
+  add column if not exists is_global boolean default false not null,
+  add column if not exists is_published boolean default false not null,
+  add column if not exists published_at timestamptz,
+  add column if not exists created_at timestamptz not null default timezone('utc', now()),
+  add column if not exists updated_at timestamptz not null default timezone('utc', now());
+
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'exercises'
+      and column_name = 'published'
+  ) then
+    execute 'update public.exercises set is_published = coalesce(is_published, published)';
+    execute 'alter table public.exercises drop column published';
+  end if;
+end
+$$;
+
+do $$
+begin
+  if to_regclass('public.exercises') is not null then
+    update public.exercises
+    set is_global = true
+    where owner_id is null and is_global is not true;
+
+    update public.exercises
+    set published_at = coalesce(published_at, timezone('utc', now()))
+    where is_published is true and published_at is null;
+
+    update public.exercises
+    set updated_at = timezone('utc', now())
+    where updated_at is null;
+
+    execute 'alter table public.exercises drop constraint if exists exercises_owner_id_fkey';
+    execute 'alter table public.exercises add constraint exercises_owner_id_fkey foreign key (owner_id) references public.users(id) on delete set null';
+    execute 'create index if not exists exercises_owner_id_idx on public.exercises(owner_id)';
+    execute 'create index if not exists exercises_is_global_idx on public.exercises(is_global)';
+    execute 'create index if not exists exercises_is_published_idx on public.exercises(is_published)';
+  end if;
+end
+$$;
 
 /* --------------------------- onboarding forms ---------------------------- */
 
@@ -252,6 +302,41 @@ begin
     'authenticated',
     'auth.uid() = user_id or public.is_admin(auth.uid())',
     'auth.uid() = user_id or public.is_admin(auth.uid())'
+  );
+
+  /* ---------------------------- exercises ---------------------------- */
+
+  perform public.ensure_policy(
+    'exercises',
+    'exercises_select_scoped',
+    'select',
+    'authenticated',
+    'public.is_admin(auth.uid()) or (coalesce(is_global,false) and coalesce(is_published,false)) or owner_id = auth.uid()',
+    null
+  );
+  perform public.ensure_policy(
+    'exercises',
+    'exercises_insert_owner',
+    'insert',
+    'authenticated',
+    'public.is_admin(auth.uid()) or owner_id = auth.uid()',
+    'public.is_admin(auth.uid()) or (owner_id = auth.uid() and coalesce(is_global,false) = false and coalesce(is_published,false) = false)'
+  );
+  perform public.ensure_policy(
+    'exercises',
+    'exercises_update_owner',
+    'update',
+    'authenticated',
+    'public.is_admin(auth.uid()) or owner_id = auth.uid()',
+    'public.is_admin(auth.uid()) or (owner_id = auth.uid() and coalesce(is_global,false) = false)'
+  );
+  perform public.ensure_policy(
+    'exercises',
+    'exercises_delete_owner',
+    'delete',
+    'authenticated',
+    'public.is_admin(auth.uid()) or owner_id = auth.uid()',
+    null
   );
 
   /* --------------------------- plan hierarchies --------------------------- */

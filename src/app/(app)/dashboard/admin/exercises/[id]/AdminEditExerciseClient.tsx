@@ -2,20 +2,11 @@
 
 import * as React from 'react';
 import { Container } from '@mui/material';
-import AdminExerciseFormClient, {
+import AdminExerciseFormClient from '@/app/(app)/dashboard/admin/exercises/AdminExerciseFormClient';
+import {
   type ExerciseFormValues,
-  type Difficulty,
-} from '@/app/(app)/dashboard/admin/exercises/AdminExerciseFormClient';
-
-/** Normalização robusta da dificuldade (mesma lógica do form) */
-function normalizeDifficulty(v?: string | null): Difficulty | undefined {
-  if (!v) return undefined;
-  const s = v.toString().normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
-  if (s.startsWith('fac')) return 'Fácil';
-  if (s.startsWith('med')) return 'Média';
-  if (s.startsWith('dif')) return 'Difícil';
-  return undefined;
-}
+  normalizeDifficulty,
+} from '@/lib/exercises/schema';
 
 export default function AdminEditExerciseClient({
   initial,
