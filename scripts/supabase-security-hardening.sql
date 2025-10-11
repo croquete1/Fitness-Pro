@@ -104,7 +104,7 @@ select
   f.created_at,
   f.updated_at,
   p.name   as profile_name,
-  u.email  as user_email,
+  u.email::varchar(255) as user_email,
   u.role   as user_role
 from public.onboarding_forms f
 left join public.profiles p on p.id = f.user_id
