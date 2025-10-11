@@ -5,8 +5,18 @@ import * as React from 'react';
 import { signIn } from 'next-auth/react';
 import Link from 'next/link';
 import {
-  Box, Paper, Stack, TextField, Button, Alert, Typography,
-  CircularProgress, IconButton, InputAdornment, Divider, Fade
+  Box,
+  Paper,
+  Stack,
+  TextField,
+  Button,
+  Alert,
+  Typography,
+  CircularProgress,
+  IconButton,
+  InputAdornment,
+  Divider,
+  Fade,
 } from '@mui/material';
 import MailOutline from '@mui/icons-material/MailOutline';
 import LockOutlined from '@mui/icons-material/LockOutlined';
@@ -162,14 +172,15 @@ export default function LoginClient() {
           elevation={24}
           sx={{
             width: '100%',
-            maxWidth: 680,
+            maxWidth: 750,
             p: { xs: 3, sm: 4 },
-            borderRadius: 4,
+            borderRadius: '50px',
             position: 'relative',
+            overflow: 'hidden',
             bgcolor: (theme) =>
               theme.palette.mode === 'dark'
                 ? 'rgba(8, 13, 26, 0.82)'
-                : 'rgba(255, 255, 255, 0.85)',
+                : 'rgba(255, 255, 255, 0.88)',
             border: (theme) =>
               theme.palette.mode === 'dark'
                 ? '1px solid rgba(96,165,250,0.22)'
@@ -184,6 +195,38 @@ export default function LoginClient() {
           <Box sx={{ position: 'absolute', top: 12, right: 12 }}>
             <ThemeToggle />
           </Box>
+
+          <Fade in={loading} unmountOnExit>
+            <Box
+              sx={{
+                position: 'absolute',
+                inset: 0,
+                zIndex: 2,
+                borderRadius: 'inherit',
+                display: 'grid',
+                placeItems: 'center',
+                bgcolor: (theme) =>
+                  theme.palette.mode === 'dark'
+                    ? 'rgba(15, 23, 42, 0.75)'
+                    : 'rgba(15, 23, 42, 0.55)',
+                backdropFilter: 'blur(12px)',
+              }}
+            >
+              <Stack spacing={2} alignItems="center" sx={{ color: 'common.white' }}>
+                <CircularProgress size={36} thickness={4} color="inherit" />
+                <Typography
+                  variant="body1"
+                  sx={{
+                    fontWeight: 600,
+                    color: 'common.white',
+                    letterSpacing: 0.4,
+                  }}
+                >
+                  A iniciar sessão…
+                </Typography>
+              </Stack>
+            </Box>
+          </Fade>
 
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={{ xs: 3, md: 5 }} alignItems="stretch">
             <Box
@@ -216,8 +259,17 @@ export default function LoginClient() {
                   pointerEvents: 'none',
                 }}
               />
-              <Stack spacing={2.2} sx={{ position: 'relative' }}>
-                <BrandLogo size={84} priority />
+              <Stack
+                spacing={2.2}
+                sx={{
+                  position: 'relative',
+                  '& .login-logo': {
+                    filter:
+                      'drop-shadow(0 12px 32px rgba(15,23,42,0.35)) drop-shadow(0 2px 6px rgba(15,23,42,0.25))',
+                  },
+                }}
+              >
+                <BrandLogo size={92} priority className="login-logo" />
                 <Typography
                   variant="h4"
                   component="h1"

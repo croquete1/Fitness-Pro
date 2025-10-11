@@ -21,6 +21,7 @@ export default function BrandLogo({ size = 56, className, priority = false }: Pr
       width={size}
       height={size}
       priority={priority}
+      unoptimized={!useFallback}
       className={className}
       style={{ display: 'block', width: size, height: 'auto' }}
       onError={() => setUseFallback(true)}

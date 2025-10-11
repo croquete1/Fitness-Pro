@@ -5,6 +5,57 @@ import { syncUserProfile } from '@/lib/profileSync';
 import { isGuardErr, requireUserGuard } from '@/lib/api-guards';
 import { checkUsernameAvailability, validateUsernameCandidate } from '@/lib/username';
 
+export async function GET() {
+  const guard = await requireUserGuard();
+  if (isGuardErr(guard)) return guard.response;
+
+  const sb = createServerClient();
+
+  const [user, profile, priv] = await Promise.all([
+    sb
+      .from('users')
+      .select('id,email,name,username,avatar_url,role,status')
+      .eq('id', guard.me.id)
+      .maybeSingle(),
+    sb
+      .from('profiles')
+      .select('name,username,bio,avatar_url')
+      .eq('id', guard.me.id)
+      .maybeSingle(),
+    sb
+      .from('profile_private')
+      .select('phone')
+      .eq('user_id', guard.me.id)
+      .maybeSingle(),
+  ]);
+
+  const firstError = user.error ?? profile.error ?? priv.error;
+  if (firstError && String(firstError.code) !== 'PGRST116') {
+    return NextResponse.json(
+      { ok: false, error: firstError.message ?? 'UNEXPECTED_ERROR' },
+      { status: 500 },
+    );
+  }
+
+  if (!user.data && !profile.data) {
+    return NextResponse.json({ ok: false, error: 'NOT_FOUND' }, { status: 404 });
+  }
+
+  const payload = {
+    id: user.data?.id ?? guard.me.id,
+    email: user.data?.email ?? null,
+    role: user.data?.role ?? null,
+    status: user.data?.status ?? null,
+    name: profile.data?.name ?? user.data?.name ?? null,
+    username: profile.data?.username ?? user.data?.username ?? null,
+    bio: profile.data?.bio ?? null,
+    avatar_url: profile.data?.avatar_url ?? user.data?.avatar_url ?? null,
+    phone: priv.data?.phone ?? null,
+  };
+
+  return NextResponse.json({ ok: true, profile: payload });
+}
+
 type Body = {
   name?: string | null;
   bio?: string | null;
