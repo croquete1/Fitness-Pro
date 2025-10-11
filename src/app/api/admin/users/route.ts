@@ -1,53 +1,10 @@
 import { NextResponse } from 'next/server';
 import { tryCreateServerClient } from '@/lib/supabaseServer';
 import { requireAdminGuard, isGuardErr } from '@/lib/api-guards';
-import { logAudit, AUDIT_KINDS, AUDIT_TARGET_TYPES, AUDIT_TABLE_CANDIDATES, isMissingAuditTableError } from '@/lib/audit';
+import { logAudit, AUDIT_KINDS, AUDIT_TARGET_TYPES } from '@/lib/audit';
 import { supabaseFallbackJson, supabaseUnavailableResponse } from '@/lib/supabase/responses';
 import { getSampleUsers } from '@/lib/fallback/users';
-import type { SupabaseClient } from '@supabase/supabase-js';
-
-type PresenceRecord = { lastLogin: string | null; lastLogout: string | null };
-
-async function fetchPresenceMap(sb: SupabaseClient, ids: string[]): Promise<Map<string, PresenceRecord>> {
-  const presence = new Map<string, PresenceRecord>();
-  if (!ids.length) return presence;
-
-  for (const table of AUDIT_TABLE_CANDIDATES) {
-    try {
-      const { data, error } = await sb
-        .from(table as any)
-        .select('actor_id, kind, created_at')
-        .in('actor_id', ids)
-        .in('kind', ['LOGIN', 'LOGOUT'])
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        if (isMissingAuditTableError(error)) continue;
-        console.warn(`[admin/users] falha a ler ${table}`, error);
-        return presence;
-      }
-
-      for (const row of data ?? []) {
-        const actorId = String(row.actor_id ?? '').trim();
-        if (!actorId) continue;
-        const kind = String(row.kind ?? '').toUpperCase();
-        const createdAt = row.created_at ? new Date(row.created_at).toISOString() : null;
-        if (!createdAt) continue;
-        const current = presence.get(actorId) ?? { lastLogin: null, lastLogout: null };
-        if (kind === 'LOGIN' && !current.lastLogin) current.lastLogin = createdAt;
-        if (kind === 'LOGOUT' && !current.lastLogout) current.lastLogout = createdAt;
-        presence.set(actorId, current);
-      }
-      break;
-    } catch (err) {
-      if (isMissingAuditTableError(err)) continue;
-      console.warn(`[admin/users] erro inesperado ao consultar ${table}`, err);
-      return presence;
-    }
-  }
-
-  return presence;
-}
+import { fetchPresenceMap, summarizePresence, DEFAULT_ONLINE_WINDOW_MS } from '@/lib/presence';
 
 export async function GET(req: Request) {
   const guard = await requireAdminGuard();
@@ -86,29 +43,28 @@ export async function GET(req: Request) {
   const presence = await fetchPresenceMap(sb, ids);
 
   const now = Date.now();
-  const onlineWindow = 1000 * 60 * 15; // 15 minutos
 
   const rows = rowsRaw.map((row: any) => {
-    const record = presence.get(String(row.id)) ?? { lastLogin: null, lastLogout: null };
-    const lastLoginDate = record.lastLogin ? new Date(record.lastLogin) : null;
-    const lastLogoutDate = record.lastLogout ? new Date(record.lastLogout) : null;
-    const lastSeenDate = [lastLoginDate, lastLogoutDate]
-      .filter((d): d is Date => Boolean(d))
-      .sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
+    const rawPresence = presence.get(String(row.id));
+    const presenceSummary = summarizePresence(rawPresence, {
+      now,
+      onlineWindowMs: DEFAULT_ONLINE_WINDOW_MS,
+    });
 
-    const online = Boolean(
-      lastLoginDate &&
-      (!lastLogoutDate || lastLoginDate > lastLogoutDate) &&
-      now - lastLoginDate.getTime() <= onlineWindow
-    );
+    const fallbackLastLogin = row?.last_login_at ?? row?.last_sign_in_at ?? null;
+    const fallbackLastSeen = row?.last_seen_at ?? fallbackLastLogin;
+
+    const lastLoginAt = presenceSummary.lastLoginAt ?? fallbackLastLogin;
+    const lastSeenAt = presenceSummary.lastSeenAt ?? fallbackLastSeen;
+    const online = presenceSummary.online;
 
     return {
       ...row,
       created_at: row?.created_at ?? null,
       status: typeof row?.status === 'string' ? String(row.status).toUpperCase() : row?.status ?? null,
       state: typeof row?.state === 'string' ? String(row.state).toUpperCase() : row?.state ?? null,
-      last_login_at: record.lastLogin,
-      last_seen_at: lastSeenDate ? lastSeenDate.toISOString() : record.lastLogin ?? null,
+      last_login_at: lastLoginAt,
+      last_seen_at: lastSeenAt,
       online,
     };
   });
