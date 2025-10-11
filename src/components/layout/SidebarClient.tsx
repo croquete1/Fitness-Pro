@@ -15,6 +15,7 @@ import ChatBubbleOutline from '@mui/icons-material/ChatBubbleOutline';
 import NotificationsOutlined from '@mui/icons-material/NotificationsOutlined';
 import HistoryOutlined from '@mui/icons-material/HistoryOutlined';
 import AccountCircleOutlined from '@mui/icons-material/AccountCircleOutlined';
+import SettingsOutlined from '@mui/icons-material/SettingsOutlined';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 
@@ -57,6 +58,7 @@ export default function SidebarClient({
   const conta: Nav[] = [
     { href: '/dashboard/history', label: 'Histórico', icon: <HistoryOutlined />, activePrefix: '/dashboard/history' },
     { href: '/dashboard/profile', label: 'Perfil', icon: <AccountCircleOutlined />, activePrefix: '/dashboard/profile' },
+    { href: '/dashboard/settings', label: 'Definições', icon: <SettingsOutlined />, activePrefix: '/dashboard/settings' },
   ];
 
   const header = (
