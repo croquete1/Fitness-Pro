@@ -271,7 +271,7 @@ export default function TrainerDashboardClient({ name, data, supabase }: Props) 
   ];
 
   return (
-    <Stack spacing={3} sx={{ pb: 6 }}>
+    <Stack spacing={3} sx={{ pb: 6, px: { xs: 1.5, md: 0 } }}>
       <Box
         sx={{
           borderRadius: 4,

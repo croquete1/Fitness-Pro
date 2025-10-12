@@ -13,6 +13,8 @@ import {
   Divider,
   Snackbar,
   Alert,
+  LinearProgress,
+  Pagination,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -59,6 +61,7 @@ const DEFAULT_PAGE_SIZE = 20;
 export default function PTLibraryClient({ initialScope = 'personal' }: { initialScope?: Scope }) {
   const theme = useTheme();
   const isSmallDialog = useMediaQuery(theme.breakpoints.down('sm'));
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const [scope, setScope] = React.useState<Scope>(initialScope);
   const [q, setQ] = React.useState('');
@@ -219,6 +222,120 @@ export default function PTLibraryClient({ initialScope = 'personal' }: { initial
     }
   }, []);
 
+  const renderMediaThumbnail = React.useCallback(
+    (url: string | null | undefined, title?: string | null, variant: 'compact' | 'wide' = 'compact') => {
+      const media = getExerciseMediaInfo(url);
+      const alt = title ? `Pré-visualização de ${title}` : 'Pré-visualização do exercício';
+
+      if (variant === 'wide') {
+        return (
+          <Box
+            sx={{
+              position: 'relative',
+              borderRadius: 2,
+              overflow: 'hidden',
+              border: '1px solid',
+              borderColor: 'divider',
+              backgroundColor: 'background.paper',
+              '&::after': {
+                content: '""',
+                display: 'block',
+                paddingTop: '56.25%',
+              },
+            }}
+          >
+            {media.kind === 'image' && (
+              <Box
+                component="img"
+                src={media.src}
+                alt={alt}
+                sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            )}
+            {media.kind === 'video' && (
+              <Box
+                component="video"
+                src={media.src}
+                autoPlay
+                loop
+                muted
+                playsInline
+                controls
+                sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            )}
+            {media.kind === 'embed' && (
+              <Box
+                component="iframe"
+                src={media.src}
+                title={alt}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
+              />
+            )}
+            {media.kind === 'none' && (
+              <Stack
+                alignItems="center"
+                justifyContent="center"
+                sx={{ position: 'absolute', inset: 0, backgroundColor: 'action.hover' }}
+              >
+                <Typography variant="h4" component="span" role="img" aria-label="Exercício">
+                  💪
+                </Typography>
+              </Stack>
+            )}
+          </Box>
+        );
+      }
+
+      return (
+        <Box
+          sx={{
+            width: 90,
+            height: 90,
+            borderRadius: 2,
+            overflow: 'hidden',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            bgcolor: 'action.hover',
+          }}
+        >
+          {media.kind === 'image' && (
+            <Box component="img" src={media.src} alt={alt} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          )}
+          {media.kind === 'video' && (
+            <Box
+              component="video"
+              src={media.src}
+              muted
+              loop
+              autoPlay
+              playsInline
+              sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          )}
+          {media.kind === 'embed' && (
+            <Box
+              component="iframe"
+              src={media.src}
+              title={alt}
+              allow="autoplay; clipboard-write; encrypted-media; picture-in-picture"
+              sx={{ width: '100%', height: '100%', border: 0 }}
+            />
+          )}
+          {media.kind === 'none' && (
+            <Typography component="span" variant="h5" role="img" aria-label="Exercício">
+              💪
+            </Typography>
+          )}
+        </Box>
+      );
+    },
+    [],
+  );
+
   const columns = React.useMemo<GridColDef<LibraryRow>[]>(
     () => [
       {
@@ -227,46 +344,7 @@ export default function PTLibraryClient({ initialScope = 'personal' }: { initial
         width: 96,
         sortable: false,
         filterable: false,
-        renderCell: (params) => {
-          const media = getExerciseMediaInfo(params.row.video_url);
-          return (
-            <Box
-              sx={{
-                width: 72,
-                height: 72,
-                borderRadius: 2,
-                overflow: 'hidden',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                bgcolor: 'action.hover',
-              }}
-            >
-              {media.kind === 'image' && (
-                <Box component="img" src={media.src} alt="Pré-visualização" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              )}
-              {media.kind === 'video' && (
-                <Box
-                  component="video"
-                  src={media.src}
-                  muted
-                  loop
-                  autoPlay
-                  playsInline
-                  sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                />
-              )}
-              {media.kind === 'embed' && (
-                <Box component="iframe" src={media.src} title="Pré-visualização" sx={{ width: '100%', height: '100%', border: 0 }} allow="autoplay; clipboard-write; encrypted-media; picture-in-picture" />
-              )}
-              {media.kind === 'none' && (
-                <Typography component="span" variant="h5" role="img" aria-label="Exercício">
-                  💪
-                </Typography>
-              )}
-            </Box>
-          );
-        },
+        renderCell: (params) => renderMediaThumbnail(params.row.video_url, params.row.name, 'compact'),
       },
       {
         field: 'name',
@@ -402,27 +480,58 @@ export default function PTLibraryClient({ initialScope = 'personal' }: { initial
       },
     },
     ],
-    [cloneExercise, deleteExercise],
+    [cloneExercise, deleteExercise, renderMediaThumbnail],
   );
 
   return (
     <Box sx={{ display: 'grid', gap: 1.5 }}>
       <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
-        <Stack direction={{ xs: 'column', lg: 'row' }} spacing={1.5} justifyContent="space-between" alignItems="center">
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ flexWrap: 'wrap' }}>
+        <Stack
+          direction={{ xs: 'column', lg: 'row' }}
+          spacing={1.5}
+          justifyContent="space-between"
+          alignItems={{ xs: 'stretch', lg: 'center' }}
+        >
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ flexWrap: 'wrap', width: '100%' }}>
             <TextField
               select
               label="Coleção"
               value={scope}
               onChange={(e) => setScopeAndReset(e.target.value as Scope)}
-              sx={{ minWidth: 200 }}
+              fullWidth
+              sx={{
+                minWidth: { sm: 200 },
+                width: { xs: '100%', sm: 'auto' },
+                flex: { xs: '1 1 100%', sm: '0 0 auto' },
+              }}
               helperText={scope === 'global' ? 'Explora o catálogo oficial e duplica exercícios.' : 'Gere a tua biblioteca privada.'}
             >
               <MenuItem value="personal">Minha biblioteca</MenuItem>
               <MenuItem value="global">Catálogo global</MenuItem>
             </TextField>
-            <TextField label="Pesquisar" value={q} onChange={(e) => setQ(e.target.value)} sx={{ minWidth: 220 }} />
-            <TextField select label="Grupo muscular" value={muscle} onChange={(e) => setMuscle(e.target.value)} sx={{ minWidth: 180 }}>
+            <TextField
+              label="Pesquisar"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              fullWidth
+              sx={{
+                minWidth: { sm: 220 },
+                width: { xs: '100%', sm: 'auto' },
+                flex: { xs: '1 1 100%', sm: '0 0 auto' },
+              }}
+            />
+            <TextField
+              select
+              label="Grupo muscular"
+              value={muscle}
+              onChange={(e) => setMuscle(e.target.value)}
+              fullWidth
+              sx={{
+                minWidth: { sm: 180 },
+                width: { xs: '100%', sm: 'auto' },
+                flex: { xs: '1 1 100%', sm: '0 0 auto' },
+              }}
+            >
               <MenuItem value="">Todos</MenuItem>
               {facets.muscles.map((option) => (
                 <MenuItem key={`pt-facet-muscle-${option}`} value={option}>
@@ -430,7 +539,18 @@ export default function PTLibraryClient({ initialScope = 'personal' }: { initial
                 </MenuItem>
               ))}
             </TextField>
-            <TextField select label="Dificuldade" value={difficulty} onChange={(e) => setDifficulty(e.target.value)} sx={{ minWidth: 160 }}>
+            <TextField
+              select
+              label="Dificuldade"
+              value={difficulty}
+              onChange={(e) => setDifficulty(e.target.value)}
+              fullWidth
+              sx={{
+                minWidth: { sm: 160 },
+                width: { xs: '100%', sm: 'auto' },
+                flex: { xs: '1 1 100%', sm: '0 0 auto' },
+              }}
+            >
               <MenuItem value="">Todas</MenuItem>
               {facets.difficulties.map((option) => (
                 <MenuItem key={`pt-facet-difficulty-${option}`} value={option}>
@@ -438,7 +558,18 @@ export default function PTLibraryClient({ initialScope = 'personal' }: { initial
                 </MenuItem>
               ))}
             </TextField>
-            <TextField select label="Equipamento" value={equipment} onChange={(e) => setEquipment(e.target.value)} sx={{ minWidth: 200 }}>
+            <TextField
+              select
+              label="Equipamento"
+              value={equipment}
+              onChange={(e) => setEquipment(e.target.value)}
+              fullWidth
+              sx={{
+                minWidth: { sm: 200 },
+                width: { xs: '100%', sm: 'auto' },
+                flex: { xs: '1 1 100%', sm: '0 0 auto' },
+              }}
+            >
               <MenuItem value="">Todos</MenuItem>
               {facets.equipments.map((option) => (
                 <MenuItem key={`pt-facet-equipment-${option}`} value={option}>
@@ -447,13 +578,18 @@ export default function PTLibraryClient({ initialScope = 'personal' }: { initial
               ))}
             </TextField>
           </Stack>
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
             {scope === 'global' ? (
               <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 260 }}>
                 Dica: duplica exercícios globais para personalizá-los antes de adicionar a um plano.
               </Typography>
             ) : (
-              <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpenCreate(true)}>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => setOpenCreate(true)}
+                sx={{ width: { xs: '100%', sm: 'auto' } }}
+              >
                 Novo exercício
               </Button>
             )}
@@ -463,22 +599,175 @@ export default function PTLibraryClient({ initialScope = 'personal' }: { initial
 
       <Divider />
 
-      <div style={{ width: '100%' }}>
-        <DataGrid
-          rows={rows}
-          columns={columns as unknown as GridColDef[]}
-          loading={loading}
-          rowCount={count}
-          paginationMode="server"
-          paginationModel={paginationModel}
-          onPaginationModelChange={setPaginationModel}
-          disableRowSelectionOnClick
-          autoHeight
-          density="compact"
-          pageSizeOptions={[10, 20, 50]}
-          slots={{ toolbar: GridToolbar }}
-        />
-      </div>
+      {isMobile ? (
+        <Stack spacing={1.5}>
+          {loading && <LinearProgress sx={{ borderRadius: 999 }} />}
+          {!loading && rows.length === 0 ? (
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                Não encontrámos exercícios para os filtros seleccionados.
+              </Typography>
+            </Paper>
+          ) : (
+            rows.map((row) => {
+              const createdAtDate = row.created_at ? new Date(row.created_at) : null;
+              const createdAtLabel =
+                createdAtDate && !Number.isNaN(createdAtDate.getTime())
+                  ? createdAtDate.toLocaleDateString('pt-PT')
+                  : null;
+
+              return (
+                <Paper key={row.id} variant="outlined" sx={{ p: 2, borderRadius: 2, display: 'grid', gap: 1.5 }}>
+                  {renderMediaThumbnail(row.video_url, row.name, 'wide')}
+
+                  <Stack spacing={1}>
+                  <Stack spacing={0.5}>
+                    <Typography variant="subtitle1" fontWeight={700} sx={{ wordBreak: 'break-word' }}>
+                      {row.name}
+                    </Typography>
+                    {row.description && (
+                      <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap' }}>
+                        {row.description}
+                      </Typography>
+                    )}
+                  </Stack>
+
+                  <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                    {(row.muscle_tags ?? []).map((tag) => (
+                      <Chip key={`card-muscle-${row.id}-${tag}`} label={tag} size="small" variant="outlined" />
+                    ))}
+                    {(row.equipment_tags ?? []).map((tag) => (
+                      <Chip key={`card-equipment-${row.id}-${tag}`} label={tag} size="small" variant="outlined" />
+                    ))}
+                    {row.difficulty && (
+                      <Chip
+                        label={row.difficulty}
+                        size="small"
+                        color={
+                          row.difficulty === 'Difícil'
+                            ? 'error'
+                            : row.difficulty === 'Média'
+                            ? 'warning'
+                            : 'success'
+                        }
+                        variant="outlined"
+                      />
+                    )}
+                  </Stack>
+
+                  <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                    <Chip
+                      label={row.is_global ? 'Catálogo global' : 'Minha biblioteca'}
+                      size="small"
+                      color={row.is_global ? 'default' : 'primary'}
+                      variant={row.is_global ? 'outlined' : 'filled'}
+                    />
+                    {createdAtLabel && (
+                      <Typography variant="caption" color="text.secondary">
+                        Atualizado em {createdAtLabel}
+                      </Typography>
+                    )}
+                  </Stack>
+                </Stack>
+
+                <Stack
+                  direction={{ xs: 'column', sm: 'row' }}
+                  spacing={1}
+                  alignItems={{ xs: 'stretch', sm: 'center' }}
+                  justifyContent="flex-start"
+                >
+                  <Button
+                    variant="outlined"
+                    startIcon={<VisibilityOutlined fontSize="small" />}
+                    onClick={() => setPreview(row)}
+                    sx={{ width: { xs: '100%', sm: 'auto' } }}
+                  >
+                    Pré-visualizar
+                  </Button>
+                  {row.is_global ? (
+                    <Button
+                      variant="contained"
+                      startIcon={<FileCopyOutlined fontSize="small" />}
+                      onClick={() => cloneExercise(row)}
+                      sx={{ width: { xs: '100%', sm: 'auto' } }}
+                    >
+                      Copiar exercício
+                    </Button>
+                  ) : (
+                    <>
+                      <Button
+                        variant="outlined"
+                        startIcon={<EditOutlined fontSize="small" />}
+                        onClick={() => setEditing(row)}
+                        sx={{ width: { xs: '100%', sm: 'auto' } }}
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        color="error"
+                        startIcon={<DeleteOutline fontSize="small" />}
+                        onClick={() => deleteExercise(row)}
+                        sx={{ width: { xs: '100%', sm: 'auto' } }}
+                      >
+                        Remover
+                      </Button>
+                    </>
+                  )}
+                </Stack>
+              </Paper>
+              );
+            })
+          )}
+
+          {!loading && count > paginationModel.pageSize && (
+            <Stack alignItems="center">
+              <Pagination
+                count={Math.max(1, Math.ceil(Math.max(count, rows.length) / paginationModel.pageSize))}
+                page={paginationModel.page + 1}
+                color="primary"
+                onChange={(_, page) =>
+                  setPaginationModel((prev) => ({ ...prev, page: page - 1 }))
+                }
+              />
+            </Stack>
+          )}
+        </Stack>
+      ) : (
+        <Box sx={{ width: '100%', overflowX: 'auto' }}>
+          <DataGrid
+            rows={rows}
+            columns={columns as unknown as GridColDef[]}
+            loading={loading}
+            rowCount={count}
+            paginationMode="server"
+            paginationModel={paginationModel}
+            onPaginationModelChange={setPaginationModel}
+            disableRowSelectionOnClick
+            autoHeight
+            density="compact"
+            pageSizeOptions={[10, 20, 50]}
+            slots={{ toolbar: GridToolbar }}
+            sx={{
+              minWidth: { xs: 720, md: '100%' },
+              border: 0,
+              bgcolor: 'background.paper',
+              '& .MuiDataGrid-columnHeaders': {
+                bgcolor: 'background.default',
+                borderBottom: '1px solid',
+                borderColor: 'divider',
+              },
+              '& .MuiDataGrid-cell': {
+                alignItems: 'flex-start',
+                py: 1.5,
+              },
+              '& .MuiDataGrid-row': {
+                minHeight: 100,
+              },
+            }}
+          />
+        </Box>
+      )}
 
       <Snackbar open={snack.open} autoHideDuration={3000} onClose={closeSnack}>
         <Alert severity={snack.sev} variant="filled" onClose={closeSnack} sx={{ width: '100%' }}>

@@ -125,6 +125,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Exercício indisponível para duplicação' }, { status: 400 });
     }
 
+    const nowIso = new Date().toISOString();
     const insertPayload = {
       name: source.name,
       muscle_group: source.muscle_group ?? null,
@@ -133,11 +134,12 @@ export async function POST(req: Request) {
       description: source.description ?? null,
       video_url: source.video_url ?? null,
       owner_id: me.id,
+      created_by: me.id,
       is_global: false,
       is_published: false,
       published_at: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      created_at: nowIso,
+      updated_at: nowIso,
     };
 
     const { data, error } = await sb
@@ -159,6 +161,7 @@ export async function POST(req: Request) {
   }
 
   const payload = parsed.data;
+  const nowIso = new Date().toISOString();
 
   const insertPayload = {
     name: payload.name,
@@ -168,11 +171,12 @@ export async function POST(req: Request) {
     description: payload.description ?? null,
     video_url: payload.video_url ?? null,
     owner_id: me.id,
+    created_by: me.id,
     is_global: false,
     is_published: false,
     published_at: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: nowIso,
+    updated_at: nowIso,
   };
 
   const { data, error } = await sb

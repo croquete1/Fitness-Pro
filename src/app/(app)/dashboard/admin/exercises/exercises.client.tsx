@@ -36,6 +36,8 @@ export type Row = {
   is_published?: boolean | null;
   owner_id?: string | null;
   owner_name?: string | null;
+  creator_id?: string | null;
+  creator_name?: string | null;
   published_at?: string | null;
 };
 
@@ -156,6 +158,14 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
           is_published: row.is_published ?? row.published ?? null,
           owner_id: row.owner_id ?? null,
           owner_name: row.owner?.name ?? row.owner?.email ?? row.owner_name ?? null,
+          creator_id: row.created_by ?? row.creator?.id ?? row.owner?.id ?? null,
+          creator_name:
+            row.creator?.name ??
+            row.creator?.email ??
+            row.owner?.name ??
+            row.owner?.email ??
+            row.creator_name ??
+            null,
           published_at: row.published_at ?? null,
         } as Row;
       });
@@ -204,8 +214,8 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
         return (
           <div
             style={{
-              width: 72,
-              height: 72,
+              width: 90,
+              height: 90,
               borderRadius: 12,
               overflow: 'hidden',
               display: 'flex',
@@ -253,8 +263,8 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
         <div style={{ display: 'grid', gap: 4 }}>
           <div style={{ fontWeight: 600, lineHeight: 1.2 }}>{params.row.name}</div>
           <div style={{ fontSize: 11, opacity: 0.6 }}>{params.row.description ? params.row.description.slice(0, 80) : ''}</div>
-          {params.row.owner_name && !params.row.is_global && (
-            <div style={{ fontSize: 11, opacity: 0.7 }}>Autor: {params.row.owner_name}</div>
+          {params.row.creator_name && (
+            <div style={{ fontSize: 11, opacity: 0.7 }}>Criado por: {params.row.creator_name}</div>
           )}
         </div>
       ),
@@ -389,7 +399,7 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
   ];
 
   function exportCSV() {
-    const header = ['id','name','muscle_group','equipment','difficulty','is_global','is_published','owner','created_at','published_at','description','video_url'];
+    const header = ['id','name','muscle_group','equipment','difficulty','is_global','is_published','creator','created_at','published_at','description','video_url'];
     const lines = [
       header.join(','),
       ...rows.map(r => [
@@ -400,7 +410,7 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
         r.difficulty ?? '',
         r.is_global ? 'global' : 'privado',
         r.is_published ? 'publicado' : 'rascunho',
-        r.owner_name ?? '',
+        r.creator_name ?? '',
         r.created_at ?? '',
         r.published_at ?? '',
         (r.description ?? '').replace(/\r?\n/g,' '),
@@ -423,6 +433,7 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
         r.difficulty ?? '',
         r.is_global ? 'Catálogo global' : 'Privado',
         r.is_published ? 'Publicado' : 'Rascunho',
+        r.creator_name ?? '',
         r.created_at ? new Date(String(r.created_at)).toLocaleString() : '',
         r.published_at ? new Date(String(r.published_at)).toLocaleString() : '',
         (r.description ?? '').replace(/\r?\n/g, ' '),
@@ -433,7 +444,7 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
     w.document.open(); w.document.write(
       '<html><head><meta charset="utf-8" /><title>Exercícios</title>' +
       '<style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto; padding:16px;}h1{font-size:18px;margin:0 0 12px;}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #e5e7eb;padding:6px 8px;text-align:left;font-size:12px;}th{background:#f8fafc;}</style>' +
-      `</head><body><h1>Exercícios</h1><table><thead><tr><th>Nome</th><th>Grupo</th><th>Equipamento</th><th>Dificuldade</th><th>Origem</th><th>Estado</th><th>Criado</th><th>Publicado</th><th>Descrição</th></tr></thead><tbody>${rowsHtml}</tbody></table><script>window.onload=function(){window.print();}</script></body></html>`
+      `</head><body><h1>Exercícios</h1><table><thead><tr><th>Nome</th><th>Grupo</th><th>Equipamento</th><th>Dificuldade</th><th>Origem</th><th>Estado</th><th>Criado por</th><th>Criado em</th><th>Publicado</th><th>Descrição</th></tr></thead><tbody>${rowsHtml}</tbody></table><script>window.onload=function(){window.print();}</script></body></html>`
     ); w.document.close();
   }
 
