@@ -2,6 +2,7 @@
 'use client';
 import * as React from 'react';
 import Image from 'next/image';
+import { brand } from '@/lib/brand';
 
 type Props = {
   size?: number;
@@ -17,7 +18,7 @@ export default function BrandLogo({ size = 56, className, priority = false }: Pr
     <Image
       key={src}
       src={src}
-      alt="HMS Personal Trainer"
+      alt={brand.name}
       width={size}
       height={size}
       priority={priority}

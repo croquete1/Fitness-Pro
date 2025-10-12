@@ -107,7 +107,7 @@ export default async function SystemMetricsPage() {
       <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
         <KpiCard label="Utilizadores"        value={totalUsers}   variant="primary" />
         <KpiCard label="Clientes"            value={clients}      variant="accent" />
-        <KpiCard label="Treinadores"         value={trainers}     variant="info" />
+        <KpiCard label="Personal Trainers"   value={trainers}     variant="info" />
         <KpiCard label="Admins"              value={admins}       variant="neutral" />
         <KpiCard label="Sessões (hoje)"      value={sessionsToday} variant="success" />
         <KpiCard label="Sessões (7 dias)"    value={sessions7d}   variant="warning" />

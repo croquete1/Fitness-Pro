@@ -81,12 +81,12 @@ export default function ClientSheet({
         </div>
       </header>
 
-      {/* ADMIN: lista de treinadores + vínculos (mostra só se vierem props) */}
+      {/* ADMIN: lista de Personal Trainers + vínculos (mostra só se vierem props) */}
       {Array.isArray(trainers) && (
         <section className="card" style={{ padding: 12 }}>
-          <h3 style={{ marginTop: 0 }}>Treinadores disponíveis</h3>
+          <h3 style={{ marginTop: 0 }}>Personal Trainers disponíveis</h3>
           {trainers.length === 0 ? (
-            <div style={{ opacity: 0.7 }}>Sem treinadores ativos.</div>
+            <div style={{ opacity: 0.7 }}>Sem Personal Trainers ativos.</div>
           ) : (
             <ul style={{ margin: 0, paddingLeft: 18 }}>
               {trainers.map((t) => {
@@ -193,7 +193,7 @@ export default function ClientSheet({
       {/* PT: notas */}
       {notes && notes.length > 0 && (
         <section className="card" style={{ padding: 12 }}>
-          <h3 style={{ marginTop: 0 }}>Notas do treinador</h3>
+          <h3 style={{ marginTop: 0 }}>Notas do Personal Trainer</h3>
           <ul style={{ margin: 0, paddingLeft: 18 }}>
             {notes.map((n) => (
               <li key={n.id}>

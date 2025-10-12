@@ -377,7 +377,7 @@ function sessionLine(session: SessionSummary) {
             </Typography>
             {session.trainerName ? (
               <Typography variant="caption" sx={{ opacity: 0.7 }}>
-                Personal trainer: {session.trainerName}
+                Personal Trainer: {session.trainerName}
               </Typography>
             ) : null}
           </Stack>
@@ -447,9 +447,9 @@ export default function ClientProfileClient({
         const text = await res.text();
         throw new Error(text || 'Não foi possível atualizar o vínculo');
       }
-      toast.success('Personal trainer atualizado com sucesso');
+      toast.success('Personal Trainer atualizado com sucesso');
     } catch (error: any) {
-      toast.error(error?.message ?? 'Falha ao atualizar personal trainer');
+      toast.error(error?.message ?? 'Falha ao atualizar Personal Trainer');
     } finally {
       setSavingTrainer(false);
     }
@@ -746,21 +746,21 @@ export default function ClientProfileClient({
           <Stack spacing={3}>
             <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider' }}>
               <CardHeader
-                title="Gestão de personal trainer"
-                subheader={trainer.current ? `Atual: ${trainer.current.name}` : 'Nenhum personal trainer associado'}
+                title="Gestão de Personal Trainer"
+                subheader={trainer.current ? `Atual: ${trainer.current.name}` : 'Nenhum Personal Trainer associado'}
                 action={savingTrainer ? <LinearProgress sx={{ width: 120, borderRadius: 999 }} /> : null}
               />
               <CardContent>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'stretch', sm: 'center' }}>
                   <TextField
                     select
-                    label="Personal trainer"
+                    label="Personal Trainer"
                     value={trainerId}
                     disabled={!trainer.allowEdit}
                     onChange={(event) => setTrainerId(event.target.value)}
                     sx={{ minWidth: { xs: '100%', sm: 260 } }}
                   >
-                    <MenuItem value="">— Sem personal trainer —</MenuItem>
+                    <MenuItem value="">— Sem Personal Trainer —</MenuItem>
                     {trainer.options.map((option) => (
                       <MenuItem key={option.id} value={option.id}>
                         {option.name}
@@ -1115,7 +1115,7 @@ export default function ClientProfileClient({
                           </Typography>
                           {session.trainerName ? (
                             <Typography variant="caption" sx={{ opacity: 0.6, display: 'block', mt: 0.75 }}>
-                              Personal trainer: {session.trainerName}
+                              Personal Trainer: {session.trainerName}
                             </Typography>
                           ) : null}
                         </Box>

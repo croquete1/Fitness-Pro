@@ -129,7 +129,7 @@ async function loadTrainerDashboard(trainerId: string | null): Promise<{ data: T
 }
 
 function firstName(full?: string | null) {
-  if (!full) return 'Treinador';
+  if (!full) return 'Personal Trainer';
   const parts = full.trim().split(/\s+/);
   return parts[0] ?? full;
 }

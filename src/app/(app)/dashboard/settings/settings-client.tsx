@@ -609,7 +609,7 @@ function RoleSpecificFields(props: RoleSpecificFieldsProps) {
     const value = props.value as TrainerSettings;
     return (
       <div className="space-y-4 rounded-lg border border-slate-200 p-4 dark:border-slate-700">
-        <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Preferências de personal trainer</p>
+        <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Preferências de Personal Trainer</p>
         <div className="grid gap-3 sm:grid-cols-2">
           <Checkbox
             checked={value.sessionReminders}
@@ -654,7 +654,7 @@ function RoleSpecificFields(props: RoleSpecificFieldsProps) {
         <Checkbox
           checked={value.trainerMessages}
           onChange={(val) => props.onChange({ ...value, trainerMessages: val })}
-          label="Alertar quando o PT enviar mensagens"
+          label="Alertar quando o Personal Trainer enviar mensagens"
         />
         <Field label="Partilha de progresso">
           <Select
