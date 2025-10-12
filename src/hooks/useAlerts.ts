@@ -55,7 +55,7 @@ export function useAlerts() {
               add.push({
                 id: `ev:${e.id}`,
                 title: "Cliente atribuído a PT",
-                body: "Um cliente foi atribuído a um personal trainer.",
+                body: "Um cliente foi atribuído a um Personal Trainer.",
               });
             }
           }

@@ -3,10 +3,14 @@ import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import AppProviders from '@/components/AppProviders';
 import OptionalSpeedInsights from '@/components/analytics/OptionalSpeedInsights';
+import { brand } from '@/lib/brand';
 
 export const metadata: Metadata = {
-  title: 'HMS Personal Trainer',
-  description: 'Plataforma inteligente para gerir clientes, planos e sessões HMS.',
+  title: {
+    default: brand.name,
+    template: `%s · ${brand.name}`,
+  },
+  description: 'Plataforma inteligente para gerir clientes, planos e sessões.',
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

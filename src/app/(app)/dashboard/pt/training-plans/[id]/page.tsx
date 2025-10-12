@@ -59,7 +59,7 @@ export default async function PTPlanDetail({ params }: { params: Promise<{ id: s
         <CardContent className="space-y-2">
           <div><strong>ID:</strong> {plan.id}</div>
           <div><strong>Cliente:</strong> {plan.client_id ?? '—'}</div>
-          <div><strong>Treinador:</strong> {plan.trainer_id ?? '—'}</div>
+          <div><strong>Personal Trainer:</strong> {plan.trainer_id ?? '—'}</div>
           <div><strong>Atualizado:</strong> {updated}</div>
           <div className="pt-2">
             <Link href="/dashboard/pt/plans" className="btn chip">← Voltar</Link>

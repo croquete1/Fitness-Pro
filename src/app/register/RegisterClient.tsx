@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 import BrandLogo from '@/components/BrandLogo';
 import { toast } from '@/components/ui/Toaster';
+import { brand } from '@/lib/brand';
 
 export default function RegisterClient() {
   const [form, setForm] = React.useState({ name: '', email: '', password: '' });
@@ -99,7 +100,7 @@ export default function RegisterClient() {
             Criar conta
           </Typography>
           <Typography variant="body2" textAlign="center" sx={{ opacity: 0.75 }}>
-            Junta-te à equipa HMS Personal Trainer.
+            Junta-te à equipa {brand.name}.
           </Typography>
         </Stack>
 

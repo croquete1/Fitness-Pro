@@ -21,7 +21,7 @@ export default function Header() {
       );
 
   let suffix = "";
-  if (role === "ADMIN") suffix = " (Admin)";
+  if (role === "ADMIN") suffix = " (Administrador)";
   else if (role === "TRAINER") suffix = " (Personal Trainer)";
 
   return (

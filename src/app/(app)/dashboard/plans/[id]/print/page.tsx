@@ -11,6 +11,7 @@ import Chip from '@mui/material/Chip';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole } from '@/lib/roles';
 import { createServerClient } from '@/lib/supabaseServer';
+import { brand } from '@/lib/brand';
 
 type SB = ReturnType<typeof createServerClient>;
 
@@ -108,7 +109,7 @@ export default async function PrintPlanPage({ params }: { params: Promise<{ id: 
 
       {/* Branding header */}
       <Box className="brand-h" sx={{ mb: 1 }}>
-        <Image src="/branding/hms-personal-trainer.svg" alt="HMS Personal Trainer" width={32} height={32} />
+        <Image src={brand.logoLight ?? '/branding/hms-personal-trainer.svg'} alt={brand.name} width={32} height={32} />
         <div>
           <Typography variant="h5" fontWeight={800}>Plano de treino</Typography>
           <Typography className="muted" variant="body2">

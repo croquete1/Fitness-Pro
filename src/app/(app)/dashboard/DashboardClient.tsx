@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useMe } from "@/hooks/useMe";
 import { usePoll } from "@/hooks/usePoll";
 import React from 'react';
+import { greetingForDate } from "@/lib/time";
 
 type Stats = {
   clients?: number;
@@ -13,21 +14,17 @@ type Stats = {
   sessionsUpcoming?: number;
 };
 
-function greeting() {
-  const h = new Date().getHours();
-  if (h >= 6 && h < 12) return "Bom dia";
-  if (h >= 12 && h < 19) return "Boa tarde";
-  if (h >= 19 && h <= 23) return "Boa noite";
-  return "Boa madrugada";
-}
-
 export default function DashboardClient() {
   const { user } = useMe();
   const { data: stats } = usePoll<Stats>("/api/dashboard/stats", { intervalMs: 30000 });
 
 
   const s: Stats = stats ?? {};
-  const hello = useMemo(() => `${greeting()}, ${user?.name ?? "Admin"} 👋`, [user?.name]);
+  const hello = useMemo(() => {
+    const { label, emoji } = greetingForDate();
+    const baseName = user?.name ?? "Admin";
+    return `${emoji} ${label}, ${baseName}!`;
+  }, [user?.name]);
 
   return (
     <div style={{ padding: 16, display: "grid", gap: 12 }}>
@@ -42,7 +39,7 @@ export default function DashboardClient() {
           <div style={{ fontWeight: 800, fontSize: 28 }}>{s.clients ?? 0}</div>
         </div>
         <div className="card" style={{ padding: 12 }}>
-          <div className="text-muted" style={{ fontSize: 12 }}>Treinadores</div>
+          <div className="text-muted" style={{ fontSize: 12 }}>Personal Trainers</div>
           <div style={{ fontWeight: 800, fontSize: 28 }}>{s.trainers ?? 0}</div>
         </div>
         <div className="card" style={{ padding: 12 }}>

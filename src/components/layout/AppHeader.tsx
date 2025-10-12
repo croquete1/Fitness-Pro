@@ -36,6 +36,7 @@ import ThemeToggleButton from '@/components/theme/ThemeToggleButton';
 import { useSidebar } from '@/components/layout/SidebarProvider';
 import { useHeaderCounts } from '@/components/header/HeaderCountsContext';
 import BrandLogo from '@/components/BrandLogo';
+import { brand } from '@/lib/brand';
 
 type Props = {
   userLabel?: string;
@@ -188,7 +189,7 @@ export default function AppHeader({
         >
           <BrandLogo size={32} priority />
           <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: 0.4 }}>
-            HMS Personal Trainer
+            {brand.name}
           </Typography>
         </Box>
 
