@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabaseServer';
+import { createServerClient, tryCreateServiceRoleClient } from '@/lib/supabaseServer';
 import { parseTagList } from '@/lib/exercises/tags';
 import { getSessionUser } from '@/lib/sessions';
 import { toAppRole } from '@/lib/roles';
@@ -13,7 +13,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const sb = createServerClient();
+  const sb = tryCreateServiceRoleClient() ?? createServerClient();
   const { searchParams } = new URL(req.url);
   const scope = (searchParams.get('scope') ?? 'all').toLowerCase();
   const publishedFilter = (searchParams.get('published') ?? 'all').toLowerCase();
@@ -160,7 +160,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const sb = createServerClient();
+  const sb = tryCreateServiceRoleClient() ?? createServerClient();
   const body = await req.json().catch(() => ({}));
 
   const name = typeof body?.name === 'string' ? body.name.trim() : '';

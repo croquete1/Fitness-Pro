@@ -355,10 +355,6 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
     });
   }, [count]);
 
-  React.useEffect(() => {
-    void fetchFacets();
-  }, [fetchFacets]);
-
   const handlePublishChange = React.useCallback((id: string, next: boolean) => {
     setRows((prev) =>
       prev.map((row) =>

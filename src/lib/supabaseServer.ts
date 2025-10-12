@@ -23,14 +23,51 @@ export class MissingSupabaseEnvError extends Error {
   }
 }
 
-type GlobalWithSupabase = typeof globalThis & { __sb_admin?: SupabaseClient | null };
+export class MissingSupabaseServiceRoleKeyError extends Error {
+  constructor() {
+    super('Supabase service role key em falta.');
+    this.name = 'MissingSupabaseServiceRoleKeyError';
+  }
+}
+
+type GlobalWithSupabase = typeof globalThis & {
+  __sb_admin?: SupabaseClient | null;
+  __sb_service?: SupabaseClient | null;
+};
 const g = globalThis as GlobalWithSupabase;
 
+function ensureServiceClient(opts?: { optional?: boolean }): SupabaseClient | null {
+  if (g.__sb_service) return g.__sb_service;
+
+  const url = URL.trim();
+  const key = SERVICE.trim();
+
+  if (!url || !key) {
+    if (opts?.optional) {
+      g.__sb_service = null;
+      return null;
+    }
+    throw new MissingSupabaseServiceRoleKeyError();
+  }
+
+  g.__sb_service = createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  return g.__sb_service;
+}
+
 function ensureClient(opts?: { optional?: boolean }): SupabaseClient | null {
+  if (SERVICE.trim()) {
+    const client = ensureServiceClient(opts);
+    g.__sb_admin = client;
+    return client;
+  }
+
   if (g.__sb_admin) return g.__sb_admin;
 
   const url = URL.trim();
-  const key = (SERVICE || ANON).trim();
+  const key = ANON.trim();
 
   if (!url || !key) {
     if (opts?.optional) {
@@ -76,4 +113,14 @@ export function createServerClient() {
 
 export function tryCreateServerClient(): SupabaseClient | null {
   return ensureClient({ optional: true });
+}
+
+export function createServiceRoleClient(): SupabaseClient {
+  const client = ensureServiceClient();
+  if (!client) throw new MissingSupabaseServiceRoleKeyError();
+  return client;
+}
+
+export function tryCreateServiceRoleClient(): SupabaseClient | null {
+  return ensureServiceClient({ optional: true });
 }
