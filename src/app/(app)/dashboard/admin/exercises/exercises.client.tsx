@@ -15,6 +15,8 @@ import { DataGrid, GridColDef, GridToolbar } from '@mui/x-data-grid';
 import { useRouter } from 'next/navigation';
 import AdminExerciseFormClient from './AdminExerciseFormClient';
 import PublishToggle from '@/components/exercise/PublishToggle';
+import { getExerciseMediaInfo } from '@/lib/exercises/media';
+import { parseTagList } from '@/lib/exercises/tags';
 
 type Difficulty = 'Fácil' | 'Média' | 'Difícil' | string;
 
@@ -23,6 +25,8 @@ export type Row = {
   name: string;
   muscle_group?: string | null;
   equipment?: string | null;
+  muscle_tags?: string[];
+  equipment_tags?: string[];
   difficulty?: Difficulty | null;
   description?: string | null;
   video_url?: string | null;
@@ -32,6 +36,8 @@ export type Row = {
   is_published?: boolean | null;
   owner_id?: string | null;
   owner_name?: string | null;
+  creator_id?: string | null;
+  creator_name?: string | null;
   published_at?: string | null;
 };
 
@@ -45,13 +51,18 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
   const [muscle, setMuscle] = React.useState(initialFilters?.muscle_group ?? '');
   const [difficulty, setDifficulty] = React.useState(initialFilters?.difficulty ?? '');
   const [equipment, setEquipment] = React.useState(initialFilters?.equipment ?? '');
-  const [scope, setScope] = React.useState<'global' | 'personal' | 'all'>('global');
+  const [scope, setScope] = React.useState<'global' | 'personal' | 'all'>('all');
   const [publishedState, setPublishedState] = React.useState<'all' | 'published' | 'draft'>('all');
 
   const [rows, setRows] = React.useState<Row[]>([]);
   const [count, setCount] = React.useState(0);
   const [loading, setLoading] = React.useState(false);
   const [paginationModel, setPaginationModel] = React.useState({ page: 0, pageSize });
+  const [facets, setFacets] = React.useState<{ muscles: string[]; equipments: string[]; difficulties: string[] }>({
+    muscles: [],
+    equipments: [],
+    difficulties: [],
+  });
 
   const [snack, setSnack] = React.useState<{ open:boolean; msg:string; sev:'success'|'error'|'info'|'warning' }>({ open:false, msg:'', sev:'success' });
   const closeSnack = () => setSnack(s => ({ ...s, open:false }));
@@ -62,8 +73,35 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
   // Dialogs
   const [openCreate, setOpenCreate] = React.useState(false);
   const [openClone, setOpenClone] = React.useState<{ open: boolean; initial?: Partial<Row> }>({ open: false });
-  const closeCreate = (refresh?: boolean) => { setOpenCreate(false); if (refresh) void fetchRows(); };
-  const closeClone  = (refresh?: boolean) => { setOpenClone({ open:false, initial: undefined }); if (refresh) void fetchRows(); };
+  const fetchFacets = React.useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/exercises?facets=1', { cache: 'no-store' });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      setFacets({
+        muscles: Array.isArray(data?.muscles) ? data.muscles : [],
+        equipments: Array.isArray(data?.equipments) ? data.equipments : [],
+        difficulties: Array.isArray(data?.difficulties) ? data.difficulties : [],
+      });
+    } catch (error) {
+      console.warn('Failed to fetch exercise facets', error);
+    }
+  }, []);
+
+  const closeCreate = (refresh?: boolean) => {
+    setOpenCreate(false);
+    if (refresh) {
+      void fetchRows();
+      void fetchFacets();
+    }
+  };
+  const closeClone = (refresh?: boolean) => {
+    setOpenClone({ open: false, initial: undefined });
+    if (refresh) {
+      void fetchRows();
+      void fetchFacets();
+    }
+  };
 
   function mapRowToExerciseInitial(r: Row) {
     return {
@@ -101,22 +139,36 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
     try {
       const r = await fetch(u.toString(), { cache: 'no-store' });
       const j = await r.json();
-      const mapped = (j.rows ?? []).map((row: any) => ({
-        id: String(row.id),
-        name: row.name ?? '',
-        muscle_group: row.muscle_group ?? row.muscle ?? null,
-        equipment: row.equipment ?? null,
-        difficulty: row.difficulty ?? row.level ?? null,
-        description: row.description ?? row.instructions ?? null,
-        video_url: row.video_url ?? row.video ?? null,
-        created_at: row.created_at ?? null,
-        updated_at: row.updated_at ?? null,
-        is_global: row.is_global ?? null,
-        is_published: row.is_published ?? row.published ?? null,
-        owner_id: row.owner_id ?? null,
-        owner_name: row.owner?.name ?? row.owner?.email ?? row.owner_name ?? null,
-        published_at: row.published_at ?? null,
-      })) as Row[];
+      const mapped = (j.rows ?? []).map((row: any) => {
+        const muscleTags = parseTagList(row.muscle_group ?? row.muscle ?? null);
+        const equipmentTags = parseTagList(row.equipment ?? null);
+        return {
+          id: String(row.id),
+          name: row.name ?? '',
+          muscle_group: row.muscle_group ?? row.muscle ?? null,
+          equipment: row.equipment ?? null,
+          muscle_tags: muscleTags,
+          equipment_tags: equipmentTags,
+          difficulty: row.difficulty ?? row.level ?? null,
+          description: row.description ?? row.instructions ?? null,
+          video_url: row.video_url ?? row.video ?? null,
+          created_at: row.created_at ?? null,
+          updated_at: row.updated_at ?? null,
+          is_global: row.is_global ?? null,
+          is_published: row.is_published ?? row.published ?? null,
+          owner_id: row.owner_id ?? null,
+          owner_name: row.owner?.name ?? row.owner?.email ?? row.owner_name ?? null,
+          creator_id: row.created_by ?? row.creator?.id ?? row.owner?.id ?? null,
+          creator_name:
+            row.creator?.name ??
+            row.creator?.email ??
+            row.owner?.name ??
+            row.owner?.email ??
+            row.creator_name ??
+            null,
+          published_at: row.published_at ?? null,
+        } as Row;
+      });
       setRows(mapped);
       setCount(j.count ?? mapped.length ?? 0);
     } catch {
@@ -131,6 +183,10 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
     void fetchRows();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, muscle, difficulty, equipment, scope, publishedState, paginationModel.page, paginationModel.pageSize]);
+
+  React.useEffect(() => {
+    void fetchFacets();
+  }, [fetchFacets]);
 
   const handlePublishChange = React.useCallback((id: string, next: boolean) => {
     setRows((prev) =>
@@ -148,16 +204,67 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
 
   const columns: GridColDef<Row>[] = [
     {
+      field: 'media',
+      headerName: '',
+      width: 96,
+      sortable: false,
+      filterable: false,
+      renderCell: (params) => {
+        const media = getExerciseMediaInfo(params.row.video_url);
+        return (
+          <div
+            style={{
+              width: 90,
+              height: 90,
+              borderRadius: 12,
+              overflow: 'hidden',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'linear-gradient(135deg, rgba(59,130,246,.08), rgba(16,185,129,.12))',
+            }}
+          >
+            {media.kind === 'image' && (
+              <img src={media.src} alt="Pré-visualização" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            )}
+            {media.kind === 'video' && (
+              <video
+                src={media.src}
+                muted
+                loop
+                playsInline
+                autoPlay
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            )}
+            {media.kind === 'embed' && (
+              <iframe
+                src={media.src}
+                title="Pré-visualização"
+                allow="autoplay; clipboard-write; encrypted-media; picture-in-picture"
+                style={{ width: '100%', height: '100%', border: 0 }}
+              />
+            )}
+            {media.kind === 'none' && (
+              <span role="img" aria-label="Exercício" style={{ fontSize: 28 }}>
+                💪
+              </span>
+            )}
+          </div>
+        );
+      },
+    },
+    {
       field: 'name',
       headerName: 'Nome',
       flex: 1.4,
       minWidth: 240,
       renderCell: (params) => (
-        <div style={{ display: 'grid', gap: 2 }}>
+        <div style={{ display: 'grid', gap: 4 }}>
           <div style={{ fontWeight: 600, lineHeight: 1.2 }}>{params.row.name}</div>
           <div style={{ fontSize: 11, opacity: 0.6 }}>{params.row.description ? params.row.description.slice(0, 80) : ''}</div>
-          {params.row.owner_name && !params.row.is_global && (
-            <div style={{ fontSize: 11, opacity: 0.7 }}>Autor: {params.row.owner_name}</div>
+          {params.row.creator_name && (
+            <div style={{ fontSize: 11, opacity: 0.7 }}>Criado por: {params.row.creator_name}</div>
           )}
         </div>
       ),
@@ -167,20 +274,46 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
       headerName: 'Grupo muscular',
       flex: 0.9,
       minWidth: 150,
-      valueFormatter: (p: any) => String(p?.value ?? ''),
+      renderCell: (params) => (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+          {(params.row.muscle_tags ?? []).map((tag) => (
+            <Chip key={`muscle-${params.row.id}-${tag}`} size="small" label={tag} variant="outlined" />
+          ))}
+        </div>
+      ),
     },
     {
       field: 'equipment',
       headerName: 'Equipamento',
       flex: 0.9,
       minWidth: 150,
-      valueFormatter: (p: any) => String(p?.value ?? ''),
+      renderCell: (params) => (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+          {(params.row.equipment_tags ?? []).map((tag) => (
+            <Chip key={`equipment-${params.row.id}-${tag}`} size="small" label={tag} variant="outlined" />
+          ))}
+        </div>
+      ),
     },
     {
       field: 'difficulty',
       headerName: 'Dificuldade',
       width: 130,
-      valueFormatter: (p: any) => String(p?.value ?? ''),
+      renderCell: (params) =>
+        params.row.difficulty ? (
+          <Chip
+            size="small"
+            label={params.row.difficulty}
+            color={
+              params.row.difficulty === 'Difícil'
+                ? 'error'
+                : params.row.difficulty === 'Média'
+                ? 'warning'
+                : 'success'
+            }
+            variant="outlined"
+          />
+        ) : null,
     },
     {
       field: 'is_global',
@@ -266,7 +399,7 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
   ];
 
   function exportCSV() {
-    const header = ['id','name','muscle_group','equipment','difficulty','is_global','is_published','owner','created_at','published_at','description','video_url'];
+    const header = ['id','name','muscle_group','equipment','difficulty','is_global','is_published','creator','created_at','published_at','description','video_url'];
     const lines = [
       header.join(','),
       ...rows.map(r => [
@@ -277,7 +410,7 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
         r.difficulty ?? '',
         r.is_global ? 'global' : 'privado',
         r.is_published ? 'publicado' : 'rascunho',
-        r.owner_name ?? '',
+        r.creator_name ?? '',
         r.created_at ?? '',
         r.published_at ?? '',
         (r.description ?? '').replace(/\r?\n/g,' '),
@@ -300,6 +433,7 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
         r.difficulty ?? '',
         r.is_global ? 'Catálogo global' : 'Privado',
         r.is_published ? 'Publicado' : 'Rascunho',
+        r.creator_name ?? '',
         r.created_at ? new Date(String(r.created_at)).toLocaleString() : '',
         r.published_at ? new Date(String(r.published_at)).toLocaleString() : '',
         (r.description ?? '').replace(/\r?\n/g, ' '),
@@ -310,7 +444,7 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
     w.document.open(); w.document.write(
       '<html><head><meta charset="utf-8" /><title>Exercícios</title>' +
       '<style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto; padding:16px;}h1{font-size:18px;margin:0 0 12px;}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #e5e7eb;padding:6px 8px;text-align:left;font-size:12px;}th{background:#f8fafc;}</style>' +
-      `</head><body><h1>Exercícios</h1><table><thead><tr><th>Nome</th><th>Grupo</th><th>Equipamento</th><th>Dificuldade</th><th>Origem</th><th>Estado</th><th>Criado</th><th>Publicado</th><th>Descrição</th></tr></thead><tbody>${rowsHtml}</tbody></table><script>window.onload=function(){window.print();}</script></body></html>`
+      `</head><body><h1>Exercícios</h1><table><thead><tr><th>Nome</th><th>Grupo</th><th>Equipamento</th><th>Dificuldade</th><th>Origem</th><th>Estado</th><th>Criado por</th><th>Criado em</th><th>Publicado</th><th>Descrição</th></tr></thead><tbody>${rowsHtml}</tbody></table><script>window.onload=function(){window.print();}</script></body></html>`
     ); w.document.close();
   }
 
@@ -327,9 +461,9 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
               onChange={(e) => updateScope(e.target.value as 'global' | 'personal' | 'all')}
               sx={{ minWidth: 180 }}
             >
+              <MenuItem value="all">Todos</MenuItem>
               <MenuItem value="global">Catálogo global</MenuItem>
               <MenuItem value="personal">Privados</MenuItem>
-              <MenuItem value="all">Todos</MenuItem>
             </TextField>
             <TextField
               select
@@ -344,20 +478,28 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
             </TextField>
             <TextField select label="Grupo muscular" value={muscle} onChange={(e)=>setMuscle(e.target.value)} sx={{ minWidth: 180 }}>
               <MenuItem value="">Todos</MenuItem>
-              <MenuItem value="Peito">Peito</MenuItem>
-              <MenuItem value="Costas">Costas</MenuItem>
-              <MenuItem value="Perna">Perna</MenuItem>
-              <MenuItem value="Ombros">Ombros</MenuItem>
-              <MenuItem value="Braços">Braços</MenuItem>
-              <MenuItem value="Core">Core</MenuItem>
+              {facets.muscles.map((option) => (
+                <MenuItem key={`facet-muscle-${option}`} value={option}>
+                  {option}
+                </MenuItem>
+              ))}
             </TextField>
             <TextField select label="Dificuldade" value={difficulty} onChange={(e)=>setDifficulty(e.target.value)} sx={{ minWidth: 160 }}>
               <MenuItem value="">Todas</MenuItem>
-              <MenuItem value="Fácil">Fácil</MenuItem>
-              <MenuItem value="Média">Média</MenuItem>
-              <MenuItem value="Difícil">Difícil</MenuItem>
+              {facets.difficulties.map((option) => (
+                <MenuItem key={`facet-difficulty-${option}`} value={option}>
+                  {option}
+                </MenuItem>
+              ))}
             </TextField>
-            <TextField label="Equipamento" value={equipment} onChange={(e)=>setEquipment(e.target.value)} sx={{ minWidth: 180 }} placeholder="Barra, Máquina, ..." />
+            <TextField select label="Equipamento" value={equipment} onChange={(e)=>setEquipment(e.target.value)} sx={{ minWidth: 180 }}>
+              <MenuItem value="">Todos</MenuItem>
+              {facets.equipments.map((option) => (
+                <MenuItem key={`facet-equipment-${option}`} value={option}>
+                  {option}
+                </MenuItem>
+              ))}
+            </TextField>
           </Stack>
           <Stack direction="row" spacing={1}>
             <Tooltip title="Exportar CSV"><IconButton onClick={exportCSV}><FileDownloadOutlined /></IconButton></Tooltip>
