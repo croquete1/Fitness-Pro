@@ -38,19 +38,26 @@ export async function POST(req: Request): Promise<Response> {
   const payload = (await req.json().catch(() => null)) as Body | null;
   const trainerId = normalizeId(payload?.trainerId ?? payload?.trainer_id ?? null);
   const clientId = normalizeId(payload?.clientId ?? payload?.client_id ?? null);
-  if (!trainerId || !clientId) {
+  if (!clientId) {
     return NextResponse.json({ ok: false, error: 'INVALID_PAYLOAD' }, { status: 400 });
   }
 
   const sb = createServerClient();
-  const { error } = await sb
-    .from('trainer_clients')
-    .upsert({ trainer_id: trainerId, client_id: clientId }, { onConflict: 'trainer_id,client_id' });
+  const deleteExisting = await sb.from('trainer_clients').delete().eq('client_id', clientId);
+  if (deleteExisting.error) {
+    return NextResponse.json({ ok: false, error: deleteExisting.error.message ?? 'FAILED' }, { status: 500 });
+  }
+
+  if (!trainerId) {
+    return NextResponse.json({ ok: true, removed: true });
+  }
+
+  const { error } = await sb.from('trainer_clients').insert({ trainer_id: trainerId, client_id: clientId });
   if (error) {
     return NextResponse.json({ ok: false, error: error.message ?? 'FAILED' }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, assigned: true });
 }
 
 export async function DELETE(req: Request): Promise<Response> {

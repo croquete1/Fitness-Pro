@@ -400,6 +400,7 @@ export default function ClientProfileClient({
   const theme = useTheme();
   const toast = useToast();
   const [trainerId, setTrainerId] = React.useState<string>(trainer.current?.id ?? '');
+  const [currentTrainer, setCurrentTrainer] = React.useState<TrainerOption | null>(trainer.current);
   const [savingTrainer, setSavingTrainer] = React.useState(false);
   const [packageState, setPackageState] = React.useState<PackageState>({ current: null, history: [] });
   const [loadingPackages, setLoadingPackages] = React.useState(true);
@@ -410,6 +411,10 @@ export default function ClientProfileClient({
   const noteTextTrimmed = noteText.trim();
 
   const measurementSummary = summarizeMeasurement(measurement);
+  const metricsHistoryHref = React.useMemo(
+    () => `/dashboard/profile?tab=metrics&user=${encodeURIComponent(user.id)}`,
+    [user.id],
+  );
   const currentPackage = packageState.current;
   const packageHistory = packageState.history;
   const circumferenceMetrics = React.useMemo(
@@ -433,6 +438,10 @@ export default function ClientProfileClient({
   const hasCircumferenceData = circumferenceMetrics.some((metric) => metric.value != null);
   const sessionNotes = React.useMemo(() => recentSessions.filter((session) => session.notes), [recentSessions]);
   const hasAutoNotes = Boolean(measurement?.notes || sessionNotes.length);
+  const selectedTrainer = React.useMemo(
+    () => trainer.options.find((option) => option.id === trainerId) ?? null,
+    [trainer.options, trainerId],
+  );
 
   async function saveTrainerLink() {
     if (!trainer.allowEdit) return;
@@ -447,18 +456,14 @@ export default function ClientProfileClient({
         const text = await res.text();
         throw new Error(text || 'Não foi possível atualizar o vínculo');
       }
-      toast.success('Personal Trainer atualizado com sucesso');
+      setCurrentTrainer(trainerId ? selectedTrainer ?? null : null);
+      toast.success(trainerId ? 'Personal Trainer atualizado com sucesso' : 'Personal Trainer removido deste cliente');
     } catch (error: any) {
       toast.error(error?.message ?? 'Falha ao atualizar Personal Trainer');
     } finally {
       setSavingTrainer(false);
     }
   }
-
-  const currentTrainerName = React.useMemo(() => {
-    const match = trainer.options.find((t) => t.id === trainerId);
-    return match?.name ?? trainer.current?.name ?? null;
-  }, [trainer.options, trainerId, trainer.current]);
 
   React.useEffect(() => {
     let active = true;
@@ -655,88 +660,108 @@ export default function ClientProfileClient({
                 title="Última avaliação física"
                 subheader={measurementSummary?.date ? formatDate(measurementSummary.date) : 'Sem registos ainda'}
               />
-            <CardContent>
-              {measurementSummary ? (
-                <Stack spacing={3}>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6} md={3}>
-                      {metricCard(
-                        'Peso',
-                        measurementSummary.weight ? `${measurementSummary.weight} kg` : '—',
-                        theme.palette.info.main,
-                      )}
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={3}>
-                      {metricCard(
-                        'Altura',
-                        measurementSummary.height ? `${measurementSummary.height} cm` : '—',
-                        theme.palette.info.main,
-                        measurementSummary.height && measurementSummary.height >= 3
-                          ? `${Math.round((measurementSummary.height / 100) * 100) / 100} m`
-                          : undefined,
-                      )}
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={3}>
-                      {metricCard(
-                        'IMC',
-                        measurementSummary.bmi ?? '—',
-                        theme.palette.secondary.main,
-                        bmiClassification(measurementSummary.bmi ?? null) ?? undefined,
-                      )}
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={3}>
-                      {metricCard(
-                        'Gordura corporal',
-                        measurementSummary.bodyFat != null ? `${measurementSummary.bodyFat}%` : '—',
-                        theme.palette.success.main,
-                      )}
-                    </Grid>
-                  </Grid>
-
-                  {hasCircumferenceData ? (
-                    <Stack spacing={2}>
-                      <Divider flexItem sx={{ opacity: 0.5 }}>
-                        <Typography variant="caption" sx={{ textTransform: 'uppercase', letterSpacing: 0.6 }}>
-                          Medidas corporais
-                        </Typography>
-                      </Divider>
-                      <Grid container spacing={2}>
-                        {circumferenceMetrics.map((metric) => (
-                          <Grid item xs={6} sm={4} md={3} key={metric.key}>
-                            {metricCard(
-                              metric.label,
-                              formatMeasurementValue(metric.value, ' cm'),
-                              theme.palette.primary.light,
-                            )}
-                          </Grid>
-                        ))}
+              <CardContent>
+                {measurementSummary ? (
+                  <Stack spacing={3}>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={6} md={3}>
+                        {metricCard(
+                          'Peso',
+                          measurementSummary.weight ? `${measurementSummary.weight} kg` : '—',
+                          theme.palette.info.main,
+                        )}
                       </Grid>
+                      <Grid item xs={12} sm={6} md={3}>
+                        {metricCard(
+                          'Altura',
+                          measurementSummary.height ? `${measurementSummary.height} cm` : '—',
+                          theme.palette.info.main,
+                          measurementSummary.height && measurementSummary.height >= 3
+                            ? `${Math.round((measurementSummary.height / 100) * 100) / 100} m`
+                            : undefined,
+                        )}
+                      </Grid>
+                      <Grid item xs={12} sm={6} md={3}>
+                        {metricCard(
+                          'IMC',
+                          measurementSummary.bmi ?? '—',
+                          theme.palette.secondary.main,
+                          bmiClassification(measurementSummary.bmi ?? null) ?? undefined,
+                        )}
+                      </Grid>
+                      <Grid item xs={12} sm={6} md={3}>
+                        {metricCard(
+                          'Gordura corporal',
+                          measurementSummary.bodyFat != null ? `${measurementSummary.bodyFat}%` : '—',
+                          theme.palette.success.main,
+                        )}
+                      </Grid>
+                    </Grid>
+
+                    {hasCircumferenceData ? (
+                      <Stack spacing={2}>
+                        <Divider flexItem sx={{ opacity: 0.5 }}>
+                          <Typography variant="caption" sx={{ textTransform: 'uppercase', letterSpacing: 0.6 }}>
+                            Medidas corporais
+                          </Typography>
+                        </Divider>
+                        <Grid container spacing={2}>
+                          {circumferenceMetrics.map((metric) => (
+                            <Grid item xs={6} sm={4} md={3} key={metric.key}>
+                              {metricCard(
+                                metric.label,
+                                formatMeasurementValue(metric.value, ' cm'),
+                                theme.palette.primary.light,
+                              )}
+                            </Grid>
+                          ))}
+                        </Grid>
+                      </Stack>
+                    ) : null}
+
+                    <Stack spacing={1.5}>
+                      <Typography variant="body2" sx={{ opacity: 0.7 }}>
+                        Registo efetuado em {formatDate(measurementSummary.date)}
+                      </Typography>
+                      <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+                        {measurementSummary.notes ?? 'Sem notas adicionais.'}
+                      </Typography>
                     </Stack>
-                  ) : null}
 
-                  <Stack spacing={1.5}>
-                    <Typography variant="body2" sx={{ opacity: 0.7 }}>
-                      Registo efetuado em {formatDate(measurementSummary.date)}
-                    </Typography>
-                    <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
-                      {measurementSummary.notes ?? 'Sem notas adicionais.'}
-                    </Typography>
+                    <Button component={Link} href={metricsHistoryHref} endIcon={<LaunchIcon />} variant="outlined">
+                      Abrir histórico completo
+                    </Button>
                   </Stack>
-
-                  <Button
-                    component={Link}
-                    href={`/dashboard/profile?tab=metrics&user=${encodeURIComponent(user.id)}`}
-                    endIcon={<LaunchIcon />}
-                    variant="outlined"
-                  >
-                    Abrir histórico completo
-                  </Button>
-                </Stack>
-              ) : (
-                <Typography variant="body2" sx={{ opacity: 0.75 }}>
-                  Ainda não existem medições registadas para este cliente.
-                </Typography>
-              )}
+                ) : (
+                  <Stack spacing={3} alignItems="center" textAlign="center" sx={{ py: 6 }}>
+                    <Box
+                      sx={{
+                        width: 96,
+                        height: 96,
+                        display: 'grid',
+                        placeItems: 'center',
+                        borderRadius: '50%',
+                        border: '1px dashed',
+                        borderColor: alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.4 : 0.3),
+                        backgroundColor: alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.12 : 0.06),
+                        color: theme.palette.primary.main,
+                      }}
+                    >
+                      <NotesIcon sx={{ fontSize: 40 }} />
+                    </Box>
+                    <Stack spacing={1}>
+                      <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                        Sem avaliações antropométricas
+                      </Typography>
+                      <Typography variant="body2" sx={{ maxWidth: 360, opacity: 0.75 }}>
+                        Este cliente ainda não possui medições registadas pelo Personal Trainer ou pelo próprio cliente.
+                      </Typography>
+                    </Stack>
+                    <Button component={Link} href={metricsHistoryHref} endIcon={<LaunchIcon />} variant="outlined">
+                      Abrir histórico e registar
+                    </Button>
+                  </Stack>
+                )}
               </CardContent>
             </Card>
           </Stack>
@@ -747,7 +772,7 @@ export default function ClientProfileClient({
             <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider' }}>
               <CardHeader
                 title="Gestão de Personal Trainer"
-                subheader={trainer.current ? `Atual: ${trainer.current.name}` : 'Nenhum Personal Trainer associado'}
+                subheader={currentTrainer ? `Atual: ${currentTrainer.name}` : 'Nenhum Personal Trainer associado'}
                 action={savingTrainer ? <LinearProgress sx={{ width: 120, borderRadius: 999 }} /> : null}
               />
               <CardContent>
@@ -772,7 +797,7 @@ export default function ClientProfileClient({
                   <Stack direction="row" spacing={1}>
                     <Button
                       variant="contained"
-                      disabled={!trainer.allowEdit || savingTrainer || trainerId === (trainer.current?.id ?? '')}
+                      disabled={!trainer.allowEdit || savingTrainer || trainerId === (currentTrainer?.id ?? '')}
                       onClick={saveTrainerLink}
                     >
                       Guardar alterações
@@ -780,8 +805,8 @@ export default function ClientProfileClient({
                     <Tooltip title="Repor seleção">
                       <span>
                         <IconButton
-                          onClick={() => setTrainerId(trainer.current?.id ?? '')}
-                          disabled={!trainer.allowEdit || savingTrainer || trainerId === (trainer.current?.id ?? '')}
+                          onClick={() => setTrainerId(currentTrainer?.id ?? '')}
+                          disabled={!trainer.allowEdit || savingTrainer || trainerId === (currentTrainer?.id ?? '')}
                           size="large"
                         >
                           <RefreshIcon />
@@ -791,7 +816,7 @@ export default function ClientProfileClient({
                   </Stack>
                 </Stack>
               </CardContent>
-              {currentTrainerName ? (
+              {currentTrainer ? (
                 <CardActions sx={{ justifyContent: 'space-between', px: 3 }}>
                   <Typography variant="body2" sx={{ opacity: 0.7 }}>
                     {`Última definição: ${formatDate(activity.lastPlanUpdate)}`}
