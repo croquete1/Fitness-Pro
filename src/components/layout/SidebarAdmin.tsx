@@ -48,7 +48,7 @@ export default function SidebarAdmin({
     { href: '/dashboard/admin/users', label: 'Utilizadores', icon: <GroupOutlined />, activePrefix: '/dashboard/admin/users' },
   ];
   const gestao: Nav[] = [
-    { href: '/dashboard/admin/exercises', label: 'Exercícios', icon: <FitnessCenterOutlined />, activePrefix: '/dashboard/admin/exercises' },
+    { href: '/dashboard/admin/library', label: 'Biblioteca', icon: <FitnessCenterOutlined />, activePrefix: '/dashboard/admin/library' },
     { href: '/dashboard/admin/plans', label: 'Planos', icon: <ListAltOutlined />, activePrefix: '/dashboard/admin/plans' },
     // badge mostra Hoje; next7 fica disponível para futura UX (ex.: tooltip)
     { href: '/dashboard/admin/pts-schedule', label: 'Agenda PTs', icon: <CalendarMonthOutlined />, activePrefix: '/dashboard/admin/pts-schedule', badge: ptsTodayCount },

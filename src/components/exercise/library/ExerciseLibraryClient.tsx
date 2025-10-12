@@ -19,6 +19,7 @@ import {
   DialogActions,
   Typography,
   Chip,
+  useMediaQuery,
 } from '@mui/material';
 import { DataGrid, GridColDef, GridToolbar } from '@mui/x-data-grid';
 import AddIcon from '@mui/icons-material/Add';
@@ -27,8 +28,9 @@ import DeleteOutline from '@mui/icons-material/DeleteOutline';
 import FileCopyOutlined from '@mui/icons-material/FileCopyOutlined';
 import VisibilityOutlined from '@mui/icons-material/VisibilityOutlined';
 import Close from '@mui/icons-material/Close';
-import TrainerExerciseFormClient from './TrainerExerciseFormClient';
+import ExerciseLibraryFormClient from './ExerciseLibraryFormClient';
 import { normalizeDifficulty } from '@/lib/exercises/schema';
+import { useTheme } from '@mui/material/styles';
 
 export type LibraryRow = {
   id: string;
@@ -50,7 +52,10 @@ type Snack = { open: boolean; msg: string; sev: 'success' | 'error' | 'info' | '
 
 const DEFAULT_PAGE_SIZE = 20;
 
-export default function PTLibraryClient({ initialScope = 'personal' }: { initialScope?: Scope }) {
+export default function ExerciseLibraryClient({ initialScope = 'personal' }: { initialScope?: Scope }) {
+  const theme = useTheme();
+  const isSmallDialog = useMediaQuery(theme.breakpoints.down('sm'));
+
   const [scope, setScope] = React.useState<Scope>(initialScope);
   const [q, setQ] = React.useState('');
   const [muscle, setMuscle] = React.useState('');
@@ -332,21 +337,21 @@ export default function PTLibraryClient({ initialScope = 'personal' }: { initial
         </Alert>
       </Snackbar>
 
-      <Dialog open={openCreate} onClose={() => closeCreate()} fullWidth maxWidth="sm">
+      <Dialog open={openCreate} onClose={() => closeCreate()} fullWidth maxWidth="md" fullScreen={isSmallDialog}>
         <DialogTitle>➕ Novo exercício</DialogTitle>
         <DialogContent dividers>
-          <TrainerExerciseFormClient mode="create" onSuccess={() => closeCreate(true)} />
+          <ExerciseLibraryFormClient mode="create" onSuccess={() => closeCreate(true)} />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => closeCreate()}>Fechar</Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={Boolean(editing)} onClose={() => closeEdit()} fullWidth maxWidth="sm">
+      <Dialog open={Boolean(editing)} onClose={() => closeEdit()} fullWidth maxWidth="md" fullScreen={isSmallDialog}>
         <DialogTitle>✏️ Editar exercício</DialogTitle>
         <DialogContent dividers>
           {editing && (
-            <TrainerExerciseFormClient
+            <ExerciseLibraryFormClient
               mode="edit"
               initial={{
                 ...editing,
@@ -361,7 +366,7 @@ export default function PTLibraryClient({ initialScope = 'personal' }: { initial
         </DialogActions>
       </Dialog>
 
-      <Dialog open={Boolean(preview)} onClose={() => setPreview(null)} fullWidth maxWidth="sm">
+      <Dialog open={Boolean(preview)} onClose={() => setPreview(null)} fullWidth maxWidth="sm" fullScreen={isSmallDialog}>
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>{preview?.name}</span>
           <IconButton size="small" onClick={() => setPreview(null)}>

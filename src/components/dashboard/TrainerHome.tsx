@@ -19,15 +19,28 @@ async function loadTrainerDashboard(trainerId: string | null): Promise<{ data: T
   }
 
   try {
-    const { data: linkRows, error: linkError } = await sb
+    const linkRes = await sb
       .from('trainer_clients')
       .select('client_id,status')
       .eq('trainer_id', trainerId)
       .limit(200);
 
-    if (linkError) throw linkError;
+    let linkRows: Array<{ client_id?: string | null }> = Array.isArray(linkRes.data) ? linkRes.data : [];
+    if (linkRes.error) {
+      if (linkRes.error.code === '42703') {
+        const retry = await sb
+          .from('trainer_clients')
+          .select('client_id')
+          .eq('trainer_id', trainerId)
+          .limit(200);
+        if (retry.error) throw retry.error;
+        linkRows = Array.isArray(retry.data) ? retry.data : [];
+      } else {
+        throw linkRes.error;
+      }
+    }
 
-    const clientIds = (linkRows ?? []).map((row) => row?.client_id).filter(Boolean) as string[];
+    const clientIds = linkRows.map((row) => row?.client_id).filter(Boolean) as string[];
     let clientProfiles: Array<{ id: string; name: string; email?: string | null; status?: string | null }> = [];
     if (clientIds.length) {
       const { data: profiles, error: profileError } = await sb

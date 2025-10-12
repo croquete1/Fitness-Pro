@@ -12,7 +12,7 @@ export default function AdminQuickActions() {
   const actions = [
     { href: '/dashboard/admin/approvals',     label: 'Aprovações',   icon: <CheckCircleOutlineIcon /> },
     { href: '/dashboard/admin/users',         label: 'Utilizadores', icon: <GroupOutlinedIcon /> },
-    { href: '/dashboard/admin/exercises',     label: 'Exercícios',   icon: <FitnessCenterOutlinedIcon /> },
+    { href: '/dashboard/admin/library',       label: 'Biblioteca',   icon: <FitnessCenterOutlinedIcon /> },
     { href: '/dashboard/admin/plans',         label: 'Planos',       icon: <LibraryBooksOutlinedIcon /> },
     { href: '/dashboard/admin/pts-schedule',  label: 'Agenda PTs',   icon: <EventAvailableOutlinedIcon /> },
     { href: '/dashboard/admin/notifications', label: 'Notificações', icon: <NotificationsNoneOutlinedIcon /> },

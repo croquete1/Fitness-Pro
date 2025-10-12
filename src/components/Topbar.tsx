@@ -57,7 +57,7 @@ export default function Topbar({
   shortcuts = [
     { label: 'Aprovações', href: '/dashboard/admin/approvals' as Route, emoji: '✅' },
     { label: 'Utilizadores', href: '/dashboard/admin/users' as Route, emoji: '🧑‍🤝‍🧑' },
-    { label: 'Exercícios', href: '/dashboard/admin/exercises' as Route, emoji: '🏋️' },
+    { label: 'Biblioteca', href: '/dashboard/admin/library' as Route, emoji: '📚' },
     { label: 'Planos', href: '/dashboard/admin/plans' as Route, emoji: '📝' },
     { label: 'Pesquisar', href: '/dashboard/search' as Route, emoji: '🔎' },
   ],

@@ -74,7 +74,7 @@ const NAV_SOURCE = [
   { kind: 'group', key: 'g-admin',     label: 'Administração',                                   showFor: ['ADMIN'] },
   { kind: 'link',  key: 'admin',       label: 'Administração',  href: '/dashboard/admin',         icon: 'admin',     showFor: ['ADMIN'] },
   { kind: 'link',  key: 'a-approv',    label: 'Aprovações',     href: '/dashboard/admin/approvals', icon: 'approvals', showFor: ['ADMIN'] },
-  { kind: 'link',  key: 'a-exerc',     label: 'Exercícios',     href: '/dashboard/admin/exercises', icon: 'exercises', showFor: ['ADMIN'] },
+  { kind: 'link',  key: 'a-library',   label: 'Biblioteca',     href: '/dashboard/admin/library',   icon: 'library',   showFor: ['ADMIN'] },
   { kind: 'link',  key: 'a-plans',     label: 'Planos (Admin)', href: '/dashboard/admin/plans',     icon: 'plans',     showFor: ['ADMIN'] },
   { kind: 'link',  key: 'a-roster',    label: 'Escala/Equipa',  href: '/dashboard/admin/roster',    icon: 'roster',    showFor: ['ADMIN'] },
   { kind: 'link',  key: 'a-users',     label: 'Utilizadores',   href: '/dashboard/admin/users',     icon: 'users',     showFor: ['ADMIN'] },
