@@ -23,6 +23,7 @@ import {
   normalizeDifficulty,
 } from '@/lib/exercises/schema';
 import { getExerciseMediaInfo } from '@/lib/exercises/media';
+import { parseTagList } from '@/lib/exercises/tags';
 
 export type ExerciseFormMessages = {
   successCreate: string;
@@ -141,17 +142,26 @@ export default function ExerciseForm({
   const previewMedia = React.useMemo(() => getExerciseMediaInfo(values.video_url), [values.video_url]);
   const hasVideoUrl = previewMedia.kind !== 'none';
   const previewDescription = React.useMemo(() => values.description?.trim() ?? '', [values.description]);
+  const muscleTags = React.useMemo(() => parseTagList(values.muscle_group), [values.muscle_group]);
+  const equipmentTags = React.useMemo(() => parseTagList(values.equipment), [values.equipment]);
   const hasPreviewContent = React.useMemo(
     () =>
       Boolean(
         values.name ||
-          values.muscle_group ||
-          values.equipment ||
+          muscleTags.length > 0 ||
+          equipmentTags.length > 0 ||
           values.difficulty ||
           previewDescription ||
           hasVideoUrl,
       ),
-    [hasVideoUrl, previewDescription, values.difficulty, values.equipment, values.muscle_group, values.name],
+    [
+      equipmentTags.length,
+      hasVideoUrl,
+      muscleTags.length,
+      previewDescription,
+      values.difficulty,
+      values.name,
+    ],
   );
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -323,12 +333,12 @@ export default function ExerciseForm({
                       </Typography>
                       <Stack direction="row" spacing={1} flexWrap="wrap">
                         {values.difficulty && <Chip label={values.difficulty} color="primary" size="small" />}
-                        {values.muscle_group && (
-                          <Chip label={values.muscle_group} color="default" size="small" variant="outlined" />
-                        )}
-                        {values.equipment && (
-                          <Chip label={values.equipment} color="default" size="small" variant="outlined" />
-                        )}
+                        {muscleTags.map((tag) => (
+                          <Chip key={`muscle-${tag}`} label={tag} color="default" size="small" variant="outlined" />
+                        ))}
+                        {equipmentTags.map((tag) => (
+                          <Chip key={`equipment-${tag}`} label={tag} color="default" size="small" variant="outlined" />
+                        ))}
                       </Stack>
                     </Stack>
 

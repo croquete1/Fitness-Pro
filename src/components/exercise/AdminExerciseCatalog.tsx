@@ -3,6 +3,7 @@
 import * as React from 'react';
 import PublishToggle from '@/components/exercise/PublishToggle';
 import { getExerciseMediaInfo } from '@/lib/exercises/media';
+import { parseTagList } from '@/lib/exercises/tags';
 
 type Exercise = {
   id: string;
@@ -76,6 +77,8 @@ export default function AdminExerciseCatalog() {
         <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 10 }}>
           {list.map((ex) => {
             const media = getExerciseMediaInfo(ex.video_url);
+            const muscleTags = parseTagList(ex.muscle_group);
+            const equipmentTags = parseTagList(ex.equipment);
             
             return (
               <li key={ex.id} className="card" style={{ padding: 12 }}>
@@ -141,16 +144,16 @@ export default function AdminExerciseCatalog() {
                           {ex.name ?? `Exercício ${ex.id.slice(0, 6)}`}
                         </div>
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
-                          {ex.muscle_group && (
-                            <span className="chip" style={{ fontSize: 11 }}>
-                              {ex.muscle_group}
-                            </span>
-                          )}
-                          {ex.equipment && (
-                            <span className="chip" style={{ fontSize: 11 }}>
-                              {ex.equipment}
-                            </span>
-                          )}
+                        {muscleTags.map((tag) => (
+                          <span key={`catalog-muscle-${ex.id}-${tag}`} className="chip" style={{ fontSize: 11 }}>
+                            {tag}
+                          </span>
+                        ))}
+                        {equipmentTags.map((tag) => (
+                          <span key={`catalog-equipment-${ex.id}-${tag}`} className="chip" style={{ fontSize: 11 }}>
+                            {tag}
+                          </span>
+                        ))}
                           {ex.difficulty && (
                             <span className="chip" style={{ fontSize: 11, background: 'rgba(59,130,246,.12)', color: '#1d4ed8' }}>
                               {ex.difficulty}
