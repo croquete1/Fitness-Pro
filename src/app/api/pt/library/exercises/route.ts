@@ -3,6 +3,7 @@ import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole } from '@/lib/roles';
 import { createServerClient } from '@/lib/supabaseServer';
 import { ExerciseFormSchema } from '@/lib/exercises/schema';
+import { parseTagList } from '@/lib/exercises/tags';
 
 const DEFAULT_PAGE_SIZE = 20;
 
@@ -25,6 +26,39 @@ export async function GET(req: Request) {
   const pageSize = Math.min(Number(url.searchParams.get('pageSize') ?? DEFAULT_PAGE_SIZE), 100);
 
   const sb = createServerClient();
+
+  if (url.searchParams.get('facets') === '1') {
+    let facetQuery = sb.from('exercises').select('muscle_group,equipment,difficulty,is_global,owner_id,is_published');
+    if (scope === 'global') {
+      facetQuery = facetQuery.eq('is_global', true).eq('is_published', true);
+    } else {
+      facetQuery = facetQuery.eq('owner_id', me.id).eq('is_global', false);
+    }
+
+    const { data, error } = await facetQuery;
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+    const muscles = new Set<string>();
+    const equipments = new Set<string>();
+    const difficulties = new Set<string>();
+
+    for (const row of data ?? []) {
+      for (const tag of parseTagList(row.muscle_group as any)) {
+        muscles.add(tag);
+      }
+      for (const tag of parseTagList(row.equipment as any)) {
+        equipments.add(tag);
+      }
+      if (row.difficulty) difficulties.add(String(row.difficulty));
+    }
+
+    return NextResponse.json({
+      ok: true,
+      muscles: Array.from(muscles).sort((a, b) => a.localeCompare(b, 'pt')),
+      equipments: Array.from(equipments).sort((a, b) => a.localeCompare(b, 'pt')),
+      difficulties: Array.from(difficulties).sort((a, b) => a.localeCompare(b, 'pt')),
+    });
+  }
 
   let query = sb
     .from('exercises')

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
+import { parseTagList } from '@/lib/exercises/tags';
 
 const DEFAULT_PAGE_SIZE = 20;
 
@@ -19,8 +20,12 @@ export async function GET(req: Request) {
     const difficulties = new Set<string>();
 
     for (const row of data ?? []) {
-      if (row.muscle_group) muscles.add(String(row.muscle_group));
-      if (row.equipment) equipments.add(String(row.equipment));
+      for (const tag of parseTagList(row.muscle_group as any)) {
+        muscles.add(tag);
+      }
+      for (const tag of parseTagList(row.equipment as any)) {
+        equipments.add(tag);
+      }
       if (row.difficulty) difficulties.add(String(row.difficulty));
     }
 
