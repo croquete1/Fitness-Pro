@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { Container, Typography, Stack, Button, Chip } from '@mui/material';
 import { createServerClient } from '@/lib/supabaseServer';
+import { withDashboardContentSx } from '@/styles/dashboardContentSx';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,7 +25,7 @@ export default async function PlanDayPage({ params }: { params: Promise<Params> 
 
   if (!day) {
     return (
-      <Container maxWidth={false} sx={{ py: 3, px: { xs: 2, md: 3 }, width: '100%' }}>
+      <Container sx={withDashboardContentSx({ display: 'grid', gap: 2 })}>
         <Typography variant="h5" fontWeight={800}>📅 Dia</Typography>
         <Typography color="text.secondary" sx={{ mt: 2 }}>Dia não encontrado.</Typography>
       </Container>
@@ -32,7 +33,7 @@ export default async function PlanDayPage({ params }: { params: Promise<Params> 
   }
 
   return (
-    <Container maxWidth={false} sx={{ py: 3, px: { xs: 2, md: 3 }, width: '100%' }}>
+    <Container sx={withDashboardContentSx({ display: 'grid', gap: 2 })}>
       <Stack direction="row" spacing={1} alignItems="center">
         <Typography variant="h5" fontWeight={800}>📅 Dia {day.order_index ?? ''}{day.name ? ` — ${day.name}` : ''}</Typography>
         <Chip size="small" label="PT" />

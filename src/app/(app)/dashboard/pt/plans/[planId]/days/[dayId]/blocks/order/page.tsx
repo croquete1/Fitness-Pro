@@ -3,12 +3,13 @@
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  Box, Container, Card, CardHeader, CardContent, CardActions,
+  Container, Card, CardHeader, CardContent, CardActions,
   Button, Stack, Snackbar, Alert, CircularProgress,
 } from '@mui/material';
 import Save from '@mui/icons-material/Save';
 import Replay from '@mui/icons-material/Replay';
 import OrderListDnD, { type OrderItem } from '@/components/plan/OrderListDnD';
+import { withDashboardContentSx } from '@/styles/dashboardContentSx';
 
 export default function OrderBlocksPage() {
   const { planId, dayId } = useParams<{ planId: string; dayId: string }>();
@@ -66,31 +67,29 @@ export default function OrderBlocksPage() {
   };
 
   return (
-    <Box sx={{ width: '100%', py: 3, px: { xs: 2, md: 3 } }}>
-      <Container maxWidth={false} sx={{ px: 0, width: '100%' }}>
-        <Card variant="outlined" sx={{ overflow: 'hidden' }}>
-          <CardHeader title="🧩 Ordenar blocos do dia" subheader="Arrasta ou usa ↑/↓ para reordenar." />
-          <CardContent sx={{ pt: 1.5 }}>
-            {loading ? (
-              <Stack alignItems="center" sx={{ py: 6 }}><CircularProgress /></Stack>
-            ) : (
-              <OrderListDnD items={items} onReorder={handleReorder} dense />
-            )}
-          </CardContent>
-          <CardActions sx={{ px: 2, pb: 2 }}>
-            <Stack direction="row" spacing={1}>
-              <Button variant="outlined" startIcon={<Replay />} onClick={handleReset} disabled={!isDirty || saving}>Repor</Button>
-              <Button variant="contained" startIcon={saving ? <CircularProgress size={18} /> : <Save />} onClick={handleSave} disabled={!isDirty || saving}>
-                Guardar ordem
-              </Button>
-            </Stack>
-          </CardActions>
-        </Card>
+    <Container sx={withDashboardContentSx({ display: 'grid', gap: 2 })}>
+      <Card variant="outlined" sx={{ overflow: 'hidden' }}>
+        <CardHeader title="🧩 Ordenar blocos do dia" subheader="Arrasta ou usa ↑/↓ para reordenar." />
+        <CardContent sx={{ pt: 1.5 }}>
+          {loading ? (
+            <Stack alignItems="center" sx={{ py: 6 }}><CircularProgress /></Stack>
+          ) : (
+            <OrderListDnD items={items} onReorder={handleReorder} dense />
+          )}
+        </CardContent>
+        <CardActions sx={{ px: 2, pb: 2 }}>
+          <Stack direction="row" spacing={1}>
+            <Button variant="outlined" startIcon={<Replay />} onClick={handleReset} disabled={!isDirty || saving}>Repor</Button>
+            <Button variant="contained" startIcon={saving ? <CircularProgress size={18} /> : <Save />} onClick={handleSave} disabled={!isDirty || saving}>
+              Guardar ordem
+            </Button>
+          </Stack>
+        </CardActions>
+      </Card>
 
-        <Snackbar open={!!toast} autoHideDuration={4000} onClose={() => setToast(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
-          {toast && <Alert onClose={() => setToast(null)} severity={toast.sev} variant="filled">{toast.msg}</Alert>}
-        </Snackbar>
-      </Container>
-    </Box>
+      <Snackbar open={!!toast} autoHideDuration={4000} onClose={() => setToast(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+        {toast && <Alert onClose={() => setToast(null)} severity={toast.sev} variant="filled">{toast.msg}</Alert>}
+      </Snackbar>
+    </Container>
   );
 }

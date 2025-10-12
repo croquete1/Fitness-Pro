@@ -10,6 +10,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import { toast } from '@/components/ui/Toaster';
+import { withDashboardContentSx } from '@/styles/dashboardContentSx';
 
 type Sess = {
   id: string;
@@ -110,7 +111,7 @@ export default function TrainerSessionsPage() {
   }
 
   return (
-    <Container maxWidth={false} sx={{ display: 'grid', gap: 2, px: { xs: 2, md: 3 }, width: '100%' }}>
+    <Container sx={withDashboardContentSx({ display: 'grid', gap: 2 })}>
       <Stack direction="row" alignItems="center" justifyContent="space-between">
         <Typography variant="h5" fontWeight={800}>🗓️ Agenda do PT (semana)</Typography>
         <Stack direction="row" gap={1}>

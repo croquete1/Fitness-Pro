@@ -2,7 +2,8 @@
 import { createServerClient } from '@/lib/supabaseServer';
 import SessionOrderPanel from '@/components/plan/SessionOrderPanel';
 import type { OrderItem } from '@/components/plan/OrderListDnD';
-import { Box, Container } from '@mui/material';
+import { Container } from '@mui/material';
+import { withDashboardContentSx } from '@/styles/dashboardContentSx';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,21 +27,19 @@ export default async function PTSessionsOrderPage() {
   }
 
   return (
-    <Box sx={{ py: 3 }}>
-      <Container maxWidth={false} sx={{ width: '100%', px: { xs: 2, md: 3 } }}>
-        <SessionOrderPanel
-          items={items}
-          onSave={async (ids) => {
-            const res = await fetch('/api/pt/sessions/order', {
-              method: 'POST',
-              headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({ ids }),
-            });
-            if (!res.ok) throw new Error(await res.text());
-          }}
-          title="Ordenar sessões do PT"
-        />
-      </Container>
-    </Box>
+    <Container sx={withDashboardContentSx()}>
+      <SessionOrderPanel
+        items={items}
+        onSave={async (ids) => {
+          const res = await fetch('/api/pt/sessions/order', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ ids }),
+          });
+          if (!res.ok) throw new Error(await res.text());
+        }}
+        title="Ordenar sessões do PT"
+      />
+    </Container>
   );
 }
