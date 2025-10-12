@@ -1,21 +1,18 @@
-import { cookies, headers } from "next/headers";
+import { DEFAULT_TIME_ZONE } from "./time-constants";
 
-/** Resolve o fuso horário do utilizador (server-side). */
+/** Resolve o fuso horário do utilizador, independentemente do ambiente. */
 export async function getUserTimeZone(): Promise<string> {
-  try {
-    const c = (await cookies()).get("tz")?.value;
-    if (c) return decodeURIComponent(c);
-  } catch {/* ignore */}
+  if (typeof window !== "undefined") {
+    try {
+      return (
+        Intl.DateTimeFormat().resolvedOptions().timeZone || DEFAULT_TIME_ZONE
+      );
+    } catch {
+      return DEFAULT_TIME_ZONE;
+    }
+  }
 
-  try {
-    const h = await headers();
-    const fromEdge =
-      h.get("x-vercel-ip-timezone") || // Vercel Edge hint
-      h.get("x-timezone");             // fallback se definires este header
-    if (fromEdge) return fromEdge;
-  } catch {/* ignore */}
-
-  return process.env.DEFAULT_TZ || "Europe/Lisbon";
+  return DEFAULT_TIME_ZONE;
 }
 
 /** Hora (0–23) no fuso especificado. */
@@ -67,3 +64,5 @@ export function greetingForTZ(tz: string): GreetingLabel {
 export function greetingInfoForTZ(tz: string): GreetingInfo {
   return greetingForHour(getHourInTZ(tz));
 }
+
+export { DEFAULT_TIME_ZONE } from "./time-constants";
