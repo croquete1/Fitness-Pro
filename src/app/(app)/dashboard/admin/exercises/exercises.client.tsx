@@ -35,6 +35,7 @@ import AdminExerciseFormClient from './AdminExerciseFormClient';
 import PublishToggle from '@/components/exercise/PublishToggle';
 import { getExerciseMediaInfo } from '@/lib/exercises/media';
 import { parseTagList } from '@/lib/exercises/tags';
+import { supabaseBrowser } from '@/lib/supabaseBrowser';
 
 type Difficulty = 'Fácil' | 'Média' | 'Difícil' | string;
 
@@ -111,6 +112,13 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
 
   const [undo, setUndo] = React.useState<{ open: boolean; row?: Row }>({ open: false });
   const closeUndo = () => setUndo({ open: false });
+
+  const supabaseRef = React.useRef<ReturnType<typeof supabaseBrowser> | null>(null);
+  if (!supabaseRef.current) {
+    supabaseRef.current = supabaseBrowser();
+  }
+
+  const realtimeRefreshTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Dialogs
   const [openCreate, setOpenCreate] = React.useState(false);
@@ -292,6 +300,17 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
     }
   }, [difficulty, equipment, formatDate, muscle, paginationModel.page, paginationModel.pageSize, publishedState, q, scope]);
 
+  const scheduleRealtimeRefresh = React.useCallback(() => {
+    if (realtimeRefreshTimer.current) {
+      clearTimeout(realtimeRefreshTimer.current);
+    }
+    realtimeRefreshTimer.current = setTimeout(() => {
+      realtimeRefreshTimer.current = null;
+      void fetchRows();
+      void fetchFacets();
+    }, 200);
+  }, [fetchFacets, fetchRows]);
+
   const closeCreate = React.useCallback(
     (refresh?: boolean) => {
       setOpenCreate(false);
@@ -342,6 +361,30 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
   React.useEffect(() => {
     void fetchFacets();
   }, [fetchFacets]);
+
+  React.useEffect(() => {
+    const sb = supabaseRef.current;
+    if (!sb) return () => {};
+
+    const channel = sb
+      .channel('admin-exercises-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'exercises' },
+        () => {
+          scheduleRealtimeRefresh();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      if (realtimeRefreshTimer.current) {
+        clearTimeout(realtimeRefreshTimer.current);
+        realtimeRefreshTimer.current = null;
+      }
+      void channel.unsubscribe();
+    };
+  }, [scheduleRealtimeRefresh]);
 
   React.useEffect(() => {
     setPaginationModel((prev) => {
