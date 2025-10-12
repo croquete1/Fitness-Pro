@@ -106,6 +106,18 @@ function buildEmbed(raw: string): Embed | null {
 const VIDEO_EXTENSIONS = new Set(['mp4', 'webm', 'ogg', 'ogv', 'mov', 'm4v', 'mkv']);
 const IMAGE_EXTENSIONS = new Set(['gif', 'apng', 'png', 'jpg', 'jpeg', 'webp']);
 
+
+const YOUTUBE_HOSTS = new Set([
+  'youtube.com',
+  'www.youtube.com',
+  'm.youtube.com',
+  'youtu.be',
+]);
+const VIMEO_HOSTS = new Set([
+  'vimeo.com',
+  'www.vimeo.com',
+]);
+
 type Provider =
   | { type: 'youtube'; id: string }
   | { type: 'vimeo'; id: string }
@@ -113,11 +125,11 @@ type Provider =
 
 function detectProvider(url: URL): Provider {
   const host = url.hostname.toLowerCase();
-  if (host.includes('youtube.com') || host.includes('youtu.be')) {
+  if (YOUTUBE_HOSTS.has(host)) {
     const id = extractYouTubeId(url);
     return id ? { type: 'youtube', id } : null;
   }
-  if (host.includes('vimeo.com')) {
+  if (VIMEO_HOSTS.has(host)) {
     const id = extractVimeoId(url);
     return id ? { type: 'vimeo', id } : null;
   }
