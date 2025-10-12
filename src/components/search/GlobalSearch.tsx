@@ -27,7 +27,7 @@ const GROUP_LABEL: Record<string, string> = {
   session: 'Sessões',
   plan: 'Planos',
   exercise: 'Exercícios',
-  trainer_info: 'PT atribuído',
+  trainer_info: 'Personal Trainer atribuído',
 };
 
 const GROUP_ICON: Record<string, React.ReactNode> = {
@@ -53,7 +53,7 @@ function groupItems(items: Item[]) {
 
 function rolePlaceholder(role: Role) {
   if (role === 'ADMIN') return 'Pesquisar utilizadores/planos/sessões/exercícios… 🔎';
-  if (role === 'TRAINER') return 'Pesquisar clientes/exercícios/planos meus… 🔎';
+  if (role === 'TRAINER') return 'Pesquisar clientes/exercícios/planos que acompanho… 🔎';
   return 'Pesquisar exercícios/planos/sessões… 🔎';
 }
 

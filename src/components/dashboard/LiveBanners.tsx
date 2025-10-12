@@ -60,7 +60,7 @@ export default function LiveBanners() {
               {loading ? '—' : (c.clients ?? 0)}
             </div>
           </Card>
-          <Card title="Treinadores">
+          <Card title="Personal Trainers">
             <div style={{ fontSize: 28, fontWeight: 800 }}>
               {loading ? '—' : (c.trainers ?? 0)}
             </div>

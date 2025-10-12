@@ -83,7 +83,7 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
       label: 'Utilizadores',
       value: data.totals.users,
       icon: <GroupIcon fontSize="small" />,
-      hint: `${data.totals.clients} clientes • ${data.totals.trainers} PTs`,
+      hint: `${data.totals.clients} clientes • ${data.totals.trainers} Personal Trainers`,
     },
     {
       label: 'Sessões hoje',
@@ -113,9 +113,9 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
       hint: `${data.totals.users ? Math.round((data.totals.clients / Math.max(data.totals.users, 1)) * 100) : 0}% da base`,
     },
     {
-      label: 'PTs com agenda',
+      label: 'Personal Trainers com agenda',
       value: data.topTrainers.length,
-      hint: `${data.totals.trainers} PTs totais`,
+      hint: `${data.totals.trainers} Personal Trainers totais`,
     },
     {
       label: 'Sessões (7 dias)',
@@ -172,7 +172,7 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
             {greetingMessage()}, {name}!
           </Typography>
           <Typography variant="body1" sx={{ opacity: 0.9, maxWidth: 520 }}>
-            Mantém o controlo da operação — aprova novos utilizadores, acompanha os treinadores e garante que cada cliente tem um plano actual.
+            Mantém o controlo da operação — aprova novos utilizadores, acompanha os Personal Trainers e garante que cada cliente tem um plano actual.
           </Typography>
           <Grid container spacing={2}>
             {quickMetrics.map((metric) => (
@@ -336,7 +336,7 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
               <CardContent sx={{ pt: 0 }}>
                 {data.topTrainers.length === 0 ? (
                   <Typography variant="body2" color="text.secondary">
-                    Sem dados suficientes para destacar treinadores.
+                    Sem dados suficientes para destacar Personal Trainers.
                   </Typography>
                 ) : (
                   <List disablePadding>

@@ -153,17 +153,17 @@ export default function PlanListResponsive({ rows }: { rows: PlanRow[] }) {
               Atualizado: <strong>{p.updatedRel}</strong> <span style={{ opacity: 0.65 }}>({p.updatedAbs})</span>
             </div>
 
-            <div className="text-xs opacity-70" style={{ display: 'flex', gap: 12 }}>
-              <span>PT: <code>{p.trainer}</code></span>
-              <span>Cliente: <code>{p.client}</code></span>
-            </div>
+              <div className="text-xs opacity-70" style={{ display: 'flex', gap: 12 }}>
+                <span>Personal Trainer: <code>{p.trainer}</code></span>
+                <span>Cliente: <code>{p.client}</code></span>
+              </div>
 
             <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', alignItems: 'center' }}>
               <InfoPopover title="Detalhes do plano">
                 <div className="grid" style={{ display: 'grid', gap: 6 }}>
                   <div><strong>Status:</strong> {p.status}</div>
                   <div><strong>Atualizado:</strong> {p.updatedAbs} ({p.updatedRel})</div>
-                  <div><strong>Trainer ID:</strong> <code>{p.trainer}</code></div>
+                  <div><strong>ID do Personal Trainer:</strong> <code>{p.trainer}</code></div>
                   <div><strong>Cliente ID:</strong> <code>{p.client}</code></div>
                 </div>
               </InfoPopover>
@@ -202,16 +202,16 @@ export default function PlanListResponsive({ rows }: { rows: PlanRow[] }) {
                   {p.updatedAbs}{' '}
                   <span className="text-xs opacity-70">({p.updatedRel})</span>
                 </td>
-                <td style={{ padding: 8 }}>
-                  <span className="text-xs opacity-70">PT:</span> <code>{p.trainer}</code>{' '}
-                  <span className="text-xs opacity-70" style={{ marginLeft: 8 }}>Cliente:</span> <code>{p.client}</code>
-                </td>
+                  <td style={{ padding: 8 }}>
+                    <span className="text-xs opacity-70">Personal Trainer:</span> <code>{p.trainer}</code>{' '}
+                    <span className="text-xs opacity-70" style={{ marginLeft: 8 }}>Cliente:</span> <code>{p.client}</code>
+                  </td>
                 <td style={{ padding: 8, textAlign: 'right', whiteSpace: 'nowrap' }}>
                   <InfoPopover title="Detalhes do plano">
                     <div className="grid" style={{ display: 'grid', gap: 6 }}>
                       <div><strong>Status:</strong> {p.status}</div>
                       <div><strong>Atualizado:</strong> {p.updatedAbs} ({p.updatedRel})</div>
-                      <div><strong>Trainer ID:</strong> <code>{p.trainer}</code></div>
+                      <div><strong>ID do Personal Trainer:</strong> <code>{p.trainer}</code></div>
                       <div><strong>Cliente ID:</strong> <code>{p.client}</code></div>
                     </div>
                   </InfoPopover>

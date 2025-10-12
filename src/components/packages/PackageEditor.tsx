@@ -134,12 +134,12 @@ export default function PackageEditor({
       {(admin || mode === 'create') && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <label className="grid gap-1">
-            <span className="text-sm text-gray-600">Trainer ID</span>
+            <span className="text-sm text-gray-600">ID do Personal Trainer</span>
             <input
               className="rounded-lg border p-2"
               value={trainerId}
               onChange={(e) => setTrainerId(e.target.value)}
-              placeholder="uuid do treinador"
+              placeholder="uuid do Personal Trainer"
             />
           </label>
           <label className="grid gap-1">

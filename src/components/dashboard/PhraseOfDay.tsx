@@ -2,13 +2,14 @@
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import { tryCreateServerClient } from '@/lib/supabaseServer';
+import { brand } from '@/lib/brand';
 
 export default async function PhraseOfDay() {
   const sb = tryCreateServerClient();
   let phrases: { text: string; author?: string | null }[] = [];
   if (!sb) {
     phrases = [
-      { text: 'Foco, disciplina e consistência 💪', author: 'HMS Personal Trainer' },
+      { text: 'Foco, disciplina e consistência 💪', author: brand.name },
       { text: 'Pequenos passos todos os dias.' },
       { text: 'O progresso é o que interessa.' },
     ];
@@ -27,7 +28,7 @@ export default async function PhraseOfDay() {
 
   if (phrases.length === 0) {
     phrases = [
-      { text: 'Foco, disciplina e consistência 💪', author: 'HMS Personal Trainer' },
+      { text: 'Foco, disciplina e consistência 💪', author: brand.name },
       { text: 'Pequenos passos todos os dias.' },
       { text: 'O progresso é o que interessa.' },
     ];

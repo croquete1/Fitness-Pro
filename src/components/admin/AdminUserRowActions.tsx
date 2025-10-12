@@ -90,7 +90,7 @@ export default function AdminUserRowActions({ id, currRole, currStatus, compact 
       setTrainersLoaded(true);
     } catch (error) {
       console.error('[admin] load trainers failed', error);
-      setTrainerError('Não foi possível carregar os personal trainers.');
+      setTrainerError('Não foi possível carregar os Personal Trainers.');
     } finally {
       setTrainerLoading(false);
     }
@@ -145,13 +145,13 @@ export default function AdminUserRowActions({ id, currRole, currStatus, compact 
 
   const roleLabels: Record<AppRole, string> = {
     ADMIN: 'Administrador',
-    PT: 'Personal trainer',
+    PT: 'Personal Trainer',
     CLIENT: 'Cliente',
   };
 
   const roleOptions: Array<{ value: AppRole; label: string }> = [
     { value: 'CLIENT', label: 'Cliente' },
-    { value: 'PT', label: 'Personal trainer' },
+    { value: 'PT', label: 'Personal Trainer' },
   ];
 
   return (
@@ -207,7 +207,7 @@ export default function AdminUserRowActions({ id, currRole, currStatus, compact 
       </Menu>
 
       {isClient && (
-        <Tooltip title="Atribuir personal trainer">
+      <Tooltip title="Atribuir Personal Trainer">
           <span>
             {isCompact ? (
               <IconButton size="small" color="secondary" onClick={openAssignDialog} disabled={busy}>
@@ -248,10 +248,10 @@ export default function AdminUserRowActions({ id, currRole, currStatus, compact 
       </Tooltip>
 
       <Dialog open={assignOpen} onClose={closeAssignDialog} fullWidth maxWidth="xs">
-        <DialogTitle>Atribuir cliente a um personal trainer</DialogTitle>
+        <DialogTitle>Atribuir cliente a um Personal Trainer</DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Seleciona o personal trainer responsável por acompanhar este cliente.
+            Seleciona o Personal Trainer responsável por acompanhar este cliente.
           </Typography>
           <Autocomplete
             value={selectedTrainer}
@@ -261,11 +261,11 @@ export default function AdminUserRowActions({ id, currRole, currStatus, compact 
             disabled={trainerLoading && !trainersLoaded}
             getOptionLabel={(option) => option.label}
             isOptionEqualToValue={(option, value) => option.id === value.id}
-            noOptionsText={trainerLoading ? 'A carregar…' : 'Sem personal trainers disponíveis.'}
+            noOptionsText={trainerLoading ? 'A carregar…' : 'Sem Personal Trainers disponíveis.'}
             renderInput={(params) => (
               <TextField
                 {...params}
-                label="Personal trainer"
+                label="Personal Trainer"
                 placeholder="Procurar por nome ou email"
                 InputProps={{
                   ...params.InputProps,

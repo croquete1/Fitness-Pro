@@ -42,7 +42,7 @@ export default function DashboardClient() {
           <div style={{ fontWeight: 800, fontSize: 28 }}>{s.clients ?? 0}</div>
         </div>
         <div className="card" style={{ padding: 12 }}>
-          <div className="text-muted" style={{ fontSize: 12 }}>Treinadores</div>
+          <div className="text-muted" style={{ fontSize: 12 }}>Personal Trainers</div>
           <div style={{ fontWeight: 800, fontSize: 28 }}>{s.trainers ?? 0}</div>
         </div>
         <div className="card" style={{ padding: 12 }}>

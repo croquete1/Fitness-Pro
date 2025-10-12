@@ -1,3 +1,13 @@
 // src/app/register/page.tsx
+import type { Metadata } from 'next';
 import RegisterClient from './RegisterClient';
-export default function Page(){ return <RegisterClient/>; }
+import { brand } from '@/lib/brand';
+
+export const metadata: Metadata = {
+  title: `Criar conta · ${brand.name}`,
+  description: 'Regista um novo cliente e começa a gerir treinos no Fitness Pro.',
+};
+
+export default function Page() {
+  return <RegisterClient />;
+}

@@ -2,8 +2,18 @@
 import { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
+import type { Metadata } from 'next';
 import { authOptions } from '@/lib/authOptions';
 import DashboardFrame from '@/components/layout/DashboardFrame';
+import { brand } from '@/lib/brand';
+
+export const metadata: Metadata = {
+  title: {
+    default: `Dashboard · ${brand.name}`,
+    template: `%s · ${brand.name}`,
+  },
+  description: 'Gestão integrada de clientes, planos e sessões.',
+};
 
 // (Opcional) se quiseres tentar puxar o nome do perfil da BD:
 // import { supabaseAdmin } from '@/lib/supabaseAdmin';

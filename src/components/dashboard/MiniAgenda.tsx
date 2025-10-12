@@ -4,7 +4,7 @@ export type AgendaItem = {
   id: string | number;
   when: string;      // ISO
   title: string;
-  meta?: string;     // "Treinador → Cliente"
+  meta?: string;     // "Personal Trainer → Cliente"
   href?: string;
 };
 
