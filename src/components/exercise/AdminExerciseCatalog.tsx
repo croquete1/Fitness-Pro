@@ -2,12 +2,14 @@
 
 import * as React from 'react';
 import PublishToggle from '@/components/exercise/PublishToggle';
+import { getExerciseMediaInfo } from '@/lib/exercises/media';
 
 type Exercise = {
   id: string;
   name?: string | null;
   is_published?: boolean | null;
   muscle_group?: string | null;
+  equipment?: string | null;
   difficulty?: string | null;
   owner?: { id: string; name: string | null; email: string | null } | null;
   video_url?: string | null;
@@ -31,6 +33,7 @@ export default function AdminExerciseCatalog() {
           id: String(ex.id),
           name: ex.name ?? ex.title ?? '',
           muscle_group: ex.muscle_group ?? ex.muscle ?? null,
+          equipment: ex.equipment ?? null,
           difficulty: ex.difficulty ?? ex.level ?? null,
           is_published: ex.is_published ?? ex.published ?? false,
           owner: ex.owner ?? null,
@@ -72,11 +75,8 @@ export default function AdminExerciseCatalog() {
       ) : (
         <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 10 }}>
           {list.map((ex) => {
-            const mediaUrl = typeof ex.video_url === 'string' ? ex.video_url.trim() : '';
-            const cleanUrl = mediaUrl.split('?')[0] ?? '';
-            const ext = cleanUrl.includes('.') ? cleanUrl.split('.').pop()?.toLowerCase() : undefined;
-            const isVideo = !!ext && ['mp4', 'webm', 'mov', 'm4v'].includes(ext);
-
+            const media = getExerciseMediaInfo(ex.video_url);
+            
             return (
               <li key={ex.id} className="card" style={{ padding: 12 }}>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>
@@ -93,22 +93,30 @@ export default function AdminExerciseCatalog() {
                       background: 'linear-gradient(135deg, rgba(59,130,246,.08), rgba(16,185,129,.12))',
                     }}
                   >
-                    {mediaUrl ? (
-                      isVideo ? (
+                    {media.kind !== 'none' ? (
+                      media.kind === 'video' ? (
                         <video
-                          src={mediaUrl}
+                          src={media.src}
                           muted
                           loop
                           playsInline
                           autoPlay
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />
-                      ) : (
+                      ) : media.kind === 'image' ? (
                         <img
-                          src={mediaUrl}
+                          src={media.src}
                           alt={`Pré-visualização do exercício ${ex.name ?? ''}`.trim() || 'Pré-visualização do exercício'}
                           loading="lazy"
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <iframe
+                          src={media.src}
+                          title={ex.name ?? 'Pré-visualização do exercício'}
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                          style={{ width: '100%', height: '100%', border: 0 }}
                         />
                       )
                     ) : (
@@ -136,6 +144,11 @@ export default function AdminExerciseCatalog() {
                           {ex.muscle_group && (
                             <span className="chip" style={{ fontSize: 11 }}>
                               {ex.muscle_group}
+                            </span>
+                          )}
+                          {ex.equipment && (
+                            <span className="chip" style={{ fontSize: 11 }}>
+                              {ex.equipment}
                             </span>
                           )}
                           {ex.difficulty && (

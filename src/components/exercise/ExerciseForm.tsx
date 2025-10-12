@@ -22,6 +22,7 @@ import {
   type Difficulty,
   normalizeDifficulty,
 } from '@/lib/exercises/schema';
+import { getExerciseMediaInfo } from '@/lib/exercises/media';
 
 export type ExerciseFormMessages = {
   successCreate: string;
@@ -137,7 +138,8 @@ export default function ExerciseForm({
     }
   }, [onCancel]);
 
-  const hasVideoUrl = React.useMemo(() => isValidHttpUrl(values.video_url ?? ''), [values.video_url]);
+  const previewMedia = React.useMemo(() => getExerciseMediaInfo(values.video_url), [values.video_url]);
+  const hasVideoUrl = previewMedia.kind !== 'none';
   const previewDescription = React.useMemo(() => values.description?.trim() ?? '', [values.description]);
   const hasPreviewContent = React.useMemo(
     () =>
@@ -343,16 +345,70 @@ export default function ExerciseForm({
                     <Divider sx={{ borderStyle: 'dashed' }} />
 
                     {hasVideoUrl ? (
-                      <Button
-                        component="a"
-                        href={values.video_url ?? '#'}
-                        target="_blank"
-                        rel="noreferrer"
-                        variant="outlined"
-                        size="small"
+                      <Box
+                        sx={{
+                          position: 'relative',
+                          borderRadius: 2,
+                          overflow: 'hidden',
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          backgroundColor: 'background.default',
+                          '&::after': {
+                            content: '""',
+                            display: 'block',
+                            paddingTop: '56.25%',
+                          },
+                        }}
                       >
-                        {copy.previewCta}
-                      </Button>
+                        {previewMedia.kind === 'image' && (
+                          <Box
+                            component="img"
+                            src={previewMedia.src}
+                            alt={values.name ? `Pré-visualização de ${values.name}` : 'Pré-visualização do exercício'}
+                            sx={{
+                              position: 'absolute',
+                              inset: 0,
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover',
+                            }}
+                          />
+                        )}
+                        {previewMedia.kind === 'video' && (
+                          <Box
+                            component="video"
+                            src={previewMedia.src}
+                            autoPlay
+                            loop
+                            muted
+                            playsInline
+                            controls
+                            sx={{
+                              position: 'absolute',
+                              inset: 0,
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover',
+                            }}
+                          />
+                        )}
+                        {previewMedia.kind === 'embed' && (
+                          <Box
+                            component="iframe"
+                            src={previewMedia.src}
+                            title={values.name || 'Pré-visualização do exercício'}
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                            sx={{
+                              position: 'absolute',
+                              inset: 0,
+                              width: '100%',
+                              height: '100%',
+                              border: 0,
+                            }}
+                          />
+                        )}
+                      </Box>
                     ) : (
                       <Typography variant="caption" color="text.secondary">
                         Partilha um link de vídeo para reforçar a explicação (opcional).
@@ -412,12 +468,3 @@ export default function ExerciseForm({
   );
 }
 
-function isValidHttpUrl(url: string) {
-  if (!url) return false;
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-  } catch {
-    return false;
-  }
-}

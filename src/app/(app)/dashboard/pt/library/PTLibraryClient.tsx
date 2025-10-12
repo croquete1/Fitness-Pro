@@ -31,6 +31,7 @@ import Close from '@mui/icons-material/Close';
 import TrainerExerciseFormClient from './TrainerExerciseFormClient';
 import { normalizeDifficulty } from '@/lib/exercises/schema';
 import { useTheme } from '@mui/material/styles';
+import { getExerciseMediaInfo } from '@/lib/exercises/media';
 
 export type LibraryRow = {
   id: string;
@@ -74,6 +75,7 @@ export default function PTLibraryClient({ initialScope = 'personal' }: { initial
   const [openCreate, setOpenCreate] = React.useState(false);
   const [editing, setEditing] = React.useState<LibraryRow | null>(null);
   const [preview, setPreview] = React.useState<LibraryRow | null>(null);
+  const previewMedia = React.useMemo(() => getExerciseMediaInfo(preview?.video_url), [preview?.video_url]);
 
   const closeCreate = (refresh?: boolean) => {
     setOpenCreate(false);
@@ -401,10 +403,53 @@ export default function PTLibraryClient({ initialScope = 'personal' }: { initial
               <span style={{ whiteSpace: 'pre-wrap' }}>{preview.description}</span>
             </Typography>
           )}
-          {preview?.video_url && (
-            <Button variant="outlined" href={preview.video_url} target="_blank" rel="noreferrer">
-              Ver vídeo de demonstração
-            </Button>
+          {previewMedia.kind !== 'none' ? (
+            <Box
+              sx={{
+                position: 'relative',
+                borderRadius: 2,
+                overflow: 'hidden',
+                border: '1px solid',
+                borderColor: 'divider',
+                backgroundColor: 'background.default',
+                '&::after': { content: '""', display: 'block', paddingTop: '56.25%' },
+              }}
+            >
+              {previewMedia.kind === 'image' && (
+                <Box
+                  component="img"
+                  src={previewMedia.src}
+                  alt={preview?.name ? `Pré-visualização de ${preview.name}` : 'Pré-visualização do exercício'}
+                  sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              )}
+              {previewMedia.kind === 'video' && (
+                <Box
+                  component="video"
+                  src={previewMedia.src}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  controls
+                  sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              )}
+              {previewMedia.kind === 'embed' && (
+                <Box
+                  component="iframe"
+                  src={previewMedia.src}
+                  title={preview?.name || 'Vídeo do exercício'}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
+                />
+              )}
+            </Box>
+          ) : (
+            <Typography variant="caption" color="text.secondary">
+              Este exercício ainda não tem vídeo associado.
+            </Typography>
           )}
           {preview?.is_global ? (
             <Chip label="Catálogo global" color="default" variant="outlined" />
