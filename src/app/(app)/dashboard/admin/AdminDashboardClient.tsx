@@ -28,6 +28,7 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
 import AdminQuickNotesCard from '@/components/admin/AdminQuickNotesCard';
 import MotivationAdminCard from '@/components/admin/MotivationAdminCard';
+import { greetingForDate } from '@/lib/time';
 
 export type AgendaRow = {
   id: string;
@@ -58,13 +59,6 @@ type Props = {
   supabase: boolean;
 };
 
-function greetingMessage() {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'Bom dia';
-  if (hour < 18) return 'Boa tarde';
-  return 'Boa noite';
-}
-
 function formatAgenda(value: AgendaRow) {
   if (!value.start_time) {
     return { day: 'Agendar', time: '—' };
@@ -77,6 +71,10 @@ function formatAgenda(value: AgendaRow) {
 
 export default function AdminDashboardClient({ name, data, supabase }: Props) {
   const theme = useTheme();
+  const greeting = React.useMemo(() => {
+    const { label, emoji } = greetingForDate();
+    return `${emoji} ${label}${name ? `, ${name}` : ''}!`;
+  }, [name]);
 
   const quickMetrics = [
     {
@@ -168,9 +166,7 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
           <Typography variant="overline" sx={{ letterSpacing: 1.5, opacity: 0.7 }}>
             {supabase ? 'Dados em directo' : 'Modo offline'}
           </Typography>
-          <Typography variant="h4" fontWeight={800}>
-            {greetingMessage()}, {name}!
-          </Typography>
+          <Typography variant="h4" fontWeight={800}>{greeting}</Typography>
           <Typography variant="body1" sx={{ opacity: 0.9, maxWidth: 520 }}>
             Mantém o controlo da operação — aprova novos utilizadores, acompanha os Personal Trainers e garante que cada cliente tem um plano actual.
           </Typography>

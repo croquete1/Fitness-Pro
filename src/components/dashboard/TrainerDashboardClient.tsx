@@ -27,6 +27,7 @@ import PersonAddAlt1Icon from '@mui/icons-material/PersonAddAlt1';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import { greetingForDate } from '@/lib/time';
 
 export type TrainerDashboardData = {
   stats: {
@@ -52,13 +53,6 @@ type Props = {
   supabase: boolean;
 };
 
-function greetingMessage() {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'Bom dia';
-  if (hour < 18) return 'Boa tarde';
-  return 'Boa noite';
-}
-
 function formatSessionTime(value: string | null) {
   if (!value) {
     return { day: 'Data por agendar', time: '—' };
@@ -72,6 +66,10 @@ function formatSessionTime(value: string | null) {
 
 export default function TrainerDashboardClient({ name, data, supabase }: Props) {
   const theme = useTheme();
+  const greeting = React.useMemo(() => {
+    const { label, emoji } = greetingForDate();
+    return `${emoji} ${label}${name ? `, ${name}` : ''}!`;
+  }, [name]);
 
   const insights: Array<{ icon: React.ReactNode; message: string; tone: 'info' | 'warning' | 'positive' }> = [];
   if (data.stats.pendingRequests > 0) {
@@ -144,9 +142,7 @@ export default function TrainerDashboardClient({ name, data, supabase }: Props) 
           <Typography variant="overline" sx={{ letterSpacing: 1.5, opacity: 0.7 }}>
             {supabase ? 'Agenda sincronizada' : 'Modo offline'}
           </Typography>
-          <Typography variant="h4" fontWeight={800}>
-            {greetingMessage()}, {name}!
-          </Typography>
+          <Typography variant="h4" fontWeight={800}>{greeting}</Typography>
           <Typography variant="body1" sx={{ maxWidth: 520, opacity: 0.85 }}>
             Aqui tens o panorama das tuas sessões, clientes e planos activos. Utiliza os atalhos para agir rapidamente.
           </Typography>
