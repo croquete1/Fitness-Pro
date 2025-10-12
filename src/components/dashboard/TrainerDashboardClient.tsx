@@ -18,6 +18,7 @@ import {
   ListItemText,
   useTheme,
 } from '@mui/material';
+import { keyframes } from '@mui/material/styles';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
 import PendingActionsIcon from '@mui/icons-material/PendingActions';
@@ -27,7 +28,14 @@ import PersonAddAlt1Icon from '@mui/icons-material/PersonAddAlt1';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import NextLink from 'next/link';
 import { greetingForDate } from '@/lib/time';
+
+const emojiFloat = keyframes`
+  0% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-4px) scale(1.08); }
+  100% { transform: translateY(0) scale(1); }
+`;
 
 export type TrainerDashboardData = {
   stats: {
@@ -66,10 +74,11 @@ function formatSessionTime(value: string | null) {
 
 export default function TrainerDashboardClient({ name, data, supabase }: Props) {
   const theme = useTheme();
-  const greeting = React.useMemo(() => {
-    const { label, emoji } = greetingForDate();
-    return `${emoji} ${label}${name ? `, ${name}` : ''}!`;
-  }, [name]);
+  const greetingInfo = React.useMemo(() => greetingForDate(), []);
+  const greetingLabel = React.useMemo(
+    () => `${greetingInfo.label}${name ? `, ${name}` : ''}!`,
+    [greetingInfo.label, name],
+  );
 
   const insights: Array<{ icon: React.ReactNode; message: string; tone: 'info' | 'warning' | 'positive' }> = [];
   if (data.stats.pendingRequests > 0) {
@@ -105,6 +114,41 @@ export default function TrainerDashboardClient({ name, data, supabase }: Props) 
     .filter((session) => !session.start_time || new Date(session.start_time) >= new Date())
     .slice(0, 6);
 
+  const metricCards = [
+    {
+      label: 'Clientes activos',
+      value: data.stats.totalClients,
+      icon: <PeopleAltIcon />,
+      color: 'primary' as const,
+      hint: `${data.clients.length} na tua carteira`,
+      href: '/dashboard/pt/clients',
+    },
+    {
+      label: 'Sessões (7 dias)',
+      value: data.stats.sessionsThisWeek,
+      icon: <EventAvailableIcon />,
+      color: 'success' as const,
+      hint: 'inclui passadas e confirmadas',
+      href: '/dashboard/pt/schedule',
+    },
+    {
+      label: 'Planos activos',
+      value: data.stats.activePlans,
+      icon: <PlaylistAddCheckIcon />,
+      color: 'info' as const,
+      hint: 'em acompanhamento',
+      href: '/dashboard/pt/plans',
+    },
+    {
+      label: 'Pedidos pendentes',
+      value: data.stats.pendingRequests,
+      icon: <PendingActionsIcon />,
+      color: 'warning' as const,
+      hint: data.stats.pendingRequests > 0 ? 'precisam da tua revisão' : 'nenhum por agora',
+      href: '/dashboard/pt/clients',
+    },
+  ];
+
   return (
     <Stack spacing={3} sx={{ pb: 6 }}>
       <Box
@@ -121,7 +165,7 @@ export default function TrainerDashboardClient({ name, data, supabase }: Props) 
           boxShadow:
             theme.palette.mode === 'dark'
               ? '0 32px 110px -60px rgba(8,20,45,0.9)'
-              : '0 30px 90px -55px rgba(18,38,64,0.25)',
+              : '0 32px 110px -60px rgba(15,118,110,0.45)',
           position: 'relative',
           overflow: 'hidden',
         }}
@@ -130,11 +174,11 @@ export default function TrainerDashboardClient({ name, data, supabase }: Props) 
           sx={{
             position: 'absolute',
             inset: 0,
-            pointerEvents: 'none',
             background:
               theme.palette.mode === 'dark'
-                ? 'radial-gradient(circle at 20% 20%, rgba(255,255,255,0.12), transparent 60%)'
-                : 'radial-gradient(circle at 20% 20%, rgba(255,255,255,0.32), transparent 60%)',
+                ? 'radial-gradient(circle at top left, rgba(59,130,246,0.18), transparent 45%)'
+                : 'radial-gradient(circle at top left, rgba(37,99,235,0.25), transparent 45%)',
+            pointerEvents: 'none',
             opacity: 0.6,
           }}
         />
@@ -142,7 +186,21 @@ export default function TrainerDashboardClient({ name, data, supabase }: Props) 
           <Typography variant="overline" sx={{ letterSpacing: 1.5, opacity: 0.7 }}>
             {supabase ? 'Agenda sincronizada' : 'Modo offline'}
           </Typography>
-          <Typography variant="h4" fontWeight={800}>{greeting}</Typography>
+          <Typography variant="h4" fontWeight={800}>
+            <Box
+              component="span"
+              sx={{
+                display: 'inline-flex',
+                mr: 1.5,
+                animation: `${emojiFloat} 4s ease-in-out infinite`,
+                transformOrigin: 'center',
+              }}
+              aria-hidden
+            >
+              {greetingInfo.emoji}
+            </Box>
+            {greetingLabel}
+          </Typography>
           <Typography variant="body1" sx={{ maxWidth: 520, opacity: 0.85 }}>
             Aqui tens o panorama das tuas sessões, clientes e planos activos. Utiliza os atalhos para agir rapidamente.
           </Typography>
@@ -161,41 +219,50 @@ export default function TrainerDashboardClient({ name, data, supabase }: Props) 
       </Box>
 
       <Grid container spacing={2}>
-        {[
-          {
-            label: 'Clientes activos',
-            value: data.stats.totalClients,
-            icon: <PeopleAltIcon />,
-            color: 'primary' as const,
-            hint: `${data.clients.length} na tua carteira`,
-          },
-          {
-            label: 'Sessões (7 dias)',
-            value: data.stats.sessionsThisWeek,
-            icon: <EventAvailableIcon />,
-            color: 'success' as const,
-            hint: 'inclui passadas e confirmadas',
-          },
-          {
-            label: 'Planos activos',
-            value: data.stats.activePlans,
-            icon: <PlaylistAddCheckIcon />,
-            color: 'info' as const,
-            hint: 'em acompanhamento',
-          },
-          {
-            label: 'Pedidos pendentes',
-            value: data.stats.pendingRequests,
-            icon: <PendingActionsIcon />,
-            color: 'warning' as const,
-            hint: data.stats.pendingRequests > 0 ? 'precisam da tua revisão' : 'nenhum por agora',
-          },
-        ].map((metric) => (
-          <Grid item xs={12} sm={6} md={3} key={metric.label}>
-            <Card variant="outlined" sx={{ borderRadius: 3 }}>
-              <CardContent>
-                <Stack direction="row" spacing={1.5} alignItems="center">
-                  <Avatar sx={{ bgcolor: `${metric.color}.main`, color: `${metric.color}.contrastText`, width: 40, height: 40 }}>
+        {metricCards.map((metric) => (
+          <Grid item xs={12} sm={6} md={3} key={metric.label} sx={{ display: 'flex' }}>
+            <Box
+              component={NextLink}
+              href={metric.href}
+              sx={{
+                textDecoration: 'none',
+                display: 'flex',
+                flexGrow: 1,
+              }}
+            >
+              <Card
+                variant="outlined"
+                sx={{
+                  borderRadius: 3,
+                  flexGrow: 1,
+                  height: '100%',
+                  display: 'flex',
+                  transition: theme.transitions.create(['transform', 'box-shadow'], {
+                    duration: theme.transitions.duration.shorter,
+                    easing: theme.transitions.easing.easeOut,
+                  }),
+                  '&:hover': {
+                    transform: 'translateY(-6px)',
+                    boxShadow: theme.shadows[6],
+                  },
+                  '&:hover .metric-avatar': {
+                    transform: 'translateY(-3px) scale(1.05)',
+                  },
+                }}
+              >
+                <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  <Avatar
+                    className="metric-avatar"
+                    sx={{
+                      bgcolor: `${metric.color}.main`,
+                      color: `${metric.color}.contrastText`,
+                      width: 40,
+                      height: 40,
+                      transition: theme.transitions.create(['transform'], {
+                        duration: theme.transitions.duration.short,
+                      }),
+                    }}
+                  >
                     {metric.icon}
                   </Avatar>
                   <Box>
@@ -209,9 +276,9 @@ export default function TrainerDashboardClient({ name, data, supabase }: Props) 
                       {metric.hint}
                     </Typography>
                   </Box>
-                </Stack>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </Box>
           </Grid>
         ))}
       </Grid>
