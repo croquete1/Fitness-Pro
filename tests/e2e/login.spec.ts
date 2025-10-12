@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Login flow smoke', () => {
-  test('login page renders HMS branding and validation', async ({ page }) => {
+  test('login page renders Fitness Pro branding and validation', async ({ page }) => {
     await page.goto('/login');
 
-    await expect(page.locator('img[alt="HMS Personal Trainer"]')).toBeVisible();
+    await expect(page.locator('img[alt="Fitness Pro"]')).toBeVisible();
     await expect(
       page.getByRole('heading', { level: 1, name: /acede ao ecossistema hms/i })
     ).toBeVisible();

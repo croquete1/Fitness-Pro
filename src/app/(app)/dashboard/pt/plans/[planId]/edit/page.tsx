@@ -127,7 +127,7 @@ export default async function PTPlanViewPage({ params }: { params: Promise<{ id:
               </div>
             </div>
             <div className="rounded-lg border p-3">
-              <div className="text-xs opacity-70">Treinador</div>
+              <div className="text-xs opacity-70">Personal Trainer</div>
               <div className="font-medium">
                 {trainerProf?.name ?? trainerProf?.email ?? plan.trainer_id ?? '—'}
               </div>

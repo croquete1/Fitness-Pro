@@ -176,7 +176,7 @@ export default function AdminHome() {
   const kpis = useMemo(
     () => [
       { label: "Clientes", value: stats?.clients ?? 0, icon: "👥" },
-      { label: "Treinadores", value: stats?.trainers ?? 0, icon: "🏋️" },
+      { label: "Personal Trainers", value: stats?.trainers ?? 0, icon: "🏋️" },
       { label: "Admins", value: stats?.admins ?? 0, icon: "🛡️" },
       { label: "Sessões (próx. 7d)", value: sessionsNext7, icon: "🗓️" },
     ],

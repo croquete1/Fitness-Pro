@@ -5,14 +5,7 @@ import * as React from 'react';
 import Paper from '@mui/material/Paper';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-
-function greetingByHour(d = new Date()) {
-  const h = d.getHours();
-  if (h < 6) return 'Boa madrugada';
-  if (h < 12) return 'Bom dia';
-  if (h < 19) return 'Boa tarde';
-  return 'Boa noite';
-}
+import { greetingForDate } from '@/lib/time';
 
 export default function GreetingBanner({
   name,
@@ -21,6 +14,8 @@ export default function GreetingBanner({
   name: string;
   roleTag?: string;
 }) {
+  const { label, emoji } = greetingForDate();
+  const title = `${label}, ${name}`;
   return (
     <Paper
       elevation={0}
@@ -37,7 +32,7 @@ export default function GreetingBanner({
     >
       <Box>
         <Typography variant="h6" fontWeight={800} sx={{ mb: 0.5 }}>
-          {greetingByHour()}, {name}
+          {emoji} {title}!
         </Typography>
         {!!roleTag && (
           <Typography variant="caption" sx={{ letterSpacing: 1, opacity: 0.8 }}>

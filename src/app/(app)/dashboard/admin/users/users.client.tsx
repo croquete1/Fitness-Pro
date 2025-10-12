@@ -172,7 +172,7 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
   const roleLabel = React.useCallback((role?: Role) => {
     const appRole = toAppRole(role ?? null);
     if (appRole === 'ADMIN') return 'Admin';
-    if (appRole === 'PT') return 'Personal trainer';
+    if (appRole === 'PT') return 'Personal Trainer';
     if (appRole === 'CLIENT') return 'Cliente';
     return role ? String(role) : '—';
   }, []);

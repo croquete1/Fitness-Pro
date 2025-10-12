@@ -318,7 +318,7 @@ export default function ReportsDashboardClient({ data, supabase, viewerName }: P
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Relatórios operacionais</h1>
         <p className="text-sm text-slate-600 dark:text-slate-300">
-          Acompanhe faturamento, progresso dos clientes e desempenho dos personal trainers num único painel.
+          Acompanhe faturamento, progresso dos clientes e desempenho dos Personal Trainers num único painel.
         </p>
         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
           <span
@@ -354,13 +354,13 @@ export default function ReportsDashboardClient({ data, supabase, viewerName }: P
           </div>
 
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Personal trainer</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Personal Trainer</p>
             <select
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-900"
               value={focusTrainer}
               onChange={(event) => setFocusTrainer(event.target.value)}
             >
-              <option value="">Todos os PTs</option>
+              <option value="">Todos os Personal Trainers</option>
               {data.meta.trainers.map((trainer) => (
                 <option key={trainer.id} value={trainer.id}>
                   {trainer.name}
@@ -541,9 +541,9 @@ export default function ReportsDashboardClient({ data, supabase, viewerName }: P
           <Card className="card">
             <CardHeader className="flex flex-col gap-1">
               <div>
-                <h2 className="text-lg font-semibold">Performance dos PTs</h2>
+                <h2 className="text-lg font-semibold">Performance dos Personal Trainers</h2>
                 <p className="text-sm text-slate-500">
-                  Sessões concluídas, canceladas e futuras por personal trainer.
+                  Sessões concluídas, canceladas e futuras por Personal Trainer.
                 </p>
               </div>
             </CardHeader>
@@ -558,7 +558,7 @@ export default function ReportsDashboardClient({ data, supabase, viewerName }: P
                   <p className="mt-2 text-2xl font-semibold">{filteredSessions.length}</p>
                 </div>
                 <div className="rounded-xl bg-slate-100 p-4 text-slate-900 dark:bg-slate-800/80 dark:text-slate-100">
-                  <p className="text-xs uppercase tracking-wide opacity-80">PTs em análise</p>
+                  <p className="text-xs uppercase tracking-wide opacity-80">Personal Trainers em análise</p>
                   <p className="mt-2 text-2xl font-semibold">{trainerSummaries.length}</p>
                 </div>
               </div>
@@ -567,7 +567,7 @@ export default function ReportsDashboardClient({ data, supabase, viewerName }: P
                 <table className="min-w-full text-sm">
                   <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800/80 dark:text-slate-300">
                     <tr>
-                      <th className="px-3 py-2">Personal trainer</th>
+                      <th className="px-3 py-2">Personal Trainer</th>
                       <th className="px-3 py-2">Concluídas</th>
                       <th className="px-3 py-2">Canceladas</th>
                       <th className="px-3 py-2">Agendadas</th>

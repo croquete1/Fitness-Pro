@@ -1,10 +1,12 @@
 export const dynamic = 'force-dynamic';
 
 import { redirect } from 'next/navigation';
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole } from '@/lib/roles';
+import { brand } from '@/lib/brand';
 import Paper from '@mui/material/Paper';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -13,6 +15,13 @@ import TableHead from '@mui/material/TableHead';
 import TableBody from '@mui/material/TableBody';
 import TableRow from '@mui/material/TableRow';
 import TableCell from '@mui/material/TableCell';
+import Button from '@mui/material/Button';
+import Stack from '@mui/material/Stack';
+
+export const metadata: Metadata = {
+  title: `Clientes do Personal Trainer · ${brand.name}`,
+  description: 'Consulta os clientes associados aos teus planos e sessões.',
+};
 
 export default async function PtClientsPage() {
   const session = await getSessionUserSafe();
@@ -40,15 +49,37 @@ export default async function PtClientsPage() {
   }
 
   return (
-    <Box sx={{ p: 2 }}>
-      <Typography variant="h5" fontWeight={800} sx={{ mb: 2 }}>Meus clientes</Typography>
+    <Box sx={{ p: { xs: 1.5, md: 2.5 } }}>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={1.5}
+        justifyContent="space-between"
+        alignItems={{ xs: 'stretch', sm: 'center' }}
+        sx={{ mb: 2.5 }}
+      >
+        <Box>
+          <Typography variant="h5" fontWeight={800}>Clientes associados</Typography>
+          <Typography variant="body2" sx={{ opacity: 0.7 }}>
+            Consulta quem já tens sob acompanhamento e convida novos clientes quando precisares.
+          </Typography>
+        </Box>
+        <Button
+          component={Link}
+          href="/register"
+          variant="contained"
+          size="small"
+          sx={{ alignSelf: { xs: 'stretch', sm: 'center' }, borderRadius: 999 }}
+        >
+          Adicionar novo cliente
+        </Button>
+      </Stack>
       <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 3 }}>
         <Table size="small">
           <TableHead>
             <TableRow>
               <TableCell>Nome</TableCell>
               <TableCell>Email</TableCell>
-              <TableCell>Perfil</TableCell>
+              <TableCell align="right">Perfil</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -56,13 +87,21 @@ export default async function PtClientsPage() {
               <TableRow key={r.id}>
                 <TableCell>{r.name ?? r.email ?? r.id}</TableCell>
                 <TableCell>{r.email ?? '—'}</TableCell>
-                <TableCell>
-                  <Link className="text-sm underline" href={`/dashboard/users/${r.id}`}>abrir</Link>
+                <TableCell align="right">
+                  <Link className="text-sm underline" href={`/dashboard/users/${r.id}`}>
+                    ver perfil
+                  </Link>
                 </TableCell>
               </TableRow>
             ))}
             {rows.length === 0 && (
-              <TableRow><TableCell colSpan={3} align="center">Sem clientes associados.</TableCell></TableRow>
+              <TableRow>
+                <TableCell colSpan={3} align="center" sx={{ py: 4 }}>
+                  <Typography variant="body2" sx={{ opacity: 0.7 }}>
+                    Ainda não tens clientes atribuídos. Usa o botão acima para convidar o primeiro.
+                  </Typography>
+                </TableCell>
+              </TableRow>
             )}
           </TableBody>
         </Table>

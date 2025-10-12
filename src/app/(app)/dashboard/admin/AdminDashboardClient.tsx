@@ -28,6 +28,7 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
 import AdminQuickNotesCard from '@/components/admin/AdminQuickNotesCard';
 import MotivationAdminCard from '@/components/admin/MotivationAdminCard';
+import { greetingForDate } from '@/lib/time';
 
 export type AgendaRow = {
   id: string;
@@ -58,13 +59,6 @@ type Props = {
   supabase: boolean;
 };
 
-function greetingMessage() {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'Bom dia';
-  if (hour < 18) return 'Boa tarde';
-  return 'Boa noite';
-}
-
 function formatAgenda(value: AgendaRow) {
   if (!value.start_time) {
     return { day: 'Agendar', time: '—' };
@@ -77,13 +71,17 @@ function formatAgenda(value: AgendaRow) {
 
 export default function AdminDashboardClient({ name, data, supabase }: Props) {
   const theme = useTheme();
+  const greeting = React.useMemo(() => {
+    const { label, emoji } = greetingForDate();
+    return `${emoji} ${label}${name ? `, ${name}` : ''}!`;
+  }, [name]);
 
   const quickMetrics = [
     {
       label: 'Utilizadores',
       value: data.totals.users,
       icon: <GroupIcon fontSize="small" />,
-      hint: `${data.totals.clients} clientes • ${data.totals.trainers} PTs`,
+      hint: `${data.totals.clients} clientes • ${data.totals.trainers} Personal Trainers`,
     },
     {
       label: 'Sessões hoje',
@@ -113,9 +111,9 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
       hint: `${data.totals.users ? Math.round((data.totals.clients / Math.max(data.totals.users, 1)) * 100) : 0}% da base`,
     },
     {
-      label: 'PTs com agenda',
+      label: 'Personal Trainers com agenda',
       value: data.topTrainers.length,
-      hint: `${data.totals.trainers} PTs totais`,
+      hint: `${data.totals.trainers} Personal Trainers totais`,
     },
     {
       label: 'Sessões (7 dias)',
@@ -168,11 +166,9 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
           <Typography variant="overline" sx={{ letterSpacing: 1.5, opacity: 0.7 }}>
             {supabase ? 'Dados em directo' : 'Modo offline'}
           </Typography>
-          <Typography variant="h4" fontWeight={800}>
-            {greetingMessage()}, {name}!
-          </Typography>
+          <Typography variant="h4" fontWeight={800}>{greeting}</Typography>
           <Typography variant="body1" sx={{ opacity: 0.9, maxWidth: 520 }}>
-            Mantém o controlo da operação — aprova novos utilizadores, acompanha os treinadores e garante que cada cliente tem um plano actual.
+            Mantém o controlo da operação — aprova novos utilizadores, acompanha os Personal Trainers e garante que cada cliente tem um plano actual.
           </Typography>
           <Grid container spacing={2}>
             {quickMetrics.map((metric) => (
@@ -336,7 +332,7 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
               <CardContent sx={{ pt: 0 }}>
                 {data.topTrainers.length === 0 ? (
                   <Typography variant="body2" color="text.secondary">
-                    Sem dados suficientes para destacar treinadores.
+                    Sem dados suficientes para destacar Personal Trainers.
                   </Typography>
                 ) : (
                   <List disablePadding>

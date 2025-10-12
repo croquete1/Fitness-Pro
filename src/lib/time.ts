@@ -34,13 +34,36 @@ export function getHourInTZ(tz: string): number {
   return new Date().getHours();
 }
 
+export type GreetingLabel = "Boa madrugada" | "Bom dia" | "Boa tarde" | "Boa noite";
+
+export type GreetingInfo = {
+  label: GreetingLabel;
+  emoji: string;
+};
+
+function normaliseHour(hour: number): number {
+  if (!Number.isFinite(hour)) return 0;
+  const rounded = Math.trunc(hour);
+  return ((rounded % 24) + 24) % 24;
+}
+
+export function greetingForHour(hour: number): GreetingInfo {
+  const h = normaliseHour(hour);
+  if (h >= 19) return { label: "Boa noite", emoji: "🌙" };
+  if (h >= 12) return { label: "Boa tarde", emoji: "🌤️" };
+  if (h >= 6) return { label: "Bom dia", emoji: "🌅" };
+  return { label: "Boa madrugada", emoji: "🦉" };
+}
+
+export function greetingForDate(date: Date = new Date()): GreetingInfo {
+  return greetingForHour(date.getHours());
+}
+
 /** Cumprimento em PT a partir do fuso. */
-export function greetingForTZ(
-  tz: string,
-): "Boa madrugada" | "Bom dia" | "Boa tarde" | "Boa noite" {
-  const h = getHourInTZ(tz);
-  if (h < 6) return "Boa madrugada";
-  if (h < 12) return "Bom dia";
-  if (h < 19) return "Boa tarde";
-  return "Boa noite";
+export function greetingForTZ(tz: string): GreetingLabel {
+  return greetingForHour(getHourInTZ(tz)).label;
+}
+
+export function greetingInfoForTZ(tz: string): GreetingInfo {
+  return greetingForHour(getHourInTZ(tz));
 }

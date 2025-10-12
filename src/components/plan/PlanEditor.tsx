@@ -314,14 +314,14 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin: _adm
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <UserSelect
-              label="Treinador"
+              label="Personal Trainer"
               role="TRAINER"
               value={trainer}
               onChange={(v) => {
                 setTrainer(v);
                 setTrainerId(v?.id ?? initial.trainerId);
               }}
-              placeholder="Pesquisar treinador…"
+              placeholder="Pesquisar Personal Trainer…"
               disabled={!_admin}
             />
 

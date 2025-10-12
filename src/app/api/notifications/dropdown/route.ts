@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server';
 import { tryCreateServerClient } from '@/lib/supabaseServer';
 import { supabaseFallbackJson } from '@/lib/supabase/responses';
 import { requireUserGuard, isGuardErr } from '@/lib/api-guards';
+import { brand } from '@/lib/brand';
 
 const FALLBACK_ITEMS = [
-  { id: 'fallback-1', title: 'Bem-vindo à HMS Personal Trainer', href: '/dashboard' },
+  { id: 'fallback-1', title: `Bem-vindo à ${brand.name}`, href: '/dashboard' },
   { id: 'fallback-2', title: 'Actualiza o teu perfil para personalizar a experiência.', href: '/dashboard/profile' },
 ];
 
