@@ -12,6 +12,8 @@ export default function AdminExercisesPage() {
       component="section"
       sx={{
         width: '100%',
+        maxWidth: (theme) => theme.breakpoints.values.xl,
+        mx: 'auto',
         boxSizing: 'border-box',
         px: { xs: 2, md: 3, lg: 4 },
         py: { xs: 3, md: 4 },
