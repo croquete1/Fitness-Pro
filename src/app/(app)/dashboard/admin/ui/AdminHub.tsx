@@ -70,8 +70,8 @@ export default function AdminHub() {
       icon: '✅',
     },
     {
-      href: '/dashboard/admin/exercises' as Route,
-      title: 'Exercícios',
+      href: '/dashboard/admin/library' as Route,
+      title: 'Biblioteca',
       desc: 'Catálogo de exercícios e publicação',
       icon: '🏋️',
     },

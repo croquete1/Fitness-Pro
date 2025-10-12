@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import PTLibraryClient from './PTLibraryClient';
+import ExerciseLibraryClient from '@/components/exercise/library/ExerciseLibraryClient';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole } from '@/lib/roles';
 
@@ -21,7 +21,7 @@ export default async function LibraryPtPage() {
           Mantém os teus exercícios organizados, personaliza o catálogo global e reutiliza-os rapidamente nos planos de treino.
         </p>
       </header>
-      <PTLibraryClient />
+      <ExerciseLibraryClient />
     </section>
   );
 }

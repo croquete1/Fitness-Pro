@@ -19,6 +19,7 @@ import {
   DialogActions,
   Typography,
   Chip,
+  useMediaQuery,
 } from '@mui/material';
 import { DataGrid, GridColDef, GridToolbar } from '@mui/x-data-grid';
 import AddIcon from '@mui/icons-material/Add';
@@ -27,8 +28,11 @@ import DeleteOutline from '@mui/icons-material/DeleteOutline';
 import FileCopyOutlined from '@mui/icons-material/FileCopyOutlined';
 import VisibilityOutlined from '@mui/icons-material/VisibilityOutlined';
 import Close from '@mui/icons-material/Close';
-import TrainerExerciseFormClient from './TrainerExerciseFormClient';
+import ExerciseLibraryFormClient from './ExerciseLibraryFormClient';
+import ExerciseVideoPreview from './ExerciseVideoPreview';
 import { normalizeDifficulty } from '@/lib/exercises/schema';
+import { parseExerciseTags } from '@/lib/exercises/tags';
+import { useTheme } from '@mui/material/styles';
 
 export type LibraryRow = {
   id: string;
@@ -50,7 +54,10 @@ type Snack = { open: boolean; msg: string; sev: 'success' | 'error' | 'info' | '
 
 const DEFAULT_PAGE_SIZE = 20;
 
-export default function PTLibraryClient({ initialScope = 'personal' }: { initialScope?: Scope }) {
+export default function ExerciseLibraryClient({ initialScope = 'personal' }: { initialScope?: Scope }) {
+  const theme = useTheme();
+  const isSmallDialog = useMediaQuery(theme.breakpoints.down('sm'));
+
   const [scope, setScope] = React.useState<Scope>(initialScope);
   const [q, setQ] = React.useState('');
   const [muscle, setMuscle] = React.useState('');
@@ -177,15 +184,49 @@ export default function PTLibraryClient({ initialScope = 'personal' }: { initial
       field: 'muscle_group',
       headerName: 'Grupo muscular',
       flex: 0.9,
-      minWidth: 140,
-      valueFormatter: (params: any) => String(params?.value ?? ''),
+      minWidth: 160,
+      renderCell: (params) => {
+        const row = params.row as LibraryRow | undefined;
+        const tags = parseExerciseTags(row?.muscle_group);
+        if (!tags.length) {
+          return (
+            <Typography variant="caption" color="text.secondary">
+              —
+            </Typography>
+          );
+        }
+        return (
+          <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+            {tags.map((tag, idx) => (
+              <Chip key={`cell-muscle-${idx}-${tag}`} label={tag} size="small" variant="outlined" />
+            ))}
+          </Stack>
+        );
+      },
     },
     {
       field: 'equipment',
       headerName: 'Equipamento',
       flex: 0.9,
-      minWidth: 140,
-      valueFormatter: (params: any) => String(params?.value ?? ''),
+      minWidth: 160,
+      renderCell: (params) => {
+        const row = params.row as LibraryRow | undefined;
+        const tags = parseExerciseTags(row?.equipment);
+        if (!tags.length) {
+          return (
+            <Typography variant="caption" color="text.secondary">
+              —
+            </Typography>
+          );
+        }
+        return (
+          <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+            {tags.map((tag, idx) => (
+              <Chip key={`cell-equipment-${idx}-${tag}`} label={tag} size="small" variant="outlined" />
+            ))}
+          </Stack>
+        );
+      },
     },
     {
       field: 'difficulty',
@@ -197,13 +238,13 @@ export default function PTLibraryClient({ initialScope = 'personal' }: { initial
       field: 'origin',
       headerName: 'Origem',
       width: 150,
-      valueGetter: (params: any) => (params.row.is_global ? 'Catálogo global' : 'Minha biblioteca'),
+      valueGetter: (params: any) => (params?.row?.is_global ? 'Catálogo global' : 'Minha biblioteca'),
       renderCell: (params) => (
         <Chip
           size="small"
-          label={params.row.is_global ? 'Catálogo global' : 'Minha biblioteca'}
-          color={params.row.is_global ? 'default' : 'primary'}
-          variant={params.row.is_global ? 'outlined' : 'filled'}
+          label={params.row?.is_global ? 'Catálogo global' : 'Minha biblioteca'}
+          color={params.row?.is_global ? 'default' : 'primary'}
+          variant={params.row?.is_global ? 'outlined' : 'filled'}
         />
       ),
     },
@@ -213,45 +254,52 @@ export default function PTLibraryClient({ initialScope = 'personal' }: { initial
       width: 210,
       sortable: false,
       filterable: false,
-      renderCell: (params) => (
-        <Stack direction="row" spacing={0.5} alignItems="center">
-          <Tooltip title="Pré-visualizar detalhes">
-            <span>
-              <IconButton size="small" onClick={() => setPreview(params.row)}>
-                <VisibilityOutlined fontSize="small" />
-              </IconButton>
-            </span>
-          </Tooltip>
-          {params.row.is_global ? (
-            <Tooltip title="Copiar para a minha biblioteca">
+      renderCell: (params) => {
+        const row = params.row as LibraryRow | undefined;
+        if (!row) return null;
+        return (
+          <Stack direction="row" spacing={0.5} alignItems="center">
+            <Tooltip title="Pré-visualizar detalhes">
               <span>
-                <IconButton size="small" onClick={() => cloneExercise(params.row)}>
-                  <FileCopyOutlined fontSize="small" />
+                <IconButton size="small" onClick={() => setPreview(row)}>
+                  <VisibilityOutlined fontSize="small" />
                 </IconButton>
               </span>
             </Tooltip>
-          ) : (
-            <>
-              <Tooltip title="Editar exercício">
+            {row.is_global ? (
+              <Tooltip title="Copiar para a minha biblioteca">
                 <span>
-                  <IconButton size="small" onClick={() => setEditing(params.row)}>
-                    <EditOutlined fontSize="small" />
+                  <IconButton size="small" onClick={() => cloneExercise(row)}>
+                    <FileCopyOutlined fontSize="small" />
                   </IconButton>
                 </span>
               </Tooltip>
-              <Tooltip title="Remover exercício">
-                <span>
-                  <IconButton size="small" color="error" onClick={() => deleteExercise(params.row)}>
-                    <DeleteOutline fontSize="small" />
-                  </IconButton>
-                </span>
-              </Tooltip>
-            </>
-          )}
-        </Stack>
-      ),
+            ) : (
+              <>
+                <Tooltip title="Editar exercício">
+                  <span>
+                    <IconButton size="small" onClick={() => setEditing(row)}>
+                      <EditOutlined fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                <Tooltip title="Remover exercício">
+                  <span>
+                    <IconButton size="small" color="error" onClick={() => deleteExercise(row)}>
+                      <DeleteOutline fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </>
+            )}
+          </Stack>
+        );
+      },
     },
   ], [cloneExercise, deleteExercise]);
+
+  const previewMuscleTags = React.useMemo(() => parseExerciseTags(preview?.muscle_group), [preview?.muscle_group]);
+  const previewEquipmentTags = React.useMemo(() => parseExerciseTags(preview?.equipment), [preview?.equipment]);
 
   return (
     <Box sx={{ display: 'grid', gap: 1.5 }}>
@@ -332,21 +380,21 @@ export default function PTLibraryClient({ initialScope = 'personal' }: { initial
         </Alert>
       </Snackbar>
 
-      <Dialog open={openCreate} onClose={() => closeCreate()} fullWidth maxWidth="sm">
+      <Dialog open={openCreate} onClose={() => closeCreate()} fullWidth maxWidth="md" fullScreen={isSmallDialog}>
         <DialogTitle>➕ Novo exercício</DialogTitle>
         <DialogContent dividers>
-          <TrainerExerciseFormClient mode="create" onSuccess={() => closeCreate(true)} />
+          <ExerciseLibraryFormClient mode="create" onSuccess={() => closeCreate(true)} />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => closeCreate()}>Fechar</Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={Boolean(editing)} onClose={() => closeEdit()} fullWidth maxWidth="sm">
+      <Dialog open={Boolean(editing)} onClose={() => closeEdit()} fullWidth maxWidth="md" fullScreen={isSmallDialog}>
         <DialogTitle>✏️ Editar exercício</DialogTitle>
         <DialogContent dividers>
           {editing && (
-            <TrainerExerciseFormClient
+            <ExerciseLibraryFormClient
               mode="edit"
               initial={{
                 ...editing,
@@ -361,7 +409,7 @@ export default function PTLibraryClient({ initialScope = 'personal' }: { initial
         </DialogActions>
       </Dialog>
 
-      <Dialog open={Boolean(preview)} onClose={() => setPreview(null)} fullWidth maxWidth="sm">
+      <Dialog open={Boolean(preview)} onClose={() => setPreview(null)} fullWidth maxWidth="sm" fullScreen={isSmallDialog}>
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>{preview?.name}</span>
           <IconButton size="small" onClick={() => setPreview(null)}>
@@ -369,11 +417,29 @@ export default function PTLibraryClient({ initialScope = 'personal' }: { initial
           </IconButton>
         </DialogTitle>
         <DialogContent dividers sx={{ display: 'grid', gap: 1.5 }}>
-          {preview?.muscle_group && (
-            <Typography variant="body2"><strong>Grupo muscular:</strong> {preview.muscle_group}</Typography>
+          {previewMuscleTags.length > 0 && (
+            <Stack spacing={0.5}>
+              <Typography variant="body2" fontWeight={600}>
+                Grupo muscular
+              </Typography>
+              <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                {previewMuscleTags.map((tag, idx) => (
+                  <Chip key={`preview-muscle-${idx}-${tag}`} label={tag} size="small" variant="outlined" />
+                ))}
+              </Stack>
+            </Stack>
           )}
-          {preview?.equipment && (
-            <Typography variant="body2"><strong>Equipamento:</strong> {preview.equipment}</Typography>
+          {previewEquipmentTags.length > 0 && (
+            <Stack spacing={0.5}>
+              <Typography variant="body2" fontWeight={600}>
+                Equipamento
+              </Typography>
+              <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                {previewEquipmentTags.map((tag, idx) => (
+                  <Chip key={`preview-equipment-${idx}-${tag}`} label={tag} size="small" variant="outlined" />
+                ))}
+              </Stack>
+            </Stack>
           )}
           {preview?.difficulty && (
             <Typography variant="body2"><strong>Dificuldade:</strong> {preview.difficulty}</Typography>
@@ -386,9 +452,12 @@ export default function PTLibraryClient({ initialScope = 'personal' }: { initial
             </Typography>
           )}
           {preview?.video_url && (
-            <Button variant="outlined" href={preview.video_url} target="_blank" rel="noreferrer">
-              Ver vídeo de demonstração
-            </Button>
+            <Stack spacing={0.75}>
+              <Typography variant="subtitle2" color="text.secondary">
+                Demonstração em vídeo
+              </Typography>
+              <ExerciseVideoPreview url={preview.video_url} title={preview.name ?? 'Vídeo do exercício'} />
+            </Stack>
           )}
           {preview?.is_global ? (
             <Chip label="Catálogo global" color="default" variant="outlined" />
