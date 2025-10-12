@@ -11,7 +11,7 @@ import {
 import DashboardOutlined from '@mui/icons-material/DashboardOutlined';
 import CheckCircleOutlined from '@mui/icons-material/CheckCircleOutlined';
 import GroupOutlined from '@mui/icons-material/GroupOutlined';
-import FitnessCenterOutlined from '@mui/icons-material/FitnessCenterOutlined';
+import LibraryBooksOutlined from '@mui/icons-material/LibraryBooksOutlined';
 import ListAltOutlined from '@mui/icons-material/ListAltOutlined';
 import CalendarMonthOutlined from '@mui/icons-material/CalendarMonthOutlined';
 import NotificationsOutlined from '@mui/icons-material/NotificationsOutlined';
@@ -48,7 +48,7 @@ export default function SidebarAdmin({
     { href: '/dashboard/admin/users', label: 'Utilizadores', icon: <GroupOutlined />, activePrefix: '/dashboard/admin/users' },
   ];
   const gestao: Nav[] = [
-    { href: '/dashboard/admin/exercises', label: 'Exercícios', icon: <FitnessCenterOutlined />, activePrefix: '/dashboard/admin/exercises' },
+    { href: '/dashboard/admin/exercises', label: 'Biblioteca', icon: <LibraryBooksOutlined />, activePrefix: '/dashboard/admin/exercises' },
     { href: '/dashboard/admin/plans', label: 'Planos', icon: <ListAltOutlined />, activePrefix: '/dashboard/admin/plans' },
     // badge mostra Hoje; next7 fica disponível para futura UX (ex.: tooltip)
     { href: '/dashboard/admin/pts-schedule', label: 'Agenda PTs', icon: <CalendarMonthOutlined />, activePrefix: '/dashboard/admin/pts-schedule', badge: ptsTodayCount },

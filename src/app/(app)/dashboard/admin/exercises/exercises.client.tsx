@@ -45,7 +45,7 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
   const [muscle, setMuscle] = React.useState(initialFilters?.muscle_group ?? '');
   const [difficulty, setDifficulty] = React.useState(initialFilters?.difficulty ?? '');
   const [equipment, setEquipment] = React.useState(initialFilters?.equipment ?? '');
-  const [scope, setScope] = React.useState<'global' | 'personal' | 'all'>('global');
+  const [scope, setScope] = React.useState<'global' | 'personal' | 'all'>('all');
   const [publishedState, setPublishedState] = React.useState<'all' | 'published' | 'draft'>('all');
 
   const [rows, setRows] = React.useState<Row[]>([]);
@@ -327,9 +327,9 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
               onChange={(e) => updateScope(e.target.value as 'global' | 'personal' | 'all')}
               sx={{ minWidth: 180 }}
             >
+              <MenuItem value="all">Todos</MenuItem>
               <MenuItem value="global">Catálogo global</MenuItem>
               <MenuItem value="personal">Privados</MenuItem>
-              <MenuItem value="all">Todos</MenuItem>
             </TextField>
             <TextField
               select

@@ -31,6 +31,7 @@ import Close from '@mui/icons-material/Close';
 import TrainerExerciseFormClient from './TrainerExerciseFormClient';
 import { normalizeDifficulty } from '@/lib/exercises/schema';
 import { useTheme } from '@mui/material/styles';
+import { getExerciseMediaInfo } from '@/lib/exercises/media';
 
 export type LibraryRow = {
   id: string;
@@ -74,6 +75,7 @@ export default function PTLibraryClient({ initialScope = 'personal' }: { initial
   const [openCreate, setOpenCreate] = React.useState(false);
   const [editing, setEditing] = React.useState<LibraryRow | null>(null);
   const [preview, setPreview] = React.useState<LibraryRow | null>(null);
+  const previewMedia = React.useMemo(() => getExerciseMediaInfo(preview?.video_url), [preview?.video_url]);
 
   const closeCreate = (refresh?: boolean) => {
     setOpenCreate(false);
@@ -202,15 +204,22 @@ export default function PTLibraryClient({ initialScope = 'personal' }: { initial
       field: 'origin',
       headerName: 'Origem',
       width: 150,
-      valueGetter: (params: any) => (params.row.is_global ? 'Catálogo global' : 'Minha biblioteca'),
-      renderCell: (params) => (
-        <Chip
-          size="small"
-          label={params.row.is_global ? 'Catálogo global' : 'Minha biblioteca'}
-          color={params.row.is_global ? 'default' : 'primary'}
-          variant={params.row.is_global ? 'outlined' : 'filled'}
-        />
-      ),
+      valueGetter: (params: any) => {
+        const row = (params?.row ?? {}) as LibraryRow;
+        return row.is_global ? 'Catálogo global' : 'Minha biblioteca';
+      },
+      renderCell: (params) => {
+        const row = (params?.row ?? {}) as LibraryRow;
+        const isGlobal = Boolean(row.is_global);
+        return (
+          <Chip
+            size="small"
+            label={isGlobal ? 'Catálogo global' : 'Minha biblioteca'}
+            color={isGlobal ? 'default' : 'primary'}
+            variant={isGlobal ? 'outlined' : 'filled'}
+          />
+        );
+      },
     },
     {
       field: 'actions',
@@ -218,43 +227,47 @@ export default function PTLibraryClient({ initialScope = 'personal' }: { initial
       width: 210,
       sortable: false,
       filterable: false,
-      renderCell: (params) => (
-        <Stack direction="row" spacing={0.5} alignItems="center">
-          <Tooltip title="Pré-visualizar detalhes">
-            <span>
-              <IconButton size="small" onClick={() => setPreview(params.row)}>
-                <VisibilityOutlined fontSize="small" />
-              </IconButton>
-            </span>
-          </Tooltip>
-          {params.row.is_global ? (
-            <Tooltip title="Copiar para a minha biblioteca">
+      renderCell: (params) => {
+        const row = (params?.row ?? null) as LibraryRow | null;
+        if (!row) return null;
+        return (
+          <Stack direction="row" spacing={0.5} alignItems="center">
+            <Tooltip title="Pré-visualizar detalhes">
               <span>
-                <IconButton size="small" onClick={() => cloneExercise(params.row)}>
-                  <FileCopyOutlined fontSize="small" />
+                <IconButton size="small" onClick={() => setPreview(row)}>
+                  <VisibilityOutlined fontSize="small" />
                 </IconButton>
               </span>
             </Tooltip>
-          ) : (
-            <>
-              <Tooltip title="Editar exercício">
+            {row.is_global ? (
+              <Tooltip title="Copiar para a minha biblioteca">
                 <span>
-                  <IconButton size="small" onClick={() => setEditing(params.row)}>
-                    <EditOutlined fontSize="small" />
+                  <IconButton size="small" onClick={() => cloneExercise(row)}>
+                    <FileCopyOutlined fontSize="small" />
                   </IconButton>
                 </span>
               </Tooltip>
-              <Tooltip title="Remover exercício">
-                <span>
-                  <IconButton size="small" color="error" onClick={() => deleteExercise(params.row)}>
-                    <DeleteOutline fontSize="small" />
-                  </IconButton>
-                </span>
-              </Tooltip>
-            </>
-          )}
-        </Stack>
-      ),
+            ) : (
+              <>
+                <Tooltip title="Editar exercício">
+                  <span>
+                    <IconButton size="small" onClick={() => setEditing(row)}>
+                      <EditOutlined fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                <Tooltip title="Remover exercício">
+                  <span>
+                    <IconButton size="small" color="error" onClick={() => deleteExercise(row)}>
+                      <DeleteOutline fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </>
+            )}
+          </Stack>
+        );
+      },
     },
   ], [cloneExercise, deleteExercise]);
 
@@ -390,10 +403,53 @@ export default function PTLibraryClient({ initialScope = 'personal' }: { initial
               <span style={{ whiteSpace: 'pre-wrap' }}>{preview.description}</span>
             </Typography>
           )}
-          {preview?.video_url && (
-            <Button variant="outlined" href={preview.video_url} target="_blank" rel="noreferrer">
-              Ver vídeo de demonstração
-            </Button>
+          {previewMedia.kind !== 'none' ? (
+            <Box
+              sx={{
+                position: 'relative',
+                borderRadius: 2,
+                overflow: 'hidden',
+                border: '1px solid',
+                borderColor: 'divider',
+                backgroundColor: 'background.default',
+                '&::after': { content: '""', display: 'block', paddingTop: '56.25%' },
+              }}
+            >
+              {previewMedia.kind === 'image' && (
+                <Box
+                  component="img"
+                  src={previewMedia.src}
+                  alt={preview?.name ? `Pré-visualização de ${preview.name}` : 'Pré-visualização do exercício'}
+                  sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              )}
+              {previewMedia.kind === 'video' && (
+                <Box
+                  component="video"
+                  src={previewMedia.src}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  controls
+                  sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              )}
+              {previewMedia.kind === 'embed' && (
+                <Box
+                  component="iframe"
+                  src={previewMedia.src}
+                  title={preview?.name || 'Vídeo do exercício'}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
+                />
+              )}
+            </Box>
+          ) : (
+            <Typography variant="caption" color="text.secondary">
+              Este exercício ainda não tem vídeo associado.
+            </Typography>
           )}
           {preview?.is_global ? (
             <Chip label="Catálogo global" color="default" variant="outlined" />
