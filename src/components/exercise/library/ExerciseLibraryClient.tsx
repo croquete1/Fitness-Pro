@@ -29,6 +29,7 @@ import FileCopyOutlined from '@mui/icons-material/FileCopyOutlined';
 import VisibilityOutlined from '@mui/icons-material/VisibilityOutlined';
 import Close from '@mui/icons-material/Close';
 import ExerciseLibraryFormClient from './ExerciseLibraryFormClient';
+import ExerciseVideoPreview from './ExerciseVideoPreview';
 import { normalizeDifficulty } from '@/lib/exercises/schema';
 import { useTheme } from '@mui/material/styles';
 
@@ -391,9 +392,12 @@ export default function ExerciseLibraryClient({ initialScope = 'personal' }: { i
             </Typography>
           )}
           {preview?.video_url && (
-            <Button variant="outlined" href={preview.video_url} target="_blank" rel="noreferrer">
-              Ver vídeo de demonstração
-            </Button>
+            <Stack spacing={0.75}>
+              <Typography variant="subtitle2" color="text.secondary">
+                Demonstração em vídeo
+              </Typography>
+              <ExerciseVideoPreview url={preview.video_url} title={preview.name ?? 'Vídeo do exercício'} />
+            </Stack>
           )}
           {preview?.is_global ? (
             <Chip label="Catálogo global" color="default" variant="outlined" />

@@ -22,6 +22,7 @@ import {
   type Difficulty,
   normalizeDifficulty,
 } from '@/lib/exercises/schema';
+import ExerciseVideoPreview from './ExerciseVideoPreview';
 
 interface Props {
   mode: 'create' | 'edit';
@@ -236,7 +237,9 @@ export default function ExerciseLibraryFormClient({ mode, initial, onSuccess }: 
                 onChange={(e) => setField('video_url', e.target.value)}
                 placeholder="https://…"
                 error={Boolean(errors.video_url)}
-                helperText={errors.video_url ?? 'Opcional. Aceita links http(s) para vídeos ou ficheiros.'}
+                helperText={
+                  errors.video_url ?? 'Opcional. Aceita links http(s); reproduzimos o vídeo automaticamente.'
+                }
                 fullWidth
               />
             </Stack>
@@ -298,16 +301,15 @@ export default function ExerciseLibraryFormClient({ mode, initial, onSuccess }: 
                     <Divider sx={{ borderStyle: 'dashed' }} />
 
                     {hasVideoUrl ? (
-                      <Button
-                        component="a"
-                        href={values.video_url ?? '#'}
-                        target="_blank"
-                        rel="noreferrer"
-                        variant="outlined"
-                        size="small"
-                      >
-                        Abrir vídeo de demonstração
-                      </Button>
+                      <Stack spacing={0.75}>
+                        <ExerciseVideoPreview
+                          url={values.video_url ?? ''}
+                          title={values.name || 'Vídeo do exercício'}
+                        />
+                        <Typography variant="caption" color="text.secondary">
+                          Mostramos o vídeo diretamente no cartão do exercício.
+                        </Typography>
+                      </Stack>
                     ) : (
                       <Typography variant="caption" color="text.secondary">
                         Partilha um link de vídeo para reforçar a explicação (opcional).
