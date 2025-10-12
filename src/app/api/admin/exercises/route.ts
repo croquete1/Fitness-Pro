@@ -1,9 +1,18 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
+import { parseTagList } from '@/lib/exercises/tags';
+import { getSessionUser } from '@/lib/sessions';
+import { toAppRole } from '@/lib/roles';
 
 const DEFAULT_PAGE_SIZE = 20;
 
 export async function GET(req: Request) {
+  const me = await getSessionUser();
+  if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (toAppRole((me as any).role) !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   const sb = createServerClient();
   const { searchParams } = new URL(req.url);
 
@@ -19,8 +28,12 @@ export async function GET(req: Request) {
     const difficulties = new Set<string>();
 
     for (const row of data ?? []) {
-      if (row.muscle_group) muscles.add(String(row.muscle_group));
-      if (row.equipment) equipments.add(String(row.equipment));
+      for (const tag of parseTagList(row.muscle_group as any)) {
+        muscles.add(tag);
+      }
+      for (const tag of parseTagList(row.equipment as any)) {
+        equipments.add(tag);
+      }
       if (row.difficulty) difficulties.add(String(row.difficulty));
     }
 
@@ -41,7 +54,7 @@ export async function GET(req: Request) {
   let query = sb
     .from('exercises')
     .select(
-      'id,name,muscle_group,equipment,difficulty,description,video_url,is_global,is_published,published_at,owner_id,created_at,updated_at,owner:users!exercises_owner_id_fkey(id,name,email)',
+      'id,name,muscle_group,equipment,difficulty,description,video_url,is_global,is_published,published_at,owner_id,created_at,updated_at,created_by,owner:users!exercises_owner_id_fkey(id,name,email),creator:users!exercises_created_by_fkey(id,name,email)',
       { count: 'exact' },
     )
     .order('created_at', { ascending: false, nullsFirst: false });
@@ -84,6 +97,12 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const me = await getSessionUser();
+  if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (toAppRole((me as any).role) !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   const sb = createServerClient();
   const body = await req.json().catch(() => ({}));
 
@@ -91,6 +110,8 @@ export async function POST(req: Request) {
   if (!name || name.length < 2) {
     return NextResponse.json({ error: 'Nome inválido' }, { status: 400 });
   }
+
+  const nowIso = new Date().toISOString();
 
   const payload = {
     name,
@@ -101,17 +122,18 @@ export async function POST(req: Request) {
     video_url: body.video_url ?? null,
     is_global: true,
     owner_id: null,
+    created_by: me.id,
     is_published: Boolean(body?.is_published),
-    published_at: body?.is_published ? new Date().toISOString() : null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    published_at: body?.is_published ? nowIso : null,
+    created_at: nowIso,
+    updated_at: nowIso,
   };
 
   const { data, error } = await sb
     .from('exercises')
     .insert(payload)
     .select(
-      'id,name,muscle_group,equipment,difficulty,description,video_url,is_global,is_published,published_at,owner_id,created_at,updated_at',
+      'id,name,muscle_group,equipment,difficulty,description,video_url,is_global,is_published,published_at,owner_id,created_at,updated_at,created_by',
     )
     .single();
 
