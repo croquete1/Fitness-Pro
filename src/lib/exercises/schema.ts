@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { formatTagList } from './tags';
 
 export const DIFFICULTY_OPTIONS = ['Fácil', 'Média', 'Difícil'] as const;
 
@@ -21,12 +22,12 @@ export const ExerciseFormSchema = z.object({
     .string()
     .optional()
     .nullable()
-    .transform((v) => (v ?? '') || undefined),
+    .transform((v) => formatTagList(v) ?? undefined),
   equipment: z
     .string()
     .optional()
     .nullable()
-    .transform((v) => (v ?? '') || undefined),
+    .transform((v) => formatTagList(v) ?? undefined),
   difficulty: z
     .enum(DIFFICULTY_OPTIONS)
     .optional()
