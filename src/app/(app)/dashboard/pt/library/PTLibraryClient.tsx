@@ -202,15 +202,22 @@ export default function PTLibraryClient({ initialScope = 'personal' }: { initial
       field: 'origin',
       headerName: 'Origem',
       width: 150,
-      valueGetter: (params: any) => (params.row.is_global ? 'Catálogo global' : 'Minha biblioteca'),
-      renderCell: (params) => (
-        <Chip
-          size="small"
-          label={params.row.is_global ? 'Catálogo global' : 'Minha biblioteca'}
-          color={params.row.is_global ? 'default' : 'primary'}
-          variant={params.row.is_global ? 'outlined' : 'filled'}
-        />
-      ),
+      valueGetter: (params: any) => {
+        const row = (params?.row ?? {}) as LibraryRow;
+        return row.is_global ? 'Catálogo global' : 'Minha biblioteca';
+      },
+      renderCell: (params) => {
+        const row = (params?.row ?? {}) as LibraryRow;
+        const isGlobal = Boolean(row.is_global);
+        return (
+          <Chip
+            size="small"
+            label={isGlobal ? 'Catálogo global' : 'Minha biblioteca'}
+            color={isGlobal ? 'default' : 'primary'}
+            variant={isGlobal ? 'outlined' : 'filled'}
+          />
+        );
+      },
     },
     {
       field: 'actions',
@@ -218,43 +225,47 @@ export default function PTLibraryClient({ initialScope = 'personal' }: { initial
       width: 210,
       sortable: false,
       filterable: false,
-      renderCell: (params) => (
-        <Stack direction="row" spacing={0.5} alignItems="center">
-          <Tooltip title="Pré-visualizar detalhes">
-            <span>
-              <IconButton size="small" onClick={() => setPreview(params.row)}>
-                <VisibilityOutlined fontSize="small" />
-              </IconButton>
-            </span>
-          </Tooltip>
-          {params.row.is_global ? (
-            <Tooltip title="Copiar para a minha biblioteca">
+      renderCell: (params) => {
+        const row = (params?.row ?? null) as LibraryRow | null;
+        if (!row) return null;
+        return (
+          <Stack direction="row" spacing={0.5} alignItems="center">
+            <Tooltip title="Pré-visualizar detalhes">
               <span>
-                <IconButton size="small" onClick={() => cloneExercise(params.row)}>
-                  <FileCopyOutlined fontSize="small" />
+                <IconButton size="small" onClick={() => setPreview(row)}>
+                  <VisibilityOutlined fontSize="small" />
                 </IconButton>
               </span>
             </Tooltip>
-          ) : (
-            <>
-              <Tooltip title="Editar exercício">
+            {row.is_global ? (
+              <Tooltip title="Copiar para a minha biblioteca">
                 <span>
-                  <IconButton size="small" onClick={() => setEditing(params.row)}>
-                    <EditOutlined fontSize="small" />
+                  <IconButton size="small" onClick={() => cloneExercise(row)}>
+                    <FileCopyOutlined fontSize="small" />
                   </IconButton>
                 </span>
               </Tooltip>
-              <Tooltip title="Remover exercício">
-                <span>
-                  <IconButton size="small" color="error" onClick={() => deleteExercise(params.row)}>
-                    <DeleteOutline fontSize="small" />
-                  </IconButton>
-                </span>
-              </Tooltip>
-            </>
-          )}
-        </Stack>
-      ),
+            ) : (
+              <>
+                <Tooltip title="Editar exercício">
+                  <span>
+                    <IconButton size="small" onClick={() => setEditing(row)}>
+                      <EditOutlined fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                <Tooltip title="Remover exercício">
+                  <span>
+                    <IconButton size="small" color="error" onClick={() => deleteExercise(row)}>
+                      <DeleteOutline fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </>
+            )}
+          </Stack>
+        );
+      },
     },
   ], [cloneExercise, deleteExercise]);
 

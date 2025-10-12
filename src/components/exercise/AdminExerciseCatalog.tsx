@@ -10,6 +10,7 @@ type Exercise = {
   muscle_group?: string | null;
   difficulty?: string | null;
   owner?: { id: string; name: string | null; email: string | null } | null;
+  video_url?: string | null;
 };
 
 export default function AdminExerciseCatalog() {
@@ -33,6 +34,7 @@ export default function AdminExerciseCatalog() {
           difficulty: ex.difficulty ?? ex.level ?? null,
           is_published: ex.is_published ?? ex.published ?? false,
           owner: ex.owner ?? null,
+          video_url: ex.video_url ?? ex.gif_url ?? ex.preview_url ?? ex.media_url ?? null,
         })),
       );
     } catch (e) {
@@ -69,55 +71,104 @@ export default function AdminExerciseCatalog() {
         <div className="text-muted">Sem resultados.</div>
       ) : (
         <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 10 }}>
-          {list.map((ex) => (
-            <li key={ex.id} className="card" style={{ padding: 12, display: 'grid', gap: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                <div style={{ minWidth: 0 }}>
+          {list.map((ex) => {
+            const mediaUrl = typeof ex.video_url === 'string' ? ex.video_url.trim() : '';
+            const cleanUrl = mediaUrl.split('?')[0] ?? '';
+            const ext = cleanUrl.includes('.') ? cleanUrl.split('.').pop()?.toLowerCase() : undefined;
+            const isVideo = !!ext && ['mp4', 'webm', 'mov', 'm4v'].includes(ext);
+
+            return (
+              <li key={ex.id} className="card" style={{ padding: 12 }}>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>
                   <div
                     style={{
-                      fontWeight: 600,
-                      lineHeight: 1.2,
+                      width: 80,
+                      height: 80,
+                      borderRadius: 12,
                       overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: 'linear-gradient(135deg, rgba(59,130,246,.08), rgba(16,185,129,.12))',
                     }}
                   >
-                    {ex.name ?? `Exercício ${ex.id.slice(0, 6)}`}
-                  </div>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
-                    {ex.muscle_group && (
-                      <span className="chip" style={{ fontSize: 11 }}>
-                        {ex.muscle_group}
+                    {mediaUrl ? (
+                      isVideo ? (
+                        <video
+                          src={mediaUrl}
+                          muted
+                          loop
+                          playsInline
+                          autoPlay
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <img
+                          src={mediaUrl}
+                          alt={`Pré-visualização do exercício ${ex.name ?? ''}`.trim() || 'Pré-visualização do exercício'}
+                          loading="lazy"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      )
+                    ) : (
+                      <span role="img" aria-label="Exercício" style={{ fontSize: 32 }}>
+                        💪
                       </span>
                     )}
-                    {ex.difficulty && (
-                      <span className="chip" style={{ fontSize: 11, background: 'rgba(59,130,246,.12)', color: '#1d4ed8' }}>
-                        {ex.difficulty}
-                      </span>
-                    )}
                   </div>
-                  {ex.owner?.name && <div style={{ fontSize: 11, opacity: 0.7 }}>Autor: {ex.owner.name}</div>}
+
+                  <div style={{ flex: 1, display: 'grid', gap: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontWeight: 600,
+                            lineHeight: 1.2,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {ex.name ?? `Exercício ${ex.id.slice(0, 6)}`}
+                        </div>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+                          {ex.muscle_group && (
+                            <span className="chip" style={{ fontSize: 11 }}>
+                              {ex.muscle_group}
+                            </span>
+                          )}
+                          {ex.difficulty && (
+                            <span className="chip" style={{ fontSize: 11, background: 'rgba(59,130,246,.12)', color: '#1d4ed8' }}>
+                              {ex.difficulty}
+                            </span>
+                          )}
+                        </div>
+                        {ex.owner?.name && <div style={{ fontSize: 11, opacity: 0.7 }}>Autor: {ex.owner.name}</div>}
+                      </div>
+
+                      <span
+                        className="chip"
+                        style={{
+                          background: ex.is_published ? 'rgba(16,185,129,.12)' : 'rgba(156,163,175,.12)',
+                          color: ex.is_published ? '#065f46' : '#374151',
+                          borderColor: ex.is_published ? '#10b98133' : '#9ca3af33',
+                          fontWeight: 600,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {ex.is_published ? 'Publicado' : 'Não publicado'}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <PublishToggle id={ex.id} published={!!ex.is_published} onChange={() => load()} />
+                    </div>
+                  </div>
                 </div>
-
-                {/* Badge de estado */}
-                <span
-                  className="chip"
-                  style={{
-                    background: ex.is_published ? 'rgba(16,185,129,.12)' : 'rgba(156,163,175,.12)',
-                    color: ex.is_published ? '#065f46' : '#374151',
-                    borderColor: ex.is_published ? '#10b98133' : '#9ca3af33',
-                    fontWeight: 600,
-                  }}
-                >
-                  {ex.is_published ? 'Publicado' : 'Não publicado'}
-                </span>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <PublishToggle id={ex.id} published={!!ex.is_published} onChange={() => load()} />
-              </div>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

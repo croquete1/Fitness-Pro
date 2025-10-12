@@ -21,7 +21,7 @@ async function loadTrainerDashboard(trainerId: string | null): Promise<{ data: T
   try {
     const { data: linkRows, error: linkError } = await sb
       .from('trainer_clients')
-      .select('client_id,status')
+      .select('client_id')
       .eq('trainer_id', trainerId)
       .limit(200);
 
