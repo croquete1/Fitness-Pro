@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { Container, Typography, Stack, Button, Card, CardContent, Chip } from '@mui/material';
 import { createServerClient } from '@/lib/supabaseServer';
+import { withDashboardContentSx } from '@/styles/dashboardContentSx';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +24,7 @@ export default async function PlanDayBlocksPage({ params }: { params: Promise<Pa
     .order('order_index', { ascending: true });
 
   return (
-    <Container maxWidth={false} sx={{ width: '100%', py: 3, px: { xs: 2, md: 3 } }}>
+    <Container sx={withDashboardContentSx({ display: 'grid', gap: 2 })}>
       <Stack direction="row" spacing={1} alignItems="center">
         <Typography variant="h5" fontWeight={800}>🏋️ Blocos do dia</Typography>
         <Chip size="small" label={`${(blocks ?? []).length}`} />

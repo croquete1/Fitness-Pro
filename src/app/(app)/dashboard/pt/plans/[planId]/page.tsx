@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { Box, Container, Stack, Typography, Card, CardContent, Button, Chip } from '@mui/material';
 import Link from 'next/link';
 import { createServerClient } from '@/lib/supabaseServer';
+import { withDashboardContentSx } from '@/styles/dashboardContentSx';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,7 +26,7 @@ export default async function PlanPage({ params }: { params: Promise<Params> }) 
 
   if (!plan) {
     return (
-      <Container maxWidth={false} sx={{ py: 3, px: { xs: 2, md: 3 }, width: '100%' }}>
+      <Container sx={withDashboardContentSx({ display: 'grid', gap: 2 })}>
         <Typography variant="h5" fontWeight={800}>🗂️ Plano</Typography>
         <Typography color="text.secondary" sx={{ mt: 2 }}>Plano não encontrado.</Typography>
       </Container>
@@ -40,7 +41,7 @@ export default async function PlanPage({ params }: { params: Promise<Params> }) 
     .order('order_index', { ascending: true });
 
   return (
-    <Container maxWidth={false} sx={{ py: 3, px: { xs: 2, md: 3 }, width: '100%' }}>
+    <Container sx={withDashboardContentSx({ display: 'grid', gap: 2 })}>
       <Stack direction="row" alignItems="center" spacing={1}>
         <Typography variant="h5" fontWeight={800}>🗂️ {plan.title || 'Plano'}</Typography>
         <Chip size="small" label="PT" color="primary" />
