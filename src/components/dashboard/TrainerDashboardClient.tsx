@@ -66,6 +66,12 @@ type AgendaDay = {
   sessions: AgendaSession[];
 };
 
+const emojiFloat = keyframes`
+  0% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-4px) scale(1.08); }
+  100% { transform: translateY(0) scale(1); }
+`;
+
 export type TrainerDashboardData = {
   stats: {
     totalClients: number;
