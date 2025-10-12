@@ -34,7 +34,7 @@ import NextLink from 'next/link';
 import { greetingForDate } from '@/lib/time';
 import { startOfWeek, addDays } from 'date-fns';
 
-const emojiFloat = keyframes`
+const greetingEmojiFloat = keyframes`
   0% { transform: translateY(0) scale(1); }
   50% { transform: translateY(-4px) scale(1.08); }
   100% { transform: translateY(0) scale(1); }
@@ -65,12 +65,6 @@ type AgendaDay = {
   label: string;
   sessions: AgendaSession[];
 };
-
-const emojiFloat = keyframes`
-  0% { transform: translateY(0) scale(1); }
-  50% { transform: translateY(-4px) scale(1.08); }
-  100% { transform: translateY(0) scale(1); }
-`;
 
 export type TrainerDashboardData = {
   stats: {
@@ -316,7 +310,7 @@ export default function TrainerDashboardClient({ name, data, supabase }: Props) 
               sx={{
                 display: 'inline-flex',
                 mr: 1.5,
-                animation: `${emojiFloat} 4s ease-in-out infinite`,
+                animation: `${greetingEmojiFloat} 4s ease-in-out infinite`,
                 transformOrigin: 'center',
               }}
               aria-hidden
