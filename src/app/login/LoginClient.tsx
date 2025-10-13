@@ -29,7 +29,7 @@ import { keyframes, useTheme } from '@mui/material/styles';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useSearchParams } from 'next/navigation';
 import { z } from 'zod';
-import { brand } from '@/lib/brand';
+import { brand, brandFallbackLogos, resolveBrandLogos } from '@/lib/brand';
 
 const loginSchema = z.object({
   identifier: z.string().trim().min(1, 'Indica o email ou o username'),
@@ -114,20 +114,32 @@ export default function LoginClient() {
   const [fieldErr, setFieldErr] = React.useState<{ identifier?: string; password?: string }>({});
   const theme = useTheme();
   const mode = theme.palette.mode;
-  const fallbackLogo = mode === 'dark' ? '/brand/hms-logo-dark.png' : '/brand/hms-logo-light.png';
-  const preferredLogo =
-    mode === 'dark'
-      ? brand.logoDark ?? brand.logoLight ?? fallbackLogo
-      : brand.logoLight ?? brand.logoDark ?? fallbackLogo;
-  const [logoSrc, setLogoSrc] = React.useState(preferredLogo);
+  const logoCandidates = React.useMemo(
+    () => resolveBrandLogos(mode === 'dark' ? 'dark' : 'light'),
+    [mode],
+  );
+  const logoCandidateKey = React.useMemo(
+    () => logoCandidates.join('|'),
+    [logoCandidates],
+  );
+  const [logoIndex, setLogoIndex] = React.useState(0);
 
   React.useEffect(() => {
-    setLogoSrc(preferredLogo);
-  }, [preferredLogo]);
+    setLogoIndex(0);
+  }, [logoCandidateKey]);
+
+  const logoSrc =
+    logoCandidates[logoIndex] ??
+    (mode === 'dark' ? brandFallbackLogos.dark : brandFallbackLogos.light);
 
   const handleLogoError = React.useCallback(() => {
-    setLogoSrc((prev) => (prev === fallbackLogo ? prev : fallbackLogo));
-  }, [fallbackLogo]);
+    setLogoIndex((prev) => {
+      if (prev + 1 < logoCandidates.length) {
+        return prev + 1;
+      }
+      return prev;
+    });
+  }, [logoCandidates]);
 
   React.useEffect(() => { setErr(mapAuthError(errParam)); }, [errParam]);
   React.useEffect(() => {
@@ -387,6 +399,7 @@ export default function LoginClient() {
                   }}
                 >
                   <Image
+                    key={logoSrc}
                     src={logoSrc}
                     alt={`Logótipo ${brand.name}`}
                     fill
