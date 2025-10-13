@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { tryGetSBC } from '@/lib/supabase/server';
 import { supabaseConfigErrorResponse, supabaseFallbackJson } from '@/lib/supabase/responses';
+import { logAudit, AUDIT_KINDS, AUDIT_TARGET_TYPES } from '@/lib/audit';
 
 const PatchSchema = z.object({
   trainer_id: z.string().optional(),
@@ -28,11 +29,26 @@ export async function PATCH(_req: Request, ctx: Ctx) {
     const body = await _req.json();
     const patch = PatchSchema.parse(body);
 
+    const { data: before } = await sb
+      .from('pts_sessions')
+      .select('id, trainer_id, client_id, start_time, end_time, status, location')
+      .eq('id', id)
+      .maybeSingle();
+
     const { error } = await sb.from('pts_sessions')
       .update(patch)
       .eq('id', id);
 
     if (error) throw error;
+    const { data: { user } } = await sb.auth.getUser();
+    await logAudit(sb, {
+      actorId: user?.id ?? null,
+      kind: AUDIT_KINDS.UPDATE,
+      targetType: AUDIT_TARGET_TYPES.SESSION,
+      targetId: id,
+      message: 'Atualização de sessão PT',
+      details: { before, patch },
+    });
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     const config = supabaseConfigErrorResponse(e);
@@ -51,11 +67,26 @@ export async function DELETE(_req: Request, ctx: Ctx) {
         { status: 503 }
       );
     }
+    const { data: before } = await sb
+      .from('pts_sessions')
+      .select('id, trainer_id, client_id, start_time, end_time, status, location')
+      .eq('id', id)
+      .maybeSingle();
+
     const { error } = await sb.from('pts_sessions')
       .delete()
       .eq('id', id);
 
     if (error) throw error;
+    const { data: { user } } = await sb.auth.getUser();
+    await logAudit(sb, {
+      actorId: user?.id ?? null,
+      kind: AUDIT_KINDS.DELETE,
+      targetType: AUDIT_TARGET_TYPES.SESSION,
+      targetId: id,
+      message: 'Remoção de sessão PT',
+      details: { before },
+    });
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     const config = supabaseConfigErrorResponse(e);
