@@ -16,6 +16,7 @@ import ListAltOutlined from '@mui/icons-material/ListAltOutlined';
 import CalendarMonthOutlined from '@mui/icons-material/CalendarMonthOutlined';
 import NotificationsOutlined from '@mui/icons-material/NotificationsOutlined';
 import SettingsOutlined from '@mui/icons-material/SettingsOutlined';
+import PolicyOutlined from '@mui/icons-material/PolicyOutlined';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 
@@ -54,6 +55,12 @@ export default function SidebarAdmin({
     { href: '/dashboard/admin/pts-schedule', label: 'Agenda PTs', icon: <CalendarMonthOutlined />, activePrefix: '/dashboard/admin/pts-schedule', badge: ptsTodayCount },
   ];
   const definicoes: Nav[] = [
+    {
+      href: '/dashboard/admin/audit-log',
+      label: 'Auditoria',
+      icon: <PolicyOutlined />,
+      activePrefix: '/dashboard/admin/audit-log',
+    },
     {
       href: '/dashboard/admin/notifications',
       label: 'Notificações',
