@@ -25,6 +25,7 @@ function isPublic(pathname: string) {
     pathname.startsWith('/_next') ||
     pathname.startsWith('/assets') ||
     pathname.startsWith('/images') ||
+    pathname.startsWith('/brand') ||
     pathname === '/favicon.ico' ||
     pathname.startsWith('/manifest') ||
     pathname === '/sw.js')
