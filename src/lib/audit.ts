@@ -66,6 +66,11 @@ type InsertLike = {
   targetId?: string | number | null;
   actor_id?: string | null;
   actorId?: string | null;
+  actor?: string | null;
+  actor_name?: string | null;
+  actorName?: string | null;
+  actor_label?: string | null;
+  actorLabel?: string | null;
   note?: string | null;
   message?: string | null;
   details?: unknown;
@@ -74,6 +79,58 @@ type InsertLike = {
   data?: unknown;
   diff?: unknown;
 };
+
+function firstNonEmptyString(values: (unknown | null | undefined)[]): string | null {
+  for (const value of values) {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed) return trimmed;
+    }
+  }
+  return null;
+}
+
+function normalizeActor(input: unknown): string | null {
+  if (input == null) return null;
+  if (typeof input === 'string') {
+    const trimmed = input.trim();
+    return trimmed.length ? trimmed : null;
+  }
+  if (typeof input === 'object') {
+    const name = firstNonEmptyString([
+      (input as any)?.name,
+      (input as any)?.full_name,
+      (input as any)?.fullName,
+      (input as any)?.display_name,
+      (input as any)?.displayName,
+      (input as any)?.email,
+    ]);
+    if (name) return name;
+  }
+  try {
+    const str = String(input);
+    return str.trim().length ? str.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+function deriveActorFromAuthUser(user: any): { actorId: string | null; actorLabel: string | null } {
+  if (!user) return { actorId: null, actorLabel: null };
+  const actorId = typeof user.id === 'string' && user.id ? user.id : null;
+  const meta = typeof user.user_metadata === 'object' ? user.user_metadata : null;
+  const label = firstNonEmptyString([
+    meta?.full_name,
+    meta?.fullName,
+    meta?.name,
+    meta?.display_name,
+    meta?.displayName,
+    user.name,
+    user.email,
+    actorId,
+  ]);
+  return { actorId, actorLabel: label };
+}
 
 export function logAudit(client: SupabaseClient, payload: InsertLike): Promise<void>;
 export function logAudit(payload: InsertLike): Promise<void>;
@@ -90,7 +147,24 @@ export async function logAudit(clientOrPayload: SupabaseClient | InsertLike, may
       ? null
       : String(rawTargetId);
 
-  const actor_id = payload.actor_id ?? payload.actorId ?? null;
+  let actor_id = payload.actor_id ?? payload.actorId ?? null;
+  let actor = normalizeActor(
+    payload.actor ?? payload.actor_name ?? payload.actorName ?? payload.actor_label ?? payload.actorLabel ?? null
+  );
+
+  if (!actor_id || !actor) {
+    try {
+      const { data, error } = await sb.auth.getUser();
+      if (!error && data?.user) {
+        const derived = deriveActorFromAuthUser(data.user);
+        if (!actor_id) actor_id = derived.actorId;
+        if (!actor) actor = derived.actorLabel;
+      }
+    } catch (err) {
+      console.warn('[audit] falha ao obter utilizador autenticado para auditoria', err);
+    }
+  }
+
   const note = (payload.message ?? payload.note ?? null) as string | null;
   const details =
     payload.details ??
@@ -105,6 +179,7 @@ export async function logAudit(clientOrPayload: SupabaseClient | InsertLike, may
     target_type,
     target_id,
     actor_id,
+    actor: actor ?? actor_id,
     note,
     details,
     created_at: new Date().toISOString(),

@@ -40,10 +40,19 @@ export async function writeAudit(kind: AuditKind, payload: AuditPayload = {}) {
     null;
   const ua = hdrs.get('user-agent') || null;
 
+  const actorLabel =
+    me?.name?.trim() ||
+    me?.user?.name?.trim() ||
+    me?.email?.trim() ||
+    me?.user?.email?.trim() ||
+    me?.id ||
+    null;
+
   const row = {
     kind,
     payload,            // ↩ se a coluna no Supabase for `data`, troca para `data: payload`
     actor_id: me?.id ?? null,
+    actor: actorLabel,
     ip,
     user_agent: ua,
   };
