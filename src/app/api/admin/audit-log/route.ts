@@ -29,6 +29,109 @@ type MetaResponse = {
   actors: { id: string | null; label: string | null }[];
 };
 
+type ActorOption = { id: string | null; label: string | null };
+
+type ActorHydrationResult = {
+  rows: AuditRow[];
+  actors?: ActorOption[];
+};
+
+function firstNonEmptyString(values: (string | null | undefined)[]): string | null {
+  for (const value of values) {
+    if (value) {
+      const trimmed = value.trim();
+      if (trimmed) return trimmed;
+    }
+  }
+  return null;
+}
+
+async function hydrateActors(
+  sb: ReturnType<typeof createServerClient>,
+  rows: AuditRow[],
+  metaActors?: ActorOption[]
+): Promise<ActorHydrationResult> {
+  const candidateIds = new Set<string>();
+
+  rows.forEach((row) => {
+    if (!row.actor_id) return;
+    const actor = row.actor ? row.actor.trim() : '';
+    if (!actor || actor === row.actor_id) candidateIds.add(row.actor_id);
+  });
+
+  metaActors?.forEach((option) => {
+    if (!option?.id) return;
+    const label = option.label ? option.label.trim() : '';
+    if (!label || label === option.id) candidateIds.add(option.id);
+  });
+
+  if (!candidateIds.size) {
+    return { rows, actors: metaActors };
+  }
+
+  const ids = Array.from(candidateIds);
+  const labels = new Map<string, string>();
+
+  try {
+    const { data: profileRows, error: profileError } = await sb
+      .from('profiles')
+      .select('id, name, full_name')
+      .in('id', ids)
+      .limit(ids.length);
+    if (!profileError && Array.isArray(profileRows)) {
+      for (const row of profileRows) {
+        const id = typeof row?.id === 'string' ? row.id : null;
+        if (!id) continue;
+        const label = firstNonEmptyString([row?.name ?? null, row?.full_name ?? null]);
+        if (label) labels.set(id, label);
+      }
+    }
+  } catch (err) {
+    console.warn('[audit-log] falha ao hidratar perfis de atores', err);
+  }
+
+  const missingAfterProfiles = ids.filter((id) => !labels.has(id));
+  if (missingAfterProfiles.length) {
+    try {
+      const { data: userRows, error: userError } = await sb
+        .from('users')
+        .select('id, name, email')
+        .in('id', missingAfterProfiles)
+        .limit(missingAfterProfiles.length);
+      if (!userError && Array.isArray(userRows)) {
+        for (const row of userRows) {
+          const id = typeof row?.id === 'string' ? row.id : null;
+          if (!id) continue;
+          const label = firstNonEmptyString([row?.name ?? null, row?.email ?? null]);
+          if (label) labels.set(id, label);
+        }
+      }
+    } catch (err) {
+      console.warn('[audit-log] falha ao hidratar utilizadores', err);
+    }
+  }
+
+  const hydratedRows = rows.map((row) => {
+    if (!row.actor_id) return row;
+    const label = labels.get(row.actor_id);
+    if (!label) return row;
+    const current = row.actor ? row.actor.trim() : '';
+    if (current && current !== row.actor_id) return row;
+    return { ...row, actor: label };
+  });
+
+  const hydratedMeta = metaActors?.map((option) => {
+    if (!option?.id) return option;
+    const label = labels.get(option.id);
+    if (!label) return option;
+    const current = option.label ? option.label.trim() : '';
+    if (current && current !== option.id) return option;
+    return { ...option, label };
+  });
+
+  return { rows: hydratedRows, actors: hydratedMeta };
+}
+
 function dedupe<T>(values: (T | null | undefined)[]): T[] {
   const seen = new Set<string>();
   const result: T[] = [];
@@ -189,12 +292,14 @@ export async function GET(req: NextRequest) {
           meta = { kinds, targetTypes, actors };
         }
 
+        const hydrated = await hydrateActors(sb, items, meta?.actors);
+
         return NextResponse.json({
-          items,
+          items: hydrated.rows,
           count: count ?? items.length,
           page,
           pageSize,
-          meta,
+          meta: meta ? { ...meta, actors: hydrated.actors ?? meta.actors } : undefined,
           missingTable: false,
         });
       } catch (err) {
