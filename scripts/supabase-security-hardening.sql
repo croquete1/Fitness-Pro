@@ -12,17 +12,156 @@ begin;
 /*  Helpers: funções utilitárias para políticas                               */
 /* -------------------------------------------------------------------------- */
 
+create or replace function public.jwt_claims()
+returns jsonb
+language plpgsql
+stable
+as $$
+declare
+  raw_claims text;
+begin
+  raw_claims := current_setting('request.jwt.claims', true);
+  if raw_claims is null or raw_claims = '' then
+    return null;
+  end if;
+
+  return raw_claims::jsonb;
+exception
+  when others then
+    return null;
+end;
+$$;
+
+create or replace function public.jwt_roles()
+returns text[]
+language plpgsql
+stable
+as $$
+declare
+  claims jsonb;
+  raw text;
+  roles text[] := array[]::text[];
+begin
+  claims := public.jwt_claims();
+  if claims is null then
+    return roles;
+  end if;
+
+  foreach raw in array array[
+    claims ->> 'app_role',
+    claims ->> 'role',
+    claims #>> '{app_metadata,app_role}',
+    claims #>> '{app_metadata,role}',
+    claims #>> '{user,app_role}',
+    claims #>> '{user,role}',
+    claims #>> '{user,app_metadata,app_role}',
+    claims #>> '{user,app_metadata,role}',
+    claims #>> '{user,user_metadata,role}'
+  ]
+  loop
+    if raw is not null and btrim(raw) <> '' then
+      roles := array_append(roles, upper(btrim(raw)));
+    end if;
+  end loop;
+
+  if jsonb_typeof(claims -> 'roles') = 'array' then
+    for raw in select value from jsonb_array_elements_text(claims -> 'roles') loop
+      if raw is not null and btrim(raw) <> '' then
+        roles := array_append(roles, upper(btrim(raw)));
+      end if;
+    end loop;
+  end if;
+
+  if jsonb_typeof(claims -> 'user_roles') = 'array' then
+    for raw in select value from jsonb_array_elements_text(claims -> 'user_roles') loop
+      if raw is not null and btrim(raw) <> '' then
+        roles := array_append(roles, upper(btrim(raw)));
+      end if;
+    end loop;
+  end if;
+
+  if jsonb_typeof(claims -> 'app_roles') = 'array' then
+    for raw in select value from jsonb_array_elements_text(claims -> 'app_roles') loop
+      if raw is not null and btrim(raw) <> '' then
+        roles := array_append(roles, upper(btrim(raw)));
+      end if;
+    end loop;
+  end if;
+
+  if jsonb_typeof(claims #> '{app_metadata,roles}') = 'array' then
+    for raw in select value from jsonb_array_elements_text(claims #> '{app_metadata,roles}') loop
+      if raw is not null and btrim(raw) <> '' then
+        roles := array_append(roles, upper(btrim(raw)));
+      end if;
+    end loop;
+  end if;
+
+  if jsonb_typeof(claims #> '{user,roles}') = 'array' then
+    for raw in select value from jsonb_array_elements_text(claims #> '{user,roles}') loop
+      if raw is not null and btrim(raw) <> '' then
+        roles := array_append(roles, upper(btrim(raw)));
+      end if;
+    end loop;
+  end if;
+
+  if jsonb_typeof(claims #> '{user,app_roles}') = 'array' then
+    for raw in select value from jsonb_array_elements_text(claims #> '{user,app_roles}') loop
+      if raw is not null and btrim(raw) <> '' then
+        roles := array_append(roles, upper(btrim(raw)));
+      end if;
+    end loop;
+  end if;
+
+  if jsonb_typeof(claims #> '{user,user_roles}') = 'array' then
+    for raw in select value from jsonb_array_elements_text(claims #> '{user,user_roles}') loop
+      if raw is not null and btrim(raw) <> '' then
+        roles := array_append(roles, upper(btrim(raw)));
+      end if;
+    end loop;
+  end if;
+
+  return coalesce((
+    select array_agg(distinct r) from unnest(roles) as t(r) where r is not null and r <> ''
+  ), array[]::text[]);
+exception
+  when others then
+    return array[]::text[];
+end;
+$$;
+
+create or replace function public.jwt_role()
+returns text
+language sql
+stable
+as $$
+  select public.jwt_roles()[1];
+$$;
+
+create or replace function public.jwt_has_role(target text)
+returns boolean
+language sql
+stable
+as $$
+  select
+    target is not null
+    and exists (
+      select 1 from unnest(public.jwt_roles()) as role where role = upper(target)
+    );
+$$;
+
 create or replace function public.is_admin(uid uuid)
 returns boolean
 language sql
 stable
 as $$
-  select exists(
-    select 1
-    from public.users u
-    where u.id = uid
-      and u.role::text ilike 'admin'
-  );
+  select
+    public.jwt_has_role('ADMIN')
+    or exists(
+      select 1
+      from public.users u
+      where u.id = uid
+        and u.role::text ilike 'admin'
+    );
 $$;
 
 create or replace function public.is_trainer(uid uuid)
@@ -30,12 +169,15 @@ returns boolean
 language sql
 stable
 as $$
-  select exists(
-    select 1
-    from public.users u
-    where u.id = uid
-      and u.role::text ilike any (array['trainer', 'pt'])
-  );
+  select
+    public.jwt_has_role('PT')
+    or public.jwt_has_role('TRAINER')
+    or exists(
+      select 1
+      from public.users u
+      where u.id = uid
+        and u.role::text ilike any (array['trainer', 'pt'])
+    );
 $$;
 
 create or replace function public.is_client(uid uuid)
@@ -43,12 +185,14 @@ returns boolean
 language sql
 stable
 as $$
-  select exists(
-    select 1
-    from public.users u
-    where u.id = uid
-      and u.role::text ilike 'client'
-  );
+  select
+    public.jwt_has_role('CLIENT')
+    or exists(
+      select 1
+      from public.users u
+      where u.id = uid
+        and u.role::text ilike 'client'
+    );
 $$;
 
 do $$
@@ -182,6 +326,10 @@ alter table if exists public.exercises
   add column if not exists created_at timestamptz not null default timezone('utc', now()),
   add column if not exists updated_at timestamptz not null default timezone('utc', now());
 
+alter table if exists public.exercises
+  alter column owner_id drop default,
+  alter column owner_id set default auth.uid();
+
 do $$
 begin
   if exists (
@@ -211,6 +359,18 @@ begin
     update public.exercises
     set updated_at = timezone('utc', now())
     where updated_at is null;
+
+    if exists (
+      select 1
+      from information_schema.columns
+      where table_schema = 'public'
+        and table_name = 'exercises'
+        and column_name = 'created_by'
+    ) then
+      update public.exercises
+      set owner_id = created_by
+      where owner_id is null and coalesce(is_global, false) = false and created_by is not null;
+    end if;
 
     execute 'alter table public.exercises drop constraint if exists exercises_owner_id_fkey';
     execute 'alter table public.exercises add constraint exercises_owner_id_fkey foreign key (owner_id) references public.users(id) on delete set null';
