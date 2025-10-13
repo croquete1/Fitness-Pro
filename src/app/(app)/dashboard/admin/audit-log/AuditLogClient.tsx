@@ -278,9 +278,9 @@ export default function AuditLogClient() {
       const label = params.row.target ?? params.row.target_id ?? "—";
       return (
         <Stack direction="column" spacing={0.5}>
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack direction={downSm ? "column" : "row"} spacing={downSm ? 0.5 : 1} alignItems={downSm ? "flex-start" : "center"}>
             <TopicOutlined fontSize="inherit" />
-            <Typography variant="body2" fontWeight={600} noWrap>
+            <Typography variant="body2" fontWeight={600} noWrap={!downSm}>
               {label}
             </Typography>
           </Stack>
@@ -296,7 +296,7 @@ export default function AuditLogClient() {
       return (
         <Stack direction="row" spacing={1} alignItems="center">
           <PersonOutline fontSize="inherit" />
-          <Typography variant="body2" noWrap>{label}</Typography>
+          <Typography variant="body2" noWrap={!downSm}>{label}</Typography>
         </Stack>
       );
     };
@@ -356,7 +356,7 @@ export default function AuditLogClient() {
         sortable: false,
         renderCell: (params) => (
           <Tooltip title={params.value ?? "Sem nota"} placement="top-start">
-            <Typography variant="body2" noWrap>
+            <Typography variant="body2" noWrap={!downSm}>
               {params.value ?? "—"}
             </Typography>
           </Tooltip>
@@ -369,7 +369,9 @@ export default function AuditLogClient() {
         minWidth: 140,
         sortable: false,
         renderCell: (params) => (
-          <Typography variant="body2" noWrap>{params.value ?? "—"}</Typography>
+          <Typography variant="body2" noWrap={!downSm}>
+            {params.value ?? "—"}
+          </Typography>
         ),
       },
       {
@@ -381,7 +383,12 @@ export default function AuditLogClient() {
         renderCell: renderDetails,
       },
     ];
-  }, []);
+  }, [downSm]);
+
+  const visibleColumns = React.useMemo(() => {
+    if (!downSm) return columns;
+    return columns.filter((column) => column.field !== "ip" && column.field !== "details");
+  }, [columns, downSm]);
 
   const clearFilters = React.useCallback(() => {
     setFilters({ kind: "", targetType: "", actor: "", actorId: "", search: "" });
@@ -396,12 +403,15 @@ export default function AuditLogClient() {
     return "";
   }, [filters.actor, filters.actorId]);
 
+  const headingVariant = downSm ? "h5" : "h4";
+  const descriptionVariant = downSm ? "body2" : "body1";
+
   return (
     <Stack spacing={2}>
-      <Typography variant="h4" fontWeight={700} sx={{ letterSpacing: -0.2 }}>
+      <Typography variant={headingVariant} fontWeight={700} sx={{ letterSpacing: -0.2 }}>
         Auditoria
       </Typography>
-      <Typography variant="body1" color="text.secondary">
+      <Typography variant={descriptionVariant} color="text.secondary">
         Consulta e exportação dos registos de ações administrativas.
       </Typography>
 
@@ -416,7 +426,7 @@ export default function AuditLogClient() {
       )}
 
       <Card>
-        <CardContent>
+        <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
           <Stack spacing={2}>
             <Grid container spacing={2} alignItems="center">
               <Grid item xs={12} sm={6} md={3}>
@@ -514,12 +524,18 @@ export default function AuditLogClient() {
               </Grid>
             </Grid>
 
-            <Stack direction="row" spacing={1} justifyContent="flex-end">
+            <Stack
+              direction={downSm ? "column" : "row"}
+              spacing={downSm ? 1.5 : 1}
+              justifyContent={downSm ? "stretch" : "flex-end"}
+              alignItems={downSm ? "stretch" : "center"}
+            >
               <Button
-                variant="text"
+                variant={downSm ? "outlined" : "text"}
                 color="inherit"
                 onClick={clearFilters}
                 startIcon={<RefreshOutlined />}
+                fullWidth={downSm}
               >
                 Limpar filtros
               </Button>
@@ -529,6 +545,7 @@ export default function AuditLogClient() {
                 onClick={handleExport}
                 startIcon={<DownloadOutlined />}
                 disabled={exporting || loading}
+                fullWidth={downSm}
               >
                 Exportar CSV
               </Button>
@@ -536,12 +553,19 @@ export default function AuditLogClient() {
 
             <Divider />
 
-            <Box sx={{ width: "100%", height: downSm ? 520 : 640 }}>
+            <Box
+              sx={{
+                width: "100%",
+                height: downSm ? "auto" : 640,
+                minHeight: downSm ? 360 : 520,
+                overflowX: "auto",
+              }}
+            >
               <DataGrid
                 rows={rows}
-                columns={columns}
+                columns={visibleColumns}
                 loading={loading}
-                autoHeight={false}
+                autoHeight={downSm}
                 rowCount={rowCount}
                 pageSizeOptions={[10, 20, 50]}
                 paginationMode="server"
@@ -556,6 +580,9 @@ export default function AuditLogClient() {
                   },
                   "& .MuiDataGrid-cell:focus, & .MuiDataGrid-cell:focus-within": {
                     outline: "none",
+                  },
+                  "& .MuiDataGrid-virtualScroller": {
+                    overflowY: downSm ? "visible" : "auto",
                   },
                 }}
               />
