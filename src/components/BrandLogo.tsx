@@ -2,7 +2,7 @@
 'use client';
 import * as React from 'react';
 import Image from 'next/image';
-import { brand } from '@/lib/brand';
+import { brand, brandFallbackLogos, resolveBrandLogos } from '@/lib/brand';
 
 type Props = {
   size?: number;
@@ -11,8 +11,18 @@ type Props = {
 };
 
 export default function BrandLogo({ size = 56, className, priority = false }: Props) {
-  const [useFallback, setUseFallback] = React.useState(false);
-  const src = useFallback ? '/hms-personal-trainer.png' : '/branding/hms-personal-trainer.svg';
+  const candidates = React.useMemo(() => resolveBrandLogos('any'), []);
+  const [index, setIndex] = React.useState(0);
+  const src = candidates[index] ?? brandFallbackLogos.light;
+
+  const handleLogoError = React.useCallback(() => {
+    setIndex((prev) => {
+      if (prev + 1 < candidates.length) {
+        return prev + 1;
+      }
+      return prev;
+    });
+  }, [candidates]);
 
   return (
     <Image
@@ -22,10 +32,10 @@ export default function BrandLogo({ size = 56, className, priority = false }: Pr
       width={size}
       height={size}
       priority={priority}
-      unoptimized={!useFallback}
+      unoptimized
       className={className}
       style={{ display: 'block', width: size, height: 'auto' }}
-      onError={() => setUseFallback(true)}
+      onError={handleLogoError}
     />
   );
 }
