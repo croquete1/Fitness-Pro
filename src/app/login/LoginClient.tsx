@@ -4,6 +4,7 @@
 import * as React from 'react';
 import { signIn } from 'next-auth/react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   Box,
   Paper,
@@ -24,15 +25,55 @@ import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import LoginIcon from '@mui/icons-material/Login';
 import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
+import { keyframes, useTheme } from '@mui/material/styles';
 import ThemeToggle from '@/components/ThemeToggle';
-import BrandLogo from '@/components/BrandLogo';
 import { useSearchParams } from 'next/navigation';
 import { z } from 'zod';
+import { brand, brandFallbackLogos, resolveBrandLogos } from '@/lib/brand';
 
 const loginSchema = z.object({
   identifier: z.string().trim().min(1, 'Indica o email ou o username'),
   password: z.string().min(6, 'Mínimo 6 caracteres'),
 });
+
+const backgroundPulse = keyframes`
+  0% {
+    transform: rotate(0deg) scale(1);
+    opacity: 0.55;
+  }
+  50% {
+    transform: rotate(6deg) scale(1.08);
+    opacity: 0.85;
+  }
+  100% {
+    transform: rotate(0deg) scale(1);
+    opacity: 0.55;
+  }
+`;
+
+const float = keyframes`
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+`;
+
+const aurora = keyframes`
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+`;
 
 function sanitizeNext(next?: string | null) {
   const fallback = '/dashboard';
@@ -71,6 +112,34 @@ export default function LoginClient() {
   const [loading, setLoading] = React.useState(false);
   const [err, setErr] = React.useState<string | null>(null);
   const [fieldErr, setFieldErr] = React.useState<{ identifier?: string; password?: string }>({});
+  const theme = useTheme();
+  const mode = theme.palette.mode;
+  const logoCandidates = React.useMemo(
+    () => resolveBrandLogos(mode === 'dark' ? 'dark' : 'light'),
+    [mode],
+  );
+  const logoCandidateKey = React.useMemo(
+    () => logoCandidates.join('|'),
+    [logoCandidates],
+  );
+  const [logoIndex, setLogoIndex] = React.useState(0);
+
+  React.useEffect(() => {
+    setLogoIndex(0);
+  }, [logoCandidateKey]);
+
+  const logoSrc =
+    logoCandidates[logoIndex] ??
+    (mode === 'dark' ? brandFallbackLogos.dark : brandFallbackLogos.light);
+
+  const handleLogoError = React.useCallback(() => {
+    setLogoIndex((prev) => {
+      if (prev + 1 < logoCandidates.length) {
+        return prev + 1;
+      }
+      return prev;
+    });
+  }, [logoCandidates]);
 
   React.useEffect(() => { setErr(mapAuthError(errParam)); }, [errParam]);
   React.useEffect(() => {
@@ -140,8 +209,8 @@ export default function LoginClient() {
         overflow: 'hidden',
         background:
           theme.palette.mode === 'dark'
-            ? 'linear-gradient(120deg, #020617 0%, #07112c 40%, #020617 100%)'
-            : 'linear-gradient(120deg, #e9f1ff 0%, #f0f4ff 45%, #e6efff 100%)',
+            ? 'radial-gradient(circle at 15% 15%, #0f172a 0%, #020617 45%, #010417 100%)'
+            : 'radial-gradient(circle at 15% 15%, #eef2ff 0%, #e0e7ff 45%, #e2e8f0 100%)',
         '&::before': {
           content: "''",
           position: 'absolute',
@@ -151,7 +220,7 @@ export default function LoginClient() {
             'radial-gradient(24% 34% at 85% 18%, rgba(14,165,233,0.28), transparent 74%),' +
             'radial-gradient(36% 50% at 50% 120%, rgba(236,72,153,0.2), transparent 75%)',
           filter: 'blur(60px)',
-          opacity: theme.palette.mode === 'dark' ? 0.55 : 0.4,
+          animation: `${backgroundPulse} 26s ease-in-out infinite`,
           pointerEvents: 'none',
         },
         '&::after': {
@@ -160,9 +229,11 @@ export default function LoginClient() {
           inset: '0',
           background:
             theme.palette.mode === 'dark'
-              ? 'radial-gradient(65% 65% at 50% 0%, rgba(148,163,255,0.12), transparent 70%)'
-              : 'radial-gradient(65% 65% at 50% 0%, rgba(79,70,229,0.12), transparent 70%)',
+              ? 'linear-gradient(140deg, rgba(59,130,246,0.15), rgba(236,72,153,0.12), rgba(20,184,166,0.12))'
+              : 'linear-gradient(140deg, rgba(79,70,229,0.12), rgba(236,72,153,0.1), rgba(45,212,191,0.12))',
+          backgroundSize: '180% 180%',
           mixBlendMode: 'screen',
+          animation: `${aurora} 30s ease-in-out infinite`,
           pointerEvents: 'none',
         },
       })}
@@ -172,24 +243,59 @@ export default function LoginClient() {
           elevation={24}
           sx={{
             width: '100%',
-            maxWidth: 750,
+            maxWidth: 780,
             p: { xs: 3, sm: 4 },
-            borderRadius: '50px',
+            borderRadius: { xs: '32px', sm: '40px' },
             position: 'relative',
             overflow: 'hidden',
             bgcolor: (theme) =>
               theme.palette.mode === 'dark'
-                ? 'rgba(8, 13, 26, 0.82)'
-                : 'rgba(255, 255, 255, 0.88)',
+                ? 'rgba(8, 13, 26, 0.84)'
+                : 'rgba(255, 255, 255, 0.92)',
             border: (theme) =>
               theme.palette.mode === 'dark'
                 ? '1px solid rgba(96,165,250,0.22)'
-                : '1px solid rgba(99,102,241,0.18)',
+                : '1px solid rgba(79,70,229,0.14)',
             boxShadow: (theme) =>
               theme.palette.mode === 'dark'
-                ? '0 40px 120px -60px rgba(15,23,42,0.95)'
-                : '0 40px 120px -70px rgba(15,23,42,0.25)',
-            backdropFilter: 'blur(18px)',
+                ? '0 50px 140px -70px rgba(15,23,42,0.95)'
+                : '0 48px 120px -70px rgba(15,23,42,0.25)',
+            backdropFilter: 'blur(20px)',
+            transition: 'box-shadow 250ms ease, transform 250ms ease',
+            '&:hover': {
+              transform: { md: 'translateY(-4px)' },
+              boxShadow: (theme) =>
+                theme.palette.mode === 'dark'
+                  ? '0 60px 140px -70px rgba(15,23,42,0.9)'
+                  : '0 60px 150px -80px rgba(15,23,42,0.28)',
+            },
+            '&::before': {
+              content: "''",
+              position: 'absolute',
+              inset: '-30% auto auto -30%',
+              width: 320,
+              height: 320,
+              background:
+                'radial-gradient(circle, rgba(59,130,246,0.35) 0%, rgba(59,130,246,0) 70%)',
+              filter: 'blur(40px)',
+              opacity: 0.4,
+              pointerEvents: 'none',
+              animation: `${float} 18s ease-in-out infinite`,
+            },
+            '&::after': {
+              content: "''",
+              position: 'absolute',
+              inset: 'auto -25% -35% auto',
+              width: 260,
+              height: 260,
+              background:
+                'radial-gradient(circle, rgba(236,72,153,0.32) 0%, rgba(236,72,153,0) 70%)',
+              filter: 'blur(45px)',
+              opacity: 0.35,
+              pointerEvents: 'none',
+              animation: `${float} 22s ease-in-out infinite`,
+              animationDelay: '3s',
+            },
           }}
         >
           <Box sx={{ position: 'absolute', top: 12, right: 12 }}>
@@ -260,16 +366,50 @@ export default function LoginClient() {
                 }}
               />
               <Stack
-                spacing={2.2}
-                sx={{
+                spacing={2.4}
+                sx={(theme) => ({
                   position: 'relative',
-                  '& .login-logo': {
-                    filter:
-                      'drop-shadow(0 12px 32px rgba(15,23,42,0.35)) drop-shadow(0 2px 6px rgba(15,23,42,0.25))',
-                  },
-                }}
+                  color:
+                    theme.palette.mode === 'dark'
+                      ? 'rgba(226,232,240,0.95)'
+                      : 'inherit',
+                })}
               >
-                <BrandLogo size={92} priority className="login-logo" />
+                <Box
+                  sx={{
+                    width: { xs: 96, sm: 110 },
+                    height: { xs: 96, sm: 110 },
+                    borderRadius: 5,
+                    position: 'relative',
+                    overflow: 'hidden',
+                    boxShadow:
+                      '0 22px 45px -20px rgba(15,23,42,0.55), 0 10px 24px -12px rgba(15,23,42,0.35)',
+                    animation: `${float} 16s ease-in-out infinite`,
+                    background:
+                      'linear-gradient(140deg, rgba(59,130,246,0.2) 0%, rgba(14,165,233,0.2) 50%, rgba(16,185,129,0.22) 100%)',
+                    '&::after': {
+                      content: "''",
+                      position: 'absolute',
+                      inset: 4,
+                      borderRadius: 4,
+                      border: '1px solid rgba(255,255,255,0.28)',
+                      mixBlendMode: 'screen',
+                      pointerEvents: 'none',
+                    },
+                  }}
+                >
+                  <Image
+                    key={logoSrc}
+                    src={logoSrc}
+                    alt={`Logótipo ${brand.name}`}
+                    fill
+                    priority
+                    sizes="(max-width: 768px) 96px, 120px"
+                    style={{ objectFit: 'contain', padding: 16 }}
+                    unoptimized
+                    onError={handleLogoError}
+                  />
+                </Box>
                 <Typography
                   variant="h4"
                   component="h1"
@@ -284,15 +424,35 @@ export default function LoginClient() {
                 >
                   Conecta-te à tua jornada de fitness: gere planos, acompanha evolução e mantém o contacto entre clientes e Personal Trainers.
                 </Typography>
-                <Stack spacing={1.2} sx={{ pt: 0.5 }}>
+                <Stack
+                  spacing={1.2}
+                  sx={{
+                    pt: 0.5,
+                    '& svg': {
+                      color: (theme) =>
+                        theme.palette.mode === 'dark'
+                          ? theme.palette.success.light
+                          : theme.palette.success.main,
+                    },
+                  }}
+                >
                   {[
                     'Clientes acompanham planos, sessões e métricas em tempo real.',
-                  'Personal Trainers organizam treinos, avaliações e comunicação num único lugar.',
+                    'Personal Trainers organizam treinos, avaliações e comunicação num único lugar.',
                     'Notificações inteligentes mantêm todos alinhados e informados.',
                   ].map((item) => (
                     <Stack key={item} direction="row" spacing={1.2} alignItems="center">
                       <CheckCircleOutline fontSize="small" color="success" />
-                      <Typography variant="body2" sx={{ opacity: 0.75 }}>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          opacity: 0.82,
+                          color: (theme) =>
+                            theme.palette.mode === 'dark'
+                              ? 'rgba(226,232,240,0.85)'
+                              : theme.palette.text.secondary,
+                        }}
+                      >
                         {item}
                       </Typography>
                     </Stack>
@@ -302,7 +462,18 @@ export default function LoginClient() {
             </Box>
 
             <Box sx={{ flex: 1 }}>
-              <Divider sx={{ mb: 2.5, opacity: 0.5 }}>
+              <Divider
+                sx={(theme) => ({
+                  mb: 2.5,
+                  opacity: 0.65,
+                  '&::before, &::after': {
+                    borderColor:
+                      theme.palette.mode === 'dark'
+                        ? 'rgba(148,163,255,0.25)'
+                        : 'rgba(79,70,229,0.2)',
+                  },
+                })}
+              >
                 <Typography
                   variant="caption"
                   color="text.secondary"
@@ -311,7 +482,15 @@ export default function LoginClient() {
                   Entrar na conta
                 </Typography>
               </Divider>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{
+                  mb: 3,
+                  maxWidth: 420,
+                  lineHeight: 1.6,
+                }}
+              >
                 Introduz as tuas credenciais para acederes à tua área HMS, quer sejas cliente ou Personal Trainer.
               </Typography>
               <form onSubmit={onSubmit} noValidate>
@@ -336,6 +515,46 @@ export default function LoginClient() {
                         </InputAdornment>
                       ),
                     }}
+                    sx={(theme) => ({
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: 2.5,
+                        backgroundColor:
+                          theme.palette.mode === 'dark'
+                            ? 'rgba(15, 23, 42, 0.55)'
+                            : 'rgba(255,255,255,0.85)',
+                        transition: 'box-shadow 200ms ease, transform 200ms ease',
+                        '& fieldset': {
+                          borderColor:
+                            theme.palette.mode === 'dark'
+                              ? 'rgba(148,163,255,0.3)'
+                              : 'rgba(99,102,241,0.18)',
+                        },
+                        '&:hover fieldset': {
+                          borderColor:
+                            theme.palette.mode === 'dark'
+                              ? 'rgba(129,140,248,0.6)'
+                              : 'rgba(79,70,229,0.45)',
+                        },
+                        '&.Mui-focused': {
+                          boxShadow:
+                            theme.palette.mode === 'dark'
+                              ? '0 0 0 3px rgba(99,102,241,0.35)'
+                              : '0 0 0 3px rgba(79,70,229,0.2)',
+                        },
+                        '&.Mui-focused fieldset': {
+                          borderColor:
+                            theme.palette.mode === 'dark'
+                              ? 'rgba(129,140,248,0.85)'
+                              : theme.palette.primary.main,
+                        },
+                      },
+                      '& .MuiInputAdornment-root': {
+                        color:
+                          theme.palette.mode === 'dark'
+                            ? 'rgba(226,232,240,0.8)'
+                            : theme.palette.text.secondary,
+                      },
+                    })}
                   />
 
                   <TextField
@@ -364,6 +583,46 @@ export default function LoginClient() {
                         </InputAdornment>
                       ),
                     }}
+                    sx={(theme) => ({
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: 2.5,
+                        backgroundColor:
+                          theme.palette.mode === 'dark'
+                            ? 'rgba(15, 23, 42, 0.55)'
+                            : 'rgba(255,255,255,0.85)',
+                        transition: 'box-shadow 200ms ease, transform 200ms ease',
+                        '& fieldset': {
+                          borderColor:
+                            theme.palette.mode === 'dark'
+                              ? 'rgba(148,163,255,0.3)'
+                              : 'rgba(99,102,241,0.18)',
+                        },
+                        '&:hover fieldset': {
+                          borderColor:
+                            theme.palette.mode === 'dark'
+                              ? 'rgba(129,140,248,0.6)'
+                              : 'rgba(79,70,229,0.45)',
+                        },
+                        '&.Mui-focused': {
+                          boxShadow:
+                            theme.palette.mode === 'dark'
+                              ? '0 0 0 3px rgba(129,140,248,0.32)'
+                              : '0 0 0 3px rgba(79,70,229,0.2)',
+                        },
+                        '&.Mui-focused fieldset': {
+                          borderColor:
+                            theme.palette.mode === 'dark'
+                              ? 'rgba(129,140,248,0.85)'
+                              : theme.palette.primary.main,
+                        },
+                      },
+                      '& .MuiInputAdornment-root': {
+                        color:
+                          theme.palette.mode === 'dark'
+                            ? 'rgba(226,232,240,0.8)'
+                            : theme.palette.text.secondary,
+                      },
+                    })}
                   />
 
                   <Button
@@ -372,16 +631,119 @@ export default function LoginClient() {
                     size="large"
                     startIcon={loading ? undefined : <LoginIcon />}
                     disabled={!isFormValid}
-                    sx={{ py: 1.2, fontWeight: 700, textTransform: 'none', borderRadius: 2.5 }}
+                    sx={(theme) => ({
+                      py: 1.2,
+                      fontWeight: 700,
+                      textTransform: 'none',
+                      borderRadius: 2.5,
+                      position: 'relative',
+                      overflow: 'hidden',
+                      backgroundColor: 'transparent',
+                      backgroundImage:
+                        theme.palette.mode === 'dark'
+                          ? 'linear-gradient(120deg, #4f46e5 0%, #2563eb 50%, #14b8a6 100%)'
+                          : 'linear-gradient(120deg, #4338ca 0%, #2563eb 50%, #22d3ee 100%)',
+                      backgroundSize: '200% 200%',
+                      boxShadow:
+                        theme.palette.mode === 'dark'
+                          ? '0 18px 40px -18px rgba(59,130,246,0.6)'
+                          : '0 18px 40px -18px rgba(37,99,235,0.5)',
+                      transition: 'transform 200ms ease, box-shadow 200ms ease, background-position 300ms ease',
+                      '&:hover': {
+                        transform: 'translateY(-1px)',
+                        backgroundPosition: 'right center',
+                        boxShadow:
+                          theme.palette.mode === 'dark'
+                            ? '0 22px 50px -20px rgba(59,130,246,0.65)'
+                            : '0 22px 50px -20px rgba(37,99,235,0.55)',
+                      },
+                      '&::after': {
+                        content: "''",
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'linear-gradient(120deg, rgba(255,255,255,0.32), rgba(255,255,255,0))',
+                        opacity: 0,
+                        transition: 'opacity 250ms ease',
+                      },
+                      '&:hover::after': {
+                        opacity: 0.35,
+                      },
+                    })}
                   >
                     {loading ? <CircularProgress size={20} /> : 'Entrar'}
                   </Button>
 
-                  {err && <Alert severity="error">{err}</Alert>}
+                  {err && (
+                    <Alert
+                      severity="error"
+                      sx={(theme) => ({
+                        borderRadius: 2.5,
+                        bgcolor:
+                          theme.palette.mode === 'dark'
+                            ? 'rgba(248,113,113,0.16)'
+                            : theme.palette.error.light,
+                        color:
+                          theme.palette.mode === 'dark'
+                            ? 'rgba(254,202,202,0.95)'
+                            : theme.palette.error.contrastText,
+                        border:
+                          theme.palette.mode === 'dark'
+                            ? '1px solid rgba(248,113,113,0.35)'
+                            : 'none',
+                      })}
+                    >
+                      {err}
+                    </Alert>
+                  )}
 
-                  <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={1}>
-                    <Button component={Link} href="/login/forgot" variant="text">Esqueceste-te da palavra-passe?</Button>
-                    <Button component={Link} href="/register" variant="text">Criar conta</Button>
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    justifyContent="space-between"
+                    spacing={1}
+                    sx={{ pt: 0.5 }}
+                  >
+                    <Button
+                      component={Link}
+                      href="/login/forgot"
+                      variant="text"
+                      sx={{
+                        fontWeight: 600,
+                        textTransform: 'none',
+                        color: (theme) =>
+                          theme.palette.mode === 'dark'
+                            ? 'rgba(148,163,255,0.85)'
+                            : theme.palette.primary.main,
+                        '&:hover': {
+                          color: (theme) =>
+                            theme.palette.mode === 'dark'
+                              ? 'rgba(165,180,252,1)'
+                              : theme.palette.primary.dark,
+                        },
+                      }}
+                    >
+                      Esqueceste-te da palavra-passe?
+                    </Button>
+                    <Button
+                      component={Link}
+                      href="/register"
+                      variant="text"
+                      sx={{
+                        fontWeight: 600,
+                        textTransform: 'none',
+                        color: (theme) =>
+                          theme.palette.mode === 'dark'
+                            ? 'rgba(129,140,248,0.9)'
+                            : theme.palette.secondary.main,
+                        '&:hover': {
+                          color: (theme) =>
+                            theme.palette.mode === 'dark'
+                              ? 'rgba(165,180,252,1)'
+                              : theme.palette.secondary.dark,
+                        },
+                      }}
+                    >
+                      Criar conta
+                    </Button>
                   </Stack>
                 </Stack>
               </form>
