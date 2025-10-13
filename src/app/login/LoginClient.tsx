@@ -25,10 +25,11 @@ import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import LoginIcon from '@mui/icons-material/Login';
 import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
-import { keyframes } from '@mui/material/styles';
+import { keyframes, useTheme } from '@mui/material/styles';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useSearchParams } from 'next/navigation';
 import { z } from 'zod';
+import { brand } from '@/lib/brand';
 
 const loginSchema = z.object({
   identifier: z.string().trim().min(1, 'Indica o email ou o username'),
@@ -111,6 +112,22 @@ export default function LoginClient() {
   const [loading, setLoading] = React.useState(false);
   const [err, setErr] = React.useState<string | null>(null);
   const [fieldErr, setFieldErr] = React.useState<{ identifier?: string; password?: string }>({});
+  const theme = useTheme();
+  const mode = theme.palette.mode;
+  const fallbackLogo = mode === 'dark' ? '/brand/hms-logo-dark.png' : '/brand/hms-logo-light.png';
+  const preferredLogo =
+    mode === 'dark'
+      ? brand.logoDark ?? brand.logoLight ?? fallbackLogo
+      : brand.logoLight ?? brand.logoDark ?? fallbackLogo;
+  const [logoSrc, setLogoSrc] = React.useState(preferredLogo);
+
+  React.useEffect(() => {
+    setLogoSrc(preferredLogo);
+  }, [preferredLogo]);
+
+  const handleLogoError = React.useCallback(() => {
+    setLogoSrc((prev) => (prev === fallbackLogo ? prev : fallbackLogo));
+  }, [fallbackLogo]);
 
   React.useEffect(() => { setErr(mapAuthError(errParam)); }, [errParam]);
   React.useEffect(() => {
@@ -370,13 +387,14 @@ export default function LoginClient() {
                   }}
                 >
                   <Image
-                    src="/hms-personal-trainer.png"
-                    alt="HMS Personal Trainer"
+                    src={logoSrc}
+                    alt={`Logótipo ${brand.name}`}
                     fill
                     priority
-                    unoptimized
                     sizes="(max-width: 768px) 96px, 120px"
                     style={{ objectFit: 'contain', padding: 16 }}
+                    unoptimized
+                    onError={handleLogoError}
                   />
                 </Box>
                 <Typography

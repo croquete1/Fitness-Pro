@@ -12,7 +12,9 @@ type Props = {
 
 export default function BrandLogo({ size = 56, className, priority = false }: Props) {
   const [useFallback, setUseFallback] = React.useState(false);
-  const src = useFallback ? '/hms-personal-trainer.png' : '/branding/hms-personal-trainer.svg';
+  const primary = brand.logoLight ?? '/branding/hms-personal-trainer.svg';
+  const fallback = brand.logoDark ?? '/brand/hms-logo-light.png';
+  const src = useFallback ? fallback : primary;
 
   return (
     <Image
@@ -22,10 +24,14 @@ export default function BrandLogo({ size = 56, className, priority = false }: Pr
       width={size}
       height={size}
       priority={priority}
-      unoptimized={!useFallback}
+      unoptimized
       className={className}
       style={{ display: 'block', width: size, height: 'auto' }}
-      onError={() => setUseFallback(true)}
+      onError={() => {
+        if (!useFallback) {
+          setUseFallback(true);
+        }
+      }}
     />
   );
 }
