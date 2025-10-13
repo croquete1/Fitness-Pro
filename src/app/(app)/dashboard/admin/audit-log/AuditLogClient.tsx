@@ -135,7 +135,13 @@ export default function AuditLogClient() {
   const [rowCount, setRowCount] = React.useState(0);
   const [loading, setLoading] = React.useState(false);
   const [paginationModel, setPaginationModel] = React.useState({ page: 0, pageSize: 20 });
-  const [filters, setFilters] = React.useState({ kind: "", targetType: "", actor: "", search: "" });
+  const [filters, setFilters] = React.useState({
+    kind: "",
+    targetType: "",
+    actor: "",
+    actorId: "",
+    search: "",
+  });
   const [debouncedSearch, setDebouncedSearch] = React.useState("");
   const [meta, setMeta] = React.useState<MetaResponse | null>(null);
   const [metaLoaded, setMetaLoaded] = React.useState(false);
@@ -161,7 +167,11 @@ export default function AuditLogClient() {
       params.set("pageSize", String(paginationModel.pageSize));
       if (filters.kind) params.set("kind", filters.kind);
       if (filters.targetType) params.set("targetType", filters.targetType);
-      if (filters.actor) params.set("actor", filters.actor);
+      if (filters.actorId) {
+        params.set("actorId", filters.actorId);
+      } else if (filters.actor) {
+        params.set("actor", filters.actor);
+      }
       if (debouncedSearch) params.set("search", debouncedSearch);
       if (!metaLoaded) params.set("meta", "1");
 
@@ -196,7 +206,16 @@ export default function AuditLogClient() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, filters.actor, filters.kind, filters.targetType, metaLoaded, paginationModel.page, paginationModel.pageSize]);
+  }, [
+    debouncedSearch,
+    filters.actor,
+    filters.actorId,
+    filters.kind,
+    filters.targetType,
+    metaLoaded,
+    paginationModel.page,
+    paginationModel.pageSize,
+  ]);
 
   React.useEffect(() => {
     void fetchRows();
@@ -211,7 +230,11 @@ export default function AuditLogClient() {
       params.set("pageSize", "500");
       if (filters.kind) params.set("kind", filters.kind);
       if (filters.targetType) params.set("targetType", filters.targetType);
-      if (filters.actor) params.set("actor", filters.actor);
+      if (filters.actorId) {
+        params.set("actorId", filters.actorId);
+      } else if (filters.actor) {
+        params.set("actor", filters.actor);
+      }
       const term = filters.search.trim();
       if (term) params.set("search", term);
 
@@ -234,7 +257,7 @@ export default function AuditLogClient() {
     } finally {
       setExporting(false);
     }
-  }, [filters.actor, filters.kind, filters.search, filters.targetType]);
+  }, [filters.actor, filters.actorId, filters.kind, filters.search, filters.targetType]);
 
   const columns = React.useMemo<GridColDef<AuditRow>[]>(() => {
     const renderKind = (params: GridRenderCellParams<AuditRow, string | null>) => {
@@ -361,12 +384,17 @@ export default function AuditLogClient() {
   }, []);
 
   const clearFilters = React.useCallback(() => {
-    setFilters({ kind: "", targetType: "", actor: "", search: "" });
+    setFilters({ kind: "", targetType: "", actor: "", actorId: "", search: "" });
     setPaginationModel((prev) => ({ ...prev, page: 0 }));
     setMetaLoaded(false);
   }, []);
 
   const actorOptions = meta?.actors ?? [];
+  const actorSelectValue = React.useMemo(() => {
+    if (filters.actorId) return `id:${filters.actorId}`;
+    if (filters.actor) return `label:${filters.actor}`;
+    return "";
+  }, [filters.actor, filters.actorId]);
 
   return (
     <Stack spacing={2}>
@@ -438,20 +466,33 @@ export default function AuditLogClient() {
                   select
                   fullWidth
                   label="Responsável"
-                  value={filters.actor}
+                  value={actorSelectValue}
                   onChange={(event) => {
-                    setFilters((prev) => ({ ...prev, actor: event.target.value }));
+                    const value = String(event.target.value ?? "");
+                    setFilters((prev) => ({
+                      ...prev,
+                      actorId: value.startsWith("id:") ? value.slice(3) : "",
+                      actor: value.startsWith("label:") ? value.slice(6) : "",
+                    }));
                     setPaginationModel((prev) => ({ ...prev, page: 0 }));
                     setMetaLoaded(true);
                   }}
                   size="small"
                 >
                   <MenuItem value="">Todos</MenuItem>
-                  {actorOptions.map((option) => (
-                    <MenuItem key={`${option.id ?? option.label ?? "anon"}`} value={option.label ?? option.id ?? ""}>
-                      {option.label ?? option.id ?? "—"}
-                    </MenuItem>
-                  ))}
+                  {actorOptions.map((option) => {
+                    const label = option.label ?? option.id ?? "—";
+                    const value = option.id
+                      ? `id:${option.id}`
+                      : option.label
+                        ? `label:${option.label}`
+                        : "label:—";
+                    return (
+                      <MenuItem key={`${option.id ?? option.label ?? "anon"}`} value={value}>
+                        {label}
+                      </MenuItem>
+                    );
+                  })}
                 </TextField>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
