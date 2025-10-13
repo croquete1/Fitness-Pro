@@ -17,9 +17,9 @@ export default function MotivationCard() {
         const json = await res.json();
         if (!alive) return;
         if (res.ok && json?.item) setQuote(json.item);
-        else setQuote({ text: 'Foco, disciplina e consistência 💪', author: 'Fitness Pro' });
+        else setQuote({ text: 'Foco, disciplina e consistência 💪', author: 'HMS' });
       } catch {
-        if (alive) setQuote({ text: 'Foco, disciplina e consistência 💪', author: 'Fitness Pro' });
+        if (alive) setQuote({ text: 'Foco, disciplina e consistência 💪', author: 'HMS' });
       }
     })();
     return () => { alive = false; };

@@ -49,7 +49,7 @@ export async function GET(): Promise<Response> {
       {
         id: 'm1',
         from: 'sistema@fitnesspro.app',
-        subject: 'Bem-vindo à Fitness Pro',
+        subject: 'Bem-vindo à HMS',
         preview: 'A tua conta foi criada com sucesso.',
         createdAt: new Date().toISOString(),
         unread: true,

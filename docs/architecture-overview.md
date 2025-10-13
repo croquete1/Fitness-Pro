@@ -1,4 +1,4 @@
-# Fitness Pro Platform Overview
+# HMS Platform Overview
 
 ## Tech Stack
 - **Framework**: Next.js App Router with server-side rendering and layout slots.

@@ -8,8 +8,8 @@ export type BrandConfig = {
 };
 
 export const brand: BrandConfig = {
-  name: "Fitness Pro",
-  short: "FP",
+  name: "HMS",
+  short: "HMS",
 
   // coloca os teus ficheiros aqui (ou altera os caminhos):
   // /public/brand/hms-personal-trainer.svg

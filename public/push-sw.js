@@ -10,7 +10,7 @@ self.addEventListener('push', (event) => {
     data = { title: 'Notificação', body: event.data?.text() };
   }
 
-  const title = data.title || 'Fitness Pro';
+  const title = data.title || 'HMS';
   const options = {
     body: data.body || '',
     icon: '/icons/icon-192.png',

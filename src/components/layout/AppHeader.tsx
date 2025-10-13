@@ -30,6 +30,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import Brightness4Outlined from '@mui/icons-material/Brightness4Outlined';
 import SearchIcon from '@mui/icons-material/Search';
+import MenuIcon from '@mui/icons-material/Menu';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import ThemeToggleButton from '@/components/theme/ThemeToggleButton';
@@ -63,7 +64,7 @@ export default function AppHeader({
   userName,
   onSignOut,
 }: Props) {
-  const { openMobile, isMobile } = useSidebar();
+  const { openMobile } = useSidebar();
   const counts = useHeaderCounts?.();
   const role = counts?.role ?? null;
   const router = useRouter();
@@ -165,9 +166,21 @@ export default function AppHeader({
     return cleaned || undefined;
   }, [userLabel, isClient]);
 
+  const handleOpenSidebar = React.useCallback(() => {
+    openMobile(true);
+  }, [openMobile]);
+
   return (
     <AppBar position="sticky" color="default" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
       <Toolbar sx={{ gap: 1, minHeight: 64, flexWrap: 'wrap' }}>
+        <IconButton
+          aria-label="Abrir menu de navegação"
+          color="inherit"
+          onClick={handleOpenSidebar}
+          sx={{ display: { xs: 'inline-flex', md: 'none' } }}
+        >
+          <MenuIcon />
+        </IconButton>
         {/* brand */}
         <Box
           component={Link}
@@ -179,12 +192,6 @@ export default function AppHeader({
             gap: 1,
             textDecoration: 'none',
             color: 'inherit',
-          }}
-          onClick={(event) => {
-            if (isMobile) {
-              event.preventDefault();
-              openMobile(true);
-            }
           }}
         >
           <BrandLogo size={32} priority />
