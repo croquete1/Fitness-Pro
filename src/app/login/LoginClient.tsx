@@ -379,7 +379,7 @@ export default function LoginClient() {
                   sx={{
                     width: { xs: 96, sm: 110 },
                     height: { xs: 96, sm: 110 },
-                    borderRadius: 5,
+                    borderRadius: 2,
                     position: 'relative',
                     overflow: 'hidden',
                     boxShadow:
@@ -391,7 +391,7 @@ export default function LoginClient() {
                       content: "''",
                       position: 'absolute',
                       inset: 4,
-                      borderRadius: 4,
+                      borderRadius: 1,
                       border: '1px solid rgba(255,255,255,0.28)',
                       mixBlendMode: 'screen',
                       pointerEvents: 'none',
