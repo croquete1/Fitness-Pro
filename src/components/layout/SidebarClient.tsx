@@ -40,8 +40,9 @@ export default function SidebarClient({
 }) {
   const path = usePathname();
   const { collapsed, peek, isMobile, closeMobile, toggleCollapse } = useSidebar();
-  const showLabels = !collapsed || peek;
-  const isRail = collapsed && !peek;
+  const effectiveCollapsed = isMobile ? false : collapsed;
+  const isRail = !isMobile && collapsed && !peek;
+  const showLabels = !effectiveCollapsed || peek;
 
   const painel: Nav[] = [{ href: '/dashboard/clients', label: 'Painel', icon: <DashboardOutlined />, exact: true, activePrefix: '/dashboard/clients' }];
 
@@ -68,22 +69,24 @@ export default function SidebarClient({
           Acesso rápido
         </Typography>
       )}
-      <IconButton
-        onClick={toggleCollapse}
-        sx={{
-          ml: 'auto',
-          width: 32,
-          height: 32,
-          borderRadius: 1.25,
-          border: 1,
-          borderColor: 'divider',
-          bgcolor: 'background.paper',
-          '&:hover': { bgcolor: 'action.hover' },
-        }}
-        aria-label={collapsed ? 'Expandir sidebar' : 'Recolher sidebar'}
-      >
-        {collapsed ? <ChevronRightIcon fontSize="small" /> : <ChevronLeftIcon fontSize="small" />}
-      </IconButton>
+      {!isMobile && (
+        <IconButton
+          onClick={toggleCollapse}
+          sx={{
+            ml: 'auto',
+            width: 32,
+            height: 32,
+            borderRadius: 1.25,
+            border: 1,
+            borderColor: 'divider',
+            bgcolor: 'background.paper',
+            '&:hover': { bgcolor: 'action.hover' },
+          }}
+          aria-label={collapsed ? 'Expandir sidebar' : 'Recolher sidebar'}
+        >
+          {collapsed ? <ChevronRightIcon fontSize="small" /> : <ChevronLeftIcon fontSize="small" />}
+        </IconButton>
+      )}
     </Box>
   );
 

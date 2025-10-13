@@ -13,15 +13,15 @@ export default function SidebarBase({ header, children }: Props) {
   const { collapsed, isMobile, mobileOpen, closeMobile, peek, setPeek } = useSidebar();
 
   React.useEffect(() => {
-    if (!collapsed && peek) {
+    if ((!collapsed || isMobile) && peek) {
       setPeek(false);
     }
-  }, [collapsed, peek, setPeek]);
+  }, [collapsed, isMobile, peek, setPeek]);
 
-  const isRail = collapsed && !peek;
-  const width = isRail ? RAIL : PANEL;
+  const isRail = !isMobile && collapsed && !peek;
+  const width = isMobile ? PANEL : isRail ? RAIL : PANEL;
 
-  const hoverHandlers = collapsed
+  const hoverHandlers = !isMobile && collapsed
     ? {
         onMouseEnter: () => setPeek(true),
         onMouseLeave: () => setPeek(false),
@@ -29,6 +29,9 @@ export default function SidebarBase({ header, children }: Props) {
         onBlur: () => setPeek(false),
       }
     : {};
+
+  const dataCollapsed = isRail ? '1' : '0';
+  const dataPeek = !isMobile && peek ? '1' : '0';
 
   const content = (
     <Paper
@@ -44,8 +47,8 @@ export default function SidebarBase({ header, children }: Props) {
         gridTemplateRows: 'auto 1fr',
         transition: (t) => t.transitions.create('width', { duration: t.transitions.duration.standard }),
       }}
-      data-collapsed={collapsed ? '1' : '0'}
-      data-peek={peek ? '1' : '0'}
+      data-collapsed={dataCollapsed}
+      data-peek={dataPeek}
       {...hoverHandlers}
     >
       <Box sx={{ px: 1.25, py: 1 }}>{header}</Box>
@@ -58,7 +61,15 @@ export default function SidebarBase({ header, children }: Props) {
       <Drawer
         open={mobileOpen}
         onClose={closeMobile}
-        PaperProps={{ sx: { width: PANEL, borderRight: 1, borderColor: 'divider' } }}
+        PaperProps={{
+          sx: {
+            width,
+            borderRight: 1,
+            borderColor: 'divider',
+            transition: (t) =>
+              t.transitions.create('width', { duration: t.transitions.duration.standard }),
+          },
+        }}
       >
         {content}
       </Drawer>
