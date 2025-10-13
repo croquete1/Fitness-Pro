@@ -8,6 +8,7 @@ import {
   Card,
   CardContent,
   Chip,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -15,6 +16,8 @@ import {
   Divider,
   Grid,
   MenuItem,
+  Pagination,
+  Paper,
   Snackbar,
   Stack,
   TextField,
@@ -131,6 +134,7 @@ function chipColor(kind?: string | null): "default" | "primary" | "success" | "w
 export default function AuditLogClient() {
   const theme = useTheme();
   const downSm = useMediaQuery(theme.breakpoints.down("sm"));
+  const downMd = useMediaQuery(theme.breakpoints.down("md"));
   const [rows, setRows] = React.useState<AuditRow[]>(INITIAL_ROWS);
   const [rowCount, setRowCount] = React.useState(0);
   const [loading, setLoading] = React.useState(false);
@@ -405,6 +409,31 @@ export default function AuditLogClient() {
 
   const headingVariant = downSm ? "h5" : "h4";
   const descriptionVariant = downSm ? "body2" : "body1";
+  const pageCount = React.useMemo(() => {
+    if (!rowCount || paginationModel.pageSize <= 0) {
+      return 1;
+    }
+    return Math.max(1, Math.ceil(rowCount / paginationModel.pageSize));
+  }, [paginationModel.pageSize, rowCount]);
+
+  const renderKindChip = React.useCallback(
+    (row: AuditRow) => {
+      const value = row.kind ?? row.action ?? "—";
+      const label = value ? KIND_LABELS[value] ?? value : "—";
+      return <Chip size="small" label={label} color={chipColor(value)} sx={{ fontWeight: 600 }} />;
+    },
+    [],
+  );
+
+  React.useEffect(() => {
+    const maxPage = Math.max(0, pageCount - 1);
+    setPaginationModel((prev) => {
+      if (prev.page > maxPage) {
+        return { ...prev, page: maxPage };
+      }
+      return prev;
+    });
+  }, [pageCount]);
 
   return (
     <Stack spacing={2}>
@@ -525,17 +554,17 @@ export default function AuditLogClient() {
             </Grid>
 
             <Stack
-              direction={downSm ? "column" : "row"}
-              spacing={downSm ? 1.5 : 1}
-              justifyContent={downSm ? "stretch" : "flex-end"}
-              alignItems={downSm ? "stretch" : "center"}
+              direction={downMd ? "column" : "row"}
+              spacing={downMd ? 1.5 : 1}
+              justifyContent={downMd ? "stretch" : "flex-end"}
+              alignItems={downMd ? "stretch" : "center"}
             >
               <Button
-                variant={downSm ? "outlined" : "text"}
+                variant={downMd ? "outlined" : "text"}
                 color="inherit"
                 onClick={clearFilters}
                 startIcon={<RefreshOutlined />}
-                fullWidth={downSm}
+                fullWidth={downMd}
               >
                 Limpar filtros
               </Button>
@@ -545,7 +574,7 @@ export default function AuditLogClient() {
                 onClick={handleExport}
                 startIcon={<DownloadOutlined />}
                 disabled={exporting || loading}
-                fullWidth={downSm}
+                fullWidth={downMd}
               >
                 Exportar CSV
               </Button>
@@ -553,40 +582,185 @@ export default function AuditLogClient() {
 
             <Divider />
 
-            <Box
-              sx={{
-                width: "100%",
-                height: downSm ? "auto" : 640,
-                minHeight: downSm ? 360 : 520,
-                overflowX: "auto",
-              }}
-            >
-              <DataGrid
-                rows={rows}
-                columns={visibleColumns}
-                loading={loading}
-                autoHeight={downSm}
-                rowCount={rowCount}
-                pageSizeOptions={[10, 20, 50]}
-                paginationMode="server"
-                paginationModel={paginationModel}
-                onPaginationModelChange={(model) => setPaginationModel(model)}
-                disableRowSelectionOnClick
-                density="comfortable"
+            {downSm ? (
+              <Stack spacing={2}>
+                {loading && rows.length === 0 ? (
+                  <Stack alignItems="center" justifyContent="center" py={6}>
+                    <CircularProgress size={28} thickness={4} />
+                  </Stack>
+                ) : rows.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary" textAlign="center" py={4}>
+                    Nenhum registo encontrado.
+                  </Typography>
+                ) : (
+                  rows.map((row) => {
+                    const targetTypeLabel = row.target_type
+                      ? TARGET_TYPE_LABELS[row.target_type] ?? row.target_type
+                      : "—";
+                    const targetLabel = row.target ?? row.target_id ?? "—";
+                    const actorLabel = row.actor ?? row.actor_id ?? "—";
+                    const details = coalesceDetails(row);
+
+                    return (
+                      <Paper key={row.id} variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                        <Stack spacing={1.5}>
+                          <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1.5}>
+                            <Stack spacing={0.25}>
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                sx={{ textTransform: "uppercase", letterSpacing: 0.4 }}
+                              >
+                                Quando
+                              </Typography>
+                              <Typography variant="body2" fontWeight={600}>
+                                {formatDate(row.created_at)}
+                              </Typography>
+                            </Stack>
+                            {renderKindChip(row)}
+                          </Stack>
+
+                          <Stack spacing={0.25}>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              sx={{ textTransform: "uppercase", letterSpacing: 0.4 }}
+                            >
+                              Responsável
+                            </Typography>
+                            <Typography variant="body2" fontWeight={600}>
+                              {actorLabel}
+                            </Typography>
+                          </Stack>
+
+                          <Stack spacing={0.25}>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              sx={{ textTransform: "uppercase", letterSpacing: 0.4 }}
+                            >
+                              Alvo
+                            </Typography>
+                            <Typography variant="body2" fontWeight={600}>
+                              {targetLabel}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {targetTypeLabel}
+                            </Typography>
+                          </Stack>
+
+                          <Stack spacing={0.25}>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              sx={{ textTransform: "uppercase", letterSpacing: 0.4 }}
+                            >
+                              Mensagem
+                            </Typography>
+                            <Typography variant="body2">{row.note ?? "—"}</Typography>
+                          </Stack>
+
+                          <Stack spacing={0.25}>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              sx={{ textTransform: "uppercase", letterSpacing: 0.4 }}
+                            >
+                              IP
+                            </Typography>
+                            <Typography variant="body2">{row.ip ?? "—"}</Typography>
+                          </Stack>
+
+                          {details ? (
+                            <Box>
+                              <Button variant="outlined" size="small" onClick={() => setDetailsRow(row)} fullWidth>
+                                Ver detalhes
+                              </Button>
+                            </Box>
+                          ) : null}
+                        </Stack>
+                      </Paper>
+                    );
+                  })
+                )}
+
+                <Stack
+                  direction="row"
+                  spacing={2}
+                  justifyContent="space-between"
+                  alignItems="center"
+                  flexWrap="wrap"
+                  rowGap={2}
+                >
+                  <Pagination
+                    count={pageCount}
+                    page={paginationModel.page + 1}
+                    color="primary"
+                    onChange={(_, value) =>
+                      setPaginationModel((prev) => ({
+                        ...prev,
+                        page: value - 1,
+                      }))
+                    }
+                    sx={{ mx: "auto" }}
+                  />
+                  <TextField
+                    select
+                    label="Por página"
+                    size="small"
+                    value={paginationModel.pageSize}
+                    onChange={(event) =>
+                      setPaginationModel((prev) => ({
+                        ...prev,
+                        pageSize: Number(event.target.value) || prev.pageSize,
+                        page: 0,
+                      }))
+                    }
+                    sx={{ minWidth: 140 }}
+                  >
+                    {[10, 20, 50].map((size) => (
+                      <MenuItem key={size} value={size}>
+                        {size}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Stack>
+              </Stack>
+            ) : (
+              <Box
                 sx={{
-                  border: "none",
-                  "& .MuiDataGrid-columnHeaders": {
-                    backgroundColor: theme.palette.mode === "light" ? "rgba(15, 23, 42, 0.04)" : "rgba(148, 163, 184, 0.12)",
-                  },
-                  "& .MuiDataGrid-cell:focus, & .MuiDataGrid-cell:focus-within": {
-                    outline: "none",
-                  },
-                  "& .MuiDataGrid-virtualScroller": {
-                    overflowY: downSm ? "visible" : "auto",
-                  },
+                  width: "100%",
+                  height: 640,
+                  minHeight: 520,
+                  overflowX: "auto",
                 }}
-              />
-            </Box>
+              >
+                <DataGrid
+                  rows={rows}
+                  columns={visibleColumns}
+                  loading={loading}
+                  rowCount={rowCount}
+                  pageSizeOptions={[10, 20, 50]}
+                  paginationMode="server"
+                  paginationModel={paginationModel}
+                  onPaginationModelChange={(model) => setPaginationModel(model)}
+                  disableRowSelectionOnClick
+                  density="comfortable"
+                  sx={{
+                    border: "none",
+                    "& .MuiDataGrid-columnHeaders": {
+                      backgroundColor:
+                        theme.palette.mode === "light"
+                          ? "rgba(15, 23, 42, 0.04)"
+                          : "rgba(148, 163, 184, 0.12)",
+                    },
+                    "& .MuiDataGrid-cell:focus, & .MuiDataGrid-cell:focus-within": {
+                      outline: "none",
+                    },
+                  }}
+                />
+              </Box>
+            )}
           </Stack>
         </CardContent>
       </Card>
