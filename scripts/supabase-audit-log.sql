@@ -10,17 +10,61 @@ begin;
 
 create extension if not exists "pgcrypto";
 
+create or replace function public.jwt_role()
+returns text
+language plpgsql
+stable
+as $$
+declare
+  raw_claims text;
+  claims jsonb;
+  role text;
+begin
+  raw_claims := current_setting('request.jwt.claims', true);
+  if raw_claims is null or raw_claims = '' then
+    return null;
+  end if;
+
+  claims := raw_claims::jsonb;
+  role := coalesce(
+    claims ->> 'app_role',
+    claims ->> 'role',
+    claims -> 'user' ->> 'app_role',
+    claims -> 'user' ->> 'role'
+  );
+
+  if role is null then
+    return null;
+  end if;
+
+  return upper(role);
+exception
+  when others then
+    return null;
+end;
+$$;
+
+create or replace function public.jwt_has_role(target text)
+returns boolean
+language sql
+stable
+as $$
+  select coalesce(public.jwt_role() = upper(target), false);
+$$;
+
 create or replace function public.is_admin(uid uuid)
 returns boolean
 language sql
 stable
 as $$
-  select exists(
-    select 1
-    from public.users u
-    where u.id = uid
-      and u.role::text ilike 'admin'
-  );
+  select
+    public.jwt_has_role('ADMIN')
+    or exists(
+      select 1
+      from public.users u
+      where u.id = uid
+        and u.role::text ilike 'admin'
+    );
 $$;
 
 create table if not exists public.audit_log (
