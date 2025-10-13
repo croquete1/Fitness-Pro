@@ -8,7 +8,7 @@ import { toAppRole, type AppRole } from '@/lib/roles';
 import { createServerClient } from '@/lib/supabaseServer';
 import PTExerciseNote from './PTExerciseNote';
 
-export const metadata: Metadata = { title: 'Exercícios (PT) · Fitness Pro' };
+export const metadata: Metadata = { title: 'Exercícios (PT) · HMS' };
 
 type ExerciseRow = {
   id: string;

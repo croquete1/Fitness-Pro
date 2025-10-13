@@ -276,7 +276,7 @@ export default function LoginClient() {
                   fontWeight={800}
                   sx={{ letterSpacing: 0.4, lineHeight: 1.1 }}
                 >
-                  Acede ao ecossistema Fitness Pro
+                  Acede ao ecossistema HMS
                 </Typography>
                 <Typography
                   variant="body1"
@@ -312,7 +312,7 @@ export default function LoginClient() {
                 </Typography>
               </Divider>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                Introduz as tuas credenciais para acederes à tua área Fitness Pro, quer sejas cliente ou Personal Trainer.
+                Introduz as tuas credenciais para acederes à tua área HMS, quer sejas cliente ou Personal Trainer.
               </Typography>
               <form onSubmit={onSubmit} noValidate>
                 <Stack spacing={2.2}>

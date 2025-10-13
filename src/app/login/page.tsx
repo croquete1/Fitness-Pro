@@ -4,7 +4,7 @@ import { brand } from '@/lib/brand';
 
 export const metadata: Metadata = {
   title: `Entrar · ${brand.name}`,
-  description: 'Autentica-te para aceder ao painel de gestão do Fitness Pro.',
+  description: 'Autentica-te para aceder ao painel de gestão do HMS.',
 };
 
 export default function LoginPage() {

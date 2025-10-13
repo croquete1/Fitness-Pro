@@ -1,4 +1,4 @@
-Fitness-Pro Dashboard (PT)
+HMS Dashboard (PT)
 
 Dashboard moderna para gestão de clientes, treinos e administração (RBAC), construída com Next.js (App Router), TypeScript, Prisma e NextAuth. Otimizada para deploy em Vercel e preparada para tema claro/escuro.
 

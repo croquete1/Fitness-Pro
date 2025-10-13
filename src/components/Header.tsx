@@ -28,7 +28,7 @@ export default function Header() {
     <header className="sticky top-0 z-30 border-b bg-white/60 dark:bg-black/30 backdrop-blur">
       <div className="mx-auto max-w-screen-2xl flex items-center justify-between gap-4 px-4 py-3">
         <div className="flex items-center gap-2">
-          <div className="font-semibold">Fitness Pro</div>
+          <div className="font-semibold">HMS</div>
         </div>
         <div className="flex items-center gap-3">
           <NotificationBell />

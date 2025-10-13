@@ -33,7 +33,7 @@ export default async function ClientHeader() {
   return (
     <header className="sticky top-0 z-30 border-b bg-white/60 dark:bg-black/30 backdrop-blur">
       <div className="mx-auto max-w-screen-2xl flex items-center justify-between gap-4 px-4 py-3">
-        <div className="font-semibold">Fitness Pro</div>
+        <div className="font-semibold">HMS</div>
         <div className="flex items-center gap-3">
           <div
             className="w-8 h-8 rounded-full overflow-hidden ring-1 ring-black/10 dark:ring-white/10 flex items-center justify-center bg-gradient-to-br from-slate-700 to-slate-900 text-white text-xs font-semibold"

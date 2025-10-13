@@ -5,7 +5,7 @@ import { brand } from '@/lib/brand';
 
 export const metadata: Metadata = {
   title: `Criar conta · ${brand.name}`,
-  description: 'Regista um novo cliente e começa a gerir treinos no Fitness Pro.',
+  description: 'Regista um novo cliente e começa a gerir treinos no HMS.',
 };
 
 export default function Page() {

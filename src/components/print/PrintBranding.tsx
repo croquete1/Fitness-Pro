@@ -1,7 +1,7 @@
 'use client';
 import * as React from 'react';
 
-export default function PrintBranding({ children, title = 'Fitness-Pro' }: { children: React.ReactNode; title?: string }) {
+export default function PrintBranding({ children, title = 'HMS' }: { children: React.ReactNode; title?: string }) {
   return (
     <div className="print:bg-white print:text-black">
       <div className="hidden print:block text-center mb-4">
@@ -13,7 +13,7 @@ export default function PrintBranding({ children, title = 'Fitness-Pro' }: { chi
       {children}
 
       <div className="hidden print:flex justify-between text-xs opacity-70 mt-6">
-        <span>Gerado por Fitness-Pro</span>
+        <span>Gerado por HMS</span>
         <span>{new Date().toLocaleDateString()}</span>
       </div>
 

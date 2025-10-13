@@ -35,7 +35,7 @@ export async function GET() {
 
   if (!rows.length) {
     return NextResponse.json({
-      ok: true, phrase: { id: 'fallback', text: 'A consistência vence a motivação. 💪', author: 'Fitness Pro' },
+      ok: true, phrase: { id: 'fallback', text: 'A consistência vence a motivação. 💪', author: 'HMS' },
     });
   }
 
