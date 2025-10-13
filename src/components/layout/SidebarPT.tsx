@@ -69,8 +69,9 @@ type Props = {
 export default function SidebarPT({ messagesCount = 0, notificationsCount = 0 }: Props) {
   const path = usePathname();
   const { collapsed, peek, isMobile, closeMobile, toggleCollapse } = useSidebar();
-  const showLabels = !collapsed || peek;
-  const isRail = collapsed && !peek;
+  const effectiveCollapsed = isMobile ? false : collapsed;
+  const isRail = !isMobile && collapsed && !peek;
+  const showLabels = !effectiveCollapsed || peek;
 
   const overview: Nav[] = [
     {
@@ -510,9 +511,24 @@ export default function SidebarPT({ messagesCount = 0, notificationsCount = 0 }:
           Área PT
         </Typography>
       )}
-      <IconButton onClick={toggleCollapse} sx={{ ml: 'auto', width: 32, height: 32, borderRadius: 1.25, border: 1, borderColor: 'divider', bgcolor: 'background.paper', '&:hover': { bgcolor: 'action.hover' } }}>
-        {collapsed ? <ChevronRightIcon fontSize="small" /> : <ChevronLeftIcon fontSize="small" />}
-      </IconButton>
+      {!isMobile && (
+        <IconButton
+          onClick={toggleCollapse}
+          sx={{
+            ml: 'auto',
+            width: 32,
+            height: 32,
+            borderRadius: 1.25,
+            border: 1,
+            borderColor: 'divider',
+            bgcolor: 'background.paper',
+            '&:hover': { bgcolor: 'action.hover' },
+          }}
+          aria-label={collapsed ? 'Expandir sidebar' : 'Recolher sidebar'}
+        >
+          {collapsed ? <ChevronRightIcon fontSize="small" /> : <ChevronLeftIcon fontSize="small" />}
+        </IconButton>
+      )}
     </Box>
   );
 
