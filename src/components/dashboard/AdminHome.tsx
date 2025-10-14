@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import KpiCard from "./KpiCard";
 import TrendAreaChart, { SeriesPoint } from "./TrendAreaChart";
 import ActivityFeed, { ActivityItem } from "./ActivityFeed";
 import MiniAgenda, { AgendaItem } from "./MiniAgenda";
+import { supabaseBrowser } from "@/lib/supabaseBrowser";
 
 type Stats = {
   clients?: number;
@@ -80,6 +81,8 @@ export default function AdminHome() {
 
   const [pendingCount, setPendingCount] = useState<number>(0);
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
+  const supabaseRef = useRef<ReturnType<typeof supabaseBrowser> | null>(null);
+  const realtimeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let timer: any;
@@ -167,21 +170,110 @@ export default function AdminHome() {
     if (count && typeof count.pending === "number") setPendingCount(count.pending);
   }
 
+  const refreshStats = useCallback(async () => {
+    const next = await getJSON<Stats>("/api/dashboard/stats");
+    if (next) {
+      setStats(next);
+    }
+  }, []);
+
+  const scheduleRealtimeRefresh = useCallback(() => {
+    if (realtimeTimerRef.current) return;
+    realtimeTimerRef.current = setTimeout(() => {
+      realtimeTimerRef.current = null;
+      void refreshStats();
+    }, 350);
+  }, [refreshStats]);
+
   // KPI: próximos 7 dias
   const sessionsNext7 = useMemo(() => {
-    if (typeof stats?.sessionsNext7 === "number") return stats.sessionsNext7;
+    const raw = stats?.sessionsNext7 as number | string | null | undefined;
+    if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+    if (typeof raw === "string") {
+      const parsed = Number(raw.trim().replace(/\s+/g, ""));
+      if (Number.isFinite(parsed)) return parsed;
+    }
     return agenda.length;
-  }, [stats?.sessionsNext7, agenda.length]);
+  }, [agenda.length, stats?.sessionsNext7]);
+
+  const asNumber = useCallback((input: number | string | null | undefined) => {
+    if (typeof input === "number" && Number.isFinite(input)) return input;
+    if (typeof input === "string") {
+      const normalized = input.trim().replace(/\s+/g, "");
+      const parsed = Number(normalized);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+    return 0;
+  }, []);
 
   const kpis = useMemo(
     () => [
-      { label: "Clientes", value: stats?.clients ?? 0, icon: "👥" },
-      { label: "Personal Trainers", value: stats?.trainers ?? 0, icon: "🏋️" },
-      { label: "Admins", value: stats?.admins ?? 0, icon: "🛡️" },
-      { label: "Sessões (próx. 7d)", value: sessionsNext7, icon: "🗓️" },
+      {
+        label: "Clientes",
+        value: asNumber(stats?.clients),
+        icon: "👥",
+        href: "/dashboard/admin/clients",
+        tooltip: "Ver lista de clientes",
+      },
+      {
+        label: "Personal Trainers",
+        value: asNumber(stats?.trainers),
+        icon: "🏋️",
+        href: "/dashboard/admin/users?q=pt",
+        tooltip: "Gerir personal trainers",
+      },
+      {
+        label: "Admins",
+        value: asNumber(stats?.admins),
+        icon: "🛡️",
+        href: "/dashboard/admin/users?q=admin",
+        tooltip: "Gerir administradores",
+      },
+      {
+        label: "Sessões (próx. 7d)",
+        value: asNumber(sessionsNext7),
+        icon: "🗓️",
+        href: "/dashboard/admin/pts-schedule",
+        tooltip: "Abrir agenda de sessões",
+      },
     ],
-    [stats, sessionsNext7]
+    [asNumber, sessionsNext7, stats?.admins, stats?.clients, stats?.trainers]
   );
+
+  useEffect(() => {
+    if (supabaseRef.current) return;
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !anon) return;
+    try {
+      supabaseRef.current = supabaseBrowser();
+    } catch (error) {
+      supabaseRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    const sb = supabaseRef.current;
+    if (!sb) return () => {};
+
+    const channel = sb
+      .channel("admin-dashboard-kpis")
+      .on("postgres_changes", { event: "*", schema: "public", table: "users" }, () => {
+        scheduleRealtimeRefresh();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "sessions" }, () => {
+        scheduleRealtimeRefresh();
+      })
+      .subscribe();
+
+    return () => {
+      if (realtimeTimerRef.current) {
+        clearTimeout(realtimeTimerRef.current);
+        realtimeTimerRef.current = null;
+      }
+      void channel.unsubscribe();
+    };
+  }, [scheduleRealtimeRefresh]);
 
   return (
     <main className="fp-page" aria-labelledby="dash-title">
@@ -228,8 +320,17 @@ export default function AdminHome() {
           padding: "1rem",
         }}
       >
-        {kpis.map((k) => (
-          <KpiCard key={k.label} label={k.label} value={k.value} icon={k.icon} loading={loading} />
+        {kpis.map((k, idx) => (
+          <KpiCard
+            key={k.label}
+            label={k.label}
+            value={k.value}
+            icon={k.icon}
+            tooltip={k.tooltip}
+            href={k.href}
+            loading={loading}
+            enterDelay={idx * 0.05}
+          />
         ))}
       </section>
 
