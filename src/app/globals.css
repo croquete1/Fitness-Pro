@@ -57,6 +57,14 @@ body{
   --card-bg:var(--card);
   --header-bg: rgba(255,255,255,0.92);
 
+  /* Admin home */
+  --admin-hero-bg: linear-gradient(135deg, #f5f9ff 0%, #eef4ff 45%, #ffffff 100%);
+  --admin-hero-border: color-mix(in srgb, rgba(30,102,255,0.35) 40%, var(--border));
+  --admin-hero-shadow: 0 28px 60px rgba(15,23,42,.12);
+  --admin-hero-fg: #0f172a;
+  --admin-panel-bg: color-mix(in srgb, #ffffff 88%, transparent 12%);
+  --admin-panel-ring: color-mix(in srgb, var(--primary) 12%, transparent);
+
   /* Sombras */
   --shadow-1: 0 8px 24px rgba(15,23,42,.06), 0 2px 6px rgba(15,23,42,.04);
   --shadow-2: 0 20px 60px rgba(15,23,42,.12), 0 4px 10px rgba(15,23,42,.06);
@@ -123,6 +131,13 @@ body{
   --card-bg:var(--card);
   --header-bg: rgba(17,19,23,.72);
 
+  --admin-hero-bg: linear-gradient(135deg, rgba(15,23,42,.92) 0%, rgba(30,41,59,.82) 55%, rgba(17,24,39,.88) 100%);
+  --admin-hero-border: color-mix(in srgb, rgba(148,163,184,0.55) 60%, transparent);
+  --admin-hero-shadow: 0 26px 50px rgba(2,6,23,.75);
+  --admin-hero-fg: #e2e8f0;
+  --admin-panel-bg: color-mix(in srgb, rgba(15,23,42,.88) 70%, transparent);
+  --admin-panel-ring: color-mix(in srgb, rgba(125,211,252,0.16) 40%, transparent);
+
   --primary:#6da7ff;
   --primary-600:#4e8dff;
 
@@ -171,6 +186,12 @@ input,select,textarea{
   border-radius:10px; padding:10px 12px; outline:none;
 }
 input:focus,select:focus,textarea:focus{ box-shadow:var(--ring); border-color:var(--primary); }
+.focus-ring{ border-radius:18px; transition: box-shadow .18s ease, transform .18s ease; }
+.focus-ring:focus-visible{
+  outline:none;
+  box-shadow:0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent),
+             0 0 0 6px color-mix(in srgb, var(--primary) 12%, transparent);
+}
 
 /* ============================== */
 /* ========== BOTÕES ============ */
