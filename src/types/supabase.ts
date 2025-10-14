@@ -740,6 +740,8 @@ export type Database = {
           location: string | null;
           notes: string | null;
           created_at: string | null;
+          client_attendance_status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no_show' | null;
+          client_attendance_at: string | null;
         };
         Insert: {
           id?: string;
@@ -750,6 +752,8 @@ export type Database = {
           location?: string | null;
           notes?: string | null;
           created_at?: string | null;
+          client_attendance_status?: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no_show' | null;
+          client_attendance_at?: string | null;
         };
         Update: {
           id?: string;
@@ -760,6 +764,8 @@ export type Database = {
           location?: string | null;
           notes?: string | null;
           created_at?: string | null;
+          client_attendance_status?: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no_show' | null;
+          client_attendance_at?: string | null;
         };
         Relationships: [];
       };
