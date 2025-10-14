@@ -10,6 +10,7 @@ import Box from '@mui/material/Box';
 import Skeleton from '@mui/material/Skeleton';
 import Link from 'next/link';
 import { animate, motion, useReducedMotion } from 'framer-motion';
+import clsx from 'clsx';
 
 export type Variant =
   | 'primary' | 'accent' | 'info' | 'success' | 'warning' | 'danger' | 'neutral';
@@ -36,6 +37,16 @@ type Props = {
   enterDelay?: number;
   onClick?: React.MouseEventHandler<HTMLAnchorElement | HTMLDivElement>;
 };
+
+const MotionAnchor = motion(
+  React.forwardRef<HTMLAnchorElement, React.ComponentPropsWithoutRef<'a'>>(
+    function MotionAnchor(props, ref) {
+      return <a ref={ref} {...props} />;
+    },
+  ),
+);
+
+const MotionDiv = motion.div;
 
 export default function KpiCard({
   label,
@@ -124,21 +135,25 @@ export default function KpiCard({
       variant="outlined"
       component="div"
       sx={{
-        borderRadius: 3,
+        borderRadius: 4,
         border,
-        background: 'var(--mui-palette-background-paper)',
+        background:
+          'color-mix(in srgb, var(--mui-palette-primary-main) 6%, var(--mui-palette-background-paper))',
+        backgroundImage:
+          'linear-gradient(140deg, rgba(255,255,255,0.85) 8%, transparent 52%), radial-gradient(circle at top right, color-mix(in srgb, var(--mui-palette-primary-light) 22%, transparent) 0%, transparent 58%)',
         textDecoration: 'none',
         color: 'inherit',
         position: 'relative',
         overflow: 'hidden',
         height: '100%',
+        backdropFilter: 'blur(8px)',
         transition: (theme) =>
-          theme.transitions.create(['border-color', 'box-shadow'], {
+          theme.transitions.create(['border-color', 'box-shadow', 'transform'], {
             duration: theme.transitions.duration.shortest,
           }),
       }}
     >
-      <CardContent>
+      <CardContent sx={{ display: 'grid', gap: 0.5 }}>
         <Box
           component={motion.div}
           initial={prefersReducedMotion ? false : { opacity: 0, y: -6 }}
@@ -196,7 +211,11 @@ export default function KpiCard({
             initial={prefersReducedMotion ? false : { opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: prefersReducedMotion ? 0 : enterDelay + 0.16 }}
-            sx={{ mt: 1, pt: 0.75, borderTop: `1px dashed var(--mui-palette-divider)` }}
+            sx={{
+              mt: 1,
+              pt: 0.75,
+              borderTop: `1px dashed color-mix(in srgb, var(--mui-palette-divider) 82%, transparent)`,
+            }}
           >
             <Typography variant="caption" sx={{ opacity: 0.8 }}>
               {footer}
@@ -207,57 +226,60 @@ export default function KpiCard({
     </Card>
   );
 
-  const animatedCard = (
-    <motion.article
+  const sharedMotionProps = {
+    initial: prefersReducedMotion ? false : { opacity: 0, y: 12, scale: 0.985 },
+    animate: { opacity: 1, y: 0, scale: 1 },
+    whileHover: prefersReducedMotion
+      ? undefined
+      : {
+          y: -6,
+          scale: 1.01,
+          boxShadow: '0 20px 45px rgba(15, 23, 42, 0.18)',
+        },
+    whileTap: prefersReducedMotion ? undefined : { scale: 0.992 },
+    transition: {
+      type: 'spring' as const,
+      stiffness: 230,
+      damping: 28,
+      delay: prefersReducedMotion ? 0 : enterDelay,
+    },
+    style: {
+      display: 'block',
+      height: '100%',
+      borderRadius: 18,
+    },
+  };
+
+  const interactiveCard = href ? (
+    <Link href={href} prefetch={false} legacyBehavior passHref>
+      <MotionAnchor
+        {...sharedMotionProps}
+        onClick={onClick as any}
+        className={clsx('focus-ring')}
+        aria-label={`${label} – ver detalhes`}
+        style={{
+          ...sharedMotionProps.style,
+          cursor: 'pointer',
+          textDecoration: 'none',
+          color: 'inherit',
+          outline: 'none',
+        }}
+      >
+        {card}
+      </MotionAnchor>
+    </Link>
+  ) : (
+    <MotionDiv
+      {...sharedMotionProps}
       onClick={onClick as any}
-      initial={prefersReducedMotion ? false : { opacity: 0, y: 12, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      whileHover={
-        prefersReducedMotion
-          ? undefined
-          : {
-              y: -4,
-              scale: 1.01,
-              boxShadow: '0 18px 32px rgba(15, 23, 42, 0.16)',
-            }
-      }
-      whileTap={prefersReducedMotion ? undefined : { scale: 0.985 }}
-      transition={{
-        type: 'spring',
-        stiffness: 220,
-        damping: 26,
-        delay: prefersReducedMotion ? 0 : enterDelay,
-      }}
       style={{
-        display: 'block',
-        height: '100%',
-        borderRadius: 12,
-        position: 'relative',
-        cursor: href ? 'pointer' : 'default',
+        ...sharedMotionProps.style,
+        cursor: onClick ? 'pointer' : 'default',
       }}
     >
       {card}
-    </motion.article>
+    </MotionDiv>
   );
 
-  const wrappedCard = href ? (
-    <Link
-      href={href}
-      prefetch={false}
-      style={{
-        textDecoration: 'none',
-        display: 'block',
-        color: 'inherit',
-        height: '100%',
-        borderRadius: 12,
-      }}
-      aria-label={`${label} – ver detalhes`}
-    >
-      {animatedCard}
-    </Link>
-  ) : (
-    animatedCard
-  );
-
-  return tooltip ? <Tooltip title={tooltip}>{wrappedCard}</Tooltip> : wrappedCard;
+  return tooltip ? <Tooltip title={tooltip}>{interactiveCard}</Tooltip> : interactiveCard;
 }

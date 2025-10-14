@@ -7,6 +7,8 @@ import TrendAreaChart, { SeriesPoint } from "./TrendAreaChart";
 import ActivityFeed, { ActivityItem } from "./ActivityFeed";
 import MiniAgenda, { AgendaItem } from "./MiniAgenda";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
+import styles from "./AdminHome.module.css";
+import clsx from "clsx";
 
 type Stats = {
   clients?: number;
@@ -276,123 +278,65 @@ export default function AdminHome() {
   }, [scheduleRealtimeRefresh]);
 
   return (
-    <main className="fp-page" aria-labelledby="dash-title">
-      <div style={{ padding: "1rem 1rem 0 1rem" }}>
-        <h1 id="dash-title" style={{ fontSize: "1.75rem", fontWeight: 800, margin: 0 }}>
-          Olá, {firstName} (Admin)
-        </h1>
-        <p style={{ color: "var(--muted)", marginTop: ".4rem" }}>
-          Aqui tens um resumo do teu dia e atalhos rápidos.
-        </p>
-
-        {/* Badge de pendentes + atalho para aprovações */}
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
-          <a href="/dashboard/admin/approvals" className="fp-pill" title="Ver aprovações pendentes">
+    <main className={clsx("fp-page", styles.page)} aria-labelledby="dash-title">
+      <section className={styles.hero}>
+        <div className={styles.heroHeader}>
+          <div>
+            <h1 id="dash-title" className={styles.title}>
+              Olá, {firstName} (Admin)
+            </h1>
+            <p className={styles.subtitle}>Aqui tens um resumo do teu dia e atalhos rápidos.</p>
+          </div>
+          <a
+            href="/dashboard/admin/approvals"
+            className={clsx(styles.pendingLink, "focus-ring")}
+            title="Ver aprovações pendentes"
+          >
             <span aria-hidden>🔔</span>
-            <span className="label">Novos registos</span>
-            <span
-              aria-live="polite"
-              style={{
-                marginLeft: 6,
-                minWidth: 22,
-                height: 22,
-                border: "1px solid var(--border)",
-                borderRadius: 999,
-                display: "inline-grid",
-                placeItems: "center",
-                padding: "0 6px",
-                fontWeight: 700,
-                background: "var(--chip)",
-              }}
-            >
+            <span>Novos registos</span>
+            <span aria-live="polite" className={styles.pendingCount}>
               {pendingCount}
             </span>
           </a>
         </div>
-      </div>
 
-      {/* KPIs */}
-      <section
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4, minmax(0,1fr))",
-          gap: "12px",
-          padding: "1rem",
-        }}
-      >
-        {kpis.map((k, idx) => (
-          <KpiCard
-            key={k.label}
-            label={k.label}
-            value={k.value}
-            icon={k.icon}
-            tooltip={k.tooltip}
-            href={k.href}
-            loading={loading}
-            enterDelay={idx * 0.05}
-          />
-        ))}
+        <div className={styles.kpiGrid}>
+          {kpis.map((k, idx) => (
+            <KpiCard
+              key={k.label}
+              label={k.label}
+              value={k.value}
+              icon={k.icon}
+              tooltip={k.tooltip}
+              href={k.href}
+              loading={loading}
+              enterDelay={idx * 0.06}
+            />
+          ))}
+        </div>
       </section>
 
-      {/* Chart + Agenda + Notificações */}
-      <section
-        style={{
-          display: "grid",
-          gridTemplateColumns: "2fr 1fr",
-          gap: "12px",
-          padding: "0 1rem 1rem",
-          alignItems: "start",
-        }}
-      >
-        <div
-          style={{
-            border: "1px solid var(--border)",
-            borderRadius: 12,
-            padding: 14,
-            background: "var(--bg)",
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-            <h2 style={{ margin: 0, fontSize: "1.05rem" }}>Tendência de sessões (7 dias)</h2>
-            <small style={{ color: "var(--muted)" }}>Atualizado em tempo real</small>
+      <section className={styles.mainSection}>
+        <div className={styles.panel}>
+          <div className={styles.panelHeader}>
+            <h2 className={styles.panelTitle}>Tendência de sessões (7 dias)</h2>
+            <small className={styles.panelHint}>Atualizado em tempo real</small>
           </div>
-          <TrendAreaChart data={series} height={160} />
+          <TrendAreaChart data={series} height={180} />
         </div>
 
-        <div
-          style={{
-            display: "grid",
-            gap: 12,
-          }}
-        >
-          <div
-            style={{
-              border: "1px solid var(--border)",
-              borderRadius: 12,
-              padding: 14,
-              background: "var(--bg)",
-            }}
-          >
-            <h2 style={{ margin: 0, fontSize: "1.05rem" }}>Próximas sessões</h2>
+        <div className={styles.panels}>
+          <div className={styles.panel}>
+            <h2 className={styles.panelTitle}>Próximas sessões</h2>
             <MiniAgenda items={agenda} emptyText="Sem sessões marcadas para os próximos dias." />
           </div>
 
-          {/* Notificações (novos registos) */}
-          <div
-            style={{
-              border: "1px solid var(--border)",
-              borderRadius: 12,
-              padding: 14,
-              background: "var(--bg)",
-            }}
-          >
-            <h2 style={{ margin: 0, fontSize: "1.05rem" }}>Notificações</h2>
+          <div className={styles.panel}>
+            <h2 className={styles.panelTitle}>Notificações</h2>
             {notifications.length === 0 ? (
-              <p style={{ color: "var(--muted)", margin: "8px 0 0" }}>
-                Sem novas notificações.
-              </p>
+              <p className={styles.emptyState}>Sem novas notificações.</p>
             ) : (
-              <ul style={{ listStyle: "none", padding: 0, margin: "8px 0 0", display: "grid", gap: 8 }}>
+              <ul className={styles.list}>
                 {notifications.map((n) => {
                   const created = new Date(n.createdAt);
                   const u = n.user;
@@ -408,34 +352,21 @@ export default function AdminHome() {
                       : "";
 
                   return (
-                    <li
-                      key={n.id}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "auto 1fr auto",
-                        gap: 8,
-                        alignItems: "center",
-                        border: "1px solid var(--border)",
-                        borderRadius: 10,
-                        padding: "8px 10px",
-                        background: "transparent",
-                      }}
-                    >
+                    <li key={n.id} className={styles.notificationItem}>
                       <span aria-hidden>🆕</span>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                           {label}
                         </div>
-                        {meta && (
-                          <div style={{ color: "var(--muted)", fontSize: ".85rem" }}>{meta}</div>
-                        )}
+                        {meta && <div className={styles.notificationMeta}>{meta}</div>}
                       </div>
                       <time
                         dateTime={created.toISOString()}
                         title={created.toLocaleString("pt-PT")}
-                        style={{ color: "var(--muted)", fontSize: ".85rem", whiteSpace: "nowrap" }}
+                        className={styles.notificationTime}
                       >
-                        {created.toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit" })} {created.toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}
+                        {created.toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit" })}{" "}
+                        {created.toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}
                       </time>
                     </li>
                   );
@@ -446,20 +377,13 @@ export default function AdminHome() {
         </div>
       </section>
 
-      {/* Atividade (mantém, caso uses outras entradas) */}
-      <section style={{ padding: "0 1rem 1rem" }}>
-        <div
-          style={{
-            border: "1px solid var(--border)",
-            borderRadius: 12,
-            padding: 14,
-            background: "var(--bg)",
-          }}
-        >
-          <h2 style={{ margin: 0, fontSize: "1.05rem" }}>Atividade recente</h2>
+      <section className={styles.activitySection}>
+        <div className={styles.panel}>
+          <h2 className={styles.panelTitle}>Atividade recente</h2>
           <ActivityFeed items={activities} emptyText="Sem atividade recente." />
         </div>
       </section>
     </main>
   );
+
 }
