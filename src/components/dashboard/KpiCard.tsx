@@ -108,14 +108,10 @@ export default function KpiCard({
     return value;
   }, [animatedNumber, value]);
 
-  const commonCardProps = href
-    ? { component: Link, href, prefetch: false }
-    : { component: 'div' };
-
-  const body = (
+  const card = (
     <Card
       variant="outlined"
-      {...commonCardProps}
+      component="div"
       onClick={onClick as any}
       sx={{
         borderRadius: 3,
@@ -125,23 +121,41 @@ export default function KpiCard({
         color: 'inherit',
         position: 'relative',
         overflow: 'hidden',
-        cursor: href ? 'pointer' : 'default',
+        height: '100%',
         transition: (theme) =>
           theme.transitions.create(['border-color', 'box-shadow'], {
             duration: theme.transitions.duration.shortest,
           }),
-        '&:hover': {
-          borderColor: href ? 'var(--mui-palette-primary-main)' : 'var(--mui-palette-divider)',
-        },
         '&:focus-visible': {
           outline: '2px solid var(--mui-palette-primary-main)',
           outlineOffset: 4,
         },
+        ...(href
+          ? {
+              'a:hover &': { borderColor: 'var(--mui-palette-primary-main)' },
+              'a:focus-visible &': {
+                borderColor: 'var(--mui-palette-primary-main)',
+                boxShadow: '0 0 0 4px rgba(59, 130, 246, 0.25)',
+              },
+            }
+          : {}),
       }}
     >
       <CardContent>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: .5 }}>
-          {icon && <Box sx={{ fontSize: 22 }} aria-hidden>{icon}</Box>}
+          {icon && (
+            <motion.span
+              aria-hidden
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              whileHover={prefersReducedMotion ? undefined : { scale: 1.08 }}
+              whileTap={prefersReducedMotion ? undefined : { scale: 0.94 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 18 }}
+              style={{ display: 'inline-flex', fontSize: 22 }}
+            >
+              {icon}
+            </motion.span>
+          )}
           <Typography variant="body2" sx={{ opacity: .7 }}>
             {loading ? <Skeleton width={120} height={14} /> : label}
           </Typography>
@@ -149,7 +163,19 @@ export default function KpiCard({
 
         {loading
           ? <Skeleton width={64} height={36} />
-          : <Typography variant="h5" fontWeight={800}>{displayValue}</Typography>
+          : (
+            <Typography variant="h5" fontWeight={800} component="span" display="block">
+              <motion.span
+                layout
+                initial={false}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 24 }}
+                style={{ display: 'inline-block' }}
+              >
+                {displayValue}
+              </motion.span>
+            </Typography>
+          )
         }
 
         {!loading && (trend || trendValue) && (
@@ -167,16 +193,40 @@ export default function KpiCard({
     </Card>
   );
 
+  const linkedCard = href ? (
+    <Link
+      href={href}
+      prefetch={false}
+      style={{
+        textDecoration: 'none',
+        display: 'block',
+        color: 'inherit',
+        height: '100%',
+        cursor: 'pointer',
+        borderRadius: 12,
+        outline: 'none',
+      }}
+    >
+      {card}
+    </Link>
+  ) : (
+    card
+  );
+
   const animatedCard = (
     <motion.div
-      initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 8 }}
+      initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 12 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={prefersReducedMotion ? undefined : { y: -4 }}
-      whileTap={prefersReducedMotion ? undefined : { scale: 0.98 }}
-      transition={{ type: 'spring', stiffness: 260, damping: 24, delay: enterDelay }}
-      style={{ height: '100%' }}
+      whileHover={
+        prefersReducedMotion
+          ? undefined
+          : { y: -6, scale: 1.01, boxShadow: '0 18px 28px rgba(15, 23, 42, 0.12)' }
+      }
+      whileTap={prefersReducedMotion ? undefined : { scale: 0.99 }}
+      transition={{ type: 'spring', stiffness: 280, damping: 32, delay: enterDelay }}
+      style={{ height: '100%', willChange: 'transform' }}
     >
-      {body}
+      {linkedCard}
     </motion.div>
   );
 
