@@ -60,51 +60,64 @@ export default function KpiCard({
 
   const prefersReducedMotion = useReducedMotion();
 
+  const numericValue = React.useMemo(() => {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+    if (typeof value !== 'string') return null;
+
+    const normalized = value
+      .trim()
+      .replace(/\s+/g, '')
+      .replace(/\.(?=\d{3}(?:\D|$))/g, '')
+      .replace(/,/g, '.');
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  }, [value]);
+
   const [animatedNumber, setAnimatedNumber] = React.useState<number | null>(
-    typeof value === 'number' ? 0 : null,
+    numericValue === null ? null : 0,
   );
   const previousNumberRef = React.useRef<number | null>(null);
 
   React.useEffect(() => {
-    if (typeof value !== 'number') {
+    if (numericValue === null) {
       previousNumberRef.current = null;
       setAnimatedNumber(null);
       return;
     }
 
     if (prefersReducedMotion) {
-      setAnimatedNumber(value);
-      previousNumberRef.current = value;
+      setAnimatedNumber(numericValue);
+      previousNumberRef.current = numericValue;
       return;
     }
 
     const from = previousNumberRef.current ?? 0;
-    const controls = animate(from, value, {
-      duration: 0.6,
+    const controls = animate(from, numericValue, {
+      duration: 0.85,
       ease: 'easeOut',
       onUpdate: (latest) => setAnimatedNumber(latest),
     });
 
-    previousNumberRef.current = value;
+    previousNumberRef.current = numericValue;
 
     return () => {
       controls.stop();
     };
-  }, [prefersReducedMotion, value]);
+  }, [numericValue, prefersReducedMotion]);
 
   const displayValue = React.useMemo(() => {
-    if (typeof value === 'number') {
-      const numberValue = animatedNumber ?? value;
-      const rounded = Number.isInteger(value)
+    if (numericValue !== null) {
+      const numberValue = animatedNumber ?? numericValue;
+      const rounded = Number.isInteger(numericValue)
         ? Math.round(numberValue)
         : Number(numberValue.toFixed(1));
       return new Intl.NumberFormat('pt-PT', {
-        minimumFractionDigits: Number.isInteger(value) ? 0 : 1,
-        maximumFractionDigits: Number.isInteger(value) ? 0 : 1,
+        minimumFractionDigits: Number.isInteger(numericValue) ? 0 : 1,
+        maximumFractionDigits: Number.isInteger(numericValue) ? 0 : 1,
       }).format(rounded);
     }
     return value;
-  }, [animatedNumber, value]);
+  }, [animatedNumber, numericValue, value]);
 
   const card = (
     <Card

@@ -187,42 +187,57 @@ export default function AdminHome() {
 
   // KPI: próximos 7 dias
   const sessionsNext7 = useMemo(() => {
-    if (typeof stats?.sessionsNext7 === "number") return stats.sessionsNext7;
+    const raw = stats?.sessionsNext7 as number | string | null | undefined;
+    if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+    if (typeof raw === "string") {
+      const parsed = Number(raw.trim().replace(/\s+/g, ""));
+      if (Number.isFinite(parsed)) return parsed;
+    }
     return agenda.length;
-  }, [stats?.sessionsNext7, agenda.length]);
+  }, [agenda.length, stats?.sessionsNext7]);
+
+  const asNumber = useCallback((input: number | string | null | undefined) => {
+    if (typeof input === "number" && Number.isFinite(input)) return input;
+    if (typeof input === "string") {
+      const normalized = input.trim().replace(/\s+/g, "");
+      const parsed = Number(normalized);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+    return 0;
+  }, []);
 
   const kpis = useMemo(
     () => [
       {
         label: "Clientes",
-        value: stats?.clients ?? 0,
+        value: asNumber(stats?.clients),
         icon: "👥",
         href: "/dashboard/admin/clients",
         tooltip: "Ver lista de clientes",
       },
       {
         label: "Personal Trainers",
-        value: stats?.trainers ?? 0,
+        value: asNumber(stats?.trainers),
         icon: "🏋️",
         href: "/dashboard/admin/users?q=pt",
         tooltip: "Gerir personal trainers",
       },
       {
         label: "Admins",
-        value: stats?.admins ?? 0,
+        value: asNumber(stats?.admins),
         icon: "🛡️",
         href: "/dashboard/admin/users?q=admin",
         tooltip: "Gerir administradores",
       },
       {
         label: "Sessões (próx. 7d)",
-        value: sessionsNext7,
+        value: asNumber(sessionsNext7),
         icon: "🗓️",
         href: "/dashboard/admin/pts-schedule",
         tooltip: "Abrir agenda de sessões",
       },
     ],
-    [stats?.admins, stats?.clients, stats?.trainers, sessionsNext7]
+    [asNumber, sessionsNext7, stats?.admins, stats?.clients, stats?.trainers]
   );
 
   useEffect(() => {
