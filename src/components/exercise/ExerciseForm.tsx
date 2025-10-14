@@ -8,11 +8,12 @@ import {
   Chip,
   Divider,
   Grid,
-  MenuItem,
   Paper,
   Snackbar,
   Stack,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from '@mui/material';
 import {
@@ -70,7 +71,7 @@ const DEFAULT_MESSAGES: ExerciseFormMessages = {
 };
 
 const DEFAULT_COPY: ExerciseFormCopy = {
-  titleCreate: '➕ Novo exercício',
+  titleCreate: 'Detalhes do exercício',
   titleEdit: '✏️ Editar exercício',
   subtitle:
     'Preenche os detalhes do exercício. Mantivemos os campos mais usados juntos e adicionámos uma pré-visualização para te ajudar a perceber como ficará na biblioteca.',
@@ -89,6 +90,53 @@ const DEFAULT_COPY: ExerciseFormCopy = {
   creatingLabel: 'A criar…',
   updatingLabel: 'A atualizar…',
 };
+
+type FormSectionProps = {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+};
+
+function FormSection({ title, subtitle, children }: FormSectionProps) {
+  return (
+    <Stack spacing={1.5}>
+      <Stack spacing={0.5}>
+        <Typography
+          variant="overline"
+          color="primary"
+          fontWeight={700}
+          sx={{ letterSpacing: 1, textTransform: 'uppercase' }}
+        >
+          {title}
+        </Typography>
+        {subtitle ? (
+          <Typography variant="body2" color="text.secondary">
+            {subtitle}
+          </Typography>
+        ) : null}
+      </Stack>
+      {children}
+    </Stack>
+  );
+}
+
+type TagPreviewProps = { label: string; items: string[] };
+
+function TagPreview({ label, items }: TagPreviewProps) {
+  if (items.length === 0) return null;
+  return (
+    <Stack spacing={0.5}>
+      <Typography variant="caption" color="text.secondary" fontWeight={600} textTransform="uppercase">
+        {label}
+      </Typography>
+      <Stack direction="row" spacing={0.5} rowGap={0.5} flexWrap="wrap">
+        {items.map((tag) => (
+          <Chip key={`${label}-${tag}`} label={tag} size="small" variant="outlined" />
+        ))}
+      </Stack>
+    </Stack>
+  );
+}
 
 export default function ExerciseForm({
   mode,
@@ -120,6 +168,8 @@ export default function ExerciseForm({
     msg: string;
     sev: 'success' | 'error' | 'info' | 'warning';
   }>({ open: false, msg: '', sev: 'success' });
+
+  const descriptionLength = React.useMemo(() => values.description?.length ?? 0, [values.description]);
 
   const closeSnack = () => setSnack((s) => ({ ...s, open: false }));
 
@@ -215,92 +265,169 @@ export default function ExerciseForm({
       {err && <Alert severity="error">{err}</Alert>}
 
       <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderRadius: 3, borderColor: 'divider' }}>
-        <Grid container spacing={{ xs: 2, md: 3 }} alignItems="stretch">
+        <Grid container spacing={{ xs: 3, md: 4 }} alignItems="stretch">
           <Grid item xs={12} md={7}>
-            <Stack spacing={{ xs: 2, md: 2.5 }}>
-              <TextField
-                label="Nome"
-                value={values.name}
-                onChange={(e) => setField('name', e.target.value)}
-                required
-                placeholder="Agachamento com barra"
-                error={Boolean(errors.name)}
-                helperText={errors.name ?? copy.nameHelper}
-                autoFocus
-                fullWidth
-              />
-
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    label="Grupo muscular"
-                    value={values.muscle_group ?? ''}
-                    onChange={(e) => setField('muscle_group', e.target.value)}
-                    placeholder="Pernas, Peito, Costas…"
-                    error={Boolean(errors.muscle_group)}
-                    helperText={errors.muscle_group ?? copy.muscleHelper}
-                    fullWidth
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    label="Equipamento"
-                    value={values.equipment ?? ''}
-                    onChange={(e) => setField('equipment', e.target.value)}
-                    placeholder="Barra, máquina, halteres…"
-                    error={Boolean(errors.equipment)}
-                    helperText={errors.equipment ?? copy.equipmentHelper}
-                    fullWidth
-                  />
-                </Grid>
-              </Grid>
-
-              <TextField
-                select
-                label="Dificuldade"
-                value={values.difficulty ?? ''}
-                onChange={(event) =>
-                  setField('difficulty', (event.target.value || undefined) as Difficulty | undefined)
-                }
-                helperText={errors.difficulty ?? copy.difficultyHelper}
-                error={Boolean(errors.difficulty)}
-                fullWidth
+            <Stack spacing={{ xs: 3, md: 4 }}>
+              <FormSection
+                title="Informação principal"
+                subtitle="Garante um nome claro – será como atletas e colegas encontram o exercício."
               >
-                <MenuItem value="">Sem dificuldade definida</MenuItem>
-                {DIFFICULTY_OPTIONS.map((option) => (
-                  <MenuItem key={option} value={option}>
-                    {option}
-                  </MenuItem>
-                ))}
-              </TextField>
+                <TextField
+                  label="Nome"
+                  value={values.name}
+                  onChange={(e) => setField('name', e.target.value)}
+                  required
+                  placeholder="Agachamento com barra"
+                  error={Boolean(errors.name)}
+                  helperText={errors.name ?? copy.nameHelper}
+                  fullWidth
+                />
+              </FormSection>
 
-              <TextField
-                label="Instruções"
-                value={values.description ?? ''}
-                onChange={(e) => setField('description', e.target.value)}
-                placeholder="Notas, séries, repetições, técnica…"
-                multiline
-                minRows={4}
-                maxRows={8}
-                error={Boolean(errors.description)}
-                helperText={errors.description ?? copy.descriptionHelper}
-                fullWidth
-              />
+              <FormSection
+                title="Classificação e tags"
+                subtitle="Usa vírgulas para adicionar várias tags de uma só vez (ex.: Peito, Ombros)."
+              >
+                <Stack spacing={2}>
+                  <Grid
+                    container
+                    spacing={2}
+                    sx={{
+                      alignItems: 'stretch',
+                      '& .MuiGrid-item': {
+                        display: 'flex',
+                      },
+                    }}
+                  >
+                    <Grid item xs={12} sm={6}>
+                      <Stack spacing={1} sx={{ width: '100%' }}>
+                        <TextField
+                          label="Grupo muscular"
+                          value={values.muscle_group ?? ''}
+                          onChange={(e) => setField('muscle_group', e.target.value)}
+                          placeholder="Pernas, Peito, Costas…"
+                          error={Boolean(errors.muscle_group)}
+                          helperText={errors.muscle_group ?? copy.muscleHelper}
+                          fullWidth
+                        />
+                        {muscleTags.length > 0 && (
+                          <TagPreview label="Tags sugeridas" items={muscleTags} />
+                        )}
+                      </Stack>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Stack spacing={1} sx={{ width: '100%' }}>
+                        <TextField
+                          label="Equipamento"
+                          value={values.equipment ?? ''}
+                          onChange={(e) => setField('equipment', e.target.value)}
+                          placeholder="Barra, máquina, halteres…"
+                          error={Boolean(errors.equipment)}
+                          helperText={errors.equipment ?? copy.equipmentHelper}
+                          fullWidth
+                        />
+                        {equipmentTags.length > 0 && (
+                          <TagPreview label="Material" items={equipmentTags} />
+                        )}
+                      </Stack>
+                    </Grid>
+                  </Grid>
 
-              <TextField
-                label="Vídeo (URL)"
-                value={values.video_url ?? ''}
-                onChange={(e) => setField('video_url', e.target.value)}
-                placeholder="https://…"
-                error={Boolean(errors.video_url)}
-                helperText={errors.video_url ?? copy.videoHelper}
-                fullWidth
-              />
+                  <Stack spacing={1.25}>
+                    <Stack spacing={0.5}>
+                      <Typography variant="subtitle2" fontWeight={600}>
+                        Dificuldade
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {copy.difficultyHelper}
+                      </Typography>
+                    </Stack>
+                    <ToggleButtonGroup
+                      color="primary"
+                      exclusive
+                      fullWidth
+                      value={values.difficulty ?? null}
+                      onChange={(_, newValue: Difficulty | null) => {
+                        if (!newValue) {
+                          setField('difficulty', undefined);
+                          return;
+                        }
+                        setField('difficulty', newValue);
+                      }}
+                      sx={{
+                        '& .MuiToggleButton-root': {
+                          flex: 1,
+                          minWidth: 0,
+                          textTransform: 'none',
+                          py: 1.25,
+                        },
+                        gap: 1,
+                        display: 'flex',
+                      }}
+                    >
+                      {DIFFICULTY_OPTIONS.map((option) => (
+                        <ToggleButton key={option} value={option}>
+                          {option}
+                        </ToggleButton>
+                      ))}
+                    </ToggleButtonGroup>
+                    <Typography variant="caption" color={errors.difficulty ? 'error' : 'text.secondary'}>
+                      {errors.difficulty ?? 'Opcional — deixa em branco se não fizer sentido classificar.'}
+                    </Typography>
+                  </Stack>
+                </Stack>
+              </FormSection>
+
+              <FormSection
+                title="Detalhes e instruções"
+                subtitle="Resume séries, repetições, ritmo, notas de execução e pontos de atenção."
+              >
+                <Stack spacing={2}>
+                  <TextField
+                    label="Instruções"
+                    value={values.description ?? ''}
+                    onChange={(e) => setField('description', e.target.value)}
+                    placeholder="Notas, séries, repetições, técnica…"
+                    multiline
+                    minRows={4}
+                    maxRows={8}
+                    error={Boolean(errors.description)}
+                    helperText={
+                      errors.description ?? (
+                        <Stack direction="row" justifyContent="space-between" alignItems="baseline">
+                          <span>{copy.descriptionHelper}</span>
+                          <Typography component="span" variant="caption" color="text.secondary">
+                            {descriptionLength} caractere{descriptionLength === 1 ? '' : 's'}
+                          </Typography>
+                        </Stack>
+                      )
+                    }
+                    fullWidth
+                  />
+
+                  <TextField
+                    label="Vídeo (URL)"
+                    value={values.video_url ?? ''}
+                    onChange={(e) => setField('video_url', e.target.value)}
+                    placeholder="https://…"
+                    error={Boolean(errors.video_url)}
+                    helperText={errors.video_url ?? copy.videoHelper}
+                    fullWidth
+                  />
+                </Stack>
+              </FormSection>
             </Stack>
           </Grid>
 
           <Grid item xs={12} md={5}>
-            <Stack spacing={2} sx={{ height: '100%' }}>
+            <Stack
+              spacing={2}
+              sx={{
+                height: '100%',
+                position: { md: 'sticky' },
+                top: { md: 24 },
+              }}
+            >
               <Stack spacing={0.5}>
                 <Typography variant="subtitle1" fontWeight={600}>
                   Pré-visualização rápida
