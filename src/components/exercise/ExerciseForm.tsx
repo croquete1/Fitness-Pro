@@ -179,14 +179,7 @@ export default function ExerciseForm({
   }
 
   const handleCancel = React.useCallback(() => {
-    if (onCancel) {
-      onCancel();
-      return;
-    }
-
-    if (typeof window !== 'undefined') {
-      window.history.back();
-    }
+    onCancel?.();
   }, [onCancel]);
 
   const previewMedia = React.useMemo(() => getExerciseMediaInfo(values.video_url), [values.video_url]);
