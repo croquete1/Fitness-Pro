@@ -3,13 +3,7 @@ export const dynamic = 'force-dynamic';
 import { redirect } from 'next/navigation';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { createServerClient } from '@/lib/supabaseServer';
-import Paper from '@mui/material/Paper';
-import Typography from '@mui/material/Typography';
-import Table from '@mui/material/Table';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
-import TableCell from '@mui/material/TableCell';
-import TableBody from '@mui/material/TableBody';
+import SessionsClient, { type ClientSession } from './SessionsClient';
 
 export default async function ClientSessionsPage() {
   const session = await getSessionUserSafe();
@@ -17,33 +11,25 @@ export default async function ClientSessionsPage() {
 
   const sb = createServerClient();
   const { data } = await sb
-    .from('sessions')
-    .select('id,scheduled_at,location,status,trainer_id')
+    .from('sessions' as any)
+    .select('id,start_at,end_at,scheduled_at,duration_min,location,notes,status,client_attendance_status,client_attendance_at,trainer:users!sessions_trainer_id_fkey(name,email)')
     .eq('client_id', session.user.id)
-    .order('scheduled_at', { ascending: false })
+    .order('start_at', { ascending: true })
     .limit(200);
 
-  return (
-    <Paper elevation={0} sx={{ p:2 }}>
-      <Typography variant="h6" fontWeight={800} sx={{ mb: 2 }}>Sessões</Typography>
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell>Data</TableCell><TableCell>Local</TableCell><TableCell>Estado</TableCell><TableCell>PT</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {(data ?? []).map((s:any)=>(
-            <TableRow key={s.id}>
-              <TableCell>{s.scheduled_at ? new Date(s.scheduled_at).toLocaleString('pt-PT') : '—'}</TableCell>
-              <TableCell>{s.location ?? '—'}</TableCell>
-              <TableCell>{s.status ?? '—'}</TableCell>
-              <TableCell>{s.trainer_id ?? '—'}</TableCell>
-            </TableRow>
-          ))}
-          {(!data || data.length===0) && <TableRow><TableCell colSpan={4} align="center">Sem sessões.</TableCell></TableRow>}
-        </TableBody>
-      </Table>
-    </Paper>
-  );
+  const sessions: ClientSession[] = (data ?? []).map((row: any) => ({
+    id: row.id,
+    startISO: row.start_at ?? row.scheduled_at ?? null,
+    endISO: row.end_at ?? null,
+    durationMin: row.duration_min ?? null,
+    location: row.location ?? null,
+    notes: row.notes ?? null,
+    trainerName: row.trainer?.name ?? null,
+    trainerEmail: row.trainer?.email ?? null,
+    status: row.status ?? null,
+    attendanceStatus: row.client_attendance_status ?? 'pending',
+    attendanceAt: row.client_attendance_at ?? null,
+  }));
+
+  return <SessionsClient initialSessions={sessions} />;
 }
