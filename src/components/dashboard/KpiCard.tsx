@@ -61,11 +61,9 @@ export default function KpiCard({
   const prefersReducedMotion = useReducedMotion();
 
   const [animatedNumber, setAnimatedNumber] = React.useState<number | null>(
-    typeof value === 'number' ? value : null,
+    typeof value === 'number' ? 0 : null,
   );
-  const previousNumberRef = React.useRef<number | null>(
-    typeof value === 'number' ? value : null,
-  );
+  const previousNumberRef = React.useRef<number | null>(null);
 
   React.useEffect(() => {
     if (typeof value !== 'number') {
@@ -80,7 +78,7 @@ export default function KpiCard({
       return;
     }
 
-    const from = previousNumberRef.current ?? value;
+    const from = previousNumberRef.current ?? 0;
     const controls = animate(from, value, {
       duration: 0.6,
       ease: 'easeOut',
@@ -112,7 +110,6 @@ export default function KpiCard({
     <Card
       variant="outlined"
       component="div"
-      onClick={onClick as any}
       sx={{
         borderRadius: 3,
         border,
@@ -126,74 +123,111 @@ export default function KpiCard({
           theme.transitions.create(['border-color', 'box-shadow'], {
             duration: theme.transitions.duration.shortest,
           }),
-        '&:focus-visible': {
-          outline: '2px solid var(--mui-palette-primary-main)',
-          outlineOffset: 4,
-        },
-        ...(href
-          ? {
-              'a:hover &': { borderColor: 'var(--mui-palette-primary-main)' },
-              'a:focus-visible &': {
-                borderColor: 'var(--mui-palette-primary-main)',
-                boxShadow: '0 0 0 4px rgba(59, 130, 246, 0.25)',
-              },
-            }
-          : {}),
       }}
     >
       <CardContent>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: .5 }}>
+        <Box
+          component={motion.div}
+          initial={prefersReducedMotion ? false : { opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: prefersReducedMotion ? 0 : enterDelay + 0.1 }}
+          sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}
+        >
           {icon && (
             <motion.span
               aria-hidden
-              initial={{ scale: 0.95, opacity: 0 }}
+              initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              whileHover={prefersReducedMotion ? undefined : { scale: 1.08 }}
-              whileTap={prefersReducedMotion ? undefined : { scale: 0.94 }}
               transition={{ type: 'spring', stiffness: 260, damping: 18 }}
               style={{ display: 'inline-flex', fontSize: 22 }}
             >
               {icon}
             </motion.span>
           )}
-          <Typography variant="body2" sx={{ opacity: .7 }}>
+          <Typography variant="body2" sx={{ opacity: 0.7 }}>
             {loading ? <Skeleton width={120} height={14} /> : label}
           </Typography>
         </Box>
 
-        {loading
-          ? <Skeleton width={64} height={36} />
-          : (
-            <Typography variant="h5" fontWeight={800} component="span" display="block">
-              <motion.span
-                layout
-                initial={false}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ type: 'spring', stiffness: 260, damping: 24 }}
-                style={{ display: 'inline-block' }}
-              >
-                {displayValue}
-              </motion.span>
-            </Typography>
-          )
-        }
+        {loading ? (
+          <Skeleton width={64} height={36} />
+        ) : (
+          <Typography variant="h5" fontWeight={800} component="span" display="block">
+            <motion.span
+              initial={prefersReducedMotion ? false : { opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ type: 'spring', stiffness: 240, damping: 22 }}
+              style={{ display: 'inline-block', willChange: 'transform' }}
+            >
+              {displayValue}
+            </motion.span>
+          </Typography>
+        )}
 
         {!loading && (trend || trendValue) && (
-          <Typography variant="caption" sx={{ color: trendColor }}>
+          <Typography
+            component={motion.span}
+            initial={prefersReducedMotion ? false : { opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: prefersReducedMotion ? 0 : enterDelay + 0.12 }}
+            variant="caption"
+            sx={{ color: trendColor, display: 'inline-block', marginTop: 4 }}
+          >
             {trendValue ?? ''} {trendLabel ?? ''}
           </Typography>
         )}
 
         {!loading && footer && (
-          <Box sx={{ mt: 1, pt: .75, borderTop: `1px dashed var(--mui-palette-divider)` }}>
-            <Typography variant="caption" sx={{ opacity: .8 }}>{footer}</Typography>
+          <Box
+            component={motion.div}
+            initial={prefersReducedMotion ? false : { opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: prefersReducedMotion ? 0 : enterDelay + 0.16 }}
+            sx={{ mt: 1, pt: 0.75, borderTop: `1px dashed var(--mui-palette-divider)` }}
+          >
+            <Typography variant="caption" sx={{ opacity: 0.8 }}>
+              {footer}
+            </Typography>
           </Box>
         )}
       </CardContent>
     </Card>
   );
 
-  const linkedCard = href ? (
+  const animatedCard = (
+    <motion.article
+      onClick={onClick as any}
+      initial={prefersReducedMotion ? false : { opacity: 0, y: 12, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      whileHover={
+        prefersReducedMotion
+          ? undefined
+          : {
+              y: -4,
+              scale: 1.01,
+              boxShadow: '0 18px 32px rgba(15, 23, 42, 0.16)',
+            }
+      }
+      whileTap={prefersReducedMotion ? undefined : { scale: 0.985 }}
+      transition={{
+        type: 'spring',
+        stiffness: 220,
+        damping: 26,
+        delay: prefersReducedMotion ? 0 : enterDelay,
+      }}
+      style={{
+        display: 'block',
+        height: '100%',
+        borderRadius: 12,
+        position: 'relative',
+        cursor: href ? 'pointer' : 'default',
+      }}
+    >
+      {card}
+    </motion.article>
+  );
+
+  const wrappedCard = href ? (
     <Link
       href={href}
       prefetch={false}
@@ -202,33 +236,15 @@ export default function KpiCard({
         display: 'block',
         color: 'inherit',
         height: '100%',
-        cursor: 'pointer',
         borderRadius: 12,
-        outline: 'none',
       }}
+      aria-label={`${label} – ver detalhes`}
     >
-      {card}
+      {animatedCard}
     </Link>
   ) : (
-    card
+    animatedCard
   );
 
-  const animatedCard = (
-    <motion.div
-      initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      whileHover={
-        prefersReducedMotion
-          ? undefined
-          : { y: -6, scale: 1.01, boxShadow: '0 18px 28px rgba(15, 23, 42, 0.12)' }
-      }
-      whileTap={prefersReducedMotion ? undefined : { scale: 0.99 }}
-      transition={{ type: 'spring', stiffness: 280, damping: 32, delay: enterDelay }}
-      style={{ height: '100%', willChange: 'transform' }}
-    >
-      {linkedCard}
-    </motion.div>
-  );
-
-  return tooltip ? <Tooltip title={tooltip}>{animatedCard}</Tooltip> : animatedCard;
+  return tooltip ? <Tooltip title={tooltip}>{wrappedCard}</Tooltip> : wrappedCard;
 }
