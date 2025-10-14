@@ -28,6 +28,8 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
 import AdminQuickNotesCard from '@/components/admin/AdminQuickNotesCard';
 import MotivationAdminCard from '@/components/admin/MotivationAdminCard';
+import Link from 'next/link';
+import { animate, motion, useReducedMotion } from 'framer-motion';
 import { greetingForDate } from '@/lib/time';
 
 export type AgendaRow = {
@@ -69,6 +71,168 @@ function formatAgenda(value: AgendaRow) {
   return { day, time };
 }
 
+type QuickMetric = {
+  label: string;
+  value: number;
+  hint: string;
+  icon: React.ReactNode;
+  href: string;
+};
+
+type QuickMetricCardProps = QuickMetric & { index: number };
+
+const MotionAnchor = motion(
+  React.forwardRef<HTMLAnchorElement, React.ComponentPropsWithoutRef<'a'>>(
+    function MotionAnchor(props, ref) {
+      return <a ref={ref} {...props} />;
+    },
+  ),
+);
+
+function formatMetric(value: number) {
+  const isInteger = Number.isInteger(value);
+  const rounded = isInteger ? Math.round(value) : Number(value.toFixed(1));
+  return new Intl.NumberFormat('pt-PT', {
+    minimumFractionDigits: isInteger ? 0 : 1,
+    maximumFractionDigits: isInteger ? 0 : 1,
+  }).format(rounded);
+}
+
+function QuickMetricCard({ label, value, hint, icon, href, index }: QuickMetricCardProps) {
+  const theme = useTheme();
+  const prefersReducedMotion = useReducedMotion();
+  const [displayValue, setDisplayValue] = React.useState(() => value);
+  const previousRef = React.useRef<number>(value);
+
+  React.useEffect(() => {
+    if (prefersReducedMotion) {
+      setDisplayValue(value);
+      previousRef.current = value;
+      return;
+    }
+
+    const controls = animate(previousRef.current ?? 0, value, {
+      duration: 0.75,
+      ease: 'easeOut',
+      onUpdate: (latest) => setDisplayValue(latest),
+    });
+
+    previousRef.current = value;
+
+    return () => controls.stop();
+  }, [value, prefersReducedMotion]);
+
+  const formattedValue = React.useMemo(() => formatMetric(displayValue), [displayValue]);
+
+  const surface = React.useMemo(
+    () =>
+      theme.palette.mode === 'dark'
+        ? 'linear-gradient(140deg, rgba(255,255,255,0.08) 0%, rgba(148,163,184,0.04) 100%)'
+        : 'linear-gradient(140deg, rgba(255,255,255,0.92) 0%, rgba(226,232,240,0.78) 100%)',
+    [theme.palette.mode],
+  );
+
+  return (
+    <Link href={href} passHref legacyBehavior>
+      <MotionAnchor
+        className="focus-ring"
+        style={{
+          display: 'block',
+          textDecoration: 'none',
+          borderRadius: 20,
+          outline: 'none',
+        }}
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 16, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        whileHover={
+          prefersReducedMotion
+            ? undefined
+            : {
+                y: -6,
+                scale: 1.02,
+                boxShadow: '0 24px 65px rgba(15,23,42,0.15)',
+              }
+        }
+        whileTap={prefersReducedMotion ? undefined : { scale: 0.995 }}
+        transition={{ type: 'spring', stiffness: 220, damping: 26, delay: prefersReducedMotion ? 0 : index * 0.05 }}
+        aria-label={`${label} – abrir detalhes`}
+      >
+        <Box
+          sx={{
+            borderRadius: 3,
+            px: 2.25,
+            py: 2.25,
+            background: surface,
+            border: '1px solid',
+            borderColor:
+              theme.palette.mode === 'dark'
+                ? 'rgba(148,163,184,0.25)'
+                : 'rgba(59,130,246,0.18)',
+            backdropFilter: 'blur(18px)',
+            height: '100%',
+          }}
+        >
+          <Stack direction="row" alignItems="center" spacing={1.75}>
+            <Avatar
+              component={motion.div}
+              initial={prefersReducedMotion ? false : { scale: 0.85, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{
+                type: 'spring',
+                stiffness: 260,
+                damping: 18,
+                delay: prefersReducedMotion ? 0 : index * 0.05 + 0.08,
+              }}
+              sx={{
+                width: 40,
+                height: 40,
+                bgcolor:
+                  theme.palette.mode === 'dark'
+                    ? 'rgba(148,163,184,0.18)'
+                    : 'rgba(59,130,246,0.12)',
+                color:
+                  theme.palette.mode === 'dark'
+                    ? theme.palette.primary.light
+                    : theme.palette.primary.dark,
+                boxShadow:
+                  theme.palette.mode === 'dark'
+                    ? 'inset 0 0 0 1px rgba(148,163,184,0.35)'
+                    : 'inset 0 0 0 1px rgba(59,130,246,0.25)',
+              }}
+            >
+              {icon}
+            </Avatar>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="subtitle2" sx={{ opacity: 0.75, letterSpacing: 0.2 }}>
+                {label}
+              </Typography>
+              <Typography
+                component={motion.span}
+                variant="h5"
+                fontWeight={800}
+                sx={{ display: 'block' }}
+                initial={prefersReducedMotion ? false : { opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{
+                  type: 'spring',
+                  stiffness: 240,
+                  damping: 22,
+                  delay: prefersReducedMotion ? 0 : index * 0.05 + 0.12,
+                }}
+              >
+                {formattedValue}
+              </Typography>
+              <Typography variant="caption" sx={{ opacity: 0.7, display: 'block' }}>
+                {hint}
+              </Typography>
+            </Box>
+          </Stack>
+        </Box>
+      </MotionAnchor>
+    </Link>
+  );
+}
+
 export default function AdminDashboardClient({ name, data, supabase }: Props) {
   const theme = useTheme();
   const greeting = React.useMemo(() => {
@@ -82,24 +246,28 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
       value: data.totals.users,
       icon: <GroupIcon fontSize="small" />,
       hint: `${data.totals.clients} clientes • ${data.totals.trainers} Personal Trainers`,
+      href: '/dashboard/admin/users',
     },
     {
       label: 'Sessões hoje',
       value: data.totals.sessionsToday,
       icon: <EventAvailableIcon fontSize="small" />,
       hint: 'próximas 24h',
+      href: '/dashboard/admin/pts-schedule',
     },
     {
       label: 'Aprovações pendentes',
       value: data.totals.pendingApprovals,
       icon: <PendingActionsIcon fontSize="small" />,
       hint: 'aguardam revisão',
+      href: '/dashboard/admin/approvals',
     },
     {
       label: 'Novos registos',
       value: data.recentUsers.length,
       icon: <PersonAddAlt1Icon fontSize="small" />,
       hint: 'últimos dias',
+      href: '/dashboard/admin/users?filter=recent',
     },
   ];
 
@@ -171,55 +339,9 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
             Mantém o controlo da operação — aprova novos utilizadores, acompanha os Personal Trainers e garante que cada cliente tem um plano actual.
           </Typography>
           <Grid container spacing={2}>
-            {quickMetrics.map((metric) => (
+            {quickMetrics.map((metric, index) => (
               <Grid item xs={6} sm={6} md={3} key={metric.label}>
-                <Box
-                  sx={{
-                    borderRadius: 3,
-                    px: 2,
-                    py: 2,
-                    bgcolor:
-                      theme.palette.mode === 'dark'
-                        ? 'rgba(255,255,255,0.08)'
-                        : 'rgba(255,255,255,0.82)',
-                    border: '1px solid',
-                    borderColor:
-                      theme.palette.mode === 'dark'
-                        ? 'rgba(255,255,255,0.18)'
-                        : 'rgba(29,78,216,0.18)',
-                    backdropFilter: 'blur(14px)',
-                  }}
-                >
-                  <Stack direction="row" alignItems="center" spacing={1.5}>
-                    <Avatar
-                      sx={{
-                        width: 36,
-                        height: 36,
-                        bgcolor:
-                          theme.palette.mode === 'dark'
-                            ? 'rgba(255,255,255,0.16)'
-                            : 'rgba(29,78,216,0.18)',
-                        color:
-                          theme.palette.mode === 'dark'
-                            ? 'rgba(255,255,255,0.88)'
-                            : theme.palette.primary.main,
-                      }}
-                    >
-                      {metric.icon}
-                    </Avatar>
-                    <Box>
-                      <Typography variant="subtitle2" sx={{ opacity: 0.75 }}>
-                        {metric.label}
-                      </Typography>
-                      <Typography variant="h5" fontWeight={700}>
-                        {metric.value}
-                      </Typography>
-                      <Typography variant="caption" sx={{ opacity: 0.7 }}>
-                        {metric.hint}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                </Box>
+                <QuickMetricCard index={index} {...metric} />
               </Grid>
             ))}
           </Grid>
