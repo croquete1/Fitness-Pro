@@ -100,7 +100,7 @@ function AvatarPreview({
 
   return (
     <div
-      className={`flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-100 text-2xl font-semibold text-slate-600 transition-all duration-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 ${
+      className={`flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-100 text-2xl font-semibold text-[color:var(--muted)] transition-all duration-200 dark:border-slate-700 dark:bg-slate-900 ${
         className ?? ''
       }`}
     >
@@ -311,19 +311,19 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
         </div>
 
         <div className="flex flex-col gap-6 p-6 lg:flex-row">
-          <div className="flex flex-col items-center gap-4 rounded-2xl bg-slate-50 p-5 text-sm text-slate-600 shadow-sm ring-1 ring-slate-100 dark:bg-slate-900/60 dark:text-slate-200 dark:ring-slate-800 lg:w-56">
+          <div className="flex flex-col items-center gap-4 rounded-2xl bg-slate-50 p-5 text-sm text-[color:var(--text)] shadow-sm ring-1 ring-slate-100 dark:bg-slate-900/60 dark:ring-slate-800 lg:w-56">
             <AvatarPreview
               url={form.avatarUrl}
               email={initialProfile.email}
               name={form.name}
               className="shadow-lg ring-2 ring-slate-200 dark:ring-slate-700"
             />
-            <div className="flex flex-col items-center gap-2">
+            <div className="flex flex-col items-center gap-2 text-[color:var(--muted)]">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={avatarBusy}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-[color:var(--text)] shadow transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-800 dark:hover:bg-slate-700"
               >
                 {avatarBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Camera className="h-4 w-4" aria-hidden />}
                 <span>{avatarBusy ? 'A enviar…' : 'Alterar fotografia'}</span>
@@ -332,14 +332,14 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
                 <button
                   type="button"
                   onClick={() => setForm((prev) => ({ ...prev, avatarUrl: '' }))}
-                  className="inline-flex items-center gap-1 text-xs text-slate-500 underline transition hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                  className="inline-flex items-center gap-1 text-xs text-[color:var(--muted)] underline transition hover:text-[color:var(--text)]"
                 >
                   <Trash2 className="h-3.5 w-3.5" aria-hidden />
                   Remover fotografia
                 </button>
               ) : null}
             </div>
-            <p className="text-center text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-center text-xs text-[color:var(--muted)]">
               Dica: escolhe uma fotografia com fundo neutro e boa iluminação para melhor visibilidade.
             </p>
             <input
@@ -355,38 +355,38 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
             <fieldset className="grid gap-4 md:grid-cols-2">
               <legend className="sr-only">Informação principal</legend>
               <label className="grid gap-2 text-sm">
-                <span className="font-medium text-slate-900 dark:text-slate-100">Nome completo</span>
+                <span className="font-medium text-[color:var(--text)]">Nome completo</span>
                 <input
                   type="text"
                   value={form.name}
                   onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:ring-offset-2 focus:ring-offset-white dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-400 dark:focus:ring-blue-500/40 dark:focus:ring-offset-slate-950"
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-[color:var(--text)] shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:ring-offset-2 focus:ring-offset-white dark:border-slate-700 dark:bg-slate-900 dark:focus:border-blue-400 dark:focus:ring-blue-500/40 dark:focus:ring-offset-slate-950"
                   placeholder="O teu nome"
                   autoComplete="name"
                 />
-                <span className="text-xs text-slate-500 dark:text-slate-400">
+                <span className="text-xs text-[color:var(--muted)]">
                   Como preferes ser identificado em planos e mensagens.
                 </span>
               </label>
               <label className="grid gap-2 text-sm">
-                <span className="font-medium text-slate-900 dark:text-slate-100">Email</span>
+                <span className="font-medium text-[color:var(--text)]">Email</span>
                 <input
                   type="email"
                   value={initialProfile.email}
                   disabled
-                  className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-600 shadow-inner dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
+                  className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-[color:var(--muted)] shadow-inner dark:border-slate-700 dark:bg-slate-900"
                 />
-                <span className="text-xs text-slate-500 dark:text-slate-400">
+                <span className="text-xs text-[color:var(--muted)]">
                   Email principal associado à tua conta. Gestão disponível em Definições &gt; Conta.
                 </span>
               </label>
               <label className="grid gap-2 text-sm md:col-span-2">
-                <span className="font-medium text-slate-900 dark:text-slate-100">Username</span>
+                <span className="font-medium text-[color:var(--text)]">Username</span>
                 <input
                   type="text"
                   value={form.username}
                   onChange={(event) => setForm((prev) => ({ ...prev, username: event.target.value }))}
-                  className={`rounded-lg border bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-blue-200 focus:ring-offset-2 focus:ring-offset-white dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-blue-500/40 dark:focus:ring-offset-slate-950 ${
+                  className={`rounded-lg border bg-white px-3 py-2 text-sm text-[color:var(--text)] shadow-sm transition focus:outline-none focus:ring-2 focus:ring-blue-200 focus:ring-offset-2 focus:ring-offset-white dark:bg-slate-900 dark:focus:ring-blue-500/40 dark:focus:ring-offset-slate-950 ${
                     usernameStatus.state === 'taken' || usernameStatus.state === 'invalid'
                       ? 'border-rose-400 focus:border-rose-400 focus:ring-rose-200 dark:border-rose-500'
                       : 'border-slate-300 focus:border-blue-500 dark:border-slate-700 dark:focus:border-blue-400'
@@ -395,7 +395,7 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
                   aria-describedby={usernameHintId}
                   autoComplete="nickname"
                 />
-                <p id={usernameHintId} className="text-xs text-slate-500 dark:text-slate-400">
+                <p id={usernameHintId} className="text-xs text-[color:var(--muted)]">
                   {form.username.trim().length === 0
                     ? 'Opcional. Usa letras, números, ponto, hífen ou underscore.'
                     : usernameStatus.state === 'checking'
@@ -414,41 +414,41 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
             <fieldset className="grid gap-4 md:grid-cols-2">
               <legend className="sr-only">Contactos e detalhes adicionais</legend>
               <label className="grid gap-2 text-sm">
-                <span className="font-medium text-slate-900 dark:text-slate-100">Telefone</span>
+                <span className="font-medium text-[color:var(--text)]">Telefone</span>
                 <input
                   type="tel"
                   value={form.phone}
                   onChange={(event) => setForm((prev) => ({ ...prev, phone: event.target.value }))}
                   placeholder="(+351) 910 000 000"
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:ring-offset-2 focus:ring-offset-white dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-400 dark:focus:ring-blue-500/40 dark:focus:ring-offset-slate-950"
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-[color:var(--text)] shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:ring-offset-2 focus:ring-offset-white dark:border-slate-700 dark:bg-slate-900 dark:focus:border-blue-400 dark:focus:ring-blue-500/40 dark:focus:ring-offset-slate-950"
                   autoComplete="tel"
                 />
-                <span className="text-xs text-slate-500 dark:text-slate-400">
+                <span className="text-xs text-[color:var(--muted)]">
                   Partilha um contacto para comunicações rápidas com o teu treinador.
                 </span>
               </label>
               <label className="grid gap-2 text-sm">
-                <span className="font-medium text-slate-900 dark:text-slate-100">Data de nascimento</span>
+                <span className="font-medium text-[color:var(--text)]">Data de nascimento</span>
                 <input
                   type="date"
                   value={form.birthDate}
                   onChange={(event) => setForm((prev) => ({ ...prev, birthDate: event.target.value }))}
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:ring-offset-2 focus:ring-offset-white dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-400 dark:focus:ring-blue-500/40 dark:focus:ring-offset-slate-950"
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-[color:var(--text)] shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:ring-offset-2 focus:ring-offset-white dark:border-slate-700 dark:bg-slate-900 dark:focus:border-blue-400 dark:focus:ring-blue-500/40 dark:focus:ring-offset-slate-950"
                 />
-                <span className="text-xs text-slate-500 dark:text-slate-400">
+                <span className="text-xs text-[color:var(--muted)]">
                   Mantém os teus dados atualizados para receber planos personalizados.
                 </span>
               </label>
               <label className="grid gap-2 text-sm md:col-span-2">
-                <span className="font-medium text-slate-900 dark:text-slate-100">Biografia</span>
+                <span className="font-medium text-[color:var(--text)]">Biografia</span>
                 <textarea
                   value={form.bio}
                   onChange={(event) => setForm((prev) => ({ ...prev, bio: event.target.value }))}
                   rows={4}
                   placeholder="Partilha um pouco sobre ti, objetivos ou preferências."
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:ring-offset-2 focus:ring-offset-white dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-400 dark:focus:ring-blue-500/40 dark:focus:ring-offset-slate-950"
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-[color:var(--text)] shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:ring-offset-2 focus:ring-offset-white dark:border-slate-700 dark:bg-slate-900 dark:focus:border-blue-400 dark:focus:ring-blue-500/40 dark:focus:ring-offset-slate-950"
                 />
-                <span className="text-xs text-slate-500 dark:text-slate-400">
+                <span className="text-xs text-[color:var(--muted)]">
                   Dá contexto ao teu treinador sobre objetivos, historial ou preferências.
                 </span>
               </label>
@@ -479,19 +479,19 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
           <ShieldCheck className="mt-1 h-5 w-5 text-blue-600 dark:text-blue-400" aria-hidden />
           <div className="space-y-1">
             <h2 className="text-lg font-semibold">Acesso e segurança</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+            <p className="text-sm text-[color:var(--muted)]">
               A gestão da palavra-passe e notificações está disponível em <strong>Definições &gt; Conta</strong>.
             </p>
           </div>
         </header>
-        <div className="grid gap-3 text-sm text-slate-600 dark:text-slate-300 sm:grid-cols-2">
+        <div className="grid gap-3 text-sm text-[color:var(--muted)] sm:grid-cols-2">
           <div className="rounded-lg border border-slate-200/70 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/60">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Email</span>
-            <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">{initialProfile.email}</p>
+            <span className="text-xs font-semibold uppercase tracking-wide text-[color:var(--muted)]">Email</span>
+            <p className="truncate text-sm font-medium text-[color:var(--text)]">{initialProfile.email}</p>
           </div>
           <div className="rounded-lg border border-slate-200/70 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/60">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Função</span>
-            <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+            <span className="text-xs font-semibold uppercase tracking-wide text-[color:var(--muted)]">Função</span>
+            <p className="text-sm font-medium text-[color:var(--text)]">
               {initialProfile.role ?? 'Cliente'}
             </p>
           </div>
