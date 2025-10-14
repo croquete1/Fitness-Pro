@@ -83,13 +83,11 @@ export default function SystemPage() {
     <section className="space-y-6 px-4 py-6 md:px-8 lg:px-12">
       <header className="neo-panel neo-panel--header">
         <div className="space-y-3">
-          <span className="text-xs font-semibold tracking-[0.32em] uppercase" style={{ color: 'var(--muted-fg)' }}>
-            Centro de controlo
-          </span>
-          <h1 className="text-3xl font-extrabold leading-tight" style={{ color: 'var(--fg)' }}>
+          <span className="caps-tag">Centro de controlo</span>
+          <h1 className="heading-solid text-3xl font-extrabold leading-tight">
             Operações em tempo real
           </h1>
-          <p className="text-sm" style={{ color: 'var(--muted-fg)' }}>
+          <p className="text-sm text-muted max-w-2xl">
             Monitoriza a disponibilidade dos serviços principais, agenda janelas de manutenção e navega rapidamente para as áreas críticas.
           </p>
         </div>
@@ -115,24 +113,32 @@ export default function SystemPage() {
 
             <div className="neo-grid auto-fit" role="list">
               {services.map((service) => (
-                <article key={service.id} role="listitem" className="space-y-3 rounded-2xl border border-transparent bg-white/70 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-200 dark:bg-slate-950/40 dark:hover:border-slate-800">
+                <article
+                  key={service.id}
+                  role="listitem"
+                  className="neo-surface neo-surface--interactive space-y-3 p-4"
+                  data-service-state={service.state}
+                >
                   <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h3 className="text-base font-semibold" style={{ color: 'var(--fg)' }}>{service.name}</h3>
-                      <p className="text-sm" style={{ color: 'var(--muted-fg)' }}>{service.description}</p>
+                    <div className="space-y-1">
+                      <h3 className="text-base font-semibold text-fg">{service.name}</h3>
+                      <p className="text-sm text-muted">{service.description}</p>
                     </div>
-                    <StatusPill state={service.state} label={service.state === 'ok' ? 'ok' : service.state === 'warn' ? 'atenção' : 'incidente'} />
+                    <StatusPill
+                      state={service.state}
+                      label={service.state === 'ok' ? 'ok' : service.state === 'warn' ? 'atenção' : 'incidente'}
+                    />
                   </div>
                   <dl className="grid grid-cols-2 gap-3 text-sm">
                     <div>
-                      <dt className="font-medium" style={{ color: 'var(--muted-fg)' }}>Latência média</dt>
-                      <dd className="text-base font-semibold" style={{ color: 'var(--fg)' }}>{service.latency}</dd>
+                      <dt className="neo-surface__hint">Latência média</dt>
+                      <dd className="text-base font-semibold text-fg">{service.latency}</dd>
                     </div>
                     <div>
-                      <dt className="font-medium" style={{ color: 'var(--muted-fg)' }}>Uptime (30 dias)</dt>
-                      <dd className="text-base font-semibold" style={{ color: 'var(--fg)' }}>{service.uptime}</dd>
+                      <dt className="neo-surface__hint">Uptime (30 dias)</dt>
+                      <dd className="text-base font-semibold text-fg">{service.uptime}</dd>
                     </div>
-                    <div className="col-span-2 flex items-center justify-between text-xs" style={{ color: 'var(--muted-fg)' }}>
+                    <div className="col-span-2 flex items-center justify-between text-xs text-muted">
                       <span>Última leitura {service.updatedAgo}</span>
                       <Link href={`/dashboard/system/health#${service.id}`} className="link-arrow" prefetch={false}>
                         Ver detalhes <ArrowIcon />
@@ -154,11 +160,11 @@ export default function SystemPage() {
             </div>
             <ul className="grid gap-3" aria-live="polite">
               {maintenanceWindows.map((mw) => (
-                <li key={mw.id} className="rounded-xl border border-slate-200/60 bg-white/60 p-4 dark:border-slate-800/60 dark:bg-slate-950/40">
+                <li key={mw.id} className="neo-surface p-4">
                   <div className="flex flex-col gap-1">
-                    <span className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>{mw.title}</span>
-                    <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--muted-fg)' }}>{mw.when}</span>
-                    <span className="text-sm" style={{ color: 'var(--muted-fg)' }}>{mw.impact}</span>
+                    <span className="text-sm font-semibold text-fg">{mw.title}</span>
+                    <span className="text-xs uppercase tracking-wide text-muted">{mw.when}</span>
+                    <span className="text-sm text-muted">{mw.impact}</span>
                   </div>
                 </li>
               ))}
@@ -174,10 +180,10 @@ export default function SystemPage() {
             </div>
             <ul className="grid gap-3">
               {insights.map((insight) => (
-                <li key={insight.id} className="rounded-xl border border-slate-200/60 bg-white/60 p-4 dark:border-slate-800/60 dark:bg-slate-950/40">
-                  <div className="text-xs uppercase tracking-wide" style={{ color: 'var(--muted-fg)' }}>{insight.label}</div>
-                  <div className="text-2xl font-bold" style={{ color: 'var(--fg)' }}>{insight.value}</div>
-                  <div className="text-sm" style={{ color: 'var(--muted-fg)' }}>{insight.detail}</div>
+                <li key={insight.id} className="neo-surface p-4">
+                  <div className="text-xs uppercase tracking-wide text-muted">{insight.label}</div>
+                  <div className="text-2xl font-bold text-fg">{insight.value}</div>
+                  <div className="text-sm text-muted">{insight.detail}</div>
                 </li>
               ))}
             </ul>

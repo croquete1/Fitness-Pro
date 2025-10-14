@@ -186,6 +186,21 @@ input,select,textarea{
   border-radius:10px; padding:10px 12px; outline:none;
 }
 input:focus,select:focus,textarea:focus{ box-shadow:var(--ring); border-color:var(--primary); }
+.text-fg{ color:var(--fg); }
+.text-muted{ color:var(--muted-fg); }
+.text-danger{ color:var(--danger); }
+.heading-solid{
+  color:var(--fg) !important;
+  background:none !important;
+  -webkit-text-fill-color:var(--fg);
+}
+.caps-tag{
+  font-size:11px;
+  letter-spacing:0.32em;
+  text-transform:uppercase;
+  font-weight:600;
+  color:var(--muted-fg);
+}
 .focus-ring{ border-radius:18px; transition: box-shadow .18s ease, transform .18s ease; }
 .focus-ring:focus-visible{
   outline:none;
@@ -309,7 +324,7 @@ html[data-sb-collapsed="1"] .fp-sidebar::after{
 .card:hover{ border-color: color-mix(in srgb, var(--primary) 22%, var(--border)); }
 
 /* Superfícies futuristas */
-.neo-panel{
+.neo-panel{ 
   position:relative;
   border-radius:18px;
   padding:20px;
@@ -346,6 +361,74 @@ html[data-sb-collapsed="1"] .fp-sidebar::after{
 .neo-panel--compact{ padding:16px; }
 .neo-panel__title{ font-size:18px; font-weight:700; margin:0; }
 .neo-panel__subtitle{ font-size:13px; color:var(--muted-fg); margin:4px 0 0; }
+
+.neo-surface{
+  border-radius:16px;
+  border:1px solid color-mix(in srgb, var(--border) 76%, transparent);
+  background:color-mix(in srgb, var(--card-bg) 88%, transparent 12%);
+  box-shadow:var(--shadow-1);
+  transition:transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+  backdrop-filter:saturate(140%) blur(14px);
+}
+:root[data-theme="dark"] .neo-surface{
+  border-color:color-mix(in srgb, var(--border) 58%, transparent);
+  background:color-mix(in srgb, var(--card-bg) 78%, transparent 22%);
+  box-shadow:0 18px 50px rgba(2,6,23,.48);
+}
+.neo-surface--interactive:hover{
+  transform:translateY(-1px);
+  border-color:color-mix(in srgb, var(--primary) 40%, var(--border));
+  box-shadow:0 26px 60px color-mix(in srgb, var(--primary) 16%, transparent);
+}
+.neo-surface[data-variant="info"]{
+  border-color:color-mix(in srgb, var(--accent-2) 46%, var(--border));
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--accent-2) 22%, transparent), transparent 55%),
+    color-mix(in srgb, var(--card-bg) 88%, transparent 12%);
+}
+.neo-surface[data-variant="primary"]{
+  border-color:color-mix(in srgb, var(--primary) 40%, var(--border));
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--primary) 24%, transparent), transparent 55%),
+    color-mix(in srgb, var(--card-bg) 90%, transparent 10%);
+}
+.neo-surface[data-variant="success"]{
+  border-color:color-mix(in srgb, var(--success) 38%, var(--border));
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--success) 24%, transparent), transparent 55%),
+    color-mix(in srgb, var(--card-bg) 88%, transparent 12%);
+}
+.neo-surface[data-variant="warning"]{
+  border-color:color-mix(in srgb, var(--warning) 42%, var(--border));
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--warning) 24%, transparent), transparent 55%),
+    color-mix(in srgb, var(--card-bg) 90%, transparent 10%);
+}
+.neo-surface[data-variant="danger"]{
+  border-color:color-mix(in srgb, var(--danger) 48%, var(--border));
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--danger) 24%, transparent), transparent 55%),
+    color-mix(in srgb, var(--card-bg) 90%, transparent 10%);
+}
+.neo-surface[data-variant="neutral"]{
+  border-color:color-mix(in srgb, var(--muted-fg) 32%, var(--border));
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--muted-fg) 16%, transparent), transparent 55%),
+    color-mix(in srgb, var(--card-bg) 92%, transparent 8%);
+}
+.neo-surface__label{
+  font-size:12px;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  color:var(--muted-fg);
+}
+.neo-surface__value{
+  font-size:28px;
+  font-weight:800;
+  line-height:1.1;
+  color:var(--fg);
+}
+.neo-surface__hint{ font-size:12px; color:var(--muted-fg); }
 
 .neo-grid{
   display:grid;
@@ -405,7 +488,7 @@ html[data-sb-collapsed="1"] .fp-sidebar::after{
   flex-wrap:wrap;
   gap:10px;
 }
-.neo-quick-actions .btn{
+.neo-quick-actions .btn{ 
   padding:10px 16px;
   border-radius:14px;
   font-size:13px;
@@ -415,6 +498,40 @@ html[data-sb-collapsed="1"] .fp-sidebar::after{
   box-shadow:0 18px 40px rgba(124,58,237,.18);
 }
 .neo-quick-actions .btn:hover{ filter:none; box-shadow:0 16px 32px rgba(124,58,237,.28); }
+
+p.page-header{
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+  padding:20px;
+}
+.page-header--sticky{
+  position:sticky;
+  top:calc(var(--safe-top) + 12px);
+  z-index:30;
+}
+.page-header__title{
+  font-size:22px;
+  font-weight:800;
+  margin:0;
+  color:var(--fg);
+}
+.page-header__subtitle{
+  font-size:13px;
+  color:var(--muted-fg);
+  margin:0;
+}
+.page-header__actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+  align-items:center;
+}
+@media (min-width:768px){
+  .page-header{ flex-direction:row; align-items:center; justify-content:space-between; }
+  .page-header__body{ max-width:65ch; }
+}
 
 .neo-field{
   width:100%;
@@ -436,11 +553,30 @@ html[data-sb-collapsed="1"] .fp-sidebar::after{
   overflow:auto;
   border-radius:16px;
   border:1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background:color-mix(in srgb, var(--card-bg) 92%, transparent 8%);
+  box-shadow:var(--shadow-1);
 }
-.table-responsive table{ min-width:760px; }
+.table-responsive table{ min-width:760px; border-collapse:separate; border-spacing:0; width:100%; }
+.table--logs thead th{
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:0.16em;
+  text-transform:uppercase;
+  color:var(--muted-fg);
+  padding:12px 16px;
+  background:color-mix(in srgb, var(--hover) 45%, transparent);
+  position:sticky;
+  top:0;
+  z-index:5;
+}
+:root[data-theme="dark"] .table--logs thead th{
+  background:color-mix(in srgb, var(--sidebar-hover) 55%, transparent);
+}
 .table--logs tbody tr:nth-child(even){ background:color-mix(in srgb, var(--hover) 55%, transparent); }
 :root[data-theme="dark"] .table--logs tbody tr:nth-child(even){ background:color-mix(in srgb, var(--sidebar-hover) 45%, transparent); }
-.table--logs tbody td{ font-size:13px; }
+.table--logs tbody td{ font-size:13px; color:var(--fg); }
+.table--logs tbody td:first-child{ border-top-left-radius:12px; border-bottom-left-radius:12px; }
+.table--logs tbody td:last-child{ border-top-right-radius:12px; border-bottom-right-radius:12px; }
 .table--logs code{
   font-family: "JetBrains Mono", "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
   font-size:12px;
@@ -500,7 +636,6 @@ h1,.h1{
 .auth-input{ width:100%; }
 .auth-password{ display:grid; grid-template-columns:1fr auto; gap:8px; }
 .badge-danger{ color:#b91c1c; background:#fee2e2; border:1px solid #fecaca; border-radius:10px; padding:8px 10px; font-size:13px; }
-.text-muted{ color:var(--muted-fg); }
 .small{ font-size:13px; }
 .auth-actions{ display:flex; justify-content:space-between; gap:8px; }
 

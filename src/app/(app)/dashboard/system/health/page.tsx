@@ -55,13 +55,11 @@ export default function SystemHealthPage() {
     <section className="space-y-6 px-4 py-6 md:px-8 lg:px-12">
       <header className="neo-panel neo-panel--header">
         <div className="space-y-2">
-          <span className="text-xs font-semibold tracking-[0.32em] uppercase" style={{ color: 'var(--muted-fg)' }}>
-            Saúde do sistema
-          </span>
-          <h1 className="text-3xl font-extrabold leading-tight" style={{ color: 'var(--fg)' }}>
+          <span className="caps-tag">Saúde do sistema</span>
+          <h1 className="heading-solid text-3xl font-extrabold leading-tight">
             Dependências monitorizadas 24/7
           </h1>
-          <p className="text-sm" style={{ color: 'var(--muted-fg)' }}>
+          <p className="text-sm text-muted max-w-2xl">
             Indicadores críticos, redundância e mecanismos de resiliência para manter o Fitness Pro disponível.
           </p>
         </div>
@@ -79,26 +77,26 @@ export default function SystemHealthPage() {
           </div>
           <ul className="grid gap-4">
             {layers.map((layer) => (
-              <li key={layer.id} id={layer.id} className="rounded-2xl border border-slate-200/70 bg-white/70 p-5 shadow-sm dark:border-slate-800/60 dark:bg-slate-950/40">
+              <li key={layer.id} id={layer.id} className="neo-surface p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="space-y-1">
-                    <h3 className="text-lg font-semibold" style={{ color: 'var(--fg)' }}>{layer.title}</h3>
-                    <p className="text-sm" style={{ color: 'var(--muted-fg)' }}>{layer.summary}</p>
+                    <h3 className="text-lg font-semibold text-fg">{layer.title}</h3>
+                    <p className="text-sm text-muted">{layer.summary}</p>
                   </div>
                   <StatusPill state={layer.state} label={layer.state === 'ok' ? 'operacional' : 'atenção'} />
                 </div>
                 <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
                   <div>
-                    <dt className="font-medium" style={{ color: 'var(--muted-fg)' }}>Latência média</dt>
-                    <dd className="text-base font-semibold" style={{ color: 'var(--fg)' }}>{layer.latency}</dd>
+                    <dt className="neo-surface__hint">Latência média</dt>
+                    <dd className="text-base font-semibold text-fg">{layer.latency}</dd>
                   </div>
                   <div>
-                    <dt className="font-medium" style={{ color: 'var(--muted-fg)' }}>Uptime (30 dias)</dt>
-                    <dd className="text-base font-semibold" style={{ color: 'var(--fg)' }}>{layer.uptime}</dd>
+                    <dt className="neo-surface__hint">Uptime (30 dias)</dt>
+                    <dd className="text-base font-semibold text-fg">{layer.uptime}</dd>
                   </div>
                   <div>
-                    <dt className="font-medium" style={{ color: 'var(--muted-fg)' }}>Tendência</dt>
-                    <dd className="text-base font-semibold" style={{ color: 'var(--fg)' }}>{layer.trend}</dd>
+                    <dt className="neo-surface__hint">Tendência</dt>
+                    <dd className="text-base font-semibold text-fg">{layer.trend}</dd>
                   </div>
                 </dl>
               </li>
@@ -114,9 +112,9 @@ export default function SystemHealthPage() {
             </div>
             <ul className="grid gap-3 text-sm">
               {monitors.map((monitor) => (
-                <li key={monitor.id} className="rounded-xl border border-slate-200/70 bg-white/70 p-4 dark:border-slate-800/60 dark:bg-slate-950/40">
-                  <div className="font-semibold" style={{ color: 'var(--fg)' }}>{monitor.title}</div>
-                  <div className="text-sm" style={{ color: 'var(--muted-fg)' }}>{monitor.detail}</div>
+                <li key={monitor.id} className="neo-surface p-4">
+                  <div className="font-semibold text-fg">{monitor.title}</div>
+                  <div className="text-sm text-muted">{monitor.detail}</div>
                 </li>
               ))}
             </ul>
@@ -132,9 +130,9 @@ export default function SystemHealthPage() {
             </div>
             <ul className="grid gap-3 text-sm">
               {resilience.map((item) => (
-                <li key={item.id} className="rounded-xl border border-slate-200/70 bg-white/70 p-4 dark:border-slate-800/60 dark:bg-slate-950/40">
-                  <div className="font-semibold" style={{ color: 'var(--fg)' }}>{item.title}</div>
-                  <div className="text-sm" style={{ color: 'var(--muted-fg)' }}>{item.detail}</div>
+                <li key={item.id} className="neo-surface p-4">
+                  <div className="font-semibold text-fg">{item.title}</div>
+                  <div className="text-sm text-muted">{item.detail}</div>
                 </li>
               ))}
             </ul>

@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+type StatusState = 'ok' | 'warn' | 'down';
+
 type LogRow = {
   id: string;
   when: string;
@@ -79,6 +81,10 @@ function metaToText(meta: LogRow["meta"]) {
   }
 }
 
+function StatusPill({ state, label }: { state: StatusState; label: string }) {
+  return <span className="status-pill" data-state={state}>{label}</span>;
+}
+
 export default function AuditLogsClient() {
   const [rows, setRows] = useState<LogRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -131,23 +137,27 @@ export default function AuditLogsClient() {
     return `${filteredRows.length} registos`;
   }, [filteredRows.length, loading, error]);
 
+  const statusState: StatusState = loading ? 'warn' : error ? 'down' : 'ok';
+
   return (
     <section className="space-y-6 px-4 py-6 md:px-8 lg:px-12">
-      <header className="flex flex-wrap items-start justify-between gap-4">
+      <header className="neo-panel neo-panel--header">
         <div className="space-y-2">
-          <h1 className="text-3xl font-extrabold leading-tight" style={{ color: 'var(--fg)' }}>
+          <span className="caps-tag">Registos do sistema</span>
+          <h1 className="heading-solid text-3xl font-extrabold leading-tight">
             Logs de auditoria
           </h1>
-          <p className="text-sm" style={{ color: 'var(--muted-fg)' }}>
-            Monitoriza alterações críticas na plataforma e mantém um trilho de evidências completo.
+          <p className="text-sm text-muted max-w-2xl">
+            Monitoriza alterações críticas na plataforma e mantém um trilho de evidências completo para fins de conformidade.
           </p>
           {lastUpdated && (
-            <span className="text-xs" style={{ color: 'var(--muted-fg)' }}>
+            <span className="text-xs text-muted">
               Última sincronização: {formatDate(lastUpdated.toISOString())}
             </span>
           )}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <StatusPill state={statusState} label={statusLabel} />
           <button
             type="button"
             className="btn ghost"
@@ -169,7 +179,7 @@ export default function AuditLogsClient() {
             onChange={(event) => setQuery(event.target.value)}
             aria-label="Filtrar logs"
           />
-          <span className="text-sm" style={{ color: 'var(--muted-fg)' }}>{statusLabel}</span>
+          <span className="text-sm text-muted" aria-live="polite">{statusLabel}</span>
         </div>
 
         <div className="table-responsive">
@@ -187,7 +197,7 @@ export default function AuditLogsClient() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-6" style={{ color: 'var(--muted-fg)', textAlign: 'center' }}>
+                  <td colSpan={6} className="px-4 py-6 text-center text-muted">
                     A carregar registos…
                   </td>
                 </tr>
@@ -195,7 +205,7 @@ export default function AuditLogsClient() {
 
               {!loading && error && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-6" style={{ color: '#dc2626', textAlign: 'center' }}>
+                  <td colSpan={6} className="px-4 py-6 text-center text-danger">
                     {error}
                   </td>
                 </tr>
@@ -203,7 +213,7 @@ export default function AuditLogsClient() {
 
               {!loading && !error && filteredRows.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-6" style={{ color: 'var(--muted-fg)', textAlign: 'center' }}>
+                  <td colSpan={6} className="px-4 py-6 text-center text-muted">
                     Sem registos para o filtro aplicado.
                   </td>
                 </tr>
@@ -211,11 +221,11 @@ export default function AuditLogsClient() {
 
               {!loading && !error && filteredRows.map((row) => (
                 <tr key={row.id}>
-                  <td className="px-4 py-3 align-top" style={{ color: 'var(--muted-fg)' }}>{formatDate(row.when)}</td>
-                  <td className="px-4 py-3 align-top font-semibold" style={{ color: 'var(--fg)' }}>{row.action}</td>
-                  <td className="px-4 py-3 align-top" style={{ color: 'var(--fg)' }}>{row.actor ?? '—'}</td>
-                  <td className="px-4 py-3 align-top" style={{ color: 'var(--fg)' }}>{row.target ?? '—'}</td>
-                  <td className="px-4 py-3 align-top" style={{ color: 'var(--muted-fg)' }}>{row.ip ?? '—'}</td>
+                  <td className="px-4 py-3 align-top text-muted">{formatDate(row.when)}</td>
+                  <td className="px-4 py-3 align-top font-semibold text-fg">{row.action}</td>
+                  <td className="px-4 py-3 align-top text-fg">{row.actor ?? '—'}</td>
+                  <td className="px-4 py-3 align-top text-fg">{row.target ?? '—'}</td>
+                  <td className="px-4 py-3 align-top text-muted">{row.ip ?? '—'}</td>
                   <td className="px-4 py-3 align-top">
                     <code>{metaToText(row.meta)}</code>
                   </td>
