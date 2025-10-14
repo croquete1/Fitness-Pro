@@ -778,7 +778,11 @@ export default function PTLibraryClient({ initialScope = 'personal' }: { initial
       <Dialog open={openCreate} onClose={() => closeCreate()} fullWidth maxWidth="md" fullScreen={isSmallDialog}>
         <DialogTitle>➕ Novo exercício</DialogTitle>
         <DialogContent dividers>
-          <TrainerExerciseFormClient mode="create" onSuccess={() => closeCreate(true)} />
+          <TrainerExerciseFormClient
+            mode="create"
+            onSuccess={() => closeCreate(true)}
+            onCancel={() => closeCreate()}
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => closeCreate()}>Fechar</Button>
@@ -796,6 +800,7 @@ export default function PTLibraryClient({ initialScope = 'personal' }: { initial
                 difficulty: normalizeDifficulty(editing.difficulty as any),
               }}
               onSuccess={() => closeEdit(true)}
+              onCancel={() => closeEdit()}
             />
           )}
         </DialogContent>

@@ -969,7 +969,11 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
       <Dialog open={openCreate} onClose={() => closeCreate()} fullWidth maxWidth="sm">
         <DialogTitle>➕ Novo exercício</DialogTitle>
         <DialogContent dividers>
-          <AdminExerciseFormClient mode="create" onSuccess={() => closeCreate(true)} />
+          <AdminExerciseFormClient
+            mode="create"
+            onSuccess={() => closeCreate(true)}
+            onCancel={() => closeCreate()}
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => closeCreate()}>Fechar</Button>
@@ -984,6 +988,7 @@ export default function ExercisesClient({ pageSize = 20, initialFilters }: {
             mode="create"
             initial={openClone.initial ? mapRowToExerciseInitial(openClone.initial as Row) : undefined}
             onSuccess={() => closeClone(true)}
+            onCancel={() => closeClone()}
           />
         </DialogContent>
         <DialogActions>

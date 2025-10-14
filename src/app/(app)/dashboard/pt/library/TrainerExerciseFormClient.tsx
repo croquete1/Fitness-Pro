@@ -3,14 +3,18 @@
 import * as React from 'react';
 import ExerciseForm, { type ExerciseFormMessages } from '@/components/exercise/ExerciseForm';
 import { type ExerciseFormValues } from '@/lib/exercises/schema';
+import { useRouter } from 'next/navigation';
 
 type Props = {
   mode: 'create' | 'edit';
   initial?: Partial<ExerciseFormValues>;
   onSuccess?: () => void;
+  onCancel?: () => void;
 };
 
-export default function TrainerExerciseFormClient({ mode, initial, onSuccess }: Props) {
+export default function TrainerExerciseFormClient({ mode, initial, onSuccess, onCancel }: Props) {
+  const router = useRouter();
+
   const submit = React.useCallback(
     async (payload: ExerciseFormValues) => {
       let res: Response;
@@ -55,5 +59,23 @@ export default function TrainerExerciseFormClient({ mode, initial, onSuccess }: 
     [],
   );
 
-  return <ExerciseForm mode={mode} initial={initial} onSuccess={onSuccess} submit={submit} messages={messages} />;
+  const handleCancel = React.useCallback(() => {
+    if (onCancel) {
+      onCancel();
+      return;
+    }
+
+    router.push('/dashboard/pt/library');
+  }, [onCancel, router]);
+
+  return (
+    <ExerciseForm
+      mode={mode}
+      initial={initial}
+      onSuccess={onSuccess}
+      onCancel={handleCancel}
+      submit={submit}
+      messages={messages}
+    />
+  );
 }
