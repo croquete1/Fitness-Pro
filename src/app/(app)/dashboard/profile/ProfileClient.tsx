@@ -1,6 +1,15 @@
 'use client';
 
 import * as React from 'react';
+import {
+  AlertCircle,
+  Camera,
+  CheckCircle2,
+  Loader2,
+  Save,
+  ShieldCheck,
+  Trash2,
+} from 'lucide-react';
 
 type ProfileModel = {
   id: string;
@@ -50,20 +59,37 @@ function sanitizeInitial(profile: ProfileModel): FormState {
   };
 }
 
-function StatusMessage({ status }: { status: Status }) {
+function StatusMessage({ status, id }: { status: Status; id: string }) {
   if (status.type === 'idle') return null;
-  const color = status.type === 'success' ? 'text-emerald-600' : 'text-rose-600';
-  return <p className={`text-sm font-medium ${color}`}>{status.message}</p>;
+  const Icon = status.type === 'success' ? CheckCircle2 : AlertCircle;
+  const color =
+    status.type === 'success'
+      ? 'text-emerald-600 dark:text-emerald-400'
+      : 'text-rose-600 dark:text-rose-400';
+
+  return (
+    <p
+      id={id}
+      role="status"
+      aria-live="polite"
+      className={`inline-flex items-center gap-2 text-sm font-medium ${color}`}
+    >
+      <Icon className="h-4 w-4" aria-hidden />
+      <span>{status.message}</span>
+    </p>
+  );
 }
 
 function AvatarPreview({
   url,
   email,
   name,
+  className,
 }: {
   url: string;
   email: string;
   name: string;
+  className?: string;
 }) {
   const initials = React.useMemo(() => {
     const base = name || email || '';
@@ -73,7 +99,11 @@ function AvatarPreview({
   }, [email, name]);
 
   return (
-    <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-100 text-2xl font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+    <div
+      className={`flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-100 text-2xl font-semibold text-slate-600 transition-all duration-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 ${
+        className ?? ''
+      }`}
+    >
       {url ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={url} alt={name || email} className="h-full w-full object-cover" />
@@ -93,6 +123,8 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
   const [avatarBusy, setAvatarBusy] = React.useState(false);
   const [usernameStatus, setUsernameStatus] = React.useState<UsernameStatus>({ state: 'idle' });
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const usernameHintId = React.useId();
+  const statusMessageId = React.useId();
 
   React.useEffect(() => {
     const candidate = form.username.trim();
@@ -247,36 +279,69 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
 
   return (
     <div className="space-y-6">
-      <section className="card space-y-6 p-6">
-        <header className="space-y-1">
-          <h1 className="text-2xl font-semibold">Perfil</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Atualiza os teus dados pessoais e controla a forma como és identificado na plataforma.
-          </p>
-        </header>
+      <section className="card overflow-hidden">
+        <div className="bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 px-6 py-6 text-white">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-100/80">
+                Perfil do cliente
+              </span>
+              <h1 className="text-2xl font-semibold sm:text-3xl">
+                {form.name.trim() || initialProfile.email}
+              </h1>
+              <p className="max-w-xl text-sm text-blue-100/90">
+                Atualiza os teus dados pessoais e controla a forma como és identificado na plataforma.
+              </p>
+            </div>
+            <div className="flex flex-col items-center gap-3 lg:items-end">
+              <AvatarPreview
+                url={form.avatarUrl}
+                email={initialProfile.email}
+                name={form.name}
+                className="h-24 w-24 border-white/60 bg-white/20 text-white shadow-xl ring-2 ring-white/40 backdrop-blur md:h-28 md:w-28"
+              />
+              <div className="flex flex-col items-center gap-2 text-xs font-medium text-blue-100/90 lg:items-end">
+                <span className="rounded-full bg-white/15 px-3 py-1 text-[11px] uppercase tracking-wider text-blue-50">
+                  {initialProfile.role ?? 'Cliente'}
+                </span>
+                <span className="text-blue-100/80">{initialProfile.email}</span>
+              </div>
+            </div>
+          </div>
+        </div>
 
-        <div className="flex flex-col gap-6 lg:flex-row">
-          <div className="flex flex-col items-center gap-4 lg:w-56">
-            <AvatarPreview url={form.avatarUrl} email={initialProfile.email} name={form.name} />
-            <div className="flex flex-col items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+        <div className="flex flex-col gap-6 p-6 lg:flex-row">
+          <div className="flex flex-col items-center gap-4 rounded-2xl bg-slate-50 p-5 text-sm text-slate-600 shadow-sm ring-1 ring-slate-100 dark:bg-slate-900/60 dark:text-slate-200 dark:ring-slate-800 lg:w-56">
+            <AvatarPreview
+              url={form.avatarUrl}
+              email={initialProfile.email}
+              name={form.name}
+              className="shadow-lg ring-2 ring-slate-200 dark:ring-slate-700"
+            />
+            <div className="flex flex-col items-center gap-2">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={avatarBusy}
-                className="inline-flex items-center justify-center rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
               >
-                {avatarBusy ? 'A enviar…' : 'Alterar fotografia'}
+                {avatarBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Camera className="h-4 w-4" aria-hidden />}
+                <span>{avatarBusy ? 'A enviar…' : 'Alterar fotografia'}</span>
               </button>
               {form.avatarUrl ? (
                 <button
                   type="button"
                   onClick={() => setForm((prev) => ({ ...prev, avatarUrl: '' }))}
-                  className="text-xs text-slate-500 underline transition hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                  className="inline-flex items-center gap-1 text-xs text-slate-500 underline transition hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
                 >
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden />
                   Remover fotografia
                 </button>
               ) : null}
             </div>
+            <p className="text-center text-xs text-slate-500 dark:text-slate-400">
+              Dica: escolhe uma fotografia com fundo neutro e boa iluminação para melhor visibilidade.
+            </p>
             <input
               ref={fileInputRef}
               type="file"
@@ -287,16 +352,21 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
           </div>
 
           <form onSubmit={onSubmit} className="flex-1 space-y-6">
-            <div className="grid gap-4 md:grid-cols-2">
+            <fieldset className="grid gap-4 md:grid-cols-2">
+              <legend className="sr-only">Informação principal</legend>
               <label className="grid gap-2 text-sm">
                 <span className="font-medium text-slate-900 dark:text-slate-100">Nome completo</span>
                 <input
                   type="text"
                   value={form.name}
                   onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-400 dark:focus:ring-blue-500/40"
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:ring-offset-2 focus:ring-offset-white dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-400 dark:focus:ring-blue-500/40 dark:focus:ring-offset-slate-950"
                   placeholder="O teu nome"
+                  autoComplete="name"
                 />
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  Como preferes ser identificado em planos e mensagens.
+                </span>
               </label>
               <label className="grid gap-2 text-sm">
                 <span className="font-medium text-slate-900 dark:text-slate-100">Email</span>
@@ -304,8 +374,11 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
                   type="email"
                   value={initialProfile.email}
                   disabled
-                  className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
+                  className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-600 shadow-inner dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
                 />
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  Email principal associado à tua conta. Gestão disponível em Definições &gt; Conta.
+                </span>
               </label>
               <label className="grid gap-2 text-sm md:col-span-2">
                 <span className="font-medium text-slate-900 dark:text-slate-100">Username</span>
@@ -313,14 +386,16 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
                   type="text"
                   value={form.username}
                   onChange={(event) => setForm((prev) => ({ ...prev, username: event.target.value }))}
-                  className={`rounded-lg border bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:outline-none focus:ring-2 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-blue-500/40 ${
+                  className={`rounded-lg border bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-blue-200 focus:ring-offset-2 focus:ring-offset-white dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-blue-500/40 dark:focus:ring-offset-slate-950 ${
                     usernameStatus.state === 'taken' || usernameStatus.state === 'invalid'
-                      ? 'border-rose-400 focus:ring-rose-200 dark:border-rose-500'
-                      : 'border-slate-300 focus:border-blue-500 focus:ring-blue-200 dark:border-slate-700 dark:focus:border-blue-400'
+                      ? 'border-rose-400 focus:border-rose-400 focus:ring-rose-200 dark:border-rose-500'
+                      : 'border-slate-300 focus:border-blue-500 dark:border-slate-700 dark:focus:border-blue-400'
                   }`}
                   placeholder="Ex.: andremartins"
+                  aria-describedby={usernameHintId}
+                  autoComplete="nickname"
                 />
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <p id={usernameHintId} className="text-xs text-slate-500 dark:text-slate-400">
                   {form.username.trim().length === 0
                     ? 'Opcional. Usa letras, números, ponto, hífen ou underscore.'
                     : usernameStatus.state === 'checking'
@@ -334,9 +409,10 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
                             : 'Este será o teu identificador público.'}
                 </p>
               </label>
-            </div>
+            </fieldset>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <fieldset className="grid gap-4 md:grid-cols-2">
+              <legend className="sr-only">Contactos e detalhes adicionais</legend>
               <label className="grid gap-2 text-sm">
                 <span className="font-medium text-slate-900 dark:text-slate-100">Telefone</span>
                 <input
@@ -344,8 +420,12 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
                   value={form.phone}
                   onChange={(event) => setForm((prev) => ({ ...prev, phone: event.target.value }))}
                   placeholder="(+351) 910 000 000"
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-400 dark:focus:ring-blue-500/40"
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:ring-offset-2 focus:ring-offset-white dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-400 dark:focus:ring-blue-500/40 dark:focus:ring-offset-slate-950"
+                  autoComplete="tel"
                 />
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  Partilha um contacto para comunicações rápidas com o teu treinador.
+                </span>
               </label>
               <label className="grid gap-2 text-sm">
                 <span className="font-medium text-slate-900 dark:text-slate-100">Data de nascimento</span>
@@ -353,8 +433,11 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
                   type="date"
                   value={form.birthDate}
                   onChange={(event) => setForm((prev) => ({ ...prev, birthDate: event.target.value }))}
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-400 dark:focus:ring-blue-500/40"
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:ring-offset-2 focus:ring-offset-white dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-400 dark:focus:ring-blue-500/40 dark:focus:ring-offset-slate-950"
                 />
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  Mantém os teus dados atualizados para receber planos personalizados.
+                </span>
               </label>
               <label className="grid gap-2 text-sm md:col-span-2">
                 <span className="font-medium text-slate-900 dark:text-slate-100">Biografia</span>
@@ -363,38 +446,54 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
                   onChange={(event) => setForm((prev) => ({ ...prev, bio: event.target.value }))}
                   rows={4}
                   placeholder="Partilha um pouco sobre ti, objetivos ou preferências."
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-400 dark:focus:ring-blue-500/40"
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:ring-offset-2 focus:ring-offset-white dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-400 dark:focus:ring-blue-500/40 dark:focus:ring-offset-slate-950"
                 />
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  Dá contexto ao teu treinador sobre objetivos, historial ou preferências.
+                </span>
               </label>
-            </div>
+            </fieldset>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <StatusMessage status={status} />
+              <StatusMessage status={status} id={statusMessageId} />
               <button
                 type="submit"
                 disabled={!dirty || saving || usernameStatus.state === 'checking'}
-                className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:bg-slate-300 dark:focus-visible:ring-offset-slate-950"
+                aria-describedby={status.type === 'idle' ? undefined : statusMessageId}
               >
-                {saving ? 'A guardar…' : 'Guardar alterações'}
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                ) : (
+                  <Save className="h-4 w-4" aria-hidden />
+                )}
+                <span>{saving ? 'A guardar…' : 'Guardar alterações'}</span>
               </button>
             </div>
           </form>
         </div>
       </section>
 
-      <section className="card space-y-4 p-6">
-        <h2 className="text-lg font-semibold">Acesso e segurança</h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          A gestão da palavra-passe e notificações está disponível em <strong>Definições &gt; Conta</strong>.
-        </p>
-        <div className="grid gap-2 text-sm text-slate-600 dark:text-slate-300">
-          <div className="flex items-center justify-between">
-            <span className="font-medium text-slate-900 dark:text-slate-100">Email</span>
-            <span>{initialProfile.email}</span>
+      <section className="card space-y-5 p-6">
+        <header className="flex items-start gap-3">
+          <ShieldCheck className="mt-1 h-5 w-5 text-blue-600 dark:text-blue-400" aria-hidden />
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold">Acesso e segurança</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              A gestão da palavra-passe e notificações está disponível em <strong>Definições &gt; Conta</strong>.
+            </p>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="font-medium text-slate-900 dark:text-slate-100">Função</span>
-            <span>{initialProfile.role ?? '—'}</span>
+        </header>
+        <div className="grid gap-3 text-sm text-slate-600 dark:text-slate-300 sm:grid-cols-2">
+          <div className="rounded-lg border border-slate-200/70 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/60">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Email</span>
+            <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">{initialProfile.email}</p>
+          </div>
+          <div className="rounded-lg border border-slate-200/70 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/60">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Função</span>
+            <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+              {initialProfile.role ?? 'Cliente'}
+            </p>
           </div>
         </div>
       </section>
