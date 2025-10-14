@@ -71,7 +71,7 @@ const DEFAULT_MESSAGES: ExerciseFormMessages = {
 };
 
 const DEFAULT_COPY: ExerciseFormCopy = {
-  titleCreate: '➕ Novo exercício',
+  titleCreate: 'Detalhes do exercício',
   titleEdit: '✏️ Editar exercício',
   subtitle:
     'Preenche os detalhes do exercício. Mantivemos os campos mais usados juntos e adicionámos uma pré-visualização para te ajudar a perceber como ficará na biblioteca.',
@@ -280,7 +280,6 @@ export default function ExerciseForm({
                   placeholder="Agachamento com barra"
                   error={Boolean(errors.name)}
                   helperText={errors.name ?? copy.nameHelper}
-                  autoFocus
                   fullWidth
                 />
               </FormSection>
@@ -290,9 +289,18 @@ export default function ExerciseForm({
                 subtitle="Usa vírgulas para adicionar várias tags de uma só vez (ex.: Peito, Ombros)."
               >
                 <Stack spacing={2}>
-                  <Grid container spacing={2}>
+                  <Grid
+                    container
+                    spacing={2}
+                    sx={{
+                      alignItems: 'stretch',
+                      '& .MuiGrid-item': {
+                        display: 'flex',
+                      },
+                    }}
+                  >
                     <Grid item xs={12} sm={6}>
-                      <Stack spacing={1}>
+                      <Stack spacing={1} sx={{ width: '100%' }}>
                         <TextField
                           label="Grupo muscular"
                           value={values.muscle_group ?? ''}
@@ -308,7 +316,7 @@ export default function ExerciseForm({
                       </Stack>
                     </Grid>
                     <Grid item xs={12} sm={6}>
-                      <Stack spacing={1}>
+                      <Stack spacing={1} sx={{ width: '100%' }}>
                         <TextField
                           label="Equipamento"
                           value={values.equipment ?? ''}
