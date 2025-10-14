@@ -184,24 +184,28 @@ export const getPtDashboardStats = unstable_cache(
 
 /* ========================= CLIENT ========================= */
 
-export const getClientDashboardStats = unstable_cache(
-  async (userId: string) => {
-    const sb = createServerClient();
-    const now = new Date();
-    const in7 = new Date(now); in7.setDate(now.getDate() + 7);
-    const prev7Start = new Date(now); prev7Start.setDate(prev7Start.getDate() - 7);
-    const prev7PrevStart = new Date(now); prev7PrevStart.setDate(prev7PrevStart.getDate() - 14);
+export async function getClientDashboardStats(userId: string) {
+  const cached = unstable_cache(
+    async () => {
+      const sb = createServerClient();
+      const now = new Date();
+      const in7 = new Date(now); in7.setDate(now.getDate() + 7);
+      const prev7Start = new Date(now); prev7Start.setDate(prev7Start.getDate() - 7);
+      const prev7PrevStart = new Date(now); prev7PrevStart.setDate(prev7PrevStart.getDate() - 14);
 
-    const [myPlans, myUpcoming, unread, myPrev7] = await Promise.all([
-      safeCount(sb, 'training_plans', (q: any) => q.eq('client_id', userId)),
-      safeCount(sb, 'sessions', (q: any) => q.eq('client_id', userId).gte('scheduled_at', now.toISOString()).lt('scheduled_at', in7.toISOString())),
-      safeCount(sb, 'notifications', (q: any) => q.eq('user_id', userId).eq('read', false)),
-      safeCount(sb, 'sessions', (q: any) => q.eq('client_id', userId).gte('scheduled_at', prev7PrevStart.toISOString()).lt('scheduled_at', prev7Start.toISOString())),
-    ]);
-    const weekTrend = dirAndPct(myUpcoming, myPrev7);
+      const [myPlans, myUpcoming, unread, myPrev7] = await Promise.all([
+        safeCount(sb, 'training_plans', (q: any) => q.eq('client_id', userId)),
+        safeCount(sb, 'sessions', (q: any) => q.eq('client_id', userId).gte('scheduled_at', now.toISOString()).lt('scheduled_at', in7.toISOString())),
+        safeCount(sb, 'notifications', (q: any) => q.eq('user_id', userId).eq('read', false)),
+        safeCount(sb, 'sessions', (q: any) => q.eq('client_id', userId).gte('scheduled_at', prev7PrevStart.toISOString()).lt('scheduled_at', prev7Start.toISOString())),
+      ]);
+      const weekTrend = dirAndPct(myUpcoming, myPrev7);
 
-    return { myPlans, myUpcoming, unread, weekTrend };
-  },
-  ['client-stats'],
-  { revalidate: 60, tags: [TAG.METRICS, TAG.SESSIONS, TAG.NOTIFICATIONS] }
-);
+      return { myPlans, myUpcoming, unread, weekTrend };
+    },
+    ['client-stats', userId],
+    { revalidate: 60, tags: [TAG.METRICS, TAG.SESSIONS, TAG.NOTIFICATIONS] }
+  );
+
+  return cached();
+}
