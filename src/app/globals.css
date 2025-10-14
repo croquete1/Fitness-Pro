@@ -499,7 +499,7 @@ html[data-sb-collapsed="1"] .fp-sidebar::after{
 }
 .neo-quick-actions .btn:hover{ filter:none; box-shadow:0 16px 32px rgba(124,58,237,.28); }
 
-.page-header{
+p.page-header{
   position:relative;
   display:flex;
   flex-direction:column;
