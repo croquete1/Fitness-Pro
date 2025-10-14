@@ -216,6 +216,7 @@ export default function AdminHome() {
         icon: "👥",
         href: "/dashboard/admin/clients",
         tooltip: "Ver lista de clientes",
+        variant: "accent" as const,
       },
       {
         label: "Personal Trainers",
@@ -223,6 +224,7 @@ export default function AdminHome() {
         icon: "🏋️",
         href: "/dashboard/admin/users?q=pt",
         tooltip: "Gerir personal trainers",
+        variant: "info" as const,
       },
       {
         label: "Admins",
@@ -230,6 +232,7 @@ export default function AdminHome() {
         icon: "🛡️",
         href: "/dashboard/admin/users?q=admin",
         tooltip: "Gerir administradores",
+        variant: "neutral" as const,
       },
       {
         label: "Sessões (próx. 7d)",
@@ -237,6 +240,7 @@ export default function AdminHome() {
         icon: "🗓️",
         href: "/dashboard/admin/pts-schedule",
         tooltip: "Abrir agenda de sessões",
+        variant: "success" as const,
       },
     ],
     [asNumber, sessionsNext7, stats?.admins, stats?.clients, stats?.trainers]
@@ -309,6 +313,7 @@ export default function AdminHome() {
               icon={k.icon}
               tooltip={k.tooltip}
               href={k.href}
+              variant={k.variant}
               loading={loading}
               enterDelay={idx * 0.06}
             />

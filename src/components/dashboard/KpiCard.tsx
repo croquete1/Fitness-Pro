@@ -48,52 +48,42 @@ const MotionAnchor = motion(
 
 const MotionDiv = motion.div;
 
-const VARIANT_COLOR_MAP: Record<
-  Variant,
-  {
-    main: string;
-    light?: string;
-    foreground?: string;
-    border?: string;
-  }
-> = {
+const VARIANT_COLOR_MAP: Record<Variant, { main: string; light?: string; foreground?: string }> = {
   primary: {
     main: 'var(--mui-palette-primary-main)',
     light:
-      'var(--mui-palette-primary-light, color-mix(in srgb, var(--mui-palette-primary-main) 72%, white))',
+      'var(--mui-palette-primary-light, color-mix(in srgb, var(--mui-palette-primary-main) 70%, white))',
   },
   accent: {
     main: 'var(--mui-palette-secondary-main)',
     light:
-      'var(--mui-palette-secondary-light, color-mix(in srgb, var(--mui-palette-secondary-main) 70%, white))',
+      'var(--mui-palette-secondary-light, color-mix(in srgb, var(--mui-palette-secondary-main) 65%, white))',
   },
   info: {
     main: 'var(--mui-palette-info-main)',
     light:
-      'var(--mui-palette-info-light, color-mix(in srgb, var(--mui-palette-info-main) 70%, white))',
+      'var(--mui-palette-info-light, color-mix(in srgb, var(--mui-palette-info-main) 66%, white))',
   },
   success: {
     main: 'var(--mui-palette-success-main)',
     light:
-      'var(--mui-palette-success-light, color-mix(in srgb, var(--mui-palette-success-main) 68%, white))',
+      'var(--mui-palette-success-light, color-mix(in srgb, var(--mui-palette-success-main) 64%, white))',
   },
   warning: {
     main: 'var(--mui-palette-warning-main)',
     light:
-      'var(--mui-palette-warning-light, color-mix(in srgb, var(--mui-palette-warning-main) 70%, white))',
-    foreground: 'color-mix(in srgb, var(--mui-palette-warning-main) 18%, var(--mui-palette-text-primary))',
-    border: 'color-mix(in srgb, var(--mui-palette-warning-main) 42%, var(--mui-palette-divider))',
+      'var(--mui-palette-warning-light, color-mix(in srgb, var(--mui-palette-warning-main) 66%, white))',
+    foreground: 'color-mix(in srgb, var(--mui-palette-warning-main) 16%, var(--mui-palette-text-primary))',
   },
   danger: {
     main: 'var(--mui-palette-error-main)',
     light:
-      'var(--mui-palette-error-light, color-mix(in srgb, var(--mui-palette-error-main) 68%, white))',
+      'var(--mui-palette-error-light, color-mix(in srgb, var(--mui-palette-error-main) 62%, white))',
   },
   neutral: {
     main: 'var(--mui-palette-grey-600)',
-    light: 'color-mix(in srgb, var(--mui-palette-grey-400) 80%, white)',
+    light: 'color-mix(in srgb, var(--mui-palette-grey-400) 88%, white)',
     foreground: 'var(--mui-palette-text-primary)',
-    border: 'color-mix(in srgb, var(--mui-palette-grey-500) 55%, var(--mui-palette-divider))',
   },
 };
 
@@ -115,16 +105,14 @@ export default function KpiCard({
   const variantTokens = VARIANT_COLOR_MAP[variant] ?? VARIANT_COLOR_MAP.primary;
   const mainColor = variantTokens.main;
   const highlightColor =
-    variantTokens.light ?? `color-mix(in srgb, ${mainColor} 72%, white)`;
+    variantTokens.light ?? `color-mix(in srgb, ${mainColor} 68%, white)`;
   const foregroundColor =
     variantTokens.foreground ??
     `color-mix(in srgb, ${mainColor} 22%, var(--mui-palette-text-primary))`;
-  const borderColor =
-    variantTokens.border ??
-    `color-mix(in srgb, ${mainColor} 38%, var(--mui-palette-divider))`;
-  const backgroundBase = `color-mix(in srgb, ${mainColor} 12%, var(--mui-palette-background-paper))`;
-  const haloColor = `color-mix(in srgb, ${highlightColor} 38%, transparent)`;
-  const sheenColor = `color-mix(in srgb, ${mainColor} 20%, transparent)`;
+  const borderColor = `color-mix(in srgb, ${mainColor} 22%, var(--mui-palette-divider))`;
+  const backgroundColor = `color-mix(in srgb, ${mainColor} 6%, var(--mui-palette-background-paper))`;
+  const haloColor = `color-mix(in srgb, ${highlightColor} 32%, transparent)`;
+  const sheenColor = `color-mix(in srgb, ${mainColor} 14%, transparent)`;
 
   const border = `1px solid ${borderColor}`;
   const trendColor =
@@ -200,8 +188,8 @@ export default function KpiCard({
       sx={{
         borderRadius: 4,
         border,
-        background: backgroundBase,
-        backgroundImage: `linear-gradient(160deg, color-mix(in srgb, ${highlightColor} 28%, transparent) 0%, transparent 55%), radial-gradient(circle at top right, ${haloColor} 0%, transparent 62%), linear-gradient(180deg, color-mix(in srgb, ${mainColor} 18%, transparent) 0%, transparent 88%)`,
+        background: backgroundColor,
+        backgroundImage: `linear-gradient(140deg, rgba(255,255,255,0.85) 8%, transparent 52%), radial-gradient(circle at top right, ${haloColor} 0%, transparent 60%), linear-gradient(155deg, ${sheenColor} 0%, transparent 70%)`,
         textDecoration: 'none',
         color: foregroundColor,
         position: 'relative',
