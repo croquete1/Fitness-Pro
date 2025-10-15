@@ -211,7 +211,7 @@ export default function LoginClient() {
           <form
             onSubmit={onSubmit}
             noValidate
-            className="auth-card__form flex flex-col gap-5 rounded-3xl border border-white/20 bg-white/80 p-6 shadow-[0_38px_100px_-60px_rgba(15,23,42,0.35)] backdrop-blur-xl dark:border-slate-800/70 dark:bg-slate-950/60"
+            className="auth-card__form flex flex-col gap-5 rounded-3xl border border-white/20 bg-white/90 p-6 shadow-[0_38px_100px_-60px_rgba(15,23,42,0.35)] backdrop-blur-xl dark:border-slate-700/60 dark:bg-slate-900/70"
           >
             <div className="space-y-2 text-center">
               <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Entrar</h2>
@@ -225,14 +225,14 @@ export default function LoginClient() {
                 Email ou username
                 <div className="relative">
                   <input
-                    className={clsx('neo-input pl-11', fieldErr.identifier && 'neo-input--error')}
+                    className={clsx('neo-input pl-12', fieldErr.identifier && 'neo-input--error')}
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
                     onBlur={(e) => validateField('identifier', e.target.value)}
                     autoComplete="email"
                     placeholder="ex: ana.lima"
                   />
-                  <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" aria-hidden />
+                  <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-300" aria-hidden />
                 </div>
                 <span className={clsx('neo-input__helper', fieldErr.identifier && 'text-danger')}>
                   {fieldErr.identifier ?? 'Indica o email ou username registado.'}
@@ -243,7 +243,7 @@ export default function LoginClient() {
                 Palavra-passe
                 <div className="relative">
                   <input
-                    className={clsx('neo-input pl-11 pr-12', fieldErr.password && 'neo-input--error')}
+                    className={clsx('neo-input pl-12 pr-14', fieldErr.password && 'neo-input--error')}
                     value={pw}
                     onChange={(e) => setPw(e.target.value)}
                     onBlur={(e) => validateField('password', e.target.value)}
@@ -251,11 +251,11 @@ export default function LoginClient() {
                     autoComplete="current-password"
                     placeholder="********"
                   />
-                  <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" aria-hidden />
+                  <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-300" aria-hidden />
                   <button
                     type="button"
                     onClick={() => setShow((s) => !s)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 transition hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 transition hover:text-slate-800 dark:text-slate-200 dark:hover:text-slate-50"
                     aria-label={show ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'}
                   >
                     {show ? <EyeOff className="h-4 w-4" aria-hidden /> : <Eye className="h-4 w-4" aria-hidden />}
