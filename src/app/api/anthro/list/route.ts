@@ -8,7 +8,7 @@ export async function GET() {
 
   const sb = createServerClient();
   const { data } = await sb
-    .from('anthropometrics')
+    .from('anthropometry')
     .select('id,measured_at,weight_kg,body_fat_pct,height_cm,chest_cm,waist_cm,hip_cm,notes')
     .eq('user_id', s.user.id)
     .order('measured_at', { ascending: false })

@@ -104,7 +104,7 @@ export async function GET(request: Request): Promise<Response> {
     .limit(6);
 
   const lastMeasurementsPromise = client
-    .from('anthropometrics')
+    .from('anthropometry')
     .select('measured_at,weight_kg,height_cm,body_fat_pct,bmi,notes')
     .eq('user_id', targetClientId)
     .order('measured_at', { ascending: false })
