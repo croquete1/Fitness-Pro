@@ -123,8 +123,8 @@ export default function AdminQuickNotesCard() {
       </header>
 
       <p className="text-sm text-muted">
-        Usa este painel para guardar alinhamentos internos, decisões recentes ou tarefas urgentes sem perder o foco na visão
-        futurista do produto.
+        Usa este painel para guardar alinhamentos internos, decisões recentes ou tarefas urgentes sem perder o foco na visão do
+        produto.
       </p>
 
       <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">

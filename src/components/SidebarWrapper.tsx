@@ -28,9 +28,10 @@ export default function SidebarProvider({ children }: { children: React.ReactNod
     root.setAttribute('data-sb-pinned', pinned ? '1' : '0');
 
     const cs = getComputedStyle(root);
-    const w  = cs.getPropertyValue('--sb-width').trim() || '264px';
+    const w = cs.getPropertyValue('--sb-width').trim() || '264px';
     const wc = cs.getPropertyValue('--sb-width-collapsed').trim() || '72px';
-    root.style.setProperty('--sb-col', pinned ? w : wc);
+    const effective = pinned ? (collapsed ? wc : w) : wc;
+    root.style.setProperty('--sb-col', effective);
   }, [collapsed, pinned]); // <- inclui pinned
 
   const toggleCollapsed = useCallback(() => setCollapsed(v => !v), []);

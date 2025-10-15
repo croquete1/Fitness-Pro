@@ -358,7 +358,7 @@ export default function TrainerDashboardClient({ name, data, supabase }: Props) 
             <span className="heading-solid text-3xl font-extrabold leading-tight text-fg">{greetingLabel}</span>
           </span>
         }
-        subtitle="Controla sessões, clientes e planos com uma visão futurista e accionável."
+        subtitle="Controla sessões, clientes e planos com uma visão accionável e integrada."
         actions={
           <div className="neo-quick-actions">
             {quickActions.map((action) => (
