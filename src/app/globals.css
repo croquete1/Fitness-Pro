@@ -1462,16 +1462,16 @@ h1,.h1{
 /* ============ AUTH =============== */
 /* ================================= */
 .auth-wrap{ display:grid; place-items:center; min-height:100dvh; padding:20px; }
-.auth-card{ width:min(560px,92vw); background:var(--card-bg); border:1px solid var(--border); border-radius:20px; box-shadow:var(--shadow-1); padding:18px; }
-.auth-header{ display:grid; grid-template-columns:40px 1fr; gap:10px; align-items:center; margin-bottom:10px; }
-.auth-title{ font-weight:800; font-size:20px; }
-.auth-fields{ display:grid; gap:10px; }
-.auth-label{ font-size:13px; color:var(--muted-fg); }
-.auth-input{ width:100%; }
-.auth-password{ display:grid; grid-template-columns:1fr auto; gap:8px; }
+.auth-wrap .auth-card{ width:min(560px,92vw); background:var(--card-bg); border:1px solid var(--border); border-radius:20px; box-shadow:var(--shadow-1); padding:18px; }
+.auth-wrap .auth-header{ display:grid; grid-template-columns:40px 1fr; gap:10px; align-items:center; margin-bottom:10px; }
+.auth-wrap .auth-title{ font-weight:800; font-size:20px; }
+.auth-wrap .auth-fields{ display:grid; gap:10px; }
+.auth-wrap .auth-label{ font-size:13px; color:var(--muted-fg); }
+.auth-wrap .auth-input{ width:100%; }
+.auth-wrap .auth-password{ display:grid; grid-template-columns:1fr auto; gap:8px; }
 .badge-danger{ color:#b91c1c; background:#fee2e2; border:1px solid #fecaca; border-radius:10px; padding:8px 10px; font-size:13px; }
 .small{ font-size:13px; }
-.auth-actions{ display:flex; justify-content:space-between; gap:8px; }
+.auth-wrap .auth-actions{ display:flex; justify-content:space-between; gap:8px; }
 
 /* =================================== */
 /* ========== TOASTS/SPINNER ========= */
