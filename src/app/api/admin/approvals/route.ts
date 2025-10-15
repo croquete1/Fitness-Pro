@@ -32,6 +32,10 @@ export async function GET(req: Request) {
   }
 
   try {
+    const headers = { 'cache-control': 'no-store' as const };
+    let tableFound = false;
+    let emptyResult: { rows: any[]; count: number } | null = null;
+
     for (const table of ['approvals', 'pending_approvals']) {
       const r = await base(table);
       if (r.error) {
@@ -39,17 +43,26 @@ export async function GET(req: Request) {
         if (code === 'PGRST205' || code === 'PGRST301') continue;
         throw r.error;
       }
-      if ((r.data?.length ?? 0) === 0 && (r.count ?? 0) === 0) continue;
-      return NextResponse.json(
-        { rows: r.data ?? [], count: r.count ?? 0 },
-        { headers: { 'cache-control': 'no-store' } },
-      );
+
+      tableFound = true;
+      const rows = r.data ?? [];
+      const count = typeof r.count === 'number' ? r.count : rows.length;
+
+      if (rows.length > 0 || count > 0) {
+        return NextResponse.json({ rows, count }, { headers });
+      }
+
+      emptyResult = { rows: [], count };
+    }
+
+    if (tableFound) {
+      return NextResponse.json(emptyResult ?? { rows: [], count: 0 }, { headers });
     }
 
     // Nenhuma tabela encontrada → devolve fallback para manter a UI funcional
     return supabaseFallbackJson(
       getSampleApprovals({ page, pageSize, search: q, status }),
-      { headers: { 'cache-control': 'no-store' } },
+      { headers },
     );
   } catch (error) {
     const code = typeof error === 'object' && error && 'code' in error ? (error as any).code : 'unknown';
