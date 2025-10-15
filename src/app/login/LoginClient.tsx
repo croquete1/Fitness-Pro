@@ -175,8 +175,9 @@ export default function LoginClient() {
         </div>
 
         <div className="auth-card__layout">
-          <div className="auth-card__panel relative overflow-hidden rounded-3xl border border-white/20 bg-white/70 p-6 sm:p-8 lg:p-10 shadow-[0_40px_120px_-60px_rgba(15,23,42,0.35)] backdrop-blur-lg dark:border-slate-800/60 dark:bg-slate-900/60">
-            <div className="absolute inset-0 bg-[radial-gradient(36%_44%_at_18%_20%,rgba(59,130,246,0.28),transparent_70%),radial-gradient(32%_36%_at_85%_18%,rgba(14,165,233,0.26),transparent_70%),radial-gradient(44%_60%_at_50%_120%,rgba(236,72,153,0.22),transparent_75%)] opacity-80" />
+          <div className="auth-card__panel relative overflow-hidden rounded-3xl border border-white/20 bg-white/70 p-6 sm:p-8 lg:p-10 shadow-[0_40px_120px_-60px_rgba(15,23,42,0.35)] backdrop-blur-lg dark:border-slate-700/60 dark:bg-slate-950/70 dark:shadow-[0_60px_160px_-80px_rgba(30,64,175,0.6)] dark:backdrop-blur-2xl">
+            <div className="absolute inset-0 bg-[radial-gradient(36%_44%_at_18%_20%,rgba(59,130,246,0.28),transparent_70%),radial-gradient(32%_36%_at_85%_18%,rgba(14,165,233,0.26),transparent_70%),radial-gradient(44%_60%_at_50%_120%,rgba(236,72,153,0.22),transparent_75%)] opacity-80 dark:hidden" />
+            <div className="absolute inset-0 hidden opacity-90 mix-blend-screen dark:block bg-[radial-gradient(38%_48%_at_18%_18%,rgba(59,130,246,0.35),transparent_70%),radial-gradient(34%_40%_at_86%_22%,rgba(14,165,233,0.32),transparent_70%),radial-gradient(60%_80%_at_50%_115%,rgba(236,72,153,0.28),transparent_75%)]" />
             <div className="relative z-10 flex h-full flex-col justify-between">
               <div className="auth-panel__aura" aria-hidden />
               <div className="space-y-4 sm:space-y-5">
@@ -212,8 +213,16 @@ export default function LoginClient() {
           <form
             onSubmit={onSubmit}
             noValidate
-            className="auth-card__form flex flex-col gap-5 rounded-3xl border border-white/20 bg-white/90 p-6 shadow-[0_38px_100px_-60px_rgba(15,23,42,0.35)] backdrop-blur-xl dark:border-slate-700/60 dark:bg-slate-900/70"
+            className="auth-card__form relative isolate flex flex-col gap-5 overflow-hidden rounded-3xl border border-white/20 bg-white/90 p-6 shadow-[0_38px_100px_-60px_rgba(15,23,42,0.35)] backdrop-blur-xl dark:border-slate-700/70 dark:bg-slate-950/80 dark:shadow-[0_60px_150px_-80px_rgba(59,130,246,0.55)] dark:backdrop-blur-2xl"
           >
+            <div
+              className="pointer-events-none absolute inset-0 hidden opacity-90 dark:block"
+              aria-hidden
+              style={{
+                background:
+                  'radial-gradient(40% 50% at 20% 18%, rgba(59,130,246,0.28), transparent 70%), radial-gradient(30% 45% at 80% 14%, rgba(14,165,233,0.24), transparent 70%), radial-gradient(60% 85% at 50% 120%, rgba(34,197,94,0.18), transparent 78%)',
+              }}
+            />
             <div className="space-y-2 text-center">
               <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Entrar</h2>
               <p className="text-sm text-slate-600 dark:text-slate-300">
