@@ -20,7 +20,7 @@ export async function POST(req: Request) {
   };
 
   const sb = createServerClient();
-  const { error } = await sb.from('anthropometrics').insert(row);
+  const { error } = await sb.from('anthropometry').insert(row);
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
 
   // opcional: sincronizar peso/altura recentes no profiles
