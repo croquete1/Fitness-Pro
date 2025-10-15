@@ -2,9 +2,10 @@
 
 import * as React from 'react';
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v14-appRouter';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { ThemeProvider } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
 import { ToastProvider } from '@/components/ui/ToastProvider';
+import { createNeoTheme } from '@/theme';
 
 /**
  * Modo de cor (light/dark) – compatível com MUI 5.x.
@@ -49,31 +50,7 @@ export default function AppProviders({ children }: { children: React.ReactNode }
     return () => media.removeEventListener?.('change', handler);
   }, []);
 
-  const theme = React.useMemo(
-    () =>
-      createTheme({
-        palette: {
-          mode,
-          primary: { main: mode === 'dark' ? '#60a5fa' : '#2563eb' },
-          secondary: { main: mode === 'dark' ? '#a78bfa' : '#7c3aed' },
-          background: {
-            default: mode === 'dark' ? '#0b0f19' : '#fafafa',
-            paper: mode === 'dark' ? '#0f1524' : '#ffffff',
-          },
-        },
-        shape: { borderRadius: 12 },
-        typography: {
-          fontFamily:
-            'Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Helvetica Neue, Arial, Noto Sans, "Apple Color Emoji","Segoe UI Emoji"',
-          button: { textTransform: 'none', fontWeight: 600 },
-        },
-        components: {
-          MuiPaper: { styleOverrides: { root: { borderRadius: 16 } } },
-          MuiButton: { defaultProps: { disableElevation: true }, styleOverrides: { root: { fontWeight: 600 } } },
-        },
-      }),
-    [mode],
-  );
+  const theme = React.useMemo(() => createNeoTheme(mode), [mode]);
 
   const ctx = React.useMemo(
     () => ({
