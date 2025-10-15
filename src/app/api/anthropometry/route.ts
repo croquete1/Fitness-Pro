@@ -5,16 +5,13 @@ import { NextResponse } from 'next/server';
 import { getSessionUser } from '@/lib/sessions';
 import { toAppRole } from '@/lib/roles';
 import { createServerClient } from '@/lib/supabaseServer';
-
-type AnthroRow = {
-  id: string;
-  client_id: string;
-  date: string; // ISO
-  weight?: number | null;
-  height?: number | null;
-  body_fat_pct?: number | null;
-  notes?: string | null;
-};
+import {
+  insertAnthropometryRow,
+  normalizeDate,
+  selectAnthropometryRows,
+  toNullableNumber,
+  type AnthropometryApiRow,
+} from './_helpers';
 
 // Verifica se o utilizador pode aceder aos dados do clientId
 async function ensureAccess(user: { id: string; role?: unknown }, clientId: string) {
@@ -59,20 +56,15 @@ export async function GET(req: Request) {
   if (!access.ok) return new NextResponse(access.msg ?? 'Forbidden', { status: access.code ?? 403 });
 
   const supabase = createServerClient();
-  const { data, error } = await supabase
-    .from('anthropometry')
-    .select('id, client_id, date, weight, height, body_fat_pct, notes')
-    .eq('client_id', clientId)
-    .order('date', { ascending: false })
-    .limit(100);
+  const { rows, error } = await selectAnthropometryRows(supabase, clientId);
 
   if (error) return new NextResponse(error.message, { status: 500 });
-  return NextResponse.json((data ?? []) as AnthroRow[]);
+  return NextResponse.json(rows satisfies AnthropometryApiRow[]);
 }
 
 /**
  * POST /api/anthropometry
- * body: { clientId?: string, date?: string, weight?, height?, body_fat_pct?, notes? }
+ * body: { clientId?: string, measured_at/date?: string, ... }
  * - ADMIN pode criar para qualquer cliente (clientId obrigatório)
  * - TRAINER precisa de vínculo ao clientId
  * - CLIENT pode criar para si (clientId opcional; assume o próprio)
@@ -81,31 +73,48 @@ export async function POST(req: Request) {
   const user = await getSessionUser();
   if (!user) return new NextResponse('Unauthorized', { status: 401 });
 
-  const body = await req.json().catch(() => ({} as Partial<AnthroRow> & { clientId?: string }));
+  const rawBody = (await req.json().catch(() => null)) as (Partial<AnthropometryApiRow> & {
+    clientId?: string;
+    date?: string;
+  }) | null;
+
   const role = toAppRole((user as any).role);
 
-  const clientId = body.clientId ?? (body as any).client_id ?? (role === 'CLIENT' ? user.id : undefined);
+  const clientId =
+    rawBody?.clientId ??
+    (rawBody as any)?.client_id ??
+    (role === 'CLIENT' ? user.id : undefined);
   if (!clientId) return new NextResponse('Missing client id', { status: 400 });
 
   const access = await ensureAccess(user, clientId);
   if (!access.ok) return new NextResponse(access.msg ?? 'Forbidden', { status: access.code ?? 403 });
 
-  const row: Partial<AnthroRow> = {
-    client_id: clientId,
-    date: body.date ?? new Date().toISOString(),
-    weight: body.weight ?? null,
-    height: body.height ?? null,
-    body_fat_pct: (body as any).body_fat_pct ?? null,
-    notes: body.notes ?? null,
-  };
-
   const supabase = createServerClient();
-  const { data, error } = await supabase
-    .from('anthropometry')
-    .insert(row)
-    .select('id, client_id, date, weight, height, body_fat_pct, notes')
-    .single();
 
-  if (error) return new NextResponse(error.message, { status: 500 });
-  return NextResponse.json(data as AnthroRow, { status: 201 });
+  const measuredAt = normalizeDate(rawBody?.measured_at ?? rawBody?.date ?? null);
+
+  const { row, error } = await insertAnthropometryRow(supabase, {
+    clientId,
+    measuredAt,
+    weightKg: toNullableNumber(rawBody?.weight_kg ?? (rawBody as any)?.weight ?? null),
+    heightCm: toNullableNumber(rawBody?.height_cm ?? (rawBody as any)?.height ?? null),
+    bodyFatPct: toNullableNumber(rawBody?.body_fat_pct ?? null),
+    chestCm: toNullableNumber(rawBody?.chest_cm ?? null),
+    waistCm: toNullableNumber(rawBody?.waist_cm ?? null),
+    hipCm: toNullableNumber(rawBody?.hip_cm ?? null),
+    thighCm: toNullableNumber(rawBody?.thigh_cm ?? null),
+    armCm: toNullableNumber(rawBody?.arm_cm ?? null),
+    calfCm: toNullableNumber(rawBody?.calf_cm ?? null),
+    shouldersCm: toNullableNumber(rawBody?.shoulders_cm ?? null),
+    neckCm: toNullableNumber(rawBody?.neck_cm ?? null),
+    bmi: toNullableNumber(rawBody?.bmi ?? null),
+    notes: typeof rawBody?.notes === 'string' ? rawBody.notes : null,
+    createdById: user.id,
+  });
+
+  if (error || !row) {
+    return new NextResponse(error?.message ?? 'Failed to insert measurement', { status: 500 });
+  }
+
+  return NextResponse.json(row satisfies AnthropometryApiRow, { status: 201 });
 }
