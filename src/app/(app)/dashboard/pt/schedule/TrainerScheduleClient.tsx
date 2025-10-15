@@ -420,7 +420,7 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
               Agenda do personal trainer
             </h2>
             <p className="neo-panel__subtitle">
-              Orquestra sessões com um cockpit futurista e mantém o ritmo dos teus atletas.
+              Orquestra sessões com um cockpit completo e mantém o ritmo dos teus atletas.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">

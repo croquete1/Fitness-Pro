@@ -4,23 +4,14 @@
 import * as React from 'react';
 import { SessionProvider } from 'next-auth/react';
 import { ThemeProvider as NextThemesProvider, useTheme as useNextTheme } from 'next-themes';
-import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
+import { ThemeProvider, CssBaseline } from '@mui/material';
+import { createNeoTheme } from '@/theme';
 
 function MuiBridge({ children }: { children: React.ReactNode }) {
   const { resolvedTheme } = useNextTheme();
   const mode = resolvedTheme === 'dark' ? 'dark' : 'light';
 
-  const theme = React.useMemo(
-    () =>
-      createTheme({
-        palette: { mode },
-        shape: { borderRadius: 12 },
-        components: {
-          MuiPaper: { styleOverrides: { root: { backgroundImage: 'none' } } },
-        },
-      }),
-    [mode]
-  );
+  const theme = React.useMemo(() => createNeoTheme(mode), [mode]);
 
   return (
     <ThemeProvider theme={theme}>
