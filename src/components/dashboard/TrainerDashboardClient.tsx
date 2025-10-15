@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import type { Route } from 'next';
 import clsx from 'clsx';
 import PageHeader from '@/components/ui/PageHeader';
 import { greetingForDate } from '@/lib/time';
@@ -50,9 +51,9 @@ type StatusTone = 'ok' | 'warn' | 'down';
 
 type InsightTone = 'info' | 'warning' | 'positive';
 
-const quickActions = [
+const quickActions: ReadonlyArray<{ href: Route; label: string }> = [
   { href: '/dashboard/pt/schedule', label: 'Ver agenda' },
-  { href: '/dashboard/pt/plans', label: 'Criar plano' },
+  { href: '/dashboard/pt/plans/new', label: 'Criar plano' },
   { href: '/dashboard/pt/clients', label: 'Gestão de clientes' },
 ];
 
@@ -104,7 +105,7 @@ function MetricTile({
   value: number | string;
   hint?: string;
   icon?: string;
-  href: string;
+  href: Route;
   tone?: 'primary' | 'accent' | 'info' | 'success' | 'warning';
 }) {
   return (
@@ -303,7 +304,14 @@ export default function TrainerDashboardClient({ name, data, supabase }: Props) 
     .filter((session) => !session.start_time || new Date(session.start_time) >= new Date())
     .slice(0, 6);
 
-  const metricCards = [
+  const metricCards: ReadonlyArray<{
+    label: string;
+    value: number | string;
+    icon?: string;
+    tone: 'primary' | 'accent' | 'info' | 'success' | 'warning';
+    hint?: string;
+    href: Route;
+  }> = [
     {
       label: 'Clientes activos',
       value: data.stats.totalClients,
@@ -334,7 +342,7 @@ export default function TrainerDashboardClient({ name, data, supabase }: Props) 
       icon: '⏳',
       tone: 'warning' as const,
       hint: data.stats.pendingRequests > 0 ? 'Precisa de revisão' : 'Sem pendentes',
-      href: '/dashboard/pt/clients',
+      href: '/dashboard/pt/approvals',
     },
   ];
 
