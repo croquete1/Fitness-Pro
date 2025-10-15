@@ -19,6 +19,10 @@ import SettingsOutlined from '@mui/icons-material/SettingsOutlined';
 import PolicyOutlined from '@mui/icons-material/PolicyOutlined';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import HubOutlined from '@mui/icons-material/HubOutlined';
+import TroubleshootOutlined from '@mui/icons-material/TroubleshootOutlined';
+import InsightsOutlined from '@mui/icons-material/InsightsOutlined';
+import TerminalOutlined from '@mui/icons-material/TerminalOutlined';
 
 import SidebarBase from '@/components/layout/SidebarBase';
 import { useSidebar } from '@/components/layout/SidebarProvider';
@@ -74,6 +78,34 @@ export default function SidebarAdmin({
       label: 'Definições',
       icon: <SettingsOutlined />,
       activePrefix: '/dashboard/settings',
+    },
+  ];
+
+  const sistema: Nav[] = [
+    {
+      href: '/dashboard/system',
+      label: 'Centro de controlo',
+      icon: <HubOutlined />,
+      activePrefix: '/dashboard/system',
+      exact: true,
+    },
+    {
+      href: '/dashboard/system/health',
+      label: 'Saúde do sistema',
+      icon: <TroubleshootOutlined />,
+      activePrefix: '/dashboard/system/health',
+    },
+    {
+      href: '/dashboard/system/metrics',
+      label: 'Métricas',
+      icon: <InsightsOutlined />,
+      activePrefix: '/dashboard/system/metrics',
+    },
+    {
+      href: '/dashboard/system/logs',
+      label: 'Logs e auditoria',
+      icon: <TerminalOutlined />,
+      activePrefix: '/dashboard/system/logs',
     },
   ];
 
@@ -193,6 +225,7 @@ export default function SidebarAdmin({
         ...admin,
       ])}
       {renderSection('Gestão', gestao)}
+      {renderSection('Sistema', sistema)}
       {renderSection('Definições', definicoes)}
     </SidebarBase>
   );

@@ -1,20 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import {
-  Paper,
-  Typography,
-  Stack,
-  TextField,
-  Button,
-  IconButton,
-  Chip,
-  List,
-  ListItem,
-  ListItemText,
-} from '@mui/material';
-import ListItemSecondaryAction from '@mui/material/ListItemSecondaryAction';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import { NotebookPen, Sparkles, Trash2 } from 'lucide-react';
 
 const STORAGE_KEY = 'hms.admin.quicknotes';
 const SUGGESTIONS = [
@@ -65,7 +52,11 @@ function formatRelative(date: string) {
     const hours = Math.round(minutes / 60);
     if (hours < 24) return `há ${hours} h`;
     const days = Math.round(hours / 24);
-    return `há ${days} dia${days === 1 ? '' : 's'}`;
+    if (days < 30) return `há ${days} dia${days === 1 ? '' : 's'}`;
+    const months = Math.round(days / 30);
+    if (months < 12) return `há ${months} mês${months === 1 ? '' : 'es'}`;
+    const years = Math.round(months / 12);
+    return `há ${years} ano${years === 1 ? '' : 's'}`;
   } catch {
     return '';
   }
@@ -115,98 +106,94 @@ export default function AdminQuickNotesCard() {
     setTouched(false);
   };
 
+  const hasError = touched && draft.trim().length === 0;
+
   return (
-    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, display: 'grid', gap: 1.5 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <Typography variant="subtitle2" fontWeight={800}>
-          Notas rápidas
-        </Typography>
-        <Typography variant="caption" color="text.secondary">
-          Guardadas localmente
-        </Typography>
-      </Stack>
+    <section className="neo-panel space-y-4">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="neo-panel__title flex items-center gap-2 text-lg">
+            <NotebookPen className="h-5 w-5 text-primary" aria-hidden /> Notas rápidas
+          </h2>
+          <p className="neo-panel__subtitle">Guardadas localmente neste dispositivo</p>
+        </div>
+        <span className="status-pill" data-state="warn">
+          Apenas local
+        </span>
+      </header>
 
-      <Typography variant="body2" color="text.secondary">
-        Usa este painel para guardar alinhamentos internos, decisões recentes ou tarefas urgentes.
-      </Typography>
+      <p className="text-sm text-muted">
+        Usa este painel para guardar alinhamentos internos, decisões recentes ou tarefas urgentes sem perder o foco na visão
+        futurista do produto.
+      </p>
 
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'flex-start' }}>
-        <TextField
-          label="Adicionar nota"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
-              event.preventDefault();
-              addNote();
-            }
-          }}
-          fullWidth
-          multiline
-          minRows={2}
-          error={touched && draft.trim().length === 0}
-          helperText={touched && draft.trim().length === 0 ? 'Escreve uma nota antes de adicionar.' : 'Ctrl+Enter para guardar'}
-        />
-        <Button
-          variant="contained"
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
+        <label className="flex flex-col gap-2">
+          <span className="sr-only">Adicionar nota</span>
+          <textarea
+            className={`neo-input neo-input--textarea${hasError ? ' neo-input--error' : ''}`}
+            placeholder="Captura ideias, obstáculos ou próximos passos em segundos"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+                event.preventDefault();
+                addNote();
+              }
+            }}
+            aria-invalid={hasError}
+          />
+          <span className="neo-input__helper">
+            {hasError ? 'Escreve uma nota antes de guardar.' : 'Ctrl+Enter para guardar rapidamente'}
+          </span>
+        </label>
+        <button
+          type="button"
+          className="btn primary h-full min-w-[160px] self-start md:self-stretch"
           onClick={addNote}
-          sx={{ alignSelf: { xs: 'stretch', sm: 'center' }, minWidth: { sm: 180 } }}
         >
           Guardar
-        </Button>
-      </Stack>
+        </button>
+      </div>
 
-      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+      <div className="flex flex-wrap gap-2">
         {SUGGESTIONS.map((suggestion) => (
-          <Chip
+          <button
             key={suggestion}
-            label={suggestion}
+            type="button"
+            className="btn chip text-xs"
             onClick={() => handleSuggestion(suggestion)}
-            size="small"
-            variant="outlined"
-          />
-        ))}
-      </Stack>
-
-      <List dense sx={{ width: '100%', bgcolor: 'transparent', p: 0 }}>
-        {notes.map((note) => (
-          <ListItem
-            key={note.id}
-            sx={{
-              border: '1px solid',
-              borderColor: 'divider',
-              borderRadius: 2,
-              mb: 1,
-              alignItems: 'flex-start',
-            }}
-            secondaryAction={
-              <ListItemSecondaryAction>
-                <IconButton edge="end" aria-label="remover" onClick={() => removeNote(note.id)}>
-                  <DeleteOutlineIcon fontSize="small" />
-                </IconButton>
-              </ListItemSecondaryAction>
-            }
           >
-            <ListItemText
-              primary={
-                <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
-                  {note.text}
-                </Typography>
-              }
-              secondary={
-                <Typography variant="caption" color="text.secondary">
-                  {formatRelative(note.createdAt)}
-                </Typography>
-              }
-            />
-          </ListItem>
+            <Sparkles className="mr-1 h-3 w-3" aria-hidden />
+            {suggestion}
+          </button>
         ))}
-        {notes.length === 0 && (
-          <Typography variant="body2" color="text.secondary">
-            Ainda não guardaste notas — usa as sugestões acima para começar.
-          </Typography>
-        )}
-      </List>
-    </Paper>
+      </div>
+
+      <ul className="space-y-2">
+        {notes.map((note) => (
+          <li key={note.id} className="neo-surface flex items-start justify-between gap-3 rounded-2xl p-4" data-variant="neutral">
+            <div className="flex-1 space-y-1">
+              <p className="whitespace-pre-line text-sm text-fg">{note.text}</p>
+              <span className="text-xs text-muted">{formatRelative(note.createdAt)}</span>
+            </div>
+            <button
+              type="button"
+              className="btn icon"
+              aria-label="Remover nota"
+              onClick={() => removeNote(note.id)}
+            >
+              <Trash2 className="h-4 w-4" aria-hidden />
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      {notes.length === 0 && (
+        <div className="neo-surface rounded-2xl border border-dashed border-white/40 p-5 text-sm text-muted dark:border-slate-700/60">
+          Ainda não guardaste notas — usa as sugestões acima para começar.
+        </div>
+      )}
+    </section>
   );
 }

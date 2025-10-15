@@ -1,34 +1,34 @@
-// src/app/(app)/dashboard/pt/loading.tsx
 'use client';
-
-import Box from '@mui/material/Box';
-import Paper from '@mui/material/Paper';
-import Skeleton from '@mui/material/Skeleton';
 
 export default function Loading() {
   return (
-    <Box sx={{ p: 2, display: 'grid', gap: 2 }}>
-      <Paper sx={{ p: 2 }}>
-        <Skeleton variant="text" width="40%" height={28} />
-      </Paper>
-      <Box
-        sx={{
-          display: 'grid',
-          gap: 2,
-          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' },
-        }}
-      >
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Paper key={i} sx={{ p: 2 }}>
-            <Skeleton variant="text" width="60%" />
-            <Skeleton variant="rectangular" height={48} sx={{ mt: 1 }} />
-          </Paper>
+    <div className="space-y-6 px-4 py-6 md:px-8">
+      <div className="neo-panel">
+        <div className="animate-pulse space-y-3">
+          <div className="h-6 w-1/3 rounded-full bg-white/40 dark:bg-slate-800/40" />
+          <div className="h-4 w-2/3 rounded-full bg-white/30 dark:bg-slate-800/30" />
+        </div>
+      </div>
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={index} className="neo-surface p-4">
+            <div className="animate-pulse space-y-3">
+              <div className="h-3 w-1/2 rounded-full bg-white/40 dark:bg-slate-800/40" />
+              <div className="h-6 w-1/3 rounded-full bg-white/60 dark:bg-slate-700/60" />
+              <div className="h-3 w-2/3 rounded-full bg-white/30 dark:bg-slate-800/30" />
+            </div>
+          </div>
         ))}
-      </Box>
-      <Paper sx={{ p: 2 }}>
-        <Skeleton variant="text" width="30%" />
-        <Skeleton variant="rectangular" height={120} sx={{ mt: 1 }} />
-      </Paper>
-    </Box>
+      </div>
+      <div className="neo-panel">
+        <div className="neo-table-wrapper">
+          <div className="animate-pulse space-y-3 p-6">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="h-10 rounded-full bg-white/30 dark:bg-slate-800/30" />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
