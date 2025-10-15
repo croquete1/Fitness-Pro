@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
+import { ThemeProvider, CssBaseline } from '@mui/material';
+import { createNeoTheme } from '@/theme';
 
 type Mode = 'light' | 'dark';
 type Ctx = { mode: Mode; toggle: () => void; set: (m: Mode) => void };
@@ -26,17 +27,7 @@ export default function AppThemeProvider({ children }: { children: React.ReactNo
   const set = (m: Mode) => _setMode(m);
   const toggle = () => _setMode((cur) => (cur === 'light' ? 'dark' : 'light'));
 
-  const theme = React.useMemo(
-    () =>
-      createTheme({
-        palette: { mode },
-        shape: { borderRadius: 12 },
-        components: {
-          MuiPaper: { styleOverrides: { root: { backgroundImage: 'none' } } },
-        },
-      }),
-    [mode],
-  );
+  const theme = React.useMemo(() => createNeoTheme(mode), [mode]);
 
   return (
     <ThemeCtx.Provider value={{ mode, toggle, set }}>

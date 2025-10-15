@@ -287,7 +287,7 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
           </div>
           <p className="text-base text-white/90 dark:text-slate-200">
             Mantém o controlo da operação: valida novos utilizadores, acompanha os Personal Trainers e garante que cada cliente
-            recebe acompanhamento humano com um toque futurista.
+            recebe acompanhamento humano com atenção permanente.
           </p>
         </div>
         <div className="admin-hero__grid">
