@@ -512,6 +512,7 @@ export type Database = {
         Row: {
           id: string;
           name: string | null;
+          full_name: string | null;
           username: string | null;
           avatar_url: string | null;
           phone: string | null;
@@ -526,6 +527,7 @@ export type Database = {
         Insert: {
           id: string;
           name?: string | null;
+          full_name?: string | null;
           username?: string | null;
           avatar_url?: string | null;
           phone?: string | null;
@@ -540,6 +542,7 @@ export type Database = {
         Update: {
           id?: string;
           name?: string | null;
+          full_name?: string | null;
           username?: string | null;
           avatar_url?: string | null;
           phone?: string | null;
