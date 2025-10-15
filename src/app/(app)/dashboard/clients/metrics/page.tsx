@@ -10,7 +10,7 @@ export default async function Page(){
   const s = await getSessionUserSafe(); if(!s?.user?.id) redirect('/login');
   const sb = createServerClient();
   const { data } = await sb
-    .from('anthropometrics')
+    .from('anthropometry')
     .select('id,measured_at,weight_kg,height_cm,body_fat_pct,bmi,notes')
     .eq('user_id', s.user.id)
     .order('measured_at', { ascending:false })

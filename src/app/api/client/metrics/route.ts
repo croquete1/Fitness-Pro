@@ -7,7 +7,7 @@ export async function POST(req: Request){
   const s = await getSessionUserSafe(); if(!s?.user?.id) return NextResponse.json({ ok:false }, { status:401 });
   const body = await req.json();
   const sb = createServerClient();
-  const { data, error } = await sb.from('anthropometrics').insert({
+  const { data, error } = await sb.from('anthropometry').insert({
     user_id: s.user.id,
     measured_at: body.measured_at || new Date().toISOString(),
     weight_kg: body.weight_kg ?? null,
