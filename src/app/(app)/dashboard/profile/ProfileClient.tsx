@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Trash2,
 } from 'lucide-react';
+import { normalizeUsername, validateUsernameCandidate } from '@/lib/username';
 
 type ProfileModel = {
   id: string;
@@ -46,6 +47,29 @@ function normalizeDateInput(value: string | null) {
   if (!value) return '';
   if (value.length >= 10) return value.slice(0, 10);
   return value;
+}
+
+function toFormString(value: unknown) {
+  if (value == null) return '';
+  return String(value).trim();
+}
+
+function applyServerProfilePatch(base: FormState, patch: unknown): FormState {
+  if (!patch || typeof patch !== 'object') return { ...base };
+  const record = patch as Record<string, unknown>;
+  const next: FormState = { ...base };
+
+  if ('name' in record) next.name = toFormString(record.name);
+  if ('username' in record) next.username = toFormString(record.username);
+  if ('phone' in record) next.phone = toFormString(record.phone);
+  if ('bio' in record) next.bio = toFormString(record.bio);
+  if ('avatar_url' in record) next.avatarUrl = toFormString(record.avatar_url);
+  if ('birth_date' in record) {
+    const birth = typeof record.birth_date === 'string' ? record.birth_date : null;
+    next.birthDate = normalizeDateInput(birth);
+  }
+
+  return next;
 }
 
 function sanitizeInitial(profile: ProfileModel): FormState {
@@ -134,6 +158,20 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
       return;
     }
 
+    const validation = validateUsernameCandidate(candidate);
+    if (!validation.ok) {
+      const reason = 'reason' in validation ? validation.reason : undefined;
+      setUsernameStatus({ state: 'invalid', reason });
+      return;
+    }
+
+    const normalizedCandidate = validation.normalized;
+    const normalizedBaseline = baselineUsername ? normalizeUsername(baselineUsername) : '';
+    if (normalizedCandidate === normalizedBaseline) {
+      setUsernameStatus({ state: 'idle' });
+      return;
+    }
+
     const controller = new AbortController();
     setUsernameStatus({ state: 'checking' });
 
@@ -149,7 +187,7 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
           return;
         }
         if (data.reason === 'INVALID_OR_RESERVED') {
-          setUsernameStatus({ state: 'invalid' });
+          setUsernameStatus({ state: 'invalid', reason: 'reserved' });
           return;
         }
         if (data.available) {
@@ -207,12 +245,25 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
       avatarUrl: form.avatarUrl.trim(),
     };
 
-    if (next.name !== baseline.name.trim()) payload.name = next.name;
-    if (next.username !== baseline.username.trim()) payload.username = next.username || null;
-    if (next.phone !== baseline.phone.trim()) payload.phone = next.phone || null;
+    const baselineName = baseline.name.trim();
+    const baselineUsername = baseline.username.trim();
+    const baselinePhone = baseline.phone.trim();
+    const baselineBio = baseline.bio.trim();
+    const baselineAvatar = baseline.avatarUrl.trim();
+
+    if (next.name !== baselineName) payload.name = next.name;
+
+    const normalizedBaselineUsername = baselineUsername ? normalizeUsername(baselineUsername) : '';
+    const normalizedNextUsername = next.username ? normalizeUsername(next.username) : '';
+    next.username = normalizedNextUsername;
+    if (normalizedNextUsername !== normalizedBaselineUsername) {
+      payload.username = normalizedNextUsername || null;
+    }
+
+    if (next.phone !== baselinePhone) payload.phone = next.phone || null;
     if (next.birthDate !== baseline.birthDate) payload.birth_date = next.birthDate || null;
-    if (next.bio !== baseline.bio.trim()) payload.bio = next.bio || null;
-    if (next.avatarUrl !== baseline.avatarUrl.trim()) payload.avatar_url = next.avatarUrl || null;
+    if (next.bio !== baselineBio) payload.bio = next.bio || null;
+    if (next.avatarUrl !== baselineAvatar) payload.avatar_url = next.avatarUrl || null;
 
     try {
       const res = await fetch('/api/me/profile', {
@@ -235,8 +286,9 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
         throw new Error('Não foi possível guardar as alterações.');
       }
 
-      setBaseline(next);
-      setForm(next);
+      const merged = applyServerProfilePatch(next, data?.profile);
+      setBaseline(merged);
+      setForm(merged);
       setStatus({ type: 'success', message: 'Perfil atualizado com sucesso.' });
     } catch (error) {
       setStatus({
@@ -404,8 +456,14 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
                       ? 'A verificar disponibilidade…'
                       : usernameStatus.state === 'taken'
                         ? 'Este username já está em uso.'
-                        : usernameStatus.state === 'invalid'
-                          ? 'O username deve ter entre 3 e 30 caracteres válidos.'
+                    : usernameStatus.state === 'invalid'
+                      ? usernameStatus.reason === 'reserved'
+                        ? 'Este username não está disponível.'
+                        : usernameStatus.reason === 'length'
+                          ? 'O username deve ter entre 3 e 30 caracteres.'
+                          : usernameStatus.reason === 'format'
+                            ? 'Só podes usar letras, números, ponto, hífen ou underscore.'
+                            : 'O username deve ter entre 3 e 30 caracteres válidos.'
                           : usernameStatus.state === 'error'
                             ? 'Não foi possível validar o username agora.'
                             : 'Este será o teu identificador público.'}
