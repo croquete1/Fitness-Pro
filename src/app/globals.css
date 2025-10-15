@@ -392,16 +392,40 @@ html[data-sb-collapsed="1"] .fp-sidebar::after{
     linear-gradient(160deg, color-mix(in srgb, var(--primary) 24%, transparent), transparent 55%),
     color-mix(in srgb, var(--card-bg) 90%, transparent 10%);
 }
+.neo-surface[data-variant="violet"]{
+  border-color:color-mix(in srgb, var(--accent) 42%, var(--border));
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--accent) 26%, transparent), transparent 55%),
+    color-mix(in srgb, var(--card-bg) 88%, transparent 12%);
+}
+.neo-surface[data-variant="teal"]{
+  border-color:color-mix(in srgb, var(--accent-2) 40%, var(--border));
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--accent-2) 24%, transparent), transparent 55%),
+    color-mix(in srgb, var(--card-bg) 88%, transparent 12%);
+}
 .neo-surface[data-variant="success"]{
   border-color:color-mix(in srgb, var(--success) 38%, var(--border));
   background:
     linear-gradient(160deg, color-mix(in srgb, var(--success) 24%, transparent), transparent 55%),
     color-mix(in srgb, var(--card-bg) 88%, transparent 12%);
 }
+.neo-surface[data-variant="pink"]{
+  border-color:color-mix(in srgb, var(--pink) 42%, var(--border));
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--pink) 24%, transparent), transparent 55%),
+    color-mix(in srgb, var(--card-bg) 90%, transparent 10%);
+}
 .neo-surface[data-variant="warning"]{
   border-color:color-mix(in srgb, var(--warning) 42%, var(--border));
   background:
     linear-gradient(160deg, color-mix(in srgb, var(--warning) 24%, transparent), transparent 55%),
+    color-mix(in srgb, var(--card-bg) 90%, transparent 10%);
+}
+.neo-surface[data-variant="amber"]{
+  border-color:color-mix(in srgb, var(--amber) 42%, var(--border));
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--amber) 26%, transparent), transparent 55%),
     color-mix(in srgb, var(--card-bg) 90%, transparent 10%);
 }
 .neo-surface[data-variant="danger"]{
@@ -428,6 +452,172 @@ html[data-sb-collapsed="1"] .fp-sidebar::after{
   line-height:1.1;
   color:var(--fg);
 }
+.neo-surface__meta{
+  font-size:12px;
+  color:var(--muted-fg);
+  letter-spacing:.02em;
+  text-transform:uppercase;
+}
+
+.neo-segmented{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  padding:6px;
+  border-radius:999px;
+  background:color-mix(in srgb, var(--card-bg) 78%, transparent 22%);
+  border:1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--border) 55%, transparent);
+}
+.neo-segmented__btn{
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  padding:8px 16px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:600;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:var(--muted-fg);
+  background:transparent;
+  transition:color .18s ease, background .18s ease, box-shadow .18s ease;
+}
+.neo-segmented__btn:hover{
+  color:var(--fg);
+}
+.neo-segmented__btn[data-active="true"]{
+  color:var(--fg);
+  background:
+    linear-gradient(140deg, color-mix(in srgb, var(--primary) 20%, transparent), transparent 70%),
+    color-mix(in srgb, var(--card-bg) 90%, transparent 10%);
+  box-shadow:0 8px 24px rgba(15,23,42,.14);
+}
+.neo-segmented__count{
+  font-weight:700;
+  font-size:11px;
+  letter-spacing:.06em;
+}
+
+.neo-empty{
+  display:grid;
+  place-items:center;
+  gap:10px;
+  padding:36px 20px;
+  text-align:center;
+  border-radius:18px;
+  border:1px dashed color-mix(in srgb, var(--border) 70%, transparent);
+  background:
+    linear-gradient(150deg, color-mix(in srgb, var(--card-bg) 84%, transparent 16%), transparent 70%),
+    color-mix(in srgb, var(--card-bg) 92%, transparent 8%);
+  color:var(--muted-fg);
+}
+.neo-empty__icon{
+  font-size:26px;
+}
+.neo-empty__title{
+  font-size:16px;
+  font-weight:700;
+  color:var(--fg);
+}
+
+.neo-table-wrapper{
+  position:relative;
+  border-radius:18px;
+  border:1px solid color-mix(in srgb, var(--border) 74%, transparent);
+  background:color-mix(in srgb, var(--card-bg) 92%, transparent 8%);
+  box-shadow:var(--shadow-1);
+  overflow:auto;
+}
+.neo-table{
+  width:100%;
+  min-width:720px;
+  border-collapse:separate;
+  border-spacing:0;
+}
+.neo-table thead th{
+  text-align:left;
+  font-size:12px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  color:var(--muted-fg);
+  padding:14px 18px;
+  border-bottom:1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  background:color-mix(in srgb, var(--card-bg) 94%, transparent 6%);
+}
+.neo-table tbody tr{
+  transition:background .2s ease;
+}
+.neo-table tbody tr:hover{
+  background:color-mix(in srgb, var(--hover) 40%, transparent);
+}
+.neo-table tbody td{
+  padding:14px 18px;
+  font-size:14px;
+  color:var(--fg);
+  border-bottom:1px solid color-mix(in srgb, var(--border) 74%, transparent);
+}
+.neo-table tbody tr:last-child td{
+  border-bottom:0;
+}
+.neo-table tbody td:first-child{
+  border-top-left-radius:12px;
+  border-bottom-left-radius:12px;
+}
+.neo-table tbody td:last-child{
+  border-top-right-radius:12px;
+  border-bottom-right-radius:12px;
+  text-align:right;
+}
+
+.neo-table__status{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:4px 10px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:600;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  background:color-mix(in srgb, var(--hover) 70%, transparent);
+  color:var(--muted-fg);
+}
+.neo-table__status[data-state="paid"]{
+  color:var(--success);
+  background:color-mix(in srgb, var(--success) 18%, transparent);
+}
+.neo-table__status[data-state="pending"]{
+  color:var(--warning);
+  background:color-mix(in srgb, var(--warning) 16%, transparent);
+}
+.neo-table__status[data-state="refunded"]{
+  color:var(--danger);
+  background:color-mix(in srgb, var(--danger) 16%, transparent);
+}
+
+.neo-tag{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:4px 10px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:600;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  background:color-mix(in srgb, var(--card-bg) 88%, transparent 12%);
+  border:1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  color:var(--muted-fg);
+}
+.neo-tag[data-tone="primary"]{ color:var(--primary); border-color:color-mix(in srgb, var(--primary) 32%, var(--border)); }
+.neo-tag[data-tone="success"]{ color:var(--success); border-color:color-mix(in srgb, var(--success) 32%, var(--border)); }
+.neo-tag[data-tone="warning"]{ color:var(--warning); border-color:color-mix(in srgb, var(--warning) 32%, var(--border)); }
+.neo-tag[data-tone="danger"]{ color:var(--danger); border-color:color-mix(in srgb, var(--danger) 32%, var(--border)); }
+.neo-tag[data-tone="neutral"]{ color:var(--muted-fg); border-color:color-mix(in srgb, var(--muted-fg) 24%, var(--border)); }
 .neo-surface__hint{ font-size:12px; color:var(--muted-fg); }
 
 .neo-grid{
@@ -499,7 +689,7 @@ html[data-sb-collapsed="1"] .fp-sidebar::after{
 }
 .neo-quick-actions .btn:hover{ filter:none; box-shadow:0 16px 32px rgba(124,58,237,.28); }
 
-p.page-header{
+.page-header{
   position:relative;
   display:flex;
   flex-direction:column;
