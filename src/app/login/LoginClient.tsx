@@ -175,23 +175,23 @@ export default function LoginClient() {
         </div>
 
         <div className="auth-card__layout">
-          <div className="auth-card__panel relative overflow-hidden rounded-3xl border border-white/20 bg-white/70 p-6 sm:p-8 lg:p-10 shadow-[0_40px_120px_-60px_rgba(15,23,42,0.35)] backdrop-blur-lg dark:border-slate-700/60 dark:bg-slate-950/70 dark:shadow-[0_60px_160px_-80px_rgba(30,64,175,0.6)] dark:backdrop-blur-2xl">
+          <div className="auth-card__panel relative overflow-hidden rounded-3xl border border-white/20 bg-white/70 p-6 sm:p-8 lg:p-10 shadow-[0_40px_120px_-60px_rgba(15,23,42,0.35)] backdrop-blur-lg dark:border-slate-700/50 dark:bg-slate-950/85 dark:shadow-[0_70px_180px_-90px_rgba(37,99,235,0.55)] dark:backdrop-blur-2xl">
             <div className="absolute inset-0 bg-[radial-gradient(36%_44%_at_18%_20%,rgba(59,130,246,0.28),transparent_70%),radial-gradient(32%_36%_at_85%_18%,rgba(14,165,233,0.26),transparent_70%),radial-gradient(44%_60%_at_50%_120%,rgba(236,72,153,0.22),transparent_75%)] opacity-80 dark:hidden" />
             <div className="absolute inset-0 hidden opacity-90 mix-blend-screen dark:block bg-[radial-gradient(38%_48%_at_18%_18%,rgba(59,130,246,0.35),transparent_70%),radial-gradient(34%_40%_at_86%_22%,rgba(14,165,233,0.32),transparent_70%),radial-gradient(60%_80%_at_50%_115%,rgba(236,72,153,0.28),transparent_75%)]" />
             <div className="relative z-10 flex h-full flex-col justify-between">
               <div className="auth-panel__aura" aria-hidden />
-              <div className="space-y-4 sm:space-y-5">
+              <div className="space-y-4 sm:space-y-5 text-pretty">
                 <div className="inline-flex items-center gap-3 rounded-full border border-white/30 bg-white/60 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-700 shadow-sm backdrop-blur dark:border-slate-800/60 dark:bg-slate-900/60 dark:text-slate-200">
                   <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_6px_rgba(16,185,129,0.2)]" aria-hidden />
                   Plataforma HMS
                 </div>
-                <h1 className="text-3xl font-semibold leading-tight text-slate-900 dark:text-slate-100">
+                <h1 className="text-balance text-3xl font-semibold leading-tight text-slate-900 dark:text-slate-50 sm:text-4xl">
                   Plataforma para um estilo de vida saudável e flexível.
                 </h1>
-                <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">
+                <p className="max-w-xl text-sm leading-6 text-slate-600 dark:text-slate-200 sm:text-base">
                   Liga-te para cruzar treinos personalizados com nutrição equilibrada, partilhar motivação diária e coordenar resultados.
                 </p>
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid max-w-2xl gap-3 sm:grid-cols-2">
                   {featureHighlights.map((feature, index) => (
                     <div
                       key={feature.title}
@@ -213,19 +213,19 @@ export default function LoginClient() {
           <form
             onSubmit={onSubmit}
             noValidate
-            className="auth-card__form relative isolate flex flex-col gap-5 overflow-hidden rounded-3xl border border-white/20 bg-white/90 p-6 shadow-[0_38px_100px_-60px_rgba(15,23,42,0.35)] backdrop-blur-xl dark:border-slate-700/70 dark:bg-slate-950/80 dark:shadow-[0_60px_150px_-80px_rgba(59,130,246,0.55)] dark:backdrop-blur-2xl"
+            className="auth-card__form relative isolate flex flex-col gap-5 overflow-hidden rounded-3xl border border-white/20 bg-white/90 p-6 shadow-[0_38px_100px_-60px_rgba(15,23,42,0.35)] backdrop-blur-xl dark:border-slate-700/45 dark:bg-slate-950/90 dark:shadow-[0_70px_160px_-90px_rgba(59,130,246,0.55)] dark:backdrop-blur-2xl"
           >
             <div
               className="pointer-events-none absolute inset-0 hidden opacity-90 dark:block"
               aria-hidden
               style={{
                 background:
-                  'radial-gradient(40% 50% at 20% 18%, rgba(59,130,246,0.28), transparent 70%), radial-gradient(30% 45% at 80% 14%, rgba(14,165,233,0.24), transparent 70%), radial-gradient(60% 85% at 50% 120%, rgba(34,197,94,0.18), transparent 78%)',
+                  'radial-gradient(42% 52% at 20% 18%, rgba(59,130,246,0.34), transparent 70%), radial-gradient(32% 48% at 80% 16%, rgba(14,165,233,0.28), transparent 72%), radial-gradient(62% 90% at 50% 118%, rgba(45,212,191,0.22), transparent 80%)',
               }}
             />
-            <div className="space-y-2 text-center">
-              <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Entrar</h2>
-              <p className="text-sm text-slate-600 dark:text-slate-300">
+            <div className="space-y-2 text-pretty text-center">
+              <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-50">Entrar</h2>
+              <p className="mx-auto max-w-md text-sm text-slate-600 dark:text-slate-200">
                 Inicia sessão para acompanhar treinos, planos nutricionais e comunicação entre o Personal Trainer e Cliente.
               </p>
             </div>
@@ -233,7 +233,7 @@ export default function LoginClient() {
             {err && <Alert tone="danger">{err}</Alert>}
 
             <div className="space-y-3">
-              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
+              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600 dark:text-slate-200">
                 Email ou username
                 <div className="relative">
                   <input
@@ -244,14 +244,14 @@ export default function LoginClient() {
                     autoComplete="email"
                     placeholder="ex: ana.lima"
                   />
-                  <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-300" aria-hidden />
+                  <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-200" aria-hidden />
                 </div>
                 <span className={clsx('neo-input__helper', fieldErr.identifier && 'text-danger')}>
                   {fieldErr.identifier ?? 'Indica o email ou username registado.'}
                 </span>
               </label>
 
-              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
+              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600 dark:text-slate-200">
                 Palavra-passe
                 <div className="relative">
                   <input
@@ -263,7 +263,7 @@ export default function LoginClient() {
                     autoComplete="current-password"
                     placeholder="********"
                   />
-                  <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-300" aria-hidden />
+                  <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-200" aria-hidden />
                   <button
                     type="button"
                     onClick={() => setShow((s) => !s)}
@@ -279,9 +279,9 @@ export default function LoginClient() {
               </label>
             </div>
 
-            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-300">
               <span>Recuperar acesso? <Link href="/login/reset" className="font-semibold text-slate-900 underline decoration-dotted underline-offset-4 dark:text-slate-100">Definir nova palavra-passe</Link></span>
-              <span className="flex items-center gap-2 rounded-full bg-slate-900/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.32em] text-slate-500 dark:bg-white/5 dark:text-slate-300">
+              <span className="flex items-center gap-2 rounded-full bg-slate-900/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.32em] text-slate-500 dark:bg-white/10 dark:text-slate-200">
                 <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
                 SSO em breve
               </span>
@@ -297,7 +297,7 @@ export default function LoginClient() {
             >
               Iniciar sessão
             </Button>
-            <p className="text-center text-sm text-slate-600 dark:text-slate-300">
+            <p className="text-pretty text-center text-sm text-slate-600 dark:text-slate-200">
               Não tens conta?{' '}
               <Link href="/register" className="font-semibold text-slate-900 underline decoration-wavy underline-offset-4 dark:text-slate-100">
                 Criar conta
