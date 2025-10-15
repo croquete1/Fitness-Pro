@@ -15,6 +15,8 @@ import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
+import Stack from '@mui/material/Stack';
+import Divider from '@mui/material/Divider';
 
 type Plan = {
   id: string;
@@ -43,11 +45,126 @@ export default async function MyPlanPage() {
 
   const rows = (plans ?? []) as Plan[];
 
+  const planIds = rows.map((plan) => plan.id);
+  let rawDayRows: Array<{ plan_id: string; day_index: number; exercise_id?: string | null; id?: string | null }> = [];
+  if (planIds.length > 0) {
+    const { data: dayRows } = await sb
+      .from('plan_day_exercises' as any)
+      .select('id,plan_id,day_index,exercise_id')
+      .in('plan_id', planIds);
+    rawDayRows = (dayRows ?? []) as any;
+
+    if (rawDayRows.length === 0) {
+      const { data: fallbackRows } = await sb
+        .from('plan_day_items' as any)
+        .select('id,plan_id,day_index,exercise_id')
+        .in('plan_id', planIds);
+      rawDayRows = (fallbackRows ?? []) as any;
+    }
+  }
+
+  const perPlanDay = new Map<string, Map<number, number>>();
+  const seen = new Set<string>();
+  for (const row of rawDayRows) {
+    const planId = row?.plan_id as string | undefined;
+    const dayIndex = typeof row?.day_index === 'number' ? row.day_index : Number(row?.day_index ?? NaN);
+    if (!planId || Number.isNaN(dayIndex) || dayIndex < 0 || dayIndex > 6) continue;
+    const uniqKey = `${planId}-${dayIndex}-${row?.exercise_id ?? row?.id ?? ''}`;
+    if (seen.has(uniqKey)) continue;
+    seen.add(uniqKey);
+    const map = perPlanDay.get(planId) ?? new Map<number, number>();
+    map.set(dayIndex, (map.get(dayIndex) ?? 0) + 1);
+    perPlanDay.set(planId, map);
+  }
+
+  const weeklyAgenda = Array.from({ length: 7 }, (_, dayIndex) => {
+    const entries = rows
+      .map((plan) => {
+        const count = perPlanDay.get(plan.id)?.get(dayIndex) ?? 0;
+        if (!count) return null;
+        return { planId: plan.id, title: plan.title ?? 'Plano de treino', status: plan.status, count };
+      })
+      .filter((entry): entry is { planId: string; title: string; status: string | null; count: number } => Boolean(entry));
+    return { dayIndex, entries };
+  });
+
+  const hasAgendaEntries = weeklyAgenda.some((day) => day.entries.length > 0);
+  const todayIndex = (new Date().getDay() + 6) % 7;
+
+  function dayLabel(dayIndex: number) {
+    return ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'][dayIndex] ?? `Dia ${dayIndex + 1}`;
+  }
+
   return (
     <Box sx={{ p: 2 }}>
       <Typography variant="h5" fontWeight={800} sx={{ mb: 2 }}>
         Os meus planos
       </Typography>
+
+      <Card variant="outlined" sx={{ mb: 3, borderRadius: 3 }}>
+        <CardHeader
+          title="Agenda semanal"
+          subheader={
+            hasAgendaEntries
+              ? 'Consulta rapidamente quais os planos atribuídos em cada dia da semana.'
+              : 'Ainda não existem treinos atribuídos aos dias desta semana — verifica novamente mais tarde.'
+          }
+        />
+        <CardContent>
+          <Stack spacing={1.5}>
+            {weeklyAgenda.map(({ dayIndex, entries }) => (
+              <Box key={dayIndex} sx={{ display: 'grid', gap: 0.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                    {dayLabel(dayIndex)}
+                  </Typography>
+                  {dayIndex === todayIndex && <Chip label="Hoje" size="small" color="primary" />}
+                  <Divider flexItem sx={{ flex: 1, opacity: 0.5 }} />
+                </Box>
+                {entries.length > 0 ? (
+                  <Stack spacing={0.75}>
+                    {entries.map((entry) => (
+                      <Box
+                        key={`${entry.planId}-${dayIndex}`}
+                        sx={{
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          alignItems: 'center',
+                          gap: 1,
+                          justifyContent: 'space-between',
+                          backgroundColor: 'action.hover',
+                          borderRadius: 2,
+                          px: 1.25,
+                          py: 1,
+                        }}
+                      >
+                        <Box sx={{ display: 'grid' }}>
+                          <Typography sx={{ fontWeight: 600 }}>{entry.title}</Typography>
+                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                            {entry.count} exercício{entry.count === 1 ? '' : 's'} planeado{entry.count === 1 ? '' : 's'}
+                          </Typography>
+                        </Box>
+                        <Button
+                          LinkComponent={Link}
+                          href={`/dashboard/my-plan/${entry.planId}`}
+                          size="small"
+                          variant="outlined"
+                        >
+                          Abrir plano
+                        </Button>
+                      </Box>
+                    ))}
+                  </Stack>
+                ) : (
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                    Descanso ou sem treino atribuído.
+                  </Typography>
+                )}
+              </Box>
+            ))}
+          </Stack>
+        </CardContent>
+      </Card>
 
       {rows.length === 0 && (
         <Card variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
