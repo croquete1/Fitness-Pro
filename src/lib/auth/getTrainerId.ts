@@ -1,5 +1,7 @@
 import { getSBC } from '@/lib/supabase/server';
 import { MissingSupabaseEnvError } from '@/lib/supabaseServer';
+import { getSessionUserSafe } from '@/lib/session-bridge';
+import { isPT } from '@/lib/roles';
 import { getAuthUser } from './getUser';
 
 /**
@@ -10,6 +12,14 @@ import { getAuthUser } from './getUser';
  *  3) valida que role === 'TRAINER'
  */
 export async function getTrainerId() {
+  const bridge = await getSessionUserSafe().catch(() => null);
+  if (bridge?.id) {
+    if (!isPT(bridge.role)) {
+      return { trainerId: null, reason: 'NOT_TRAINER' as const };
+    }
+    return { trainerId: String(bridge.id), reason: null };
+  }
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
   if (!url || !anon) {
