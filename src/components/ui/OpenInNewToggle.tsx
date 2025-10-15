@@ -1,8 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { FormControlLabel, Switch, Tooltip } from '@mui/material';
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import { ExternalLink } from 'lucide-react';
 
 export default function OpenInNewToggle({
   checked,
@@ -10,17 +9,25 @@ export default function OpenInNewToggle({
   label = 'Abrir em nova aba',
 }: {
   checked: boolean;
-  onChange: (v: boolean) => void;
+  onChange: (value: boolean) => void;
   label?: string;
 }) {
+  const toggle = React.useCallback(() => {
+    onChange(!checked);
+  }, [checked, onChange]);
+
   return (
-    <Tooltip title={label}>
-      <FormControlLabel
-        control={<Switch checked={checked} onChange={(e) => onChange(e.target.checked)} />}
-        label={<OpenInNewIcon fontSize="small" />}
-        labelPlacement="start"
-        sx={{ ml: 0 }}
-      />
-    </Tooltip>
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      className="btn ghost inline-flex items-center gap-2"
+      data-active={checked ? 'true' : 'false'}
+      onClick={toggle}
+    >
+      <ExternalLink className="h-4 w-4" aria-hidden="true" />
+      <span className="hidden text-sm font-medium sm:inline">{label}</span>
+    </button>
   );
 }

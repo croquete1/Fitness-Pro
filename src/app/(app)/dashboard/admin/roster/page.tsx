@@ -1,12 +1,7 @@
-export const dynamic = "force-dynamic";
+import RosterClient from './RosterClient';
+
+export const dynamic = 'force-dynamic';
 
 export default function AdminRosterPage() {
-  return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-semibold">Atribuições (Roster)</h1>
-      <div className="rounded-2xl border bg-white/70 dark:bg-zinc-900/50 backdrop-blur p-5">
-        <p className="text-sm text-zinc-600 dark:text-zinc-300">Atribuir clientes a PT.</p>
-      </div>
-    </div>
-  );
+  return <RosterClient />;
 }
