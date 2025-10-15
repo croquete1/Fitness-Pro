@@ -2,17 +2,16 @@
 import * as React from 'react';
 import SidebarAdmin from './SidebarAdmin';
 import { useAdminCounts } from '@/lib/hooks/useCounts';
-import { Skeleton } from '@mui/material';
 
 export default function SidebarAdminWithCounts() {
   const { approvalsCount, notificationsCount, loading } = useAdminCounts();
 
   if (loading) {
     return (
-      <div style={{ padding: 12 }}>
-        <Skeleton variant="rounded" height={36} sx={{ mb: 1 }} />
-        <Skeleton variant="rounded" height={36} sx={{ mb: 1 }} />
-        <Skeleton variant="rounded" height={36} />
+      <div className="px-4 py-6 space-y-3">
+        <div className="h-10 rounded-2xl bg-black/5 animate-pulse dark:bg-white/10" />
+        <div className="h-10 rounded-2xl bg-black/5 animate-pulse dark:bg-white/10" />
+        <div className="h-10 rounded-2xl bg-black/5 animate-pulse dark:bg-white/10" />
       </div>
     );
   }

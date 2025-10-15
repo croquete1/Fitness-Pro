@@ -18,32 +18,45 @@ import {
   Hammer,
   LogOut,
   Menu,
+  CheckCircle2,
+  Terminal,
+  History,
+  PlusCircle,
+  CalendarPlus,
   type LucideIcon,
 } from "lucide-react";
 
 const map: Record<string, LucideIcon> = {
   dashboard: LayoutDashboard,
   sessions: CalendarClock,
+  calendar: CalendarClock,
   messages: MessageSquare,
   users: Users,
   admins: Shield,
+  shield: Shield,
   settings: Settings,
   exercises: Dumbbell,
   reports: ClipboardList,
   library: Library,
+  dumbbell: Dumbbell,
   metrics: BarChart3,
   profile: UserCog,
   plans: FolderKanban,
   notifications: BellDot,
   tools: Wrench,
   system: Hammer,
+  terminal: Terminal,
+  "check-circle": CheckCircle2,
+  history: History,
+  'plus-circle': PlusCircle,
+  'calendar-plus': CalendarPlus,
   logout: LogOut,
   menu: Menu,
 };
 
 export function NavIcon({
   name,
-  size = 16,
+  size = 18,
   color,
   className,
 }: {
@@ -54,5 +67,5 @@ export function NavIcon({
 }) {
   const C = name ? map[name] : undefined;
   if (!C) return <span style={{ fontSize: Number(size) || 16 }}>•</span>;
-  return <C size={size} color={color} className={className} />;
+  return <C size={size} color={color} className={className} strokeWidth={1.8} />;
 }
