@@ -1242,7 +1242,6 @@ h1,.h1{
 /* ============ AUTH =============== */
 /* ================================= */
 .auth-wrap{ display:grid; place-items:center; min-height:100dvh; padding:20px; }
-.auth-card{ width:min(560px,92vw); background:var(--card-bg); border:1px solid var(--border); border-radius:20px; box-shadow:var(--shadow-1); padding:18px; }
 .auth-header{ display:grid; grid-template-columns:40px 1fr; gap:10px; align-items:center; margin-bottom:10px; }
 .auth-title{ font-weight:800; font-size:20px; }
 .auth-fields{ display:grid; gap:10px; }
