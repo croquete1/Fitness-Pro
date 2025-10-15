@@ -12,12 +12,16 @@ type Props = {
 };
 
 export default function MobileTopBar({ title = 'Dashboard', onToggleSidebar }: Props) {
-  const { openMobile } = useSidebar();
+  const { mobileOpen, openMobile, closeMobile } = useSidebar();
 
   const handleToggle = () => {
     onToggleSidebar?.();
-    // Abre o drawer da sidebar no mobile
-    openMobile(true);
+    // Alterna o drawer da sidebar no mobile
+    if (mobileOpen) {
+      closeMobile();
+    } else {
+      openMobile(true);
+    }
   };
 
   return (
@@ -34,7 +38,12 @@ export default function MobileTopBar({ title = 'Dashboard', onToggleSidebar }: P
       }}
     >
       <Toolbar variant="dense" sx={{ gap: 1 }}>
-        <IconButton edge="start" onClick={handleToggle} aria-label="Abrir menu">
+        <IconButton
+          edge="start"
+          onClick={handleToggle}
+          aria-label={mobileOpen ? 'Fechar menu' : 'Abrir menu'}
+          aria-expanded={mobileOpen ? 'true' : 'false'}
+        >
           <MenuIcon />
         </IconButton>
         <Typography variant="subtitle1" fontWeight={800}>
