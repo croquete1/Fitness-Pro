@@ -53,8 +53,17 @@ export async function getSessionUserSafe(): Promise<SessionBridge | null> {
       (token as any)?.user?.role ??
       (token as any)?.user?.['app_role'];
 
+    const rawTokenId =
+      (token as any)?.id ??
+      (token as any)?.user?.id ??
+      (token as any)?.sub ??
+      (token as any)?.user?.sub ??
+      null;
+
+    const tokenId = rawTokenId == null ? null : String(rawTokenId);
+
     const u = {
-      id: (token as any)?.id ?? (token as any)?.user?.id,
+      id: tokenId ?? undefined,
       name: (token as any)?.name ?? (token as any)?.user?.name,
       email: (token as any)?.email ?? (token as any)?.user?.email,
       image: (token as any)?.picture ?? (token as any)?.user?.image,
@@ -64,7 +73,7 @@ export async function getSessionUserSafe(): Promise<SessionBridge | null> {
     return {
       session: token,
       user: u,
-      id: u.id,
+      id: tokenId ?? undefined,
       name: u.name,
       email: u.email,
       image: u.image,
@@ -76,18 +85,19 @@ export async function getSessionUserSafe(): Promise<SessionBridge | null> {
   try {
     const session = await getServerSession(authOptions);
     const user = session?.user as any;
-    if (user?.id) {
+    const userId = user?.id ?? user?.sub ?? null;
+    if (userId) {
       const role = toAppRole(user.role) ?? undefined;
       return {
         session,
         user: {
-          id: user.id,
+          id: String(userId),
           name: user.name ?? undefined,
           email: user.email ?? undefined,
           image: user.image ?? undefined,
           role,
         },
-        id: user.id,
+        id: String(userId),
         name: user.name ?? undefined,
         email: user.email ?? undefined,
         image: user.image ?? undefined,

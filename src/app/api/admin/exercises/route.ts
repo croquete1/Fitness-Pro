@@ -3,6 +3,7 @@ import { createServerClient, tryCreateServiceRoleClient } from '@/lib/supabaseSe
 import { parseTagList } from '@/lib/exercises/tags';
 import { getSessionUser } from '@/lib/sessions';
 import { toAppRole } from '@/lib/roles';
+import { resolveSessionSupabaseUserId } from '@/lib/auth/resolveSupabaseUserId';
 
 const DEFAULT_PAGE_SIZE = 20;
 
@@ -168,6 +169,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Nome inválido' }, { status: 400 });
   }
 
+  const supabaseUser = await resolveSessionSupabaseUserId({ expectedRole: 'ADMIN' });
+  if (supabaseUser.reason === 'ROLE_MISMATCH') {
+    console.warn('[admin/exercises] utilizador com role inesperada', {
+      expected: 'ADMIN',
+      received: supabaseUser.role,
+      userId: supabaseUser.userId,
+    });
+  }
+
   const nowIso = new Date().toISOString();
 
   const payload = {
@@ -179,7 +189,7 @@ export async function POST(req: Request) {
     video_url: body.video_url ?? null,
     is_global: true,
     owner_id: null,
-    created_by: me.id,
+    created_by: supabaseUser.userId ?? (supabaseUser.reason === 'SUPABASE_OFFLINE' ? me.id : null),
     is_published: Boolean(body?.is_published),
     published_at: body?.is_published ? nowIso : null,
     created_at: nowIso,
