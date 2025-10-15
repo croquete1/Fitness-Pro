@@ -1,126 +1,105 @@
 'use client';
 
 import * as React from 'react';
-import { createTheme, ThemeProvider, CssBaseline, PaletteMode } from '@mui/material';
-import { ptPT as muiPT } from '@mui/material/locale';
 
-type Ctx = { mode: PaletteMode; toggle: () => void; set: (m: PaletteMode) => void };
+type Mode = 'light' | 'dark';
+
+type Ctx = { mode: Mode; toggle: () => void; set: (m: Mode) => void };
+
 const ColorModeCtx = React.createContext<Ctx | null>(null);
 
-function makeTheme(mode: PaletteMode) {
-  const lightPalette = {
-    mode: 'light' as const,
-    primary: { main: '#1e66ff', dark: '#1554e6', contrastText: '#fff' },
-    background: { default: '#f6f8fb', paper: '#ffffff' },
-    text: { primary: '#0b1220', secondary: '#5f6b7a' },
-    divider: '#e2e8f0',
-    success: { main: '#10b981' },
-    warning: { main: '#f59e0b' },
-    error: { main: '#ef4444' },
-    info: { main: '#3b82f6' },
-  };
-  const darkPalette = {
-    mode: 'dark' as const,
-    primary: { main: '#6da7ff', dark: '#4e8dff', contrastText: '#fff' },
-    background: { default: '#0b0b10', paper: '#111317' },
-    text: { primary: '#e7e9ee', secondary: '#a8b0bf' },
-    divider: '#232730',
-    success: { main: '#22c55e' },
-    warning: { main: '#f59e0b' },
-    error: { main: '#ef4444' },
-    info: { main: '#3b82f6' },
-  };
+type Props = { children: React.ReactNode; initialMode?: Mode };
 
-  return createTheme(
-    {
-      palette: mode === 'dark' ? darkPalette : lightPalette,
-      shape: { borderRadius: 12 },
-      typography: {
-        fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, sans-serif',
-        button: { textTransform: 'none', fontWeight: 600 },
-      },
-      components: {
-        MuiPaper: { defaultProps: { elevation: 0 } },
-        MuiAppBar: { styleOverrides: { root: { borderBottom: '1px solid', borderColor: 'divider' } } },
-        MuiListItemButton: { styleOverrides: { root: { borderRadius: 12 } } },
-        MuiButton: {
-          defaultProps: { size: 'medium' },
-          styleOverrides: {
-            root: { borderRadius: 12 },
-          },
-          variants: [
-            { props: { variant: 'contained' }, style: { boxShadow: 'none' } },
-            { props: { variant: 'outlined' }, style: { borderColor: 'divider' } },
-          ],
-        },
-        MuiCard: {
-          defaultProps: { elevation: 0 },
-          styleOverrides: { root: { border: '1px solid', borderColor: 'divider', borderRadius: 16 } },
-        },
-        MuiTableHead: {
-          styleOverrides: { root: { backgroundColor: mode === 'dark' ? '#0f1116' : '#f8fafc' } },
-        },
-      },
-    },
-    muiPT, // locale PT-PT para todos os componentes MUI
-  );
+function readStoredMode(): Mode | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = window.localStorage.getItem('fp-mode');
+    return stored === 'dark' || stored === 'light' ? (stored as Mode) : null;
+  } catch {
+    return null;
+  }
 }
 
-type Props = { children: React.ReactNode; initialMode?: PaletteMode };
+function getSystemMode(): Mode {
+  if (typeof window === 'undefined') return 'light';
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function persistCookie(mode: Mode) {
+  if (typeof document === 'undefined') return;
+  try {
+    const secure = typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : '';
+    document.cookie = `fp-mode=${mode}; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax${secure}`;
+  } catch {
+    // ignore cookie errors
+  }
+}
 
 export default function ColorModeProvider({ children, initialMode = 'light' }: Props) {
-  const [mode, setMode] = React.useState<PaletteMode>(initialMode);
-  const [hydrated, setHydrated] = React.useState(false);
+  const [mode, setMode] = React.useState<Mode>(initialMode);
+  const [source, setSource] = React.useState<'system' | 'manual'>('system');
+  const sourceRef = React.useRef(source);
+
+  sourceRef.current = source;
 
   React.useEffect(() => {
-    if (hydrated) return;
-    try {
-      const stored = (localStorage.getItem('fp-mode') as PaletteMode | null) ?? null;
-      const system = window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      const preferred = stored ?? system;
-      if (preferred && preferred !== mode) {
-        setMode(preferred);
-      }
-    } catch {
-      // ignore localStorage errors
-    } finally {
-      setHydrated(true);
+    if (typeof window === 'undefined') return;
+    const stored = readStoredMode();
+    if (stored) {
+      setMode(stored);
+      setSource('manual');
+      return;
     }
-  }, [hydrated, mode]);
+    const system = getSystemMode();
+    setMode(system);
+    setSource('system');
+  }, []);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = (event: MediaQueryListEvent) => {
+      if (sourceRef.current === 'manual') return;
+      setMode(event.matches ? 'dark' : 'light');
+      setSource('system');
+    };
+    media.addEventListener?.('change', handler);
+    return () => media.removeEventListener?.('change', handler);
+  }, []);
 
   React.useEffect(() => {
     if (typeof document === 'undefined') return;
     const html = document.documentElement;
-    const value = mode === 'dark' ? 'dark' : 'light';
-    html.setAttribute('data-theme', value);
-    try {
-      localStorage.setItem('fp-mode', mode);
-    } catch {
-      // ignore
+    html.setAttribute('data-theme', mode);
+    persistCookie(mode);
+    if (typeof window !== 'undefined') {
+      try {
+        if (source === 'manual') {
+          window.localStorage.setItem('fp-mode', mode);
+        } else {
+          window.localStorage.removeItem('fp-mode');
+        }
+      } catch {
+        // ignore storage errors
+      }
     }
-    try {
-      const secure = typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : '';
-      document.cookie = `fp-mode=${mode}; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax${secure}`;
-    } catch {
-      // ignore cookie errors
-    }
-  }, [mode]);
+  }, [mode, source]);
+
+  const setManualMode = React.useCallback((next: Mode) => {
+    setMode(next);
+    setSource('manual');
+  }, []);
 
   const value = React.useMemo<Ctx>(
-    () => ({ mode, toggle: () => setMode((m) => (m === 'dark' ? 'light' : 'dark')), set: setMode }),
-    [mode],
+    () => ({
+      mode,
+      toggle: () => setManualMode(mode === 'dark' ? 'light' : 'dark'),
+      set: setManualMode,
+    }),
+    [mode, setManualMode],
   );
 
-  const theme = React.useMemo(() => makeTheme(mode), [mode]);
-
-  return (
-    <ColorModeCtx.Provider value={value}>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        {children}
-      </ThemeProvider>
-    </ColorModeCtx.Provider>
-  );
+  return <ColorModeCtx.Provider value={value}>{children}</ColorModeCtx.Provider>;
 }
 
 export function useColorMode() {

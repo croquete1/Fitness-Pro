@@ -675,6 +675,75 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
   .neo-toggle__thumb{ transition:none; }
 }
 
+@keyframes fp-spin { to { transform: rotate(360deg); } }
+
+@keyframes auth-pulse {
+  0% { transform: scale(1); opacity: 0.55; }
+  50% { transform: scale(1.05); opacity: 0.85; }
+  100% { transform: scale(1); opacity: 0.55; }
+}
+
+@keyframes auth-aurora {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.auth-screen{
+  position:relative;
+  min-height:100dvh;
+  display:grid;
+  place-items:center;
+  padding:clamp(2rem, 4vw, 4rem);
+  overflow:hidden;
+  background:
+    radial-gradient(900px 600px at 12% -8%, color-mix(in srgb, var(--primary) 10%, transparent), transparent 70%),
+    radial-gradient(860px 580px at 88% -12%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 70%),
+    var(--bg);
+}
+
+.auth-screen::before,
+.auth-screen::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+}
+
+.auth-screen::before{
+  background:
+    radial-gradient(30% 40% at 15% 20%, color-mix(in srgb, var(--primary) 20%, transparent), transparent 70%),
+    radial-gradient(32% 36% at 85% 18%, color-mix(in srgb, var(--accent-2) 18%, transparent), transparent 74%),
+    radial-gradient(42% 56% at 52% 120%, color-mix(in srgb, var(--pink) 15%, transparent), transparent 80%);
+  filter:blur(60px);
+  opacity:.55;
+  animation:auth-pulse 26s ease-in-out infinite;
+}
+
+.auth-screen::after{
+  background:linear-gradient(140deg, color-mix(in srgb, var(--primary) 10%, transparent), color-mix(in srgb, var(--accent) 10%, transparent), color-mix(in srgb, var(--accent-2) 12%, transparent));
+  background-size:180% 180%;
+  mix-blend-mode:screen;
+  opacity:.32;
+  animation:auth-aurora 30s ease-in-out infinite;
+}
+
+.auth-card{
+  position:relative;
+  width:min(100%, 1120px);
+  border-radius:44px;
+  border:1px solid color-mix(in srgb, var(--primary) 14%, transparent);
+  background:color-mix(in srgb, var(--card-bg) 90%, transparent);
+  padding:clamp(1.75rem, 3vw, 3.2rem);
+  box-shadow:0 48px 140px -70px rgba(15,23,42,.32);
+  backdrop-filter:blur(14px) saturate(120%);
+  z-index:1;
+}
+
+@media (max-width: 768px){
+  .auth-card{ padding:1.5rem; border-radius:32px; }
+}
+
 .neo-segmented{
   display:flex;
   flex-wrap:wrap;

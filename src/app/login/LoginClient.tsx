@@ -5,75 +5,22 @@ import * as React from 'react';
 import { signIn } from 'next-auth/react';
 import Link from 'next/link';
 import Image from 'next/image';
-import {
-  Box,
-  Paper,
-  Stack,
-  TextField,
-  Button,
-  Alert,
-  Typography,
-  CircularProgress,
-  IconButton,
-  InputAdornment,
-  Divider,
-  Fade,
-} from '@mui/material';
-import MailOutline from '@mui/icons-material/MailOutline';
-import LockOutlined from '@mui/icons-material/LockOutlined';
-import Visibility from '@mui/icons-material/Visibility';
-import VisibilityOff from '@mui/icons-material/VisibilityOff';
-import LoginIcon from '@mui/icons-material/Login';
-import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
-import { keyframes, useTheme } from '@mui/material/styles';
-import ThemeToggle from '@/components/ThemeToggle';
+import clsx from 'clsx';
 import { useSearchParams } from 'next/navigation';
 import { z } from 'zod';
+import { Mail, Lock, Eye, EyeOff, LogIn, CheckCircle2 } from 'lucide-react';
+import ThemeToggle from '@/components/ThemeToggle';
+import Button from '@/components/ui/Button';
+import Spinner from '@/components/ui/Spinner';
+import Alert from '@/components/ui/Alert';
+import { useColorMode } from '@/components/layout/ColorModeProvider';
 import { brand, brandFallbackLogos, resolveBrandLogos } from '@/lib/brand';
+import { greetingForDate } from '@/lib/time';
 
 const loginSchema = z.object({
   identifier: z.string().trim().min(1, 'Indica o email ou o username'),
   password: z.string().min(6, 'Mínimo 6 caracteres'),
 });
-
-const backgroundPulse = keyframes`
-  0% {
-    transform: rotate(0deg) scale(1);
-    opacity: 0.55;
-  }
-  50% {
-    transform: rotate(6deg) scale(1.08);
-    opacity: 0.85;
-  }
-  100% {
-    transform: rotate(0deg) scale(1);
-    opacity: 0.55;
-  }
-`;
-
-const float = keyframes`
-  0% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-  100% {
-    transform: translateY(0px);
-  }
-`;
-
-const aurora = keyframes`
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-`;
 
 function sanitizeNext(next?: string | null) {
   const fallback = '/dashboard';
@@ -105,6 +52,7 @@ export default function LoginClient() {
   const sp = useSearchParams();
   const nextParam = sp.get('next');
   const errParam = sp.get('error');
+  const { mode } = useColorMode();
 
   const [identifier, setIdentifier] = React.useState('');
   const [pw, setPw] = React.useState('');
@@ -112,17 +60,13 @@ export default function LoginClient() {
   const [loading, setLoading] = React.useState(false);
   const [err, setErr] = React.useState<string | null>(null);
   const [fieldErr, setFieldErr] = React.useState<{ identifier?: string; password?: string }>({});
-  const theme = useTheme();
-  const mode = theme.palette.mode;
+  const [logoIndex, setLogoIndex] = React.useState(0);
+
   const logoCandidates = React.useMemo(
     () => resolveBrandLogos(mode === 'dark' ? 'dark' : 'light'),
     [mode],
   );
-  const logoCandidateKey = React.useMemo(
-    () => logoCandidates.join('|'),
-    [logoCandidates],
-  );
-  const [logoIndex, setLogoIndex] = React.useState(0);
+  const logoCandidateKey = React.useMemo(() => logoCandidates.join('|'), [logoCandidates]);
 
   React.useEffect(() => {
     setLogoIndex(0);
@@ -198,559 +142,155 @@ export default function LoginClient() {
     }
   }
 
+  const greeting = React.useMemo(() => {
+    const { label, emoji } = greetingForDate();
+    return `${emoji} ${label}, ${brand.name}!`;
+  }, []);
+
   return (
-    <Box
-      sx={(theme) => ({
-        minHeight: '100dvh',
-        display: 'grid',
-        placeItems: 'center',
-        p: { xs: 2.5, md: 4 },
-        position: 'relative',
-        overflow: 'hidden',
-        background:
-          theme.palette.mode === 'dark'
-            ? 'radial-gradient(circle at 15% 15%, #0f172a 0%, #020617 45%, #010417 100%)'
-            : 'radial-gradient(circle at 15% 15%, #eef2ff 0%, #e0e7ff 45%, #e2e8f0 100%)',
-        '&::before': {
-          content: "''",
-          position: 'absolute',
-          inset: '-30% -15%',
-          background:
-            'radial-gradient(30% 40% at 10% 20%, rgba(59,130,246,0.28), transparent 70%),' +
-            'radial-gradient(24% 34% at 85% 18%, rgba(14,165,233,0.28), transparent 74%),' +
-            'radial-gradient(36% 50% at 50% 120%, rgba(236,72,153,0.2), transparent 75%)',
-          filter: 'blur(60px)',
-          animation: `${backgroundPulse} 26s ease-in-out infinite`,
-          pointerEvents: 'none',
-        },
-        '&::after': {
-          content: "''",
-          position: 'absolute',
-          inset: '0',
-          background:
-            theme.palette.mode === 'dark'
-              ? 'linear-gradient(140deg, rgba(59,130,246,0.15), rgba(236,72,153,0.12), rgba(20,184,166,0.12))'
-              : 'linear-gradient(140deg, rgba(79,70,229,0.12), rgba(236,72,153,0.1), rgba(45,212,191,0.12))',
-          backgroundSize: '180% 180%',
-          mixBlendMode: 'screen',
-          animation: `${aurora} 30s ease-in-out infinite`,
-          pointerEvents: 'none',
-        },
-      })}
-    >
-      <Fade in timeout={400}>
-        <Paper
-          elevation={24}
-          sx={{
-            width: '100%',
-            maxWidth: 780,
-            p: { xs: 3, sm: 4 },
-            borderRadius: { xs: '32px', sm: '40px' },
-            position: 'relative',
-            overflow: 'hidden',
-            bgcolor: (theme) =>
-              theme.palette.mode === 'dark'
-                ? 'rgba(8, 13, 26, 0.84)'
-                : 'rgba(255, 255, 255, 0.92)',
-            border: (theme) =>
-              theme.palette.mode === 'dark'
-                ? '1px solid rgba(96,165,250,0.22)'
-                : '1px solid rgba(79,70,229,0.14)',
-            boxShadow: (theme) =>
-              theme.palette.mode === 'dark'
-                ? '0 50px 140px -70px rgba(15,23,42,0.95)'
-                : '0 48px 120px -70px rgba(15,23,42,0.25)',
-            backdropFilter: 'blur(20px)',
-            transition: 'box-shadow 250ms ease, transform 250ms ease',
-            '&:hover': {
-              transform: { md: 'translateY(-4px)' },
-              boxShadow: (theme) =>
-                theme.palette.mode === 'dark'
-                  ? '0 60px 140px -70px rgba(15,23,42,0.9)'
-                  : '0 60px 150px -80px rgba(15,23,42,0.28)',
-            },
-            '&::before': {
-              content: "''",
-              position: 'absolute',
-              inset: '-30% auto auto -30%',
-              width: 320,
-              height: 320,
-              background:
-                'radial-gradient(circle, rgba(59,130,246,0.35) 0%, rgba(59,130,246,0) 70%)',
-              filter: 'blur(40px)',
-              opacity: 0.4,
-              pointerEvents: 'none',
-              animation: `${float} 18s ease-in-out infinite`,
-            },
-            '&::after': {
-              content: "''",
-              position: 'absolute',
-              inset: 'auto -25% -35% auto',
-              width: 260,
-              height: 260,
-              background:
-                'radial-gradient(circle, rgba(236,72,153,0.32) 0%, rgba(236,72,153,0) 70%)',
-              filter: 'blur(45px)',
-              opacity: 0.35,
-              pointerEvents: 'none',
-              animation: `${float} 22s ease-in-out infinite`,
-              animationDelay: '3s',
-            },
-          }}
+    <div className="auth-screen" data-auth-root>
+      <div className="auth-card relative w-full max-w-5xl">
+        <div className="absolute right-4 top-4 z-30">
+          <ThemeToggle />
+        </div>
+
+        <div
+          className={clsx(
+            'pointer-events-none absolute inset-0 z-20 grid place-items-center rounded-[inherit] bg-slate-900/70 text-white transition-opacity dark:bg-slate-950/70',
+            loading ? 'opacity-100' : 'opacity-0',
+            loading ? 'pointer-events-auto' : 'pointer-events-none',
+          )}
+          aria-hidden={!loading}
         >
-          <Box sx={{ position: 'absolute', top: 12, right: 12 }}>
-            <ThemeToggle />
-          </Box>
+          <div className="flex flex-col items-center gap-3 text-center">
+            <Spinner size={36} />
+            <p className="text-sm font-semibold tracking-wide uppercase">A iniciar sessão…</p>
+          </div>
+        </div>
 
-          <Fade in={loading} unmountOnExit>
-            <Box
-              sx={{
-                position: 'absolute',
-                inset: 0,
-                zIndex: 2,
-                borderRadius: 'inherit',
-                display: 'grid',
-                placeItems: 'center',
-                bgcolor: (theme) =>
-                  theme.palette.mode === 'dark'
-                    ? 'rgba(15, 23, 42, 0.75)'
-                    : 'rgba(15, 23, 42, 0.55)',
-                backdropFilter: 'blur(12px)',
-              }}
-            >
-              <Stack spacing={2} alignItems="center" sx={{ color: 'common.white' }}>
-                <CircularProgress size={36} thickness={4} color="inherit" />
-                <Typography
-                  variant="body1"
-                  sx={{
-                    fontWeight: 600,
-                    color: 'common.white',
-                    letterSpacing: 0.4,
-                  }}
-                >
-                  A iniciar sessão…
-                </Typography>
-              </Stack>
-            </Box>
-          </Fade>
+        <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,420px)]">
+          <div className="relative overflow-hidden rounded-3xl border border-white/20 bg-white/70 p-6 shadow-[0_40px_120px_-60px_rgba(15,23,42,0.35)] backdrop-blur-lg dark:border-slate-800/60 dark:bg-slate-900/60">
+            <div className="absolute inset-0 bg-[radial-gradient(36%_44%_at_18%_20%,rgba(59,130,246,0.28),transparent_70%),radial-gradient(32%_36%_at_85%_18%,rgba(14,165,233,0.26),transparent_70%),radial-gradient(44%_60%_at_50%_120%,rgba(236,72,153,0.22),transparent_75%)] opacity-80" />
+            <div className="relative z-10 flex h-full flex-col justify-between">
+              <div className="space-y-4">
+                <div className="inline-flex items-center gap-3 rounded-full border border-white/30 bg-white/60 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-700 shadow-sm backdrop-blur dark:border-slate-800/60 dark:bg-slate-900/60 dark:text-slate-200">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_6px_rgba(16,185,129,0.2)]" aria-hidden />
+                  Plataforma Inteligente
+                </div>
+                <h1 className="text-3xl font-semibold leading-tight text-slate-900 dark:text-slate-100">
+                  O teu cockpit de performance está pronto.
+                </h1>
+                <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">
+                  Liga-te para sincronizar planos, sessões e insights em tempo real. Mantemos os dados cifrados e os alertas prontos para qualquer desvio.
+                </p>
+              </div>
+              <div className="space-y-4 rounded-2xl border border-white/30 bg-white/70 p-4 shadow-sm backdrop-blur-md dark:border-slate-800/60 dark:bg-slate-900/50">
+                <div className="flex items-center gap-3">
+                  <div className="relative h-12 w-12 overflow-hidden rounded-2xl border border-white/40 bg-white/60 shadow-lg dark:border-slate-800/60 dark:bg-slate-900/70">
+                    <Image src={logoSrc} alt={brand.name} fill className="object-contain p-2" onError={handleLogoError} sizes="48px" />
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">status</p>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{greeting}</p>
+                  </div>
+                </div>
+                <div className="grid gap-2 text-xs uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
+                  <div className="flex items-center justify-between">
+                    <span>Segurança</span>
+                    <span className="rounded-full bg-emerald-400/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.35em] text-emerald-500 dark:text-emerald-300">Cifrada</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Latência</span>
+                    <span className="rounded-full bg-sky-400/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.35em] text-sky-500 dark:text-sky-300">Baixa</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
 
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={{ xs: 3, md: 5 }} alignItems="stretch">
-            <Box
-              sx={(theme) => ({
-                flex: 1,
-                borderRadius: 3,
-                p: { xs: 2.75, md: 3.75 },
-                background:
-                  theme.palette.mode === 'dark'
-                    ? 'linear-gradient(135deg, rgba(59,130,246,0.22) 0%, rgba(99,102,241,0.2) 35%, rgba(16,185,129,0.18) 100%)'
-                    : 'linear-gradient(135deg, rgba(59,130,246,0.16) 0%, rgba(99,102,241,0.12) 40%, rgba(16,185,129,0.12) 100%)',
-                border: theme.palette.mode === 'dark'
-                  ? '1px solid rgba(96,165,250,0.28)'
-                  : '1px solid rgba(37,99,235,0.14)',
-                position: 'relative',
-                overflow: 'hidden',
-                boxShadow: theme.palette.mode === 'dark'
-                  ? '0 40px 120px -70px rgba(8,20,45,0.9)'
-                  : '0 48px 120px -80px rgba(15,23,42,0.28)',
-              })}
-            >
-              <Box
-                sx={{
-                  position: 'absolute',
-                  inset: -28,
-                  background:
-                    'radial-gradient(32% 32% at 20% 20%, rgba(255,255,255,0.22), transparent 70%),' +
-                    'radial-gradient(50% 60% at 120% -10%, rgba(59,130,246,0.25), transparent 70%)',
-                  opacity: 0.65,
-                  pointerEvents: 'none',
-                }}
-              />
-              <Stack
-                spacing={2.4}
-                sx={(theme) => ({
-                  position: 'relative',
-                  color:
-                    theme.palette.mode === 'dark'
-                      ? 'rgba(226,232,240,0.95)'
-                      : 'inherit',
-                })}
-              >
-                <Box
-                  sx={{
-                    width: { xs: 96, sm: 110 },
-                    height: { xs: 96, sm: 110 },
-                    borderRadius: 2,
-                    position: 'relative',
-                    overflow: 'hidden',
-                    boxShadow:
-                      '0 22px 45px -20px rgba(15,23,42,0.55), 0 10px 24px -12px rgba(15,23,42,0.35)',
-                    animation: `${float} 16s ease-in-out infinite`,
-                    background:
-                      'linear-gradient(140deg, rgba(59,130,246,0.2) 0%, rgba(14,165,233,0.2) 50%, rgba(16,185,129,0.22) 100%)',
-                    '&::after': {
-                      content: "''",
-                      position: 'absolute',
-                      inset: 4,
-                      borderRadius: 1,
-                      border: '1px solid rgba(255,255,255,0.28)',
-                      mixBlendMode: 'screen',
-                      pointerEvents: 'none',
-                    },
-                  }}
-                >
-                  <Image
-                    key={logoSrc}
-                    src={logoSrc}
-                    alt={`Logótipo ${brand.name}`}
-                    fill
-                    priority
-                    sizes="(max-width: 768px) 96px, 120px"
-                    style={{ objectFit: 'contain', padding: 16 }}
-                    unoptimized
-                    onError={handleLogoError}
-                  />
-                </Box>
-                <Typography
-                  variant="h4"
-                  component="h1"
-                  fontWeight={800}
-                  sx={{ letterSpacing: 0.4, lineHeight: 1.1 }}
-                >
-                  Acede ao ecossistema HMS
-                </Typography>
-                <Typography
-                  variant="body1"
-                  sx={{ maxWidth: 420, opacity: 0.9 }}
-                >
-                  Conecta-te à tua jornada de fitness: gere planos, acompanha evolução e mantém o contacto entre clientes e Personal Trainers.
-                </Typography>
-                <Stack
-                  spacing={1.2}
-                  sx={{
-                    pt: 0.5,
-                    '& svg': {
-                      color: (theme) =>
-                        theme.palette.mode === 'dark'
-                          ? theme.palette.success.light
-                          : theme.palette.success.main,
-                    },
-                  }}
-                >
-                  {[
-                    'Clientes acompanham planos, sessões e métricas em tempo real.',
-                    'Personal Trainers organizam treinos, avaliações e comunicação num único lugar.',
-                    'Notificações inteligentes mantêm todos alinhados e informados.',
-                  ].map((item) => (
-                    <Stack key={item} direction="row" spacing={1.2} alignItems="center">
-                      <CheckCircleOutline fontSize="small" color="success" />
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          opacity: 0.82,
-                          color: (theme) =>
-                            theme.palette.mode === 'dark'
-                              ? 'rgba(226,232,240,0.85)'
-                              : theme.palette.text.secondary,
-                        }}
-                      >
-                        {item}
-                      </Typography>
-                    </Stack>
-                  ))}
-                </Stack>
-              </Stack>
-            </Box>
+          <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5 rounded-3xl border border-white/20 bg-white/80 p-6 shadow-[0_38px_100px_-60px_rgba(15,23,42,0.35)] backdrop-blur-xl dark:border-slate-800/70 dark:bg-slate-950/60">
+            <div className="space-y-2 text-center">
+              <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Entrar</h2>
+              <p className="text-sm text-slate-600 dark:text-slate-300">Autentica-te para desbloquear o painel futurista.</p>
+            </div>
 
-            <Box sx={{ flex: 1 }}>
-              <Divider
-                sx={(theme) => ({
-                  mb: 2.5,
-                  opacity: 0.65,
-                  '&::before, &::after': {
-                    borderColor:
-                      theme.palette.mode === 'dark'
-                        ? 'rgba(148,163,255,0.25)'
-                        : 'rgba(79,70,229,0.2)',
-                  },
-                })}
-              >
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ textTransform: 'uppercase', letterSpacing: 1.4, fontWeight: 600 }}
-                >
-                  Entrar na conta
-                </Typography>
-              </Divider>
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{
-                  mb: 3,
-                  maxWidth: 420,
-                  lineHeight: 1.6,
-                }}
-              >
-                Introduz as tuas credenciais para acederes à tua área HMS, quer sejas cliente ou Personal Trainer.
-              </Typography>
-              <form onSubmit={onSubmit} noValidate>
-                <Stack spacing={2.2}>
-                  <TextField
-                    label="Email ou nome de utilizador *"
-                    type="text"
+            {err && <Alert tone="danger">{err}</Alert>}
+
+            <div className="space-y-3">
+              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
+                Email ou username
+                <div className="relative">
+                  <input
+                    className={clsx('neo-input pl-11', fieldErr.identifier && 'neo-input--error')}
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
                     onBlur={(e) => validateField('identifier', e.target.value)}
-                    required
-                    fullWidth
-                    autoFocus
-                    autoComplete="username"
-                    error={!!fieldErr.identifier}
-                    helperText={fieldErr.identifier ?? 'Podes usar o email ou o username definido no perfil.'}
-                    inputProps={{ autoCapitalize: 'none', autoCorrect: 'off', spellCheck: 'false' }}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <MailOutline fontSize="small" />
-                        </InputAdornment>
-                      ),
-                    }}
-                    sx={(theme) => ({
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: 2.5,
-                        backgroundColor:
-                          theme.palette.mode === 'dark'
-                            ? 'rgba(15, 23, 42, 0.55)'
-                            : 'rgba(255,255,255,0.85)',
-                        transition: 'box-shadow 200ms ease, transform 200ms ease',
-                        '& fieldset': {
-                          borderColor:
-                            theme.palette.mode === 'dark'
-                              ? 'rgba(148,163,255,0.3)'
-                              : 'rgba(99,102,241,0.18)',
-                        },
-                        '&:hover fieldset': {
-                          borderColor:
-                            theme.palette.mode === 'dark'
-                              ? 'rgba(129,140,248,0.6)'
-                              : 'rgba(79,70,229,0.45)',
-                        },
-                        '&.Mui-focused': {
-                          boxShadow:
-                            theme.palette.mode === 'dark'
-                              ? '0 0 0 3px rgba(99,102,241,0.35)'
-                              : '0 0 0 3px rgba(79,70,229,0.2)',
-                        },
-                        '&.Mui-focused fieldset': {
-                          borderColor:
-                            theme.palette.mode === 'dark'
-                              ? 'rgba(129,140,248,0.85)'
-                              : theme.palette.primary.main,
-                        },
-                      },
-                      '& .MuiInputAdornment-root': {
-                        color:
-                          theme.palette.mode === 'dark'
-                            ? 'rgba(226,232,240,0.8)'
-                            : theme.palette.text.secondary,
-                      },
-                    })}
+                    autoComplete="email"
+                    placeholder="ex: ana.lima"
                   />
+                  <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" aria-hidden />
+                </div>
+                <span className={clsx('neo-input__helper', fieldErr.identifier && 'text-danger')}>
+                  {fieldErr.identifier ?? 'Indica o email ou username registado.'}
+                </span>
+              </label>
 
-                  <TextField
-                    label="Palavra-passe *"
-                    type={show ? 'text' : 'password'}
+              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
+                Palavra-passe
+                <div className="relative">
+                  <input
+                    className={clsx('neo-input pl-11 pr-12', fieldErr.password && 'neo-input--error')}
                     value={pw}
                     onChange={(e) => setPw(e.target.value)}
                     onBlur={(e) => validateField('password', e.target.value)}
-                    required
-                    fullWidth
-                    inputProps={{ minLength: 6 }}
+                    type={show ? 'text' : 'password'}
                     autoComplete="current-password"
-                    error={!!fieldErr.password}
-                    helperText={fieldErr.password}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <LockOutlined fontSize="small" />
-                        </InputAdornment>
-                      ),
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton onClick={() => setShow((v) => !v)} edge="end" aria-label="Mostrar/ocultar palavra-passe">
-                            {show ? <VisibilityOff /> : <Visibility />}
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
-                    sx={(theme) => ({
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: 2.5,
-                        backgroundColor:
-                          theme.palette.mode === 'dark'
-                            ? 'rgba(15, 23, 42, 0.55)'
-                            : 'rgba(255,255,255,0.85)',
-                        transition: 'box-shadow 200ms ease, transform 200ms ease',
-                        '& fieldset': {
-                          borderColor:
-                            theme.palette.mode === 'dark'
-                              ? 'rgba(148,163,255,0.3)'
-                              : 'rgba(99,102,241,0.18)',
-                        },
-                        '&:hover fieldset': {
-                          borderColor:
-                            theme.palette.mode === 'dark'
-                              ? 'rgba(129,140,248,0.6)'
-                              : 'rgba(79,70,229,0.45)',
-                        },
-                        '&.Mui-focused': {
-                          boxShadow:
-                            theme.palette.mode === 'dark'
-                              ? '0 0 0 3px rgba(129,140,248,0.32)'
-                              : '0 0 0 3px rgba(79,70,229,0.2)',
-                        },
-                        '&.Mui-focused fieldset': {
-                          borderColor:
-                            theme.palette.mode === 'dark'
-                              ? 'rgba(129,140,248,0.85)'
-                              : theme.palette.primary.main,
-                        },
-                      },
-                      '& .MuiInputAdornment-root': {
-                        color:
-                          theme.palette.mode === 'dark'
-                            ? 'rgba(226,232,240,0.8)'
-                            : theme.palette.text.secondary,
-                      },
-                    })}
+                    placeholder="********"
                   />
-
-                  <Button
-                    type="submit"
-                    variant="contained"
-                    size="large"
-                    startIcon={loading ? undefined : <LoginIcon />}
-                    disabled={!isFormValid}
-                    sx={(theme) => ({
-                      py: 1.2,
-                      fontWeight: 700,
-                      textTransform: 'none',
-                      borderRadius: 2.5,
-                      position: 'relative',
-                      overflow: 'hidden',
-                      backgroundColor: 'transparent',
-                      backgroundImage:
-                        theme.palette.mode === 'dark'
-                          ? 'linear-gradient(120deg, #4f46e5 0%, #2563eb 50%, #14b8a6 100%)'
-                          : 'linear-gradient(120deg, #4338ca 0%, #2563eb 50%, #22d3ee 100%)',
-                      backgroundSize: '200% 200%',
-                      boxShadow:
-                        theme.palette.mode === 'dark'
-                          ? '0 18px 40px -18px rgba(59,130,246,0.6)'
-                          : '0 18px 40px -18px rgba(37,99,235,0.5)',
-                      transition: 'transform 200ms ease, box-shadow 200ms ease, background-position 300ms ease',
-                      '&:hover': {
-                        transform: 'translateY(-1px)',
-                        backgroundPosition: 'right center',
-                        boxShadow:
-                          theme.palette.mode === 'dark'
-                            ? '0 22px 50px -20px rgba(59,130,246,0.65)'
-                            : '0 22px 50px -20px rgba(37,99,235,0.55)',
-                      },
-                      '&::after': {
-                        content: "''",
-                        position: 'absolute',
-                        inset: 0,
-                        background: 'linear-gradient(120deg, rgba(255,255,255,0.32), rgba(255,255,255,0))',
-                        opacity: 0,
-                        transition: 'opacity 250ms ease',
-                      },
-                      '&:hover::after': {
-                        opacity: 0.35,
-                      },
-                    })}
+                  <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" aria-hidden />
+                  <button
+                    type="button"
+                    onClick={() => setShow((s) => !s)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 transition hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
+                    aria-label={show ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'}
                   >
-                    {loading ? <CircularProgress size={20} /> : 'Entrar'}
-                  </Button>
+                    {show ? <EyeOff className="h-4 w-4" aria-hidden /> : <Eye className="h-4 w-4" aria-hidden />}
+                  </button>
+                </div>
+                <span className={clsx('neo-input__helper', fieldErr.password && 'text-danger')}>
+                  {fieldErr.password ?? 'Mínimo 6 caracteres.'}
+                </span>
+              </label>
+            </div>
 
-                  {err && (
-                    <Alert
-                      severity="error"
-                      sx={(theme) => ({
-                        borderRadius: 2.5,
-                        bgcolor:
-                          theme.palette.mode === 'dark'
-                            ? 'rgba(248,113,113,0.16)'
-                            : theme.palette.error.light,
-                        color:
-                          theme.palette.mode === 'dark'
-                            ? 'rgba(254,202,202,0.95)'
-                            : theme.palette.error.contrastText,
-                        border:
-                          theme.palette.mode === 'dark'
-                            ? '1px solid rgba(248,113,113,0.35)'
-                            : 'none',
-                      })}
-                    >
-                      {err}
-                    </Alert>
-                  )}
+            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+              <span>Recuperar acesso? <Link href="/login/reset" className="font-semibold text-slate-900 underline decoration-dotted underline-offset-4 dark:text-slate-100">Definir nova palavra-passe</Link></span>
+              <span className="flex items-center gap-2 rounded-full bg-slate-900/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.32em] text-slate-500 dark:bg-white/5 dark:text-slate-300">
+                <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+                SSO em breve
+              </span>
+            </div>
 
-                  <Stack
-                    direction={{ xs: 'column', sm: 'row' }}
-                    justifyContent="space-between"
-                    spacing={1}
-                    sx={{ pt: 0.5 }}
-                  >
-                    <Button
-                      component={Link}
-                      href="/login/forgot"
-                      variant="text"
-                      sx={{
-                        fontWeight: 600,
-                        textTransform: 'none',
-                        color: (theme) =>
-                          theme.palette.mode === 'dark'
-                            ? 'rgba(148,163,255,0.85)'
-                            : theme.palette.primary.main,
-                        '&:hover': {
-                          color: (theme) =>
-                            theme.palette.mode === 'dark'
-                              ? 'rgba(165,180,252,1)'
-                              : theme.palette.primary.dark,
-                        },
-                      }}
-                    >
-                      Esqueceste-te da palavra-passe?
-                    </Button>
-                    <Button
-                      component={Link}
-                      href="/register"
-                      variant="text"
-                      sx={{
-                        fontWeight: 600,
-                        textTransform: 'none',
-                        color: (theme) =>
-                          theme.palette.mode === 'dark'
-                            ? 'rgba(129,140,248,0.9)'
-                            : theme.palette.secondary.main,
-                        '&:hover': {
-                          color: (theme) =>
-                            theme.palette.mode === 'dark'
-                              ? 'rgba(165,180,252,1)'
-                              : theme.palette.secondary.dark,
-                        },
-                      }}
-                    >
-                      Criar conta
-                    </Button>
-                  </Stack>
-                </Stack>
-              </form>
-            </Box>
-          </Stack>
-        </Paper>
-      </Fade>
-    </Box>
+            <Button
+              type="submit"
+              className="w-full justify-center"
+              loading={loading}
+              loadingText="A iniciar…"
+              leftIcon={<LogIn className="h-4 w-4" aria-hidden />}
+              disabled={!isFormValid}
+            >
+              Iniciar sessão
+            </Button>
+
+            <p className="text-center text-sm text-slate-600 dark:text-slate-300">
+              Não tens conta?{' '}
+              <Link href="/register" className="font-semibold text-slate-900 underline decoration-wavy underline-offset-4 dark:text-slate-100">
+                Criar conta
+              </Link>
+            </p>
+          </form>
+        </div>
+      </div>
+    </div>
   );
 }
