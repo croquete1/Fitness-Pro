@@ -12,6 +12,7 @@ export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   loading?: boolean;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
+  loadingText?: string;
 };
 
 const cls = {
@@ -43,6 +44,7 @@ export default function Button({
   leftIcon,
   rightIcon,
   children,
+  loadingText,
   className = '',
   ...rest
 }: ButtonProps) {
@@ -52,7 +54,7 @@ export default function Button({
       {...rest}
     >
       {leftIcon && <span className="mr-2">{leftIcon}</span>}
-      {loading ? 'A carregar…' : children}
+      {loading ? loadingText ?? 'A carregar…' : children}
       {rightIcon && <span className="ml-2">{rightIcon}</span>}
     </button>
   );

@@ -6,7 +6,7 @@ export default function Spinner({ size = 16 }: { size?: number }) {
       aria-busy
       style={{
         width: s, height: s, display: 'inline-block',
-        border: '2px solid var(--border)', borderTopColor: 'var(--text)',
+        border: '2px solid var(--border)', borderTopColor: 'var(--fg)',
         borderRadius: '50%', animation: 'fp-spin 800ms linear infinite'
       }}
     />

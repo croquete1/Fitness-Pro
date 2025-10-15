@@ -1,14 +1,6 @@
 'use client';
 import * as React from 'react';
-import Paper from '@mui/material/Paper';
-import Typography from '@mui/material/Typography';
-import Stack from '@mui/material/Stack';
-import TextField from '@mui/material/TextField';
-import Button from '@mui/material/Button';
-import Switch from '@mui/material/Switch';
-import IconButton from '@mui/material/IconButton';
-import Chip from '@mui/material/Chip';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import { Loader2, Sparkles, Trash2 } from 'lucide-react';
 
 type Quote = { id: string; text: string; author?: string | null; active?: boolean };
 
@@ -42,12 +34,39 @@ function persistLocalQuotes(quotes: Quote[]) {
   }
 }
 
+type ToggleProps = {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  label?: string;
+};
+
+function Toggle({ checked, onChange, label }: ToggleProps) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      className="neo-toggle"
+      data-state={checked ? 'on' : 'off'}
+      onClick={() => onChange(!checked)}
+    >
+      <span className="neo-toggle__thumb" aria-hidden />
+    </button>
+  );
+}
+
 export default function MotivationAdminCard() {
   const [items, setItems] = React.useState<Quote[]>([]);
   const [text, setText] = React.useState('');
   const [author, setAuthor] = React.useState('');
   const [busy, setBusy] = React.useState(false);
   const [usingLocal, setUsingLocal] = React.useState(false);
+
+  const resetForm = React.useCallback(() => {
+    setText('');
+    setAuthor('');
+  }, []);
 
   async function load() {
     try {
@@ -68,7 +87,10 @@ export default function MotivationAdminCard() {
       }
     }
   }
-  React.useEffect(() => { load(); }, []);
+
+  React.useEffect(() => {
+    load();
+  }, []);
 
   async function add() {
     if (!text.trim()) return;
@@ -81,18 +103,21 @@ export default function MotivationAdminCard() {
         ];
         setItems(next);
         persistLocalQuotes(next);
-        setText('');
-        setAuthor('');
+        resetForm();
         return;
       }
+
       await fetch('/api/admin/motivations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, author }),
         credentials: 'same-origin',
       });
-      setText(''); setAuthor(''); load();
-    } finally { setBusy(false); }
+      resetForm();
+      await load();
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function toggleActive(q: Quote) {
@@ -110,6 +135,7 @@ export default function MotivationAdminCard() {
     });
     load();
   }
+
   async function remove(id: string) {
     if (usingLocal) {
       const next = items.filter((item) => item.id !== id);
@@ -122,30 +148,84 @@ export default function MotivationAdminCard() {
   }
 
   return (
-    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-        <Typography variant="subtitle2" fontWeight={800}>Frases motivadoras</Typography>
-        {usingLocal && <Chip label="Modo offline" color="warning" size="small" />}
-      </Stack>
+    <section className="neo-panel space-y-4">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="neo-panel__title flex items-center gap-2 text-lg">
+            <Sparkles className="h-5 w-5 text-accent" aria-hidden /> Frases motivadoras
+          </h2>
+          <p className="neo-panel__subtitle">
+            Activa mensagens inspiradoras que podem ser mostradas nos touchpoints internos da equipa.
+          </p>
+        </div>
+        {usingLocal && <span className="status-pill" data-state="warn">Modo offline</span>}
+      </header>
 
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 1 }}>
-        <TextField size="small" label="Frase" value={text} onChange={(e) => setText(e.target.value)} fullWidth />
-        <TextField size="small" label="Autor" value={author} onChange={(e) => setAuthor(e.target.value)} sx={{ minWidth: 160 }} />
-        <Button variant="contained" onClick={add} disabled={busy}>Adicionar</Button>
-      </Stack>
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,0.6fr)_auto]">
+        <label className="flex flex-col gap-2">
+          <span className="sr-only">Frase</span>
+          <textarea
+            className="neo-input neo-input--textarea"
+            placeholder="Ex.: Cada treino é uma oportunidade para mostrar o futuro do fitness"
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+          />
+        </label>
+        <label className="flex flex-col gap-2">
+          <span className="sr-only">Autor</span>
+          <input
+            className="neo-input"
+            placeholder="Autor (opcional)"
+            value={author}
+            onChange={(event) => setAuthor(event.target.value)}
+          />
+        </label>
+        <button
+          type="button"
+          className="btn primary h-full min-w-[160px] self-start md:self-stretch"
+          onClick={add}
+          disabled={busy || text.trim().length === 0}
+        >
+          {busy ? (
+            <span className="inline-flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              A guardar
+            </span>
+          ) : (
+            'Adicionar'
+          )}
+        </button>
+      </div>
 
-      <Stack spacing={1}>
+      <p className="text-xs text-muted">
+        Quando o Supabase estiver configurado, estas frases serão sincronizadas automaticamente com a base de dados.
+      </p>
+
+      <ul className="space-y-2">
         {items.map((q) => (
-          <Paper key={q.id} variant="outlined" sx={{ p: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Switch checked={!!q.active} onChange={() => toggleActive(q)} />
-            <Typography sx={{ flex: 1 }}>{q.text} {q.author ? <em style={{ opacity: .7 }}>— {q.author}</em> : null}</Typography>
-            <IconButton aria-label="remover" onClick={() => remove(q.id)}><DeleteOutlineIcon /></IconButton>
-          </Paper>
+          <li key={q.id} className="neo-surface flex items-center gap-3 rounded-2xl p-4" data-variant="neutral">
+            <Toggle checked={!!q.active} onChange={() => toggleActive(q)} label={q.text} />
+            <div className="flex-1 space-y-1">
+              <p className="text-sm font-medium text-fg">{q.text}</p>
+              {q.author && <p className="text-xs italic text-muted">— {q.author}</p>}
+            </div>
+            <button
+              type="button"
+              className="btn icon"
+              aria-label="Remover frase"
+              onClick={() => remove(q.id)}
+            >
+              <Trash2 className="h-4 w-4" aria-hidden />
+            </button>
+          </li>
         ))}
-        {items.length === 0 && (
-          <Typography variant="body2" color="text.secondary">Sem frases registadas.</Typography>
-        )}
-      </Stack>
-    </Paper>
+      </ul>
+
+      {items.length === 0 && (
+        <div className="neo-surface rounded-2xl border border-dashed border-white/40 p-5 text-sm text-muted dark:border-slate-700/60">
+          Sem frases registadas. Adiciona algumas mensagens motivacionais para reforçar a energia do projecto.
+        </div>
+      )}
+    </section>
   );
 }
