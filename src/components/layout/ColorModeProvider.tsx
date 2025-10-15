@@ -1,6 +1,10 @@
 'use client';
 
 import * as React from 'react';
+import { AppRouterCacheProvider } from '@mui/material-nextjs/v14-appRouter';
+import { CssBaseline } from '@mui/material';
+import { ThemeProvider } from '@mui/material/styles';
+import { createNeoTheme } from '@/theme';
 
 type Mode = 'light' | 'dark';
 
@@ -41,6 +45,8 @@ export default function ColorModeProvider({ children, initialMode = 'light' }: P
   const sourceRef = React.useRef(source);
 
   sourceRef.current = source;
+
+  const theme = React.useMemo(() => createNeoTheme(mode), [mode]);
 
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -99,7 +105,16 @@ export default function ColorModeProvider({ children, initialMode = 'light' }: P
     [mode, setManualMode],
   );
 
-  return <ColorModeCtx.Provider value={value}>{children}</ColorModeCtx.Provider>;
+  return (
+    <AppRouterCacheProvider>
+      <ColorModeCtx.Provider value={value}>
+        <ThemeProvider theme={theme}>
+          <CssBaseline />
+          {children}
+        </ThemeProvider>
+      </ColorModeCtx.Provider>
+    </AppRouterCacheProvider>
+  );
 }
 
 export function useColorMode() {
