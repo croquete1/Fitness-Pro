@@ -21,10 +21,12 @@ type Status = 'pending' | 'approved' | 'rejected' | string;
 type Row = {
   id: string;
   user_id: string;
+  trainer_id?: string | null;
   name?: string | null;
   email?: string | null;
   requested_at?: string | null;
   status?: Status | null;
+  metadata?: Record<string, unknown> | null;
 };
 
 type ApprovalsApiResponse = {
@@ -33,11 +35,21 @@ type ApprovalsApiResponse = {
     user_id?: string | number | null;
     uid?: string | number | null;
     user?: string | number | null;
+    trainer_id?: string | number | null;
+    coach_id?: string | number | null;
     name?: string | null;
+    full_name?: string | null;
+    profile_name?: string | null;
     email?: string | null;
+    user_email?: string | null;
     requested_at?: string | null;
     created_at?: string | null;
+    inserted_at?: string | null;
+    updated_at?: string | null;
+    approval_id?: string | number | null;
+    member_id?: string | number | null;
     status?: string | null;
+    metadata?: Record<string, unknown> | null;
   }>;
   count?: number;
   _supabaseConfigured?: boolean;
@@ -162,14 +174,32 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
         return;
       }
 
-      const mapped: Row[] = (payload.rows ?? []).map((row) => ({
-        id: String(row.id),
-        user_id: String(row.user_id ?? row.uid ?? row.user ?? row.id ?? ''),
-        name: row.name ?? null,
-        email: row.email ?? null,
-        requested_at: row.requested_at ?? row.created_at ?? null,
-        status: (row.status ?? 'pending') as Status,
-      }));
+      const mapped: Row[] = (payload.rows ?? []).map((row, index) => {
+        const statusValue = row?.status ? String(row.status).toLowerCase() : 'pending';
+        const requestedAt =
+          row?.requested_at ??
+          row?.created_at ??
+          row?.inserted_at ??
+          row?.updated_at ??
+          null;
+        const rawId = row?.id ?? row?.approval_id ?? row?.user_id ?? row?.uid ?? row?.user ?? row?.member_id ?? '';
+        const userIdSource = row?.user_id ?? row?.uid ?? row?.user ?? row?.member_id ?? rawId;
+        const trainerIdSource = row?.trainer_id ?? row?.coach_id ?? null;
+        
+        return {
+          id: String(rawId || `pending-${index}`),
+          user_id: String(userIdSource ?? ''),
+          trainer_id: trainerIdSource == null ? null : String(trainerIdSource),
+          name: (row?.name ?? row?.full_name ?? row?.profile_name ?? null) as string | null,
+          email: (row?.email ?? row?.user_email ?? null) as string | null,
+          requested_at: requestedAt,
+          status: (statusValue || 'pending') as Status,
+          metadata:
+            row && typeof row === 'object' && row?.metadata && typeof row.metadata === 'object'
+              ? (row.metadata as Record<string, unknown>)
+              : null,
+        };
+      });
 
       setRows(mapped);
       setCount(payload.count ?? mapped.length);
