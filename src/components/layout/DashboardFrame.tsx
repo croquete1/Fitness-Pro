@@ -72,12 +72,24 @@ export default function DashboardFrame({
         <Box
           sx={{
             display: 'grid',
-            gridTemplateColumns: { xs: '1fr', md: '280px 1fr' },
+            gridTemplateColumns: {
+              xs: '1fr',
+              md: 'var(--sb-w) minmax(0,1fr)',
+            },
             gap: 0,
+            transition: 'grid-template-columns var(--sb-dur) var(--sb-ease)',
           }}
         >
           {/* Sidebar só em md+ (no mobile usas o menu do AppHeader/SidebarProvider) */}
-          <Box component="aside" sx={{ display: { xs: 'contents', md: 'block' } }}>
+          <Box
+            component="aside"
+            sx={{
+              display: { xs: 'contents', md: 'block' },
+              width: { md: 'var(--sb-w)' },
+              minWidth: { md: 'var(--sb-w)' },
+              transition: 'width var(--sb-dur) var(--sb-ease)',
+            }}
+          >
             <RoleSidebar
               role={role}
               initialCounts={{

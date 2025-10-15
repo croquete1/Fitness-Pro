@@ -168,8 +168,8 @@ export default function LoginClient() {
           </div>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,420px)]">
-          <div className="relative overflow-hidden rounded-3xl border border-white/20 bg-white/70 p-6 shadow-[0_40px_120px_-60px_rgba(15,23,42,0.35)] backdrop-blur-lg dark:border-slate-800/60 dark:bg-slate-900/60">
+        <div className="auth-card__layout">
+          <div className="auth-card__panel relative overflow-hidden rounded-3xl border border-white/20 bg-white/70 p-6 shadow-[0_40px_120px_-60px_rgba(15,23,42,0.35)] backdrop-blur-lg dark:border-slate-800/60 dark:bg-slate-900/60">
             <div className="absolute inset-0 bg-[radial-gradient(36%_44%_at_18%_20%,rgba(59,130,246,0.28),transparent_70%),radial-gradient(32%_36%_at_85%_18%,rgba(14,165,233,0.26),transparent_70%),radial-gradient(44%_60%_at_50%_120%,rgba(236,72,153,0.22),transparent_75%)] opacity-80" />
             <div className="relative z-10 flex h-full flex-col justify-between">
               <div className="space-y-4">
@@ -208,7 +208,11 @@ export default function LoginClient() {
             </div>
           </div>
 
-          <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5 rounded-3xl border border-white/20 bg-white/80 p-6 shadow-[0_38px_100px_-60px_rgba(15,23,42,0.35)] backdrop-blur-xl dark:border-slate-800/70 dark:bg-slate-950/60">
+          <form
+            onSubmit={onSubmit}
+            noValidate
+            className="auth-card__form flex flex-col gap-5 rounded-3xl border border-white/20 bg-white/80 p-6 shadow-[0_38px_100px_-60px_rgba(15,23,42,0.35)] backdrop-blur-xl dark:border-slate-800/70 dark:bg-slate-950/60"
+          >
             <div className="space-y-2 text-center">
               <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Entrar</h2>
               <p className="text-sm text-slate-600 dark:text-slate-300">Autentica-te para desbloquear o painel principal.</p>
