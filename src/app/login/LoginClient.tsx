@@ -4,18 +4,25 @@
 import * as React from 'react';
 import { signIn } from 'next-auth/react';
 import Link from 'next/link';
-import Image from 'next/image';
 import clsx from 'clsx';
 import { useSearchParams } from 'next/navigation';
 import { z } from 'zod';
-import { Mail, Lock, Eye, EyeOff, LogIn, CheckCircle2 } from 'lucide-react';
+import {
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  LogIn,
+  CheckCircle2,
+  Activity,
+  Apple,
+  Dumbbell,
+  Users,
+} from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
 import Alert from '@/components/ui/Alert';
-import { useColorMode } from '@/components/layout/ColorModeProvider';
-import { brand, brandFallbackLogos, resolveBrandLogos } from '@/lib/brand';
-import { greetingForDate } from '@/lib/time';
 
 const loginSchema = z.object({
   identifier: z.string().trim().min(1, 'Indica o email ou o username'),
@@ -52,7 +59,6 @@ export default function LoginClient() {
   const sp = useSearchParams();
   const nextParam = sp.get('next');
   const errParam = sp.get('error');
-  const { mode } = useColorMode();
 
   const [identifier, setIdentifier] = React.useState('');
   const [pw, setPw] = React.useState('');
@@ -60,30 +66,6 @@ export default function LoginClient() {
   const [loading, setLoading] = React.useState(false);
   const [err, setErr] = React.useState<string | null>(null);
   const [fieldErr, setFieldErr] = React.useState<{ identifier?: string; password?: string }>({});
-  const [logoIndex, setLogoIndex] = React.useState(0);
-
-  const logoCandidates = React.useMemo(
-    () => resolveBrandLogos(mode === 'dark' ? 'dark' : 'light'),
-    [mode],
-  );
-  const logoCandidateKey = React.useMemo(() => logoCandidates.join('|'), [logoCandidates]);
-
-  React.useEffect(() => {
-    setLogoIndex(0);
-  }, [logoCandidateKey]);
-
-  const logoSrc =
-    logoCandidates[logoIndex] ??
-    (mode === 'dark' ? brandFallbackLogos.dark : brandFallbackLogos.light);
-
-  const handleLogoError = React.useCallback(() => {
-    setLogoIndex((prev) => {
-      if (prev + 1 < logoCandidates.length) {
-        return prev + 1;
-      }
-      return prev;
-    });
-  }, [logoCandidates]);
 
   React.useEffect(() => { setErr(mapAuthError(errParam)); }, [errParam]);
   React.useEffect(() => {
@@ -142,14 +124,38 @@ export default function LoginClient() {
     }
   }
 
-  const greeting = React.useMemo(() => {
-    const { label, emoji } = greetingForDate();
-    return `${emoji} ${label}, ${brand.name}!`;
-  }, []);
+  const featureHighlights = React.useMemo(
+    () => [
+      {
+        icon: <Dumbbell className="h-5 w-5" aria-hidden />,
+        title: 'Treinos adaptáveis',
+        description: 'Planos de treino ajustado ao clientes e personal trainers em tempo real.',
+      },
+      {
+        icon: <Apple className="h-5 w-5" aria-hidden />,
+        title: 'Nutrição flexível',
+        description: 'Planos alimentares equilibrados sem restrições extremas e com feedback contínuo.',
+      },
+      {
+        icon: <Activity className="h-5 w-5" aria-hidden />,
+        title: 'Biomarcadores em foco',
+        description: 'Monitoriza ritmo, energia e recuperação com alertas automáticos e recomendações.',
+      },
+      {
+        icon: <Users className="h-5 w-5" aria-hidden />,
+        title: 'Comunidade conectada',
+        description: 'Clientes e PTs sincronizados num hub motivacional com relatórios inteligentes.',
+      },
+    ],
+    [],
+  );
 
   return (
     <div className="auth-screen" data-auth-root>
-      <div className="auth-card relative w-full max-w-5xl">
+      <div className="auth-card auth-card--split relative w-full max-w-6xl">
+        <div className="auth-card__atmosphere" aria-hidden />
+        <div className="auth-card__grid" aria-hidden />
+        <div className="auth-card__scanline" aria-hidden />
         <div className="absolute right-4 top-4 z-30">
           <ThemeToggle />
         </div>
@@ -169,40 +175,35 @@ export default function LoginClient() {
         </div>
 
         <div className="auth-card__layout">
-          <div className="auth-card__panel relative overflow-hidden rounded-3xl border border-white/20 bg-white/70 p-6 shadow-[0_40px_120px_-60px_rgba(15,23,42,0.35)] backdrop-blur-lg dark:border-slate-800/60 dark:bg-slate-900/60">
+          <div className="auth-card__panel relative overflow-hidden rounded-3xl border border-white/20 bg-white/70 p-6 sm:p-8 lg:p-10 shadow-[0_40px_120px_-60px_rgba(15,23,42,0.35)] backdrop-blur-lg dark:border-slate-800/60 dark:bg-slate-900/60">
             <div className="absolute inset-0 bg-[radial-gradient(36%_44%_at_18%_20%,rgba(59,130,246,0.28),transparent_70%),radial-gradient(32%_36%_at_85%_18%,rgba(14,165,233,0.26),transparent_70%),radial-gradient(44%_60%_at_50%_120%,rgba(236,72,153,0.22),transparent_75%)] opacity-80" />
             <div className="relative z-10 flex h-full flex-col justify-between">
-              <div className="space-y-4">
+              <div className="auth-panel__aura" aria-hidden />
+              <div className="space-y-4 sm:space-y-5">
                 <div className="inline-flex items-center gap-3 rounded-full border border-white/30 bg-white/60 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-700 shadow-sm backdrop-blur dark:border-slate-800/60 dark:bg-slate-900/60 dark:text-slate-200">
                   <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_6px_rgba(16,185,129,0.2)]" aria-hidden />
-                  Plataforma Inteligente
+                  Plataforma HMS
                 </div>
                 <h1 className="text-3xl font-semibold leading-tight text-slate-900 dark:text-slate-100">
-                  O teu painel de performance está pronto.
+                  Plataforma para um estilo de vida saudável e flexível.
                 </h1>
                 <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">
-                  Liga-te para sincronizar planos, sessões e insights em tempo real. Mantemos os dados cifrados e os alertas prontos para qualquer desvio.
+                  Liga-te para cruzar treinos personalizados com nutrição equilibrada, partilhar motivação diária e coordenar resultados.
                 </p>
-              </div>
-              <div className="space-y-4 rounded-2xl border border-white/30 bg-white/70 p-4 shadow-sm backdrop-blur-md dark:border-slate-800/60 dark:bg-slate-900/50">
-                <div className="flex items-center gap-3">
-                  <div className="relative h-12 w-12 overflow-hidden rounded-2xl border border-white/40 bg-white/60 shadow-lg dark:border-slate-800/60 dark:bg-slate-900/70">
-                    <Image src={logoSrc} alt={brand.name} fill className="object-contain p-2" onError={handleLogoError} sizes="48px" />
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">status</p>
-                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{greeting}</p>
-                  </div>
-                </div>
-                <div className="grid gap-2 text-xs uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
-                  <div className="flex items-center justify-between">
-                    <span>Segurança</span>
-                    <span className="rounded-full bg-emerald-400/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.35em] text-emerald-500 dark:text-emerald-300">Cifrada</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Latência</span>
-                    <span className="rounded-full bg-sky-400/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.35em] text-sky-500 dark:text-sky-300">Baixa</span>
-                  </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {featureHighlights.map((feature, index) => (
+                    <div
+                      key={feature.title}
+                      className="auth-highlight"
+                      style={{ animationDelay: `${index * 0.12}s` }}
+                    >
+                      <div className="auth-highlight__icon">{feature.icon}</div>
+                      <div>
+                        <p className="auth-highlight__title">{feature.title}</p>
+                        <p className="auth-highlight__desc">{feature.description}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -215,7 +216,9 @@ export default function LoginClient() {
           >
             <div className="space-y-2 text-center">
               <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Entrar</h2>
-              <p className="text-sm text-slate-600 dark:text-slate-300">Autentica-te para desbloquear o painel principal.</p>
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                Inicia sessão para acompanhar treinos, planos nutricionais e comunicação entre o Personal Trainer e Cliente.
+              </p>
             </div>
 
             {err && <Alert tone="danger">{err}</Alert>}
@@ -285,7 +288,6 @@ export default function LoginClient() {
             >
               Iniciar sessão
             </Button>
-
             <p className="text-center text-sm text-slate-600 dark:text-slate-300">
               Não tens conta?{' '}
               <Link href="/register" className="font-semibold text-slate-900 underline decoration-wavy underline-offset-4 dark:text-slate-100">
