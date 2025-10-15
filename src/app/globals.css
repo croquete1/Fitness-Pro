@@ -441,7 +441,7 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
 }
 .card:hover{ border-color: color-mix(in srgb, var(--primary) 22%, var(--border)); }
 
-/* Superfícies futuristas */
+/* Superfícies neon */
 .neo-panel{ 
   position:relative;
   border-radius:18px;

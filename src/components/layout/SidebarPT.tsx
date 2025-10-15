@@ -91,7 +91,7 @@ export default function SidebarPT({ messagesCount = 0, notificationsCount = 0 }:
     {
       href: '/dashboard/pt/plans',
       title: '3. Ajusta o calendário',
-      description: 'Afina sessões com arrastar-e-largar futurista.',
+      description: 'Afina sessões com arrastar-e-largar intuitivo.',
     },
   ];
 

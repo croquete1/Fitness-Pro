@@ -178,7 +178,7 @@ export default function LoginClient() {
                   Plataforma Inteligente
                 </div>
                 <h1 className="text-3xl font-semibold leading-tight text-slate-900 dark:text-slate-100">
-                  O teu cockpit de performance está pronto.
+                  O teu painel de performance está pronto.
                 </h1>
                 <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">
                   Liga-te para sincronizar planos, sessões e insights em tempo real. Mantemos os dados cifrados e os alertas prontos para qualquer desvio.
@@ -211,7 +211,7 @@ export default function LoginClient() {
           <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5 rounded-3xl border border-white/20 bg-white/80 p-6 shadow-[0_38px_100px_-60px_rgba(15,23,42,0.35)] backdrop-blur-xl dark:border-slate-800/70 dark:bg-slate-950/60">
             <div className="space-y-2 text-center">
               <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Entrar</h2>
-              <p className="text-sm text-slate-600 dark:text-slate-300">Autentica-te para desbloquear o painel futurista.</p>
+              <p className="text-sm text-slate-600 dark:text-slate-300">Autentica-te para desbloquear o painel principal.</p>
             </div>
 
             {err && <Alert tone="danger">{err}</Alert>}

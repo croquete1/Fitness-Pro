@@ -77,7 +77,7 @@ export default function DashboardFrame({
           }}
         >
           {/* Sidebar só em md+ (no mobile usas o menu do AppHeader/SidebarProvider) */}
-          <Box component="aside" sx={{ display: { xs: 'none', md: 'block' } }}>
+          <Box component="aside" sx={{ display: { xs: 'contents', md: 'block' } }}>
             <RoleSidebar
               role={role}
               initialCounts={{
