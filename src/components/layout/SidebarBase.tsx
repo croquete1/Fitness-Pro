@@ -1,25 +1,16 @@
 'use client';
 
 import * as React from 'react';
-import { Box, Drawer, Paper } from '@mui/material';
-import { useSidebar } from './SidebarProvider';
+import clsx from 'clsx';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { useSidebar } from '@/components/layout/SidebarProvider';
 
 type Props = { header?: React.ReactNode; children?: React.ReactNode };
 
-const RAIL = 64;
-const PANEL = 260;
-
 export default function SidebarBase({ header, children }: Props) {
-  const { collapsed, isMobile, mobileOpen, closeMobile, peek, setPeek } = useSidebar();
-
-  React.useEffect(() => {
-    if ((!collapsed || isMobile) && peek) {
-      setPeek(false);
-    }
-  }, [collapsed, isMobile, peek, setPeek]);
-
+  const { collapsed, isMobile, mobileOpen, closeMobile, toggleCollapse, peek, setPeek } = useSidebar();
   const isRail = !isMobile && collapsed && !peek;
-  const width = isMobile ? PANEL : isRail ? RAIL : PANEL;
+  const width = isMobile ? 'min(90vw, 320px)' : isRail ? 'var(--sb-collapsed)' : 'var(--sb-expanded)';
 
   const hoverHandlers = !isMobile && collapsed
     ? {
@@ -30,55 +21,46 @@ export default function SidebarBase({ header, children }: Props) {
       }
     : {};
 
-  const dataCollapsed = isRail ? '1' : '0';
-  const dataPeek = !isMobile && peek ? '1' : '0';
-
-  const content = (
-    <Paper
-      elevation={0}
-      square
-      sx={{
-        width,
-        borderRight: 1,
-        borderColor: 'divider',
-        bgcolor: 'background.paper',
-        height: '100dvh',
-        display: 'grid',
-        gridTemplateRows: 'auto 1fr',
-        transition: (t) => t.transitions.create('width', { duration: t.transitions.duration.standard }),
-      }}
-      data-collapsed={dataCollapsed}
-      data-peek={dataPeek}
+  const aside = (
+    <aside
+      className={clsx('fp-sidebar', isRail && 'fp-sidebar--rail', peek && 'fp-sidebar--peek')}
+      style={{ width }}
+      data-state={isRail ? 'rail' : 'panel'}
       {...hoverHandlers}
     >
-      <Box sx={{ px: 1.25, py: 1 }}>{header}</Box>
-      <Box sx={{ minHeight: 0, overflow: 'auto' }}>{children}</Box>
-    </Paper>
+      <div className="fp-sidebar__header">
+        {header}
+        {!isMobile && (
+          <button
+            type="button"
+            onClick={toggleCollapse}
+            className="btn icon fp-sidebar__collapse"
+            aria-label={collapsed ? 'Expandir navegação' : 'Recolher navegação'}
+            aria-pressed={collapsed}
+          >
+            <span aria-hidden>
+              {collapsed ? <ChevronRight size={16} strokeWidth={2} /> : <ChevronLeft size={16} strokeWidth={2} />}
+            </span>
+          </button>
+        )}
+      </div>
+      <div className="fp-sidebar__scroll">{children}</div>
+    </aside>
   );
 
   if (isMobile) {
+    if (!mobileOpen) return null;
     return (
-      <Drawer
-        open={mobileOpen}
-        onClose={closeMobile}
-        PaperProps={{
-          sx: {
-            width,
-            borderRight: 1,
-            borderColor: 'divider',
-            transition: (t) =>
-              t.transitions.create('width', { duration: t.transitions.duration.standard }),
-          },
-        }}
-      >
-        {content}
-      </Drawer>
+      <div className="fp-sidebar__overlay" role="dialog" aria-modal="true" onClick={closeMobile}>
+        <div className="fp-sidebar__sheet" onClick={(event) => event.stopPropagation()}>
+          <button type="button" className="btn icon fp-sidebar__close" onClick={closeMobile} aria-label="Fechar navegação">
+            <X size={16} strokeWidth={2} aria-hidden />
+          </button>
+          {aside}
+        </div>
+      </div>
     );
   }
 
-  return (
-    <Box component="aside" sx={{ position: 'sticky', top: 0, height: '100dvh' }}>
-      {content}
-    </Box>
-  );
+  return aside;
 }

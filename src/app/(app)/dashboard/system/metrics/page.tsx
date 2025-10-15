@@ -1,27 +1,68 @@
-// src/app/(app)/dashboard/system/metrics/page.tsx
 export const dynamic = 'force-dynamic';
 
 import { redirect } from 'next/navigation';
 import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole, type AppRole } from '@/lib/roles';
-import PageHeader from '@/components/ui/PageHeader';
-import Card, { CardContent } from '@/components/ui/Card';
-import KpiCard from '@/components/dashboard/KpiCard';
 
 type SB = ReturnType<typeof createServerClient>;
+
+type StatusState = 'ok' | 'warn' | 'down';
+
+type MetricTile = {
+  id: string;
+  label: string;
+  value: string;
+  hint?: string;
+  variant?: 'primary' | 'info' | 'success' | 'warning' | 'danger' | 'neutral';
+};
+
+const numberFormatter = new Intl.NumberFormat('pt-PT');
+const dateTimeFormatter = new Intl.DateTimeFormat('pt-PT', { dateStyle: 'short', timeStyle: 'short' });
+const timeFormatter = new Intl.DateTimeFormat('pt-PT', { hour: '2-digit', minute: '2-digit' });
+
+function formatNumber(value: number) {
+  return numberFormatter.format(Number.isFinite(value) ? value : 0);
+}
+
+function formatDateTime(value: string | null) {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '—' : dateTimeFormatter.format(date);
+}
+
+function formatTime(value: string | null) {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '—' : timeFormatter.format(date);
+}
+
+function roleLabel(role: string | null) {
+  switch (role) {
+    case 'PT':
+      return 'Personal Trainer';
+    case 'ADMIN':
+      return 'Administrador';
+    case 'CLIENT':
+      return 'Cliente';
+    default:
+      return role ?? '—';
+  }
+}
+
+function StatusPill({ state, label }: { state: StatusState; label: string }) {
+  return <span className="status-pill" data-state={state}>{label}</span>;
+}
 
 /** Conta linhas com filtros opcionais, aplicados ANTES do select(count). */
 async function safeCount(
   sb: SB,
   table: string,
-  build?: (q: ReturnType<SB['from']> & any) => ReturnType<SB['from']> & any
+  build?: (q: ReturnType<SB['from']> & any) => ReturnType<SB['from']> & any,
 ) {
   try {
-    // começa no from() para permitir encadear filtros (eq/gte/lt…)
     let q = sb.from(table) as any;
     if (build) q = build(q);
-    // só agora pedimos o count
     const { count } = await q.select('*', { count: 'exact', head: true });
     return count ?? 0;
   } catch {
@@ -30,7 +71,6 @@ async function safeCount(
 }
 
 export default async function SystemMetricsPage() {
-  // Sessão “flat”
   const viewer = await getSessionUserSafe();
   if (!viewer?.id) redirect('/login');
 
@@ -41,8 +81,9 @@ export default async function SystemMetricsPage() {
 
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-  const endOfToday   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-  const in7 = new Date(now); in7.setDate(now.getDate() + 7);
+  const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  const in7 = new Date(now);
+  in7.setDate(now.getDate() + 7);
 
   const [
     totalUsers,
@@ -58,19 +99,20 @@ export default async function SystemMetricsPage() {
     safeCount(sb, 'users', (q) => q.eq('role', 'PT')),
     safeCount(sb, 'users', (q) => q.eq('role', 'ADMIN')),
     safeCount(sb, 'sessions', (q) =>
-      q.gte('scheduled_at', startOfToday.toISOString())
-       .lte('scheduled_at', endOfToday.toISOString())
+      q
+        .gte('scheduled_at', startOfToday.toISOString())
+        .lte('scheduled_at', endOfToday.toISOString())
     ),
     safeCount(sb, 'sessions', (q) =>
-      q.gte('scheduled_at', now.toISOString())
-       .lt('scheduled_at', in7.toISOString())
+      q
+        .gte('scheduled_at', now.toISOString())
+        .lt('scheduled_at', in7.toISOString())
     ),
     safeCount(sb, 'notifications', (q) =>
       q.gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
     ),
   ]);
 
-  // Últimos registos (lista)
   type Signup = { id: string; name: string | null; email: string; role: string | null; created_at: string | null };
   let lastSignups: Signup[] = [];
   try {
@@ -99,77 +141,178 @@ export default async function SystemMetricsPage() {
     todaySessions = [];
   }
 
+  const total = totalUsers || 0;
+  const clientShare = total > 0 ? Math.round((clients / total) * 100) : 0;
+  const trainerShare = total > 0 ? Math.round((trainers / total) * 100) : 0;
+  const adminShare = total > 0 ? Math.round((admins / total) * 100) : 0;
+
+  const metricsTiles: MetricTile[] = [
+    {
+      id: 'total-users',
+      label: 'Utilizadores',
+      value: formatNumber(totalUsers),
+      hint: 'Contas totais no ecossistema',
+      variant: 'primary',
+    },
+    {
+      id: 'clients',
+      label: 'Clientes',
+      value: formatNumber(clients),
+      hint: `${clientShare}% da base activa`,
+      variant: 'success',
+    },
+    {
+      id: 'trainers',
+      label: 'Personal Trainers',
+      value: formatNumber(trainers),
+      hint: `${trainerShare}% de representação`,
+      variant: 'info',
+    },
+    {
+      id: 'admins',
+      label: 'Admins',
+      value: formatNumber(admins),
+      hint: `${adminShare}% com privilégios elevados`,
+      variant: 'neutral',
+    },
+    {
+      id: 'sessions-today',
+      label: 'Sessões (hoje)',
+      value: formatNumber(sessionsToday),
+      hint: sessionsToday > 0 ? 'Fluxo saudável para o dia' : 'Sem sessões calendarizadas',
+      variant: sessionsToday > 0 ? 'success' : 'warning',
+    },
+    {
+      id: 'sessions-7d',
+      label: 'Sessões (7 dias)',
+      value: formatNumber(sessions7d),
+      hint: 'Agenda confirmada para a próxima semana',
+      variant: 'primary',
+    },
+    {
+      id: 'notifs-24h',
+      label: 'Notificações (24h)',
+      value: formatNumber(notifs24h),
+      hint: notifs24h > 0 ? 'Eventos enviados nas últimas 24h' : 'Sem eventos recentes',
+      variant: notifs24h > 25 ? 'danger' : notifs24h > 0 ? 'warning' : 'neutral',
+    },
+  ];
+
+  const signupsState: StatusState = lastSignups.length > 0 ? 'ok' : 'warn';
+  const sessionsState: StatusState = todaySessions.length > 0 ? 'ok' : 'warn';
+  const headerLabel = `Actualizado às ${timeFormatter.format(now)}`;
+
   return (
-    <main className="p-4 space-y-4">
-      <PageHeader title="📊 System Metrics" subtitle="Visão geral do sistema (ADMIN)" />
+    <section className="space-y-6 px-4 py-6 md:px-8 lg:px-12">
+      <header className="neo-panel neo-panel--header">
+        <div className="space-y-2">
+          <span className="caps-tag">Inteligência operacional</span>
+          <h1 className="heading-solid text-3xl font-extrabold leading-tight">
+            Pulso da plataforma
+          </h1>
+          <p className="text-sm text-muted max-w-2xl">
+            Acompanha a evolução de utilizadores, sessões e emissões de notificações para antecipar gargalos e oportunidades.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <StatusPill state="ok" label={headerLabel} />
+        </div>
+      </header>
 
-      {/* KPIs */}
-      <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
-        <KpiCard label="Utilizadores"        value={totalUsers}   variant="primary" />
-        <KpiCard label="Clientes"            value={clients}      variant="accent" />
-        <KpiCard label="Personal Trainers"   value={trainers}     variant="info" />
-        <KpiCard label="Admins"              value={admins}       variant="neutral" />
-        <KpiCard label="Sessões (hoje)"      value={sessionsToday} variant="success" />
-        <KpiCard label="Sessões (7 dias)"    value={sessions7d}   variant="warning" />
-        <KpiCard label="Notificações (24h)"  value={notifs24h}    variant="danger" />
+      <section className="neo-panel space-y-5" aria-labelledby="metrics-heading">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 id="metrics-heading" className="neo-panel__title">Distribuição actual</h2>
+            <p className="neo-panel__subtitle">Volumes agregados por tipo de utilizador e actividade.</p>
+          </div>
+          <StatusPill state={sessions7d > 0 ? 'ok' : 'warn'} label={`${formatNumber(sessions7d)} sessões/7d`} />
+        </div>
+        <div className="neo-grid auto-fit">
+          {metricsTiles.map((metric) => (
+            <article
+              key={metric.id}
+              className="neo-surface neo-surface--interactive space-y-3 p-4"
+              data-variant={metric.variant}
+            >
+              <span className="neo-surface__label">{metric.label}</span>
+              <span className="neo-surface__value">{metric.value}</span>
+              {metric.hint && <span className="neo-surface__hint">{metric.hint}</span>}
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <div className="grid gap-5 xl:grid-cols-2">
+        <section className="neo-panel space-y-4" aria-labelledby="signups-heading">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 id="signups-heading" className="neo-panel__title">Novos registos</h2>
+              <p className="neo-panel__subtitle">Últimas contas criadas na plataforma.</p>
+            </div>
+            <StatusPill state={signupsState} label={`${lastSignups.length} recentes`} />
+          </div>
+          {lastSignups.length === 0 ? (
+            <div className="neo-surface p-4 text-sm text-muted text-center">
+              Sem registos recentes.
+            </div>
+          ) : (
+            <ul className="grid gap-3">
+              {lastSignups.map((user) => (
+                <li key={user.id} className="neo-surface neo-surface--interactive p-4">
+                  <div className="flex flex-col gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-semibold text-fg truncate">{user.name ?? user.email}</span>
+                      <span className="text-xs text-muted shrink-0">{formatDateTime(user.created_at)}</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted break-all">
+                      <span className="uppercase tracking-wide">{roleLabel(user.role)}</span>
+                      <span>•</span>
+                      <span>{user.email}</span>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="neo-panel space-y-4" aria-labelledby="sessions-heading">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 id="sessions-heading" className="neo-panel__title">Sessões de hoje</h2>
+              <p className="neo-panel__subtitle">Agenda confirmada entre {formatTime(startOfToday.toISOString())} e {formatTime(endOfToday.toISOString())}.</p>
+            </div>
+            <StatusPill state={sessionsState} label={`${todaySessions.length} marcadas`} />
+          </div>
+          {todaySessions.length === 0 ? (
+            <div className="neo-surface p-4 text-sm text-muted text-center">
+              Sem sessões marcadas para hoje.
+            </div>
+          ) : (
+            <ul className="grid gap-3">
+              {todaySessions.map((session) => (
+                <li key={session.id} className="neo-surface neo-surface--interactive p-4">
+                  <div className="flex flex-col gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-semibold text-fg truncate">{session.notes?.trim() || 'Sessão'}</span>
+                      <span className="text-xs text-muted shrink-0">{formatTime(session.scheduled_at)}</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+                      {session.location ? (
+                        <span className="uppercase tracking-wide">📍 {session.location}</span>
+                      ) : (
+                        <span className="uppercase tracking-wide">Local a definir</span>
+                      )}
+                      <span>•</span>
+                      <span>ID {session.id.slice(0, 8)}</span>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </div>
-
-      {/* Últimos registos e sessões de hoje */}
-      <div className="grid gap-3 md:grid-cols-2">
-        <Card>
-          <CardContent>
-            <h3 className="font-semibold mb-2">👤 Novos registos</h3>
-            {lastSignups.length === 0 ? (
-              <div className="text-sm opacity-70">Sem registos recentes.</div>
-            ) : (
-              <ul className="space-y-2">
-                {lastSignups.map((u) => (
-                  <li
-                    key={u.id}
-                    className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-800 p-2"
-                  >
-                    <div className="min-w-0">
-                      <div className="font-medium truncate">{u.name ?? u.email}</div>
-                      <div className="text-xs opacity-70">{u.role ?? '—'}</div>
-                    </div>
-                    <div className="text-xs opacity-70">
-                      {u.created_at ? new Date(u.created_at).toLocaleString('pt-PT') : '—'}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent>
-            <h3 className="font-semibold mb-2">📅 Sessões de hoje</h3>
-            {todaySessions.length === 0 ? (
-              <div className="text-sm opacity-70">Sem sessões marcadas para hoje.</div>
-            ) : (
-              <ul className="space-y-2">
-                {todaySessions.map((s) => (
-                  <li
-                    key={s.id}
-                    className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-800 p-2"
-                  >
-                    <div className="min-w-0">
-                      <div className="font-medium truncate">{s.notes?.trim() || 'Sessão'}</div>
-                      {s.location && <div className="text-xs opacity-70 truncate">📍 {s.location}</div>}
-                    </div>
-                    <div className="text-xs opacity-70">
-                      {s.scheduled_at
-                        ? new Date(s.scheduled_at).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })
-                        : '—'}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    </main>
+    </section>
   );
 }

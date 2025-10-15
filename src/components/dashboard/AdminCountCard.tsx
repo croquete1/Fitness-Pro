@@ -13,12 +13,22 @@ export default function AdminCountCard({
   count: number;
   tone?: Tone;
 }) {
+  const variant: Record<Tone, string> = {
+    primary: 'primary',
+    violet: 'violet',
+    teal: 'teal',
+    pink: 'pink',
+    amber: 'amber',
+  };
+
   return (
-    <div className="card kpi" data-kpi="1" data-tone={tone === 'primary' ? undefined : tone}>
-      <div style={{ padding: 14 }}>
-        <div style={{ fontSize: 13, opacity: 0.8 }}>{title}</div>
-        <div style={{ fontSize: 28, fontWeight: 900, marginTop: 2 }}>{count}</div>
-      </div>
-    </div>
+    <article
+      className="neo-surface neo-surface--interactive space-y-2 p-4"
+      data-variant={variant[tone] ?? 'primary'}
+      aria-label={title}
+    >
+      <span className="neo-surface__hint">{title}</span>
+      <span className="neo-surface__value">{count.toLocaleString('pt-PT')}</span>
+    </article>
   );
 }

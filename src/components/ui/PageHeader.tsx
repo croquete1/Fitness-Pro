@@ -2,39 +2,31 @@
 
 import React from 'react';
 
-export default function PageHeader({
-  title,
-  subtitle,
-  actions,
-  sticky = true,
-}: {
+type Props = {
   title: React.ReactNode;
   subtitle?: React.ReactNode;
   actions?: React.ReactNode;
   sticky?: boolean;
-}) {
+};
+
+export default function PageHeader({ title, subtitle, actions, sticky = true }: Props) {
+  const TitleTag = typeof title === 'string' ? 'h1' : 'div';
+
   return (
-    <div
-      className="card"
-      style={{
-        padding: 12,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 8,
-        position: sticky ? 'sticky' : 'static',
-        top: 0,
-        zIndex: 10,
-        backdropFilter: 'saturate(180%) blur(6px)',
-      }}
+    <header
+      className={`page-header neo-panel neo-panel--header${sticky ? ' page-header--sticky' : ''}`}
     >
-      <div>
-        <h1 style={{ margin: 0, fontSize: 20 }}>{title}</h1>
+      <div className="page-header__body">
+        <TitleTag className="page-header__title heading-solid">
+          {title}
+        </TitleTag>
         {subtitle && (
-          <div style={{ fontSize: 13, opacity: 0.8, marginTop: 2 }}>{subtitle}</div>
+          <p className="page-header__subtitle">
+            {subtitle}
+          </p>
         )}
       </div>
-      {actions && <div style={{ display: 'flex', gap: 8 }}>{actions}</div>}
-    </div>
+      {actions && <div className="page-header__actions">{actions}</div>}
+    </header>
   );
 }
