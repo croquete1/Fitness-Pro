@@ -710,6 +710,49 @@ html[data-sb-collapsed="1"] .fp-sidebar::after{
   background:color-mix(in srgb, var(--danger) 16%, transparent);
 }
 
+.neo-dialog-backdrop{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:32px 20px;
+  background:color-mix(in srgb, var(--bg) 70%, transparent 30%);
+  backdrop-filter:blur(18px);
+  z-index:60;
+}
+.neo-dialog{
+  width:min(640px, 100%);
+  max-height:calc(100dvh - 80px);
+  overflow:auto;
+  border-radius:28px;
+  background:color-mix(in srgb, var(--card-bg) 96%, transparent 4%);
+  border:1px solid color-mix(in srgb, var(--border) 75%, transparent);
+  box-shadow:var(--shadow-2);
+  padding:28px;
+}
+:root[data-theme="dark"] .neo-dialog{
+  background:color-mix(in srgb, rgba(15,23,42,.92) 85%, transparent);
+  border-color:color-mix(in srgb, var(--border) 65%, transparent);
+}
+.neo-dialog__header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:24px;
+}
+.neo-dialog__title{
+  font-size:24px;
+  font-weight:700;
+  margin:6px 0 0;
+  color:var(--fg);
+}
+.neo-dialog__content{
+  display:grid;
+  gap:20px;
+}
+
 .neo-tag{
   display:inline-flex;
   align-items:center;
