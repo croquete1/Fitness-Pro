@@ -746,6 +746,7 @@ export default function PTLibraryClient({ initialScope = 'personal' }: { initial
             disableRowSelectionOnClick
             autoHeight
             density="compact"
+            getRowHeight={() => 112}
             pageSizeOptions={[10, 20, 50]}
             slots={{ toolbar: GridToolbar }}
             sx={{
@@ -758,11 +759,12 @@ export default function PTLibraryClient({ initialScope = 'personal' }: { initial
                 borderColor: 'divider',
               },
               '& .MuiDataGrid-cell': {
-                alignItems: 'flex-start',
-                py: 1.5,
+                alignItems: 'center',
+                py: 1,
               },
               '& .MuiDataGrid-row': {
-                minHeight: 100,
+                minHeight: 112,
+                maxHeight: 112,
               },
             }}
           />

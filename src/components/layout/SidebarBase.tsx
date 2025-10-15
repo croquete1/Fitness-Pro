@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Box, Drawer, Paper } from '@mui/material';
+import { useTheme, type Theme } from '@mui/material/styles';
 import { useSidebar } from './SidebarProvider';
 
 type Props = { header?: React.ReactNode; children?: React.ReactNode };
@@ -11,6 +12,8 @@ const PANEL = 260;
 
 export default function SidebarBase({ header, children }: Props) {
   const { collapsed, isMobile, mobileOpen, closeMobile, peek, setPeek } = useSidebar();
+  const theme = useTheme();
+  const isLight = theme.palette.mode === 'light';
 
   React.useEffect(() => {
     if ((!collapsed || isMobile) && peek) {
@@ -33,19 +36,32 @@ export default function SidebarBase({ header, children }: Props) {
   const dataCollapsed = isRail ? '1' : '0';
   const dataPeek = !isMobile && peek ? '1' : '0';
 
+  const surfaceStyles = {
+    width,
+    borderRight: 1,
+    borderColor: 'divider' as const,
+    bgcolor: 'background.paper',
+    backgroundImage: isLight
+      ? 'linear-gradient(160deg, rgba(255,255,255,0.96) 0%, rgba(236,244,255,0.88) 50%, rgba(238,242,255,0.84) 100%)'
+      : 'linear-gradient(170deg, rgba(11,17,28,0.9) 0%, rgba(14,23,38,0.88) 45%, rgba(12,21,34,0.9) 100%)',
+    backdropFilter: 'saturate(160%) blur(18px)',
+    WebkitBackdropFilter: 'saturate(160%) blur(18px)',
+    boxShadow: isLight
+      ? '0 28px 60px rgba(15,23,42,0.18)'
+      : '0 32px 70px rgba(2,6,23,0.55)',
+    height: '100dvh',
+    display: 'grid',
+    gridTemplateRows: 'auto 1fr',
+    transition: (t: Theme) =>
+      t.transitions.create('width', { duration: t.transitions.duration.standard }),
+  } as const;
+
   const content = (
     <Paper
       elevation={0}
       square
       sx={{
-        width,
-        borderRight: 1,
-        borderColor: 'divider',
-        bgcolor: 'background.paper',
-        height: '100dvh',
-        display: 'grid',
-        gridTemplateRows: 'auto 1fr',
-        transition: (t) => t.transitions.create('width', { duration: t.transitions.duration.standard }),
+        ...surfaceStyles,
       }}
       data-collapsed={dataCollapsed}
       data-peek={dataPeek}
@@ -63,11 +79,7 @@ export default function SidebarBase({ header, children }: Props) {
         onClose={closeMobile}
         PaperProps={{
           sx: {
-            width,
-            borderRight: 1,
-            borderColor: 'divider',
-            transition: (t) =>
-              t.transitions.create('width', { duration: t.transitions.duration.standard }),
+            ...surfaceStyles,
           },
         }}
       >
