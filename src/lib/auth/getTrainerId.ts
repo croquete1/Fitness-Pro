@@ -1,5 +1,12 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSBC } from '@/lib/supabase/server';
-import { MissingSupabaseEnvError } from '@/lib/supabaseServer';
+import {
+  MissingSupabaseEnvError,
+  MissingSupabaseServiceRoleKeyError,
+  tryCreateServiceRoleClient,
+} from '@/lib/supabaseServer';
+import { getSessionUserSafe } from '@/lib/session-bridge';
+import { isPT } from '@/lib/roles';
 import { getAuthUser } from './getUser';
 
 /**
@@ -9,52 +16,88 @@ import { getAuthUser } from './getUser';
  *  2) se não existir, tenta users.id = auth.user.id (quando coincidem)
  *  3) valida que role === 'TRAINER'
  */
-export async function getTrainerId() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
-  if (!url || !anon) {
-    return { trainerId: null, reason: 'SUPABASE_OFFLINE' as const };
-  }
-  const user = await getAuthUser();
-  if (!user) return { trainerId: null, reason: 'NO_SESSION' };
+type TrainerRow = { id: string | null; role: string | null };
 
-  let sb;
+async function selectTrainer(
+  client: SupabaseClient,
+  column: 'auth_id' | 'id' | 'email',
+  value: string,
+) {
+  const query = client
+    .from('users')
+    .select('id, role')
+    .limit(1);
+
+  if (column === 'email') {
+    return query.ilike(column, value).maybeSingle<TrainerRow>();
+  }
+
+  return query.eq(column, value).maybeSingle<TrainerRow>();
+}
+
+export async function getTrainerId() {
+  const bridge = await getSessionUserSafe().catch(() => null);
+  if (bridge?.id) {
+    if (!isPT(bridge.role)) {
+      return { trainerId: null, reason: 'NOT_TRAINER' as const };
+    }
+    return { trainerId: String(bridge.id), reason: null };
+  }
+
+  const user = await getAuthUser();
+  const supabaseEmail = bridge?.email ?? bridge?.user?.email ?? null;
+  const searchValues = new Map<string, { column: 'auth_id' | 'id' | 'email'; value: string }>();
+
+  if (user?.id) {
+    searchValues.set(`auth:${user.id}`, { column: 'auth_id', value: user.id });
+    searchValues.set(`id:${user.id}`, { column: 'id', value: user.id });
+  }
+
+  if (bridge?.id) {
+    searchValues.set(`bridge-id:${bridge.id}`, { column: 'id', value: String(bridge.id) });
+  }
+
+  if (supabaseEmail) {
+    searchValues.set(`email:${supabaseEmail.toLowerCase()}`, {
+      column: 'email',
+      value: supabaseEmail,
+    });
+  }
+
+  let client: SupabaseClient | null = null;
   try {
-    sb = await getSBC();
+    client = tryCreateServiceRoleClient();
+    if (!client) {
+      client = await getSBC();
+    }
   } catch (err) {
-    if (err instanceof MissingSupabaseEnvError) {
+    if (err instanceof MissingSupabaseServiceRoleKeyError || err instanceof MissingSupabaseEnvError) {
       return { trainerId: null, reason: 'SUPABASE_OFFLINE' as const };
     }
     throw err;
   }
 
-  // 1) auth_id -> id
-  const byAuth = await sb
-    .from('users')
-    .select('id, role')
-    .eq('auth_id', user.id)
-    .maybeSingle();
-
-  if (byAuth.data) {
-    if (String(byAuth.data.role).toUpperCase() !== 'TRAINER') {
-      return { trainerId: null, reason: 'NOT_TRAINER' };
+  for (const lookup of searchValues.values()) {
+    const { data, error } = await selectTrainer(client, lookup.column, lookup.value);
+    if (error) {
+      console.warn('[getTrainerId] lookup falhou', lookup, error);
+      continue;
     }
-    return { trainerId: String(byAuth.data.id), reason: null };
+
+    if (!data?.id) {
+      continue;
+    }
+
+    if (String(data.role ?? '').toUpperCase() !== 'TRAINER') {
+      return { trainerId: null, reason: 'NOT_TRAINER' as const };
+    }
+
+    return { trainerId: String(data.id), reason: null };
   }
 
-  // 2) fallback: users.id == auth.user.id
-  const byId = await sb
-    .from('users')
-    .select('id, role')
-    .eq('id', user.id)
-    .maybeSingle();
-
-  if (byId.data) {
-    if (String(byId.data.role).toUpperCase() !== 'TRAINER') {
-      return { trainerId: null, reason: 'NOT_TRAINER' };
-    }
-    return { trainerId: String(byId.data.id), reason: null };
+  if (!bridge && !user) {
+    return { trainerId: null, reason: 'NO_SESSION' as const };
   }
 
-  return { trainerId: null, reason: 'NO_MAPPING' };
+  return { trainerId: null, reason: 'NO_MAPPING' as const };
 }
