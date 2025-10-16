@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { tryGetSBC } from '@/lib/supabase/server';
 import { supabaseFallbackJson } from '@/lib/supabase/responses';
+import { appRoleToDbRole } from '@/lib/roles';
 
 export async function GET(req: Request) {
   const sb = await tryGetSBC();
@@ -12,10 +13,12 @@ export async function GET(req: Request) {
   const from = page * pageSize;
   const to = from + pageSize - 1;
 
+  const trainerRole = appRoleToDbRole('PT') ?? 'TRAINER';
+
   let query = sb
     .from('users')
     .select('id,name,email', { count: 'exact' })
-    .in('role', ['TRAINER', 'PT']);
+    .eq('role', trainerRole);
 
   if (q) {
     // procura em name/email (ajusta p/ as tuas colunas)

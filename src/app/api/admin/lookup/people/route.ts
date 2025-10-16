@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { tryCreateServerClient } from '@/lib/supabaseServer';
-import { toAppRole } from '@/lib/roles';
+import { appRoleToDbRole, toAppRole } from '@/lib/roles';
 
 const TABLE_CANDIDATES = ['profiles', 'users', 'app_users', 'people', 'people_view'];
 
 function normalizeRoleFilter(value: string) {
   const appRole = toAppRole(value);
   if (!appRole) return null;
-  if (appRole === 'PT') return ['PT', 'TRAINER'];
   return [appRole];
 }
 
@@ -38,7 +37,18 @@ async function fetchFrom(
 
   try {
     let builder: any = sb.from(table).select('*');
-    if (opts.roles?.length) builder = builder.in('role', opts.roles);
+    if (opts.roles?.length) {
+      const dbRoles = Array.from(
+        new Set(
+          opts.roles
+            .map((value) => appRoleToDbRole(value))
+            .filter((value): value is NonNullable<ReturnType<typeof appRoleToDbRole>> => Boolean(value)),
+        ),
+      );
+      if (dbRoles.length > 0) {
+        builder = builder.in('role', dbRoles);
+      }
+    }
     if (opts.search) {
       const term = opts.search;
       builder = builder.or(`name.ilike.%${term}%,full_name.ilike.%${term}%,email.ilike.%${term}%`);
@@ -71,21 +81,34 @@ export async function GET(req: NextRequest) {
 
   const roleFilters = role ? normalizeRoleFilter(role) : null;
 
+  const errors: string[] = [];
+
   for (const table of TABLE_CANDIDATES) {
     const res = await fetchFrom(table, { id, search: q || undefined, roles: roleFilters, limit: id ? 1 : 50 });
     if (!res) continue;
-    if (res.error) return NextResponse.json({ rows: [], error: res.error.message ?? String(res.error) }, { status: 400 });
+    if (res.error) {
+      errors.push(`${table}: ${res.error.message ?? String(res.error)}`);
+      continue;
+    }
     if (res.rows.length === 0) continue;
     const mapped = res.rows
       .map(mapRow)
       .filter((row) => row.id);
     if (mapped.length === 0) continue;
     const filtered = mapped.filter((row) => {
+      if (roleFilters?.length) {
+        const rowRole = row.role ? toAppRole(row.role) : null;
+        if (!rowRole || !roleFilters.includes(rowRole)) return false;
+      }
       if (!q || id) return true;
       const cmp = (value?: string | null) => String(value ?? '').toLowerCase();
       return cmp(row.name).includes(q) || cmp(row.email).includes(q);
     });
     return NextResponse.json({ rows: id ? filtered.slice(0, 1) : filtered.slice(0, 50) });
+  }
+
+  if (errors.length) {
+    console.warn('[lookup/people] nenhuma tabela devolveu resultados.', errors.join(' | '));
   }
 
   // fallback: no table matched → empty list
