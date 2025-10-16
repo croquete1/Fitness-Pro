@@ -71,10 +71,15 @@ export async function GET(req: NextRequest) {
 
   const roleFilters = role ? normalizeRoleFilter(role) : null;
 
+  const errors: string[] = [];
+
   for (const table of TABLE_CANDIDATES) {
     const res = await fetchFrom(table, { id, search: q || undefined, roles: roleFilters, limit: id ? 1 : 50 });
     if (!res) continue;
-    if (res.error) return NextResponse.json({ rows: [], error: res.error.message ?? String(res.error) }, { status: 400 });
+    if (res.error) {
+      errors.push(`${table}: ${res.error.message ?? String(res.error)}`);
+      continue;
+    }
     if (res.rows.length === 0) continue;
     const mapped = res.rows
       .map(mapRow)
@@ -86,6 +91,10 @@ export async function GET(req: NextRequest) {
       return cmp(row.name).includes(q) || cmp(row.email).includes(q);
     });
     return NextResponse.json({ rows: id ? filtered.slice(0, 1) : filtered.slice(0, 50) });
+  }
+
+  if (errors.length) {
+    console.warn('[lookup/people] nenhuma tabela devolveu resultados.', errors.join(' | '));
   }
 
   // fallback: no table matched → empty list
