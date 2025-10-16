@@ -38,6 +38,7 @@ export default function SidebarPT({ messagesCount = 0, notificationsCount = 0 }:
   const overview: SidebarNavItem[] = [
     { href: '/dashboard/pt', label: 'Painel', icon: 'dashboard', exact: true, activePrefix: '/dashboard/pt' },
     { href: '/dashboard/pt/schedule', label: 'Agenda', icon: 'calendar', activePrefix: '/dashboard/pt/schedule' },
+    { href: '/dashboard/pt/reschedules', label: 'Remarcações', icon: 'refresh', activePrefix: '/dashboard/pt/reschedules' },
   ];
 
   const clientes: SidebarNavItem[] = [

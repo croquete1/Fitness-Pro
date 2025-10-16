@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 import { redirect } from 'next/navigation';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { createServerClient } from '@/lib/supabaseServer';
-import SessionsClient, { type ClientSession } from './SessionsClient';
+import SessionsClient, { type ClientSession, type SessionRequest } from './SessionsClient';
 
 export default async function ClientSessionsPage() {
   const session = await getSessionUserSafe();
@@ -31,5 +31,38 @@ export default async function ClientSessionsPage() {
     attendanceAt: row.client_attendance_at ?? null,
   }));
 
-  return <SessionsClient initialSessions={sessions} />;
+  const { data: requestRows } = await sb
+    .from('session_requests' as any)
+    .select(
+      'id, session_id, requested_start, requested_end, proposed_start, proposed_end, status, message, trainer_note, reschedule_note, created_at, updated_at, responded_at, proposed_at, trainer:users!session_requests_trainer_id_fkey(id,name,email)'
+    )
+    .eq('client_id', session.user.id)
+    .order('created_at', { ascending: false })
+    .limit(80);
+
+  const requests: SessionRequest[] = (requestRows ?? []).map((row: any) => ({
+    id: row.id,
+    sessionId: row.session_id ?? null,
+    status: (row.status ?? 'pending') as SessionRequest['status'],
+    requestedStart: row.requested_start ?? null,
+    requestedEnd: row.requested_end ?? null,
+    proposedStart: row.proposed_start ?? null,
+    proposedEnd: row.proposed_end ?? null,
+    message: row.message ?? null,
+    trainerNote: row.trainer_note ?? null,
+    rescheduleNote: row.reschedule_note ?? null,
+    createdAt: row.created_at ?? null,
+    updatedAt: row.updated_at ?? null,
+    respondedAt: row.responded_at ?? null,
+    proposedAt: row.proposed_at ?? null,
+    trainer: row.trainer
+      ? {
+          id: row.trainer.id ?? '',
+          name: row.trainer.name ?? null,
+          email: row.trainer.email ?? null,
+        }
+      : null,
+  }));
+
+  return <SessionsClient initialSessions={sessions} initialRequests={requests} />;
 }

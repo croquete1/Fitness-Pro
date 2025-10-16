@@ -77,7 +77,38 @@ export type Database = {
           created_at?: string | null;
           updated_at?: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'session_requests_client_id_fkey';
+            columns: ['client_id'];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'session_requests_trainer_id_fkey';
+            columns: ['trainer_id'];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'session_requests_session_id_fkey';
+            columns: ['session_id'];
+            referencedRelation: 'sessions';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'session_requests_proposed_by_fkey';
+            columns: ['proposed_by'];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'session_requests_responded_by_fkey';
+            columns: ['responded_by'];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          }
+        ];
       };
 
       audit_log: {
@@ -799,6 +830,70 @@ export type Database = {
           created_at?: string | null;
           client_attendance_status?: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no_show' | null;
           client_attendance_at?: string | null;
+        };
+        Relationships: [];
+      };
+
+      session_requests: {
+        Row: {
+          id: string;
+          session_id: string | null;
+          trainer_id: string;
+          client_id: string;
+          requested_start: string;
+          requested_end: string;
+          proposed_start: string | null;
+          proposed_end: string | null;
+          status: 'pending' | 'accepted' | 'declined' | 'cancelled' | 'reschedule_pending' | 'reschedule_declined';
+          message: string | null;
+          trainer_note: string | null;
+          reschedule_note: string | null;
+          created_at: string | null;
+          updated_at: string | null;
+          responded_at: string | null;
+          proposed_at: string | null;
+          proposed_by: string | null;
+          responded_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          session_id?: string | null;
+          trainer_id: string;
+          client_id: string;
+          requested_start: string;
+          requested_end: string;
+          proposed_start?: string | null;
+          proposed_end?: string | null;
+          status?: 'pending' | 'accepted' | 'declined' | 'cancelled' | 'reschedule_pending' | 'reschedule_declined';
+          message?: string | null;
+          trainer_note?: string | null;
+          reschedule_note?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+          responded_at?: string | null;
+          proposed_at?: string | null;
+          proposed_by?: string | null;
+          responded_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          session_id?: string | null;
+          trainer_id?: string;
+          client_id?: string;
+          requested_start?: string;
+          requested_end?: string;
+          proposed_start?: string | null;
+          proposed_end?: string | null;
+          status?: 'pending' | 'accepted' | 'declined' | 'cancelled' | 'reschedule_pending' | 'reschedule_declined';
+          message?: string | null;
+          trainer_note?: string | null;
+          reschedule_note?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+          responded_at?: string | null;
+          proposed_at?: string | null;
+          proposed_by?: string | null;
+          responded_by?: string | null;
         };
         Relationships: [];
       };

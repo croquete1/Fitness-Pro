@@ -3,6 +3,7 @@
 import {
   LayoutDashboard,
   CalendarClock,
+  RefreshCw,
   MessageSquare,
   Users,
   Shield,
@@ -50,6 +51,7 @@ const map: Record<string, LucideIcon> = {
   history: History,
   'plus-circle': PlusCircle,
   'calendar-plus': CalendarPlus,
+  refresh: RefreshCw,
   logout: LogOut,
   menu: Menu,
 };
