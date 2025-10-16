@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { tryCreateServerClient } from '@/lib/supabaseServer';
-import { toAppRole } from '@/lib/roles';
+import { appRoleToDbRole, toAppRole } from '@/lib/roles';
 
 const TABLE_CANDIDATES = ['profiles', 'users', 'app_users', 'people', 'people_view'];
 
 function normalizeRoleFilter(value: string) {
   const appRole = toAppRole(value);
   if (!appRole) return null;
-  if (appRole === 'PT') return ['PT', 'TRAINER'];
   return [appRole];
 }
 
@@ -38,7 +37,18 @@ async function fetchFrom(
 
   try {
     let builder: any = sb.from(table).select('*');
-    if (opts.roles?.length) builder = builder.in('role', opts.roles);
+    if (opts.roles?.length) {
+      const dbRoles = Array.from(
+        new Set(
+          opts.roles
+            .map((value) => appRoleToDbRole(value))
+            .filter((value): value is NonNullable<ReturnType<typeof appRoleToDbRole>> => Boolean(value)),
+        ),
+      );
+      if (dbRoles.length > 0) {
+        builder = builder.in('role', dbRoles);
+      }
+    }
     if (opts.search) {
       const term = opts.search;
       builder = builder.or(`name.ilike.%${term}%,full_name.ilike.%${term}%,email.ilike.%${term}%`);
@@ -86,6 +96,10 @@ export async function GET(req: NextRequest) {
       .filter((row) => row.id);
     if (mapped.length === 0) continue;
     const filtered = mapped.filter((row) => {
+      if (roleFilters?.length) {
+        const rowRole = row.role ? toAppRole(row.role) : null;
+        if (!rowRole || !roleFilters.includes(rowRole)) return false;
+      }
       if (!q || id) return true;
       const cmp = (value?: string | null) => String(value ?? '').toLowerCase();
       return cmp(row.name).includes(q) || cmp(row.email).includes(q);
