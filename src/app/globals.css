@@ -717,6 +717,21 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
   100% { transform: scale(1); opacity: 0.55; }
 }
 
+@keyframes online-pulse {
+  0%, 100% {
+    transform: scale(0.92);
+    opacity: 0.75;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}
+
+.animate-onlinePulse {
+  animation: online-pulse 2.4s ease-in-out infinite;
+}
+
 @keyframes auth-aurora {
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
@@ -954,7 +969,7 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
 
 .auth-card__form{
   width:100%;
-  max-width:520px;
+  max-width:600px;
   margin:0 auto;
   display:flex;
   flex-direction:column;
@@ -962,19 +977,19 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
 }
 
 @media (min-width: 768px){
-  .auth-card__form{ max-width:480px; }
+  .auth-card__form{ max-width:540px; }
 }
 
 @media (min-width: 1024px){
   .auth-card__form{
     margin:0;
     justify-self:center;
-    max-width:500px;
+    max-width:580px;
   }
 }
 
 @media (min-width: 1440px){
-  .auth-card__form{ max-width:540px; }
+  .auth-card__form{ max-width:640px; }
 }
 
 .auth-card--split{
@@ -1017,8 +1032,8 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
 @media (min-width: 1024px){
   .auth-card--split .auth-card__layout{
     display:grid;
-    grid-template-columns:minmax(0, 1.1fr) minmax(400px, 520px);
-    gap:clamp(2.25rem, 4vw, 3.5rem);
+    grid-template-columns:minmax(0, 1fr) minmax(420px, 620px);
+    gap:clamp(2.25rem, 4vw, 3.75rem);
     align-items:stretch;
   }
 
@@ -1039,8 +1054,8 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
   }
 
   .auth-card--split .auth-card__layout{
-    grid-template-columns:minmax(0, 1.08fr) minmax(420px, 540px);
-    gap:clamp(2.25rem, 4vw, 3.75rem);
+    grid-template-columns:minmax(0, 1.04fr) minmax(440px, 640px);
+    gap:clamp(2.5rem, 4vw, 3.75rem);
   }
 }
 
@@ -1050,7 +1065,7 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
   }
 
   .auth-card--split .auth-card__layout{
-    grid-template-columns:minmax(0, 1.05fr) minmax(440px, 560px);
+    grid-template-columns:minmax(0, 1.02fr) minmax(460px, 660px);
   }
 }
 
@@ -1064,8 +1079,9 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
 
 .auth-highlight{
   position:relative;
-  display:flex;
-  gap:12px;
+  display:grid;
+  grid-template-columns:auto 1fr;
+  gap:14px;
   align-items:flex-start;
   padding:14px 16px;
   border-radius:20px;

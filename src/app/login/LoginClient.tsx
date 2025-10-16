@@ -4,6 +4,7 @@
 import * as React from 'react';
 import { signIn } from 'next-auth/react';
 import Link from 'next/link';
+import Image from 'next/image';
 import clsx from 'clsx';
 import { useSearchParams } from 'next/navigation';
 import { z } from 'zod';
@@ -132,23 +133,22 @@ export default function LoginClient() {
       {
         icon: <Dumbbell className="h-5 w-5" aria-hidden />,
         title: 'Treinos adaptáveis',
-        description: 'Planos ajustados em função da sessão e carga do atleta, sem fricção operacional.',
+        description: 'Personal trainers ajustam sessões e clientes acompanham resultados em tempo real.',
       },
       {
         icon: <Apple className="h-5 w-5" aria-hidden />,
-        title: 'Nutrição flexível',
-        description: 'Guias alimentares equilibrados com ajustes rápidos conforme objetivos e bem-estar.',
+        title: 'Nutrição integrada',
+        description: 'Planos alimentares partilhados com feedback imediato entre coach e cliente.',
       },
       {
         icon: <Activity className="h-5 w-5" aria-hidden />,
         title: 'Biomarcadores claros',
-        description: 'Indicadores essenciais organizados para consulta imediata, sem transbordar o cartão.',
+        description: 'Indicadores essenciais organizados num painel simples para ambos os lados.',
       },
       {
         icon: <Users className="h-5 w-5" aria-hidden />,
         title: 'Agenda inteligente',
-        description:
-          'Clientes solicitam sessões, PTs aceitam ou remarcam e a plataforma impede conflitos presenciais.',
+        description: 'Pedidos, confirmações e remarcações sincronizados sem conflitos presenciais.',
       },
     ],
     [],
@@ -158,8 +158,6 @@ export default function LoginClient() {
     <div className="auth-screen" data-auth-root>
       <div className="auth-card auth-card--split relative w-full max-w-6xl">
         <div className="auth-card__atmosphere" aria-hidden />
-        <div className="auth-card__grid" aria-hidden />
-        <div className="auth-card__scanline" aria-hidden />
 
         <div
           className={clsx(
@@ -180,18 +178,39 @@ export default function LoginClient() {
             <div className="absolute inset-0 bg-[radial-gradient(36%_44%_at_18%_20%,rgba(59,130,246,0.28),transparent_70%),radial-gradient(32%_36%_at_85%_18%,rgba(14,165,233,0.26),transparent_70%),radial-gradient(44%_60%_at_50%_120%,rgba(236,72,153,0.22),transparent_75%)] opacity-80 dark:hidden" />
             <div className="absolute inset-0 hidden opacity-90 mix-blend-screen dark:block bg-[radial-gradient(38%_48%_at_18%_18%,rgba(59,130,246,0.35),transparent_70%),radial-gradient(34%_40%_at_86%_22%,rgba(14,165,233,0.32),transparent_70%),radial-gradient(60%_80%_at_50%_115%,rgba(236,72,153,0.28),transparent_75%)]" />
             <div className="relative z-10 flex h-full flex-col justify-between">
-              <div className="auth-panel__aura" aria-hidden />
               <div className="space-y-6 text-pretty sm:space-y-8">
                 <div className="inline-flex items-center gap-3 rounded-full border border-white/30 bg-white/70 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.32em] text-slate-700 shadow-sm backdrop-blur dark:border-slate-800/60 dark:bg-slate-900/60 dark:text-slate-200">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_6px_rgba(16,185,129,0.2)]" aria-hidden />
+                  <span className="relative grid h-7 w-7 place-items-center rounded-full border border-white/70 bg-white/90 p-[4px] shadow-sm dark:border-slate-800/70 dark:bg-slate-900">
+                    <Image
+                      src="/brand/hms-logo-light.png"
+                      alt="HMS"
+                      width={40}
+                      height={40}
+                      className="h-full w-full object-contain dark:hidden"
+                      priority
+                    />
+                    <Image
+                      src="/brand/hms-logo-dark.png"
+                      alt="HMS"
+                      width={40}
+                      height={40}
+                      className="hidden h-full w-full object-contain dark:block"
+                      priority
+                    />
+                    <span className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center">
+                      <span className="inline-flex h-3.5 w-3.5 animate-onlinePulse items-center justify-center rounded-full bg-emerald-400 shadow-[0_0_0_6px_rgba(16,185,129,0.18)]">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
+                      </span>
+                    </span>
+                  </span>
                   Plataforma HMS
                 </div>
                 <div className="space-y-4">
                   <h1 className="text-balance text-3xl font-semibold leading-tight text-slate-900 dark:text-slate-50 sm:text-4xl">
-                    Plataforma premium para coordenar treinos, nutrição e agendamentos sem falhas.
+                    A plataforma unificada para personal trainers e clientes HMS.
                   </h1>
                   <p className="max-w-xl text-sm leading-6 text-slate-600 dark:text-slate-200 sm:text-base">
-                    Acompanha o progresso com dashboards refinados, planos inteligentes e um sistema de sessões que aceita pedidos, remarcações e bloqueia choques de agenda para clientes e PTs.
+                    Centraliza treinos, nutrição e conversas num espaço único com sincronização automática de sessões presenciais.
                   </p>
                 </div>
                 <div className="grid max-w-2xl gap-3 sm:grid-cols-2">
@@ -202,7 +221,7 @@ export default function LoginClient() {
                       style={{ animationDelay: `${index * 0.12}s` }}
                     >
                       <div className="auth-highlight__icon">{feature.icon}</div>
-                      <div>
+                      <div className="space-y-1">
                         <p className="auth-highlight__title">{feature.title}</p>
                         <p className="auth-highlight__desc">{feature.description}</p>
                       </div>
@@ -216,7 +235,7 @@ export default function LoginClient() {
           <form
             onSubmit={onSubmit}
             noValidate
-            className="auth-card__form relative isolate flex flex-col gap-6 overflow-hidden rounded-3xl border border-white/20 bg-white/90 p-6 shadow-[0_38px_100px_-60px_rgba(15,23,42,0.35)] backdrop-blur-xl dark:border-slate-700/45 dark:bg-slate-950/90 dark:shadow-[0_70px_160px_-90px_rgba(59,130,246,0.55)] dark:backdrop-blur-2xl"
+            className="auth-card__form relative isolate flex flex-col gap-6 overflow-hidden rounded-3xl border border-white/20 bg-white/95 p-6 shadow-[0_30px_80px_-50px_rgba(15,23,42,0.32)] backdrop-blur-lg dark:border-slate-700/45 dark:bg-slate-950/92 dark:shadow-[0_60px_140px_-80px_rgba(59,130,246,0.5)] dark:backdrop-blur-xl"
           >
             <div
               className="pointer-events-none absolute inset-0 hidden opacity-90 dark:block"
@@ -231,14 +250,14 @@ export default function LoginClient() {
                 <span className="grid h-6 w-6 place-items-center rounded-full bg-gradient-to-tr from-indigo-500 via-sky-500 to-emerald-400 text-[10px] font-bold text-white shadow-md shadow-indigo-500/40">
                   FP
                 </span>
-                Área reservada
+                Hub unificado
               </div>
               <ThemeToggle />
             </div>
             <div className="relative z-10 space-y-3 text-pretty text-center">
               <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-50 sm:text-3xl">Entrar</h2>
               <p className="mx-auto max-w-md text-sm text-slate-600 dark:text-slate-200">
-                Gere planos, acompanha objetivos e mantém o diálogo com a tua comunidade em apenas alguns cliques.
+                Liga personal trainers e clientes na mesma experiência para gerir treinos, metas e comunicação contínua.
               </p>
             </div>
             <div className="relative z-10 rounded-2xl border border-slate-200/60 bg-white/80 p-4 text-left shadow-sm backdrop-blur dark:border-slate-700/60 dark:bg-slate-900/60">

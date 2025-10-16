@@ -3,14 +3,25 @@
 
 set check_function_bodies = off;
 
-create type if not exists public.session_request_status as enum (
-  'pending',
-  'accepted',
-  'declined',
-  'cancelled',
-  'reschedule_pending',
-  'reschedule_declined'
-);
+-- Create enum type if it doesn't exist (portable across Postgres versions)
+do $$
+begin
+  if not exists (
+    select 1 from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    where t.typname = 'session_request_status' and n.nspname = 'public'
+  ) then
+    create type public.session_request_status as enum (
+      'pending',
+      'accepted',
+      'declined',
+      'cancelled',
+      'reschedule_pending',
+      'reschedule_declined'
+    );
+  end if;
+end
+$$;
 
 create table if not exists public.session_requests (
   id uuid primary key default gen_random_uuid(),
@@ -62,3 +73,5 @@ create trigger session_requests_set_updated_at
   on public.session_requests
   for each row
   execute function public.session_requests_touch_updated_at();
+  -- If your Postgres version errors on "execute function", replace the last line with:
+  -- execute procedure public.session_requests_touch_updated_at();
