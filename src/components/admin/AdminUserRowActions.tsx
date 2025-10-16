@@ -76,9 +76,22 @@ export default function AdminUserRowActions({ id, currRole, currStatus, compact 
     setTrainerLoading(true);
     setTrainerError(null);
     try {
-      const res = await fetch('/api/admin/lookup/people?role=pt', { cache: 'no-store' });
-      if (!res.ok) throw new Error(await res.text());
-      const data = await res.json();
+      const load = async (url: string) => {
+        const response = await fetch(url, { cache: 'no-store' });
+        if (!response.ok) throw new Error(await response.text());
+        return response.json();
+      };
+
+      let data = await load('/api/admin/lookup/people?role=pt');
+
+      if (!Array.isArray(data?.rows) || data.rows.length === 0) {
+        try {
+          data = await load('/api/admin/trainers');
+        } catch (fallbackError) {
+          console.warn('[admin] fallback trainer list failed', fallbackError);
+        }
+      }
+
       const rows = Array.isArray(data?.rows) ? data.rows : [];
       const options = rows.map((row: any) => {
         const name = row?.name ?? null;
