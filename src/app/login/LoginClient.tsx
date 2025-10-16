@@ -131,22 +131,22 @@ export default function LoginClient() {
   const featureHighlights = React.useMemo(
     () => [
       {
-        icon: <Dumbbell className="h-5 w-5" aria-hidden />,
+        icon: <Dumbbell className="h-6 w-6" aria-hidden />,
         title: 'Treinos adaptáveis',
         description: 'Personal trainers ajustam sessões e clientes acompanham resultados em tempo real.',
       },
       {
-        icon: <Apple className="h-5 w-5" aria-hidden />,
+        icon: <Apple className="h-6 w-6" aria-hidden />,
         title: 'Nutrição integrada',
         description: 'Planos alimentares partilhados com feedback imediato entre coach e cliente.',
       },
       {
-        icon: <Activity className="h-5 w-5" aria-hidden />,
+        icon: <Activity className="h-6 w-6" aria-hidden />,
         title: 'Biomarcadores claros',
         description: 'Indicadores essenciais organizados num painel simples para ambos os lados.',
       },
       {
-        icon: <Users className="h-5 w-5" aria-hidden />,
+        icon: <Users className="h-6 w-6" aria-hidden />,
         title: 'Agenda inteligente',
         description: 'Pedidos, confirmações e remarcações sincronizados sem conflitos presenciais.',
       },
@@ -180,20 +180,20 @@ export default function LoginClient() {
             <div className="relative z-10 flex h-full flex-col justify-between">
               <div className="space-y-6 text-pretty sm:space-y-8">
                 <div className="inline-flex items-center gap-3 rounded-full border border-white/30 bg-white/70 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.32em] text-slate-700 shadow-sm backdrop-blur dark:border-slate-800/60 dark:bg-slate-900/60 dark:text-slate-200">
-                  <span className="relative grid h-7 w-7 place-items-center rounded-full border border-white/70 bg-white/90 p-[4px] shadow-sm dark:border-slate-800/70 dark:bg-slate-900">
+                  <span className="relative grid h-10 w-10 place-items-center rounded-full border border-white/70 bg-white/90 p-[6px] shadow-sm dark:border-slate-800/70 dark:bg-slate-900">
                     <Image
                       src="/brand/hms-logo-light.png"
                       alt="HMS"
-                      width={40}
-                      height={40}
+                      width={64}
+                      height={64}
                       className="h-full w-full object-contain dark:hidden"
                       priority
                     />
                     <Image
                       src="/brand/hms-logo-dark.png"
                       alt="HMS"
-                      width={40}
-                      height={40}
+                      width={64}
+                      height={64}
                       className="hidden h-full w-full object-contain dark:block"
                       priority
                     />
@@ -213,7 +213,7 @@ export default function LoginClient() {
                     Centraliza treinos, nutrição e conversas num espaço único com sincronização automática de sessões presenciais.
                   </p>
                 </div>
-                <div className="grid max-w-2xl gap-3 sm:grid-cols-2">
+                <div className="grid w-full max-w-[64rem] gap-4 md:gap-5 2xl:grid-cols-2 2xl:gap-7">
                   {featureHighlights.map((feature, index) => (
                     <div
                       key={feature.title}
@@ -247,8 +247,23 @@ export default function LoginClient() {
             />
             <div className="relative z-10 flex items-center justify-between gap-3">
               <div className="inline-flex items-center gap-3 rounded-full border border-slate-200/60 bg-white/80 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.32em] text-slate-500 shadow-sm backdrop-blur dark:border-slate-700/60 dark:bg-slate-900/60 dark:text-slate-200">
-                <span className="grid h-6 w-6 place-items-center rounded-full bg-gradient-to-tr from-indigo-500 via-sky-500 to-emerald-400 text-[10px] font-bold text-white shadow-md shadow-indigo-500/40">
-                  FP
+                <span className="relative grid h-9 w-9 place-items-center rounded-full border border-white/60 bg-white/95 p-[5px] shadow-sm dark:border-slate-700/70 dark:bg-slate-900">
+                  <Image
+                    src="/brand/hms-logo-light.png"
+                    alt="HMS"
+                    width={56}
+                    height={56}
+                    className="h-full w-full object-contain dark:hidden"
+                    priority
+                  />
+                  <Image
+                    src="/brand/hms-logo-dark.png"
+                    alt="HMS"
+                    width={56}
+                    height={56}
+                    className="hidden h-full w-full object-contain dark:block"
+                    priority
+                  />
                 </span>
                 Hub unificado
               </div>
@@ -281,14 +296,19 @@ export default function LoginClient() {
                 Email ou username
                 <div className="relative">
                   <input
-                    className={clsx('neo-input pl-12', fieldErr.identifier && 'neo-input--error')}
+                    className={clsx(
+                      'neo-input neo-input--with-leadingIcon',
+                      fieldErr.identifier && 'neo-input--error',
+                    )}
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
                     onBlur={(e) => validateField('identifier', e.target.value)}
                     autoComplete="email"
                     placeholder="ex: ana.lima"
                   />
-                  <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-200" aria-hidden />
+                  <span className="neo-input__icon">
+                    <Mail className="h-4 w-4" aria-hidden />
+                  </span>
                 </div>
                 <span className={clsx('neo-input__helper', fieldErr.identifier && 'text-danger')}>
                   {fieldErr.identifier ?? 'Indica o email ou username registado.'}
@@ -299,7 +319,10 @@ export default function LoginClient() {
                 Palavra-passe
                 <div className="relative">
                   <input
-                    className={clsx('neo-input pl-12 pr-14', fieldErr.password && 'neo-input--error')}
+                    className={clsx(
+                      'neo-input neo-input--with-leadingIcon neo-input--with-trailingIcon',
+                      fieldErr.password && 'neo-input--error',
+                    )}
                     value={pw}
                     onChange={(e) => setPw(e.target.value)}
                     onBlur={(e) => validateField('password', e.target.value)}
@@ -307,11 +330,15 @@ export default function LoginClient() {
                     autoComplete="current-password"
                     placeholder="********"
                   />
-                  <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-200" aria-hidden />
+                  <span className="neo-input__icon">
+                    <Lock className="h-4 w-4" aria-hidden />
+                  </span>
                   <button
                     type="button"
                     onClick={() => setShow((s) => !s)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 transition hover:text-slate-800 dark:text-slate-200 dark:hover:text-slate-50"
+                    className={clsx(
+                      'neo-input__toggle rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950',
+                    )}
                     aria-label={show ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'}
                   >
                     {show ? <EyeOff className="h-4 w-4" aria-hidden /> : <Eye className="h-4 w-4" aria-hidden />}

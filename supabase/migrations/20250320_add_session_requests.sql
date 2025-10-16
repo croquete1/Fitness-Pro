@@ -3,15 +3,11 @@
 
 set check_function_bodies = off;
 
--- Create enum type if it doesn't exist (portable across Postgres versions)
-do $$
-begin
-  if not exists (
-    select 1 from pg_type t
-    join pg_namespace n on n.oid = t.typnamespace
-    where t.typname = 'session_request_status' and n.nspname = 'public'
-  ) then
-    create type public.session_request_status as enum (
+-- Create enum type if it does not exist. If it exists, skip creation.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE t.typname = 'session_request_status' AND n.nspname = 'public') THEN
+    CREATE TYPE public.session_request_status AS ENUM (
       'pending',
       'accepted',
       'declined',
@@ -19,8 +15,36 @@ begin
       'reschedule_pending',
       'reschedule_declined'
     );
-  end if;
-end
+  END IF;
+END;
+$$;
+
+-- If the enum type already exists but is missing labels, add them (no-op if present).
+-- Note: ALTER TYPE ... ADD VALUE cannot add values before others; it appends.
+DO $$
+DECLARE
+  missing text;
+BEGIN
+  -- helper to add a value if missing
+  IF NOT EXISTS (SELECT 1 FROM pg_enum e JOIN pg_type t ON e.enumtypid = t.oid JOIN pg_namespace n ON t.typnamespace = n.oid WHERE n.nspname='public' AND t.typname='session_request_status' AND e.enumlabel = 'pending') THEN
+    ALTER TYPE public.session_request_status ADD VALUE 'pending';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_enum e JOIN pg_type t ON e.enumtypid = t.oid JOIN pg_namespace n ON t.typnamespace = n.oid WHERE n.nspname='public' AND t.typname='session_request_status' AND e.enumlabel = 'accepted') THEN
+    ALTER TYPE public.session_request_status ADD VALUE 'accepted';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_enum e JOIN pg_type t ON e.enumtypid = t.oid JOIN pg_namespace n ON t.typnamespace = n.oid WHERE n.nspname='public' AND t.typname='session_request_status' AND e.enumlabel = 'declined') THEN
+    ALTER TYPE public.session_request_status ADD VALUE 'declined';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_enum e JOIN pg_type t ON e.enumtypid = t.oid JOIN pg_namespace n ON t.typnamespace = n.oid WHERE n.nspname='public' AND t.typname='session_request_status' AND e.enumlabel = 'cancelled') THEN
+    ALTER TYPE public.session_request_status ADD VALUE 'cancelled';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_enum e JOIN pg_type t ON e.enumtypid = t.oid JOIN pg_namespace n ON t.typnamespace = n.oid WHERE n.nspname='public' AND t.typname='session_request_status' AND e.enumlabel = 'reschedule_pending') THEN
+    ALTER TYPE public.session_request_status ADD VALUE 'reschedule_pending';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_enum e JOIN pg_type t ON e.enumtypid = t.oid JOIN pg_namespace n ON t.typnamespace = n.oid WHERE n.nspname='public' AND t.typname='session_request_status' AND e.enumlabel = 'reschedule_declined') THEN
+    ALTER TYPE public.session_request_status ADD VALUE 'reschedule_declined';
+  END IF;
+END;
 $$;
 
 create table if not exists public.session_requests (
@@ -36,8 +60,8 @@ create table if not exists public.session_requests (
   message text,
   trainer_note text,
   reschedule_note text,
-  created_at timestamptz not null default timezone('utc', now()),
-  updated_at timestamptz not null default timezone('utc', now()),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
   responded_at timestamptz,
   proposed_at timestamptz,
   proposed_by uuid references public.users(id) on delete set null,
@@ -56,22 +80,21 @@ create index if not exists session_requests_client_status_idx on public.session_
 create index if not exists session_requests_session_idx on public.session_requests (session_id);
 create index if not exists session_requests_requested_interval_idx on public.session_requests (requested_start, requested_end);
 
+-- Trigger function to update updated_at on modification
 create or replace function public.session_requests_touch_updated_at()
 returns trigger
 language plpgsql
 set search_path = public
 as $$
 begin
-  new.updated_at = timezone('utc', now());
+  new.updated_at := now();
   return new;
 end;
 $$;
 
+-- Ensure there is no duplicate trigger, then create it
 drop trigger if exists session_requests_set_updated_at on public.session_requests;
 create trigger session_requests_set_updated_at
-  before update
-  on public.session_requests
+  before update on public.session_requests
   for each row
   execute function public.session_requests_touch_updated_at();
-  -- If your Postgres version errors on "execute function", replace the last line with:
-  -- execute procedure public.session_requests_touch_updated_at();
