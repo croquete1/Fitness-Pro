@@ -123,7 +123,10 @@ export default function MetricsClient({ initial }: { initial: Row[] }){
     try {
       setImporting(true);
       const text = await file.text();
-      const parsed = Papa.parse<Record<string, unknown>>(text, { header:true, skipEmptyLines:true, transformHeader:(header)=>header.trim().toLowerCase() });
+      const parsed = Papa.parse(text, { header:true, skipEmptyLines:true, transformHeader:(header)=>header.trim().toLowerCase() }) as unknown as {
+        data: Array<Record<string, unknown>>;
+        errors: Array<{ message: string }>;
+      };
       if(parsed.errors.length){ throw new Error(parsed.errors[0].message); }
       const mapped = (parsed.data || []).map((row)=>{
         const measured_at = parseDateLike(row['data'] ?? row['date'] ?? row['measured_at']);
