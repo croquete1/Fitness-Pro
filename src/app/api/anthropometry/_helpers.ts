@@ -222,9 +222,18 @@ export function normalizeDate(value: string | null | undefined): string {
   const parsed = new Date(value);
   if (!Number.isFinite(parsed.getTime())) {
     // tenta interpretar YYYY-MM-DD manualmente
-    const match = /^\d{4}-\d{2}-\d{2}$/.exec(value.trim());
+    const trimmed = value.trim();
+    const match = /^\d{4}-\d{2}-\d{2}$/.exec(trimmed);
     if (match) {
-      return new Date(`${value}T00:00:00.000Z`).toISOString();
+      const [year, month, day] = trimmed.split('-').map(Number);
+      const normalized = new Date(Date.UTC(year, month - 1, day));
+      if (
+        normalized.getUTCFullYear() === year &&
+        normalized.getUTCMonth() === month - 1 &&
+        normalized.getUTCDate() === day
+      ) {
+        return normalized.toISOString();
+      }
     }
     return new Date().toISOString();
   }
