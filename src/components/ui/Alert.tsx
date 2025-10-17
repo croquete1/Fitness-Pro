@@ -13,38 +13,43 @@ const tonePalette: Record<AlertTone, { color: string; Icon: React.ComponentType<
   danger: { color: 'var(--danger)', Icon: Octagon },
 };
 
-type AlertProps = {
+type AlertProps = React.HTMLAttributes<HTMLDivElement> & {
   tone?: AlertTone;
   title?: React.ReactNode;
   children?: React.ReactNode;
-  className?: string;
 };
 
-export default function Alert({ tone = 'info', title, children, className }: AlertProps) {
+export default function Alert({
+  tone = 'info',
+  title,
+  children,
+  className,
+  style,
+  role,
+  ...rest
+}: AlertProps) {
   const palette = tonePalette[tone];
   const { color, Icon } = palette;
 
-  const style: React.CSSProperties = {
-    borderColor: `color-mix(in srgb, ${color} 42%, transparent)`,
-    background: `color-mix(in srgb, ${color} 12%, transparent)`,
-    color: `color-mix(in srgb, ${color} 82%, var(--fg))`,
+  const mergedStyle: React.CSSProperties = {
+    ['--alert-color' as string]: color,
+    ...(style ?? {}),
   };
 
   return (
     <div
-      role="status"
-      className={clsx(
-        'relative flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm shadow-sm backdrop-blur-sm',
-        className,
-      )}
-      style={style}
+      role={role ?? 'status'}
+      className={clsx('neo-alert', className)}
+      data-tone={tone}
+      style={mergedStyle}
+      {...rest}
     >
-      <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center">
-        <Icon className="h-5 w-5" aria-hidden />
+      <span className="neo-alert__icon" aria-hidden>
+        <Icon className="neo-alert__iconSvg" aria-hidden />
       </span>
-      <span className="space-y-1">
-        {title && <span className="block text-sm font-semibold leading-5">{title}</span>}
-        {children && <span className="block leading-5 text-[color:inherit] opacity-90">{children}</span>}
+      <span className="neo-alert__content">
+        {title && <span className="neo-alert__title">{title}</span>}
+        {children && <span className="neo-alert__message">{children}</span>}
       </span>
     </div>
   );

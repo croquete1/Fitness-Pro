@@ -66,29 +66,30 @@ export default function ResetClient() {
   }
 
   return (
-    <div className="auth-screen">
-      <div className="auth-card relative w-full max-w-xl">
-        <div className="absolute right-4 top-4 z-30">
-          <ThemeToggle />
-        </div>
-        <div className="space-y-6 rounded-3xl border border-white/20 bg-white/80 p-6 shadow-[0_38px_100px_-60px_rgba(15,23,42,0.35)] backdrop-blur-xl dark:border-slate-800/70 dark:bg-slate-950/60">
-          <div className="space-y-3 text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-white/40 bg-white/80 shadow-sm backdrop-blur dark:border-slate-800/70 dark:bg-slate-900/60">
+    <div className="auth-screen" data-auth-root>
+      <div className="auth-wrap">
+        <div className="auth-card auth-simple">
+          <div className="auth-simple__top">
+            <div className="auth-simple__logo" aria-hidden>
               <BrandLogo size={48} />
             </div>
-            <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Definir nova palavra-passe</h1>
-            <p className="text-sm text-slate-600 dark:text-slate-300">
+            <ThemeToggle variant="subtle" />
+          </div>
+
+          <div className="auth-simple__intro">
+            <h1 className="auth-simple__title">Definir nova palavra-passe</h1>
+            <p className="auth-simple__subtitle">
               Introduz a tua nova palavra-passe para concluires a recuperação.
             </p>
           </div>
 
-          {!ready && !err && <Alert tone="info">A validar ligação…</Alert>}
-          {err && <Alert tone="danger">{err}</Alert>}
-          {ok && <Alert tone="success">{ok}</Alert>}
+          {!ready && !err && <Alert tone="info" className="auth-simple__alert">A validar ligação…</Alert>}
+          {err && <Alert tone="danger" className="auth-simple__alert">{err}</Alert>}
+          {ok && <Alert tone="success" className="auth-simple__alert">{ok}</Alert>}
 
-          <form onSubmit={onSubmit} className="space-y-4" noValidate>
-            <label className="flex flex-col gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
-              Nova palavra-passe
+          <form onSubmit={onSubmit} className="auth-simple__form" noValidate>
+            <label className="auth-simple__field">
+              <span className="auth-simple__label">Nova palavra-passe</span>
               <input
                 className={clsx('neo-input', issues.length > 0 && password.length > 0 && 'neo-input--error')}
                 type="password"
@@ -110,7 +111,7 @@ export default function ResetClient() {
 
             <Button
               type="submit"
-              className="w-full justify-center"
+              className="auth-simple__submit"
               disabled={!valid}
               loading={busy}
               loadingText="A guardar…"
