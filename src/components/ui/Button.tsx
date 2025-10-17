@@ -2,6 +2,7 @@
 'use client';
 
 import * as React from 'react';
+import clsx from 'clsx';
 
 type Variant = 'primary' | 'secondary' | 'success' | 'warning' | 'danger' | 'ghost';
 type Size = 'sm' | 'md' | 'lg';
@@ -15,27 +16,7 @@ export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   loadingText?: string;
 };
 
-const cls = {
-  base:
-    'inline-flex items-center justify-center rounded-lg font-semibold transition-colors ' +
-    'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ' +
-    'disabled:opacity-60 disabled:cursor-not-allowed',
-  size: {
-    sm: 'text-sm px-2.5 py-1.5',
-    md: 'text-sm px-3 py-2',
-    lg: 'text-base px-4 py-2.5',
-  },
-  variant: {
-    primary: 'bg-indigo-600 text-white hover:bg-indigo-500 focus-visible:ring-indigo-600',
-    secondary:
-      'bg-slate-200 text-slate-900 hover:bg-slate-300 focus-visible:ring-slate-400 ' +
-      'dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700',
-    success: 'bg-emerald-600 text-white hover:bg-emerald-500 focus-visible:ring-emerald-600',
-    warning: 'bg-amber-500 text-black hover:bg-amber-400 focus-visible:ring-amber-600',
-    danger: 'bg-rose-600 text-white hover:bg-rose-500 focus-visible:ring-rose-600',
-    ghost: 'bg-transparent text-current hover:bg-black/5 dark:hover:bg-white/10',
-  },
-};
+const DEFAULT_LOADING_LABEL = 'A carregar…';
 
 export default function Button({
   variant = 'primary',
@@ -45,17 +26,27 @@ export default function Button({
   rightIcon,
   children,
   loadingText,
-  className = '',
+  className,
+  disabled,
   ...rest
 }: ButtonProps) {
+  const content = loading ? loadingText ?? DEFAULT_LOADING_LABEL : children;
+  const isDisabled = disabled ?? false;
+
   return (
     <button
-      className={[cls.base, cls.size[size], cls.variant[variant], className].join(' ')}
+      type="button"
+      className={clsx('btn', className)}
+      data-variant={variant}
+      data-size={size}
+      data-loading={loading || undefined}
+      aria-busy={loading || undefined}
+      disabled={isDisabled}
       {...rest}
     >
-      {leftIcon && <span className="mr-2">{leftIcon}</span>}
-      {loading ? loadingText ?? 'A carregar…' : children}
-      {rightIcon && <span className="ml-2">{rightIcon}</span>}
+      {leftIcon && <span className="btn__icon btn__icon--left">{leftIcon}</span>}
+      <span className="btn__label">{content}</span>
+      {rightIcon && <span className="btn__icon btn__icon--right">{rightIcon}</span>}
     </button>
   );
 }
