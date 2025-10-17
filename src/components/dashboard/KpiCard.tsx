@@ -87,6 +87,99 @@ const VARIANT_COLOR_MAP: Record<Variant, { main: string; light?: string; foregro
   },
 };
 
+const VARIANT_FALLBACK_SURFACES: Record<Variant, {
+  highlight: string;
+  foreground: string;
+  border: string;
+  background: string;
+  halo: string;
+  sheen: string;
+}> = {
+  primary: {
+    highlight: 'rgba(0,212,255,0.32)',
+    foreground: 'var(--mui-palette-text-primary)',
+    border: 'rgba(0,212,255,0.42)',
+    background: 'rgba(0,212,255,0.16)',
+    halo: 'rgba(0,212,255,0.26)',
+    sheen: 'rgba(0,212,255,0.16)',
+  },
+  accent: {
+    highlight: 'rgba(127,91,255,0.32)',
+    foreground: 'var(--mui-palette-text-primary)',
+    border: 'rgba(127,91,255,0.42)',
+    background: 'rgba(127,91,255,0.18)',
+    halo: 'rgba(127,91,255,0.26)',
+    sheen: 'rgba(127,91,255,0.18)',
+  },
+  info: {
+    highlight: 'rgba(14,165,233,0.3)',
+    foreground: 'var(--mui-palette-text-primary)',
+    border: 'rgba(14,165,233,0.4)',
+    background: 'rgba(14,165,233,0.16)',
+    halo: 'rgba(14,165,233,0.24)',
+    sheen: 'rgba(14,165,233,0.16)',
+  },
+  success: {
+    highlight: 'rgba(16,185,129,0.28)',
+    foreground: 'var(--mui-palette-text-primary)',
+    border: 'rgba(16,185,129,0.38)',
+    background: 'rgba(16,185,129,0.15)',
+    halo: 'rgba(16,185,129,0.22)',
+    sheen: 'rgba(16,185,129,0.15)',
+  },
+  warning: {
+    highlight: 'rgba(245,158,11,0.34)',
+    foreground: 'var(--mui-palette-text-primary)',
+    border: 'rgba(245,158,11,0.46)',
+    background: 'rgba(245,158,11,0.18)',
+    halo: 'rgba(245,158,11,0.26)',
+    sheen: 'rgba(245,158,11,0.18)',
+  },
+  danger: {
+    highlight: 'rgba(239,68,68,0.34)',
+    foreground: 'var(--mui-palette-text-primary)',
+    border: 'rgba(239,68,68,0.46)',
+    background: 'rgba(239,68,68,0.2)',
+    halo: 'rgba(239,68,68,0.28)',
+    sheen: 'rgba(239,68,68,0.2)',
+  },
+  neutral: {
+    highlight: 'rgba(148,163,184,0.32)',
+    foreground: 'var(--mui-palette-text-primary)',
+    border: 'rgba(148,163,184,0.42)',
+    background: 'rgba(148,163,184,0.18)',
+    halo: 'rgba(148,163,184,0.26)',
+    sheen: 'rgba(148,163,184,0.18)',
+  },
+};
+
+function useColorMixSupport(): boolean {
+  const [supported, setSupported] = React.useState(() => {
+    if (typeof window === 'undefined' || typeof CSS === 'undefined' || !CSS.supports) {
+      return false;
+    }
+    try {
+      return CSS.supports('color', 'color-mix(in srgb, black 50%, white)');
+    } catch {
+      return false;
+    }
+  });
+
+  React.useEffect(() => {
+    if (typeof CSS === 'undefined' || !CSS.supports) {
+      return;
+    }
+    try {
+      const next = CSS.supports('color', 'color-mix(in srgb, black 50%, white)');
+      setSupported((prev) => (prev === next ? prev : next));
+    } catch {
+      setSupported(false);
+    }
+  }, []);
+
+  return supported;
+}
+
 export default function KpiCard({
   label,
   value,
@@ -104,15 +197,27 @@ export default function KpiCard({
 }: Props) {
   const variantTokens = VARIANT_COLOR_MAP[variant] ?? VARIANT_COLOR_MAP.primary;
   const mainColor = variantTokens.main;
-  const highlightColor =
-    variantTokens.light ?? `color-mix(in srgb, ${mainColor} 68%, white)`;
-  const foregroundColor =
-    variantTokens.foreground ??
-    `color-mix(in srgb, ${mainColor} 22%, var(--mui-palette-text-primary))`;
-  const borderColor = `color-mix(in srgb, ${mainColor} 22%, var(--mui-palette-divider))`;
-  const backgroundColor = `color-mix(in srgb, ${mainColor} 6%, var(--mui-palette-background-paper))`;
-  const haloColor = `color-mix(in srgb, ${highlightColor} 32%, transparent)`;
-  const sheenColor = `color-mix(in srgb, ${mainColor} 14%, transparent)`;
+  const supportsColorMix = useColorMixSupport();
+  const fallbackSurfaces = VARIANT_FALLBACK_SURFACES[variant] ?? VARIANT_FALLBACK_SURFACES.primary;
+  const highlightColor = supportsColorMix
+    ? variantTokens.light ?? `color-mix(in srgb, ${mainColor} 68%, white)`
+    : fallbackSurfaces.highlight;
+  const foregroundColor = supportsColorMix
+    ? variantTokens.foreground ??
+      `color-mix(in srgb, ${mainColor} 22%, var(--mui-palette-text-primary))`
+    : fallbackSurfaces.foreground;
+  const borderColor = supportsColorMix
+    ? `color-mix(in srgb, ${mainColor} 22%, var(--mui-palette-divider))`
+    : fallbackSurfaces.border;
+  const backgroundColor = supportsColorMix
+    ? `color-mix(in srgb, ${mainColor} 6%, var(--mui-palette-background-paper))`
+    : fallbackSurfaces.background;
+  const haloColor = supportsColorMix
+    ? `color-mix(in srgb, ${highlightColor} 32%, transparent)`
+    : fallbackSurfaces.halo;
+  const sheenColor = supportsColorMix
+    ? `color-mix(in srgb, ${mainColor} 14%, transparent)`
+    : fallbackSurfaces.sheen;
 
   const border = `1px solid ${borderColor}`;
   const trendColor =
