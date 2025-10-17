@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Button from "@/components/ui/Button";
 import {
   ColumnDef,
   Column,
@@ -34,10 +35,18 @@ export default function DataTable<TData, TValue>({
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
 
+  const deferredGlobalFilter = React.useDeferredValue(globalFilter);
+
   const table = useReactTable({
     data,
     columns,
-    state: { sorting, columnFilters, globalFilter, columnVisibility, rowSelection },
+    state: {
+      sorting,
+      columnFilters,
+      globalFilter: deferredGlobalFilter,
+      columnVisibility,
+      rowSelection,
+    },
     initialState: { pagination: { pageSize: initialPageSize } },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
@@ -51,47 +60,53 @@ export default function DataTable<TData, TValue>({
   });
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <input
-          value={globalFilter ?? ""}
-          onChange={(e) => setGlobalFilter(e.target.value)}
-          placeholder={globalFilterPlaceholder}
-          className="w-full max-w-xs rounded-md border px-3 py-2"
-        />
+    <section className="neo-panel space-y-5" aria-label="Tabela de dados">
+      <div className="neo-panel__actions neo-panel__actions--table">
+        <label className="neo-input-group__field">
+          <span className="neo-input-group__label">Pesquisar</span>
+          <input
+            value={globalFilter ?? ""}
+            onChange={(e) => setGlobalFilter(e.target.value)}
+            placeholder={globalFilterPlaceholder}
+            className="neo-input"
+            type="search"
+            aria-label="Filtrar resultados"
+          />
+        </label>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border">
-        <table className="w-full border-collapse">
-          <thead className="bg-card">
+      <div className="neo-table-wrapper">
+        <table className="neo-table">
+          <thead>
             {table.getHeaderGroups().map((hg) => (
               <tr key={hg.id}>
                 {hg.headers.map((header) => {
                   const canSort = header.column.getCanSort();
                   const sortDir = header.column.getIsSorted();
                   return (
-                    <th
-                      key={header.id}
-                      className="select-none border-b px-3 py-2 text-left text-sm font-semibold"
-                    >
+                    <th key={header.id}>
                       {canSort ? (
                         <button
                           type="button"
                           onClick={header.column.getToggleSortingHandler()}
-                          className="inline-flex items-center gap-1"
-                          aria-label="Ordenar"
+                          className="neo-table__sort"
+                          aria-label="Ordenar coluna"
                         >
-                          {flexRender(header.column.columnDef.header, header.getContext())}
-                          <span className="text-xs opacity-60">
+                          <span className="neo-table__label">
+                            {flexRender(header.column.columnDef.header, header.getContext())}
+                          </span>
+                          <span aria-hidden="true">
                             {sortDir === "asc" ? "▲" : sortDir === "desc" ? "▼" : ""}
                           </span>
                         </button>
                       ) : (
-                        flexRender(header.column.columnDef.header, header.getContext())
+                        <span className="neo-table__label">
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                        </span>
                       )}
 
                       {header.column.getCanFilter() && (
-                        <div className="mt-1">
+                        <div className="neo-table__filter">
                           <ColumnFilter column={header.column} />
                         </div>
                       )}
@@ -104,19 +119,25 @@ export default function DataTable<TData, TValue>({
 
           <tbody>
             {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className="odd:bg-transparent even:bg-black/5 dark:even:bg-white/5">
+              <tr key={row.id}>
                 {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="border-b px-3 py-2 text-sm">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
+                  <td key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
                 ))}
               </tr>
             ))}
 
             {table.getRowModel().rows.length === 0 && (
               <tr>
-                <td colSpan={table.getAllColumns().length} className="px-3 py-6 text-center text-sm opacity-70">
-                  Sem resultados.
+                <td colSpan={table.getAllColumns().length}>
+                  <div className="neo-empty">
+                    <span className="neo-empty__icon" aria-hidden="true">
+                      📭
+                    </span>
+                    <p className="neo-empty__title">Sem resultados</p>
+                    <p className="neo-empty__description">
+                      Ajusta filtros ou pesquisa para encontrar novos registos.
+                    </p>
+                  </div>
                 </td>
               </tr>
             )}
@@ -124,54 +145,66 @@ export default function DataTable<TData, TValue>({
         </table>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-sm opacity-80">
-          Página {table.getState().pagination.pageIndex + 1} de {table.getPageCount()} •{" "}
+      <footer className="neo-pagination" aria-label="Paginação">
+        <div className="neo-pagination__summary">
+          Página {table.getState().pagination.pageIndex + 1} de {table.getPageCount()} ·{' '}
           {table.getFilteredRowModel().rows.length} registo(s)
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            className="rounded-md border px-2 py-1 text-sm disabled:opacity-50"
+        <div className="neo-pagination__controls">
+          <Button
+            size="sm"
+            variant="ghost"
             onClick={() => table.setPageIndex(0)}
             disabled={!table.getCanPreviousPage()}
+            aria-label="Primeira página"
           >
             «
-          </button>
-          <button
-            className="rounded-md border px-2 py-1 text-sm disabled:opacity-50"
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
             onClick={() => table.previousPage()}
             disabled={!table.getCanPreviousPage()}
+            aria-label="Página anterior"
           >
             ‹
-          </button>
-          <button
-            className="rounded-md border px-2 py-1 text-sm disabled:opacity-50"
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
             onClick={() => table.nextPage()}
             disabled={!table.getCanNextPage()}
+            aria-label="Próxima página"
           >
             ›
-          </button>
-          <button
-            className="rounded-md border px-2 py-1 text-sm disabled:opacity-50"
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
             onClick={() => table.setPageIndex(table.getPageCount() - 1)}
             disabled={!table.getCanNextPage()}
+            aria-label="Última página"
           >
             »
-          </button>
-          <select
-            className="rounded-md border px-2 py-1 text-sm"
-            value={table.getState().pagination.pageSize}
-            onChange={(e) => table.setPageSize(Number(e.target.value))}
-          >
-            {[5, 10, 20, 50].map((ps) => (
-              <option key={ps} value={ps}>
-                {ps} / página
-              </option>
-            ))}
-          </select>
+          </Button>
+          <label className="neo-input-group__field neo-pagination__pageSize">
+            <span className="neo-input-group__label">Linhas</span>
+            <select
+              className="neo-input"
+              value={table.getState().pagination.pageSize}
+              onChange={(e) => table.setPageSize(Number(e.target.value))}
+              aria-label="Selecionar linhas por página"
+            >
+              {[5, 10, 20, 50].map((ps) => (
+                <option key={ps} value={ps}>
+                  {ps} / página
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
-      </div>
-    </div>
+      </footer>
+    </section>
   );
 }
 
@@ -188,7 +221,7 @@ function ColumnFilter<TData, TValue>({ column }: { column: Column<TData, TValue>
         onChange={(e) =>
           column.setFilterValue(e.target.value ? Number(e.target.value) : undefined)
         }
-        className="w-24 rounded-md border px-2 py-1 text-xs"
+        className="neo-input neo-input--compact"
         placeholder="Filtrar…"
       />
     );
@@ -198,7 +231,7 @@ function ColumnFilter<TData, TValue>({ column }: { column: Column<TData, TValue>
     <input
       value={(value as string | undefined) ?? ""}
       onChange={(e) => column.setFilterValue(e.target.value)}
-      className="w-36 rounded-md border px-2 py-1 text-xs"
+      className="neo-input neo-input--compact"
       placeholder="Filtrar…"
     />
   );
