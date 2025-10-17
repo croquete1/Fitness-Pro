@@ -100,6 +100,21 @@ body{
   /* Botões e superfícies */
   --btn-bg:var(--card-bg);
   --hover:rgba(0,148,255,0.08);
+  --btn-primary-bg:linear-gradient(180deg, #00d4ff, #0093c7);
+  --btn-primary-hover:#0093c7;
+  --btn-primary-fg:var(--on-primary);
+  --btn-primary-bd:#0093c7;
+  --btn-primary-shadow:0 6px 18px rgba(0,148,255,0.25);
+  --btn-outline-fg:var(--fg);
+  --btn-outline-bd:rgba(12,34,66,0.18);
+  --btn-outline-bg:transparent;
+  --btn-ghost-fg:var(--fg);
+  --btn-ghost-bd:transparent;
+  --btn-danger-bg:linear-gradient(180deg, #ef4444, #dc2626);
+  --btn-danger-hover:#dc2626;
+  --btn-danger-fg:var(--on-danger);
+  --btn-danger-bd:#dc2626;
+  --btn-danger-shadow:0 6px 18px rgba(239,68,68,0.25);
 
   /* Focus ring (mais visível) */
   --ring:0 0 0 3px rgba(0,148,255,0.28);
@@ -144,6 +159,10 @@ body{
   --badge-status-suspended-fg:#b91c1c;
   --badge-status-suspended-bg:rgba(185,28,28,0.1);
   --badge-status-suspended-border:rgba(185,28,28,0.24);
+
+  --badge-status-draft-fg:#374151;
+  --badge-status-draft-bg:rgba(156,163,175,0.12);
+  --badge-status-draft-border:rgba(156,163,175,0.2);
 
   --badge-danger-fg:var(--badge-status-suspended-fg);
   --badge-danger-bg:var(--badge-status-suspended-bg);
@@ -209,6 +228,21 @@ body{
 
   --btn-bg:var(--card-bg);
   --hover:rgba(75,231,255,0.12);
+  --btn-primary-bg:linear-gradient(180deg, #4be7ff, #00b2d6);
+  --btn-primary-hover:#00b2d6;
+  --btn-primary-fg:var(--on-primary);
+  --btn-primary-bd:#00b2d6;
+  --btn-primary-shadow:0 10px 22px rgba(0,178,214,0.28);
+  --btn-outline-fg:var(--fg);
+  --btn-outline-bd:rgba(114,137,255,0.34);
+  --btn-outline-bg:rgba(14,22,37,0.3);
+  --btn-ghost-fg:var(--fg);
+  --btn-ghost-bd:rgba(114,137,255,0.16);
+  --btn-danger-bg:linear-gradient(180deg, #f87171, #dc2626);
+  --btn-danger-hover:#f87171;
+  --btn-danger-fg:var(--on-danger);
+  --btn-danger-bd:rgba(248,113,113,0.62);
+  --btn-danger-shadow:0 10px 26px rgba(248,113,113,0.28);
 
   --border-strong:rgba(96,136,255,0.5);
   --chip-bg:rgba(10,18,32,0.88);
@@ -240,6 +274,10 @@ body{
   --badge-danger-bg:var(--badge-status-suspended-bg);
   --badge-danger-border:var(--badge-status-suspended-border);
 
+  --badge-status-draft-fg:#d1d6ec;
+  --badge-status-draft-bg:rgba(148,163,184,0.18);
+  --badge-status-draft-border:rgba(148,163,184,0.34);
+
   --accent:#b174ff;
   --accent-2:#5af5ff;
 
@@ -260,6 +298,12 @@ body{
     --sidebar-hover:rgba(75,231,255,0.1); --sidebar-active:rgba(127,91,255,0.18);
     --border-strong:rgba(96,136,255,0.5); --chip-bg:rgba(10,18,32,0.88); --chip-border:rgba(96,136,255,0.42);
     --on-danger:#fff;
+    --btn-primary-bg:linear-gradient(180deg, #4be7ff, #00b2d6); --btn-primary-hover:#00b2d6;
+    --btn-primary-fg:#021b2e; --btn-primary-bd:#00b2d6; --btn-primary-shadow:0 10px 22px rgba(0,178,214,0.28);
+    --btn-outline-fg:#e6ebff; --btn-outline-bd:rgba(114,137,255,0.34); --btn-outline-bg:rgba(14,22,37,0.3);
+    --btn-ghost-fg:#e6ebff; --btn-ghost-bd:rgba(114,137,255,0.16);
+    --btn-danger-bg:linear-gradient(180deg, #f87171, #dc2626); --btn-danger-hover:#f87171;
+    --btn-danger-fg:#fff; --btn-danger-bd:rgba(248,113,113,0.62); --btn-danger-shadow:0 10px 26px rgba(248,113,113,0.28);
     --badge-role-admin-fg:#e3dcff; --badge-role-admin-bg:rgba(76,38,165,0.32); --badge-role-admin-border:rgba(146,114,255,0.5);
     --badge-role-trainer-fg:#dbe9ff; --badge-role-trainer-bg:rgba(24,70,173,0.34); --badge-role-trainer-border:rgba(112,164,255,0.52);
     --badge-role-client-fg:#cbfff3; --badge-role-client-bg:rgba(13,87,82,0.34); --badge-role-client-border:rgba(82,224,209,0.48);
@@ -267,6 +311,7 @@ body{
     --badge-status-pending-fg:#fde68a; --badge-status-pending-bg:rgba(146,64,14,0.34); --badge-status-pending-border:rgba(251,191,36,0.55);
     --badge-status-suspended-fg:#fecaca; --badge-status-suspended-bg:rgba(190,18,60,0.36); --badge-status-suspended-border:rgba(248,113,113,0.55);
     --badge-danger-fg:var(--badge-status-suspended-fg); --badge-danger-bg:var(--badge-status-suspended-bg); --badge-danger-border:var(--badge-status-suspended-border);
+    --badge-status-draft-fg:#d1d6ec; --badge-status-draft-bg:rgba(148,163,184,0.18); --badge-status-draft-border:rgba(148,163,184,0.34);
   }
 }
 
@@ -298,6 +343,19 @@ body{
     --badge-danger-fg:var(--badge-status-suspended-fg);
     --badge-danger-bg:var(--badge-status-suspended-bg);
     --badge-danger-border:var(--badge-status-suspended-border);
+    --btn-primary-bg:linear-gradient(180deg, color-mix(in srgb, var(--primary) 96%, transparent), var(--primary-600));
+    --btn-primary-bd:color-mix(in srgb, var(--primary-600) 82%, var(--primary));
+    --btn-primary-shadow:0 6px 18px color-mix(in srgb, var(--primary) 28%, transparent);
+    --btn-outline-bd:color-mix(in srgb, var(--border) 88%, transparent 12%);
+    --btn-outline-fg:color-mix(in srgb, var(--fg) 96%, transparent 4%);
+    --btn-outline-bg:color-mix(in srgb, var(--card-bg) 96%, transparent 4%);
+    --btn-ghost-fg:color-mix(in srgb, var(--fg) 90%, transparent 10%);
+    --btn-danger-bg:linear-gradient(180deg, color-mix(in srgb, var(--danger) 92%, transparent), color-mix(in srgb, var(--danger) 78%, black));
+    --btn-danger-bd:color-mix(in srgb, var(--danger) 72%, transparent);
+    --btn-danger-shadow:0 8px 22px color-mix(in srgb, var(--danger) 28%, transparent);
+    --badge-status-draft-fg:color-mix(in srgb, var(--muted) 86%, var(--fg) 14%);
+    --badge-status-draft-bg:color-mix(in srgb, var(--muted) 18%, var(--card-bg) 82%);
+    --badge-status-draft-border:color-mix(in srgb, var(--muted) 32%, transparent);
   }
 
   :root[data-theme="dark"] {
@@ -328,6 +386,20 @@ body{
     --badge-danger-fg:var(--badge-status-suspended-fg);
     --badge-danger-bg:var(--badge-status-suspended-bg);
     --badge-danger-border:var(--badge-status-suspended-border);
+    --btn-primary-bg:linear-gradient(180deg, color-mix(in srgb, var(--primary) 90%, transparent), color-mix(in srgb, var(--primary-600) 92%, transparent));
+    --btn-primary-bd:color-mix(in srgb, var(--primary-600) 78%, transparent);
+    --btn-primary-shadow:0 12px 26px color-mix(in srgb, var(--primary) 32%, transparent);
+    --btn-outline-bd:color-mix(in srgb, var(--border) 72%, transparent 28%);
+    --btn-outline-fg:color-mix(in srgb, var(--fg) 88%, rgba(255,255,255,0.12));
+    --btn-outline-bg:color-mix(in srgb, var(--card-bg) 82%, transparent 18%);
+    --btn-ghost-fg:color-mix(in srgb, var(--fg) 82%, rgba(255,255,255,0.18));
+    --btn-ghost-bd:color-mix(in srgb, var(--border) 54%, transparent 46%);
+    --btn-danger-bg:linear-gradient(180deg, color-mix(in srgb, var(--danger) 82%, transparent), color-mix(in srgb, var(--danger) 68%, black));
+    --btn-danger-bd:color-mix(in srgb, var(--danger) 64%, transparent);
+    --btn-danger-shadow:0 12px 28px color-mix(in srgb, var(--danger) 30%, transparent);
+    --badge-status-draft-fg:color-mix(in srgb, var(--muted) 62%, var(--fg) 38%);
+    --badge-status-draft-bg:color-mix(in srgb, var(--muted) 20%, transparent);
+    --badge-status-draft-border:color-mix(in srgb, var(--muted) 34%, transparent);
   }
 }
 
@@ -382,23 +454,30 @@ input:focus,select:focus,textarea:focus{ box-shadow:var(--ring); border-color:va
 .btn{
   display:inline-flex; align-items:center; justify-content:center;
   gap:8px; padding:10px 14px; border-radius:12px;
-  border:1px solid var(--border); background:var(--btn-bg); color:var(--fg);
-  transition: filter .12s ease, transform .12s ease, background .12s ease, border-color .12s ease;
+  border:1px solid var(--btn-outline-bd, var(--border));
+  background:var(--btn-bg);
+  color:var(--btn-outline-fg, var(--fg));
+  transition: filter .12s ease, transform .12s ease, background .12s ease, border-color .12s ease, box-shadow .12s ease, color .12s ease;
 }
 .btn:hover{ filter:brightness(.985); }
 .btn:active{ transform:translateY(.5px); }
 .btn:disabled{ opacity:.6; cursor:not-allowed; }
 .btn.primary{
-  background:linear-gradient(180deg, var(--primary), var(--primary-600));
-  border-color: var(--primary-600);
-  box-shadow: 0 6px 18px rgba(0,148,255,0.25);
-  background:linear-gradient(180deg, color-mix(in srgb, var(--primary) 96%, transparent), var(--primary-600));
-  color:#fff;
-  border-color: color-mix(in srgb, var(--primary-600) 80%, var(--primary));
-  box-shadow: 0 6px 18px color-mix(in srgb, var(--primary) 28%, transparent);
+  background:var(--btn-primary-bg);
+  color:var(--btn-primary-fg);
+  border-color:var(--btn-primary-bd);
+  box-shadow:var(--btn-primary-shadow);
 }
-.btn.primary:hover{ filter:none; background:var(--primary-600); }
-.btn.ghost{ background:transparent; }
+.btn.primary:hover{
+  filter:none;
+  background:var(--btn-primary-hover, var(--primary-600));
+  color:var(--btn-primary-fg);
+}
+.btn.ghost{
+  background:transparent;
+  color:var(--btn-ghost-fg, var(--fg));
+  border-color:var(--btn-ghost-bd, transparent);
+}
 .btn.ghost:hover{ background:var(--sidebar-hover); }
 .btn.icon{ padding:8px; border-radius:10px; width:36px; height:36px; }
 .btn.icon:hover{ background:var(--sidebar-hover); }
@@ -1948,7 +2027,7 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
 .badge,.chip{
   background:var(--accent);
   background:linear-gradient(135deg, var(--accent), var(--accent-2));
-  color:#fff;
+  color:var(--on-primary, #fff);
   border:0;
   padding:2px 8px;
   border-radius:999px;
