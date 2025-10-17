@@ -6,11 +6,9 @@ Executámos `npm run neo:audit` para mapear utilitários ainda baseados em Tailw
 
 ## Componentes que ainda usam Tailwind utilitário
 
-- `src/components/common/MobileFAB.tsx` mantém tokens Tailwind (`md:hidden`, `rounded-full`, `bg-black`, `dark:`) tanto no botão flutuante como no menu contextual. 【F:src/components/common/MobileFAB.tsx†L7-L27】
-- `src/components/trainer/TrainerHeader.tsx` aplica layout com utilitários (`sticky`, `max-w-screen-2xl`, `gap-4`, `dark:`), sem equivalentes `.neo`. 【F:src/components/trainer/TrainerHeader.tsx†L32-L54】
-- O feed de mensagens continua a formatar linhas com `flex`, `space-y-3`, `text-sm`, `bg-[color:...]`, misturando padrões Tailwind com superfícies Neo. 【F:src/app/(app)/dashboard/messages/_components/MessagesFeed.tsx†L69-L108】
-- A página de mensagens usa `flex flex-wrap` e `space-y-6` para o layout principal, faltando substituição pelos utilitários `.neo` (`neo-stack`, `neo-grid`, etc.). 【F:src/app/(app)/dashboard/messages/page.tsx†L22-L42】
-- A agenda do PT (`TrainerScheduleClient`) mistura botões `.neo` com classes Tailwind (`btn icon`, `h-5 w-5`, `grid-cols`, `gap-4`) e ainda gere ícones inline sem tokens partilhados. 【F:src/app/(app)/dashboard/pt/schedule/TrainerScheduleClient.tsx†L205-L284】
+- O módulo massivo do dashboard administrativo continua a concentrar grande parte dos utilitários legados (`src/app/(app)/dashboard/admin/**`).
+- O cliente de relatórios (`src/app/(app)/dashboard/reports/ReportsDashboardClient.tsx`) segue dependente de classes `flex/grid` tailwind-like.
+- Diversos editores administrativos (`src/components/plan/PlanEditor.tsx`, `src/components/packages/PackageEditor.tsx`) preservam tokens `rounded-*`, `gap-*` e responsividade utilitária.
 
 ## Dependências ainda baseadas em MUI
 
@@ -34,10 +32,17 @@ Executámos `npm run neo:audit` para mapear utilitários ainda baseados em Tailw
 - `npm outdated` aponta versões atrás em `next@15.5.4`, `react@18.3.1` (já existe 19.x), `jspdf`/`jspdf-autotable` e todo o stack `@mui`, reforçando a dívida técnica da camada antiga. 【c9f047†L1-L22】
 - `npm audit` reporta 3 vulnerabilidades (1 moderada, 2 altas) devido ao `dompurify` legado trazido por `jspdf` e `jspdf-autotable`. Actualizar estes pacotes para ≥3.0.3/5.0.2 elimina o risco. 【b8ffa6†L1-L15】
 
+## Progresso recente
+
+- O painel de mensagens do cliente (`src/app/(app)/dashboard/messages/**/*`) passou a usar exclusivamente estruturas `.neo` (`neo-stack`, `neo-inline`, `neo-code`), eliminando espaçamentos utilitários e tokens Tailwind antigos.
+- O atalho móvel (`src/components/common/MobileFAB.tsx`) ganhou estilos dedicados `.neo-fab`, com menu translúcido e botão temático responsivo.
+- O cabeçalho do treinador (`src/components/trainer/TrainerHeader.tsx`) foi reconstruído com o padrão `neo-app-header`, substituindo gradients Tailwind por tokens do tema e avatar com contorno Neo.
+- A agenda de PT (`src/app/(app)/dashboard/pt/schedule/TrainerScheduleClient.tsx`) recebeu uma revisão estrutural: filtros, métricas e tabela agora usam novos utilitários `.neo`, botões declarativos (`data-variant`) e feedbacks (`neo-spinner`, `neo-table-empty`).
+
 ## Próximos passos recomendados
 
-1. Priorizar a migração dos componentes listados para padrões `.neo-*`, substituindo gradualmente utilitários Tailwind por tokens declarativos.
+1. Priorizar a migração dos componentes administrativos restantes para padrões `.neo-*`, substituindo utilitários Tailwind por tokens declarativos.
 2. Reescrever os módulos de perfil actualmente em MUI para componentes `.neo-form`, `.neo-card` e hooks partilhados.
 3. Ligar as rotas com TODOs ao Supabase (quando necessário, fornecerei scripts SQL completos antes de aplicar mudanças) e remover `_memdb`.
-4. Fragmentar a agenda do PT em subcomponentes com memoização, adoptando listas virtuais ou grids `.neo` para reduzir custo de render.
+4. Evoluir a agenda do PT para listas virtuais quando o volume de dados exceder 200 linhas, aproveitando a base `.neo` já aplicada.
 5. Planear sprint específico para actualizar `jspdf`/`jspdf-autotable` (remediação das vulnerabilidades) e alinhar Next/React à versão suportada pelo tema.
