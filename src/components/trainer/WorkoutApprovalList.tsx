@@ -51,14 +51,14 @@ export default function WorkoutApprovalList() {
   if (error) {
     return (
       <div className="rounded-xl border p-4">
-        <div className="text-sm text-red-600">{error}</div>
+        <div className="text-sm text-danger">{error}</div>
       </div>
     );
   }
 
   if (items.length === 0) {
     return (
-      <div className="rounded-xl border p-6 text-center">
+      <div className="card" style={{ padding: 24, textAlign: 'center' }}>
         <div className="text-base font-medium">Sem pedidos pendentes</div>
         <p className="mt-1 text-sm opacity-70">
           Quando os clientes pedirem planos de treino, aparecem aqui.
@@ -72,7 +72,8 @@ export default function WorkoutApprovalList() {
       {items.map((req) => (
         <div
           key={req.id}
-          className="rounded-xl border p-4 flex items-start justify-between gap-4"
+          className="card"
+          style={{ padding: 18, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}
         >
           <div>
             <div className="text-sm opacity-70">Cliente</div>
@@ -88,13 +89,15 @@ export default function WorkoutApprovalList() {
           </div>
           <div className="flex items-center gap-2">
             <button
-              className="rounded-lg border px-3 py-1.5 text-sm hover:bg-gray-50 dark:hover:bg-zinc-800"
+              className="btn primary"
+              style={{ padding: '8px 14px', fontSize: 14 }}
               onClick={() => alert("Aprovar: ligar API quando existir")}
             >
               Aprovar
             </button>
             <button
-              className="rounded-lg border px-3 py-1.5 text-sm hover:bg-gray-50 dark:hover:bg-zinc-800"
+              className="btn"
+              style={{ padding: '8px 14px', fontSize: 14 }}
               onClick={() => alert("Rejeitar: ligar API quando existir")}
             >
               Rejeitar

@@ -39,7 +39,7 @@ export default function ClientListTable({
   }, []);
 
   if (loading) return <div className="text-sm opacity-70">A carregar clientes…</div>;
-  if (error) return <div className="text-sm text-red-600">{error}</div>;
+  if (error) return <div className="text-sm text-danger">{error}</div>;
 
   return (
     <div className="overflow-x-auto">
@@ -60,7 +60,8 @@ export default function ClientListTable({
                 {onSelect && (
                   <button
                     onClick={() => onSelect(c.id)}
-                    className="rounded-md border px-2 py-1 hover:bg-gray-50 dark:hover:bg-zinc-800"
+                    className="btn ghost"
+                    style={{ padding: '6px 12px', fontSize: 13 }}
                   >
                     Selecionar
                   </button>

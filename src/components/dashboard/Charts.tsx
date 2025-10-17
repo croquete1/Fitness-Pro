@@ -14,8 +14,8 @@ import {
 
 export function UsersLineChart({ data }: { data: { name: string; total: number }[] }) {
   return (
-    <div className="h-64 w-full rounded-xl border p-3">
-      <div className="text-sm text-gray-500 mb-2">Evolução de utilizadores</div>
+    <div className="card" style={{ height: 256, padding: 16, display: 'grid', gap: 12 }}>
+      <div className="text-sm text-muted">Evolução de utilizadores</div>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data}>
           <CartesianGrid strokeDasharray="4 4" />
@@ -35,8 +35,8 @@ export function RolesBarChart({
   data: { role: string; count: number }[];
 }) {
   return (
-    <div className="h-64 w-full rounded-xl border p-3">
-      <div className="text-sm text-gray-500 mb-2">Distribuição por papel</div>
+    <div className="card" style={{ height: 256, padding: 16, display: 'grid', gap: 12 }}>
+      <div className="text-sm text-muted">Distribuição por papel</div>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data}>
           <CartesianGrid strokeDasharray="4 4" />

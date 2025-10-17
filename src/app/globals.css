@@ -1,9 +1,7 @@
 /* =======================================================================
-   Tailwind layers (mantém se usares Tailwind)
+   Neo utility bundle (compilado a partir das antigas layers Tailwind)
    ======================================================================= */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import './neo-utilities.css';
 
 /* ================================ */
 /* ========== RESET BASE ========== */
@@ -526,6 +524,7 @@ input:focus,select:focus,textarea:focus{ box-shadow:var(--ring); border-color:va
 .text-fg{ color:var(--fg); }
 .text-muted{ color:var(--muted-fg); }
 .text-danger{ color:var(--danger); }
+.text-success{ color:var(--success); }
 .heading-solid{
   color:var(--fg) !important;
   background:none !important;
@@ -572,6 +571,17 @@ input:focus,select:focus,textarea:focus{ box-shadow:var(--ring); border-color:va
   background:var(--btn-primary-hover, var(--primary-600));
   color:var(--btn-primary-fg);
 }
+.btn.danger{
+  background:var(--btn-danger-bg);
+  color:var(--btn-danger-fg);
+  border-color:var(--btn-danger-bd);
+  box-shadow:var(--btn-danger-shadow);
+}
+.btn.danger:hover{
+  filter:none;
+  background:var(--btn-danger-hover, var(--danger));
+  color:var(--btn-danger-fg);
+}
 .btn.ghost{
   background:transparent;
   color:var(--btn-ghost-fg, var(--fg));
@@ -581,6 +591,15 @@ input:focus,select:focus,textarea:focus{ box-shadow:var(--ring); border-color:va
 .btn.icon{ padding:8px; border-radius:10px; width:36px; height:36px; }
 .btn.icon:hover{ background:var(--sidebar-hover); }
 .btn.chip{ padding:4px 8px; border-radius:999px; }
+
+.neo-overlay{
+  background:rgba(9,23,62,0.28);
+  backdrop-filter:blur(10px);
+}
+:root[data-theme="dark"] .neo-overlay{
+  background:rgba(3,6,18,0.52);
+  background:color-mix(in srgb, var(--bg) 74%, transparent);
+}
 
 /* ================================ */
 /* ========== APP SHELL =========== */

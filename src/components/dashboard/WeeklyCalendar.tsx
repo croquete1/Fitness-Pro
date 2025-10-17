@@ -7,11 +7,19 @@ interface WeeklyCalendarProps {
 
 export function WeeklyCalendar({ week }: WeeklyCalendarProps) {
   return (
-    <div className="grid grid-cols-7 gap-2 bg-white p-4 rounded-lg shadow">
+    <div
+      className="card"
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
+        gap: 8,
+        padding: 16,
+      }}
+    >
       {week.map(({ day, workout }) => (
         <div key={day} className="text-center">
           <p className="font-medium">{day}</p>
-          <p className="text-sm text-gray-600">{workout || '-'}</p>
+          <p className="text-sm text-muted">{workout || '-'}</p>
         </div>
       ))}
     </div>

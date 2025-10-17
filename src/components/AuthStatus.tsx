@@ -5,12 +5,12 @@ export default function AuthStatus() {
   const { data: session, status } = useSession();
 
   if (status === "loading") {
-    return <div className="text-gray-600">A verificar sessão...</div>;
+    return <div className="text-muted">A verificar sessão...</div>;
   }
 
   if (status === "unauthenticated" || !session) {
     return (
-      <div className="text-red-600">
+      <div className="text-danger">
         Não autenticado. <a href="/login" className="underline">Iniciar sessão</a>
       </div>
     );
@@ -18,11 +18,11 @@ export default function AuthStatus() {
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-green-700">
+      <span className="text-success">
         Sessão ativa: {session.user?.email || session.user?.name}
       </span>
       <button
-        className="ml-2 text-sm px-2 py-1 bg-gray-200 rounded hover:bg-red-200 transition"
+        className="btn ghost"
         onClick={() => signOut({ callbackUrl: "/login" })}
       >
         Terminar sessão

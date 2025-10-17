@@ -19,10 +19,11 @@ export default function RecentActivityList({
       {activities.map(act => (
         <li
           key={act.id}
-          className="flex justify-between p-3 bg-white rounded shadow"
+          className="card"
+          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 12 }}
         >
           <span>{act.description}</span>
-          <time className="text-xs text-gray-500">
+          <time className="text-xs text-muted">
             {new Date(act.timestamp).toLocaleString()}
           </time>
         </li>
