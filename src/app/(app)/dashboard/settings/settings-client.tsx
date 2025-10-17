@@ -3,7 +3,7 @@
 import * as React from 'react';
 import type { AppRole } from '@/lib/roles';
 import { useColorMode } from '@/components/layout/ColorModeProvider';
-import UIButton from '@/components/ui/UIButton';
+import Button from '@/components/ui/Button';
 import {
   type AdminSettings,
   type ClientSettings,
@@ -45,11 +45,7 @@ type RolePreferences =
   | { role: 'CLIENT'; value: ClientSettings };
 
 function SectionCard({ children }: { children: React.ReactNode }) {
-  return (
-    <section className="card space-y-6 p-6">
-      {children}
-    </section>
-  );
+  return <section className="neo-panel settings-section">{children}</section>;
 }
 
 function Field({
@@ -62,12 +58,10 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <label className="grid gap-2 text-sm">
-      <span className="font-medium text-[color:var(--fg)]">{label}</span>
+    <label className="settings-field">
+      <span className="settings-field__label">{label}</span>
       {children}
-      {description ? (
-        <span className="text-xs text-[color:var(--muted-fg)]">{description}</span>
-      ) : null}
+      {description ? <span className="settings-field__hint">{description}</span> : null}
     </label>
   );
 }
@@ -107,14 +101,14 @@ function Checkbox({
   label: string;
 }) {
   return (
-    <label className="flex items-center gap-2 text-sm text-[color:var(--fg)]">
+    <label className="settings-checkbox">
       <input
         type="checkbox"
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
         className="neo-checkbox"
       />
-      <span className="text-[color:var(--fg)]">{label}</span>
+      <span>{label}</span>
     </label>
   );
 }
@@ -148,11 +142,12 @@ function Select({
 
 function StatusMessage({ status }: { status: Status }) {
   if (status.type === 'idle') return null;
-  const tone =
-    status.type === 'success'
-      ? 'var(--success-strong, var(--success, #10b981))'
-      : 'var(--danger-strong, var(--danger, #ef4444))';
-  return <p className="text-sm font-medium" style={{ color: tone }}>{status.message}</p>;
+  const tone = status.type === 'success' ? 'var(--success)' : 'var(--danger)';
+  return (
+    <p className="settings-status" style={{ color: tone }}>
+      {status.message}
+    </p>
+  );
 }
 
 function isEqualNotifications(a: NotificationPreferences, b: NotificationPreferences) {
@@ -175,8 +170,7 @@ function AccountSettingsCard({
   }, [account.name, account.phone, account.email]);
 
   const dirty =
-    form.name.trim() !== (account.name ?? '').trim() ||
-    (form.phone ?? '') !== (account.phone ?? '');
+    form.name.trim() !== (account.name ?? '').trim() || (form.phone ?? '') !== (account.phone ?? '');
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -206,15 +200,15 @@ function AccountSettingsCard({
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-6">
-      <header className="space-y-1">
-        <h2 className="text-lg font-semibold">Dados da conta</h2>
-        <p className="text-sm text-[color:var(--muted-fg)]">
+    <form onSubmit={onSubmit} className="settings-form">
+      <header className="settings-section__header">
+        <h2 className="settings-section__title">Dados da conta</h2>
+        <p className="settings-section__description">
           Atualiza o nome visível e o contacto associado à tua conta.
         </p>
       </header>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="settings-fields" data-columns="2">
         <Field label="Nome completo">
           <TextInput value={form.name} onChange={(value) => setForm((prev) => ({ ...prev, name: value }))} />
         </Field>
@@ -229,15 +223,11 @@ function AccountSettingsCard({
         </Field>
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="settings-actions">
         <StatusMessage status={status} />
-        <UIButton
-          type="submit"
-          disabled={!dirty || saving}
-          className="inline-flex items-center justify-center"
-        >
-          {saving ? 'A guardar…' : 'Guardar alterações'}
-        </UIButton>
+        <Button type="submit" variant="primary" disabled={!dirty} loading={saving} loadingText="A guardar…">
+          Guardar alterações
+        </Button>
       </div>
     </form>
   );
@@ -312,33 +302,29 @@ function CredentialsCard({
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-6">
-      <header className="space-y-1">
-        <h2 className="text-lg font-semibold">Credenciais</h2>
-        <p className="text-sm text-[color:var(--muted-fg)]">
+    <form onSubmit={onSubmit} className="settings-form">
+      <header className="settings-section__header">
+        <h2 className="settings-section__title">Credenciais</h2>
+        <p className="settings-section__description">
           Atualiza o email de acesso e define uma nova palavra-passe.
         </p>
       </header>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="settings-fields" data-columns="2">
         <Field label="Email de acesso">
           <TextInput type="email" value={form.email} onChange={(value) => setForm((prev) => ({ ...prev, email: value }))} />
         </Field>
-        <div className="space-y-2">
-          <Field
-            label="Palavra-passe atual"
-            description="Necessária para definir uma nova palavra-passe."
-          >
-            <TextInput
-              type="password"
-              value={form.currentPassword}
-              onChange={(value) => setForm((prev) => ({ ...prev, currentPassword: value }))}
-            />
-          </Field>
-        </div>
+        <Field label="Palavra-passe atual" description="Necessária para definir uma nova palavra-passe.">
+          <TextInput
+            type="password"
+            value={form.currentPassword}
+            onChange={(value) => setForm((prev) => ({ ...prev, currentPassword: value }))}
+            disabled={!wantsPasswordChange}
+          />
+        </Field>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="settings-fields" data-columns="2">
         <Field label="Nova palavra-passe" description="Mínimo 8 caracteres.">
           <TextInput
             type="password"
@@ -358,23 +344,17 @@ function CredentialsCard({
       </div>
 
       {wantsPasswordChange && form.newPassword.length > 0 && form.newPassword.length < 8 ? (
-        <p className="text-sm text-[color:var(--warning, #f59f0b)]">
-          A nova palavra-passe deve ter pelo menos 8 caracteres.
-        </p>
+        <p className="settings-warning">A nova palavra-passe deve ter pelo menos 8 caracteres.</p>
       ) : null}
       {passwordMismatch ? (
-        <p className="text-sm text-[color:var(--warning, #f59f0b)]">As palavras-passe não coincidem.</p>
+        <p className="settings-warning">As palavras-passe não coincidem.</p>
       ) : null}
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="settings-actions">
         <StatusMessage status={status} />
-        <UIButton
-          type="submit"
-          disabled={disabled}
-          className="inline-flex items-center justify-center"
-        >
+        <Button type="submit" variant="primary" disabled={disabled} loading={saving} loadingText="A guardar…">
           {saving ? 'A guardar…' : 'Atualizar credenciais'}
-        </UIButton>
+        </Button>
       </div>
     </form>
   );
@@ -399,7 +379,14 @@ function PreferencesCard({
 
   React.useEffect(() => {
     setForm(initialPrefs);
-  }, [initialPrefs.language, initialPrefs.theme, initialPrefs.notifications.email, initialPrefs.notifications.push, initialPrefs.notifications.sms, initialPrefs.notifications.summary]);
+  }, [
+    initialPrefs.language,
+    initialPrefs.theme,
+    initialPrefs.notifications.email,
+    initialPrefs.notifications.push,
+    initialPrefs.notifications.sms,
+    initialPrefs.notifications.summary,
+  ]);
 
   React.useEffect(() => {
     setRoleForm(rolePrefs);
@@ -430,7 +417,11 @@ function PreferencesCard({
       });
       if (!res.ok) throw new Error('ERR');
       onSaved(form, roleForm);
-      setColorMode(form.theme === 'system' ? defaultThemeFromSystem() : form.theme);
+      const resolvedMode =
+        form.theme === 'system'
+          ? defaultThemeFromSystem()
+          : (form.theme as Exclude<ThemePreference, 'system'>);
+      setColorMode(resolvedMode);
       setStatus({ type: 'success', message: 'Preferências atualizadas.' });
     } catch {
       setStatus({ type: 'error', message: 'Não foi possível guardar as preferências.' });
@@ -440,15 +431,15 @@ function PreferencesCard({
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-6">
-      <header className="space-y-1">
-        <h2 className="text-lg font-semibold">Preferências</h2>
-        <p className="text-sm text-[color:var(--muted-fg)]">
+    <form onSubmit={onSubmit} className="settings-form">
+      <header className="settings-section__header">
+        <h2 className="settings-section__title">Preferências</h2>
+        <p className="settings-section__description">
           Ajusta idioma, notificações e definições específicas do teu papel.
         </p>
       </header>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="settings-fields" data-columns="2">
         <Field label="Idioma da interface">
           <Select
             value={form.language}
@@ -472,9 +463,9 @@ function PreferencesCard({
         </Field>
       </div>
 
-      <div className="space-y-3 rounded-lg border border-[color:color-mix(in_srgb,var(--border)_70%,transparent)] bg-[color:color-mix(in_srgb,var(--card-bg)_94%,var(--bg)_6%)] p-4 shadow-[0_16px_34px_rgba(12,34,66,0.08)]">
-        <p className="text-sm font-semibold text-[color:var(--fg)]">Notificações gerais</p>
-        <div className="grid gap-2 sm:grid-cols-2">
+      <div className="settings-subpanel">
+        <p className="settings-subpanel__title">Notificações gerais</p>
+        <div className="settings-toggle-grid">
           <Checkbox
             checked={form.notifications.email}
             onChange={(value) =>
@@ -528,61 +519,39 @@ function PreferencesCard({
         </div>
       </div>
 
-      {role === 'ADMIN' ? (
-        <RoleSpecificFields
-          role="ADMIN"
-          value={roleForm as AdminSettings}
-          onChange={(next) => setRoleForm(next)}
-        />
-      ) : role === 'PT' ? (
-        <RoleSpecificFields
-          role="PT"
-          value={roleForm as TrainerSettings}
-          onChange={(next) => setRoleForm(next)}
-        />
-      ) : (
-        <RoleSpecificFields
-          role="CLIENT"
-          value={roleForm as ClientSettings}
-          onChange={(next) => setRoleForm(next)}
-        />
-      )}
+      <RolePreferencesSection role={role} value={roleForm} onChange={setRoleForm} />
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="settings-actions">
         <StatusMessage status={status} />
-        <UIButton
-          type="submit"
-          disabled={!dirty || saving}
-          className="inline-flex items-center justify-center"
-        >
-          {saving ? 'A guardar…' : 'Guardar preferências'}
-        </UIButton>
+        <Button type="submit" variant="primary" disabled={!dirty} loading={saving} loadingText="A guardar…">
+          Guardar preferências
+        </Button>
       </div>
     </form>
   );
 }
 
-function defaultThemeFromSystem(): 'light' | 'dark' {
-  if (typeof window === 'undefined') return 'light';
-  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-}
-
-type RoleSpecificFieldsProps =
-  | { role: 'ADMIN'; value: AdminSettings; onChange: (next: AdminSettings) => void }
-  | { role: 'PT'; value: TrainerSettings; onChange: (next: TrainerSettings) => void }
-  | { role: 'CLIENT'; value: ClientSettings; onChange: (next: ClientSettings) => void };
-
-function RoleSpecificFields(props: RoleSpecificFieldsProps) {
-  if (props.role === 'ADMIN') {
-    const value = props.value as AdminSettings;
+function RolePreferencesSection({
+  role,
+  value,
+  onChange,
+}: {
+  role: AppRole;
+  value: RolePreferences['value'];
+  onChange: (value: RolePreferences['value']) => void;
+}) {
+  if (role === 'ADMIN') {
+    const admin = value as AdminSettings;
     return (
-      <div className="space-y-4 rounded-lg border border-[color:color-mix(in_srgb,var(--border)_70%,transparent)] bg-[color:color-mix(in_srgb,var(--card-bg)_94%,var(--bg)_6%)] p-4 shadow-[0_16px_34px_rgba(12,34,66,0.08)]">
-        <p className="text-sm font-semibold text-[color:var(--fg)]">Preferências de administrador</p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Frequência dos relatórios">
+      <div className="settings-subpanel">
+        <p className="settings-subpanel__title">Preferências de administrador</p>
+        <div className="settings-toggle-grid">
+          <Field label="Frequência do resumo">
             <Select
-              value={value.digestFrequency}
-              onChange={(val) => props.onChange({ ...value, digestFrequency: val as AdminSettings['digestFrequency'] })}
+              value={admin.digestFrequency}
+              onChange={(val) =>
+                onChange({ ...admin, digestFrequency: val as AdminSettings['digestFrequency'] })
+              }
               options={[
                 { value: 'daily', label: 'Diário' },
                 { value: 'weekly', label: 'Semanal' },
@@ -591,40 +560,42 @@ function RoleSpecificFields(props: RoleSpecificFieldsProps) {
             />
           </Field>
           <Checkbox
-            checked={value.autoAssignTrainers}
-            onChange={(val) => props.onChange({ ...value, autoAssignTrainers: val })}
-            label="Atribuir automaticamente novos clientes a um PT disponível"
+            checked={admin.autoAssignTrainers}
+            onChange={(val) => onChange({ ...admin, autoAssignTrainers: val })}
+            label="Atribuir automaticamente PTs disponíveis"
           />
           <Checkbox
-            checked={value.shareInsights}
-            onChange={(val) => props.onChange({ ...value, shareInsights: val })}
-            label="Partilhar métricas de utilização com a equipa"
+            checked={admin.shareInsights}
+            onChange={(val) => onChange({ ...admin, shareInsights: val })}
+            label="Partilhar indicadores com a equipa"
           />
         </div>
       </div>
     );
   }
 
-  if (props.role === 'PT') {
-    const value = props.value as TrainerSettings;
+  if (role === 'PT') {
+    const trainer = value as TrainerSettings;
     return (
-      <div className="space-y-4 rounded-lg border border-[color:color-mix(in_srgb,var(--border)_70%,transparent)] bg-[color:color-mix(in_srgb,var(--card-bg)_94%,var(--bg)_6%)] p-4 shadow-[0_16px_34px_rgba(12,34,66,0.08)]">
-        <p className="text-sm font-semibold text-[color:var(--fg)]">Preferências de Personal Trainer</p>
-        <div className="grid gap-3 sm:grid-cols-2">
+      <div className="settings-subpanel">
+        <p className="settings-subpanel__title">Preferências de treinador</p>
+        <div className="settings-toggle-grid">
           <Checkbox
-            checked={value.sessionReminders}
-            onChange={(val) => props.onChange({ ...value, sessionReminders: val })}
+            checked={trainer.sessionReminders}
+            onChange={(val) => onChange({ ...trainer, sessionReminders: val })}
             label="Receber lembretes antes de cada sessão"
           />
           <Checkbox
-            checked={value.newClientAlerts}
-            onChange={(val) => props.onChange({ ...value, newClientAlerts: val })}
+            checked={trainer.newClientAlerts}
+            onChange={(val) => onChange({ ...trainer, newClientAlerts: val })}
             label="Alertar quando um novo cliente for atribuído"
           />
           <Field label="Visibilidade do calendário">
             <Select
-              value={value.calendarVisibility}
-              onChange={(val) => props.onChange({ ...value, calendarVisibility: val as TrainerSettings['calendarVisibility'] })}
+              value={trainer.calendarVisibility}
+              onChange={(val) =>
+                onChange({ ...trainer, calendarVisibility: val as TrainerSettings['calendarVisibility'] })
+              }
               options={[
                 { value: 'clients', label: 'Visível para clientes acompanhados' },
                 { value: 'private', label: 'Apenas eu' },
@@ -632,8 +603,8 @@ function RoleSpecificFields(props: RoleSpecificFieldsProps) {
             />
           </Field>
           <Checkbox
-            checked={value.allowClientReschedule}
-            onChange={(val) => props.onChange({ ...value, allowClientReschedule: val })}
+            checked={trainer.allowClientReschedule}
+            onChange={(val) => onChange({ ...trainer, allowClientReschedule: val })}
             label="Permitir que clientes proponham novas datas"
           />
         </div>
@@ -641,25 +612,25 @@ function RoleSpecificFields(props: RoleSpecificFieldsProps) {
     );
   }
 
-  const value = props.value as ClientSettings;
+  const client = value as ClientSettings;
   return (
-    <div className="space-y-4 rounded-lg border border-[color:color-mix(in_srgb,var(--border)_70%,transparent)] bg-[color:color-mix(in_srgb,var(--card-bg)_94%,var(--bg)_6%)] p-4 shadow-[0_16px_34px_rgba(12,34,66,0.08)]">
-      <p className="text-sm font-semibold text-[color:var(--fg)]">Preferências de cliente</p>
-      <div className="grid gap-3 sm:grid-cols-2">
+    <div className="settings-subpanel">
+      <p className="settings-subpanel__title">Preferências de cliente</p>
+      <div className="settings-toggle-grid">
         <Checkbox
-          checked={value.planReminders}
-          onChange={(val) => props.onChange({ ...value, planReminders: val })}
+          checked={client.planReminders}
+          onChange={(val) => onChange({ ...client, planReminders: val })}
           label="Receber lembretes dos planos e sessões"
         />
         <Checkbox
-          checked={value.trainerMessages}
-          onChange={(val) => props.onChange({ ...value, trainerMessages: val })}
+          checked={client.trainerMessages}
+          onChange={(val) => onChange({ ...client, trainerMessages: val })}
           label="Alertar quando o Personal Trainer enviar mensagens"
         />
         <Field label="Partilha de progresso">
           <Select
-            value={value.shareProgress}
-            onChange={(val) => props.onChange({ ...value, shareProgress: val as ClientSettings['shareProgress'] })}
+            value={client.shareProgress}
+            onChange={(val) => onChange({ ...client, shareProgress: val as ClientSettings['shareProgress'] })}
             options={[
               { value: 'trainer', label: 'Partilhar com o meu PT' },
               { value: 'private', label: 'Manter privado' },
@@ -667,13 +638,18 @@ function RoleSpecificFields(props: RoleSpecificFieldsProps) {
           />
         </Field>
         <Checkbox
-          checked={value.smsReminders}
-          onChange={(val) => props.onChange({ ...value, smsReminders: val })}
+          checked={client.smsReminders}
+          onChange={(val) => onChange({ ...client, smsReminders: val })}
           label="Receber SMS para check-ins diários"
         />
       </div>
     </div>
   );
+}
+
+function defaultThemeFromSystem(): Exclude<ThemePreference, 'system'> {
+  if (typeof window === 'undefined') return 'light';
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
 export default function SettingsClient({ model }: { model: SettingsModel }) {
@@ -700,10 +676,22 @@ export default function SettingsClient({ model }: { model: SettingsModel }) {
     setAccount({ name: model.name, phone: model.phone, email: model.email });
     setPreferences({ language: model.language, theme: model.theme, notifications: model.notifications });
     setRolePrefs(initialRolePrefs);
-  }, [model.id, model.name, model.phone, model.email, model.language, model.theme, model.notifications.email, model.notifications.push, model.notifications.sms, model.notifications.summary, initialRolePrefs]);
+  }, [
+    model.id,
+    model.name,
+    model.phone,
+    model.email,
+    model.language,
+    model.theme,
+    model.notifications.email,
+    model.notifications.push,
+    model.notifications.sms,
+    model.notifications.summary,
+    initialRolePrefs,
+  ]);
 
   return (
-    <div className="space-y-6">
+    <div className="settings-view">
       <SectionCard>
         <AccountSettingsCard
           account={account}

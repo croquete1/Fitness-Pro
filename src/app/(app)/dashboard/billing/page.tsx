@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Button from '@/components/ui/Button';
 import PageHeader from '@/components/ui/PageHeader';
 
 const currency = new Intl.NumberFormat('pt-PT', {
@@ -36,6 +37,12 @@ const METHOD_LABEL: Record<BillingItem['method'], string> = {
 
 const EMPTY_ITEMS: BillingItem[] = [];
 
+const issuedFormatter = new Intl.DateTimeFormat('pt-PT', {
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+});
+
 export default function BillingPage() {
   const [items] = useState<BillingItem[]>(EMPTY_ITEMS);
   const [segment, setSegment] = useState<(typeof STATUS_SEGMENTS)[number]['id']>('all');
@@ -62,7 +69,7 @@ export default function BillingPage() {
     if (!q) return filteredBySegment;
     return filteredBySegment.filter((item) =>
       [item.client, item.service, item.method, item.status]
-        .map((v) => String(v).toLowerCase())
+        .map((value) => String(value).toLowerCase())
         .some((value) => value.includes(q)),
     );
   }, [filteredBySegment, query]);
@@ -87,25 +94,26 @@ export default function BillingPage() {
       outstanding: totals.outstanding,
       refunded: totals.refunded,
       average,
-      source: usingFilters ? 'filtros activos' : 'total',
+      usingFilters,
     };
   }, [filtered, items, query, segment]);
 
   return (
-    <div className="space-y-6 px-4 py-6 md:px-8 lg:px-12">
+    <div className="client-billing">
       <PageHeader
         title="Faturação"
         subtitle="Monitoriza os fluxos de receita em tempo real, identifica pendentes e exporta rapidamente relatórios para a tua equipa financeira."
         actions={
-          <button type="button" className="btn primary" disabled>
+          <Button type="button" variant="primary" disabled>
             Exportar CSV
-          </button>
+          </Button>
         }
+        sticky={false}
       />
 
-      <section className="neo-panel space-y-5" aria-labelledby="billing-metrics-heading">
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div className="space-y-2">
+      <section className="neo-panel client-billing__panel" aria-labelledby="billing-metrics-heading">
+        <header className="client-billing__sectionHeader">
+          <div className="client-billing__sectionMeta">
             <span className="caps-tag">Resumo financeiro</span>
             <h2 id="billing-metrics-heading" className="neo-panel__title">
               Ritmo actual de faturação
@@ -114,11 +122,13 @@ export default function BillingPage() {
               Totais actualizados com base nos filtros activos, prontos para comparar com metas semanais.
             </p>
           </div>
-          <span className="neo-surface__meta">{metrics.source}</span>
-        </div>
+          <span className="status-pill" data-state={metrics.usingFilters ? 'warn' : 'ok'}>
+            {metrics.usingFilters ? 'Filtros activos' : 'Dados totais'}
+          </span>
+        </header>
 
-        <div className="neo-grid auto-fit min-[220px]:grid-cols-2 lg:grid-cols-4">
-          <article className="neo-surface neo-surface--interactive space-y-2 p-4" data-variant="primary">
+        <div className="client-billing__metrics">
+          <article className="neo-surface client-billing__metric" data-variant="primary">
             <span className="neo-surface__hint">Volume total</span>
             <span className="neo-surface__value">
               {metrics.total > 0 ? currency.format(metrics.total) : '—'}
@@ -126,7 +136,7 @@ export default function BillingPage() {
             <p className="neo-surface__meta">Últimas emissões</p>
           </article>
 
-          <article className="neo-surface neo-surface--interactive space-y-2 p-4" data-variant="warning">
+          <article className="neo-surface client-billing__metric" data-variant="warning">
             <span className="neo-surface__hint">A receber</span>
             <span className="neo-surface__value">
               {metrics.outstanding > 0 ? currency.format(metrics.outstanding) : '—'}
@@ -134,7 +144,7 @@ export default function BillingPage() {
             <p className="neo-surface__meta">Faturas pendentes</p>
           </article>
 
-          <article className="neo-surface neo-surface--interactive space-y-2 p-4" data-variant="pink">
+          <article className="neo-surface client-billing__metric" data-variant="pink">
             <span className="neo-surface__hint">Reembolsado</span>
             <span className="neo-surface__value">
               {metrics.refunded > 0 ? currency.format(metrics.refunded) : '—'}
@@ -142,7 +152,7 @@ export default function BillingPage() {
             <p className="neo-surface__meta">Período seleccionado</p>
           </article>
 
-          <article className="neo-surface neo-surface--interactive space-y-2 p-4" data-variant="teal">
+          <article className="neo-surface client-billing__metric" data-variant="teal">
             <span className="neo-surface__hint">Ticket médio</span>
             <span className="neo-surface__value">
               {metrics.average > 0 ? currency.format(metrics.average) : '—'}
@@ -152,9 +162,9 @@ export default function BillingPage() {
         </div>
       </section>
 
-      <section className="neo-panel space-y-5" aria-labelledby="billing-ledger-heading">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-2">
+      <section className="neo-panel client-billing__panel" aria-labelledby="billing-ledger-heading">
+        <header className="client-billing__sectionHeader">
+          <div className="client-billing__sectionMeta">
             <h2 id="billing-ledger-heading" className="neo-panel__title">
               Livro de faturação
             </h2>
@@ -177,45 +187,48 @@ export default function BillingPage() {
               </button>
             ))}
           </div>
-        </div>
+        </header>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Pesquisar cliente, serviço ou método…"
-            className="input w-full sm:w-80"
-            aria-label="Pesquisar lançamentos"
-          />
-          <div className="text-xs text-muted">
+        <div className="client-billing__filters">
+          <label className="neo-input-group__field client-billing__search">
+            <span className="neo-input-group__label">Pesquisar</span>
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Pesquisar cliente, serviço ou método…"
+              className="neo-input"
+              aria-label="Pesquisar lançamentos"
+            />
+          </label>
+          <div className="client-billing__resultCount">
             {filtered.length} lançamento{filtered.length === 1 ? '' : 's'}
           </div>
         </div>
 
         <div className="neo-table-wrapper" role="region" aria-live="polite">
           {filtered.length === 0 ? (
-            <div className="neo-empty">
+            <div className="neo-empty client-billing__empty">
               <span className="neo-empty__icon" aria-hidden="true">🪐</span>
               <p className="neo-empty__title">Sem lançamentos para mostrar</p>
-              <p className="text-sm text-muted">
+              <p className="neo-empty__description">
                 Ajusta os filtros ou regista uma nova venda para veres o histórico aqui.
               </p>
               {(segment !== 'all' || query.trim().length > 0) && (
-                <button
+                <Button
                   type="button"
-                  className="btn"
+                  variant="ghost"
                   onClick={() => {
                     setSegment('all');
                     setQuery('');
                   }}
                 >
                   Limpar filtros
-                </button>
+                </Button>
               )}
             </div>
           ) : (
-            <table className="neo-table">
+            <table className="neo-table client-billing__table">
               <thead>
                 <tr>
                   <th scope="col">Cliente</th>
@@ -231,7 +244,7 @@ export default function BillingPage() {
                   <tr key={item.id}>
                     <td>{item.client}</td>
                     <td>{item.service}</td>
-                    <td>{new Date(item.issuedAt).toLocaleDateString('pt-PT')}</td>
+                    <td>{issuedFormatter.format(new Date(item.issuedAt))}</td>
                     <td>{METHOD_LABEL[item.method]}</td>
                     <td>
                       <span className="neo-table__status" data-state={item.status}>

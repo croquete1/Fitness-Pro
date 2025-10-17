@@ -77,26 +77,27 @@ export default function RegisterClient() {
   }
 
   return (
-    <div className="auth-screen">
-      <div className="auth-card relative w-full max-w-xl">
-        <div className="absolute right-4 top-4 z-30">
-          <ThemeToggle />
-        </div>
-        <div className="space-y-6 rounded-3xl border border-white/20 bg-white/80 p-6 shadow-[0_38px_100px_-60px_rgba(15,23,42,0.35)] backdrop-blur-xl dark:border-slate-800/70 dark:bg-slate-950/60">
-          <div className="space-y-2 text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-white/40 bg-white/80 shadow-sm backdrop-blur dark:border-slate-800/70 dark:bg-slate-900/60">
+    <div className="auth-screen" data-auth-root>
+      <div className="auth-wrap">
+        <div className="auth-card auth-simple">
+          <div className="auth-simple__top">
+            <div className="auth-simple__logo" aria-hidden>
               <BrandLogo size={56} />
             </div>
-            <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Criar conta</h1>
-            <p className="text-sm text-slate-600 dark:text-slate-300">Junta-te à equipa {brand.name}.</p>
+            <ThemeToggle variant="subtle" />
           </div>
 
-          {err && <Alert tone="danger">{err}</Alert>}
-          {ok && <Alert tone="success">Conta criada! Já podes iniciar sessão.</Alert>}
+          <div className="auth-simple__intro">
+            <h1 className="auth-simple__title">Criar conta</h1>
+            <p className="auth-simple__subtitle">Junta-te à equipa {brand.name}.</p>
+          </div>
 
-          <form onSubmit={onSubmit} noValidate className="space-y-4">
-            <label className="flex flex-col gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
-              Nome
+          {err && <Alert tone="danger" className="auth-simple__alert">{err}</Alert>}
+          {ok && <Alert tone="success" className="auth-simple__alert">Conta criada! Já podes iniciar sessão.</Alert>}
+
+          <form onSubmit={onSubmit} noValidate className="auth-simple__form">
+            <label className="auth-simple__field">
+              <span className="auth-simple__label">Nome</span>
               <input
                 className={clsx('neo-input', fieldErr.name && 'neo-input--error')}
                 value={form.name}
@@ -113,8 +114,8 @@ export default function RegisterClient() {
               </span>
             </label>
 
-            <label className="flex flex-col gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
-              Email
+            <label className="auth-simple__field">
+              <span className="auth-simple__label">Email</span>
               <input
                 className={clsx('neo-input', fieldErr.email && 'neo-input--error')}
                 type="email"
@@ -132,8 +133,8 @@ export default function RegisterClient() {
               </span>
             </label>
 
-            <label className="flex flex-col gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
-              Palavra-passe
+            <label className="auth-simple__field">
+              <span className="auth-simple__label">Palavra-passe</span>
               <input
                 className={clsx('neo-input', fieldErr.password && 'neo-input--error')}
                 type="password"
@@ -154,7 +155,7 @@ export default function RegisterClient() {
 
             <Button
               type="submit"
-              className="w-full justify-center"
+              className="auth-simple__submit"
               disabled={loading}
               loading={loading}
               loadingText="A criar…"
@@ -163,9 +164,9 @@ export default function RegisterClient() {
             </Button>
           </form>
 
-          <p className="text-center text-sm text-slate-600 dark:text-slate-300">
+          <p className="auth-simple__footnote">
             Já tens conta?{' '}
-            <Link href="/login" className="font-semibold text-slate-900 underline decoration-wavy underline-offset-4 dark:text-slate-100">
+            <Link href="/login" className="auth-form__link auth-form__link--wavy">
               Inicia sessão
             </Link>
           </p>

@@ -4,11 +4,7 @@ import { redirect } from 'next/navigation';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { createServerClient } from '@/lib/supabaseServer';
 import { toAppRole, isPT, isAdmin } from '@/lib/roles';
-import Paper from '@mui/material/Paper';
-import Typography from '@mui/material/Typography';
-import List from '@mui/material/List';
-import ListItem from '@mui/material/ListItem';
-import ListItemText from '@mui/material/ListItemText';
+import MessagesFeed, { type MessageRow } from '@/app/(app)/dashboard/messages/_components/MessagesFeed';
 
 export default async function PTMessagesPage() {
   const session = await getSessionUserSafe();
@@ -22,24 +18,38 @@ export default async function PTMessagesPage() {
     .select('id,body,sent_at,from_id,to_id')
     .or(`from_id.eq.${session.user.id},to_id.eq.${session.user.id}`)
     .order('sent_at', { ascending: false })
-    .limit(100);
+    .limit(120);
+
+  const messages: MessageRow[] = (data ?? []) as MessageRow[];
 
   return (
-    <Paper elevation={0} sx={{ p:2 }}>
-      <Typography variant="h6" fontWeight={800} sx={{ mb: 2 }}>Mensagens</Typography>
-      <List>
-        {(data ?? []).map((m:any)=>(
-          <ListItem key={m.id} divider>
-            <ListItemText
-              primary={m.body ?? '—'}
-              secondary={m.sent_at ? new Date(m.sent_at).toLocaleString('pt-PT') : '—'}
-              primaryTypographyProps={{ noWrap: true }}
-              secondaryTypographyProps={{ noWrap: true }}
-            />
-          </ListItem>
-        ))}
-        {(!data || data.length===0) && <Typography variant="body2" color="text.secondary">Sem mensagens.</Typography>}
-      </List>
-    </Paper>
+    <div className="space-y-6">
+      <header className="page-header neo-panel neo-panel--header">
+        <div className="page-header__body">
+          <h1 className="page-header__title heading-solid">Mensagens</h1>
+          <p className="page-header__subtitle">
+            Comunicação rápida com clientes e equipa de suporte.
+          </p>
+        </div>
+      </header>
+
+      <section className="neo-panel space-y-4" aria-labelledby="pt-messages-heading">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 id="pt-messages-heading" className="neo-panel__title">
+              Histórico de mensagens
+            </h2>
+            <p className="neo-panel__subtitle">Últimas conversas ordenadas da mais recente para a mais antiga.</p>
+          </div>
+          <span className="text-sm text-muted">{messages.length} mensagem(ns)</span>
+        </div>
+
+        <MessagesFeed
+          viewerId={session.user.id}
+          messages={messages}
+          emptyDescription="Assim que trocares mensagens com os teus clientes ou equipa vão ficar disponíveis aqui."
+        />
+      </section>
+    </div>
   );
 }
