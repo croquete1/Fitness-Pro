@@ -10,7 +10,7 @@ type Props = { header?: React.ReactNode; children?: React.ReactNode };
 export default function SidebarBase({ header, children }: Props) {
   const { collapsed, isMobile, mobileOpen, closeMobile, toggleCollapse, peek, setPeek } = useSidebar();
   const isRail = !isMobile && collapsed && !peek;
-  const width = isMobile ? 'min(90vw, 320px)' : isRail ? 'var(--sb-collapsed)' : 'var(--sb-expanded)';
+  const width = isMobile ? 'min(90vw, 320px)' : isRail ? 'var(--sb-width-collapsed)' : 'var(--sb-width)';
 
   const hoverHandlers = !isMobile && collapsed
     ? {
