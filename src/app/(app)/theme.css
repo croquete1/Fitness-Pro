@@ -1,4 +1,5 @@
 /* ======= Valor seguro de --sb-col antes da hidratação ======= */
+:root{ --sb-col: var(--sb-width); }
 html[data-sb-pinned="1"][data-sb-collapsed="1"]{ --sb-col: var(--sb-width-collapsed); }
 html[data-sb-pinned="1"][data-sb-collapsed="0"]{ --sb-col: var(--sb-width); }
 html[data-sb-pinned="0"]{ --sb-col: var(--sb-width-collapsed); }
@@ -9,6 +10,7 @@ html[data-sb-pinned="0"]{ --sb-col: var(--sb-width-collapsed); }
   margin-left: var(--sb-col); width: calc(100% - var(--sb-col));
   background: var(--header-bg); border-bottom: 1px solid var(--border);
   backdrop-filter: blur(6px);
+  overflow: hidden; /* fallback */
   overflow: clip; /* impede sobrepor a barra lateral */
 }
 .app-header .header-inner{
@@ -83,16 +85,25 @@ html[data-sb-pinned="1"][data-sb-collapsed="1"] .fp-sb-flyout:focus-within{
 .brand-sub{ font-size:11px; color: var(--muted); }
 
 .fp-sb-actions{ display:flex; gap:8px; }
-.btn.icon{
-  width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center;
-  border-radius:10px; border:1px solid var(--border); background:var(--btn-bg);
+:where(.app-header, .app-main, #app-content, .fp-sb-flyout) .btn.icon{
+  width:32px;
+  height:32px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:10px;
+  border:1px solid var(--border);
+  background:var(--btn-bg);
   transition:
     background var(--sb-dur, 220ms) var(--sb-ease, cubic-bezier(.22,.7,.23,1)),
     border-color var(--sb-dur, 220ms) var(--sb-ease, cubic-bezier(.22,.7,.23,1)),
     transform 100ms ease;
 }
-.btn.icon:hover{ background:var(--hover); border-color:var(--border-strong); }
-.btn.icon:active{ transform: translateY(1px); }
+:where(.app-header, .app-main, #app-content, .fp-sb-flyout) .btn.icon:hover{
+  background:var(--hover);
+  border-color:var(--border-strong);
+}
+:where(.app-header, .app-main, #app-content, .fp-sb-flyout) .btn.icon:active{ transform: translateY(1px); }
 
 /* Esconde botões quando colapsada sem hover (evita ícones cortados) */
 html[data-sb-collapsed="1"] .fp-sb-flyout:not(:hover):not(:focus-within) .fp-sb-actions{ opacity:0; pointer-events:none; }
@@ -169,21 +180,44 @@ html[data-sb-collapsed="1"] .fp-sb-flyout:hover .fp-sb-brand{
 .row-actions{ display:flex; gap:8px; justify-content:flex-end; }
 
 /* Botões */
-.btn{
-  border:1px solid var(--border); background:var(--btn-bg); color:var(--text);
-  border-radius:10px; padding:8px 12px; font-weight:600;
+:where(.app-header, .app-main, #app-content, .fp-sb-flyout) .btn{
+  border:1px solid var(--border);
+  background:var(--btn-bg);
+  color:var(--text);
+  border-radius:10px;
+  padding:8px 12px;
+  font-weight:600;
   transition:
     background var(--sb-dur, 220ms) var(--sb-ease, cubic-bezier(.22,.7,.23,1)),
     border-color var(--sb-dur, 220ms) var(--sb-ease, cubic-bezier(.22,.7,.23,1)),
     transform 100ms ease;
 }
-.btn:hover{ background:var(--hover); border-color:var(--border-strong); }
-.btn:active{ transform: translateY(1px); }
-.btn.primary{ background:var(--primary); color:var(--on-primary); border-color:var(--primary); }
-.btn.primary:hover{ background:var(--primary-700); border-color:var(--primary-700); }
-.btn.ghost{ background:transparent; }
-.btn.danger{ background:var(--danger); color:#fff; border-color:var(--danger); }
-.btn.chip{ border-radius:999px; padding:6px 12px; background:var(--chip-bg); border-color:var(--chip-border); }
+:where(.app-header, .app-main, #app-content, .fp-sb-flyout) .btn:hover{
+  background:var(--hover);
+  border-color:var(--border-strong);
+}
+:where(.app-header, .app-main, #app-content, .fp-sb-flyout) .btn:active{ transform: translateY(1px); }
+:where(.app-header, .app-main, #app-content, .fp-sb-flyout) .btn.primary{
+  background:var(--primary);
+  color:var(--on-primary);
+  border-color:var(--primary);
+}
+:where(.app-header, .app-main, #app-content, .fp-sb-flyout) .btn.primary:hover{
+  background:var(--primary-700);
+  border-color:var(--primary-700);
+}
+:where(.app-header, .app-main, #app-content, .fp-sb-flyout) .btn.ghost{ background:transparent; }
+:where(.app-header, .app-main, #app-content, .fp-sb-flyout) .btn.danger{
+  background:var(--danger);
+  color:#fff;
+  border-color:var(--danger);
+}
+:where(.app-header, .app-main, #app-content, .fp-sb-flyout) .btn.chip{
+  border-radius:999px;
+  padding:6px 12px;
+  background:var(--chip-bg);
+  border-color:var(--chip-border);
+}
 
 /* Chips & Badges */
 .chip{
