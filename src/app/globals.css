@@ -108,6 +108,16 @@ body{
   --sidebar-hover:rgba(0,148,255,0.1);
   --sidebar-active:rgba(127,91,255,0.14);
 
+  /* Legacy aliases e tokens partilhados */
+  --text:var(--fg);
+  --muted:var(--muted-fg);
+  --active:var(--sidebar-active);
+  --border-strong:rgba(73,115,255,0.32);
+  --on-primary:#021b2e;
+  --primary-700:var(--primary-600);
+  --chip-bg:rgba(255,255,255,0.82);
+  --chip-border:rgba(87,122,255,0.28);
+
   /* Sidebar sizes/anim – alinhados com o tema Neo */
   --sb-width:264px;
   --sb-width-collapsed:72px;
@@ -163,6 +173,10 @@ body{
   --sidebar-hover:rgba(75,231,255,0.1);
   --sidebar-active:rgba(127,91,255,0.18);
 
+  --border-strong:rgba(96,136,255,0.5);
+  --chip-bg:rgba(10,18,32,0.88);
+  --chip-border:rgba(96,136,255,0.42);
+
   --accent:#b174ff;
   --accent-2:#5af5ff;
 
@@ -181,6 +195,24 @@ body{
     --primary:#4be7ff; --primary-600:#00b2d6;
     --sidebar-bg:rgba(6,11,24,0.94); --sidebar-fg:#e6ebff; --sidebar-muted:#b8c8f8;
     --sidebar-hover:rgba(75,231,255,0.1); --sidebar-active:rgba(127,91,255,0.18);
+    --border-strong:rgba(96,136,255,0.5); --chip-bg:rgba(10,18,32,0.88); --chip-border:rgba(96,136,255,0.42);
+  }
+}
+
+@supports (color: color-mix(in srgb, red, blue)) {
+  :root {
+    --border-strong:color-mix(in srgb, var(--border) 68%, var(--primary) 32%);
+    --primary-700:color-mix(in srgb, var(--primary-600) 86%, var(--primary) 14%);
+    --chip-bg:color-mix(in srgb, var(--card-bg) 92%, transparent 8%);
+    --chip-border:color-mix(in srgb, var(--border) 88%, transparent 12%);
+    --on-primary:color-mix(in srgb, #021b2e 80%, var(--fg) 20%);
+  }
+
+  :root[data-theme="dark"] {
+    --border-strong:color-mix(in srgb, var(--border) 72%, var(--primary) 28%);
+    --chip-bg:color-mix(in srgb, var(--card-bg) 88%, transparent 12%);
+    --chip-border:color-mix(in srgb, var(--border) 84%, transparent 16%);
+    --on-primary:color-mix(in srgb, #021b2e 65%, var(--fg) 35%);
   }
 }
 

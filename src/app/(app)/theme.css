@@ -1,17 +1,7 @@
-/* ================= TOKENS ================= */
-:root{
-  /* Mantém apenas tokens específicos desta folha; os restantes vivem em globals.css */
-  --sb-peek-delay: 220ms;
-}
-
 /* ======= Valor seguro de --sb-col antes da hidratação ======= */
 html[data-sb-pinned="1"][data-sb-collapsed="1"]{ --sb-col: var(--sb-width-collapsed); }
 html[data-sb-pinned="1"][data-sb-collapsed="0"]{ --sb-col: var(--sb-width); }
 html[data-sb-pinned="0"]{ --sb-col: var(--sb-width-collapsed); }
-
-/* Base */
-html, body { background: var(--bg); color: var(--text); }
-* { box-sizing: border-box; }
 
 /* ================= HEADER ================= */
 .app-header{
@@ -50,7 +40,10 @@ html, body { background: var(--bg); color: var(--text); }
   position: fixed; left: 0; top: 0; height: 100dvh; width: var(--sb-width);
   transform: translateX(0);
   will-change: transform, width, box-shadow;
-  transition: transform var(--sb-dur, 220ms) cubic-bezier(.2,.8,.2,1), width var(--sb-dur, 220ms) cubic-bezier(.2,.8,.2,1), box-shadow 160ms ease;
+  transition:
+    transform var(--sb-dur, 220ms) var(--sb-ease, cubic-bezier(.22,.7,.23,1)),
+    width var(--sb-dur, 220ms) var(--sb-ease, cubic-bezier(.22,.7,.23,1)),
+    box-shadow var(--sb-dur, 220ms) ease;
   z-index: 9999; background: var(--sidebar-bg); border-right: 1px solid var(--border);
   overflow: hidden; pointer-events: auto;
 }
@@ -61,6 +54,9 @@ html[data-sb-pinned="0"] .fp-sb-flyout:focus-within,
 html[data-sb-pinned="0"][data-sb-peek="1"] .fp-sb-flyout{
   transform: translateX(0);
   box-shadow: 0 12px 50px rgba(0,0,0,.20), 0 1px 0 rgba(0,0,0,.06) inset;
+  transition:
+    transform var(--sb-dur, 220ms) var(--sb-ease, cubic-bezier(.22,.7,.23,1)) var(--sb-peek-delay, 220ms),
+    box-shadow var(--sb-dur, 220ms) ease var(--sb-peek-delay, 220ms);
 }
 /* AFIXADA */
 html[data-sb-pinned="1"] .fp-sb-flyout{ transform: translateX(0); box-shadow: none; }
@@ -69,6 +65,9 @@ html[data-sb-pinned="1"][data-sb-collapsed="1"] .fp-sb-flyout:hover,
 html[data-sb-pinned="1"][data-sb-collapsed="1"] .fp-sb-flyout:focus-within{
   width: var(--sb-width);
   box-shadow: 0 12px 50px rgba(0,0,0,.20), 0 1px 0 rgba(0,0,0,.06) inset;
+  transition:
+    width var(--sb-dur, 220ms) var(--sb-ease, cubic-bezier(.22,.7,.23,1)) var(--sb-peek-delay, 220ms),
+    box-shadow var(--sb-dur, 220ms) ease var(--sb-peek-delay, 220ms);
 }
 
 /* ================= HEAD DA SIDEBAR ================= */
@@ -87,7 +86,10 @@ html[data-sb-pinned="1"][data-sb-collapsed="1"] .fp-sb-flyout:focus-within{
 .btn.icon{
   width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center;
   border-radius:10px; border:1px solid var(--border); background:var(--btn-bg);
-  transition: transform 100ms ease, background 120ms ease, border-color 120ms ease;
+  transition:
+    background var(--sb-dur, 220ms) var(--sb-ease, cubic-bezier(.22,.7,.23,1)),
+    border-color var(--sb-dur, 220ms) var(--sb-ease, cubic-bezier(.22,.7,.23,1)),
+    transform 100ms ease;
 }
 .btn.icon:hover{ background:var(--hover); border-color:var(--border-strong); }
 .btn.icon:active{ transform: translateY(1px); }
@@ -112,7 +114,10 @@ html[data-sb-collapsed="1"] .fp-sb-flyout:hover .fp-sb-actions{ opacity:1; point
   padding:10px 12px; margin:2px 0; border-radius:12px;
   text-decoration:none; color:var(--text);
   border:1px solid transparent; background:transparent;
-  transition: background 120ms ease, border-color 120ms ease, transform 100ms ease;
+  transition:
+    background var(--sb-dur, 220ms) var(--sb-ease, cubic-bezier(.22,.7,.23,1)),
+    border-color var(--sb-dur, 220ms) var(--sb-ease, cubic-bezier(.22,.7,.23,1)),
+    transform 100ms ease;
 }
 .nav-item:hover{ background: var(--hover); border-color: var(--border); }
 .nav-item:active{ transform: translateY(1px); }
@@ -134,7 +139,7 @@ html[data-sb-collapsed="1"] .fp-sb-flyout:hover .nav-section,
 html[data-sb-collapsed="1"] .fp-sb-flyout:hover .nav-label,
 html[data-sb-collapsed="1"] .fp-sb-flyout:hover .brand-text{
   opacity:1; visibility:visible; width:auto; max-width:none;
-  transition: opacity 140ms ease var(--sb-peek-delay);
+  transition: opacity 140ms ease var(--sb-peek-delay, 220ms);
 }
 html[data-sb-collapsed="1"] .fp-sb-flyout:hover .nav-item,
 html[data-sb-collapsed="1"] .fp-sb-flyout:hover .fp-sb-brand{
@@ -167,7 +172,10 @@ html[data-sb-collapsed="1"] .fp-sb-flyout:hover .fp-sb-brand{
 .btn{
   border:1px solid var(--border); background:var(--btn-bg); color:var(--text);
   border-radius:10px; padding:8px 12px; font-weight:600;
-  transition: background 120ms ease, border-color 120ms ease, transform 100ms ease;
+  transition:
+    background var(--sb-dur, 220ms) var(--sb-ease, cubic-bezier(.22,.7,.23,1)),
+    border-color var(--sb-dur, 220ms) var(--sb-ease, cubic-bezier(.22,.7,.23,1)),
+    transform 100ms ease;
 }
 .btn:hover{ background:var(--hover); border-color:var(--border-strong); }
 .btn:active{ transform: translateY(1px); }
