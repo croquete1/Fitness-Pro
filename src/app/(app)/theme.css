@@ -209,7 +209,7 @@ html[data-sb-collapsed="1"] .fp-sb-flyout:hover .fp-sb-brand{
 :where(.app-header, .app-main, #app-content, .fp-sb-flyout) .btn.ghost{ background:transparent; }
 :where(.app-header, .app-main, #app-content, .fp-sb-flyout) .btn.danger{
   background:var(--danger);
-  color:#fff;
+  color:var(--on-danger);
   border-color:var(--danger);
 }
 :where(.app-header, .app-main, #app-content, .fp-sb-flyout) .btn.chip{
@@ -232,13 +232,13 @@ html[data-sb-collapsed="1"] .fp-sb-flyout:hover .fp-sb-brand{
   font-size:12px; font-weight:600; letter-spacing:.2px;
 }
 /* Badges de role */
-.badge--role-admin{ color:#6d28d9; background:rgba(124,58,237,.10); border-color:rgba(124,58,237,.25); }
-.badge--role-trainer{ color:#2563eb; background:rgba(37,99,235,.10); border-color:rgba(37,99,235,.25); }
-.badge--role-client{ color:#0f766e; background:rgba(15,118,110,.10); border-color:rgba(15,118,110,.25); }
+.badge--role-admin{ color:var(--badge-role-admin-fg); background:var(--badge-role-admin-bg); border-color:var(--badge-role-admin-border); }
+.badge--role-trainer{ color:var(--badge-role-trainer-fg); background:var(--badge-role-trainer-bg); border-color:var(--badge-role-trainer-border); }
+.badge--role-client{ color:var(--badge-role-client-fg); background:var(--badge-role-client-bg); border-color:var(--badge-role-client-border); }
 /* Badges de status */
-.badge--status-active{ color:#166534; background:rgba(22,101,52,.10); border-color:rgba(22,101,52,.25); }
-.badge--status-pending{ color:#92400e; background:rgba(146,64,14,.10); border-color:rgba(146,64,14,.25); }
-.badge--status-suspended{ color:#b91c1c; background:rgba(185,28,28,.10); border-color:rgba(185,28,28,.25); }
+.badge--status-active{ color:var(--badge-status-active-fg); background:var(--badge-status-active-bg); border-color:var(--badge-status-active-border); }
+.badge--status-pending{ color:var(--badge-status-pending-fg); background:var(--badge-status-pending-bg); border-color:var(--badge-status-pending-border); }
+.badge--status-suspended{ color:var(--badge-status-suspended-fg); background:var(--badge-status-suspended-bg); border-color:var(--badge-status-suspended-border); }
 
 /* ================= UTILITÁRIOS ================= */
 .table-actions{ display:inline-flex; align-items:center; gap:8px; flex-wrap:wrap; }

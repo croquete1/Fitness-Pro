@@ -122,6 +122,33 @@ body{
   --chip-bg:rgba(255,255,255,0.82);
   --chip-border:rgba(87,122,255,0.28);
 
+  --on-danger:#fff;
+
+  /* Badges e chips específicos */
+  --badge-role-admin-fg:#5b21b6;
+  --badge-role-admin-bg:rgba(124,58,237,0.1);
+  --badge-role-admin-border:rgba(124,58,237,0.25);
+  --badge-role-trainer-fg:#1d4ed8;
+  --badge-role-trainer-bg:rgba(37,99,235,0.1);
+  --badge-role-trainer-border:rgba(37,99,235,0.22);
+  --badge-role-client-fg:#0f766e;
+  --badge-role-client-bg:rgba(15,118,110,0.1);
+  --badge-role-client-border:rgba(15,118,110,0.24);
+
+  --badge-status-active-fg:#166534;
+  --badge-status-active-bg:rgba(22,101,52,0.1);
+  --badge-status-active-border:rgba(22,101,52,0.24);
+  --badge-status-pending-fg:#92400e;
+  --badge-status-pending-bg:rgba(146,64,14,0.1);
+  --badge-status-pending-border:rgba(146,64,14,0.24);
+  --badge-status-suspended-fg:#b91c1c;
+  --badge-status-suspended-bg:rgba(185,28,28,0.1);
+  --badge-status-suspended-border:rgba(185,28,28,0.24);
+
+  --badge-danger-fg:var(--badge-status-suspended-fg);
+  --badge-danger-bg:var(--badge-status-suspended-bg);
+  --badge-danger-border:var(--badge-status-suspended-border);
+
   /* Sidebar sizes/anim – alinhados com o tema Neo */
   --sb-width:264px;
   --sb-width-collapsed:72px;
@@ -187,6 +214,32 @@ body{
   --chip-bg:rgba(10,18,32,0.88);
   --chip-border:rgba(96,136,255,0.42);
 
+  --on-danger:#fff;
+
+  --badge-role-admin-fg:#e3dcff;
+  --badge-role-admin-bg:rgba(76,38,165,0.32);
+  --badge-role-admin-border:rgba(146,114,255,0.5);
+  --badge-role-trainer-fg:#dbe9ff;
+  --badge-role-trainer-bg:rgba(24,70,173,0.34);
+  --badge-role-trainer-border:rgba(112,164,255,0.52);
+  --badge-role-client-fg:#cbfff3;
+  --badge-role-client-bg:rgba(13,87,82,0.34);
+  --badge-role-client-border:rgba(82,224,209,0.48);
+
+  --badge-status-active-fg:#d1fae5;
+  --badge-status-active-bg:rgba(15,118,110,0.32);
+  --badge-status-active-border:rgba(45,212,191,0.55);
+  --badge-status-pending-fg:#fde68a;
+  --badge-status-pending-bg:rgba(146,64,14,0.34);
+  --badge-status-pending-border:rgba(251,191,36,0.55);
+  --badge-status-suspended-fg:#fecaca;
+  --badge-status-suspended-bg:rgba(190,18,60,0.36);
+  --badge-status-suspended-border:rgba(248,113,113,0.55);
+
+  --badge-danger-fg:var(--badge-status-suspended-fg);
+  --badge-danger-bg:var(--badge-status-suspended-bg);
+  --badge-danger-border:var(--badge-status-suspended-border);
+
   --accent:#b174ff;
   --accent-2:#5af5ff;
 
@@ -206,6 +259,14 @@ body{
     --sidebar-bg:rgba(6,11,24,0.94); --sidebar-fg:#e6ebff; --sidebar-muted:#b8c8f8;
     --sidebar-hover:rgba(75,231,255,0.1); --sidebar-active:rgba(127,91,255,0.18);
     --border-strong:rgba(96,136,255,0.5); --chip-bg:rgba(10,18,32,0.88); --chip-border:rgba(96,136,255,0.42);
+    --on-danger:#fff;
+    --badge-role-admin-fg:#e3dcff; --badge-role-admin-bg:rgba(76,38,165,0.32); --badge-role-admin-border:rgba(146,114,255,0.5);
+    --badge-role-trainer-fg:#dbe9ff; --badge-role-trainer-bg:rgba(24,70,173,0.34); --badge-role-trainer-border:rgba(112,164,255,0.52);
+    --badge-role-client-fg:#cbfff3; --badge-role-client-bg:rgba(13,87,82,0.34); --badge-role-client-border:rgba(82,224,209,0.48);
+    --badge-status-active-fg:#d1fae5; --badge-status-active-bg:rgba(15,118,110,0.32); --badge-status-active-border:rgba(45,212,191,0.55);
+    --badge-status-pending-fg:#fde68a; --badge-status-pending-bg:rgba(146,64,14,0.34); --badge-status-pending-border:rgba(251,191,36,0.55);
+    --badge-status-suspended-fg:#fecaca; --badge-status-suspended-bg:rgba(190,18,60,0.36); --badge-status-suspended-border:rgba(248,113,113,0.55);
+    --badge-danger-fg:var(--badge-status-suspended-fg); --badge-danger-bg:var(--badge-status-suspended-bg); --badge-danger-border:var(--badge-status-suspended-border);
   }
 }
 
@@ -216,6 +277,27 @@ body{
     --chip-bg:color-mix(in srgb, var(--card-bg) 92%, transparent 8%);
     --chip-border:color-mix(in srgb, var(--border) 88%, transparent 12%);
     --on-primary:color-mix(in srgb, #021b2e 80%, var(--fg) 20%);
+    --badge-role-admin-fg:color-mix(in srgb, var(--accent) 82%, var(--fg) 18%);
+    --badge-role-admin-bg:color-mix(in srgb, var(--accent) 18%, var(--card-bg) 82%);
+    --badge-role-admin-border:color-mix(in srgb, var(--accent) 36%, transparent);
+    --badge-role-trainer-fg:color-mix(in srgb, #2563eb 82%, var(--fg) 18%);
+    --badge-role-trainer-bg:color-mix(in srgb, #2563eb 18%, var(--card-bg) 82%);
+    --badge-role-trainer-border:color-mix(in srgb, #2563eb 36%, transparent);
+    --badge-role-client-fg:color-mix(in srgb, #0f766e 80%, var(--fg) 20%);
+    --badge-role-client-bg:color-mix(in srgb, #0f766e 18%, var(--card-bg) 82%);
+    --badge-role-client-border:color-mix(in srgb, #0f766e 34%, transparent);
+    --badge-status-active-fg:color-mix(in srgb, var(--success) 78%, var(--fg) 22%);
+    --badge-status-active-bg:color-mix(in srgb, var(--success) 18%, var(--card-bg) 82%);
+    --badge-status-active-border:color-mix(in srgb, var(--success) 36%, transparent);
+    --badge-status-pending-fg:color-mix(in srgb, var(--warning) 78%, var(--fg) 22%);
+    --badge-status-pending-bg:color-mix(in srgb, var(--warning) 18%, var(--card-bg) 82%);
+    --badge-status-pending-border:color-mix(in srgb, var(--warning) 36%, transparent);
+    --badge-status-suspended-fg:color-mix(in srgb, var(--danger) 80%, var(--fg) 20%);
+    --badge-status-suspended-bg:color-mix(in srgb, var(--danger) 18%, var(--card-bg) 82%);
+    --badge-status-suspended-border:color-mix(in srgb, var(--danger) 38%, transparent);
+    --badge-danger-fg:var(--badge-status-suspended-fg);
+    --badge-danger-bg:var(--badge-status-suspended-bg);
+    --badge-danger-border:var(--badge-status-suspended-border);
   }
 
   :root[data-theme="dark"] {
@@ -225,6 +307,27 @@ body{
     --on-primary:color-mix(in srgb, #021b2e 65%, var(--fg) 35%);
     --btn-bg:color-mix(in srgb, var(--card-bg) 88%, rgba(255,255,255,0.06));
     --hover:color-mix(in srgb, var(--primary) 16%, transparent);
+    --badge-role-admin-fg:color-mix(in srgb, var(--accent) 40%, var(--fg) 60%);
+    --badge-role-admin-bg:color-mix(in srgb, var(--accent) 22%, transparent);
+    --badge-role-admin-border:color-mix(in srgb, var(--accent) 38%, transparent);
+    --badge-role-trainer-fg:color-mix(in srgb, #60a5fa 42%, var(--fg) 58%);
+    --badge-role-trainer-bg:color-mix(in srgb, #2563eb 24%, transparent);
+    --badge-role-trainer-border:color-mix(in srgb, #2563eb 40%, transparent);
+    --badge-role-client-fg:color-mix(in srgb, #5eead4 42%, var(--fg) 58%);
+    --badge-role-client-bg:color-mix(in srgb, #0f766e 24%, transparent);
+    --badge-role-client-border:color-mix(in srgb, #0f766e 40%, transparent);
+    --badge-status-active-fg:color-mix(in srgb, var(--success) 42%, var(--fg) 58%);
+    --badge-status-active-bg:color-mix(in srgb, var(--success) 24%, transparent);
+    --badge-status-active-border:color-mix(in srgb, var(--success) 42%, transparent);
+    --badge-status-pending-fg:color-mix(in srgb, var(--warning) 46%, var(--fg) 54%);
+    --badge-status-pending-bg:color-mix(in srgb, var(--warning) 26%, transparent);
+    --badge-status-pending-border:color-mix(in srgb, var(--warning) 44%, transparent);
+    --badge-status-suspended-fg:color-mix(in srgb, var(--danger) 46%, var(--fg) 54%);
+    --badge-status-suspended-bg:color-mix(in srgb, var(--danger) 28%, transparent);
+    --badge-status-suspended-border:color-mix(in srgb, var(--danger) 46%, transparent);
+    --badge-danger-fg:var(--badge-status-suspended-fg);
+    --badge-danger-bg:var(--badge-status-suspended-bg);
+    --badge-danger-border:var(--badge-status-suspended-border);
   }
 }
 
@@ -1885,7 +1988,14 @@ h1,.h1{
 .auth-wrap .auth-label{ font-size:13px; color:var(--muted-fg); }
 .auth-wrap .auth-input{ width:100%; }
 .auth-wrap .auth-password{ display:grid; grid-template-columns:1fr auto; gap:8px; }
-.badge-danger{ color:#b91c1c; background:#fee2e2; border:1px solid #fecaca; border-radius:10px; padding:8px 10px; font-size:13px; }
+.badge-danger{
+  color:var(--badge-danger-fg);
+  background:var(--badge-danger-bg);
+  border:1px solid var(--badge-danger-border);
+  border-radius:10px;
+  padding:8px 10px;
+  font-size:13px;
+}
 .small{ font-size:13px; }
 .auth-wrap .auth-actions{ display:flex; justify-content:space-between; gap:8px; }
 
