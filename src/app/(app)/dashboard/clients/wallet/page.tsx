@@ -5,6 +5,27 @@ import { redirect } from "next/navigation";
 import { getSessionUserSafe } from "@/lib/session-bridge";
 import { createServerClient } from "@/lib/supabaseServer";
 
+const transactionDateFormatter = new Intl.DateTimeFormat("pt-PT", {
+  day: "2-digit",
+  month: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+function formatTransactionDate(iso: string | null | undefined) {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+  return transactionDateFormatter.format(date);
+}
+
+function formatAmount(amount: number | null | undefined) {
+  const value = Number(amount ?? 0);
+  if (Number.isNaN(value)) return "0.00 €";
+  const prefix = value >= 0 ? "+" : "";
+  return `${prefix}${value.toFixed(2)} €`;
+}
+
 export default async function WalletPage() {
   const session = await getSessionUserSafe();
   if (!session?.user?.id) redirect("/login");
@@ -24,29 +45,29 @@ export default async function WalletPage() {
   const transactions = transactionsResult.data ?? [];
 
   return (
-    <div className="space-y-6">
-      <section className="neo-panel space-y-3" aria-labelledby="wallet-balance-heading">
-        <div>
+    <div className="client-wallet">
+      <section className="neo-panel client-wallet__panel" aria-labelledby="wallet-balance-heading">
+        <div className="neo-panel__meta">
           <h1 id="wallet-balance-heading" className="neo-panel__title">
             Carteira
           </h1>
           <p className="neo-panel__subtitle">Saldo disponível para reservas e pacotes.</p>
         </div>
-        <div className="neo-surface p-4 text-lg font-semibold text-fg" data-variant={balance >= 0 ? "success" : "danger"}>
+        <div className="neo-surface client-wallet__balance" data-variant={balance >= 0 ? "success" : "danger"}>
           Saldo atual: {balance.toFixed(2)} €
         </div>
       </section>
 
-      <section className="neo-panel space-y-4" aria-labelledby="wallet-history-heading">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
+      <section className="neo-panel client-wallet__panel" aria-labelledby="wallet-history-heading">
+        <header className="neo-panel__header client-wallet__header">
+          <div className="neo-panel__meta">
             <h2 id="wallet-history-heading" className="neo-panel__title">
               Movimentos recentes
             </h2>
             <p className="neo-panel__subtitle">Últimos 100 registos ordenados por data.</p>
           </div>
-          <span className="text-sm text-muted">{transactions.length} movimento(s)</span>
-        </div>
+          <span className="client-wallet__count">{transactions.length} movimento(s)</span>
+        </header>
 
         <div className="neo-table-wrapper">
           <table className="neo-table">
@@ -54,24 +75,17 @@ export default async function WalletPage() {
               <tr>
                 <th>Data</th>
                 <th>Descrição</th>
-                <th className="text-right">Valor</th>
+                <th className="client-wallet__amountHeading">Valor</th>
               </tr>
             </thead>
             <tbody>
-              {transactions.map((entry) => {
-                const formattedDate = entry.created_at
-                  ? new Date(entry.created_at).toLocaleString("pt-PT")
-                  : "—";
-                const amount = Number(entry.amount ?? 0);
-                const formattedAmount = `${amount >= 0 ? "+" : ""}${amount.toFixed(2)} €`;
-                return (
-                  <tr key={entry.id}>
-                    <td>{formattedDate}</td>
-                    <td className="text-sm text-muted">{entry.desc ?? "—"}</td>
-                    <td className="text-right font-semibold">{formattedAmount}</td>
-                  </tr>
-                );
-              })}
+              {transactions.map((entry) => (
+                <tr key={entry.id}>
+                  <td>{formatTransactionDate(entry.created_at)}</td>
+                  <td className="client-wallet__description">{entry.desc ?? "—"}</td>
+                  <td className="client-wallet__amount">{formatAmount(entry.amount)}</td>
+                </tr>
+              ))}
               {!transactions.length && (
                 <tr>
                   <td colSpan={3}>

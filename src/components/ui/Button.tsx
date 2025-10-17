@@ -28,20 +28,21 @@ export default function Button({
   loadingText,
   className,
   disabled,
+  type,
   ...rest
 }: ButtonProps) {
   const content = loading ? loadingText ?? DEFAULT_LOADING_LABEL : children;
-  const isDisabled = disabled ?? false;
+  const computedDisabled = (disabled ?? false) || loading;
 
   return (
     <button
-      type="button"
+      type={type ?? 'button'}
       className={clsx('btn', className)}
       data-variant={variant}
       data-size={size}
       data-loading={loading || undefined}
       aria-busy={loading || undefined}
-      disabled={isDisabled}
+      disabled={computedDisabled}
       {...rest}
     >
       {leftIcon && <span className="btn__icon btn__icon--left">{leftIcon}</span>}

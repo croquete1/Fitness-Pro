@@ -13,6 +13,15 @@ type Row = {
   notes?: string | null;
 };
 
+const historyDateFormatter = new Intl.DateTimeFormat("pt-PT");
+
+function formatHistoryDate(iso: string | null | undefined) {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+  return historyDateFormatter.format(date);
+}
+
 function calcBMI(weight: number | null | undefined, height: number | null | undefined) {
   if (!weight || !height) return null;
   const meters = height / 100;
@@ -283,16 +292,16 @@ export default function MetricsClient({ initial }: { initial: Row[] }) {
     : undefined;
 
   return (
-    <div className="space-y-6">
-      <section className="neo-panel space-y-4" aria-labelledby="metrics-form-heading">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
+    <div className="client-metrics">
+      <section className="neo-panel client-metrics__panel" aria-labelledby="metrics-form-heading">
+        <header className="neo-panel__header client-metrics__header">
+          <div className="neo-panel__meta">
             <h1 id="metrics-form-heading" className="neo-panel__title">
               Métricas antropométricas
             </h1>
             <p className="neo-panel__subtitle">Regista novas avaliações e acompanha a evolução.</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="client-metrics__cta">
             <button
               type="button"
               className="btn ghost"
@@ -317,13 +326,9 @@ export default function MetricsClient({ initial }: { initial: Row[] }) {
               className="sr-only"
             />
           </div>
-        </div>
+        </header>
 
-        <div
-          className="neo-grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
-          role="group"
-          aria-labelledby="metrics-form-heading"
-        >
+        <div className="client-metrics__formGrid" role="group" aria-labelledby="metrics-form-heading">
           <label className="neo-input-group__field">
             <span className="neo-input-group__label">Data</span>
             <input
@@ -363,7 +368,7 @@ export default function MetricsClient({ initial }: { initial: Row[] }) {
               onChange={(event) => setForm((current) => ({ ...current, fat: event.target.value }))}
             />
           </label>
-          <label className="neo-input-group__field xl:col-span-2">
+          <label className="neo-input-group__field client-metrics__notesField">
             <span className="neo-input-group__label">Notas</span>
             <textarea
               className="neo-input neo-input--textarea"
@@ -374,7 +379,7 @@ export default function MetricsClient({ initial }: { initial: Row[] }) {
           </label>
         </div>
 
-        <div className="flex justify-end">
+        <div className="client-metrics__submit">
           <button type="button" className="btn primary" onClick={add}>
             Adicionar registo
           </button>
@@ -382,23 +387,23 @@ export default function MetricsClient({ initial }: { initial: Row[] }) {
       </section>
 
       {summary && (
-        <section className="neo-panel space-y-4" aria-live="polite">
-          <div>
+        <section className="neo-panel client-metrics__panel" aria-live="polite">
+          <div className="neo-panel__meta">
             <h2 className="neo-panel__title">Resumo rápido</h2>
             <p className="neo-panel__subtitle">Última avaliação e tendência recente.</p>
           </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="neo-surface p-4">
+          <div className="client-metrics__summaryGrid">
+            <div className="neo-surface client-metrics__summaryCard">
               <span className="neo-surface__hint">Último peso</span>
-              <p className="text-lg font-semibold text-fg">{formatMetric(summary.latest.weight_kg, " kg")}</p>
+              <p className="client-metrics__summaryValue">{formatMetric(summary.latest.weight_kg, " kg")}</p>
             </div>
-            <div className="neo-surface p-4">
+            <div className="neo-surface client-metrics__summaryCard">
               <span className="neo-surface__hint">Peso médio</span>
-              <p className="text-lg font-semibold text-fg">{formatMetric(summary.avgWeight, " kg")}</p>
+              <p className="client-metrics__summaryValue">{formatMetric(summary.avgWeight, " kg")}</p>
             </div>
-            <div className="neo-surface p-4" data-variant={trendVariant}>
+            <div className="neo-surface client-metrics__summaryCard" data-variant={trendVariant}>
               <span className="neo-surface__hint">Variação</span>
-              <p className="text-lg font-semibold text-fg">
+              <p className="client-metrics__summaryValue">
                 {summary.trendWeight != null ? `${summary.trendWeight > 0 ? "+" : ""}${summary.trendWeight} kg` : "—"}
               </p>
             </div>
@@ -406,16 +411,16 @@ export default function MetricsClient({ initial }: { initial: Row[] }) {
         </section>
       )}
 
-      <section className="neo-panel space-y-4" aria-labelledby="metrics-history-heading">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
+      <section className="neo-panel client-metrics__panel" aria-labelledby="metrics-history-heading">
+        <header className="neo-panel__header client-metrics__header">
+          <div className="neo-panel__meta">
             <h2 id="metrics-history-heading" className="neo-panel__title">
               Histórico de avaliações
             </h2>
             <p className="neo-panel__subtitle">Ordenado da mais recente para a mais antiga.</p>
           </div>
-          <span className="text-sm text-muted">{rows.length} registo(s)</span>
-        </div>
+          <span className="client-metrics__count">{rows.length} registo(s)</span>
+        </header>
 
         <div className="neo-table-wrapper">
           <table className="neo-table">
@@ -431,18 +436,15 @@ export default function MetricsClient({ initial }: { initial: Row[] }) {
             </thead>
             <tbody>
               {rows.map((row) => {
-                const formattedDate = row.measured_at
-                  ? new Date(row.measured_at).toLocaleDateString("pt-PT")
-                  : "—";
                 const bmiValue = row.bmi ?? calcBMI(row.weight_kg, row.height_cm) ?? "—";
                 return (
                   <tr key={row.id}>
-                    <td>{formattedDate}</td>
+                    <td>{formatHistoryDate(row.measured_at)}</td>
                     <td>{formatMetric(row.weight_kg, " kg")}</td>
                     <td>{formatMetric(row.height_cm, " cm")}</td>
                     <td>{formatMetric(row.body_fat_pct, "%")}</td>
                     <td>{formatMetric(typeof bmiValue === "number" ? bmiValue : null)}</td>
-                    <td className="whitespace-pre-wrap text-sm text-muted">{row.notes ?? ""}</td>
+                    <td className="client-metrics__note">{row.notes ?? ""}</td>
                   </tr>
                 );
               })}

@@ -1,17 +1,12 @@
 'use client';
 
 import * as React from 'react';
-import {
-  AlertCircle,
-  Camera,
-  CheckCircle2,
-  Loader2,
-  Save,
-  ShieldCheck,
-  Trash2,
-} from 'lucide-react';
+import clsx from 'clsx';
+import { Camera, Loader2, Save, ShieldCheck, Trash2 } from 'lucide-react';
+
+import Alert from '@/components/ui/Alert';
+import Button from '@/components/ui/Button';
 import { normalizeUsername, validateUsernameCandidate } from '@/lib/username';
-import UIButton from '@/components/ui/UIButton';
 
 type ProfileModel = {
   id: string;
@@ -42,6 +37,13 @@ type FormState = {
   birthDate: string;
   bio: string;
   avatarUrl: string;
+};
+
+type UsernameHelperTone = 'muted' | 'checking' | 'success' | 'error';
+
+type UsernameHelper = {
+  message: string;
+  tone: UsernameHelperTone;
 };
 
 function normalizeDateInput(value: string | null) {
@@ -84,40 +86,20 @@ function sanitizeInitial(profile: ProfileModel): FormState {
   };
 }
 
-function StatusMessage({ status, id }: { status: Status; id: string }) {
-  if (status.type === 'idle') return null;
-  const Icon = status.type === 'success' ? CheckCircle2 : AlertCircle;
-  const tone =
-    status.type === 'success'
-      ? 'var(--success-strong, var(--success, #10b981))'
-      : 'var(--danger-strong, var(--danger, #ef4444))';
-
-  return (
-    <p
-      id={id}
-      role="status"
-      aria-live="polite"
-      className="inline-flex items-center gap-2 text-sm font-medium"
-      style={{ color: tone }}
-    >
-      <Icon className="h-4 w-4" aria-hidden />
-      <span>{status.message}</span>
-    </p>
-  );
-}
-
 function AvatarPreview({
   url,
   email,
   name,
   className,
   style,
+  size = 'lg',
 }: {
   url: string;
   email: string;
   name: string;
   className?: string;
   style?: React.CSSProperties;
+  size?: 'md' | 'lg';
 }) {
   const initials = React.useMemo(() => {
     const base = name || email || '';
@@ -127,26 +109,67 @@ function AvatarPreview({
   }, [email, name]);
 
   return (
-    <div
-      className={`flex h-28 w-28 items-center justify-center overflow-hidden rounded-full text-2xl font-semibold transition-all duration-200 ${
-        className ?? ''
-      }`}
-      style={{
-        border: '1px solid var(--avatar-border, rgba(148,163,209,0.4))',
-        background: 'var(--avatar-bg, rgba(226,232,255,0.32))',
-        color: 'var(--avatar-fg, var(--muted-fg))',
-        boxShadow: 'var(--avatar-shadow, 0 18px 42px rgba(15,35,92,0.12))',
-        ...style,
-      }}
-    >
+    <div className={clsx('profile-avatar', className)} data-size={size} style={style}>
       {url ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={url} alt={name || email} className="h-full w-full object-cover" />
+        <img src={url} alt={name || email} />
       ) : (
         <span>{initials}</span>
       )}
     </div>
   );
+}
+
+function ProfileStatus({ status, id }: { status: Status; id: string }) {
+  if (status.type === 'idle') return null;
+  const tone = status.type === 'success' ? 'success' : 'danger';
+  const message =
+    status.message ??
+    (status.type === 'success'
+      ? 'Alterações guardadas com sucesso.'
+      : 'Não foi possível concluir a ação.');
+  return <Alert id={id} tone={tone} className="profile-status" title={message} />;
+}
+
+function resolveUsernameHelper(value: string, status: UsernameStatus): UsernameHelper {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return {
+      message: 'Opcional. Usa letras, números, ponto, hífen ou underscore.',
+      tone: 'muted',
+    };
+  }
+
+  switch (status.state) {
+    case 'checking':
+      return { message: 'A verificar disponibilidade…', tone: 'checking' };
+    case 'taken':
+      return { message: 'Este username já está em uso.', tone: 'error' };
+    case 'invalid':
+      if (status.reason === 'reserved') {
+        return { message: 'Este username não está disponível.', tone: 'error' };
+      }
+      if (status.reason === 'length') {
+        return { message: 'O username deve ter entre 3 e 30 caracteres.', tone: 'error' };
+      }
+      if (status.reason === 'format') {
+        return {
+          message: 'Só podes usar letras, números, ponto, hífen ou underscore.',
+          tone: 'error',
+        };
+      }
+      return {
+        message: 'O username deve ter entre 3 e 30 caracteres válidos.',
+        tone: 'error',
+      };
+    case 'error':
+      return { message: 'Não foi possível validar o username agora.', tone: 'error' };
+    case 'available':
+      return { message: 'Perfeito! Este username está disponível.', tone: 'success' };
+    case 'idle':
+    default:
+      return { message: 'Este será o teu identificador público.', tone: 'muted' };
+  }
 }
 
 export default function ProfileClient({ initialProfile }: { initialProfile: ProfileModel }) {
@@ -160,6 +183,8 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const usernameHintId = React.useId();
   const statusMessageId = React.useId();
+  const heroHeadingId = React.useId();
+  const avatarAsideLabelId = React.useId();
 
   React.useEffect(() => {
     const candidate = form.username.trim();
@@ -228,6 +253,14 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
       form.avatarUrl.trim() !== baseline.avatarUrl.trim()
     );
   }, [form, baseline]);
+
+  const usernameHelper = React.useMemo(() => resolveUsernameHelper(form.username, usernameStatus), [
+    form.username,
+    usernameStatus,
+  ]);
+
+  const displayName = form.name.trim() || initialProfile.email;
+  const roleLabel = initialProfile.role ?? 'Cliente';
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -341,93 +374,80 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
   }
 
   return (
-    <div className="space-y-6">
-      <section className="card overflow-hidden">
-        <div className="profile-hero px-6 py-6">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-2">
-              <span className="profile-hero__muted text-xs font-semibold uppercase tracking-[0.18em]">
-                Perfil do cliente
-              </span>
-              <h1 className="text-2xl font-semibold sm:text-3xl">
-                {form.name.trim() || initialProfile.email}
-              </h1>
-              <p className="profile-hero__muted max-w-xl text-sm">
-                Atualiza os teus dados pessoais e controla a forma como és identificado na plataforma.
-              </p>
-            </div>
-            <div className="flex flex-col items-center gap-3 lg:items-end">
-              <AvatarPreview
-                url={form.avatarUrl}
-                email={initialProfile.email}
-                name={form.name}
-                className="profile-hero__avatar h-24 w-24 md:h-28 md:w-28"
-              />
-              <div className="profile-hero__muted flex flex-col items-center gap-2 text-xs font-medium lg:items-end">
-                <span className="profile-hero__pill">
-                  {initialProfile.role ?? 'Cliente'}
-                </span>
-                <span>{initialProfile.email}</span>
-              </div>
-            </div>
+    <div className="profile-shell">
+      <section className="neo-panel profile-panel" aria-labelledby={heroHeadingId}>
+        <div className="profile-panel__hero profile-hero">
+          <div className="profile-panel__intro">
+            <span className="profile-panel__introLabel">Perfil do cliente</span>
+            <h1 id={heroHeadingId} className="profile-panel__title">
+              {displayName}
+            </h1>
+            <p className="profile-panel__description">
+              Atualiza os teus dados pessoais e controla a forma como és identificado na plataforma.
+            </p>
           </div>
-        </div>
-
-        <div className="flex flex-col gap-6 p-6 lg:flex-row">
-          <div
-            className="flex flex-col items-center gap-4 rounded-2xl bg-[color:color-mix(in_srgb,var(--card-bg)_92%,var(--bg)_8%)] p-5 text-sm text-[color:var(--fg)] shadow-sm ring-1 ring-[color:color-mix(in_srgb,var(--border)_68%,transparent)] dark:bg-[color:color-mix(in_srgb,var(--card-bg)_86%,transparent)] dark:ring-[color:color-mix(in_srgb,var(--border)_72%,transparent)] lg:w-56"
-          >
+          <div className="profile-panel__heroMeta">
             <AvatarPreview
               url={form.avatarUrl}
               email={initialProfile.email}
               name={form.name}
-              className="h-24 w-24 md:h-28 md:w-28"
-              style={{
-                '--avatar-border': 'color-mix(in srgb, var(--border) 70%, transparent)',
-                '--avatar-bg': 'color-mix(in srgb, var(--card-bg) 94%, var(--bg) 6%)',
-                '--avatar-shadow': '0 18px 44px color-mix(in srgb, var(--border) 22%, transparent)',
-              } as React.CSSProperties}
+              className="profile-hero__avatar"
+              size="lg"
             />
-            <div className="flex flex-col items-center gap-2 text-[color:var(--muted-fg)]">
-              <UIButton
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={avatarBusy}
-                variant="outline"
+            <div className="profile-panel__meta">
+              <span className="profile-panel__pill">{roleLabel}</span>
+              <span className="profile-panel__metaEmail">{initialProfile.email}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="profile-panel__body">
+          <aside className="profile-aside" aria-labelledby={avatarAsideLabelId}>
+            <h2 id={avatarAsideLabelId} className="sr-only">
+              Gestão da fotografia de perfil
+            </h2>
+            <AvatarPreview
+              url={form.avatarUrl}
+              email={initialProfile.email}
+              name={form.name}
+              className="profile-aside__avatar"
+              size="md"
+            />
+            <div className="profile-aside__actions">
+              <Button
+                variant="secondary"
                 size="sm"
-                className="inline-flex items-center justify-center gap-2"
+                onClick={() => fileInputRef.current?.click()}
+                loading={avatarBusy}
+                leftIcon={
+                  avatarBusy ? <Loader2 className="icon-spin" aria-hidden /> : <Camera className="icon" aria-hidden />
+                }
+                loadingText="A enviar…"
               >
-                {avatarBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Camera className="h-4 w-4" aria-hidden />}
-                <span>{avatarBusy ? 'A enviar…' : 'Alterar fotografia'}</span>
-              </UIButton>
+                Alterar fotografia
+              </Button>
               {form.avatarUrl ? (
                 <button
                   type="button"
                   onClick={() => setForm((prev) => ({ ...prev, avatarUrl: '' }))}
-                  className="inline-flex items-center gap-1 text-xs text-[color:var(--muted-fg)] underline transition hover:text-[color:var(--fg)]"
+                  className="profile-aside__remove"
                 >
-                  <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                  <Trash2 className="profile-aside__removeIcon" aria-hidden />
                   Remover fotografia
                 </button>
               ) : null}
             </div>
-            <p className="text-center text-xs text-[color:var(--muted-fg)]">
+            <p className="profile-aside__hint">
               Dica: escolhe uma fotografia com fundo neutro e boa iluminação para melhor visibilidade.
             </p>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={onAvatarSelected}
-            />
-          </div>
+            <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={onAvatarSelected} />
+          </aside>
 
-          <form onSubmit={onSubmit} className="flex-1 space-y-6">
-            <fieldset className="grid gap-4 md:grid-cols-2">
+          <form onSubmit={onSubmit} className="profile-form" aria-describedby={status.type === 'idle' ? undefined : statusMessageId}>
+            <fieldset className="profile-form__grid profile-form__grid--two">
               <legend className="sr-only">Informação principal</legend>
-              <label className="grid gap-2 text-sm">
-                <span className="font-medium text-[color:var(--fg)]">Nome completo</span>
+              <label className="profile-form__field">
+                <span className="profile-form__label">Nome completo</span>
                 <input
                   type="text"
                   value={form.name}
@@ -436,61 +456,41 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
                   placeholder="O teu nome"
                   autoComplete="name"
                 />
-                <span className="text-xs text-[color:var(--muted-fg)]">
+                <span className="profile-form__description">
                   Como preferes ser identificado em planos e mensagens.
                 </span>
               </label>
-              <label className="grid gap-2 text-sm">
-                <span className="font-medium text-[color:var(--fg)]">Email</span>
-                <input
-                  type="email"
-                  value={initialProfile.email}
-                  disabled
-                  className="neo-field"
-                />
-                <span className="text-xs text-[color:var(--muted-fg)]">
+              <label className="profile-form__field">
+                <span className="profile-form__label">Email</span>
+                <input type="email" value={initialProfile.email} disabled className="neo-field" />
+                <span className="profile-form__description">
                   Email principal associado à tua conta. Gestão disponível em Definições &gt; Conta.
                 </span>
               </label>
-              <label className="grid gap-2 text-sm md:col-span-2">
-                <span className="font-medium text-[color:var(--fg)]">Username</span>
+              <label className="profile-form__field profile-form__field--full">
+                <span className="profile-form__label">Username</span>
                 <input
                   type="text"
                   value={form.username}
                   onChange={(event) => setForm((prev) => ({ ...prev, username: event.target.value }))}
-                  className={`neo-field ${
-                    usernameStatus.state === 'taken' || usernameStatus.state === 'invalid' ? 'neo-field--invalid' : ''
-                  }`}
+                  className={clsx('neo-field', {
+                    'neo-field--invalid':
+                      usernameStatus.state === 'taken' || usernameStatus.state === 'invalid',
+                  })}
                   placeholder="Ex.: andremartins"
                   aria-describedby={usernameHintId}
                   autoComplete="nickname"
                 />
-                <p id={usernameHintId} className="text-xs text-[color:var(--muted-fg)]">
-                  {form.username.trim().length === 0
-                    ? 'Opcional. Usa letras, números, ponto, hífen ou underscore.'
-                    : usernameStatus.state === 'checking'
-                      ? 'A verificar disponibilidade…'
-                      : usernameStatus.state === 'taken'
-                        ? 'Este username já está em uso.'
-                    : usernameStatus.state === 'invalid'
-                      ? usernameStatus.reason === 'reserved'
-                        ? 'Este username não está disponível.'
-                        : usernameStatus.reason === 'length'
-                          ? 'O username deve ter entre 3 e 30 caracteres.'
-                          : usernameStatus.reason === 'format'
-                            ? 'Só podes usar letras, números, ponto, hífen ou underscore.'
-                            : 'O username deve ter entre 3 e 30 caracteres válidos.'
-                          : usernameStatus.state === 'error'
-                            ? 'Não foi possível validar o username agora.'
-                            : 'Este será o teu identificador público.'}
-                </p>
+                <span className="profile-form__description" id={usernameHintId} data-state={usernameHelper.tone}>
+                  {usernameHelper.message}
+                </span>
               </label>
             </fieldset>
 
-            <fieldset className="grid gap-4 md:grid-cols-2">
+            <fieldset className="profile-form__grid profile-form__grid--two">
               <legend className="sr-only">Contactos e detalhes adicionais</legend>
-              <label className="grid gap-2 text-sm">
-                <span className="font-medium text-[color:var(--fg)]">Telefone</span>
+              <label className="profile-form__field">
+                <span className="profile-form__label">Telefone</span>
                 <input
                   type="tel"
                   value={form.phone}
@@ -499,24 +499,24 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
                   className="neo-field"
                   autoComplete="tel"
                 />
-                <span className="text-xs text-[color:var(--muted-fg)]">
+                <span className="profile-form__description">
                   Partilha um contacto para comunicações rápidas com o teu treinador.
                 </span>
               </label>
-              <label className="grid gap-2 text-sm">
-                <span className="font-medium text-[color:var(--fg)]">Data de nascimento</span>
+              <label className="profile-form__field">
+                <span className="profile-form__label">Data de nascimento</span>
                 <input
                   type="date"
                   value={form.birthDate}
                   onChange={(event) => setForm((prev) => ({ ...prev, birthDate: event.target.value }))}
                   className="neo-field"
                 />
-                <span className="text-xs text-[color:var(--muted-fg)]">
+                <span className="profile-form__description">
                   Mantém os teus dados atualizados para receber planos personalizados.
                 </span>
               </label>
-              <label className="grid gap-2 text-sm md:col-span-2">
-                <span className="font-medium text-[color:var(--fg)]">Biografia</span>
+              <label className="profile-form__field profile-form__field--full">
+                <span className="profile-form__label">Biografia</span>
                 <textarea
                   value={form.bio}
                   onChange={(event) => setForm((prev) => ({ ...prev, bio: event.target.value }))}
@@ -524,52 +524,51 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
                   placeholder="Partilha um pouco sobre ti, objetivos ou preferências."
                   className="neo-field"
                 />
-                <span className="text-xs text-[color:var(--muted-fg)]">
+                <span className="profile-form__description">
                   Dá contexto ao teu treinador sobre objetivos, historial ou preferências.
                 </span>
               </label>
             </fieldset>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <StatusMessage status={status} id={statusMessageId} />
-              <UIButton
+            <div className="profile-form__actions">
+              <ProfileStatus status={status} id={statusMessageId} />
+              <Button
                 type="submit"
+                variant="primary"
+                leftIcon={
+                  saving ? <Loader2 className="icon-spin" aria-hidden /> : <Save className="icon" aria-hidden />
+                }
                 disabled={!dirty || saving || usernameStatus.state === 'checking'}
-                className="inline-flex items-center justify-center gap-2"
-                aria-describedby={status.type === 'idle' ? undefined : statusMessageId}
+                loading={saving}
+                loadingText="A guardar…"
               >
-                {saving ? (
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                ) : (
-                  <Save className="h-4 w-4" aria-hidden />
-                )}
-                <span>{saving ? 'A guardar…' : 'Guardar alterações'}</span>
-              </UIButton>
+                Guardar alterações
+              </Button>
             </div>
           </form>
         </div>
       </section>
 
-      <section className="card space-y-5 p-6">
-        <header className="flex items-start gap-3">
-          <ShieldCheck className="mt-1 h-5 w-5" aria-hidden style={{ color: 'var(--accent, #7f5bff)' }} />
-          <div className="space-y-1">
-            <h2 className="text-lg font-semibold">Acesso e segurança</h2>
-            <p className="text-sm text-[color:var(--muted-fg)]">
+      <section className="neo-panel profile-security" aria-labelledby="profile-security-heading">
+        <header className="profile-security__header">
+          <ShieldCheck className="profile-security__icon" aria-hidden />
+          <div>
+            <h2 id="profile-security-heading" className="neo-panel__title">
+              Acesso e segurança
+            </h2>
+            <p className="neo-panel__subtitle">
               A gestão da palavra-passe e notificações está disponível em <strong>Definições &gt; Conta</strong>.
             </p>
           </div>
         </header>
-        <div className="grid gap-3 text-sm text-[color:var(--muted-fg)] sm:grid-cols-2">
-          <div className="rounded-lg border border-[color:color-mix(in_srgb,var(--border)_70%,transparent)] bg-[color:color-mix(in_srgb,var(--card-bg)_96%,var(--bg)_4%)] px-4 py-3 shadow-[0_16px_34px_rgba(12,34,66,0.08)]">
-            <span className="text-xs font-semibold uppercase tracking-wide text-[color:var(--muted-fg)]">Email</span>
-            <p className="truncate text-sm font-medium text-[color:var(--fg)]">{initialProfile.email}</p>
+        <div className="profile-security__grid">
+          <div className="profile-security__item">
+            <span className="profile-security__label">Email</span>
+            <p className="profile-security__value">{initialProfile.email}</p>
           </div>
-          <div className="rounded-lg border border-[color:color-mix(in_srgb,var(--border)_70%,transparent)] bg-[color:color-mix(in_srgb,var(--card-bg)_96%,var(--bg)_4%)] px-4 py-3 shadow-[0_16px_34px_rgba(12,34,66,0.08)]">
-            <span className="text-xs font-semibold uppercase tracking-wide text-[color:var(--muted-fg)]">Função</span>
-            <p className="text-sm font-medium text-[color:var(--fg)]">
-              {initialProfile.role ?? 'Cliente'}
-            </p>
+          <div className="profile-security__item">
+            <span className="profile-security__label">Função</span>
+            <p className="profile-security__value">{roleLabel}</p>
           </div>
         </div>
       </section>
