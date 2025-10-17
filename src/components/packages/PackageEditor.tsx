@@ -134,27 +134,27 @@ export default function PackageEditor({
       {(admin || mode === 'create') && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <label className="grid gap-1">
-            <span className="text-sm text-gray-600">ID do Personal Trainer</span>
+            <span className="text-sm text-muted">ID do Personal Trainer</span>
             <input
-              className="rounded-lg border p-2"
+              className="neo-field"
               value={trainerId}
               onChange={(e) => setTrainerId(e.target.value)}
               placeholder="uuid do Personal Trainer"
             />
           </label>
           <label className="grid gap-1">
-            <span className="text-sm text-gray-600">Client ID</span>
+            <span className="text-sm text-muted">Client ID</span>
             <input
-              className="rounded-lg border p-2"
+              className="neo-field"
               value={clientId}
               onChange={(e) => setClientId(e.target.value)}
               placeholder="uuid do cliente"
             />
           </label>
           <label className="grid gap-1">
-            <span className="text-sm text-gray-600">Plan ID (opcional)</span>
+            <span className="text-sm text-muted">Plan ID (opcional)</span>
             <input
-              className="rounded-lg border p-2"
+              className="neo-field"
               value={String(planId ?? '')}
               onChange={(e) => setPlanId(e.target.value)}
               placeholder="uuid do plano"
@@ -164,9 +164,9 @@ export default function PackageEditor({
       )}
 
       <label className="grid gap-1">
-        <span className="text-sm text-gray-600">Nome do pacote</span>
+        <span className="text-sm text-muted">Nome do pacote</span>
         <input
-          className="rounded-lg border p-2"
+          className="neo-field"
           value={packageName}
           onChange={(e) => setPackageName(e.target.value)}
           placeholder="Ex.: Acompanhamento Mensal"
@@ -175,32 +175,32 @@ export default function PackageEditor({
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <label className="grid gap-1">
-          <span className="text-sm text-gray-600">Sessões/semana</span>
+          <span className="text-sm text-muted">Sessões/semana</span>
           <input
             type="number"
             min={1}
-            className="rounded-lg border p-2"
+            className="neo-field"
             value={sessionsPerWeek}
             onChange={(e) => setSessionsPerWeek(Number(e.target.value) || 0)}
           />
         </label>
         <label className="grid gap-1">
-          <span className="text-sm text-gray-600">Duração (semanas)</span>
+          <span className="text-sm text-muted">Duração (semanas)</span>
           <input
             type="number"
             min={1}
-            className="rounded-lg border p-2"
+            className="neo-field"
             value={durationWeeks}
             onChange={(e) => setDurationWeeks(Number(e.target.value) || 0)}
           />
         </label>
         <label className="grid gap-1">
-          <span className="text-sm text-gray-600">Preço/mês (€)</span>
+          <span className="text-sm text-muted">Preço/mês (€)</span>
           <input
             type="number"
             min={0}
             step="0.01"
-            className="rounded-lg border p-2"
+            className="neo-field"
             value={priceMonthly}
             onChange={(e) => setPriceMonthly(Number(e.target.value) || 0)}
           />
@@ -209,27 +209,27 @@ export default function PackageEditor({
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <label className="grid gap-1">
-          <span className="text-sm text-gray-600">Início</span>
+          <span className="text-sm text-muted">Início</span>
           <input
             type="date"
-            className="rounded-lg border p-2"
+            className="neo-field"
             value={startDate ?? ''}
             onChange={(e) => setStartDate(e.target.value)}
           />
         </label>
         <label className="grid gap-1">
-          <span className="text-sm text-gray-600">Fim (opcional)</span>
+          <span className="text-sm text-muted">Fim (opcional)</span>
           <input
             type="date"
-            className="rounded-lg border p-2"
+            className="neo-field"
             value={endDate ?? ''}
             onChange={(e) => setEndDate(e.target.value)}
           />
         </label>
         <label className="grid gap-1">
-          <span className="text-sm text-gray-600">Estado (texto)</span>
+          <span className="text-sm text-muted">Estado (texto)</span>
           <input
-            className="rounded-lg border p-2"
+            className="neo-field"
             value={status ?? ''}
             onChange={(e) => setStatus(e.target.value)}
             placeholder="ex.: active, paused…"
@@ -238,9 +238,9 @@ export default function PackageEditor({
       </div>
 
       <label className="grid gap-1">
-        <span className="text-sm text-gray-600">Notas</span>
+        <span className="text-sm text-muted">Notas</span>
         <textarea
-          className="rounded-lg border p-2"
+          className="neo-field"
           rows={3}
           value={notes ?? ''}
           onChange={(e) => setNotes(e.target.value)}
@@ -248,16 +248,16 @@ export default function PackageEditor({
         />
       </label>
 
-      {err && <p className="text-sm text-red-600">{err}</p>}
+      {err && <p className="text-sm text-danger">{err}</p>}
 
       <div className="mt-2 flex items-center justify-end gap-2">
         {onClose && (
-          <button className="rounded-lg border px-3 py-2" onClick={onClose} disabled={saving}>
+          <button className="btn ghost" onClick={onClose} disabled={saving}>
             Cancelar
           </button>
         )}
         <button
-          className="rounded-lg border bg-black/90 px-3 py-2 text-white disabled:opacity-60"
+          className="btn primary"
           onClick={save}
           disabled={saving}
         >

@@ -260,8 +260,9 @@ export default function AdminExerciseCatalog() {
         }
 
         .difficulty-chip {
-          background: rgba(59, 130, 246, 0.12);
-          color: #1d4ed8;
+          background: var(--badge-role-trainer-bg, rgba(37, 99, 235, 0.12));
+          color: var(--badge-role-trainer-fg, #2563eb);
+          border: 1px solid var(--badge-role-trainer-border, rgba(37, 99, 235, 0.25));
         }
 
         .catalog-creator {
@@ -272,18 +273,20 @@ export default function AdminExerciseCatalog() {
         .status {
           font-weight: 600;
           white-space: nowrap;
+          border-radius: 999px;
+          border: 1px solid transparent;
         }
 
         .status-published {
-          background: rgba(16, 185, 129, 0.12);
-          color: #065f46;
-          border-color: rgba(16, 185, 129, 0.2);
+          background: var(--badge-status-active-bg, rgba(16, 185, 129, 0.12));
+          color: var(--badge-status-active-fg, #166534);
+          border-color: var(--badge-status-active-border, rgba(16, 185, 129, 0.2));
         }
 
         .status-draft {
-          background: rgba(156, 163, 175, 0.12);
-          color: #374151;
-          border-color: rgba(156, 163, 175, 0.2);
+          background: var(--badge-status-draft-bg, rgba(156, 163, 175, 0.12));
+          color: var(--badge-status-draft-fg, #374151);
+          border-color: var(--badge-status-draft-border, rgba(156, 163, 175, 0.2));
         }
 
         .catalog-actions {

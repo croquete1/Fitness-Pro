@@ -105,21 +105,21 @@ export default function SessionScheduler() {
       {/* Estados */}
       {loading && (
         <Reveal>
-          <div className="rounded-xl border p-6 text-sm text-muted-foreground">
+          <div className="rounded-xl border p-6 text-sm text-muted">
             A carregar sessões…
           </div>
         </Reveal>
       )}
       {error && !loading && (
         <Reveal>
-          <div className="rounded-xl border p-6 text-sm text-red-600 dark:text-red-400">
+          <div className="rounded-xl border p-6 text-sm text-danger">
             {error}
           </div>
         </Reveal>
       )}
       {!loading && !error && groups.length === 0 && (
         <Reveal>
-          <div className="rounded-xl border p-6 text-sm text-muted-foreground">
+          <div className="rounded-xl border p-6 text-sm text-muted">
             Sem sessões no período selecionado.
           </div>
         </Reveal>
@@ -153,7 +153,7 @@ export default function SessionScheduler() {
                               <span className="font-medium">{time}</span>{" "}
                               • {s.client.name || s.client.email}
                             </div>
-                            <div className="text-xs text-muted-foreground">
+                            <div className="text-xs text-muted">
                               PT: {s.trainer.name || s.trainer.email}
                               {s.status ? ` • ${s.status}` : null}
                               {s.notes ? ` • ${s.notes}` : null}

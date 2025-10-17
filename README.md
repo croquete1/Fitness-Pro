@@ -54,7 +54,7 @@ Prisma + PostgreSQL (compatível com MySQL/SQLite)
 
 NextAuth (Credentials + opcional OAuth)
 
-UI: CSS Modules/SCSS (com suporte opcional para Tailwind, se ativado)
+UI: CSS Modules/SCSS com o tema Neo (utilidades pré-compiladas, sem dependência de Tailwind em runtime)
 
 Hospedagem: Vercel
 

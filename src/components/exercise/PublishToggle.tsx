@@ -42,15 +42,33 @@ export default function PublishToggle({ id, published, onChange }: Props) {
       className="btn chip"
       aria-pressed={isOn}
       title={isOn ? 'Remover do catálogo' : 'Publicar no catálogo'}
-      style={{ display: 'inline-flex', gap: 8, alignItems: 'center', opacity: busy ? 0.6 : 1 }}
+      style={{
+        display: 'inline-flex',
+        gap: 8,
+        alignItems: 'center',
+        opacity: busy ? 0.6 : 1,
+        background: isOn
+          ? 'var(--badge-status-active-bg, rgba(16,185,129,0.12))'
+          : 'var(--badge-status-draft-bg, rgba(156,163,175,0.12))',
+        color: isOn
+          ? 'var(--badge-status-active-fg, #166534)'
+          : 'var(--badge-status-draft-fg, #374151)',
+        borderColor: isOn
+          ? 'var(--badge-status-active-border, rgba(16,185,129,0.2))'
+          : 'var(--badge-status-draft-border, rgba(156,163,175,0.2))',
+      }}
     >
       <span
         style={{
           width: 10,
           height: 10,
           borderRadius: 999,
-          background: isOn ? '#10b981' : '#9ca3af',
-          boxShadow: isOn ? '0 0 0 3px rgba(16,185,129,0.15)' : '0 0 0 3px rgba(156,163,175,0.15)',
+          background: isOn
+            ? 'var(--badge-status-active-border, rgba(16,185,129,0.2))'
+            : 'var(--badge-status-draft-border, rgba(156,163,175,0.2))',
+          boxShadow: isOn
+            ? '0 0 0 3px var(--badge-status-active-border, rgba(16,185,129,0.2))'
+            : '0 0 0 3px var(--badge-status-draft-border, rgba(156,163,175,0.2))',
         }}
         aria-hidden
       />

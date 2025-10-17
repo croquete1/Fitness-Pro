@@ -21,27 +21,77 @@ export default function AsyncAutocomplete(props: {
   const [q, setQ] = React.useState('');
 
   React.useEffect(() => {
-    let cancelled = false;
-    async function run() {
-      if (!open) return;
-      if (q.trim().length < minLength) { setOptions([]); return; }
-      setLoading(true);
-      try {
-        const u = new URL(fetchUrl, window.location.origin);
-        u.searchParams.set('q', q.trim());
-        u.searchParams.set('limit', '20');
-        const r = await fetch(u.toString(), { cache: 'no-store' });
-        const j = await r.json();
-        if (!cancelled) setOptions(Array.isArray(j) ? j : (j.options ?? []));
-      } catch {
-        if (!cancelled) setOptions([]);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+    if (!open) {
+      setOptions([]);
+      setLoading(false);
+      return undefined;
     }
-    void run();
-    return () => { cancelled = true; };
+
+    const trimmed = q.trim();
+    if (trimmed.length < minLength) {
+      setOptions([]);
+      setLoading(false);
+      return undefined;
+    }
+
+    let active = true;
+    const controller = new AbortController();
+    setLoading(true);
+
+    const handle = window.setTimeout(async () => {
+      try {
+        const url = new URL(fetchUrl, window.location.origin);
+        url.searchParams.set('q', trimmed);
+        url.searchParams.set('limit', '20');
+
+        const response = await fetch(url.toString(), {
+          cache: 'no-store',
+          signal: controller.signal,
+          headers: { accept: 'application/json' },
+        });
+
+        if (!response.ok) {
+          if (active) {
+            setOptions([]);
+          }
+          return;
+        }
+
+        const payload: unknown = await response
+          .json()
+          .catch(() => ({ options: [] as Option[] }));
+
+        if (!active) return;
+
+        const fromPayload = (payload as { options?: unknown })?.options;
+        const nextOptions: Option[] = Array.isArray(payload)
+          ? (payload as Option[])
+          : Array.isArray(fromPayload)
+          ? (fromPayload as Option[])
+          : [];
+
+        setOptions(nextOptions);
+      } catch (error: unknown) {
+        if ((error as { name?: string } | null)?.name === 'AbortError') return;
+        if (active) setOptions([]);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }, 180);
+
+    return () => {
+      active = false;
+      controller.abort();
+      window.clearTimeout(handle);
+    };
   }, [open, q, fetchUrl, minLength]);
+
+  const handleInputChange = React.useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      setQ(event.target.value);
+    },
+    [],
+  );
 
   return (
     <Autocomplete
@@ -55,12 +105,29 @@ export default function AsyncAutocomplete(props: {
       options={options}
       isOptionEqualToValue={(a, b) => a.id === b.id}
       getOptionLabel={(o) => o.label}
+      slotProps={{
+        paper: {
+          elevation: 0,
+          sx: { mt: 1 },
+        },
+        popper: {
+          modifiers: [{ name: 'offset', options: { offset: [0, 8] } }],
+        },
+        listbox: {
+          sx: {
+            maxHeight: 280,
+            '& .MuiAutocomplete-option + .MuiAutocomplete-option': {
+              marginTop: 4,
+            },
+          },
+        },
+      }}
       renderInput={(params) => (
         <TextField
           {...params}
           label={label}
           placeholder={placeholder}
-          onChange={(e) => setQ(e.target.value)}
+          onChange={handleInputChange}
           InputProps={{
             ...params.InputProps,
             endAdornment: (

@@ -128,18 +128,18 @@ export default function EditUserButton({
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-[10000] grid place-items-center bg-black/30 p-4"
+          className="fixed inset-0 z-[10000] grid place-items-center p-4 neo-overlay"
           onClick={(e) => e.currentTarget === e.target && !saving && setOpen(false)}
           onKeyDown={onKeyDown}
         >
-          <div className="w-full max-w-2xl rounded-2xl border bg-white p-4 shadow-xl">
-            <h3 className="mb-3 text-lg font-semibold">Editar utilizador</h3>
+          <div className="card" style={{ width: 'min(680px, 92vw)', padding: 24 }}>
+            <h3 className="mb-3 text-lg font-semibold text-fg">Editar utilizador</h3>
 
             <div className="grid gap-3 md:grid-cols-2">
               <label className="grid gap-1">
-                <span className="text-sm text-gray-600">Nome</span>
+                <span className="text-sm text-muted">Nome</span>
                 <input
-                  className="rounded-lg border p-2"
+                  className="neo-field"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   autoFocus
@@ -147,9 +147,9 @@ export default function EditUserButton({
               </label>
 
               <label className="grid gap-1">
-                <span className="text-sm text-gray-600">Email</span>
+                <span className="text-sm text-muted">Email</span>
                 <input
-                  className="rounded-lg border p-2"
+                  className="neo-field"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   inputMode="email"
@@ -157,9 +157,9 @@ export default function EditUserButton({
               </label>
 
               <label className="grid gap-1">
-                <span className="text-sm text-gray-600">Role</span>
+                <span className="text-sm text-muted">Role</span>
                 <select
-                  className="rounded-lg border p-2"
+                  className="neo-field"
                   value={role}
                   onChange={(e) => setRole(e.target.value as AppRole)}
                 >
@@ -170,9 +170,9 @@ export default function EditUserButton({
               </label>
 
               <label className="grid gap-1">
-                <span className="text-sm text-gray-600">Estado</span>
+                <span className="text-sm text-muted">Estado</span>
                 <select
-                  className="rounded-lg border p-2"
+                  className="neo-field"
                   value={status}
                   onChange={(e) => setStatus(e.target.value as Status)}
                 >
@@ -183,33 +183,24 @@ export default function EditUserButton({
               </label>
             </div>
 
-            {err && <p className="mt-2 text-sm text-red-600">{err}</p>}
+            {err && <p className="mt-2 text-sm text-danger">{err}</p>}
 
             <div className="mt-4 flex items-center justify-end gap-8">
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-muted">
                 {dirty ? 'Alterações por guardar' : 'Sem alterações'}
               </span>
               <div className="flex items-center gap-8">
                 <button
-                  className="btn"
+                  className="btn ghost"
                   onClick={() => setOpen(false)}
                   disabled={saving}
-                  style={{ height: 36, padding: '8px 12px' }}
                 >
                   Cancelar
                 </button>
                 <button
-                  className="btn"
+                  className="btn primary"
                   onClick={save}
                   disabled={saving || !dirty}
-                  style={{
-                    height: 36,
-                    padding: '8px 14px',
-                    background: 'var(--text)',
-                    color: '#fff',
-                    borderColor: 'var(--text)',
-                    opacity: saving || !dirty ? 0.7 : 1,
-                  }}
                 >
                   {saving ? 'A guardar…' : 'Guardar'}
                 </button>

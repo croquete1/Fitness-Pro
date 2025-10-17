@@ -17,7 +17,7 @@ export default async function LibraryPtPage() {
     <section className="space-y-6">
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold">Biblioteca de exercícios</h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-muted">
           Mantém os teus exercícios organizados, personaliza o catálogo global e reutiliza-os rapidamente nos planos de treino.
         </p>
       </header>

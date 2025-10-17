@@ -3,6 +3,7 @@
 import * as React from 'react';
 import type { AppRole } from '@/lib/roles';
 import { useColorMode } from '@/components/layout/ColorModeProvider';
+import UIButton from '@/components/ui/UIButton';
 import {
   type AdminSettings,
   type ClientSettings,
@@ -62,10 +63,10 @@ function Field({
 }) {
   return (
     <label className="grid gap-2 text-sm">
-      <span className="font-medium text-slate-900 dark:text-slate-100">{label}</span>
+      <span className="font-medium text-[color:var(--fg)]">{label}</span>
       {children}
       {description ? (
-        <span className="text-xs text-slate-500 dark:text-slate-400">{description}</span>
+        <span className="text-xs text-[color:var(--muted-fg)]">{description}</span>
       ) : null}
     </label>
   );
@@ -91,7 +92,7 @@ function TextInput({
       type={type}
       disabled={disabled}
       placeholder={placeholder}
-      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-400 dark:focus:ring-blue-500/40"
+      className="neo-field"
     />
   );
 }
@@ -106,14 +107,14 @@ function Checkbox({
   label: string;
 }) {
   return (
-    <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+    <label className="flex items-center gap-2 text-sm text-[color:var(--fg)]">
       <input
         type="checkbox"
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
-        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 dark:border-slate-600"
+        className="neo-checkbox"
       />
-      <span>{label}</span>
+      <span className="text-[color:var(--fg)]">{label}</span>
     </label>
   );
 }
@@ -134,7 +135,7 @@ function Select({
       value={value}
       onChange={(event) => onChange(event.target.value)}
       disabled={disabled}
-      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-400 dark:focus:ring-blue-500/40"
+      className="neo-field"
     >
       {options.map((option) => (
         <option key={option.value} value={option.value}>
@@ -147,12 +148,11 @@ function Select({
 
 function StatusMessage({ status }: { status: Status }) {
   if (status.type === 'idle') return null;
-  const color = status.type === 'success' ? 'text-emerald-600' : 'text-rose-600';
-  return (
-    <p className={`text-sm font-medium ${color}`}>
-      {status.message}
-    </p>
-  );
+  const tone =
+    status.type === 'success'
+      ? 'var(--success-strong, var(--success, #10b981))'
+      : 'var(--danger-strong, var(--danger, #ef4444))';
+  return <p className="text-sm font-medium" style={{ color: tone }}>{status.message}</p>;
 }
 
 function isEqualNotifications(a: NotificationPreferences, b: NotificationPreferences) {
@@ -209,7 +209,7 @@ function AccountSettingsCard({
     <form onSubmit={onSubmit} className="space-y-6">
       <header className="space-y-1">
         <h2 className="text-lg font-semibold">Dados da conta</h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
+        <p className="text-sm text-[color:var(--muted-fg)]">
           Atualiza o nome visível e o contacto associado à tua conta.
         </p>
       </header>
@@ -231,13 +231,13 @@ function AccountSettingsCard({
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <StatusMessage status={status} />
-        <button
+        <UIButton
           type="submit"
           disabled={!dirty || saving}
-          className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+          className="inline-flex items-center justify-center"
         >
           {saving ? 'A guardar…' : 'Guardar alterações'}
-        </button>
+        </UIButton>
       </div>
     </form>
   );
@@ -315,7 +315,7 @@ function CredentialsCard({
     <form onSubmit={onSubmit} className="space-y-6">
       <header className="space-y-1">
         <h2 className="text-lg font-semibold">Credenciais</h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
+        <p className="text-sm text-[color:var(--muted-fg)]">
           Atualiza o email de acesso e define uma nova palavra-passe.
         </p>
       </header>
@@ -358,23 +358,23 @@ function CredentialsCard({
       </div>
 
       {wantsPasswordChange && form.newPassword.length > 0 && form.newPassword.length < 8 ? (
-        <p className="text-sm text-amber-600">
+        <p className="text-sm text-[color:var(--warning, #f59f0b)]">
           A nova palavra-passe deve ter pelo menos 8 caracteres.
         </p>
       ) : null}
       {passwordMismatch ? (
-        <p className="text-sm text-amber-600">As palavras-passe não coincidem.</p>
+        <p className="text-sm text-[color:var(--warning, #f59f0b)]">As palavras-passe não coincidem.</p>
       ) : null}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <StatusMessage status={status} />
-        <button
+        <UIButton
           type="submit"
           disabled={disabled}
-          className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+          className="inline-flex items-center justify-center"
         >
           {saving ? 'A guardar…' : 'Atualizar credenciais'}
-        </button>
+        </UIButton>
       </div>
     </form>
   );
@@ -443,7 +443,7 @@ function PreferencesCard({
     <form onSubmit={onSubmit} className="space-y-6">
       <header className="space-y-1">
         <h2 className="text-lg font-semibold">Preferências</h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
+        <p className="text-sm text-[color:var(--muted-fg)]">
           Ajusta idioma, notificações e definições específicas do teu papel.
         </p>
       </header>
@@ -472,8 +472,8 @@ function PreferencesCard({
         </Field>
       </div>
 
-      <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/40">
-        <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Notificações gerais</p>
+      <div className="space-y-3 rounded-lg border border-[color:color-mix(in_srgb,var(--border)_70%,transparent)] bg-[color:color-mix(in_srgb,var(--card-bg)_94%,var(--bg)_6%)] p-4 shadow-[0_16px_34px_rgba(12,34,66,0.08)]">
+        <p className="text-sm font-semibold text-[color:var(--fg)]">Notificações gerais</p>
         <div className="grid gap-2 sm:grid-cols-2">
           <Checkbox
             checked={form.notifications.email}
@@ -550,13 +550,13 @@ function PreferencesCard({
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <StatusMessage status={status} />
-        <button
+        <UIButton
           type="submit"
           disabled={!dirty || saving}
-          className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+          className="inline-flex items-center justify-center"
         >
           {saving ? 'A guardar…' : 'Guardar preferências'}
-        </button>
+        </UIButton>
       </div>
     </form>
   );
@@ -576,8 +576,8 @@ function RoleSpecificFields(props: RoleSpecificFieldsProps) {
   if (props.role === 'ADMIN') {
     const value = props.value as AdminSettings;
     return (
-      <div className="space-y-4 rounded-lg border border-slate-200 p-4 dark:border-slate-700">
-        <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Preferências de administrador</p>
+      <div className="space-y-4 rounded-lg border border-[color:color-mix(in_srgb,var(--border)_70%,transparent)] bg-[color:color-mix(in_srgb,var(--card-bg)_94%,var(--bg)_6%)] p-4 shadow-[0_16px_34px_rgba(12,34,66,0.08)]">
+        <p className="text-sm font-semibold text-[color:var(--fg)]">Preferências de administrador</p>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Frequência dos relatórios">
             <Select
@@ -608,8 +608,8 @@ function RoleSpecificFields(props: RoleSpecificFieldsProps) {
   if (props.role === 'PT') {
     const value = props.value as TrainerSettings;
     return (
-      <div className="space-y-4 rounded-lg border border-slate-200 p-4 dark:border-slate-700">
-        <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Preferências de Personal Trainer</p>
+      <div className="space-y-4 rounded-lg border border-[color:color-mix(in_srgb,var(--border)_70%,transparent)] bg-[color:color-mix(in_srgb,var(--card-bg)_94%,var(--bg)_6%)] p-4 shadow-[0_16px_34px_rgba(12,34,66,0.08)]">
+        <p className="text-sm font-semibold text-[color:var(--fg)]">Preferências de Personal Trainer</p>
         <div className="grid gap-3 sm:grid-cols-2">
           <Checkbox
             checked={value.sessionReminders}
@@ -643,8 +643,8 @@ function RoleSpecificFields(props: RoleSpecificFieldsProps) {
 
   const value = props.value as ClientSettings;
   return (
-    <div className="space-y-4 rounded-lg border border-slate-200 p-4 dark:border-slate-700">
-      <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Preferências de cliente</p>
+    <div className="space-y-4 rounded-lg border border-[color:color-mix(in_srgb,var(--border)_70%,transparent)] bg-[color:color-mix(in_srgb,var(--card-bg)_94%,var(--bg)_6%)] p-4 shadow-[0_16px_34px_rgba(12,34,66,0.08)]">
+      <p className="text-sm font-semibold text-[color:var(--fg)]">Preferências de cliente</p>
       <div className="grid gap-3 sm:grid-cols-2">
         <Checkbox
           checked={value.planReminders}

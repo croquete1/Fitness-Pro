@@ -1,34 +1,28 @@
 /* ===== Sidebar – animações & visuais suaves ===== */
-:root {
-  --sb-w: 264px;
-  --sb-w-compact: 84px;
-  --sb-radius: 16px;
-  --sb-pad: 10px;
-  --sb-gap: 8px;
-  --sb-ease: cubic-bezier(.22,.7,.23,1);
-}
-
 /* Wrapper principal (suporta .sidebar e .fp-sb para retrocompat) */
 .sidebar, .fp-sb {
   position: sticky;
   top: 0;
   height: 100dvh;
-  width: var(--sb-w);
+  width: var(--sb-width, 264px);
   background: var(--sidebar-bg, #0b1220);
+  @supports (background: color-mix(in srgb, #000, #fff)) {
+    background: color-mix(in srgb, var(--sidebar-bg, #0b1220) 100%, transparent);
+  }
   color: var(--sidebar-fg, #f6f7fb);
   border-right: 1px solid var(--border, rgba(255,255,255,.08));
-  transition: width .22s var(--sb-ease), box-shadow .22s var(--sb-ease);
+  transition: width .22s var(--sb-ease, cubic-bezier(.22,.7,.23,1)), box-shadow .22s var(--sb-ease, cubic-bezier(.22,.7,.23,1));
   will-change: width;
   display: flex;
   flex-direction: column;
-  gap: var(--sb-gap);
-  padding: 10px;
+  gap: var(--sb-gap, 8px);
+  padding: var(--sb-pad, 10px);
   box-shadow: 0 0 0 0 rgba(0,0,0,0);
 }
 
 .sidebar[data-collapsed="true"],
 .fp-sb[data-collapsed="true"] {
-  width: var(--sb-w-compact);
+  width: var(--sb-width-collapsed, 72px);
 }
 
 /* Cabeçalho/brand */
@@ -38,8 +32,11 @@
   gap: 10px;
   align-items: center;
   padding: 8px;
-  border-radius: var(--sb-radius);
-  background: color-mix(in srgb, var(--sidebar-bg) 92%, #fff 8%);
+  border-radius: var(--sb-radius, 16px);
+  background: var(--sidebar-bg, #0b1220);
+  @supports (background: color-mix(in srgb, #000, #fff)) {
+    background: color-mix(in srgb, var(--sidebar-bg, #0b1220) 92%, #fff 8%);
+  }
   border: 1px solid var(--border, rgba(255,255,255,.08));
 }
 
@@ -56,7 +53,10 @@
   display: grid;
   place-items: center;
   border: 1px solid var(--border, rgba(255,255,255,.1));
-  background: color-mix(in srgb, var(--sidebar-bg) 90%, #fff 10%);
+  background: var(--sidebar-bg, #0b1220);
+  @supports (background: color-mix(in srgb, #000, #fff)) {
+    background: color-mix(in srgb, var(--sidebar-bg, #0b1220) 90%, #fff 10%);
+  }
 }
 
 /* Lista de navegação */
@@ -79,17 +79,24 @@
   color: inherit;
   background: var(--_bg);
   border: 1px solid transparent;
-  transition: background .18s var(--sb-ease), transform .18s var(--sb-ease), border-color .18s var(--sb-ease);
+  transition: background .18s var(--sb-ease, cubic-bezier(.22,.7,.23,1)), transform .18s var(--sb-ease, cubic-bezier(.22,.7,.23,1)), border-color .18s var(--sb-ease, cubic-bezier(.22,.7,.23,1));
 }
 
 .nav-item:hover {
-  --_bg: color-mix(in srgb, var(--sidebar-bg) 88%, #fff 12%);
+  --_bg: var(--sidebar-hover, rgba(122,162,255,0.12));
+  @supports (color: color-mix(in srgb, red, blue)) {
+    --_bg: color-mix(in srgb, var(--sidebar-bg, #0b1220) 88%, #fff 12%);
+  }
   transform: translateX(2px);
 }
 
 .nav-item[data-active="true"] {
-  --_bg: color-mix(in srgb, var(--sidebar-bg) 82%, #fff 18%);
-  border-color: color-mix(in srgb, var(--border, #5d6b86) 50%, #7aa2ff 50%);
+  --_bg: var(--sidebar-active, rgba(127,91,255,0.18));
+  border-color: var(--border, rgba(93,107,134,0.45));
+  @supports (color: color-mix(in srgb, red, blue)) {
+    --_bg: color-mix(in srgb, var(--sidebar-bg, #0b1220) 82%, #fff 18%);
+    border-color: color-mix(in srgb, var(--border, #5d6b86) 50%, #7aa2ff 50%);
+  }
 }
 
 /* “Pílula” ativa à esquerda */
@@ -152,14 +159,20 @@
   height: 36px;
   border-radius: 10px;
   border: 1px solid var(--border, rgba(255,255,255,.1));
-  background: color-mix(in srgb, var(--sidebar-bg) 90%, #fff 10%);
+  background: var(--sidebar-bg, #0b1220);
+  @supports (background: color-mix(in srgb, #000, #fff)) {
+    background: color-mix(in srgb, var(--sidebar-bg, #0b1220) 90%, #fff 10%);
+  }
   display: grid;
   place-items: center;
   cursor: pointer;
-  transition: transform .22s var(--sb-ease), background .18s var(--sb-ease), border-color .18s var(--sb-ease);
+  transition: transform .22s var(--sb-ease, cubic-bezier(.22,.7,.23,1)), background .18s var(--sb-ease, cubic-bezier(.22,.7,.23,1)), border-color .18s var(--sb-ease, cubic-bezier(.22,.7,.23,1));
 }
 .collapse-btn:hover {
-  background: color-mix(in srgb, var(--sidebar-bg) 85%, #fff 15%);
+  background: var(--sidebar-hover, rgba(122,162,255,0.12));
+  @supports (background: color-mix(in srgb, #000, #fff)) {
+    background: color-mix(in srgb, var(--sidebar-bg, #0b1220) 85%, #fff 15%);
+  }
 }
 .collapse-btn[data-state="collapsed"] .chev {
   transform: rotate(180deg);

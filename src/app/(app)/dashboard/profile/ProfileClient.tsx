@@ -11,6 +11,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { normalizeUsername, validateUsernameCandidate } from '@/lib/username';
+import UIButton from '@/components/ui/UIButton';
 
 type ProfileModel = {
   id: string;
@@ -86,17 +87,18 @@ function sanitizeInitial(profile: ProfileModel): FormState {
 function StatusMessage({ status, id }: { status: Status; id: string }) {
   if (status.type === 'idle') return null;
   const Icon = status.type === 'success' ? CheckCircle2 : AlertCircle;
-  const color =
+  const tone =
     status.type === 'success'
-      ? 'text-emerald-600 dark:text-emerald-400'
-      : 'text-rose-600 dark:text-rose-400';
+      ? 'var(--success-strong, var(--success, #10b981))'
+      : 'var(--danger-strong, var(--danger, #ef4444))';
 
   return (
     <p
       id={id}
       role="status"
       aria-live="polite"
-      className={`inline-flex items-center gap-2 text-sm font-medium ${color}`}
+      className="inline-flex items-center gap-2 text-sm font-medium"
+      style={{ color: tone }}
     >
       <Icon className="h-4 w-4" aria-hidden />
       <span>{status.message}</span>
@@ -109,11 +111,13 @@ function AvatarPreview({
   email,
   name,
   className,
+  style,
 }: {
   url: string;
   email: string;
   name: string;
   className?: string;
+  style?: React.CSSProperties;
 }) {
   const initials = React.useMemo(() => {
     const base = name || email || '';
@@ -124,9 +128,16 @@ function AvatarPreview({
 
   return (
     <div
-      className={`flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-100 text-2xl font-semibold text-[color:var(--muted-fg)] transition-all duration-200 dark:border-slate-700 dark:bg-slate-900 ${
+      className={`flex h-28 w-28 items-center justify-center overflow-hidden rounded-full text-2xl font-semibold transition-all duration-200 ${
         className ?? ''
       }`}
+      style={{
+        border: '1px solid var(--avatar-border, rgba(148,163,209,0.4))',
+        background: 'var(--avatar-bg, rgba(226,232,255,0.32))',
+        color: 'var(--avatar-fg, var(--muted-fg))',
+        boxShadow: 'var(--avatar-shadow, 0 18px 42px rgba(15,35,92,0.12))',
+        ...style,
+      }}
     >
       {url ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -332,16 +343,16 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
   return (
     <div className="space-y-6">
       <section className="card overflow-hidden">
-        <div className="bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 px-6 py-6 text-white">
+        <div className="profile-hero px-6 py-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-2">
-              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-100/80">
+              <span className="profile-hero__muted text-xs font-semibold uppercase tracking-[0.18em]">
                 Perfil do cliente
               </span>
               <h1 className="text-2xl font-semibold sm:text-3xl">
                 {form.name.trim() || initialProfile.email}
               </h1>
-              <p className="max-w-xl text-sm text-blue-100/90">
+              <p className="profile-hero__muted max-w-xl text-sm">
                 Atualiza os teus dados pessoais e controla a forma como és identificado na plataforma.
               </p>
             </div>
@@ -350,13 +361,13 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
                 url={form.avatarUrl}
                 email={initialProfile.email}
                 name={form.name}
-                className="h-24 w-24 border-white/60 bg-white/20 text-white shadow-xl ring-2 ring-white/40 backdrop-blur md:h-28 md:w-28"
+                className="profile-hero__avatar h-24 w-24 md:h-28 md:w-28"
               />
-              <div className="flex flex-col items-center gap-2 text-xs font-medium text-blue-100/90 lg:items-end">
-                <span className="rounded-full bg-white/15 px-3 py-1 text-[11px] uppercase tracking-wider text-blue-50">
+              <div className="profile-hero__muted flex flex-col items-center gap-2 text-xs font-medium lg:items-end">
+                <span className="profile-hero__pill">
                   {initialProfile.role ?? 'Cliente'}
                 </span>
-                <span className="text-blue-100/80">{initialProfile.email}</span>
+                <span>{initialProfile.email}</span>
               </div>
             </div>
           </div>
@@ -370,18 +381,25 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
               url={form.avatarUrl}
               email={initialProfile.email}
               name={form.name}
-              className="shadow-lg ring-2 ring-slate-200 dark:ring-slate-700"
+              className="h-24 w-24 md:h-28 md:w-28"
+              style={{
+                '--avatar-border': 'color-mix(in srgb, var(--border) 70%, transparent)',
+                '--avatar-bg': 'color-mix(in srgb, var(--card-bg) 94%, var(--bg) 6%)',
+                '--avatar-shadow': '0 18px 44px color-mix(in srgb, var(--border) 22%, transparent)',
+              } as React.CSSProperties}
             />
             <div className="flex flex-col items-center gap-2 text-[color:var(--muted-fg)]">
-              <button
+              <UIButton
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={avatarBusy}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[color:var(--card-bg)] px-3 py-1.5 text-sm font-medium text-[color:var(--fg)] shadow transition hover:bg-[color:color-mix(in_srgb,var(--card-bg)_80%,var(--hover)_20%)] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[color:color-mix(in_srgb,var(--card-bg)_88%,transparent)] dark:hover:bg-[color:color-mix(in_srgb,var(--card-bg)_72%,transparent)]"
+                variant="outline"
+                size="sm"
+                className="inline-flex items-center justify-center gap-2"
               >
                 {avatarBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Camera className="h-4 w-4" aria-hidden />}
                 <span>{avatarBusy ? 'A enviar…' : 'Alterar fotografia'}</span>
-              </button>
+              </UIButton>
               {form.avatarUrl ? (
                 <button
                   type="button"
@@ -414,7 +432,7 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
                   type="text"
                   value={form.name}
                   onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-[color:var(--fg)] shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:ring-offset-2 focus:ring-offset-white dark:border-slate-700 dark:bg-slate-900 dark:focus:border-blue-400 dark:focus:ring-blue-500/40 dark:focus:ring-offset-slate-950"
+                  className="neo-field"
                   placeholder="O teu nome"
                   autoComplete="name"
                 />
@@ -428,7 +446,7 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
                   type="email"
                   value={initialProfile.email}
                   disabled
-                  className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-[color:var(--muted-fg)] shadow-inner dark:border-slate-700 dark:bg-slate-900"
+                  className="neo-field"
                 />
                 <span className="text-xs text-[color:var(--muted-fg)]">
                   Email principal associado à tua conta. Gestão disponível em Definições &gt; Conta.
@@ -440,10 +458,8 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
                   type="text"
                   value={form.username}
                   onChange={(event) => setForm((prev) => ({ ...prev, username: event.target.value }))}
-                  className={`rounded-lg border bg-white px-3 py-2 text-sm text-[color:var(--fg)] shadow-sm transition focus:outline-none focus:ring-2 focus:ring-blue-200 focus:ring-offset-2 focus:ring-offset-white dark:bg-slate-900 dark:focus:ring-blue-500/40 dark:focus:ring-offset-slate-950 ${
-                    usernameStatus.state === 'taken' || usernameStatus.state === 'invalid'
-                      ? 'border-rose-400 focus:border-rose-400 focus:ring-rose-200 dark:border-rose-500'
-                      : 'border-slate-300 focus:border-blue-500 dark:border-slate-700 dark:focus:border-blue-400'
+                  className={`neo-field ${
+                    usernameStatus.state === 'taken' || usernameStatus.state === 'invalid' ? 'neo-field--invalid' : ''
                   }`}
                   placeholder="Ex.: andremartins"
                   aria-describedby={usernameHintId}
@@ -480,7 +496,7 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
                   value={form.phone}
                   onChange={(event) => setForm((prev) => ({ ...prev, phone: event.target.value }))}
                   placeholder="(+351) 910 000 000"
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-[color:var(--fg)] shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:ring-offset-2 focus:ring-offset-white dark:border-slate-700 dark:bg-slate-900 dark:focus:border-blue-400 dark:focus:ring-blue-500/40 dark:focus:ring-offset-slate-950"
+                  className="neo-field"
                   autoComplete="tel"
                 />
                 <span className="text-xs text-[color:var(--muted-fg)]">
@@ -493,7 +509,7 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
                   type="date"
                   value={form.birthDate}
                   onChange={(event) => setForm((prev) => ({ ...prev, birthDate: event.target.value }))}
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-[color:var(--fg)] shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:ring-offset-2 focus:ring-offset-white dark:border-slate-700 dark:bg-slate-900 dark:focus:border-blue-400 dark:focus:ring-blue-500/40 dark:focus:ring-offset-slate-950"
+                  className="neo-field"
                 />
                 <span className="text-xs text-[color:var(--muted-fg)]">
                   Mantém os teus dados atualizados para receber planos personalizados.
@@ -506,7 +522,7 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
                   onChange={(event) => setForm((prev) => ({ ...prev, bio: event.target.value }))}
                   rows={4}
                   placeholder="Partilha um pouco sobre ti, objetivos ou preferências."
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-[color:var(--fg)] shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:ring-offset-2 focus:ring-offset-white dark:border-slate-700 dark:bg-slate-900 dark:focus:border-blue-400 dark:focus:ring-blue-500/40 dark:focus:ring-offset-slate-950"
+                  className="neo-field"
                 />
                 <span className="text-xs text-[color:var(--muted-fg)]">
                   Dá contexto ao teu treinador sobre objetivos, historial ou preferências.
@@ -516,10 +532,10 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <StatusMessage status={status} id={statusMessageId} />
-              <button
+              <UIButton
                 type="submit"
                 disabled={!dirty || saving || usernameStatus.state === 'checking'}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:bg-slate-300 dark:focus-visible:ring-offset-slate-950"
+                className="inline-flex items-center justify-center gap-2"
                 aria-describedby={status.type === 'idle' ? undefined : statusMessageId}
               >
                 {saving ? (
@@ -528,7 +544,7 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
                   <Save className="h-4 w-4" aria-hidden />
                 )}
                 <span>{saving ? 'A guardar…' : 'Guardar alterações'}</span>
-              </button>
+              </UIButton>
             </div>
           </form>
         </div>
@@ -536,7 +552,7 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
 
       <section className="card space-y-5 p-6">
         <header className="flex items-start gap-3">
-          <ShieldCheck className="mt-1 h-5 w-5 text-blue-600 dark:text-blue-400" aria-hidden />
+          <ShieldCheck className="mt-1 h-5 w-5" aria-hidden style={{ color: 'var(--accent, #7f5bff)' }} />
           <div className="space-y-1">
             <h2 className="text-lg font-semibold">Acesso e segurança</h2>
             <p className="text-sm text-[color:var(--muted-fg)]">
@@ -545,11 +561,11 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
           </div>
         </header>
         <div className="grid gap-3 text-sm text-[color:var(--muted-fg)] sm:grid-cols-2">
-          <div className="rounded-lg border border-slate-200/70 bg-[color:color-mix(in_srgb,var(--card-bg)_96%,var(--bg)_4%)] px-4 py-3 dark:border-slate-800 dark:bg-[color:color-mix(in_srgb,var(--card-bg)_88%,transparent)]">
+          <div className="rounded-lg border border-[color:color-mix(in_srgb,var(--border)_70%,transparent)] bg-[color:color-mix(in_srgb,var(--card-bg)_96%,var(--bg)_4%)] px-4 py-3 shadow-[0_16px_34px_rgba(12,34,66,0.08)]">
             <span className="text-xs font-semibold uppercase tracking-wide text-[color:var(--muted-fg)]">Email</span>
             <p className="truncate text-sm font-medium text-[color:var(--fg)]">{initialProfile.email}</p>
           </div>
-          <div className="rounded-lg border border-slate-200/70 bg-[color:color-mix(in_srgb,var(--card-bg)_96%,var(--bg)_4%)] px-4 py-3 dark:border-slate-800 dark:bg-[color:color-mix(in_srgb,var(--card-bg)_88%,transparent)]">
+          <div className="rounded-lg border border-[color:color-mix(in_srgb,var(--border)_70%,transparent)] bg-[color:color-mix(in_srgb,var(--card-bg)_96%,var(--bg)_4%)] px-4 py-3 shadow-[0_16px_34px_rgba(12,34,66,0.08)]">
             <span className="text-xs font-semibold uppercase tracking-wide text-[color:var(--muted-fg)]">Função</span>
             <p className="text-sm font-medium text-[color:var(--fg)]">
               {initialProfile.role ?? 'Cliente'}

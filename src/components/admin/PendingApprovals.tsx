@@ -69,14 +69,15 @@ export default function PendingApprovals() {
     <div className="space-y-4">
       <header className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Aprovações de conta</h2>
-          <p className="text-sm text-muted-foreground">
+          <h2 className="text-lg font-semibold text-fg">Aprovações de conta</h2>
+          <p className="text-sm text-muted">
             Gerir pedidos de registo pendentes.
           </p>
         </div>
         <button
           onClick={load}
-          className="rounded-lg border px-3 py-1.5 text-sm hover:bg-accent"
+          className="btn ghost"
+          style={{ padding: '8px 14px', fontSize: 14 }}
         >
           Recarregar
         </button>
@@ -87,21 +88,24 @@ export default function PendingApprovals() {
           {[...Array(3)].map((_, i) => (
             <div
               key={i}
-              className="animate-pulse rounded-xl border p-4 bg-muted/30 h-20"
+              className="card animate-pulse"
+              style={{ padding: 16, minHeight: 80, background: 'color-mix(in srgb, var(--card-bg) 70%, transparent)' }}
             />
           ))}
         </div>
       )}
 
       {error && (
-        <div className="rounded-xl border p-4 text-sm text-red-500 bg-red-50 dark:bg-red-950/30">
+        <div className="card" style={{ padding: 16, color: 'var(--danger)' }}>
           {error}
         </div>
       )}
 
       {!loading && !error && items.length === 0 && (
-        <div className="rounded-xl border p-6 text-sm text-muted-foreground">
+        <div className="card" style={{ padding: 24 }}>
+          <p className="text-sm text-muted">
           Não há contas pendentes no momento.
+          </p>
         </div>
       )}
 
@@ -120,25 +124,27 @@ export default function PendingApprovals() {
                   <div className="font-medium truncate">
                     {u.name || u.email}
                   </div>
-                  <div className="text-xs text-muted-foreground truncate">
-                    {u.email} · {u.role} · criado {fmtWhen(u.createdAt)}
-                  </div>
-                </div>
+              <div className="text-xs text-muted truncate">
+                {u.email} · {u.role} · criado {fmtWhen(u.createdAt)}
               </div>
+            </div>
+          </div>
 
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={() => act(u.id, "reject")}
-                  className="rounded-lg border px-3 py-1.5 text-sm hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
-                >
-                  Rejeitar
-                </button>
-                <button
-                  onClick={() => act(u.id, "approve")}
-                  className="rounded-lg border px-3 py-1.5 text-sm bg-primary text-primary-foreground hover:opacity-90"
-                >
-                  Aprovar
-                </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => act(u.id, "reject")}
+              className="btn danger"
+              style={{ padding: '8px 14px', fontSize: 14 }}
+            >
+              Rejeitar
+            </button>
+            <button
+              onClick={() => act(u.id, "approve")}
+              className="btn primary"
+              style={{ padding: '8px 14px', fontSize: 14 }}
+            >
+              Aprovar
+            </button>
               </div>
             </li>
           ))}

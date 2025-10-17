@@ -60,7 +60,7 @@ export default function ExercisePicker({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-[10000] grid place-items-center bg-black/30 p-4"
+      className="fixed inset-0 z-[10000] grid place-items-center p-4 neo-overlay"
       onClick={(e) => e.currentTarget === e.target && onClose()}
     >
       <div className="w-full max-w-5xl rounded-2xl border bg-white p-4 shadow-xl dark:bg-[var(--card-bg)]">
