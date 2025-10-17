@@ -2,28 +2,20 @@
 
 import * as React from 'react';
 import {
-  Alert,
-  Button,
-  Chip,
-  Paper,
-  Stack,
-  Typography,
-  Divider,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  MenuItem,
-  CircularProgress,
-} from '@mui/material';
-import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import DoneAllIcon from '@mui/icons-material/DoneAll';
-import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
-import EventAvailableOutlinedIcon from '@mui/icons-material/EventAvailableOutlined';
-import HighlightOffIcon from '@mui/icons-material/HighlightOff';
-import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
+  CalendarDays,
+  CheckCircle2,
+  CheckSquare,
+  History,
+  Loader2,
+  MessageSquarePlus,
+  RefreshCcw,
+  ShieldCheck,
+  UserRound,
+  XCircle,
+} from 'lucide-react';
+
+import Alert from '@/components/ui/Alert';
+import Button from '@/components/ui/Button';
 
 export type AttendanceStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no_show' | null;
 
@@ -79,70 +71,100 @@ type Props = {
   initialRequests: SessionRequest[];
 };
 
-function attendanceChip(status: AttendanceStatus) {
-  switch (status) {
-    case 'confirmed':
-      return { label: 'Confirmada', color: 'success' as const };
-    case 'completed':
-      return { label: 'Concluída', color: 'primary' as const };
-    case 'cancelled':
-      return { label: 'Cancelada', color: 'default' as const };
-    case 'no_show':
-      return { label: 'Faltou', color: 'warning' as const };
-    default:
-      return { label: 'Por confirmar', color: 'default' as const };
-  }
-}
+const fullDateFormatter = new Intl.DateTimeFormat('pt-PT', {
+  weekday: 'short',
+  day: '2-digit',
+  month: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+});
 
-function requestStatusChip(status: SessionRequestStatus) {
-  switch (status) {
-    case 'pending':
-      return { label: 'Aguardando aprovação', color: 'warning' as const };
-    case 'accepted':
-      return { label: 'Aceite', color: 'success' as const };
-    case 'declined':
-      return { label: 'Recusado', color: 'error' as const };
-    case 'cancelled':
-      return { label: 'Cancelado', color: 'default' as const };
-    case 'reschedule_pending':
-      return { label: 'Remarcação pendente', color: 'info' as const };
-    case 'reschedule_declined':
-      return { label: 'Remarcação recusada', color: 'warning' as const };
-    default:
-      return { label: status, color: 'default' as const };
-  }
-}
+const timeFormatter = new Intl.DateTimeFormat('pt-PT', {
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
+const shortDateFormatter = new Intl.DateTimeFormat('pt-PT', {
+  day: '2-digit',
+  month: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+});
 
 function toDate(value: string | null) {
   if (!value) return null;
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? null : d;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
 }
 
-function formatDate(value: string | null) {
-  const d = toDate(value);
-  if (!d) return 'Data por definir';
-  return d.toLocaleString('pt-PT', {
-    weekday: 'short',
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+function formatDateTime(value: string | null, fallback = 'Data por definir') {
+  const date = toDate(value);
+  if (!date) return fallback;
+  try {
+    return fullDateFormatter.format(date);
+  } catch {
+    return fallback;
+  }
+}
+
+function formatDateShort(value: string | null, fallback = '—') {
+  const date = toDate(value);
+  if (!date) return fallback;
+  try {
+    return shortDateFormatter.format(date);
+  } catch {
+    return fallback;
+  }
 }
 
 function formatTime(value: string | null) {
-  const d = toDate(value);
-  if (!d) return '—';
-  return d.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+  const date = toDate(value);
+  if (!date) return '—';
+  try {
+    return timeFormatter.format(date);
+  } catch {
+    return '—';
+  }
 }
 
 function formatRange(startISO: string | null, endISO: string | null) {
   if (!startISO) return 'Data por definir';
-  const start = formatDate(startISO);
+  const start = formatDateTime(startISO);
   if (!endISO) return start;
-  const end = formatTime(endISO);
-  return `${start} — ${end}`;
+  return `${start} — ${formatTime(endISO)}`;
+}
+
+function attendanceMeta(status: AttendanceStatus) {
+  switch (status) {
+    case 'confirmed':
+      return { label: 'Confirmada', tone: 'ok' as const };
+    case 'completed':
+      return { label: 'Concluída', tone: 'ok' as const };
+    case 'cancelled':
+      return { label: 'Cancelada', tone: 'down' as const };
+    case 'no_show':
+      return { label: 'Faltou', tone: 'down' as const };
+    case 'pending':
+    default:
+      return { label: 'Por confirmar', tone: 'warn' as const };
+  }
+}
+
+function requestStatusMeta(status: SessionRequestStatus) {
+  switch (status) {
+    case 'accepted':
+      return { label: 'Aceite', tone: 'ok' as const };
+    case 'declined':
+    case 'cancelled':
+    case 'reschedule_declined':
+      return { label: 'Recusado', tone: 'down' as const };
+    case 'reschedule_pending':
+      return { label: 'Remarcação pendente', tone: 'warn' as const };
+    case 'pending':
+    default:
+      return { label: 'Aguardando aprovação', tone: 'warn' as const };
+  }
 }
 
 function trainerDisplay(trainer: SessionRequest['trainer']) {
@@ -152,18 +174,24 @@ function trainerDisplay(trainer: SessionRequest['trainer']) {
 }
 
 export default function SessionsClient({ initialSessions, initialRequests }: Props) {
-  const [sessions, setSessions] = React.useState<ClientSession[]>(initialSessions);
-  const [requests, setRequests] = React.useState<SessionRequest[]>(initialRequests);
+  const [sessions, setSessions] = React.useState<ClientSession[]>(() => [...initialSessions]);
+  const [requests, setRequests] = React.useState<SessionRequest[]>(() => [...initialRequests]);
   const [sessionError, setSessionError] = React.useState<string | null>(null);
   const [requestError, setRequestError] = React.useState<string | null>(null);
   const [requestSuccess, setRequestSuccess] = React.useState<string | null>(null);
-  const [busySessionId, setBusySessionId] = React.useState<string | null>(null);
-  const [actionBusy, setActionBusy] = React.useState<string | null>(null);
+  const [pendingSessionId, setPendingSessionId] = React.useState<string | null>(null);
+  const [pendingRequestAction, setPendingRequestAction] = React.useState<string | null>(null);
   const [requestDialogOpen, setRequestDialogOpen] = React.useState(false);
   const [requestBusy, setRequestBusy] = React.useState(false);
   const [trainerOptions, setTrainerOptions] = React.useState<TrainerOption[]>([]);
   const [loadingTrainers, setLoadingTrainers] = React.useState(false);
   const [requestForm, setRequestForm] = React.useState({ trainerId: '', start: '', duration: 60, note: '' });
+
+  const requestHeadingId = React.useId();
+  const upcomingHeadingId = React.useId();
+  const historyHeadingId = React.useId();
+  const dialogTitleId = React.useId();
+  const dialogFormId = React.useId();
 
   const sortedSessions = React.useMemo(() => {
     return [...sessions].sort((a, b) => {
@@ -173,17 +201,26 @@ export default function SessionsClient({ initialSessions, initialRequests }: Pro
     });
   }, [sessions]);
 
-  const now = Date.now();
-  const upcoming = sortedSessions.filter((s) => {
-    const start = toDate(s.startISO);
-    if (!start) return true;
-    return start.getTime() >= now - 30 * 60 * 1000;
-  });
-  const past = sortedSessions.filter((s) => {
-    const start = toDate(s.startISO);
-    if (!start) return false;
-    return start.getTime() < now - 30 * 60 * 1000;
-  });
+  const now = React.useMemo(() => Date.now(), []);
+
+  const upcomingSessions = React.useMemo(() => {
+    return sortedSessions.filter((session) => {
+      const start = toDate(session.startISO);
+      if (!start) return true;
+      return start.getTime() >= now - 30 * 60 * 1000;
+    });
+  }, [sortedSessions, now]);
+
+  const pastSessions = React.useMemo(() => {
+    return sortedSessions
+      .filter((session) => {
+        const start = toDate(session.startISO);
+        if (!start) return false;
+        return start.getTime() < now - 30 * 60 * 1000;
+      })
+      .reverse()
+      .slice(0, 20);
+  }, [sortedSessions, now]);
 
   const sortedRequests = React.useMemo(() => {
     return [...requests].sort((a, b) => {
@@ -193,11 +230,19 @@ export default function SessionsClient({ initialSessions, initialRequests }: Pro
     });
   }, [requests]);
 
-  const openRequests = sortedRequests.filter((r) => r.status === 'pending' || r.status === 'reschedule_pending');
-  const historyRequests = sortedRequests.filter((r) => !openRequests.includes(r));
+  const openRequests = React.useMemo(
+    () => sortedRequests.filter((request) => request.status === 'pending' || request.status === 'reschedule_pending'),
+    [sortedRequests],
+  );
+
+  const historyRequests = React.useMemo(
+    () => sortedRequests.filter((request) => !openRequests.includes(request)),
+    [sortedRequests, openRequests],
+  );
 
   async function updateAttendance(sessionId: string, status: NonNullable<AttendanceStatus>) {
-    setBusySessionId(sessionId);
+    if (pendingSessionId) return;
+    setPendingSessionId(sessionId);
     setSessionError(null);
     try {
       const res = await fetch(`/api/sessions/${sessionId}/attendance`, {
@@ -206,39 +251,72 @@ export default function SessionsClient({ initialSessions, initialRequests }: Pro
         body: JSON.stringify({ status }),
       });
       if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(msg || 'Falha ao atualizar presença');
+        const text = await res.text();
+        throw new Error(text || 'Não foi possível atualizar a presença.');
       }
       const json = await res.json().catch(() => ({}));
-      setSessions((prev) => prev.map((s) => (
-        s.id === sessionId
-          ? { ...s, attendanceStatus: status, attendanceAt: json.at ?? new Date().toISOString() }
-          : s
-      )));
-    } catch (e: any) {
-      setSessionError(e?.message || 'Não foi possível atualizar a presença');
+      setSessions((prev) =>
+        prev.map((session) =>
+          session.id === sessionId
+            ? {
+                ...session,
+                attendanceStatus: status,
+                attendanceAt: json?.at ?? new Date().toISOString(),
+              }
+            : session,
+        ),
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Não foi possível atualizar a presença.';
+      setSessionError(message);
     } finally {
-      setBusySessionId(null);
+      setPendingSessionId(null);
     }
   }
 
   React.useEffect(() => {
     if (!requestDialogOpen || trainerOptions.length > 0 || loadingTrainers) return;
+    let cancelled = false;
     setLoadingTrainers(true);
     fetch('/api/client/trainers?limit=50', { cache: 'no-store' })
       .then((res) => res.json().catch(() => ({})))
       .then((json) => {
+        if (cancelled) return;
         if (Array.isArray(json?.trainers)) {
           setTrainerOptions(json.trainers as TrainerOption[]);
         } else {
           setTrainerOptions([]);
         }
       })
-      .catch(() => setTrainerOptions([]))
-      .finally(() => setLoadingTrainers(false));
+      .catch(() => {
+        if (!cancelled) setTrainerOptions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingTrainers(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [requestDialogOpen, trainerOptions.length, loadingTrainers]);
 
-  async function submitRequest() {
+  const availableTrainers = React.useMemo(() => {
+    return trainerOptions.filter((trainer) => (trainer.status ?? '').toUpperCase() !== 'SUSPENDED');
+  }, [trainerOptions]);
+
+  React.useEffect(() => {
+    if (!requestSuccess) return;
+    const timer = window.setTimeout(() => setRequestSuccess(null), 6000);
+    return () => window.clearTimeout(timer);
+  }, [requestSuccess]);
+
+  function resetRequestForm() {
+    setRequestForm({ trainerId: '', start: '', duration: 60, note: '' });
+  }
+
+  async function submitRequest(event: React.FormEvent) {
+    event.preventDefault();
+    if (requestBusy) return;
+
     if (!requestForm.trainerId) {
       setRequestError('Selecciona o personal trainer.');
       return;
@@ -258,6 +336,7 @@ export default function SessionsClient({ initialSessions, initialRequests }: Pro
       setRequestError('Data/hora inválida.');
       return;
     }
+
     const endDate = new Date(startDate.getTime() + duration * 60000);
 
     setRequestBusy(true);
@@ -281,18 +360,25 @@ export default function SessionsClient({ initialSessions, initialRequests }: Pro
       if (json?.request) {
         setRequests((prev) => [json.request as SessionRequest, ...prev]);
       }
-      setRequestSuccess('Pedido enviado — o PT será notificado.');
       setRequestDialogOpen(false);
-      setRequestForm({ trainerId: '', start: '', duration: 60, note: '' });
-    } catch (e: any) {
-      setRequestError(e?.message || 'Não foi possível criar o pedido.');
+      resetRequestForm();
+      setRequestSuccess('Pedido enviado — o PT será notificado.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Não foi possível criar o pedido.';
+      setRequestError(message);
     } finally {
       setRequestBusy(false);
     }
   }
 
-  async function mutateRequest(id: string, action: 'cancel' | 'accept_reschedule' | 'decline_reschedule', successMsg: string) {
-    setActionBusy(`${id}:${action}`);
+  async function mutateRequest(
+    id: string,
+    action: 'cancel' | 'accept_reschedule' | 'decline_reschedule',
+    successMessage: string,
+  ) {
+    const actionKey = `${id}:${action}`;
+    if (pendingRequestAction === actionKey) return;
+    setPendingRequestAction(actionKey);
     setRequestError(null);
     setRequestSuccess(null);
     try {
@@ -303,306 +389,452 @@ export default function SessionsClient({ initialSessions, initialRequests }: Pro
       });
       const text = await res.text();
       let json: any = {};
-      try { json = text ? JSON.parse(text) : {}; } catch { json = {}; }
+      try {
+        json = text ? JSON.parse(text) : {};
+      } catch {
+        json = {};
+      }
       if (!res.ok) {
-        throw new Error(json?.details || json?.error || text || 'Falha ao actualizar pedido.');
+        throw new Error(json?.details || json?.error || text || 'Não foi possível actualizar o pedido.');
       }
       if (json?.request) {
-        setRequests((prev) => prev.map((req) => (req.id === id ? (json.request as SessionRequest) : req)));
+        setRequests((prev) => prev.map((request) => (request.id === id ? (json.request as SessionRequest) : request)));
       }
-      if (successMsg) setRequestSuccess(successMsg);
-    } catch (e: any) {
-      setRequestError(e?.message || 'Não foi possível actualizar o pedido.');
+      if (successMessage) {
+        setRequestSuccess(successMessage);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Não foi possível actualizar o pedido.';
+      setRequestError(message);
     } finally {
-      setActionBusy(null);
+      setPendingRequestAction(null);
     }
   }
 
   function renderSession(session: ClientSession) {
-    const attendance = attendanceChip(session.attendanceStatus);
-    const start = formatDate(session.startISO);
+    const attendance = attendanceMeta(session.attendanceStatus);
+    const disableActions = pendingSessionId === session.id;
+
     return (
-      <Paper key={session.id} variant="outlined" sx={{ p: 2, borderRadius: 2, display: 'grid', gap: 1.5 }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} spacing={1.5}>
-          <Stack spacing={0.5}>
-            <Typography variant="subtitle1" fontWeight={700}>{start}</Typography>
-            {session.location && (
-              <Typography variant="body2" color="text.secondary">Local: {session.location}</Typography>
-            )}
-            {session.trainerName && (
-              <Typography variant="body2" color="text.secondary">Personal Trainer: {session.trainerName}</Typography>
-            )}
-            {session.notes && (
-              <Typography variant="body2" color="text.secondary">Notas: {session.notes}</Typography>
-            )}
-          </Stack>
-          <Chip
-            size="small"
-            label={attendance.label}
-            color={attendance.color}
-            variant={attendance.color === 'default' ? 'outlined' : 'filled'}
-            sx={{ alignSelf: { xs: 'flex-start', sm: 'center' } }}
-          />
-        </Stack>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }}>
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<CalendarMonthOutlinedIcon fontSize="small" />}
-            component="a"
+      <article key={session.id} className="sessions-card" aria-labelledby={`session-${session.id}`}> 
+        <header className="sessions-card__header">
+          <div className="sessions-card__meta">
+            <h3 id={`session-${session.id}`} className="sessions-card__title">
+              {formatDateTime(session.startISO)}
+            </h3>
+            <dl className="sessions-card__details">
+              <div>
+                <dt>Local</dt>
+                <dd>{session.location ? session.location : '—'}</dd>
+              </div>
+              <div>
+                <dt>Personal trainer</dt>
+                <dd>{session.trainerName ?? session.trainerEmail ?? '—'}</dd>
+              </div>
+              {session.durationMin ? (
+                <div>
+                  <dt>Duração</dt>
+                  <dd>{session.durationMin} min</dd>
+                </div>
+              ) : null}
+            </dl>
+          </div>
+          <span className="status-pill" data-state={attendance.tone}>
+            {attendance.label}
+          </span>
+        </header>
+
+        {session.notes ? <p className="sessions-card__notes">{session.notes}</p> : null}
+
+        <div className="sessions-card__actions">
+          <a
+            className="btn"
+            data-variant="ghost"
+            data-size="sm"
             href={`/api/sessions/${session.id}/ics`}
             target="_blank"
             rel="noopener noreferrer"
           >
-            Adicionar ao calendário
-          </Button>
-          <Stack direction="row" spacing={1} flexWrap="wrap">
-            {session.attendanceStatus !== 'confirmed' && session.attendanceStatus !== 'completed' && (
+            <span className="btn__icon btn__icon--left" aria-hidden>
+              <CalendarDays size={16} />
+            </span>
+            <span className="btn__label">Adicionar ao calendário</span>
+          </a>
+          <div className="sessions-card__actionsRow">
+            {session.attendanceStatus !== 'confirmed' && session.attendanceStatus !== 'completed' ? (
               <Button
-                size="small"
-                variant="contained"
-                color="success"
-                startIcon={<CheckCircleOutlineIcon fontSize="small" />}
-                disabled={busySessionId === session.id}
+                size="sm"
+                variant="success"
+                leftIcon={
+                  disableActions ? <Loader2 size={16} className="icon-spin" aria-hidden /> : <CheckCircle2 size={16} aria-hidden />
+                }
                 onClick={() => updateAttendance(session.id, 'confirmed')}
+                loading={disableActions}
+                loadingText="A atualizar…"
               >
                 Confirmar presença
               </Button>
-            )}
-            {session.attendanceStatus !== 'completed' && (
+            ) : null}
+            {session.attendanceStatus !== 'completed' ? (
               <Button
-                size="small"
-                variant="contained"
-                color="primary"
-                startIcon={<DoneAllIcon fontSize="small" />}
-                disabled={busySessionId === session.id}
+                size="sm"
+                variant="primary"
+                leftIcon={
+                  disableActions ? <Loader2 size={16} className="icon-spin" aria-hidden /> : <ShieldCheck size={16} aria-hidden />
+                }
                 onClick={() => updateAttendance(session.id, 'completed')}
+                loading={disableActions}
+                loadingText="A atualizar…"
               >
                 Marcar como concluída
               </Button>
-            )}
-          </Stack>
-        </Stack>
-        {session.attendanceAt && (
-          <Typography variant="caption" color="text.secondary">
-            Última atualização: {formatDate(session.attendanceAt)}
-          </Typography>
-        )}
-      </Paper>
+            ) : null}
+          </div>
+        </div>
+
+        {session.attendanceAt ? (
+          <p className="sessions-card__foot">Última atualização: {formatDateShort(session.attendanceAt)}</p>
+        ) : null}
+      </article>
     );
   }
 
   function renderRequest(request: SessionRequest) {
-    const status = requestStatusChip(request.status);
-    const actionKey = (suffix: string) => `${request.id}:${suffix}`;
+    const status = requestStatusMeta(request.status);
+    const key = (suffix: string) => `${request.id}:${suffix}`;
+
     return (
-      <Paper key={request.id} variant="outlined" sx={{ p: 2, borderRadius: 2, display: 'grid', gap: 1.25 }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={1.5} alignItems={{ sm: 'center' }}>
-          <Stack spacing={0.5}>
-            <Typography variant="subtitle1" fontWeight={700}>{trainerDisplay(request.trainer)}</Typography>
-            <Typography variant="body2" color="text.secondary">
-              Pedido original: {formatRange(request.requestedStart, request.requestedEnd)}
-            </Typography>
-            {request.status === 'reschedule_pending' && (
-              <Typography variant="body2" color="info.main">
-                Proposta do PT: {formatRange(request.proposedStart, request.proposedEnd)}
-              </Typography>
-            )}
-            {request.message && (
-              <Typography variant="body2" color="text.secondary">Mensagem enviada: {request.message}</Typography>
-            )}
-            {request.trainerNote && (
-              <Typography variant="body2" color="text.secondary">Nota do PT: {request.trainerNote}</Typography>
-            )}
-            {request.rescheduleNote && (
-              <Typography variant="body2" color="text.secondary">Nota da remarcação: {request.rescheduleNote}</Typography>
-            )}
-            {request.respondedAt && (
-              <Typography variant="caption" color="text.secondary">Atualizado: {formatDate(request.respondedAt)}</Typography>
-            )}
-          </Stack>
-          <Chip label={status.label} color={status.color} variant={status.color === 'default' ? 'outlined' : 'filled'} />
-        </Stack>
+      <article key={request.id} className="sessions-card sessions-card--request" aria-labelledby={`request-${request.id}`}>
+        <header className="sessions-card__header">
+          <div className="sessions-card__meta">
+            <h3 id={`request-${request.id}`} className="sessions-card__title">
+              {trainerDisplay(request.trainer)}
+            </h3>
+            <dl className="sessions-card__details">
+              <div>
+                <dt>Pedido original</dt>
+                <dd>{formatRange(request.requestedStart, request.requestedEnd)}</dd>
+              </div>
+              {request.status === 'reschedule_pending' ? (
+                <div>
+                  <dt>Proposta do PT</dt>
+                  <dd>{formatRange(request.proposedStart, request.proposedEnd)}</dd>
+                </div>
+              ) : null}
+              {request.respondedAt ? (
+                <div>
+                  <dt>Atualizado</dt>
+                  <dd>{formatDateShort(request.respondedAt)}</dd>
+                </div>
+              ) : null}
+            </dl>
+          </div>
+          <span className="status-pill" data-state={status.tone}>
+            {status.label}
+          </span>
+        </header>
+
+        <div className="sessions-card__notesStack">
+          {request.message ? <p>Mensagem enviada: {request.message}</p> : null}
+          {request.trainerNote ? <p>Nota do PT: {request.trainerNote}</p> : null}
+          {request.rescheduleNote ? <p>Nota da remarcação: {request.rescheduleNote}</p> : null}
+        </div>
+
         {(request.status === 'pending' || request.status === 'reschedule_pending') && (
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-            {request.status === 'pending' && (
+          <div className="sessions-card__actionsRow">
+            {request.status === 'pending' ? (
               <Button
-                variant="outlined"
-                color="error"
-                startIcon={<CancelOutlinedIcon fontSize="small" />}
-                disabled={actionBusy === actionKey('cancel')}
+                size="sm"
+                variant="danger"
+                leftIcon={
+                  pendingRequestAction === key('cancel')
+                    ? <Loader2 size={16} className="icon-spin" aria-hidden />
+                    : <XCircle size={16} aria-hidden />
+                }
                 onClick={() => mutateRequest(request.id, 'cancel', 'Pedido cancelado.')}
+                loading={pendingRequestAction === key('cancel')}
+                loadingText="A cancelar…"
               >
                 Cancelar pedido
               </Button>
-            )}
-            {request.status === 'reschedule_pending' && (
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+            ) : null}
+            {request.status === 'reschedule_pending' ? (
+              <>
                 <Button
-                  variant="contained"
-                  color="success"
-                  startIcon={<EventAvailableOutlinedIcon fontSize="small" />}
-                  disabled={actionBusy === actionKey('accept_reschedule')}
+                  size="sm"
+                  variant="success"
+                  leftIcon={
+                    pendingRequestAction === key('accept_reschedule')
+                      ? <Loader2 size={16} className="icon-spin" aria-hidden />
+                      : <CheckSquare size={16} aria-hidden />
+                  }
                   onClick={() => mutateRequest(request.id, 'accept_reschedule', 'Remarcação aceite com sucesso.')}
+                  loading={pendingRequestAction === key('accept_reschedule')}
+                  loadingText="A atualizar…"
                 >
                   Aceitar proposta
                 </Button>
                 <Button
-                  variant="outlined"
-                  color="warning"
-                  startIcon={<HighlightOffIcon fontSize="small" />}
-                  disabled={actionBusy === actionKey('decline_reschedule')}
+                  size="sm"
+                  variant="warning"
+                  leftIcon={
+                    pendingRequestAction === key('decline_reschedule')
+                      ? <Loader2 size={16} className="icon-spin" aria-hidden />
+                      : <RefreshCcw size={16} aria-hidden />
+                  }
                   onClick={() => mutateRequest(request.id, 'decline_reschedule', 'Remarcação recusada.')}
+                  loading={pendingRequestAction === key('decline_reschedule')}
+                  loadingText="A atualizar…"
                 >
                   Recusar proposta
                 </Button>
-              </Stack>
-            )}
-          </Stack>
+              </>
+            ) : null}
+          </div>
         )}
-      </Paper>
+      </article>
     );
   }
 
-  const availableTrainers = React.useMemo(() => {
-    return trainerOptions.filter((trainer) => (trainer.status ?? '').toUpperCase() !== 'SUSPENDED');
-  }, [trainerOptions]);
-
   return (
-    <Paper elevation={0} sx={{ p: 2, display: 'grid', gap: 3 }}>
-      <Typography variant="h6" fontWeight={800}>As minhas sessões</Typography>
+    <div className="sessions-view">
+      <header className="sessions-view__header">
+        <div>
+          <h1 className="sessions-view__title">As minhas sessões</h1>
+          <p className="sessions-view__subtitle">
+            Gere pedidos, acompanha confirmações e mantém o teu histórico sempre organizado.
+          </p>
+        </div>
+        <Button
+          variant="primary"
+          leftIcon={<MessageSquarePlus size={18} aria-hidden />}
+          onClick={() => {
+            setRequestDialogOpen(true);
+            setRequestError(null);
+          }}
+        >
+          Solicitar sessão
+        </Button>
+      </header>
 
-      <Stack spacing={2}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} spacing={1.5}>
-          <Typography variant="subtitle1" fontWeight={700}>Pedidos de sessão</Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddCircleOutlineIcon />}
-            onClick={() => {
-              setRequestDialogOpen(true);
-              setRequestError(null);
-              setRequestSuccess(null);
-            }}
-          >
-            Solicitar sessão
-          </Button>
-        </Stack>
-        {requestError && (
-          <Alert severity="error" onClose={() => setRequestError(null)}>{requestError}</Alert>
-        )}
-        {requestSuccess && (
-          <Alert severity="success" onClose={() => setRequestSuccess(null)}>{requestSuccess}</Alert>
-        )}
-        <Stack spacing={1.5}>
-          <Typography variant="subtitle2" fontWeight={700}>Pendentes</Typography>
-          {openRequests.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">Nenhum pedido pendente neste momento.</Typography>
-          ) : (
-            <Stack spacing={1.25}>{openRequests.map(renderRequest)}</Stack>
-          )}
-        </Stack>
-        <Divider />
-        <Stack spacing={1.5}>
-          <Typography variant="subtitle2" fontWeight={700}>Histórico</Typography>
-          {historyRequests.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">Sem pedidos anteriores registados.</Typography>
-          ) : (
-            <Stack spacing={1.25}>{historyRequests.map(renderRequest)}</Stack>
-          )}
-        </Stack>
-      </Stack>
+      {requestSuccess ? <Alert tone="success" title={requestSuccess} /> : null}
+      {requestError && !requestDialogOpen ? <Alert tone="danger" title={requestError} /> : null}
 
-      <Divider />
+      <div className="sessions-view__grid">
+        <section className="neo-panel sessions-panel" aria-labelledby={requestHeadingId}>
+          <header className="neo-panel__header">
+            <div className="neo-panel__meta">
+              <h2 id={requestHeadingId} className="neo-panel__title">
+                Pedidos de sessão
+              </h2>
+              <p className="neo-panel__subtitle">Acompanha o estado das tuas solicitações em aberto e anteriores.</p>
+            </div>
+          </header>
 
-      {sessionError && <Alert severity="error" onClose={() => setSessionError(null)}>{sessionError}</Alert>}
-
-      <Stack spacing={2}>
-        <Typography variant="subtitle1" fontWeight={700}>Próximas sessões</Typography>
-        {upcoming.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">Não tens sessões marcadas para os próximos dias.</Typography>
-        ) : (
-          <Stack spacing={1.5}>{upcoming.map(renderSession)}</Stack>
-        )}
-      </Stack>
-      <Divider />
-      <Stack spacing={2}>
-        <Typography variant="subtitle1" fontWeight={700}>Histórico recente</Typography>
-        {past.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">Ainda sem sessões passadas registadas.</Typography>
-        ) : (
-          <Stack spacing={1.5}>{past.map(renderSession)}</Stack>
-        )}
-      </Stack>
-
-      <Dialog
-        open={requestDialogOpen}
-        onClose={() => {
-          if (!requestBusy) setRequestDialogOpen(false);
-        }}
-        fullWidth
-        maxWidth="sm"
-      >
-        <DialogTitle>Solicitar nova sessão</DialogTitle>
-        <DialogContent sx={{ display: 'grid', gap: 2, pt: 1 }}>
-          <TextField
-            select
-            label="Personal trainer"
-            value={requestForm.trainerId}
-            onChange={(event) => setRequestForm((prev) => ({ ...prev, trainerId: event.target.value }))}
-            helperText={loadingTrainers ? 'A carregar treinadores…' : 'Escolhe o profissional com quem queres treinar.'}
-            disabled={requestBusy || loadingTrainers}
-            required
-          >
-            {availableTrainers.map((trainer) => (
-              <MenuItem key={trainer.id} value={trainer.id}>
-                {trainer.name ?? trainer.email ?? trainer.id}
-              </MenuItem>
-            ))}
-            {availableTrainers.length === 0 && !loadingTrainers && (
-              <MenuItem disabled value="">
-                Nenhum treinador disponível.
-              </MenuItem>
+          <div className="sessions-panel__section">
+            <h3 className="sessions-panel__heading">Pendentes</h3>
+            {openRequests.length ? (
+              <div className="sessions-list">{openRequests.map(renderRequest)}</div>
+            ) : (
+              <div className="neo-empty">
+                <span className="neo-empty__icon" aria-hidden>
+                  <UserRound size={28} />
+                </span>
+                <p className="neo-empty__title">Sem pedidos pendentes</p>
+                <p className="neo-empty__description">Assim que enviares um pedido, o estado aparece aqui automaticamente.</p>
+              </div>
             )}
-          </TextField>
-          <TextField
-            type="datetime-local"
-            label="Data e hora"
-            value={requestForm.start}
-            onChange={(event) => setRequestForm((prev) => ({ ...prev, start: event.target.value }))}
-            required
-            disabled={requestBusy}
-          />
-          <TextField
-            type="number"
-            label="Duração (minutos)"
-            value={requestForm.duration}
-            onChange={(event) => setRequestForm((prev) => ({ ...prev, duration: Number(event.target.value) }))}
-            inputProps={{ min: 15, step: 5 }}
-            disabled={requestBusy}
-          />
-          <TextField
-            label="Notas para o PT"
-            multiline
-            minRows={3}
-            value={requestForm.note}
-            onChange={(event) => setRequestForm((prev) => ({ ...prev, note: event.target.value }))}
-            placeholder="Objetivo da sessão, local preferido, etc."
-            disabled={requestBusy}
-          />
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setRequestDialogOpen(false)} disabled={requestBusy}>Cancelar</Button>
-          <Button onClick={submitRequest} disabled={requestBusy} variant="contained">
-            {requestBusy ? 'A enviar…' : 'Enviar pedido'}
-          </Button>
-        </DialogActions>
-        {loadingTrainers && (
-          <Stack direction="row" alignItems="center" justifyContent="center" spacing={1} sx={{ pb: 2 }}>
-            <CircularProgress size={20} />
-            <Typography variant="caption" color="text.secondary">A carregar lista de treinadores…</Typography>
-          </Stack>
-        )}
-      </Dialog>
-    </Paper>
+          </div>
+
+          <div className="sessions-panel__section">
+            <h3 className="sessions-panel__heading">Histórico</h3>
+            {historyRequests.length ? (
+              <div className="sessions-list sessions-list--history">{historyRequests.map(renderRequest)}</div>
+            ) : (
+              <div className="neo-empty">
+                <span className="neo-empty__icon" aria-hidden>
+                  <History size={28} />
+                </span>
+                <p className="neo-empty__title">Ainda sem histórico</p>
+                <p className="neo-empty__description">Quando os pedidos forem tratados, ficam aqui para referência futura.</p>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <div className="sessions-schedule">
+          <section className="neo-panel sessions-panel" aria-labelledby={upcomingHeadingId}>
+            <header className="neo-panel__header">
+              <div className="neo-panel__meta">
+                <h2 id={upcomingHeadingId} className="neo-panel__title">
+                  Próximas sessões
+                </h2>
+                <p className="neo-panel__subtitle">Confirma presença e adiciona os treinos rapidamente ao calendário.</p>
+              </div>
+            </header>
+
+            {sessionError ? <Alert tone="danger" title={sessionError} /> : null}
+
+            {upcomingSessions.length ? (
+              <div className="sessions-list">{upcomingSessions.map(renderSession)}</div>
+            ) : (
+              <div className="neo-empty">
+                <span className="neo-empty__icon" aria-hidden>
+                  <CalendarDays size={28} />
+                </span>
+                <p className="neo-empty__title">Não tens sessões agendadas</p>
+                <p className="neo-empty__description">Quando um treino for confirmado pelo teu PT, será mostrado imediatamente.</p>
+              </div>
+            )}
+          </section>
+
+          <section className="neo-panel sessions-panel" aria-labelledby={historyHeadingId}>
+            <header className="neo-panel__header">
+              <div className="neo-panel__meta">
+                <h2 id={historyHeadingId} className="neo-panel__title">
+                  Histórico recente
+                </h2>
+                <p className="neo-panel__subtitle">Revê as últimas sessões concluídas ou canceladas.</p>
+              </div>
+            </header>
+
+            {pastSessions.length ? (
+              <div className="sessions-list sessions-list--history">{pastSessions.map(renderSession)}</div>
+            ) : (
+              <div className="neo-empty">
+                <span className="neo-empty__icon" aria-hidden>
+                  <CalendarDays size={28} />
+                </span>
+                <p className="neo-empty__title">Sem sessões anteriores</p>
+                <p className="neo-empty__description">Assim que terminares uma sessão, ela fica registada nesta secção.</p>
+              </div>
+            )}
+          </section>
+        </div>
+      </div>
+
+      {requestDialogOpen ? (
+        <div className="neo-dialog-backdrop" role="dialog" aria-modal="true" aria-labelledby={dialogTitleId}>
+          <div className="neo-dialog sessions-request-dialog" role="document">
+            <header className="neo-dialog__header">
+              <div>
+                <h2 id={dialogTitleId} className="neo-dialog__title">
+                  Solicitar nova sessão
+                </h2>
+                <p className="neo-dialog__subtitle">
+                  Escolhe o profissional, define data e deixa notas relevantes para acelarar a confirmação.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn"
+                data-variant="ghost"
+                data-size="sm"
+                onClick={() => {
+                  if (!requestBusy) {
+                    setRequestDialogOpen(false);
+                    setRequestError(null);
+                  }
+                }}
+              >
+                Fechar
+              </button>
+            </header>
+
+            {requestError ? <Alert tone="danger" title={requestError} /> : null}
+
+            <form
+              id={dialogFormId}
+              className="neo-dialog__content sessions-request-form"
+              onSubmit={submitRequest}
+            >
+              <label className="sessions-field">
+                <span className="sessions-field__label">Personal trainer</span>
+                <select
+                  className="neo-field"
+                  value={requestForm.trainerId}
+                  onChange={(event) => setRequestForm((prev) => ({ ...prev, trainerId: event.target.value }))}
+                  disabled={requestBusy}
+                  required
+                >
+                  <option value="">Selecciona o PT</option>
+                  {availableTrainers.map((trainer) => (
+                    <option key={trainer.id} value={trainer.id}>
+                      {trainer.name ?? trainer.email ?? trainer.id}
+                    </option>
+                  ))}
+                </select>
+                <span className="sessions-field__hint">
+                  {loadingTrainers ? 'A carregar treinadores…' : 'Escolhe o profissional com quem queres treinar.'}
+                </span>
+              </label>
+
+              <label className="sessions-field">
+                <span className="sessions-field__label">Data e hora pretendidas</span>
+                <input
+                  type="datetime-local"
+                  className="neo-field"
+                  value={requestForm.start}
+                  onChange={(event) => setRequestForm((prev) => ({ ...prev, start: event.target.value }))}
+                  disabled={requestBusy}
+                  required
+                />
+              </label>
+
+              <label className="sessions-field">
+                <span className="sessions-field__label">Duração (minutos)</span>
+                <input
+                  type="number"
+                  className="neo-field"
+                  min={15}
+                  step={5}
+                  value={requestForm.duration}
+                  onChange={(event) =>
+                    setRequestForm((prev) => ({ ...prev, duration: Number(event.target.value || 0) }))
+                  }
+                  disabled={requestBusy}
+                />
+              </label>
+
+              <label className="sessions-field sessions-field--full">
+                <span className="sessions-field__label">Notas para o PT</span>
+                <textarea
+                  className="neo-field sessions-field__textarea"
+                  rows={3}
+                  value={requestForm.note}
+                  onChange={(event) => setRequestForm((prev) => ({ ...prev, note: event.target.value }))}
+                  placeholder="Objetivo da sessão, local preferido, etc."
+                  disabled={requestBusy}
+                />
+              </label>
+            </form>
+
+            <footer className="neo-dialog__footer">
+              <Button
+                variant="ghost"
+                type="button"
+                onClick={() => {
+                  if (!requestBusy) {
+                    setRequestDialogOpen(false);
+                    setRequestError(null);
+                  }
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                form={dialogFormId}
+                variant="primary"
+                loading={requestBusy}
+                loadingText="A enviar…"
+                leftIcon={requestBusy ? <Loader2 size={16} className="icon-spin" aria-hidden /> : <CheckCircle2 size={16} aria-hidden />}>
+                Enviar pedido
+              </Button>
+            </footer>
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }

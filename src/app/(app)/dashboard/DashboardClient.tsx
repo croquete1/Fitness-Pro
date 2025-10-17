@@ -3,7 +3,6 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import clsx from "clsx";
 import PageHeader from "@/components/ui/PageHeader";
 import { useMe } from "@/hooks/useMe";
 import { usePoll } from "@/hooks/usePoll";
@@ -93,45 +92,46 @@ function MetricTile({
   loading?: boolean;
   tone?: "primary" | "accent" | "info" | "success" | "warning";
 }) {
+  const classes = ["neo-surface", "client-dashboard__metricCard"];
+  const interactive = Boolean(href && !loading);
+  if (interactive) {
+    classes.push("neo-surface--interactive");
+  }
+
+  const skeleton = <span className="client-dashboard__metricSkeleton" aria-hidden />;
+
   const content = (
     <>
-      <div className="flex items-start justify-between gap-3">
-        <div className="space-y-2">
+      <div className="client-dashboard__metric">
+        <div className="client-dashboard__metricCopy">
           <span className="neo-surface__hint uppercase tracking-wide">{label}</span>
-          <span className="neo-surface__value text-2xl font-semibold text-fg">
-            {loading ? <span className="block h-6 w-16 animate-pulse rounded-full bg-white/60 dark:bg-slate-800/60" /> : value}
-          </span>
-          {hint && <p className="text-xs text-muted">{hint}</p>}
+          <span className="client-dashboard__metricValue">{loading ? skeleton : value}</span>
+          {hint && <p className="client-dashboard__metricHint">{hint}</p>}
         </div>
         {icon && (
-          <span className="text-2xl" aria-hidden>
+          <span className="client-dashboard__metricIcon" aria-hidden>
             {icon}
           </span>
         )}
       </div>
-      {href && !loading && (
-        <span className="link-arrow mt-4 inline-flex items-center gap-1 text-sm font-medium">
+      {interactive && (
+        <span className="link-arrow client-dashboard__metricLink">
           Abrir <ArrowTopRightIcon />
         </span>
       )}
     </>
   );
 
-  const className = clsx(
-    "neo-surface p-4 transition-transform duration-200",
-    href && !loading && "neo-surface--interactive hover:-translate-y-0.5",
-  );
-
-  if (href && !loading) {
+  if (interactive && href) {
     return (
-      <Link href={href} prefetch={false} className={className} data-variant={tone}>
+      <Link href={href} prefetch={false} className={classes.join(" ")} data-variant={tone}>
         {content}
       </Link>
     );
   }
 
   return (
-    <div className={className} data-variant={tone}>
+    <div className={classes.join(" ")} data-variant={tone}>
       {content}
     </div>
   );
@@ -219,6 +219,15 @@ export default function DashboardClient() {
     return Number(diff.toFixed(1));
   }, [overview?.lastMeasurement?.weight_kg, overview?.previousMeasurement?.weight_kg]);
 
+  const weightDeltaTone =
+    typeof weightDelta === "number"
+      ? weightDelta > 0
+        ? "up"
+        : weightDelta < 0
+        ? "down"
+        : "flat"
+      : undefined;
+
   const kpis = [
     {
       label: "Planos activos",
@@ -252,20 +261,20 @@ export default function DashboardClient() {
   ];
 
   return (
-    <div className="space-y-6 px-4 py-6 md:px-8">
+    <div className="client-dashboard">
       <PageHeader
         sticky={false}
         title={
-          <span className="flex flex-wrap items-center gap-3">
-            <span className="text-3xl" aria-hidden>
+          <div className="client-dashboard__hero">
+            <span className="client-dashboard__heroEmoji" aria-hidden>
               {greetingInfo.emoji}
             </span>
-            <span className="heading-solid text-3xl font-extrabold leading-tight text-fg">{greeting}</span>
-          </span>
+            <span className="client-dashboard__heroTitle">{greeting}</span>
+          </div>
         }
         subtitle="O teu cockpit pessoal com os próximos passos e evolução recente."
         actions={
-          <div className="neo-quick-actions">
+          <div className="neo-quick-actions client-dashboard__quickActions">
             {quickActions.map((action) => (
               <Link key={action.href} href={action.href} className="btn" prefetch={false}>
                 {action.label}
@@ -276,22 +285,24 @@ export default function DashboardClient() {
       />
 
       {overviewError && (
-        <div className="neo-panel neo-panel--compact border border-red-500/30 bg-red-50/40 text-sm text-red-800 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
+        <div className="client-dashboard__error" role="alert">
           Não foi possível carregar o resumo do teu painel. Tenta novamente dentro de alguns segundos.
         </div>
       )}
 
-      <section className="neo-panel space-y-5" aria-labelledby="client-metrics-heading">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
+      <section className="neo-panel client-dashboard__panel" aria-labelledby="client-metrics-heading">
+        <header className="neo-panel__header">
+          <div className="neo-panel__meta">
             <h2 id="client-metrics-heading" className="neo-panel__title">
               Indicadores principais
             </h2>
             <p className="neo-panel__subtitle">Actualizados automaticamente a cada minuto.</p>
           </div>
-          <StatusPill tone={statsResponse?.ok ? "ok" : "warn"} label={statsResponse?.ok ? "Sincronizado" : "A sincronizar"} />
-        </div>
-        <div className="neo-grid auto-fit min-[420px]:grid-cols-2 xl:grid-cols-4">
+          <div className="neo-panel__actions">
+            <StatusPill tone={statsResponse?.ok ? "ok" : "warn"} label={statsResponse?.ok ? "Sincronizado" : "A sincronizar"} />
+          </div>
+        </header>
+        <div className="client-dashboard__metrics">
           {kpis.map((kpi) => (
             <MetricTile
               key={kpi.label}
@@ -307,57 +318,63 @@ export default function DashboardClient() {
         </div>
       </section>
 
-      <div className="grid gap-5 xl:grid-cols-[2fr_1fr]">
-        <div className="space-y-5">
-          <section className="neo-panel space-y-4" aria-labelledby="active-plan-heading">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
+      <div className="client-dashboard__columns">
+        <div className="client-dashboard__column client-dashboard__column--main">
+          <section className="neo-panel client-dashboard__panel" aria-labelledby="active-plan-heading">
+            <header className="neo-panel__header">
+              <div className="neo-panel__meta">
                 <h2 id="active-plan-heading" className="neo-panel__title">
                   Plano activo
                 </h2>
                 <p className="neo-panel__subtitle">Últimas alterações e responsáveis.</p>
               </div>
               {overview?.activePlan && (
-                <StatusPill
-                  tone={planTone(overview.activePlan.status)}
-                  label={(overview.activePlan.status ?? "Ativo").toString()}
-                />
+                <div className="neo-panel__actions">
+                  <StatusPill
+                    tone={planTone(overview.activePlan.status)}
+                    label={(overview.activePlan.status ?? "Ativo").toString()}
+                  />
+                </div>
               )}
-            </div>
+            </header>
 
             {overviewLoading ? (
-              <div className="grid gap-3">
-                <div className="h-8 animate-pulse rounded-xl bg-white/60 dark:bg-slate-800/50" />
-                <div className="h-5 animate-pulse rounded-xl bg-white/50 dark:bg-slate-800/40" />
-                <div className="h-5 animate-pulse rounded-xl bg-white/50 dark:bg-slate-800/40" />
+              <div className="client-dashboard__skeletonStack">
+                <div className="client-dashboard__skeletonBlock" data-size="lg" />
+                <div className="client-dashboard__skeletonBlock" />
+                <div className="client-dashboard__skeletonBlock" />
               </div>
             ) : overview?.activePlan ? (
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <h3 className="text-lg font-semibold text-fg">{overview.activePlan.title ?? "Plano de treino"}</h3>
-                  <p className="text-sm text-muted">
+              <div className="client-dashboard__panelBody">
+                <div className="client-dashboard__planHeader">
+                  <h3 className="client-dashboard__planTitle">
+                    {overview.activePlan.title ?? "Plano de treino"}
+                  </h3>
+                  <p className="client-dashboard__muted">
                     PT responsável: {overview.activePlan.trainer_name ?? overview.activePlan.trainer_id ?? "—"}
                   </p>
                 </div>
-                <dl className="grid gap-3 text-sm sm:grid-cols-3">
-                  <div>
+                <dl className="client-dashboard__planStats">
+                  <div className="client-dashboard__planStat">
                     <dt className="neo-surface__hint">Início</dt>
-                    <dd className="font-semibold text-fg">
+                    <dd className="client-dashboard__summaryValue">
                       {formatDate(overview.activePlan.start_date, { day: "2-digit", month: "short" })}
                     </dd>
                   </div>
-                  <div>
+                  <div className="client-dashboard__planStat">
                     <dt className="neo-surface__hint">Fim</dt>
-                    <dd className="font-semibold text-fg">
+                    <dd className="client-dashboard__summaryValue">
                       {formatDate(overview.activePlan.end_date, { day: "2-digit", month: "short" })}
                     </dd>
                   </div>
-                  <div>
+                  <div className="client-dashboard__planStat">
                     <dt className="neo-surface__hint">Estado</dt>
-                    <dd className="font-semibold text-fg">{(overview.activePlan.status ?? "Ativo").toString()}</dd>
+                    <dd className="client-dashboard__summaryValue">
+                      {(overview.activePlan.status ?? "Ativo").toString()}
+                    </dd>
                   </div>
                 </dl>
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="client-dashboard__actions">
                   <Link
                     href={`/dashboard/my-plan/${overview.activePlan.id}`}
                     className="btn primary"
@@ -371,9 +388,9 @@ export default function DashboardClient() {
                 </div>
               </div>
             ) : (
-              <div className="space-y-3">
-                <p className="text-base font-semibold text-fg">Ainda não tens um plano activo.</p>
-                <p className="text-sm text-muted">
+              <div className="client-dashboard__panelBody">
+                <p className="client-dashboard__headline">Ainda não tens um plano activo.</p>
+                <p className="client-dashboard__muted">
                   Assim que o teu Personal Trainer publicar um plano, os detalhes e próximos passos surgem aqui automaticamente.
                 </p>
                 <Link href="/dashboard/messages" className="btn primary" prefetch={false}>
@@ -383,51 +400,52 @@ export default function DashboardClient() {
             )}
           </section>
 
-          <section className="neo-panel space-y-4" aria-labelledby="upcoming-sessions-heading">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
+          <section className="neo-panel client-dashboard__panel" aria-labelledby="upcoming-sessions-heading">
+            <header className="neo-panel__header">
+              <div className="neo-panel__meta">
                 <h2 id="upcoming-sessions-heading" className="neo-panel__title">
                   Próximas sessões
                 </h2>
                 <p className="neo-panel__subtitle">Acompanhamos a agenda dos próximos 7 dias.</p>
               </div>
-              <Link href="/dashboard/sessions" className="btn ghost" prefetch={false}>
-                Ver agenda
-              </Link>
-            </div>
+              <div className="neo-panel__actions">
+                <Link href="/dashboard/sessions" className="btn ghost" prefetch={false}>
+                  Ver agenda
+                </Link>
+              </div>
+            </header>
 
             {overviewLoading ? (
-              <div className="grid gap-3">
+              <div className="client-dashboard__skeletonStack">
                 {Array.from({ length: 3 }).map((_, idx) => (
-                  <div
-                    key={idx}
-                    className="h-16 animate-pulse rounded-2xl bg-white/60 dark:bg-slate-800/50"
-                  />
+                  <div key={idx} className="client-dashboard__skeletonBlock" data-size="card" />
                 ))}
               </div>
             ) : overview?.upcomingSessions?.length ? (
-              <ul className="grid gap-3" aria-live="polite">
+              <ul className="client-dashboard__list" aria-live="polite">
                 {overview.upcomingSessions.map((session) => (
-                  <li key={session.id} className="neo-surface p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                      <span className="font-semibold text-fg">{formatDate(session.scheduled_at)}</span>
+                  <li key={session.id} className="neo-surface client-dashboard__card">
+                    <div className="client-dashboard__cardHeader">
+                      <span className="client-dashboard__headline client-dashboard__headline--small">
+                        {formatDate(session.scheduled_at)}
+                      </span>
                       {session.status && (
                         <StatusPill tone={sessionTone(session.status)} label={String(session.status).toUpperCase()} />
                       )}
                     </div>
-                    <p className="text-sm text-muted">
+                    <p className="client-dashboard__muted client-dashboard__muted--small">
                       {session.location ?? "Local a confirmar"} • {session.trainer_name ?? session.trainer_id ?? "PT por atribuir"}
                     </p>
-                    <Link href="/dashboard/sessions" className="link-arrow mt-3 inline-flex" prefetch={false}>
+                    <Link href="/dashboard/sessions" className="link-arrow client-dashboard__link" prefetch={false}>
                       Ver detalhes <ArrowTopRightIcon />
                     </Link>
                   </li>
                 ))}
               </ul>
             ) : (
-              <div className="space-y-3">
-                <p className="text-base font-semibold text-fg">Sem sessões marcadas nos próximos 7 dias.</p>
-                <p className="text-sm text-muted">
+              <div className="client-dashboard__panelBody">
+                <p className="client-dashboard__headline">Sem sessões marcadas nos próximos 7 dias.</p>
+                <p className="client-dashboard__muted">
                   Mantém a consistência agendando a próxima sessão ou revendo o teu plano semanal.
                 </p>
                 <Link href="/dashboard/sessions" className="btn primary" prefetch={false}>
@@ -438,60 +456,59 @@ export default function DashboardClient() {
           </section>
         </div>
 
-        <aside className="space-y-5">
-          <section className="neo-panel space-y-4" aria-labelledby="metrics-heading">
-            <div className="flex items-center justify-between gap-3">
-              <div>
+        <aside className="client-dashboard__column client-dashboard__column--aside">
+          <section className="neo-panel client-dashboard__panel" aria-labelledby="metrics-heading">
+            <header className="neo-panel__header">
+              <div className="neo-panel__meta">
                 <h2 id="metrics-heading" className="neo-panel__title">
                   Evolução física
                 </h2>
                 <p className="neo-panel__subtitle">Últimos registos submetidos.</p>
               </div>
-              <Link href="/dashboard/clients/metrics" className="btn ghost" prefetch={false}>
-                Ver métricas
-              </Link>
-            </div>
+              <div className="neo-panel__actions">
+                <Link href="/dashboard/clients/metrics" className="btn ghost" prefetch={false}>
+                  Ver métricas
+                </Link>
+              </div>
+            </header>
 
             {overviewLoading ? (
-              <div className="grid gap-3">
-                <div className="h-10 animate-pulse rounded-2xl bg-white/60 dark:bg-slate-800/50" />
-                <div className="h-6 animate-pulse rounded-2xl bg-white/50 dark:bg-slate-800/40" />
+              <div className="client-dashboard__skeletonStack">
+                <div className="client-dashboard__skeletonBlock" data-size="lg" />
+                <div className="client-dashboard__skeletonBlock" />
               </div>
             ) : overview?.lastMeasurement ? (
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <p className="text-sm text-muted">
+              <div className="client-dashboard__panelBody">
+                <div className="client-dashboard__planHeader">
+                  <p className="client-dashboard__muted client-dashboard__muted--small">
                     Registado em {formatDate(overview.lastMeasurement.measured_at, { day: "2-digit", month: "long" })}
                   </p>
-                  <p className="text-lg font-semibold text-fg">
+                  <p className="client-dashboard__value">
                     Peso actual: {formatMetric(overview.lastMeasurement.weight_kg, " kg")}
                   </p>
                 </div>
-                <dl className="grid gap-3 text-sm">
-                  <div className="flex items-center justify-between">
+                <dl className="client-dashboard__metricsSummary">
+                  <div className="client-dashboard__metricRow">
                     <dt className="neo-surface__hint">Altura</dt>
-                    <dd className="font-semibold text-fg">{formatMetric(overview.lastMeasurement.height_cm, " cm")}</dd>
+                    <dd className="client-dashboard__summaryValue">
+                      {formatMetric(overview.lastMeasurement.height_cm, " cm")}
+                    </dd>
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="client-dashboard__metricRow">
                     <dt className="neo-surface__hint">Massa gorda</dt>
-                    <dd className="font-semibold text-fg">{formatMetric(overview.lastMeasurement.body_fat_pct, "%")}</dd>
+                    <dd className="client-dashboard__summaryValue">
+                      {formatMetric(overview.lastMeasurement.body_fat_pct, "%")}
+                    </dd>
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="client-dashboard__metricRow">
                     <dt className="neo-surface__hint">IMC</dt>
-                    <dd className="font-semibold text-fg">{formatMetric(overview.lastMeasurement.bmi)}</dd>
+                    <dd className="client-dashboard__summaryValue">
+                      {formatMetric(overview.lastMeasurement.bmi)}
+                    </dd>
                   </div>
                 </dl>
-                {typeof weightDelta === "number" && (
-                  <p
-                    className={clsx(
-                      "text-sm font-semibold",
-                      weightDelta > 0
-                        ? "text-amber-600 dark:text-amber-300"
-                        : weightDelta < 0
-                        ? "text-emerald-600 dark:text-emerald-300"
-                        : "text-muted",
-                    )}
-                  >
+                {typeof weightDelta === "number" && weightDeltaTone && (
+                  <p className="client-dashboard__trend" data-tone={weightDeltaTone}>
                     {weightDelta > 0
                       ? `+${weightDelta} kg vs. última medição`
                       : weightDelta < 0
@@ -500,13 +517,15 @@ export default function DashboardClient() {
                   </p>
                 )}
                 {overview.lastMeasurement.notes && (
-                  <p className="text-sm text-muted">Nota: {overview.lastMeasurement.notes}</p>
+                  <p className="client-dashboard__muted client-dashboard__muted--small">
+                    Nota: {overview.lastMeasurement.notes}
+                  </p>
                 )}
               </div>
             ) : (
-              <div className="space-y-3">
-                <p className="text-base font-semibold text-fg">Ainda não existem registos de métricas.</p>
-                <p className="text-sm text-muted">
+              <div className="client-dashboard__panelBody">
+                <p className="client-dashboard__headline">Ainda não existem registos de métricas.</p>
+                <p className="client-dashboard__muted">
                   Guarda o teu peso, altura e notas para acompanhares a evolução junto do teu Personal Trainer.
                 </p>
                 <Link href="/dashboard/clients/metrics" className="btn primary" prefetch={false}>
@@ -516,52 +535,53 @@ export default function DashboardClient() {
             )}
           </section>
 
-          <section className="neo-panel space-y-4" aria-labelledby="quick-actions-heading">
-            <div>
-              <h2 id="quick-actions-heading" className="neo-panel__title">
-                Ações rápidas
-              </h2>
-              <p className="neo-panel__subtitle">Agiliza o contacto com o teu PT e histórico.</p>
-            </div>
-            <div className="grid gap-2">
-              <Link href="/dashboard/messages" className="neo-surface neo-surface--interactive p-3" prefetch={false}>
+          <section className="neo-panel client-dashboard__panel" aria-labelledby="quick-actions-heading">
+            <header className="neo-panel__header">
+              <div className="neo-panel__meta">
+                <h2 id="quick-actions-heading" className="neo-panel__title">
+                  Ações rápidas
+                </h2>
+                <p className="neo-panel__subtitle">Agiliza o contacto com o teu PT e histórico.</p>
+              </div>
+            </header>
+            <div className="client-dashboard__quickList">
+              <Link href="/dashboard/messages" className="neo-surface neo-surface--interactive client-dashboard__quickLink" prefetch={false}>
                 Conversar com o PT
               </Link>
-              <Link href="/dashboard/notifications" className="neo-surface neo-surface--interactive p-3" prefetch={false}>
+              <Link href="/dashboard/notifications" className="neo-surface neo-surface--interactive client-dashboard__quickLink" prefetch={false}>
                 Rever notificações
               </Link>
-              <Link href="/dashboard/history" className="neo-surface neo-surface--interactive p-3" prefetch={false}>
+              <Link href="/dashboard/history" className="neo-surface neo-surface--interactive client-dashboard__quickLink" prefetch={false}>
                 Histórico de treinos
               </Link>
             </div>
           </section>
 
-          <section className="neo-panel space-y-4" aria-labelledby="recommendations-heading">
-            <div>
-              <h2 id="recommendations-heading" className="neo-panel__title">
-                Recomendações personalizadas
-              </h2>
-              <p className="neo-panel__subtitle">Sugestões do teu PT para os próximos dias.</p>
-            </div>
+          <section className="neo-panel client-dashboard__panel" aria-labelledby="recommendations-heading">
+            <header className="neo-panel__header">
+              <div className="neo-panel__meta">
+                <h2 id="recommendations-heading" className="neo-panel__title">
+                  Recomendações personalizadas
+                </h2>
+                <p className="neo-panel__subtitle">Sugestões do teu PT para os próximos dias.</p>
+              </div>
+            </header>
             {overviewLoading ? (
-              <div className="grid gap-2">
+              <div className="client-dashboard__skeletonStack">
                 {Array.from({ length: 3 }).map((_, idx) => (
-                  <div
-                    key={idx}
-                    className="h-4 animate-pulse rounded-full bg-white/60 dark:bg-slate-800/50"
-                  />
+                  <div key={idx} className="client-dashboard__skeletonBlock" data-size="line" />
                 ))}
               </div>
             ) : overview?.recommendations?.length ? (
-              <ul className="grid gap-2 text-sm">
+              <ul className="client-dashboard__recommendations">
                 {overview.recommendations.map((rec, idx) => (
-                  <li key={idx} className="neo-surface p-3" data-variant="success">
+                  <li key={idx} className="neo-surface client-dashboard__recommendation" data-variant="success">
                     {rec}
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-muted">
+              <p className="client-dashboard__muted">
                 Tudo em dia! Continua a seguir o plano e mantém o contacto com o teu PT para potenciares os resultados.
               </p>
             )}
