@@ -11,10 +11,18 @@ import {
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Button from '@/components/ui/Button';
 import PageHeader from '@/components/ui/PageHeader';
+import Alert from '@/components/ui/Alert';
+
+export type SearchPermissions = {
+  users: boolean;
+  sessions: boolean;
+  approvals: boolean;
+};
 
 export type SearchResults = {
   query: string;
   supabase: boolean;
+  permissions: SearchPermissions;
   users: Array<{ id: string; name: string; role: string; email: string | null }>;
   sessions: Array<{
     id: string;
@@ -95,10 +103,28 @@ export default function SearchClient({ initialQuery, results }: Props) {
     setTerm(initialQuery);
   }, [initialQuery]);
 
-  const empty = useMemo(
-    () => !results.users.length && !results.sessions.length && !results.approvals.length,
-    [results.approvals.length, results.sessions.length, results.users.length],
+  const sections = useMemo(
+    () => ({
+      users: results.permissions.users ? results.users : [],
+      sessions: results.permissions.sessions ? results.sessions : [],
+      approvals: results.permissions.approvals ? results.approvals : [],
+    }),
+    [results.approvals, results.permissions, results.sessions, results.users],
   );
+
+  const empty = useMemo(
+    () => !sections.users.length && !sections.sessions.length && !sections.approvals.length,
+    [sections.approvals.length, sections.sessions.length, sections.users.length],
+  );
+
+  const restricted = useMemo(() => {
+    const blocked: string[] = [];
+    if (!results.permissions.users) blocked.push('utilizadores');
+    if (!results.permissions.sessions) blocked.push('sessões');
+    if (!results.permissions.approvals) blocked.push('aprovações');
+    if (blocked.length === 0 || blocked.length === 3) return null;
+    return blocked;
+  }, [results.permissions]);
 
   const supabaseState = results.supabase ? 'ok' : 'warn';
   const supabaseLabel = results.supabase ? 'Dados em tempo real' : 'Modo offline';
@@ -149,6 +175,15 @@ export default function SearchClient({ initialQuery, results }: Props) {
             ? 'baseados na base de dados actual.'
             : 'carregados a partir de amostras locais porque o Supabase não está configurado.'}
         </p>
+        {restricted && (
+          <Alert
+            tone="warning"
+            className="client-search__notice"
+            title="Algumas secções estão limitadas"
+          >
+            A tua conta não tem acesso à pesquisa de {restricted.join(' e ')}.
+          </Alert>
+        )}
       </section>
 
       {empty ? (
@@ -165,102 +200,106 @@ export default function SearchClient({ initialQuery, results }: Props) {
         </section>
       ) : (
         <div className="client-search__grid">
-          <section className="neo-panel client-search__section" aria-labelledby="client-search-users">
-            <header className="client-search__sectionHeader">
-              <div className="client-search__sectionTitle">
-                <UsersIcon />
-                <h2 id="client-search-users">Utilizadores</h2>
-              </div>
-              <span className="client-search__count">{results.users.length}</span>
-            </header>
-            <ul className="client-search__list">
-              {results.users.map((user) => {
-                const role = normalizeRole(user.role);
-                return (
-                  <li key={user.id}>
+          {results.permissions.users && (
+            <section className="neo-panel client-search__section" aria-labelledby="client-search-users">
+              <header className="client-search__sectionHeader">
+                <div className="client-search__sectionTitle">
+                  <UsersIcon />
+                  <h2 id="client-search-users">Utilizadores</h2>
+                </div>
+                <span className="client-search__count">{sections.users.length}</span>
+              </header>
+              <ul className="client-search__list">
+                {sections.users.map((user) => {
+                  const role = normalizeRole(user.role);
+                  return (
+                    <li key={user.id}>
+                      <article className="neo-surface client-search__item">
+                        <div className="client-search__itemBody">
+                          <span className="client-search__itemTitle">{user.name}</span>
+                          {user.email && <span className="client-search__itemMeta">{user.email}</span>}
+                        </div>
+                        <span className="client-search__badge" data-role={role}>
+                          {role === 'TRAINER' ? 'TREINADOR' : role}
+                        </span>
+                      </article>
+                    </li>
+                  );
+                })}
+                {!sections.users.length && (
+                  <li>
+                    <div className="client-search__emptyItem">Nenhum utilizador corresponde à pesquisa.</div>
+                  </li>
+                )}
+              </ul>
+            </section>
+          )}
+
+          {results.permissions.sessions && (
+            <section className="neo-panel client-search__section" aria-labelledby="client-search-sessions">
+              <header className="client-search__sectionHeader">
+                <div className="client-search__sectionTitle">
+                  <SessionsIcon />
+                  <h2 id="client-search-sessions">Sessões</h2>
+                </div>
+                <span className="client-search__count">{sections.sessions.length}</span>
+              </header>
+              <ul className="client-search__list">
+                {sections.sessions.map((session) => (
+                  <li key={session.id}>
                     <article className="neo-surface client-search__item">
                       <div className="client-search__itemBody">
-                        <span className="client-search__itemTitle">{user.name}</span>
-                        {user.email && (
-                          <span className="client-search__itemMeta">{user.email}</span>
-                        )}
+                        <span className="client-search__itemTitle">{session.trainer}</span>
+                        <span className="client-search__itemMeta">
+                          {session.client} • {formatSessionWhen(session.when)}
+                        </span>
                       </div>
-                      <span className="client-search__badge" data-role={role}>
-                        {role === 'TRAINER' ? 'TREINADOR' : role}
-                      </span>
+                      {session.location && (
+                        <span className="client-search__badge" data-variant="location">
+                          {session.location}
+                        </span>
+                      )}
                     </article>
                   </li>
-                );
-              })}
-              {!results.users.length && (
-                <li>
-                  <div className="client-search__emptyItem">Nenhum utilizador corresponde à pesquisa.</div>
-                </li>
-              )}
-            </ul>
-          </section>
+                ))}
+                {!sections.sessions.length && (
+                  <li>
+                    <div className="client-search__emptyItem">Sem sessões compatíveis.</div>
+                  </li>
+                )}
+              </ul>
+            </section>
+          )}
 
-          <section className="neo-panel client-search__section" aria-labelledby="client-search-sessions">
-            <header className="client-search__sectionHeader">
-              <div className="client-search__sectionTitle">
-                <SessionsIcon />
-                <h2 id="client-search-sessions">Sessões</h2>
-              </div>
-              <span className="client-search__count">{results.sessions.length}</span>
-            </header>
-            <ul className="client-search__list">
-              {results.sessions.map((session) => (
-                <li key={session.id}>
-                  <article className="neo-surface client-search__item">
+          {results.permissions.approvals && (
+            <section className="neo-panel client-search__section" aria-labelledby="client-search-approvals">
+              <header className="client-search__sectionHeader">
+                <div className="client-search__sectionTitle">
+                  <ApprovalsIcon />
+                  <h2 id="client-search-approvals">Pedidos</h2>
+                </div>
+                <span className="client-search__count">{sections.approvals.length}</span>
+              </header>
+              <div className="client-search__approvalsGrid">
+                {sections.approvals.map((approval) => (
+                  <article key={approval.id} className="neo-surface client-search__approval">
                     <div className="client-search__itemBody">
-                      <span className="client-search__itemTitle">{formatSessionWhen(session.when)}</span>
-                      <span className="client-search__itemMeta">
-                        {session.trainer} · {session.client}
-                      </span>
+                      <span className="client-search__itemTitle">{approval.name ?? 'Pedido sem nome'}</span>
+                      {approval.email && <span className="client-search__itemMeta">{approval.email}</span>}
                     </div>
-                    <span className="client-search__badge" data-variant="location">
-                      {session.location || 'Local por definir'}
+                    <span className="status-pill client-search__badge" data-state={approvalTone(approval.status)}>
+                      {approvalLabel(approval.status)}
                     </span>
                   </article>
-                </li>
-              ))}
-              {!results.sessions.length && (
-                <li>
-                  <div className="client-search__emptyItem">Nenhuma sessão encontrada para o termo indicado.</div>
-                </li>
-              )}
-            </ul>
-          </section>
-        </div>
-      )}
-
-      <section className="neo-panel client-search__section" aria-labelledby="client-search-approvals">
-        <header className="client-search__sectionHeader">
-          <div className="client-search__sectionTitle">
-            <ApprovalsIcon />
-            <h2 id="client-search-approvals">Aprovações</h2>
-          </div>
-          <span className="client-search__count">{results.approvals.length}</span>
-        </header>
-        <div className="client-search__approvalsGrid">
-          {results.approvals.map((approval) => (
-            <article key={approval.id} className="neo-surface client-search__approval">
-              <div className="client-search__itemBody">
-                <span className="client-search__itemTitle">{approval.name ?? 'Utilizador'}</span>
-                {approval.email && (
-                  <span className="client-search__itemMeta">{approval.email}</span>
+                ))}
+                {!sections.approvals.length && (
+                  <div className="client-search__emptyItem">Sem pedidos compatíveis.</div>
                 )}
               </div>
-              <span className="status-pill" data-state={approvalTone(approval.status)}>
-                {approvalLabel(approval.status)}
-              </span>
-            </article>
-          ))}
-          {!results.approvals.length && (
-            <div className="client-search__emptyItem">Nenhum pedido de aprovação corresponde à pesquisa.</div>
+            </section>
           )}
         </div>
-      </section>
+      )}
     </div>
   );
 }

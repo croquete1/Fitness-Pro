@@ -2,10 +2,10 @@
 
 import * as React from "react";
 import Link from "next/link";
-import clsx from "clsx";
 import Spinner from "@/components/ui/Spinner";
 import Modal from "@/components/ui/Modal";
 import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
 
 export type Row = {
   id: string;
@@ -13,12 +13,14 @@ export type Row = {
   body?: string | null;
   href?: string | null;
   read: boolean;
-  created_at: string | null; // ISO
+  created_at: string | null;
 };
 
 type Props = { rows: Row[] };
 
 type StatusFilter = "all" | "unread" | "read";
+
+type MarkEndpoint = "mark-read" | "mark-unread" | "mark-all-read";
 
 export default function NotificationsClient({ rows }: Props) {
   const [data, setData] = React.useState<Row[]>(rows);
@@ -34,32 +36,35 @@ export default function NotificationsClient({ rows }: Props) {
   const [modalOpen, setModalOpen] = React.useState(false);
 
   React.useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
+    setLoading(true);
     (async () => {
-      setLoading(true);
       try {
         const url = new URL("/api/notifications/list", window.location.origin);
         url.searchParams.set("status", status);
         url.searchParams.set("page", String(page));
         url.searchParams.set("pageSize", String(pageSize));
         if (deferredSearch) url.searchParams.set("q", deferredSearch);
-        const response = await fetch(url.toString(), { cache: "no-store" });
+        const response = await fetch(url.toString(), { cache: "no-store", signal: controller.signal });
+        if (!response.ok) throw new Error(`Erro ${response.status}`);
         const json = await response.json();
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
         setData(json.items ?? []);
         setTotal(json.total ?? 0);
         setSelection(new Set());
       } catch (error) {
+        if (controller.signal.aborted) return;
         console.error(error);
-        if (cancelled) return;
         setData([]);
         setTotal(0);
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       }
     })();
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [status, page, pageSize, deferredSearch]);
 
@@ -67,41 +72,7 @@ export default function NotificationsClient({ rows }: Props) {
     setPage(0);
   }, [status, deferredSearch, pageSize]);
 
-  async function mark(endpoint: "mark-read" | "mark-unread" | "mark-all-read", ids?: string[]) {
-    try {
-      await fetch(`/api/notifications/${endpoint}`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ids }),
-      });
-      setData((prev) =>
-        endpoint === "mark-all-read"
-          ? prev.map((row) => ({ ...row, read: true }))
-          : prev.map((row) => (ids?.includes(row.id) ? { ...row, read: endpoint === "mark-read" } : row)),
-      );
-      setSelection(new Set());
-      setCurrent((prev) => {
-        if (!prev) return prev;
-        if (endpoint === "mark-all-read") return { ...prev, read: true };
-        if (ids?.includes(prev.id)) {
-          if (endpoint === "mark-read") return { ...prev, read: true };
-          if (endpoint === "mark-unread") return { ...prev, read: false };
-        }
-        return prev;
-      });
-    } catch (error) {
-      console.error(error);
-    }
-  }
-
-  const filters: Array<{ value: StatusFilter; label: string }> = [
-    { value: "all", label: "Todos" },
-    { value: "unread", label: "Por ler" },
-    { value: "read", label: "Lidas" },
-  ];
-
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const selectedIds = Array.from(selection);
 
   React.useEffect(() => {
     const nextTotalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -110,15 +81,58 @@ export default function NotificationsClient({ rows }: Props) {
     }
   }, [total, page, pageSize]);
 
-  const openRow = (row: Row) => {
-    setCurrent(row);
-    setModalOpen(true);
-    if (!row.read) {
-      void mark("mark-read", [row.id]);
-    }
-  };
+  const selectedIds = React.useMemo(() => Array.from(selection), [selection]);
 
-  const toggleSelection = (id: string, checked: boolean) => {
+  const mark = React.useCallback(
+    async (endpoint: MarkEndpoint, ids?: string[]) => {
+      if (endpoint !== "mark-all-read" && (!ids || ids.length === 0)) {
+        return;
+      }
+      try {
+        await fetch(`/api/notifications/${endpoint}`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ ids }),
+        });
+        setData((prev) => {
+          if (endpoint === "mark-all-read") {
+            return prev.map((row) => ({ ...row, read: true }));
+          }
+          return prev.map((row) => {
+            if (!ids?.includes(row.id)) return row;
+            if (endpoint === "mark-read") return { ...row, read: true };
+            if (endpoint === "mark-unread") return { ...row, read: false };
+            return row;
+          });
+        });
+        setSelection(new Set());
+        setCurrent((prev) => {
+          if (!prev) return prev;
+          if (endpoint === "mark-all-read") return { ...prev, read: true };
+          if (ids?.includes(prev.id)) {
+            return { ...prev, read: endpoint === "mark-read" };
+          }
+          return prev;
+        });
+      } catch (error) {
+        console.error(error);
+      }
+    },
+    [],
+  );
+
+  const openRow = React.useCallback(
+    (row: Row) => {
+      setCurrent(row);
+      setModalOpen(true);
+      if (!row.read) {
+        void mark("mark-read", [row.id]);
+      }
+    },
+    [mark],
+  );
+
+  const toggleSelection = React.useCallback((id: string, checked: boolean) => {
     setSelection((prev) => {
       const next = new Set(prev);
       if (checked) {
@@ -128,35 +142,47 @@ export default function NotificationsClient({ rows }: Props) {
       }
       return next;
     });
-  };
+  }, []);
+
+  const filters: Array<{ value: StatusFilter; label: string }> = React.useMemo(
+    () => [
+      { value: "all", label: "Todos" },
+      { value: "unread", label: "Por ler" },
+      { value: "read", label: "Lidas" },
+    ],
+    [],
+  );
 
   return (
-    <div className="space-y-6">
-      <section className="neo-panel space-y-4" aria-labelledby="notifications-heading">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 id="notifications-heading" className="neo-panel__title">
+    <div className="notifications-center">
+      <section className="neo-panel notifications-center__panel" aria-labelledby="notifications-heading">
+        <header className="notifications-center__header">
+          <div className="notifications-center__heading">
+            <h1 id="notifications-heading" className="notifications-center__title">
               Centro de notificações
             </h1>
-            <p className="neo-panel__subtitle">Revê alertas recentes e marca como lidas ou por ler.</p>
+            <p className="notifications-center__subtitle">
+              Revê alertas recentes, pesquisa e mantém o teu histórico organizado.
+            </p>
           </div>
-          <span className="text-sm text-muted">{total} notificação(ões)</span>
-        </div>
+          <span className="notifications-center__summary">{total} notificação(ões)</span>
+        </header>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="notifications-center__filters" role="group" aria-label="Filtrar por estado">
           {filters.map((filter) => (
-            <button
+            <Button
               key={filter.value}
               type="button"
-              className={status === filter.value ? "btn primary" : "btn ghost"}
+              variant={status === filter.value ? "primary" : "ghost"}
+              size="sm"
               onClick={() => setStatus(filter.value)}
-              data-active={status === filter.value || undefined}
+              aria-pressed={status === filter.value}
             >
               {filter.label}
-            </button>
+            </Button>
           ))}
-          <div className="flex-1" />
-          <label className="neo-input-group__field w-full max-w-xs">
+          <div className="notifications-center__spacer" />
+          <label className="neo-input-group__field notifications-center__search">
             <span className="neo-input-group__label">Pesquisar</span>
             <input
               type="search"
@@ -168,32 +194,36 @@ export default function NotificationsClient({ rows }: Props) {
           </label>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <button
+        <div className="notifications-center__actions">
+          <Button
             type="button"
-            className="btn ghost"
-            disabled={!selectedIds.length}
+            variant="ghost"
+            size="sm"
             onClick={() => mark("mark-read", selectedIds)}
+            disabled={!selectedIds.length}
           >
             Marcar selecionadas como lidas
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className="btn ghost"
-            disabled={!selectedIds.length}
+            variant="ghost"
+            size="sm"
             onClick={() => mark("mark-unread", selectedIds)}
+            disabled={!selectedIds.length}
           >
             Marcar selecionadas como por ler
-          </button>
-          <button type="button" className="btn" onClick={() => mark("mark-all-read")}>Marcar todas como lidas</button>
+          </Button>
+          <Button type="button" variant="secondary" size="sm" onClick={() => mark("mark-all-read")}>Marcar tudo como lido</Button>
         </div>
 
-        <div className="neo-table-wrapper" role="region" aria-live="polite">
+        <div className="notifications-center__table" role="region" aria-live="polite">
           <table className="neo-table">
             <thead>
               <tr>
-                <th style={{ width: 44 }}>Selecionar</th>
-                <th>Título</th>
+                <th className="notifications-center__cell--select">
+                  <span className="sr-only">Selecionar</span>
+                </th>
+                <th>Notificação</th>
                 <th>Data</th>
                 <th>Estado</th>
               </tr>
@@ -202,7 +232,7 @@ export default function NotificationsClient({ rows }: Props) {
               {loading && (
                 <tr>
                   <td colSpan={4}>
-                    <div className="flex items-center gap-2 text-sm text-muted">
+                    <div className="notifications-center__loading" aria-live="assertive">
                       <Spinner size={16} /> A carregar notificações…
                     </div>
                   </td>
@@ -233,10 +263,14 @@ export default function NotificationsClient({ rows }: Props) {
                   return (
                     <tr
                       key={row.id}
-                      className={clsx("cursor-pointer", !row.read && "font-semibold")}
+                      className="notifications-center__row"
+                      data-read={row.read || undefined}
                       onClick={() => openRow(row)}
                     >
-                      <td onClick={(event) => event.stopPropagation()}>
+                      <td
+                        className="notifications-center__cell--select"
+                        onClick={(event) => event.stopPropagation()}
+                      >
                         <input
                           type="checkbox"
                           className="neo-checkbox"
@@ -246,12 +280,14 @@ export default function NotificationsClient({ rows }: Props) {
                         />
                       </td>
                       <td>
-                        <div className="flex flex-col gap-1">
-                          <span>{row.title || "(sem título)"}</span>
-                          {row.body && <span className="text-xs text-muted line-clamp-2">{row.body}</span>}
+                        <div className="notifications-center__message">
+                          <span className="notifications-center__messageTitle">{row.title || '(sem título)'}</span>
+                          {row.body && (
+                            <span className="notifications-center__messageExcerpt">{row.body}</span>
+                          )}
                         </div>
                       </td>
-                      <td className="text-sm text-muted">{formattedDate}</td>
+                      <td className="notifications-center__timestamp">{formattedDate}</td>
                       <td>
                         <Badge variant={row.read ? "neutral" : "warning"}>
                           {row.read ? "Lida" : "Por ler"}
@@ -264,44 +300,42 @@ export default function NotificationsClient({ rows }: Props) {
           </table>
         </div>
 
-        <footer className="neo-pagination" aria-label="Paginação">
-          <div className="neo-pagination__summary">
+        <footer className="notifications-center__footer" aria-label="Paginação">
+          <div className="notifications-center__paginationSummary">
             Página {page + 1} de {totalPages} · {total} registo(s)
           </div>
-          <div className="neo-pagination__controls">
-            <button
-              type="button"
-              className="btn ghost"
-              onClick={() => setPage(0)}
-              disabled={page === 0}
-            >
+          <div className="notifications-center__paginationControls">
+            <Button type="button" variant="ghost" size="sm" onClick={() => setPage(0)} disabled={page === 0}>
               «
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="btn ghost"
+              variant="ghost"
+              size="sm"
               onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
               disabled={page === 0}
             >
               Anterior
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="btn ghost"
+              variant="ghost"
+              size="sm"
               onClick={() => setPage((prev) => Math.min(prev + 1, totalPages - 1))}
               disabled={page >= totalPages - 1}
             >
               Seguinte
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="btn ghost"
+              variant="ghost"
+              size="sm"
               onClick={() => setPage(totalPages - 1)}
               disabled={page >= totalPages - 1}
             >
               »
-            </button>
-            <label className="neo-input-group__field">
+            </Button>
+            <label className="neo-input-group__field notifications-center__pageSize">
               <span className="neo-input-group__label">Por página</span>
               <select
                 className="neo-input"
@@ -325,31 +359,23 @@ export default function NotificationsClient({ rows }: Props) {
         title={current?.title || "Notificação"}
         size="md"
       >
-        <div className="space-y-4">
-          <div className="text-sm text-muted">
+        <div className="notifications-center__modal">
+          <div className="notifications-center__modalTimestamp">
             {current?.created_at ? new Date(current.created_at).toLocaleString("pt-PT") : "—"}
           </div>
-          <div className="text-sm whitespace-pre-wrap">{current?.body || "—"}</div>
+          <div className="notifications-center__modalBody">{current?.body || "—"}</div>
           {current?.href && (
-            <Link href={current.href} className="btn primary" prefetch={false}>
+            <Link href={current.href} className="btn" prefetch={false}>
               Abrir destino
             </Link>
           )}
-          <div className="flex flex-wrap gap-2">
+          <div className="notifications-center__modalActions">
             {!current?.read ? (
-              <button
-                type="button"
-                className="btn"
-                onClick={() => current && mark("mark-read", [current.id])}
-              >
+              <Button type="button" variant="primary" size="sm" onClick={() => current && mark("mark-read", [current.id])}>
                 Marcar como lida
               </button>
             ) : (
-              <button
-                type="button"
-                className="btn ghost"
-                onClick={() => current && mark("mark-unread", [current.id])}
-              >
+              <Button type="button" variant="ghost" size="sm" onClick={() => current && mark("mark-unread", [current.id])}>
                 Marcar por ler
               </button>
             )}
