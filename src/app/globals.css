@@ -3864,6 +3864,70 @@ h1,.h1{
   }
 }
 
+/* Client plans */
+.client-plans{
+  display:grid;
+  gap:24px;
+  padding-bottom:48px;
+}
+.client-plans__panel{
+  display:grid;
+  gap:20px;
+}
+.client-plans__actions{
+  gap:16px;
+  align-items:flex-end;
+}
+.client-plans__search .neo-input-group__field{
+  width:100%;
+}
+.client-plans__count{
+  font-size:13px;
+  color:var(--muted-fg);
+  align-self:flex-start;
+}
+.client-plans__table th{
+  white-space:nowrap;
+}
+.client-plans__statusHeading{
+  width:140px;
+}
+.client-plans__updatedHeading{
+  width:180px;
+  white-space:nowrap;
+}
+.client-plans__title{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.client-plans__name{
+  font-weight:600;
+  font-size:15px;
+}
+.client-plans__updated{
+  font-size:13px;
+  color:var(--muted-fg);
+  white-space:nowrap;
+}
+.client-plans__empty{
+  gap:12px;
+}
+.client-plans__reset{
+  align-self:center;
+}
+@media (min-width:768px){
+  .client-plans__count{
+    align-self:center;
+  }
+  .client-plans__actions{
+    gap:20px;
+  }
+  .client-plans__search .neo-input-group__field{
+    width:clamp(200px, 24vw, 280px);
+  }
+}
+
 /* Client wallet */
 .client-wallet{
   display:grid;
