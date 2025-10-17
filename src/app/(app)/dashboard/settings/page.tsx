@@ -144,7 +144,7 @@ export default async function SettingsPage() {
     <main className="space-y-6">
       <div className="space-y-2">
         <h1 className="text-2xl font-bold">Definições</h1>
-        <p className="max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+        <p className="max-w-2xl text-sm text-[color:var(--muted-fg)]">
           Personaliza a tua conta, gere notificações e ajusta preferências para
           o teu papel na plataforma.
         </p>

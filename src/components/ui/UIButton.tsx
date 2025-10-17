@@ -5,27 +5,23 @@ import React from 'react';
 type Variant = 'primary' | 'outline' | 'danger' | 'ghost';
 type Size = 'sm' | 'md';
 
+type UIButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: Variant;
+  size?: Size;
+};
+
 export default function UIButton({
   children,
-  onClick,
-  type = 'button',
   variant = 'primary',
   size = 'md',
   disabled,
-  title,
   style,
   className,
-}: {
-  children: React.ReactNode;
-  onClick?: React.MouseEventHandler<HTMLButtonElement>;
-  type?: 'button' | 'submit' | 'reset';
-  variant?: Variant;
-  size?: Size;
-  disabled?: boolean;
-  title?: string;
-  style?: React.CSSProperties;
-  className?: string;
-}) {
+  onMouseDown,
+  onMouseUp,
+  type,
+  ...rest
+}: UIButtonProps) {
   const pad = size === 'sm' ? '6px 10px' : '8px 12px';
   const base: React.CSSProperties = {
     padding: pad,
@@ -66,14 +62,19 @@ export default function UIButton({
 
   return (
     <button
-      type={type}
-      onClick={onClick}
+      type={type ?? 'button'}
       disabled={disabled}
-      title={title}
       className={className}
       style={{ ...base, ...stylesByVariant[variant], ...style }}
-      onMouseDown={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(0.98)'; }}
-      onMouseUp={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)'; }}
+      onMouseDown={(event) => {
+        (event.currentTarget as HTMLButtonElement).style.transform = 'scale(0.98)';
+        onMouseDown?.(event);
+      }}
+      onMouseUp={(event) => {
+        (event.currentTarget as HTMLButtonElement).style.transform = 'scale(1)';
+        onMouseUp?.(event);
+      }}
+      {...rest}
     >
       {children}
     </button>
