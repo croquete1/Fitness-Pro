@@ -2,17 +2,18 @@
    --sb-width, --sb-width-collapsed, --sidebar-bg, --border, --border-strong,
    --hover, --active, --text, --muted, --btn-bg
 */
-:root { --sb-peek-delay: 250ms; }
 
 /* ---------- FLYOUT ---------- */
 .fp-sb-flyout {
   position: sticky;
   top: 0;
-  height: 100vh;
+  height: 100dvh;
   width: var(--sb-width); /* mantém largura expandida dentro do aside */
   transform: translateX(0);
   will-change: transform, box-shadow;
-  transition: transform 260ms cubic-bezier(.2,.8,.2,1), box-shadow 200ms ease;
+  transition:
+    transform var(--sb-dur, 220ms) var(--sb-ease, cubic-bezier(.22,.7,.23,1)),
+    box-shadow var(--sb-dur, 220ms) ease;
   z-index: 60; /* acima do header */
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
@@ -30,8 +31,8 @@ html[data-sb-collapsed="1"] .fp-sb-flyout:hover {
   transform: translateX(0);
   box-shadow: 0 8px 40px rgba(0,0,0,.20), 0 1px 0 rgba(0,0,0,.08) inset;
   transition:
-    transform 220ms cubic-bezier(.2,.8,.2,1) var(--sb-peek-delay),
-    box-shadow 220ms ease var(--sb-peek-delay);
+    transform var(--sb-dur, 220ms) var(--sb-ease, cubic-bezier(.22,.7,.23,1)) var(--sb-peek-delay, 220ms),
+    box-shadow var(--sb-dur, 220ms) ease var(--sb-peek-delay, 220ms);
 }
 
 /* ---------- HEAD ---------- */
@@ -56,7 +57,10 @@ html[data-sb-collapsed="1"] .fp-sb-flyout:hover {
 .btn.icon{
   width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center;
   border-radius:10px; border:1px solid var(--border); background:var(--btn-bg);
-  transition: transform 100ms ease, background 120ms ease, border-color 120ms ease;
+  transition:
+    background var(--sb-dur, 220ms) var(--sb-ease, cubic-bezier(.22,.7,.23,1)),
+    border-color var(--sb-dur, 220ms) var(--sb-ease, cubic-bezier(.22,.7,.23,1)),
+    transform 100ms ease;
 }
 .btn.icon:hover{ background:var(--hover); border-color:var(--border-strong); }
 .btn.icon:active{ transform: translateY(1px); }
@@ -82,7 +86,10 @@ html[data-sb-collapsed="1"] .fp-sb-flyout:hover {
   padding:10px 12px; margin:2px 0; border-radius:12px;
   text-decoration:none; color:var(--text);
   border:1px solid transparent; background:transparent;
-  transition: background 120ms ease, border-color 120ms ease, transform 100ms ease;
+  transition:
+    background var(--sb-dur, 220ms) var(--sb-ease, cubic-bezier(.22,.7,.23,1)),
+    border-color var(--sb-dur, 220ms) var(--sb-ease, cubic-bezier(.22,.7,.23,1)),
+    transform 100ms ease;
 }
 .nav-item:hover { background: var(--hover); border-color: var(--border); }
 .nav-item:active { transform: translateY(1px); }
@@ -112,7 +119,7 @@ html[data-sb-collapsed="1"] .fp-sb-flyout:hover .brand-text {
   position: static;
   opacity: 1; visibility: visible;
   width: auto; max-width: none;
-  transition: opacity 140ms ease var(--sb-peek-delay);
+  transition: opacity 140ms ease var(--sb-peek-delay, 220ms);
 }
 html[data-sb-collapsed="1"] .fp-sb-flyout:hover .nav-item,
 html[data-sb-collapsed="1"] .fp-sb-flyout:hover .fp-sb-brand {

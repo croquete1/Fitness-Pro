@@ -6,10 +6,25 @@ export default function RolePill({ role }: { role: AppRole | 'TRAINER' }) {
   const dbRole = role === 'PT' ? 'TRAINER' : role;
   const palette =
     dbRole === 'ADMIN'
-      ? { c: '#6d28d9', bg: 'rgba(124,58,237,.10)', b: 'rgba(124,58,237,.25)' }
+      ? {
+          key: 'admin',
+          fg: '#6d28d9',
+          bg: 'rgba(124,58,237,.10)',
+          border: 'rgba(124,58,237,.25)',
+        }
       : dbRole === 'TRAINER'
-      ? { c: '#2563eb', bg: 'rgba(37,99,235,.10)', b: 'rgba(37,99,235,.25)' }
-      : { c: '#0f766e', bg: 'rgba(15,118,110,.10)', b: 'rgba(15,118,110,.25)' };
+      ? {
+          key: 'trainer',
+          fg: '#2563eb',
+          bg: 'rgba(37,99,235,.10)',
+          border: 'rgba(37,99,235,.25)',
+        }
+      : {
+          key: 'client',
+          fg: '#0f766e',
+          bg: 'rgba(15,118,110,.10)',
+          border: 'rgba(15,118,110,.25)',
+        };
 
   const label =
     dbRole === 'ADMIN'
@@ -21,7 +36,11 @@ export default function RolePill({ role }: { role: AppRole | 'TRAINER' }) {
   return (
     <span
       className="badge"
-      style={{ color: palette.c, background: palette.bg, borderColor: palette.b }}
+      style={{
+        color: `var(--badge-role-${palette.key}-fg, ${palette.fg})`,
+        background: `var(--badge-role-${palette.key}-bg, ${palette.bg})`,
+        border: `1px solid var(--badge-role-${palette.key}-border, ${palette.border})`,
+      }}
     >
       {label}
     </span>
