@@ -24,7 +24,7 @@ const Card: React.FC<CardProps> = ({ href, title, desc, icon, kpi }) => (
       gap: 8,
       border: '1px solid var(--border)',
       transition: 'transform .05s ease, box-shadow .15s ease',
-      background: 'var(--card)',
+      background: 'var(--card-bg, var(--card))',
       textDecoration: 'none',
       color: 'inherit',
     }}
@@ -40,7 +40,7 @@ const Card: React.FC<CardProps> = ({ href, title, desc, icon, kpi }) => (
             borderRadius: 999,
             background:
               'linear-gradient(135deg, var(--accent, #7c3aed), var(--accent-2, #06b6d4))',
-            color: '#fff',
+            color: 'var(--on-primary, #fff)',
             fontSize: 12,
             fontWeight: 700,
           }}
