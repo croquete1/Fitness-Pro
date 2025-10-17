@@ -3097,6 +3097,44 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
   border-color:var(--border);
   border-color:color-mix(in srgb, var(--muted-fg) 24%, var(--border));
 }
+.neo-toggle-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 14px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:600;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  border:1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  background:color-mix(in srgb, var(--card-bg) 92%, transparent 8%);
+  color:color-mix(in srgb, var(--muted-fg) 92%, transparent 8%);
+  transition:background .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease;
+}
+.neo-toggle-chip[data-state="off"]:hover{
+  background:color-mix(in srgb, var(--hover) 75%, transparent);
+  border-color:color-mix(in srgb, var(--border) 82%, transparent);
+}
+.neo-toggle-chip[data-state="on"]{
+  color:color-mix(in srgb, var(--success) 80%, var(--fg));
+  background:color-mix(in srgb, var(--success) 22%, transparent);
+  border-color:color-mix(in srgb, var(--success) 46%, var(--border));
+  box-shadow:0 8px 20px color-mix(in srgb, var(--success) 18%, transparent);
+}
+.neo-toggle-chip[data-state="on"]:hover{
+  background:color-mix(in srgb, var(--success) 28%, transparent);
+}
+.neo-toggle-chip:focus-visible{
+  outline:none;
+  box-shadow:0 0 0 3px color-mix(in srgb, var(--primary) 24%, transparent),
+             0 0 0 6px color-mix(in srgb, var(--primary) 14%, transparent);
+}
+.neo-toggle-chip[disabled]{
+  opacity:.65;
+  cursor:not-allowed;
+  box-shadow:none;
+}
 .neo-surface__hint{ font-size:12px; color:var(--muted-fg); }
 
 .neo-grid{
