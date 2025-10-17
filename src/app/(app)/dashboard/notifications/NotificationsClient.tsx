@@ -373,11 +373,11 @@ export default function NotificationsClient({ rows }: Props) {
             {!current?.read ? (
               <Button type="button" variant="primary" size="sm" onClick={() => current && mark("mark-read", [current.id])}>
                 Marcar como lida
-              </button>
+              </Button>
             ) : (
               <Button type="button" variant="ghost" size="sm" onClick={() => current && mark("mark-unread", [current.id])}>
                 Marcar por ler
-              </button>
+              </Button>
             )}
           </div>
         </div>
