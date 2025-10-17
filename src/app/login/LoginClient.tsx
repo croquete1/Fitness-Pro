@@ -14,7 +14,6 @@ import {
   Eye,
   EyeOff,
   LogIn,
-  CheckCircle2,
   Activity,
   Apple,
   Dumbbell,
@@ -156,104 +155,84 @@ export default function LoginClient() {
 
   return (
     <div className="auth-screen" data-auth-root>
-      <div className="auth-card auth-card--split relative w-full max-w-6xl">
+      <div className="auth-card auth-card--split">
         <div className="auth-card__atmosphere" aria-hidden />
+        <div className="auth-card__grid" aria-hidden />
+        <div className="auth-card__scanline" aria-hidden />
 
-        <div
-          className={clsx(
-            'pointer-events-none absolute inset-0 z-20 grid place-items-center rounded-[inherit] bg-slate-900/70 text-white transition-opacity dark:bg-slate-950/70',
-            loading ? 'opacity-100' : 'opacity-0',
-            loading ? 'pointer-events-auto' : 'pointer-events-none',
-          )}
-          aria-hidden={!loading}
-        >
-          <div className="flex flex-col items-center gap-3 text-center">
+        <div className="auth-card__loader" data-active={loading} aria-hidden={!loading}>
+          <div className="auth-card__loaderInner">
             <Spinner size={36} />
-            <p className="text-sm font-semibold tracking-wide uppercase">A iniciar sessão…</p>
+            <p className="auth-card__loaderLabel">A iniciar sessão…</p>
           </div>
         </div>
 
         <div className="auth-card__layout">
-          <div className="auth-card__panel relative overflow-hidden rounded-3xl border border-white/20 bg-white/70 p-6 sm:p-8 lg:p-10 shadow-[0_40px_120px_-60px_rgba(15,23,42,0.35)] backdrop-blur-lg dark:border-slate-700/50 dark:bg-slate-950/85 dark:shadow-[0_70px_180px_-90px_rgba(37,99,235,0.55)] dark:backdrop-blur-2xl">
-            <div className="absolute inset-0 bg-[radial-gradient(36%_44%_at_18%_20%,rgba(59,130,246,0.28),transparent_70%),radial-gradient(32%_36%_at_85%_18%,rgba(14,165,233,0.26),transparent_70%),radial-gradient(44%_60%_at_50%_120%,rgba(236,72,153,0.22),transparent_75%)] opacity-80 dark:hidden" />
-            <div className="absolute inset-0 hidden opacity-90 mix-blend-screen dark:block bg-[radial-gradient(38%_48%_at_18%_18%,rgba(59,130,246,0.35),transparent_70%),radial-gradient(34%_40%_at_86%_22%,rgba(14,165,233,0.32),transparent_70%),radial-gradient(60%_80%_at_50%_115%,rgba(236,72,153,0.28),transparent_75%)]" />
-            <div className="relative z-10 flex h-full flex-col justify-between">
-              <div className="space-y-6 text-pretty sm:space-y-8">
-                <div className="inline-flex items-center gap-3 rounded-full border border-white/30 bg-white/70 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.32em] text-slate-700 shadow-sm backdrop-blur dark:border-slate-800/60 dark:bg-slate-900/60 dark:text-slate-200">
-                  <span className="relative grid h-10 w-10 place-items-center rounded-full border border-white/70 bg-white/90 p-[6px] shadow-sm dark:border-slate-800/70 dark:bg-slate-900">
-                    <Image
-                      src="/brand/hms-logo-light.png"
-                      alt="HMS"
-                      width={64}
-                      height={64}
-                      className="h-full w-full object-contain dark:hidden"
-                      priority
-                    />
-                    <Image
-                      src="/brand/hms-logo-dark.png"
-                      alt="HMS"
-                      width={64}
-                      height={64}
-                      className="hidden h-full w-full object-contain dark:block"
-                      priority
-                    />
-                    <span className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center">
-                      <span className="inline-flex h-3.5 w-3.5 animate-onlinePulse items-center justify-center rounded-full bg-emerald-400 shadow-[0_0_0_6px_rgba(16,185,129,0.18)]">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
-                      </span>
-                    </span>
-                  </span>
-                  Plataforma HMS
-                </div>
-                <div className="space-y-4">
-                  <h1 className="text-balance text-3xl font-semibold leading-tight text-slate-900 dark:text-slate-50 sm:text-4xl">
-                    A plataforma unificada para personal trainers e clientes HMS.
-                  </h1>
-                  <p className="max-w-xl text-sm leading-6 text-slate-600 dark:text-slate-200 sm:text-base">
-                    Centraliza treinos, nutrição e conversas num espaço único com sincronização automática de sessões presenciais.
-                  </p>
-                </div>
-                <div className="grid w-full max-w-[64rem] gap-4 md:gap-5 2xl:grid-cols-2 2xl:gap-7">
-                  {featureHighlights.map((feature, index) => (
-                    <div
-                      key={feature.title}
-                      className="auth-highlight"
-                      style={{ animationDelay: `${index * 0.12}s` }}
-                    >
-                      <div className="auth-highlight__icon">{feature.icon}</div>
-                      <div className="space-y-1">
-                        <p className="auth-highlight__title">{feature.title}</p>
-                        <p className="auth-highlight__desc">{feature.description}</p>
-                      </div>
+          <section className="auth-card__panel auth-panel" aria-label="Visão geral da plataforma HMS">
+            <div className="auth-panel__aura" aria-hidden />
+            <div className="auth-panel__content">
+              <div className="auth-panel__badge">
+                <span className="auth-panel__badgeLogo" aria-hidden>
+                  <Image
+                    src="/brand/hms-logo-light.png"
+                    alt="HMS"
+                    width={64}
+                    height={64}
+                    className="auth-panel__logo auth-panel__logo--light"
+                    priority
+                  />
+                  <Image
+                    src="/brand/hms-logo-dark.png"
+                    alt="HMS"
+                    width={64}
+                    height={64}
+                    className="auth-panel__logo auth-panel__logo--dark"
+                    priority
+                  />
+                  <span className="auth-panel__status" />
+                </span>
+                <span className="auth-panel__badgeLabel">Plataforma HMS</span>
+              </div>
+
+              <div className="auth-panel__intro">
+                <h1 className="auth-panel__title">
+                  A plataforma unificada para personal trainers e clientes HMS.
+                </h1>
+                <p className="auth-panel__desc">
+                  Centraliza treinos, nutrição e conversas num espaço único com sincronização automática de sessões presenciais.
+                </p>
+              </div>
+
+              <div className="auth-panel__features">
+                {featureHighlights.map((feature, index) => (
+                  <div
+                    key={feature.title}
+                    className="auth-highlight"
+                    style={{ animationDelay: `${index * 0.12}s` }}
+                  >
+                    <div className="auth-highlight__icon">{feature.icon}</div>
+                    <div className="auth-highlight__copy">
+                      <p className="auth-highlight__title">{feature.title}</p>
+                      <p className="auth-highlight__desc">{feature.description}</p>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
             </div>
-          </div>
+          </section>
 
-          <form
-            onSubmit={onSubmit}
-            noValidate
-            className="auth-card__form relative isolate flex flex-col gap-6 overflow-hidden rounded-3xl border border-white/20 bg-white/95 p-6 shadow-[0_30px_80px_-50px_rgba(15,23,42,0.32)] backdrop-blur-lg dark:border-slate-700/45 dark:bg-slate-950/92 dark:shadow-[0_60px_140px_-80px_rgba(59,130,246,0.5)] dark:backdrop-blur-xl"
-          >
-            <div
-              className="pointer-events-none absolute inset-0 hidden opacity-90 dark:block"
-              aria-hidden
-              style={{
-                background:
-                  'radial-gradient(42% 52% at 20% 18%, rgba(59,130,246,0.34), transparent 70%), radial-gradient(32% 48% at 80% 16%, rgba(14,165,233,0.28), transparent 72%), radial-gradient(62% 90% at 50% 118%, rgba(45,212,191,0.22), transparent 80%)',
-              }}
-            />
-            <div className="relative z-10 flex items-center justify-between gap-3">
-              <div className="inline-flex items-center gap-3 rounded-full border border-slate-200/60 bg-white/80 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.32em] text-slate-500 shadow-sm backdrop-blur dark:border-slate-700/60 dark:bg-slate-900/60 dark:text-slate-200">
-                <span className="relative grid h-9 w-9 place-items-center rounded-full border border-white/60 bg-white/95 p-[5px] shadow-sm dark:border-slate-700/70 dark:bg-slate-900">
+          <form className="auth-form" onSubmit={onSubmit} noValidate aria-label="Formulário de autenticação">
+            <div className="auth-form__halo" aria-hidden />
+
+            <header className="auth-form__header">
+              <div className="auth-form__badge">
+                <span className="auth-form__badgeLogo" aria-hidden>
                   <Image
                     src="/brand/hms-logo-light.png"
                     alt="HMS"
                     width={56}
                     height={56}
-                    className="h-full w-full object-contain dark:hidden"
+                    className="auth-form__badgeImage auth-form__badgeImage--light"
                     priority
                   />
                   <Image
@@ -261,45 +240,42 @@ export default function LoginClient() {
                     alt="HMS"
                     width={56}
                     height={56}
-                    className="hidden h-full w-full object-contain dark:block"
+                    className="auth-form__badgeImage auth-form__badgeImage--dark"
                     priority
                   />
                 </span>
-                Hub unificado
+                <span className="auth-form__badgeLabel">Hub unificado</span>
               </div>
-              <ThemeToggle />
-            </div>
-            <div className="relative z-10 space-y-3 text-pretty text-center">
-              <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-50 sm:text-3xl">Entrar</h2>
-              <p className="mx-auto max-w-md text-sm text-slate-600 dark:text-slate-200">
+              <ThemeToggle className="auth-form__themeToggle" variant="subtle" />
+            </header>
+
+            <div className="auth-form__intro">
+              <h2 className="auth-form__title">Entrar</h2>
+              <p className="auth-form__subtitle">
                 Liga personal trainers e clientes na mesma experiência para gerir treinos, metas e comunicação contínua.
               </p>
             </div>
-            <div className="relative z-10 rounded-2xl border border-slate-200/60 bg-white/80 p-4 text-left shadow-sm backdrop-blur dark:border-slate-700/60 dark:bg-slate-900/60">
-              <div className="flex items-start gap-3">
-                <span className="mt-1 grid h-9 w-9 place-items-center rounded-xl bg-emerald-500/10 text-emerald-600 shadow-inner shadow-emerald-500/20 dark:bg-emerald-400/20 dark:text-emerald-200">
-                  <ShieldCheck className="h-4 w-4" aria-hidden />
-                </span>
-                <div className="space-y-1">
-                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-100">Sessão protegida</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-300">
-                    Utilizamos encriptação AES-256 e verificação contínua para manter os teus dados e os do cliente seguros.
-                  </p>
-                </div>
+
+            <div className="auth-form__assurance" role="status">
+              <span className="auth-form__assuranceIcon" aria-hidden>
+                <ShieldCheck className="auth-form__assuranceSvg" aria-hidden />
+              </span>
+              <div className="auth-form__assuranceCopy">
+                <p className="auth-form__assuranceTitle">Sessão protegida</p>
+                <p className="auth-form__assuranceDesc">
+                  Utilizamos encriptação AES-256 e verificação contínua para manter os teus dados e os do cliente seguros.
+                </p>
               </div>
             </div>
 
-            {err && <Alert tone="danger">{err}</Alert>}
+            {err && <Alert tone="danger" className="auth-form__alert">{err}</Alert>}
 
-            <div className="relative z-10 space-y-4">
-              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600 dark:text-slate-200">
-                Email ou username
-                <div className="relative">
+            <div className="auth-form__fields">
+              <label className="auth-form__field">
+                <span className="auth-form__label">Email ou username</span>
+                <div className="auth-form__inputWrapper">
                   <input
-                    className={clsx(
-                      'neo-input neo-input--with-leadingIcon',
-                      fieldErr.identifier && 'neo-input--error',
-                    )}
+                    className={clsx('neo-input neo-input--with-leadingIcon', fieldErr.identifier && 'neo-input--error')}
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
                     onBlur={(e) => validateField('identifier', e.target.value)}
@@ -307,7 +283,7 @@ export default function LoginClient() {
                     placeholder="ex: ana.lima"
                   />
                   <span className="neo-input__icon">
-                    <Mail className="h-4 w-4" aria-hidden />
+                    <Mail className="auth-form__inputIcon" aria-hidden />
                   </span>
                 </div>
                 <span className={clsx('neo-input__helper', fieldErr.identifier && 'text-danger')}>
@@ -315,9 +291,9 @@ export default function LoginClient() {
                 </span>
               </label>
 
-              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600 dark:text-slate-200">
-                Palavra-passe
-                <div className="relative">
+              <label className="auth-form__field">
+                <span className="auth-form__label">Palavra-passe</span>
+                <div className="auth-form__inputWrapper">
                   <input
                     className={clsx(
                       'neo-input neo-input--with-leadingIcon neo-input--with-trailingIcon',
@@ -331,17 +307,15 @@ export default function LoginClient() {
                     placeholder="********"
                   />
                   <span className="neo-input__icon">
-                    <Lock className="h-4 w-4" aria-hidden />
+                    <Lock className="auth-form__inputIcon" aria-hidden />
                   </span>
                   <button
                     type="button"
                     onClick={() => setShow((s) => !s)}
-                    className={clsx(
-                      'neo-input__toggle rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950',
-                    )}
+                    className="neo-input__toggle auth-form__toggle"
                     aria-label={show ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'}
                   >
-                    {show ? <EyeOff className="h-4 w-4" aria-hidden /> : <Eye className="h-4 w-4" aria-hidden />}
+                    {show ? <EyeOff className="auth-form__inputIcon" aria-hidden /> : <Eye className="auth-form__inputIcon" aria-hidden />}
                   </button>
                 </div>
                 <span className={clsx('neo-input__helper', fieldErr.password && 'text-danger')}>
@@ -350,44 +324,37 @@ export default function LoginClient() {
               </label>
             </div>
 
-            <div className="relative z-10 flex flex-col gap-4">
-              <div className="flex flex-col gap-3 text-xs text-slate-500 dark:text-slate-300 sm:flex-row sm:items-center sm:justify-between">
-                <span>
-                  Recuperar acesso?{' '}
-                  <Link
-                    href="/login/reset"
-                    className="font-semibold text-slate-900 underline decoration-dotted underline-offset-4 dark:text-slate-100"
-                  >
-                    Definir nova palavra-passe
-                  </Link>
-                </span>
-                <span className="inline-flex items-center gap-2 rounded-full border border-indigo-200/70 bg-indigo-50/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.32em] text-indigo-600 dark:border-indigo-500/60 dark:bg-indigo-500/10 dark:text-indigo-200">
-                  <Sparkles className="h-3.5 w-3.5" aria-hidden />
-                  SSO em breve
-                </span>
-              </div>
-
-              <Button
-                type="submit"
-                className="w-full justify-center shadow-[0_24px_48px_-22px_rgba(79,70,229,0.65)] transition hover:shadow-[0_30px_60px_-24px_rgba(79,70,229,0.75)] dark:shadow-[0_28px_56px_-26px_rgba(59,130,246,0.55)]"
-                loading={loading}
-                loadingText="A iniciar…"
-                leftIcon={<LogIn className="h-4 w-4" aria-hidden />}
-                rightIcon={<ArrowRight className="h-4 w-4" aria-hidden />}
-                disabled={!isFormValid}
-              >
-                Iniciar sessão
-              </Button>
-              <p className="text-pretty text-center text-sm text-slate-600 dark:text-slate-200">
-                Não tens conta?{' '}
-                <Link
-                  href="/register"
-                  className="font-semibold text-slate-900 underline decoration-wavy underline-offset-4 dark:text-slate-100"
-                >
-                  Criar conta
+            <div className="auth-form__links">
+              <span className="auth-form__linkGroup">
+                Recuperar acesso?{' '}
+                <Link href="/login/reset" className="auth-form__link auth-form__link--dotted">
+                  Definir nova palavra-passe
                 </Link>
-              </p>
+              </span>
+              <span className="auth-form__tag">
+                <Sparkles className="auth-form__tagIcon" aria-hidden />
+                SSO em breve
+              </span>
             </div>
+
+            <Button
+              type="submit"
+              className="auth-form__submit"
+              loading={loading}
+              loadingText="A iniciar…"
+              leftIcon={<LogIn aria-hidden className="auth-form__buttonIcon" />}
+              rightIcon={<ArrowRight aria-hidden className="auth-form__buttonIcon" />}
+              disabled={!isFormValid}
+            >
+              Iniciar sessão
+            </Button>
+
+            <p className="auth-form__footnote">
+              Não tens conta?{' '}
+              <Link href="/register" className="auth-form__link auth-form__link--wavy">
+                Criar conta
+              </Link>
+            </p>
           </form>
         </div>
       </div>
