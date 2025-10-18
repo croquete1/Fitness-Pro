@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import Button from "@/components/ui/Button";
-import { Card, CardContent, CardHeader } from "@/components/ui/Card";
 import LineChart from "@/components/dashboard/LineChart";
 import type { ReportsData } from "@/lib/reports/types";
 
@@ -307,6 +306,12 @@ export default function ReportsDashboardClient({ data, supabase, viewerName }: P
     window.print();
   };
 
+  const handleResetFilters = () => {
+    setPeriod("90");
+    setFocusTrainer("");
+    setFocusClient("");
+  };
+
   const firstName = useMemo(() => {
     if (!viewerName) return null;
     const parts = viewerName.trim().split(/\s+/);
@@ -314,297 +319,374 @@ export default function ReportsDashboardClient({ data, supabase, viewerName }: P
   }, [viewerName]);
 
   return (
-    <section className="space-y-8">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Relatórios operacionais</h1>
-        <p className="text-sm text-slate-600 dark:text-slate-300">
-          Acompanhe faturamento, progresso dos clientes e desempenho dos Personal Trainers num único painel.
-        </p>
-        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-          <span
-            className={`inline-flex items-center rounded-full px-3 py-1 font-medium ${
-              supabase
-                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
-                : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
-            }`}
-          >
+    <section className="reports-dashboard neo-stack neo-stack--xl">
+      <header className="neo-panel neo-panel--header reports-dashboard__hero">
+        <div className="neo-stack neo-stack--sm">
+          <span className="caps-tag">Relatórios</span>
+          <h1 className="reports-dashboard__title heading-solid">Relatórios operacionais</h1>
+          <p className="neo-text--sm neo-text--muted">
+            Acompanhe faturamento, progresso dos clientes e desempenho dos Personal Trainers num único painel.
+          </p>
+        </div>
+        <div className="reports-dashboard__meta neo-inline neo-inline--wrap neo-inline--sm">
+          <span className="reports-dashboard__badge" data-state={supabase ? "live" : "demo"}>
             {supabase ? "Dados em tempo real via Supabase" : "Dados demonstrativos — configure o Supabase"}
           </span>
           {firstName && <span>Olá, {firstName}! 👋</span>}
-          <span>Período analisado: {startRange.toLocaleDateString("pt-PT")}</span>
-          <span>até {endRange.toLocaleDateString("pt-PT")}</span>
+          <span>
+            Período analisado: {startRange.toLocaleDateString("pt-PT")} — {endRange.toLocaleDateString("pt-PT")}
+          </span>
         </div>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[260px,1fr] xl:grid-cols-[280px,1fr]">
-        <aside className="card space-y-5 p-4">
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Período</p>
-            <select
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-900"
-              value={period}
-              onChange={(event) => setPeriod(event.target.value)}
-            >
-              {PERIOD_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+      <div className="reports-dashboard__layout">
+        <aside className="reports-dashboard__filters neo-panel neo-panel--compact neo-stack neo-stack--lg" aria-label="Filtros do relatório">
+          <div className="neo-input-group">
+            <div className="neo-input-group__field">
+              <label htmlFor="reports-period" className="neo-input-group__label">
+                Período
+              </label>
+              <select
+                id="reports-period"
+                className="neo-input"
+                value={period}
+                onChange={(event) => setPeriod(event.target.value)}
+              >
+                {PERIOD_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Personal Trainer</p>
-            <select
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-900"
-              value={focusTrainer}
-              onChange={(event) => setFocusTrainer(event.target.value)}
-            >
-              <option value="">Todos os Personal Trainers</option>
-              {data.meta.trainers.map((trainer) => (
-                <option key={trainer.id} value={trainer.id}>
-                  {trainer.name}
-                </option>
-              ))}
-            </select>
+          <div className="neo-input-group">
+            <div className="neo-input-group__field">
+              <label htmlFor="reports-trainer" className="neo-input-group__label">
+                Personal Trainer
+              </label>
+              <select
+                id="reports-trainer"
+                className="neo-input"
+                value={focusTrainer}
+                onChange={(event) => setFocusTrainer(event.target.value)}
+              >
+                <option value="">Todos os Personal Trainers</option>
+                {data.meta.trainers.map((trainer) => (
+                  <option key={trainer.id} value={trainer.id}>
+                    {trainer.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Cliente</p>
-            <select
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-900"
-              value={focusClient}
-              onChange={(event) => setFocusClient(event.target.value)}
-            >
-              <option value="">Todos os clientes</option>
-              {data.meta.clients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.name}
-                </option>
-              ))}
-            </select>
+          <div className="neo-input-group">
+            <div className="neo-input-group__field">
+              <label htmlFor="reports-client" className="neo-input-group__label">
+                Cliente
+              </label>
+              <select
+                id="reports-client"
+                className="neo-input"
+                value={focusClient}
+                onChange={(event) => setFocusClient(event.target.value)}
+              >
+                <option value="">Todos os clientes</option>
+                {data.meta.clients.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {client.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" size="sm" onClick={handleExportCSV}>
-              Exportar CSV
+          <div className="reports-dashboard__actions neo-stack neo-stack--xs">
+            <div className="neo-inline neo-inline--wrap neo-inline--sm">
+              <Button variant="secondary" size="sm" onClick={handleExportCSV}>
+                Exportar CSV
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handlePrint}>
+                Exportar PDF
+              </Button>
+            </div>
+            <Button variant="ghost" size="sm" onClick={handleResetFilters} className="reports-dashboard__reset">
+              Repor filtros
             </Button>
-            <Button variant="ghost" size="sm" onClick={handlePrint}>
-              Exportar PDF
-            </Button>
           </div>
 
-          <p className="text-xs leading-relaxed text-slate-500">
-            Combine filtros para investigar situações específicas. A exportação CSV respeita o período e os filtros ativos.
+          <p className="neo-text--xs neo-text--muted reports-dashboard__hint">
+            Combine filtros para investigar situações específicas. A exportação respeita o período e os filtros activos.
           </p>
         </aside>
 
-        <div className="space-y-6">
-          <Card className="card">
-            <CardHeader className="flex flex-col gap-1">
-              <div>
-                <h2 className="text-lg font-semibold">Resumo financeiro</h2>
-                <p className="text-sm text-slate-500">
-                  Volume faturado e pendências por cliente no período selecionado.
-                </p>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-xl bg-indigo-50 p-4 text-indigo-900 dark:bg-indigo-900/40 dark:text-indigo-100">
-                  <p className="text-xs uppercase tracking-wide opacity-80">Faturamento no período</p>
-                  <p className="mt-2 text-2xl font-semibold">{formatCurrency(totalRevenue, currency)}</p>
-                </div>
-                <div className="rounded-xl bg-emerald-50 p-4 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-100">
-                  <p className="text-xs uppercase tracking-wide opacity-80">Média mensal</p>
-                  <p className="mt-2 text-2xl font-semibold">
-                    {financialSeries.length
-                      ? formatCurrency(totalRevenue / financialSeries.length, currency)
-                      : formatCurrency(0, currency)}
+        <div className="neo-stack neo-stack--lg">
+          <section className="neo-panel neo-stack neo-stack--lg" aria-labelledby="reports-financial-heading">
+            <div className="neo-stack neo-stack--xs">
+              <h2 id="reports-financial-heading" className="reports-dashboard__sectionTitle">
+                Resumo financeiro
+              </h2>
+              <p className="neo-text--sm neo-text--muted">
+                Volume faturado e pendências por cliente no período selecionado.
+              </p>
+            </div>
+
+            <div className="reports-dashboard__metrics neo-grid">
+              <article className="neo-surface neo-surface--padded reports-dashboard__metric" data-variant="primary">
+                <span className="reports-dashboard__metricLabel">Faturamento no período</span>
+                <span className="reports-dashboard__metricValue">{formatCurrency(totalRevenue, currency)}</span>
+              </article>
+              <article className="neo-surface neo-surface--padded reports-dashboard__metric" data-variant="success">
+                <span className="reports-dashboard__metricLabel">Média mensal</span>
+                <span className="reports-dashboard__metricValue">
+                  {financialSeries.length
+                    ? formatCurrency(totalRevenue / financialSeries.length, currency)
+                    : formatCurrency(0, currency)}
+                </span>
+              </article>
+              <article className="neo-surface neo-surface--padded reports-dashboard__metric" data-variant="warning">
+                <span className="reports-dashboard__metricLabel">Pendências</span>
+                <span className="reports-dashboard__metricValue">{formatCurrency(pendingTotal, currency)}</span>
+              </article>
+              <article className="neo-surface neo-surface--padded reports-dashboard__metric" data-variant="info">
+                <span className="reports-dashboard__metricLabel">Registos analisados</span>
+                <span className="reports-dashboard__metricValue">{filteredFinancialEntries.length}</span>
+              </article>
+            </div>
+
+            <div>
+              {financialSeries.length > 0 ? (
+                <LineChart data={financialSeries} height={260} />
+              ) : (
+                <div className="neo-empty" role="status">
+                  <span className="neo-empty__icon" aria-hidden="true">
+                    📉
+                  </span>
+                  <p className="neo-empty__title">Sem movimentações financeiras</p>
+                  <p className="neo-empty__description">
+                    Ajuste o período ou os filtros para visualizar entradas com dados disponíveis.
                   </p>
                 </div>
-                <div className="rounded-xl bg-amber-50 p-4 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100">
-                  <p className="text-xs uppercase tracking-wide opacity-80">Pendências</p>
-                  <p className="mt-2 text-2xl font-semibold">{formatCurrency(pendingTotal, currency)}</p>
-                </div>
-                <div className="rounded-xl bg-slate-100 p-4 text-slate-900 dark:bg-slate-800/80 dark:text-slate-100">
-                  <p className="text-xs uppercase tracking-wide opacity-80">Registos analisados</p>
-                  <p className="mt-2 text-2xl font-semibold">{filteredFinancialEntries.length}</p>
-                </div>
-              </div>
+              )}
+            </div>
 
-              <div>
-                {financialSeries.length > 0 ? (
-                  <LineChart data={financialSeries} height={260} />
-                ) : (
-                  <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500 dark:border-slate-700">
-                    Nenhuma movimentação financeira encontrada para os filtros aplicados.
-                  </p>
-                )}
-              </div>
-
-              <div className="grid gap-6 lg:grid-cols-2">
-                <div>
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-                    Top clientes por faturamento
-                  </h3>
-                  <ul className="mt-3 space-y-2 text-sm">
-                    {topClients.length > 0 ? (
-                      topClients.map((client) => (
-                        <li key={client.id} className="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2 dark:bg-slate-900/40">
-                          <span>{client.name}</span>
-                          <span className="font-medium">{formatCurrency(client.total, currency)}</span>
-                        </li>
-                      ))
-                    ) : (
-                      <li className="rounded-md border border-dashed border-slate-200 px-3 py-4 text-center text-slate-500 dark:border-slate-700">
-                        Sem faturamento no período selecionado.
-                      </li>
-                    )}
-                  </ul>
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Pendências de pagamento</h3>
-                  <ul className="mt-3 space-y-2 text-sm">
-                    {outstandingBalances.length > 0 ? (
-                      outstandingBalances.map((balance) => (
-                        <li key={balance.userId} className="flex items-center justify-between rounded-md bg-rose-50 px-3 py-2 text-rose-900 dark:bg-rose-900/40 dark:text-rose-100">
-                          <span>{balance.userName}</span>
-                          <span className="font-medium">{formatCurrency(Math.abs(balance.balance ?? 0), currency)}</span>
-                        </li>
-                      ))
-                    ) : (
-                      <li className="rounded-md border border-dashed border-slate-200 px-3 py-4 text-center text-slate-500 dark:border-slate-700">
-                        Nenhuma pendência identificada.
-                      </li>
-                    )}
-                  </ul>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="card">
-            <CardHeader className="flex flex-col gap-1">
-              <div>
-                <h2 className="text-lg font-semibold">Progresso dos clientes</h2>
-                <p className="text-sm text-slate-500">
-                  Registos de avaliações corporais para monitorizar evolução de peso.
-                </p>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-slate-500">Cliente em foco</p>
-                  <p className="text-base font-semibold">{selectedClientName || "Selecione um cliente"}</p>
-                </div>
-                {selectedClientSeries.length === 0 && (
-                  <p className="text-xs text-slate-500">
-                    Sem avaliações registadas no período para este cliente.
-                  </p>
-                )}
-              </div>
-
-              <div>
-                {selectedClientSeries.length > 0 ? (
-                  <LineChart data={selectedClientSeries} height={240} />
-                ) : (
-                  <p className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500 dark:border-slate-700">
-                    Recolha novas medições para acompanhar o progresso.
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-                  Maiores reduções de peso (Δ)
+            <div className="reports-dashboard__split neo-grid">
+              <section className="neo-stack neo-stack--sm" aria-labelledby="reports-top-clients-heading">
+                <h3 id="reports-top-clients-heading" className="reports-dashboard__listTitle">
+                  Top clientes por faturamento
                 </h3>
-                <ul className="mt-3 space-y-2 text-sm">
-                  {progressLeaders.length > 0 ? (
-                    progressLeaders.map((item) => (
-                      <li key={item.clientId} className="flex items-center justify-between rounded-md bg-emerald-50 px-3 py-2 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-100">
-                        <span>{item.clientName}</span>
-                        <span className="font-medium">{item.delta.toFixed(1)} kg</span>
+                <ul className="neo-stack neo-stack--sm" aria-live="polite">
+                  {topClients.length > 0 ? (
+                    topClients.map((client) => (
+                      <li
+                        key={client.id}
+                        className="neo-surface neo-surface--compact reports-dashboard__listItem"
+                        data-tone="neutral"
+                      >
+                        <span className="reports-dashboard__listName">{client.name}</span>
+                        <span className="reports-dashboard__listValue">
+                          {formatCurrency(client.total, currency)}
+                        </span>
                       </li>
                     ))
                   ) : (
-                    <li className="rounded-md border border-dashed border-slate-200 px-3 py-4 text-center text-slate-500 dark:border-slate-700">
-                      Ainda não há dados suficientes para calcular o progresso.
+                    <li>
+                      <div className="neo-empty" role="status">
+                        <span className="neo-empty__icon" aria-hidden="true">
+                          👥
+                        </span>
+                        <p className="neo-empty__title">Sem faturamento</p>
+                        <p className="neo-empty__description">
+                          Ainda não existem clientes com vendas no período seleccionado.
+                        </p>
+                      </div>
                     </li>
                   )}
                 </ul>
-              </div>
-            </CardContent>
-          </Card>
+              </section>
+              <section className="neo-stack neo-stack--sm" aria-labelledby="reports-outstanding-heading">
+                <h3 id="reports-outstanding-heading" className="reports-dashboard__listTitle">
+                  Pendências de pagamento
+                </h3>
+                <ul className="neo-stack neo-stack--sm" aria-live="polite">
+                  {outstandingBalances.length > 0 ? (
+                    outstandingBalances.map((balance) => (
+                      <li
+                        key={balance.userId}
+                        className="neo-surface neo-surface--compact reports-dashboard__listItem"
+                        data-tone="danger"
+                      >
+                        <span className="reports-dashboard__listName">{balance.userName}</span>
+                        <span className="reports-dashboard__listValue">
+                          {formatCurrency(Math.abs(balance.balance ?? 0), currency)}
+                        </span>
+                      </li>
+                    ))
+                  ) : (
+                    <li>
+                      <div className="neo-empty" role="status">
+                        <span className="neo-empty__icon" aria-hidden="true">
+                          ✅
+                        </span>
+                        <p className="neo-empty__title">Sem pendências</p>
+                        <p className="neo-empty__description">
+                          Excelente! Todos os pagamentos estão em dia neste período.
+                        </p>
+                      </div>
+                    </li>
+                  )}
+                </ul>
+              </section>
+            </div>
+          </section>
 
-          <Card className="card">
-            <CardHeader className="flex flex-col gap-1">
-              <div>
-                <h2 className="text-lg font-semibold">Performance dos Personal Trainers</h2>
-                <p className="text-sm text-slate-500">
-                  Sessões concluídas, canceladas e futuras por Personal Trainer.
-                </p>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="rounded-xl bg-emerald-50 p-4 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-100">
-                  <p className="text-xs uppercase tracking-wide opacity-80">Taxa média de conclusão</p>
-                  <p className="mt-2 text-2xl font-semibold">{formatPercentage(completionAverage)}</p>
-                </div>
-                <div className="rounded-xl bg-indigo-50 p-4 text-indigo-900 dark:bg-indigo-900/40 dark:text-indigo-100">
-                  <p className="text-xs uppercase tracking-wide opacity-80">Sessões filtradas</p>
-                  <p className="mt-2 text-2xl font-semibold">{filteredSessions.length}</p>
-                </div>
-                <div className="rounded-xl bg-slate-100 p-4 text-slate-900 dark:bg-slate-800/80 dark:text-slate-100">
-                  <p className="text-xs uppercase tracking-wide opacity-80">Personal Trainers em análise</p>
-                  <p className="mt-2 text-2xl font-semibold">{trainerSummaries.length}</p>
-                </div>
-              </div>
+          <section className="neo-panel neo-stack neo-stack--lg" aria-labelledby="reports-progress-heading">
+            <div className="neo-stack neo-stack--xs">
+              <h2 id="reports-progress-heading" className="reports-dashboard__sectionTitle">
+                Progresso dos clientes
+              </h2>
+              <p className="neo-text--sm neo-text--muted">
+                Registos de avaliações corporais para monitorizar evolução de peso.
+              </p>
+            </div>
 
-              <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
-                <table className="min-w-full text-sm">
-                  <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800/80 dark:text-slate-300">
+            <div className="reports-dashboard__summary neo-inline neo-inline--between neo-inline--wrap">
+              <div className="neo-stack neo-stack--xs">
+                <span className="reports-dashboard__summaryLabel">Cliente em foco</span>
+                <span className="reports-dashboard__summaryValue">
+                  {selectedClientName || "Selecione um cliente"}
+                </span>
+              </div>
+              {selectedClientSeries.length === 0 && (
+                <span className="reports-dashboard__summaryHint">Sem avaliações registadas no período.</span>
+              )}
+            </div>
+
+            <div>
+              {selectedClientSeries.length > 0 ? (
+                <LineChart data={selectedClientSeries} height={240} />
+              ) : (
+                <div className="neo-empty" role="status">
+                  <span className="neo-empty__icon" aria-hidden="true">
+                    📝
+                  </span>
+                  <p className="neo-empty__title">Recolha medições</p>
+                  <p className="neo-empty__description">
+                    Agende uma avaliação física para desbloquear a linha temporal deste cliente.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <section className="neo-stack neo-stack--sm" aria-labelledby="reports-progress-leaders">
+              <h3 id="reports-progress-leaders" className="reports-dashboard__listTitle">
+                Maiores reduções de peso (Δ)
+              </h3>
+              <ul className="neo-stack neo-stack--sm" aria-live="polite">
+                {progressLeaders.length > 0 ? (
+                  progressLeaders.map((item) => (
+                    <li
+                      key={item.clientId}
+                      className="neo-surface neo-surface--compact reports-dashboard__listItem"
+                      data-tone="success"
+                    >
+                      <span className="reports-dashboard__listName">{item.clientName}</span>
+                      <span className="reports-dashboard__listValue">{item.delta.toFixed(1)} kg</span>
+                    </li>
+                  ))
+                ) : (
+                  <li>
+                    <div className="neo-empty" role="status">
+                      <span className="neo-empty__icon" aria-hidden="true">
+                        ⏳
+                      </span>
+                      <p className="neo-empty__title">Ainda sem dados suficientes</p>
+                      <p className="neo-empty__description">
+                        Utilize um período maior ou recolha novas medições para comparar resultados.
+                      </p>
+                    </div>
+                  </li>
+                )}
+              </ul>
+            </section>
+          </section>
+
+          <section className="neo-panel neo-stack neo-stack--lg" aria-labelledby="reports-trainers-heading">
+            <div className="neo-stack neo-stack--xs">
+              <h2 id="reports-trainers-heading" className="reports-dashboard__sectionTitle">
+                Performance dos Personal Trainers
+              </h2>
+              <p className="neo-text--sm neo-text--muted">
+                Sessões concluídas, canceladas e futuras por Personal Trainer.
+              </p>
+            </div>
+
+            <div className="reports-dashboard__metrics neo-grid neo-grid--metricsSm">
+              <article className="neo-surface neo-surface--padded reports-dashboard__metric" data-variant="success">
+                <span className="reports-dashboard__metricLabel">Taxa média de conclusão</span>
+                <span className="reports-dashboard__metricValue">{formatPercentage(completionAverage)}</span>
+              </article>
+              <article className="neo-surface neo-surface--padded reports-dashboard__metric" data-variant="primary">
+                <span className="reports-dashboard__metricLabel">Sessões filtradas</span>
+                <span className="reports-dashboard__metricValue">{filteredSessions.length}</span>
+              </article>
+              <article className="neo-surface neo-surface--padded reports-dashboard__metric" data-variant="info">
+                <span className="reports-dashboard__metricLabel">Personal Trainers em análise</span>
+                <span className="reports-dashboard__metricValue">{trainerSummaries.length}</span>
+              </article>
+            </div>
+
+            <div className="neo-table-wrapper">
+              <table className="neo-table" aria-describedby="reports-trainers-heading">
+                <thead>
+                  <tr>
+                    <th scope="col">Personal Trainer</th>
+                    <th scope="col">Concluídas</th>
+                    <th scope="col">Canceladas</th>
+                    <th scope="col">Agendadas</th>
+                    <th scope="col">Total</th>
+                    <th scope="col">Duração média</th>
+                    <th scope="col">Taxa de conclusão</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {trainerSummaries.length > 0 ? (
+                    trainerSummaries.map((trainer) => {
+                      const avgDuration = trainer.total ? trainer.duration / trainer.total : 0;
+                      const completionRate = trainer.total ? (trainer.completed / trainer.total) * 100 : 0;
+                      return (
+                        <tr key={trainer.trainerId}>
+                          <td className="reports-dashboard__cellName">{trainer.trainerName}</td>
+                          <td>{trainer.completed}</td>
+                          <td>{trainer.cancelled}</td>
+                          <td>{trainer.upcoming}</td>
+                          <td>{trainer.total}</td>
+                          <td>{Math.round(avgDuration)} min</td>
+                          <td>{formatPercentage(completionRate)}</td>
+                        </tr>
+                      );
+                    })
+                  ) : (
                     <tr>
-                      <th className="px-3 py-2">Personal Trainer</th>
-                      <th className="px-3 py-2">Concluídas</th>
-                      <th className="px-3 py-2">Canceladas</th>
-                      <th className="px-3 py-2">Agendadas</th>
-                      <th className="px-3 py-2">Total</th>
-                      <th className="px-3 py-2">Duração média</th>
-                      <th className="px-3 py-2">Taxa de conclusão</th>
+                      <td colSpan={7}>
+                        <div className="neo-empty" role="status">
+                          <span className="neo-empty__icon" aria-hidden="true">
+                            🙌
+                          </span>
+                          <p className="neo-empty__title">Sem sessões para os filtros</p>
+                          <p className="neo-empty__description">
+                            Ajuste os filtros para visualizar a performance dos Personal Trainers.
+                          </p>
+                        </div>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {trainerSummaries.length > 0 ? (
-                      trainerSummaries.map((trainer) => {
-                        const avgDuration = trainer.total ? trainer.duration / trainer.total : 0;
-                        const completionRate = trainer.total ? (trainer.completed / trainer.total) * 100 : 0;
-                        return (
-                          <tr key={trainer.trainerId} className="border-t border-slate-200 text-slate-700 dark:border-slate-800 dark:text-slate-200">
-                            <td className="px-3 py-2 font-medium">{trainer.trainerName}</td>
-                            <td className="px-3 py-2">{trainer.completed}</td>
-                            <td className="px-3 py-2">{trainer.cancelled}</td>
-                            <td className="px-3 py-2">{trainer.upcoming}</td>
-                            <td className="px-3 py-2">{trainer.total}</td>
-                            <td className="px-3 py-2">{Math.round(avgDuration)} min</td>
-                            <td className="px-3 py-2">{formatPercentage(completionRate)}</td>
-                          </tr>
-                        );
-                      })
-                    ) : (
-                      <tr>
-                        <td className="px-3 py-4 text-center text-slate-500" colSpan={7}>
-                          Nenhuma sessão encontrada para os filtros aplicados.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
         </div>
       </div>
     </section>

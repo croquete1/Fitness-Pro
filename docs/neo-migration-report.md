@@ -7,7 +7,6 @@ Executámos `npm run neo:audit` para mapear utilitários ainda baseados em Tailw
 ## Componentes que ainda usam Tailwind utilitário
 
 - O módulo massivo do dashboard administrativo continua a concentrar grande parte dos utilitários legados (`src/app/(app)/dashboard/admin/**`).
-- O cliente de relatórios (`src/app/(app)/dashboard/reports/ReportsDashboardClient.tsx`) segue dependente de classes `flex/grid` tailwind-like.
 - Diversos editores administrativos (`src/components/plan/PlanEditor.tsx`, `src/components/packages/PackageEditor.tsx`) preservam tokens `rounded-*`, `gap-*` e responsividade utilitária.
 
 ## Dependências ainda baseadas em MUI
@@ -38,6 +37,7 @@ Executámos `npm run neo:audit` para mapear utilitários ainda baseados em Tailw
 - O atalho móvel (`src/components/common/MobileFAB.tsx`) ganhou estilos dedicados `.neo-fab`, com menu translúcido e botão temático responsivo.
 - O cabeçalho do treinador (`src/components/trainer/TrainerHeader.tsx`) foi reconstruído com o padrão `neo-app-header`, substituindo gradients Tailwind por tokens do tema e avatar com contorno Neo.
 - A agenda de PT (`src/app/(app)/dashboard/pt/schedule/TrainerScheduleClient.tsx`) recebeu uma revisão estrutural: filtros, métricas e tabela agora usam novos utilitários `.neo`, botões declarativos (`data-variant`) e feedbacks (`neo-spinner`, `neo-table-empty`).
+- O painel de relatórios operacionais (`src/app/(app)/dashboard/reports/ReportsDashboardClient.tsx`) foi migrado para estruturas `.neo`, introduzindo filtros colados, métricas temáticas e estados vazios consistentes sem qualquer utilitário Tailwind.
 
 ## Próximos passos recomendados
 
