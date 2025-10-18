@@ -34,6 +34,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [ ] Validar carregamento real da lista de utilizadores/aprovações no Supabase (remoção dos fallbacks quando a API estiver estável e seeds completos).
 - [ ] Harmonizar o toggle de tema (cookies + localStorage) para eliminar flashes e estados mistos no login.
 - [ ] Migrar toda a consola administrativa para o design system `.neo`, consolidando tabelas, filtros e quick actions (aprovações, centro de notificações do utilizador, onboarding, histórico e roster já convertidos).
+- [x] Recriar o painel de métricas do cliente no tema `.neo`, com integração Supabase, filtros temporais e gráficos interactivos (src/app/(app)/dashboard/clients/metrics/**/*).
 - [ ] Refinar as sidebars de PT/cliente com badges dinâmicos e entradas contextuais (quick actions, indicadores de progresso).
 - [ ] Definir padrão consistente para uso de rotas Next.js vs. cliente Supabase (tempo real) e aplicá-lo aos módulos de mensagens/notificações.
 - [ ] Optimizar consultas com índices e vistas materializadas (existe esboço, mas falta adopção generalizada).
