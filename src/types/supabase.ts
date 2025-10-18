@@ -208,6 +208,165 @@ export type Database = {
         ];
       };
 
+      notifications: {
+        Row: {
+          id: string;
+          user_id: string | null;
+          title: string;
+          body: string;
+          type: string;
+          read: boolean;
+          metadata: Json;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string | null;
+          title?: string;
+          body?: string;
+          type?: string;
+          read?: boolean;
+          metadata?: Json;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string | null;
+          title?: string;
+          body?: string;
+          type?: string;
+          read?: boolean;
+          metadata?: Json;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'notifications_user_fk';
+            columns: ['user_id'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+
+      trainer_roster_assignments: {
+        Row: {
+          id: string;
+          trainer_id: string;
+          trainer_focus: string | null;
+          status: string;
+          shift: string;
+          clients_count: number;
+          highlighted_client_id: string | null;
+          next_check_in_at: string | null;
+          load_level: string | null;
+          tags: string[];
+          last_synced_at: string | null;
+          metadata: Json;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          trainer_id: string;
+          trainer_focus?: string | null;
+          status?: string;
+          shift?: string;
+          clients_count?: number;
+          highlighted_client_id?: string | null;
+          next_check_in_at?: string | null;
+          load_level?: string | null;
+          tags?: string[] | null;
+          last_synced_at?: string | null;
+          metadata?: Json | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          trainer_id?: string;
+          trainer_focus?: string | null;
+          status?: string;
+          shift?: string;
+          clients_count?: number;
+          highlighted_client_id?: string | null;
+          next_check_in_at?: string | null;
+          load_level?: string | null;
+          tags?: string[] | null;
+          last_synced_at?: string | null;
+          metadata?: Json | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'trainer_roster_assignments_trainer_fk';
+            columns: ['trainer_id'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'trainer_roster_assignments_highlighted_fk';
+            columns: ['highlighted_client_id'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+
+      trainer_roster_events: {
+        Row: {
+          id: string;
+          assignment_id: string | null;
+          owner_id: string | null;
+          title: string;
+          detail: string | null;
+          scheduled_at: string | null;
+          metadata: Json;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          assignment_id?: string | null;
+          owner_id?: string | null;
+          title: string;
+          detail?: string | null;
+          scheduled_at?: string | null;
+          metadata?: Json | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          assignment_id?: string | null;
+          owner_id?: string | null;
+          title?: string;
+          detail?: string | null;
+          scheduled_at?: string | null;
+          metadata?: Json | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'trainer_roster_events_assignment_id_fkey';
+            columns: ['assignment_id'];
+            referencedRelation: 'trainer_roster_assignments';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'trainer_roster_events_owner_id_fkey';
+            columns: ['owner_id'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+
       audit_log: {
         Row: {
           id: string;
@@ -1244,6 +1403,48 @@ export type Database = {
     };
 
     Views: {
+      admin_trainer_roster: {
+        Row: {
+          id: string | null;
+          trainer_id: string | null;
+          trainer_name: string | null;
+          trainer_email: string | null;
+          trainer_role: string | null;
+          trainer_focus: string | null;
+          status: string | null;
+          shift: string | null;
+          clients_count: number | null;
+          highlighted_client_id: string | null;
+          highlighted_client_name: string | null;
+          highlighted_client_email: string | null;
+          next_check_in_at: string | null;
+          load_level: string | null;
+          tags: string[] | null;
+          tags_text: string | null;
+          last_synced_at: string | null;
+          metadata: Json | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Relationships: [];
+      };
+
+      admin_trainer_roster_events: {
+        Row: {
+          id: string | null;
+          assignment_id: string | null;
+          owner_id: string | null;
+          owner_name: string | null;
+          title: string | null;
+          detail: string | null;
+          scheduled_at: string | null;
+          metadata: Json | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Relationships: [];
+      };
+
       onboarding_forms_with_user: {
         Row: {
           id: string | null;

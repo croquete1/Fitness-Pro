@@ -6,7 +6,7 @@ Executámos `npm run neo:audit` para mapear utilitários ainda baseados em Tailw
 
 ## Componentes que ainda usam Tailwind utilitário
 
-- Os fluxos administrativos de gestão (approvals, roster, onboarding) continuam com utilitários legados (`src/app/(app)/dashboard/admin/**`), embora o dashboard principal já esteja totalmente em `.neo`.
+- O fluxo de onboarding administrativo continua com utilitários legados (`src/app/(app)/dashboard/admin/onboarding/**`), embora o dashboard principal, approvals e roster já estejam totalmente em `.neo`.
 - Diversos editores administrativos (`src/components/plan/PlanEditor.tsx`, `src/components/packages/PackageEditor.tsx`) preservam tokens `rounded-*`, `gap-*` e responsividade utilitária.
 
 ## Dependências ainda baseadas em MUI
@@ -18,7 +18,7 @@ Executámos `npm run neo:audit` para mapear utilitários ainda baseados em Tailw
 ## Funcionalidades com dados mock ou TODOs
 
 - As rotas críticas de perfil de cliente (`/api/users/[id]/notes|packages|anthropometry|sessions|plans`) foram ligadas ao Supabase com validação de permissões, eliminando o `_memdb` em memória. 【F:src/app/api/users/[id]/notes/route.ts†L1-L112】【F:src/app/api/users/[id]/packages/route.ts†L1-L87】【F:src/app/api/users/[id]/anthropometry/route.ts†L1-L146】【F:src/app/api/users/[id]/sessions/route.ts†L1-L141】【F:src/app/api/users/[id]/plans/route.ts†L1-L55】
-- Continuam por migrar os módulos administrativos que usam dados simulados ou caches locais, especialmente na listagem de aprovações e histórico de planos.
+- Continuam por migrar módulos administrativos que usam dados simulados ou caches locais, especialmente em onboarding e histórico de planos.
 
 ## Gargalos de performance percebida
 
@@ -42,6 +42,11 @@ Executámos `npm run neo:audit` para mapear utilitários ainda baseados em Tailw
 - A rota `/api/stats` liga-se agora ao Supabase para gerar contagens reais (utilizadores recentes, pacotes activos, sessões futuras e notas) e devolve tons temáticos em vez de classes Tailwind. 【F:src/app/api/stats/route.ts†L1-L75】
 - O perfil detalhado do cliente (`src/app/(app)/dashboard/users/[id]/profile.client.tsx`) foi reescrito sem MUI, adoptando cards, métricas e formulários `.neo` com estados acessíveis e botões partilhados.
 - Implementámos tabelas reais no Supabase para pacotes e notas de clientes (`supabase/migrations/20250328_add_client_notes_and_packages.sql`), permitindo que o front-end consuma dados vivos e remova mocks legados.
+- A escala administrativa de treinadores (`src/app/(app)/dashboard/admin/roster/RosterClient.tsx`) adoptou os padrões `.neo`, ligando-se às novas tabelas `trainer_roster_assignments`/`trainer_roster_events` no Supabase e expondo filtros, métricas e cronologia com dados reais.
+- A gestão de aprovações (`src/app/(app)/dashboard/admin/approvals/ApprovalsClient.tsx`) agora utiliza apenas estruturas `.neo`, com métricas temáticas, filtros declarativos e tabela padronizada; o backend continua a integrar com Supabase e fornece fallback informativo quando não configurado.
+- O centro de notificações administrativo (`src/app/(app)/dashboard/admin/notifications/NotificationsClient.tsx`) foi reconstruído com `neo-stack`, `neo-inline`, botões `data-variant` e estados vazios acessíveis, removendo por completo os utilitários Tailwind remanescentes.
+- Acrescentámos o script `supabase/migrations/20250404_add_trainer_roster.sql` para suportar a escala de PTs, vistas `admin_trainer_roster(*)` e políticas de serviço, removendo dependências de mocks nesse fluxo.
+- A infraestrutura de notificações ganhou a migração `supabase/migrations/20250408_add_notifications.sql`, que define tabela, índices, triggers e políticas RLS para dados reais; os tipos foram sincronizados em `src/types/supabase.ts`.
 
 ## Próximos passos recomendados
 

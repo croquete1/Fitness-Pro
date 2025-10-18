@@ -391,21 +391,24 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
   }, []);
 
   return (
-    <div className="space-y-6 px-4 py-6 md:px-8 lg:px-12">
+    <div className="admin-page neo-stack neo-stack--xl">
       <PageHeader
         title="Gestão de aprovações"
         subtitle="Filtra, aprova ou rejeita rapidamente os pedidos de acesso de treinadores e clientes."
         actions={(
-          <div className="neo-quick-actions flex-wrap">
+          <div className="neo-quick-actions">
             <OpenInNewToggle checked={openInNew} onChange={setOpenInNew} label="Abrir perfis noutra aba" />
             <button
               type="button"
-              className="btn ghost"
+              className="btn"
+              data-variant="ghost"
               onClick={() => { void fetchRows(); }}
               disabled={loading}
             >
-              <RefreshCcw className="h-4 w-4" aria-hidden="true" />
-              <span>Actualizar</span>
+              <span className="btn__icon">
+                <RefreshCcw className="neo-icon neo-icon--sm" aria-hidden="true" />
+              </span>
+              <span className="btn__label">Actualizar</span>
             </button>
             <button
               type="button"
@@ -413,17 +416,22 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
               onClick={exportCSV}
               disabled={!rows.length}
             >
-              <Download className="h-4 w-4" aria-hidden="true" />
-              <span>Exportar CSV</span>
+              <span className="btn__icon">
+                <Download className="neo-icon neo-icon--sm" aria-hidden="true" />
+              </span>
+              <span className="btn__label">Exportar CSV</span>
             </button>
             <button
               type="button"
-              className="btn ghost"
+              className="btn"
+              data-variant="ghost"
               onClick={printList}
               disabled={!rows.length}
             >
-              <Printer className="h-4 w-4" aria-hidden="true" />
-              <span>Imprimir</span>
+              <span className="btn__icon">
+                <Printer className="neo-icon neo-icon--sm" aria-hidden="true" />
+              </span>
+              <span className="btn__label">Imprimir</span>
             </button>
           </div>
         )}
@@ -431,34 +439,34 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
 
       {banner && (
         <div
-          className="neo-surface p-4"
+          className="neo-surface neo-surface--compact"
           data-variant={toneForBanner(banner.severity)}
           role="status"
           aria-live="polite"
         >
-          <p className="text-sm font-medium text-fg">{banner.message}</p>
+          <p className="neo-text--sm text-fg">{banner.message}</p>
         </div>
       )}
 
-      <section className="neo-panel space-y-5" aria-label="Filtros e indicadores">
-        <div className="neo-grid auto-fit min-[220px]:grid-cols-2 md:grid-cols-4">
+      <section className="neo-panel neo-stack neo-stack--lg" aria-label="Filtros e indicadores">
+        <div className="admin-approvals__metrics">
           {metrics.map((metric) => (
-            <div key={metric.id} className="neo-surface neo-surface--interactive space-y-2 p-4" data-variant={metric.tone}>
-              <span className="neo-surface__hint uppercase tracking-wide">{metric.label}</span>
-              <span className="neo-surface__value text-2xl font-semibold text-fg">{metric.value}</span>
+            <div key={metric.id} className="admin-approvals__metric" data-tone={metric.tone}>
+              <span className="admin-approvals__metricLabel">{metric.label}</span>
+              <span className="admin-approvals__metricValue">{metric.value}</span>
             </div>
           ))}
         </div>
 
-        <div className="neo-grid auto-fit min-[260px]:grid-cols-2 lg:grid-cols-4" role="group" aria-label="Filtros de pesquisa">
-          <label htmlFor="approvals-search" className="flex flex-col gap-2">
-            <span className="neo-surface__hint uppercase tracking-wide">Pesquisa</span>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden="true" />
+        <div className="admin-approvals__filters" role="group" aria-label="Filtros de pesquisa">
+          <label htmlFor="approvals-search" className="admin-approvals__field">
+            <span className="admin-approvals__label">Pesquisa</span>
+            <div className="admin-approvals__search">
+              <Search className="admin-approvals__searchIcon" aria-hidden="true" />
               <input
                 id="approvals-search"
                 type="search"
-                className="neo-input pl-9"
+                className="neo-field admin-approvals__searchInput"
                 placeholder="Nome ou email"
                 value={q}
                 onChange={(event) => {
@@ -469,11 +477,11 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
             </div>
           </label>
 
-          <label htmlFor="approvals-status" className="flex flex-col gap-2">
-            <span className="neo-surface__hint uppercase tracking-wide">Estado</span>
+          <label htmlFor="approvals-status" className="admin-approvals__field">
+            <span className="admin-approvals__label">Estado</span>
             <select
               id="approvals-status"
-              className="neo-input"
+              className="neo-field"
               value={status}
               onChange={(event) => {
                 setStatus(event.target.value);
@@ -487,11 +495,11 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
             </select>
           </label>
 
-          <label htmlFor="approvals-page-size" className="flex flex-col gap-2">
-            <span className="neo-surface__hint uppercase tracking-wide">Linhas por página</span>
+          <label htmlFor="approvals-page-size" className="admin-approvals__field">
+            <span className="admin-approvals__label">Linhas por página</span>
             <select
               id="approvals-page-size"
-              className="neo-input"
+              className="neo-field"
               value={pageSizeState}
               onChange={(event) => {
                 const next = Number(event.target.value) || pageSize;
@@ -505,30 +513,28 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
             </select>
           </label>
 
-          <div className="flex flex-col justify-end gap-2">
-            <span className="neo-surface__hint uppercase tracking-wide">Ajuda rápida</span>
-            <Link
-              href="/dashboard/admin/users"
-              className="btn ghost"
-              prefetch={false}
-            >
-              <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-              <span>Ver utilizadores</span>
+          <div className="admin-approvals__field admin-approvals__field--shortcut">
+            <span className="admin-approvals__label">Ajuda rápida</span>
+            <Link href="/dashboard/admin/users" className="btn" data-variant="ghost" prefetch={false}>
+              <span className="btn__icon">
+                <ArrowUpRight className="neo-icon neo-icon--sm" aria-hidden="true" />
+              </span>
+              <span className="btn__label">Ver utilizadores</span>
             </Link>
           </div>
         </div>
       </section>
 
-      <section className="neo-panel space-y-4" aria-label="Tabela de pedidos">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
+      <section className="neo-panel neo-stack neo-stack--lg" aria-label="Tabela de pedidos">
+        <header className="neo-inline neo-inline--wrap neo-inline--between neo-inline--md">
+          <div className="neo-stack neo-stack--xs">
             <h2 className="neo-panel__title">Pedidos activos</h2>
             <p className="neo-panel__subtitle">Actualiza em tempo real quando alteras filtros ou navegas pelas páginas.</p>
           </div>
           <span className="neo-tag" data-tone="primary" aria-live="polite">
             {count} {count === 1 ? 'pedido' : 'pedidos'}
           </span>
-        </div>
+        </header>
 
         <div className="neo-table-wrapper" role="region" aria-live="polite">
           <table className="neo-table">
@@ -538,20 +544,30 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
                 <th scope="col">Email</th>
                 <th scope="col">Estado</th>
                 <th scope="col">Pedido em</th>
-                <th scope="col" className="text-right">Ações</th>
+                <th scope="col" style={{ textAlign: 'right' }}>
+                  Acções
+                </th>
               </tr>
             </thead>
             <tbody>
-              {loading && (
+              {loading && rows.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-6 text-center text-muted">A carregar pedidos…</td>
+                  <td colSpan={5}>
+                    <div className="neo-table-empty">
+                      <div className="neo-inline neo-inline--center neo-inline--sm neo-text--sm neo-text--muted">
+                        <span className="neo-spinner" aria-hidden /> A sincronizar pedidos…
+                      </div>
+                    </div>
+                  </td>
                 </tr>
               )}
 
               {!loading && rows.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-6 text-center text-muted">
-                    Nenhum pedido encontrado. Ajusta os filtros ou tenta novamente mais tarde.
+                  <td colSpan={5}>
+                    <div className="neo-table-empty">
+                      Nenhum pedido encontrado. Ajusta os filtros ou tenta novamente mais tarde.
+                    </div>
                   </td>
                 </tr>
               )}
@@ -561,42 +577,47 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
                 return (
                   <tr key={row.id}>
                     <td data-title="Nome">
-                      <div className="flex flex-col">
-                        <span className="font-semibold text-fg">{row.name ?? '—'}</span>
-                        <span className="text-xs text-muted">ID: {row.user_id}</span>
+                      <div className="neo-stack neo-stack--xs">
+                        <span className="neo-text--sm neo-text--semibold text-fg">{row.name ?? '—'}</span>
+                        <span className="neo-text--xs neo-text--muted">ID: {row.user_id}</span>
                       </div>
                     </td>
-                    <td data-title="Email">{row.email ?? '—'}</td>
+                    <td data-title="Email">
+                      <span className="neo-text--sm text-fg">{row.email ?? '—'}</span>
+                    </td>
                     <td data-title="Estado">
                       <span className="neo-table__status" data-state={tone}>{label}</span>
                     </td>
                     <td data-title="Pedido em">{row.requested_at ? formatDate(row.requested_at) : '—'}</td>
-                    <td data-title="Ações" className="text-right">
-                      <div className="flex flex-wrap items-center justify-end gap-2">
+                    <td data-title="Acções" style={{ textAlign: 'right' }}>
+                      <div className="neo-inline neo-inline--end neo-inline--sm">
                         <button
                           type="button"
-                          className="btn ghost"
+                          className="btn"
+                          data-variant="ghost"
                           onClick={() => navigate(`/dashboard/admin/users/${row.user_id}`, openInNew)}
                           title="Ver utilizador"
                         >
-                          <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+                          <ArrowUpRight className="neo-icon neo-icon--sm" aria-hidden="true" />
                         </button>
                         <button
                           type="button"
-                          className="btn ghost"
+                          className="btn"
+                          data-variant="ghost"
                           onClick={() => { void approveRow(row); }}
                           title="Aprovar"
                         >
-                          <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                          <CheckCircle2 className="neo-icon neo-icon--sm" aria-hidden="true" />
                         </button>
                         <button
                           type="button"
-                          className="btn ghost"
-                          data-danger="true"
+                          className="btn"
+                          data-variant="ghost"
                           onClick={() => { void deleteRow(row); }}
                           title="Remover"
+                          style={{ color: 'var(--danger)' }}
                         >
-                          <Trash2 className="h-4 w-4" aria-hidden="true" />
+                          <Trash2 className="neo-icon neo-icon--sm" aria-hidden="true" />
                         </button>
                       </div>
                     </td>
@@ -607,14 +628,16 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
           </table>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className="text-sm text-muted">
+        <div className="neo-inline neo-inline--wrap neo-inline--between neo-inline--md">
+          <span className="neo-text--sm neo-text--muted">
             Página {page + 1} de {totalPages}
           </span>
-          <div className="flex items-center gap-2">
+          <div className="neo-inline neo-inline--sm">
             <button
               type="button"
-              className="btn ghost"
+              className="btn"
+              data-variant="ghost"
+              data-size="sm"
               onClick={() => setPage((prev) => Math.max(0, prev - 1))}
               disabled={page === 0 || loading}
             >
@@ -622,7 +645,9 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
             </button>
             <button
               type="button"
-              className="btn ghost"
+              className="btn"
+              data-variant="ghost"
+              data-size="sm"
               onClick={() => setPage((prev) => Math.min(totalPages - 1, prev + 1))}
               disabled={page >= totalPages - 1 || loading}
             >
@@ -633,17 +658,19 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
       </section>
 
       {undoRef.current && (
-        <div className="neo-panel neo-panel--compact flex flex-wrap items-center justify-between gap-3" role="status">
-          <span className="text-sm font-medium text-fg">
-            Pedido removido. Tens alguns segundos para desfazer.
-          </span>
-          <div className="flex items-center gap-2">
-            <button type="button" className="btn" onClick={() => { void undoDelete(); }}>
-              Desfazer
-            </button>
-            <button type="button" className="btn ghost" onClick={clearUndo}>
-              Ignorar
-            </button>
+        <div className="neo-panel neo-panel--compact" role="status">
+          <div className="neo-inline neo-inline--wrap neo-inline--between neo-inline--md">
+            <span className="neo-text--sm neo-text--semibold text-fg">
+              Pedido removido. Tens alguns segundos para desfazer.
+            </span>
+            <div className="neo-inline neo-inline--sm">
+              <button type="button" className="btn" onClick={() => { void undoDelete(); }}>
+                Desfazer
+              </button>
+              <button type="button" className="btn" data-variant="ghost" onClick={clearUndo}>
+                Ignorar
+              </button>
+            </div>
           </div>
         </div>
       )}
