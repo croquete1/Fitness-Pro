@@ -1244,6 +1244,96 @@ export type Database = {
         Relationships: [];
       };
 
+      system_insights: {
+        Row: {
+          id: string;
+          label: string;
+          value: string;
+          detail: string | null;
+          sort_order: number | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          label: string;
+          value: string;
+          detail?: string | null;
+          sort_order?: number | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          label?: string;
+          value?: string;
+          detail?: string | null;
+          sort_order?: number | null;
+          updated_at?: string | null;
+        };
+        Relationships: [];
+      };
+
+      system_maintenance_windows: {
+        Row: {
+          id: string;
+          title: string;
+          start_at: string;
+          end_at: string;
+          impact: string | null;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          start_at: string;
+          end_at: string;
+          impact?: string | null;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          title?: string;
+          start_at?: string;
+          end_at?: string;
+          impact?: string | null;
+          created_at?: string | null;
+        };
+        Relationships: [];
+      };
+
+      system_services: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          state: 'ok' | 'warn' | 'down' | null;
+          latency_ms: number | null;
+          uptime_percent: number | null;
+          updated_at: string | null;
+          display_order: number | null;
+        };
+        Insert: {
+          id: string;
+          name: string;
+          description?: string | null;
+          state?: 'ok' | 'warn' | 'down' | null;
+          latency_ms?: number | null;
+          uptime_percent?: number | null;
+          updated_at?: string | null;
+          display_order?: number | null;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string | null;
+          state?: 'ok' | 'warn' | 'down' | null;
+          latency_ms?: number | null;
+          uptime_percent?: number | null;
+          updated_at?: string | null;
+          display_order?: number | null;
+        };
+        Relationships: [];
+      };
+
       training_plan_blocks: {
         Row: {
           id: string;

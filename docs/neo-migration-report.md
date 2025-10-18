@@ -47,6 +47,8 @@ Executámos `npm run neo:audit` para mapear utilitários ainda baseados em Tailw
 - O centro de notificações administrativo (`src/app/(app)/dashboard/admin/notifications/NotificationsClient.tsx`) foi reconstruído com `neo-stack`, `neo-inline`, botões `data-variant` e estados vazios acessíveis, removendo por completo os utilitários Tailwind remanescentes.
 - Acrescentámos o script `supabase/migrations/20250404_add_trainer_roster.sql` para suportar a escala de PTs, vistas `admin_trainer_roster(*)` e políticas de serviço, removendo dependências de mocks nesse fluxo.
 - A infraestrutura de notificações ganhou a migração `supabase/migrations/20250408_add_notifications.sql`, que define tabela, índices, triggers e políticas RLS para dados reais; os tipos foram sincronizados em `src/types/supabase.ts`.
+- O centro de controlo e a página de métricas (`src/app/(app)/dashboard/system/page.tsx` e `src/app/(app)/dashboard/system/metrics/page.tsx`) foram migrados para os padrões `.neo`, com grelhas declarativas, estados vazios acessíveis e sem utilitários Tailwind, lendo directamente das novas tabelas de observabilidade.
+- Criámos a migração `supabase/migrations/20250410_add_system_observability.sql`, que introduz `system_services`, `system_maintenance_windows` e `system_insights` com seeds, índices, triggers e políticas RLS; os tipos foram sincronizados em `src/types/supabase.ts`.
 
 ## Próximos passos recomendados
 
