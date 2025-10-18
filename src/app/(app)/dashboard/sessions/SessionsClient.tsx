@@ -1,63 +1,32 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import {
   CalendarDays,
   CheckCircle2,
-  CheckSquare,
-  History,
+  Clock3,
+  Download,
   Loader2,
-  MessageSquarePlus,
+  MapPin,
   RefreshCcw,
   ShieldCheck,
+  TrendingUp,
   UserRound,
-  XCircle,
 } from 'lucide-react';
-
 import Alert from '@/components/ui/Alert';
 import Button from '@/components/ui/Button';
+import { buildClientSessionDashboard } from '@/lib/sessions/dashboard';
+import type {
+  ClientSession,
+  SessionDashboardData,
+  SessionRequest,
+  SessionRequestStatus,
+  SessionTimelinePoint,
+} from '@/lib/sessions/types';
+import { getFallbackClientSessions, getFallbackSessionRequests } from '@/lib/fallback/sessions';
 
-export type AttendanceStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no_show' | null;
-
-export type ClientSession = {
-  id: string;
-  startISO: string | null;
-  endISO: string | null;
-  durationMin: number | null;
-  location: string | null;
-  notes: string | null;
-  trainerName: string | null;
-  trainerEmail: string | null;
-  status: string | null;
-  attendanceStatus: AttendanceStatus;
-  attendanceAt: string | null;
-};
-
-export type SessionRequestStatus =
-  | 'pending'
-  | 'accepted'
-  | 'declined'
-  | 'cancelled'
-  | 'reschedule_pending'
-  | 'reschedule_declined';
-
-export type SessionRequest = {
-  id: string;
-  sessionId: string | null;
-  status: SessionRequestStatus;
-  requestedStart: string | null;
-  requestedEnd: string | null;
-  proposedStart: string | null;
-  proposedEnd: string | null;
-  message: string | null;
-  trainerNote: string | null;
-  rescheduleNote: string | null;
-  createdAt: string | null;
-  updatedAt: string | null;
-  respondedAt: string | null;
-  proposedAt: string | null;
-  trainer: { id: string; name: string | null; email: string | null } | null;
-};
+const HALF_HOUR_MS = 30 * 60 * 1000;
 
 type TrainerOption = {
   id: string;
@@ -66,104 +35,107 @@ type TrainerOption = {
   status: string | null;
 };
 
-type Props = {
-  initialSessions: ClientSession[];
-  initialRequests: SessionRequest[];
-};
+type HistoryStatusFilter = 'all' | 'completed' | 'cancelled' | 'no_show' | 'pending';
+type RequestTab = 'open' | 'history';
 
-const fullDateFormatter = new Intl.DateTimeFormat('pt-PT', {
-  weekday: 'short',
-  day: '2-digit',
-  month: 'short',
-  hour: '2-digit',
-  minute: '2-digit',
-});
+const HISTORY_FILTERS: Array<{ value: HistoryStatusFilter; label: string }> = [
+  { value: 'all', label: 'Todas' },
+  { value: 'completed', label: 'Concluídas' },
+  { value: 'pending', label: 'Por confirmar' },
+  { value: 'cancelled', label: 'Canceladas' },
+  { value: 'no_show', label: 'Faltas' },
+];
 
-const timeFormatter = new Intl.DateTimeFormat('pt-PT', {
-  hour: '2-digit',
-  minute: '2-digit',
-});
-
-const shortDateFormatter = new Intl.DateTimeFormat('pt-PT', {
-  day: '2-digit',
-  month: 'short',
-  hour: '2-digit',
-  minute: '2-digit',
-});
-
-function toDate(value: string | null) {
+function toDate(value: string | null | undefined): Date | null {
   if (!value) return null;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
   return date;
 }
 
-function formatDateTime(value: string | null, fallback = 'Data por definir') {
+function formatDateTime(value: string | null | undefined, fallback = 'Data por definir') {
   const date = toDate(value);
   if (!date) return fallback;
-  try {
-    return fullDateFormatter.format(date);
-  } catch {
-    return fallback;
-  }
+  return date.toLocaleString('pt-PT', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
-function formatDateShort(value: string | null, fallback = '—') {
-  const date = toDate(value);
-  if (!date) return fallback;
-  try {
-    return shortDateFormatter.format(date);
-  } catch {
-    return fallback;
-  }
-}
-
-function formatTime(value: string | null) {
+function formatDay(value: string | null | undefined) {
   const date = toDate(value);
   if (!date) return '—';
-  try {
-    return timeFormatter.format(date);
-  } catch {
-    return '—';
-  }
+  return date.toLocaleDateString('pt-PT', { day: '2-digit', month: 'short' });
 }
 
-function formatRange(startISO: string | null, endISO: string | null) {
-  if (!startISO) return 'Data por definir';
-  const start = formatDateTime(startISO);
-  if (!endISO) return start;
-  return `${start} — ${formatTime(endISO)}`;
+function formatTime(value: string | null | undefined) {
+  const date = toDate(value);
+  if (!date) return '—';
+  return date.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
 }
 
-function attendanceMeta(status: AttendanceStatus) {
-  switch (status) {
-    case 'confirmed':
-      return { label: 'Confirmada', tone: 'ok' as const };
+function formatRelative(value: string | null | undefined) {
+  const date = toDate(value);
+  if (!date) return '—';
+  const diffMinutes = Math.round((date.getTime() - Date.now()) / 60000);
+  const diffHours = Math.round(diffMinutes / 60);
+  const diffDays = Math.round(diffMinutes / 1440);
+  const formatter = new Intl.RelativeTimeFormat('pt-PT', { numeric: 'auto' });
+  if (Math.abs(diffMinutes) < 60) return formatter.format(diffMinutes, 'minute');
+  if (Math.abs(diffHours) < 48) return formatter.format(diffHours, 'hour');
+  return formatter.format(diffDays, 'day');
+}
+
+function formatPercentage(value: number) {
+  return `${value.toFixed(value % 1 === 0 ? 0 : 1)}%`;
+}
+
+function sessionTone(attendance: ClientSession['attendanceStatus']) {
+  switch (attendance) {
     case 'completed':
-      return { label: 'Concluída', tone: 'ok' as const };
+      return 'success';
+    case 'confirmed':
+      return 'primary';
     case 'cancelled':
-      return { label: 'Cancelada', tone: 'down' as const };
     case 'no_show':
-      return { label: 'Faltou', tone: 'down' as const };
+      return 'danger';
     case 'pending':
     default:
-      return { label: 'Por confirmar', tone: 'warn' as const };
+      return 'warning';
   }
 }
 
-function requestStatusMeta(status: SessionRequestStatus) {
+function attendanceLabel(attendance: ClientSession['attendanceStatus']) {
+  switch (attendance) {
+    case 'completed':
+      return 'Concluída';
+    case 'confirmed':
+      return 'Confirmada';
+    case 'cancelled':
+      return 'Cancelada';
+    case 'no_show':
+      return 'Faltou';
+    case 'pending':
+    default:
+      return 'Por confirmar';
+  }
+}
+
+function friendlyRequestStatus(status: SessionRequestStatus) {
   switch (status) {
     case 'accepted':
-      return { label: 'Aceite', tone: 'ok' as const };
+      return { label: 'Aceite', tone: 'success' as const };
     case 'declined':
     case 'cancelled':
     case 'reschedule_declined':
-      return { label: 'Recusado', tone: 'down' as const };
+      return { label: 'Recusado', tone: 'danger' as const };
     case 'reschedule_pending':
-      return { label: 'Remarcação pendente', tone: 'warn' as const };
+      return { label: 'Remarcação pendente', tone: 'primary' as const };
     case 'pending':
     default:
-      return { label: 'Aguardando aprovação', tone: 'warn' as const };
+      return { label: 'A aguardar resposta', tone: 'warning' as const };
   }
 }
 
@@ -173,9 +145,64 @@ function trainerDisplay(trainer: SessionRequest['trainer']) {
   return trainer.name ?? trainer.email ?? 'Personal trainer';
 }
 
+function computeMetricCards(metrics: SessionDashboardData['metrics']) {
+  return [
+    {
+      key: 'upcoming',
+      label: 'Próximas sessões',
+      value: metrics.upcomingCount,
+      hint: metrics.nextSessionAt ? `Seguinte ${formatRelative(metrics.nextSessionAt)}` : 'Sem agendamentos futuros',
+      icon: CalendarDays,
+      tone: metrics.upcomingCount > 0 ? 'primary' : 'neutral',
+    },
+    {
+      key: 'attendance',
+      label: 'Presença confirmada',
+      value: formatPercentage(metrics.attendanceRate),
+      hint: `${metrics.totalSessions} sessão(ões) analisadas`,
+      icon: CheckCircle2,
+      tone: metrics.attendanceRate >= 70 ? 'success' : metrics.attendanceRate >= 40 ? 'warning' : 'danger',
+    },
+    {
+      key: 'hours',
+      label: 'Horas (7 dias)',
+      value: `${metrics.hoursBooked7d.toFixed(metrics.hoursBooked7d % 1 === 0 ? 0 : 1)} h`,
+      hint:
+        metrics.hoursBookedDelta === 0
+          ? 'Estável face à semana anterior'
+          : metrics.hoursBookedDelta > 0
+          ? `+${metrics.hoursBookedDelta.toFixed(metrics.hoursBookedDelta % 1 === 0 ? 0 : 1)} h vs. semana anterior`
+          : `${metrics.hoursBookedDelta.toFixed(metrics.hoursBookedDelta % 1 === 0 ? 0 : 1)} h vs. semana anterior`,
+      icon: TrendingUp,
+      tone: 'info',
+    },
+    {
+      key: 'requests',
+      label: 'Pedidos em aberto',
+      value: metrics.openRequests,
+      hint: metrics.lastCompletedAt
+        ? `Última conclusão ${formatRelative(metrics.lastCompletedAt)}`
+        : 'Sem conclusões recentes',
+      icon: RefreshCcw,
+      tone: metrics.openRequests > 0 ? 'warning' : 'success',
+    },
+  ];
+}
+
+type Props = {
+  initialSessions: ClientSession[];
+  initialRequests: SessionRequest[];
+};
+
 export default function SessionsClient({ initialSessions, initialRequests }: Props) {
-  const [sessions, setSessions] = React.useState<ClientSession[]>(() => [...initialSessions]);
-  const [requests, setRequests] = React.useState<SessionRequest[]>(() => [...initialRequests]);
+  const supabaseSessions = initialSessions.length > 0;
+  const supabaseRequests = initialRequests.length > 0;
+  const [sessions, setSessions] = React.useState<ClientSession[]>(() =>
+    supabaseSessions ? initialSessions : getFallbackClientSessions(),
+  );
+  const [requests, setRequests] = React.useState<SessionRequest[]>(() =>
+    supabaseRequests ? initialRequests : getFallbackSessionRequests(),
+  );
   const [sessionError, setSessionError] = React.useState<string | null>(null);
   const [requestError, setRequestError] = React.useState<string | null>(null);
   const [requestSuccess, setRequestSuccess] = React.useState<string | null>(null);
@@ -186,12 +213,20 @@ export default function SessionsClient({ initialSessions, initialRequests }: Pro
   const [trainerOptions, setTrainerOptions] = React.useState<TrainerOption[]>([]);
   const [loadingTrainers, setLoadingTrainers] = React.useState(false);
   const [requestForm, setRequestForm] = React.useState({ trainerId: '', start: '', duration: 60, note: '' });
+  const [historyQuery, setHistoryQuery] = React.useState('');
+  const [historyStatus, setHistoryStatus] = React.useState<HistoryStatusFilter>('all');
+  const [requestTab, setRequestTab] = React.useState<RequestTab>('open');
 
   const requestHeadingId = React.useId();
   const upcomingHeadingId = React.useId();
   const historyHeadingId = React.useId();
   const dialogTitleId = React.useId();
   const dialogFormId = React.useId();
+
+  const dashboard = React.useMemo(
+    () => buildClientSessionDashboard(sessions, requests, { supabase: supabaseSessions || supabaseRequests }),
+    [sessions, requests, supabaseSessions, supabaseRequests],
+  );
 
   const sortedSessions = React.useMemo(() => {
     return [...sessions].sort((a, b) => {
@@ -201,26 +236,50 @@ export default function SessionsClient({ initialSessions, initialRequests }: Pro
     });
   }, [sessions]);
 
-  const now = React.useMemo(() => Date.now(), []);
-
   const upcomingSessions = React.useMemo(() => {
+    const now = Date.now();
     return sortedSessions.filter((session) => {
       const start = toDate(session.startISO);
       if (!start) return true;
-      return start.getTime() >= now - 30 * 60 * 1000;
+      return start.getTime() >= now - HALF_HOUR_MS;
     });
-  }, [sortedSessions, now]);
+  }, [sortedSessions]);
 
   const pastSessions = React.useMemo(() => {
+    const now = Date.now();
     return sortedSessions
       .filter((session) => {
         const start = toDate(session.startISO);
         if (!start) return false;
-        return start.getTime() < now - 30 * 60 * 1000;
+        return start.getTime() < now - HALF_HOUR_MS;
       })
-      .reverse()
-      .slice(0, 20);
-  }, [sortedSessions, now]);
+      .sort((a, b) => {
+        const aTime = toDate(a.startISO)?.getTime() ?? 0;
+        const bTime = toDate(b.startISO)?.getTime() ?? 0;
+        return bTime - aTime;
+      });
+  }, [sortedSessions]);
+
+  const filteredHistory = React.useMemo(() => {
+    const query = historyQuery.trim().toLowerCase();
+    return pastSessions.filter((session) => {
+      if (historyStatus !== 'all') {
+        if ((session.attendanceStatus ?? 'pending') !== historyStatus) {
+          return false;
+        }
+      }
+      if (!query) return true;
+      const haystack = [
+        session.trainerName ?? '',
+        session.trainerEmail ?? '',
+        session.location ?? '',
+        session.notes ?? '',
+      ]
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [pastSessions, historyQuery, historyStatus]);
 
   const sortedRequests = React.useMemo(() => {
     return [...requests].sort((a, b) => {
@@ -231,16 +290,19 @@ export default function SessionsClient({ initialSessions, initialRequests }: Pro
   }, [requests]);
 
   const openRequests = React.useMemo(
-    () => sortedRequests.filter((request) => request.status === 'pending' || request.status === 'reschedule_pending'),
+    () =>
+      sortedRequests.filter(
+        (request) => request.status === 'pending' || request.status === 'reschedule_pending',
+      ),
     [sortedRequests],
   );
 
-  const historyRequests = React.useMemo(
+  const closedRequests = React.useMemo(
     () => sortedRequests.filter((request) => !openRequests.includes(request)),
     [sortedRequests, openRequests],
   );
 
-  async function updateAttendance(sessionId: string, status: NonNullable<AttendanceStatus>) {
+  async function updateAttendance(sessionId: string, status: NonNullable<ClientSession['attendanceStatus']>) {
     if (pendingSessionId) return;
     setPendingSessionId(sessionId);
     setSessionError(null);
@@ -299,9 +361,10 @@ export default function SessionsClient({ initialSessions, initialRequests }: Pro
     };
   }, [requestDialogOpen, trainerOptions.length, loadingTrainers]);
 
-  const availableTrainers = React.useMemo(() => {
-    return trainerOptions.filter((trainer) => (trainer.status ?? '').toUpperCase() !== 'SUSPENDED');
-  }, [trainerOptions]);
+  const availableTrainers = React.useMemo(
+    () => trainerOptions.filter((trainer) => (trainer.status ?? '').toUpperCase() !== 'SUSPENDED'),
+    [trainerOptions],
+  );
 
   React.useEffect(() => {
     if (!requestSuccess) return;
@@ -411,306 +474,515 @@ export default function SessionsClient({ initialSessions, initialRequests }: Pro
     }
   }
 
-  function renderSession(session: ClientSession) {
-    const attendance = attendanceMeta(session.attendanceStatus);
-    const disableActions = pendingSessionId === session.id;
+  const metricCards = React.useMemo(() => computeMetricCards(dashboard.metrics), [dashboard.metrics]);
 
+  function renderTimelinePoint(point: SessionTimelinePoint) {
+    const total = point.scheduled || 1;
+    const confirmedPct = Math.round((point.confirmed / total) * 100);
+    const cancelledPct = Math.round((point.cancelled / total) * 100);
     return (
-      <article key={session.id} className="sessions-card" aria-labelledby={`session-${session.id}`}> 
-        <header className="sessions-card__header">
-          <div className="sessions-card__meta">
-            <h3 id={`session-${session.id}`} className="sessions-card__title">
-              {formatDateTime(session.startISO)}
-            </h3>
-            <dl className="sessions-card__details">
-              <div>
-                <dt>Local</dt>
-                <dd>{session.location ? session.location : '—'}</dd>
-              </div>
-              <div>
-                <dt>Personal trainer</dt>
-                <dd>{session.trainerName ?? session.trainerEmail ?? '—'}</dd>
-              </div>
-              {session.durationMin ? (
-                <div>
-                  <dt>Duração</dt>
-                  <dd>{session.durationMin} min</dd>
-                </div>
-              ) : null}
-            </dl>
-          </div>
-          <span className="status-pill" data-state={attendance.tone}>
-            {attendance.label}
-          </span>
-        </header>
+      <li key={point.date} className="client-sessions__timelineItem">
+        <span className="client-sessions__timelineDate">{formatDay(point.date)}</span>
+        <div className="client-sessions__timelineBar" aria-hidden>
+          <span className="client-sessions__timelineSegment client-sessions__timelineSegment--confirmed" style={{ width: `${confirmedPct}%` }} />
+          <span className="client-sessions__timelineSegment client-sessions__timelineSegment--cancelled" style={{ width: `${cancelledPct}%` }} />
+        </div>
+        <span className="client-sessions__timelineMeta">
+          {point.confirmed} concluída(s) · {point.cancelled} cancelada(s)
+        </span>
+      </li>
+    );
+  }
 
-        {session.notes ? <p className="sessions-card__notes">{session.notes}</p> : null}
-
-        <div className="sessions-card__actions">
-          <a
-            className="btn"
-            data-variant="ghost"
-            data-size="sm"
-            href={`/api/sessions/${session.id}/ics`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <span className="btn__icon btn__icon--left" aria-hidden>
-              <CalendarDays size={16} />
+  function renderSessionRow(session: ClientSession) {
+    const disableActions = pendingSessionId === session.id;
+    const tone = sessionTone(session.attendanceStatus);
+    return (
+      <tr key={session.id}>
+        <td>
+          <div className="client-sessions__sessionCell">
+            <span className="client-sessions__sessionDate">{formatDateTime(session.startISO)}</span>
+            <span className="client-sessions__sessionLocation">
+              <MapPin size={14} aria-hidden />
+              {session.location ?? 'Local a definir'}
             </span>
-            <span className="btn__label">Adicionar ao calendário</span>
-          </a>
-          <div className="sessions-card__actionsRow">
+          </div>
+        </td>
+        <td>
+          <div className="client-sessions__trainer">
+            <UserRound size={14} aria-hidden />
+            <span>{session.trainerName ?? session.trainerEmail ?? 'Personal trainer'}</span>
+          </div>
+        </td>
+        <td>
+          <span className="status-pill" data-state={tone}>
+            {attendanceLabel(session.attendanceStatus)}
+          </span>
+        </td>
+        <td>
+          <span className="client-sessions__duration">{session.durationMin ? `${session.durationMin} min` : '—'}</span>
+        </td>
+        <td className="neo-table__cell--right">
+          <div className="neo-table__actions">
+            <a
+              className="btn"
+              data-variant="ghost"
+              data-size="sm"
+              href={`/api/sessions/${session.id}/ics`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span className="btn__icon btn__icon--left" aria-hidden>
+                <CalendarDays size={16} />
+              </span>
+              <span className="btn__label">ICS</span>
+            </a>
             {session.attendanceStatus !== 'confirmed' && session.attendanceStatus !== 'completed' ? (
               <Button
                 size="sm"
-                variant="success"
+                variant="ghost"
                 leftIcon={
                   disableActions ? <Loader2 size={16} className="icon-spin" aria-hidden /> : <CheckCircle2 size={16} aria-hidden />
                 }
                 onClick={() => updateAttendance(session.id, 'confirmed')}
                 loading={disableActions}
-                loadingText="A atualizar…"
+                loadingText="A confirmar…"
               >
-                Confirmar presença
+                Confirmar
               </Button>
             ) : null}
             {session.attendanceStatus !== 'completed' ? (
               <Button
                 size="sm"
                 variant="primary"
-                leftIcon={
-                  disableActions ? <Loader2 size={16} className="icon-spin" aria-hidden /> : <ShieldCheck size={16} aria-hidden />
-                }
+                leftIcon={disableActions ? <Loader2 size={16} className="icon-spin" aria-hidden /> : <ShieldCheck size={16} aria-hidden />}
                 onClick={() => updateAttendance(session.id, 'completed')}
                 loading={disableActions}
-                loadingText="A atualizar…"
+                loadingText="A registar…"
               >
-                Marcar como concluída
+                Concluída
               </Button>
             ) : null}
           </div>
-        </div>
-
-        {session.attendanceAt ? (
-          <p className="sessions-card__foot">Última atualização: {formatDateShort(session.attendanceAt)}</p>
-        ) : null}
-      </article>
+        </td>
+      </tr>
     );
   }
 
-  function renderRequest(request: SessionRequest) {
-    const status = requestStatusMeta(request.status);
-    const key = (suffix: string) => `${request.id}:${suffix}`;
+  function renderHistoryRow(session: ClientSession) {
+    const tone = sessionTone(session.attendanceStatus);
+    return (
+      <tr key={session.id}>
+        <td>
+          <span className="client-sessions__sessionDate">{formatDateTime(session.startISO)}</span>
+        </td>
+        <td>
+          <div className="client-sessions__trainer">
+            <UserRound size={14} aria-hidden />
+            <span>{session.trainerName ?? session.trainerEmail ?? 'Personal trainer'}</span>
+          </div>
+        </td>
+        <td>
+          <span className="status-pill" data-state={tone}>
+            {attendanceLabel(session.attendanceStatus)}
+          </span>
+        </td>
+        <td>
+          <span className="client-sessions__duration">{session.durationMin ? `${session.durationMin} min` : '—'}</span>
+        </td>
+        <td>
+          <span className="client-sessions__notes">{session.notes ?? '—'}</span>
+        </td>
+        <td>
+          <span className="client-sessions__updated">{formatDay(session.attendanceAt ?? session.endISO)}</span>
+        </td>
+      </tr>
+    );
+  }
+
+  function renderRequestRow(request: SessionRequest) {
+    const status = friendlyRequestStatus(request.status);
+    const actions: React.ReactNode[] = [];
+    const disable = pendingRequestAction?.startsWith(request.id);
+    if (request.status === 'pending') {
+      actions.push(
+        <Button
+          key="cancel"
+          size="sm"
+          variant="ghost"
+          onClick={() => mutateRequest(request.id, 'cancel', 'Pedido cancelado com sucesso.')}
+          leftIcon={disable ? <Loader2 size={16} className="icon-spin" aria-hidden /> : <RefreshCcw size={16} aria-hidden />}
+          loading={disable}
+          loadingText="A cancelar…"
+        >
+          Cancelar
+        </Button>,
+      );
+    }
+    if (request.status === 'reschedule_pending') {
+      actions.push(
+        <Button
+          key="accept"
+          size="sm"
+          variant="primary"
+          onClick={() => mutateRequest(request.id, 'accept_reschedule', 'Remarcação aceite.')}
+          leftIcon={disable ? <Loader2 size={16} className="icon-spin" aria-hidden /> : <CheckCircle2 size={16} aria-hidden />}
+          loading={disable}
+          loadingText="A aceitar…"
+        >
+          Aceitar
+        </Button>,
+      );
+      actions.push(
+        <Button
+          key="decline"
+          size="sm"
+          variant="ghost"
+          onClick={() => mutateRequest(request.id, 'decline_reschedule', 'Remarcação rejeitada.')}
+          leftIcon={disable ? <Loader2 size={16} className="icon-spin" aria-hidden /> : <ShieldCheck size={16} aria-hidden />}
+          loading={disable}
+          loadingText="A responder…"
+        >
+          Recusar
+        </Button>,
+      );
+    }
 
     return (
-      <article key={request.id} className="sessions-card sessions-card--request" aria-labelledby={`request-${request.id}`}>
-        <header className="sessions-card__header">
-          <div className="sessions-card__meta">
-            <h3 id={`request-${request.id}`} className="sessions-card__title">
-              {trainerDisplay(request.trainer)}
-            </h3>
-            <dl className="sessions-card__details">
-              <div>
-                <dt>Pedido original</dt>
-                <dd>{formatRange(request.requestedStart, request.requestedEnd)}</dd>
-              </div>
-              {request.status === 'reschedule_pending' ? (
-                <div>
-                  <dt>Proposta do PT</dt>
-                  <dd>{formatRange(request.proposedStart, request.proposedEnd)}</dd>
-                </div>
-              ) : null}
-              {request.respondedAt ? (
-                <div>
-                  <dt>Atualizado</dt>
-                  <dd>{formatDateShort(request.respondedAt)}</dd>
-                </div>
-              ) : null}
-            </dl>
+      <tr key={request.id}>
+        <td>
+          <div className="client-sessions__requestSummary">
+            <span className="client-sessions__sessionDate">{formatDateTime(request.requestedStart)}</span>
+            <span className="client-sessions__range">{`${formatTime(request.requestedStart)} — ${formatTime(request.requestedEnd)}`}</span>
           </div>
+        </td>
+        <td>
+          <div className="client-sessions__trainer">
+            <UserRound size={14} aria-hidden />
+            <span>{trainerDisplay(request.trainer)}</span>
+          </div>
+        </td>
+        <td>
           <span className="status-pill" data-state={status.tone}>
             {status.label}
           </span>
-        </header>
-
-        <div className="sessions-card__notesStack">
-          {request.message ? <p>Mensagem enviada: {request.message}</p> : null}
-          {request.trainerNote ? <p>Nota do PT: {request.trainerNote}</p> : null}
-          {request.rescheduleNote ? <p>Nota da remarcação: {request.rescheduleNote}</p> : null}
-        </div>
-
-        {(request.status === 'pending' || request.status === 'reschedule_pending') && (
-          <div className="sessions-card__actionsRow">
-            {request.status === 'pending' ? (
-              <Button
-                size="sm"
-                variant="danger"
-                leftIcon={
-                  pendingRequestAction === key('cancel')
-                    ? <Loader2 size={16} className="icon-spin" aria-hidden />
-                    : <XCircle size={16} aria-hidden />
-                }
-                onClick={() => mutateRequest(request.id, 'cancel', 'Pedido cancelado.')}
-                loading={pendingRequestAction === key('cancel')}
-                loadingText="A cancelar…"
-              >
-                Cancelar pedido
-              </Button>
-            ) : null}
-            {request.status === 'reschedule_pending' ? (
-              <>
-                <Button
-                  size="sm"
-                  variant="success"
-                  leftIcon={
-                    pendingRequestAction === key('accept_reschedule')
-                      ? <Loader2 size={16} className="icon-spin" aria-hidden />
-                      : <CheckSquare size={16} aria-hidden />
-                  }
-                  onClick={() => mutateRequest(request.id, 'accept_reschedule', 'Remarcação aceite com sucesso.')}
-                  loading={pendingRequestAction === key('accept_reschedule')}
-                  loadingText="A atualizar…"
-                >
-                  Aceitar proposta
-                </Button>
-                <Button
-                  size="sm"
-                  variant="warning"
-                  leftIcon={
-                    pendingRequestAction === key('decline_reschedule')
-                      ? <Loader2 size={16} className="icon-spin" aria-hidden />
-                      : <RefreshCcw size={16} aria-hidden />
-                  }
-                  onClick={() => mutateRequest(request.id, 'decline_reschedule', 'Remarcação recusada.')}
-                  loading={pendingRequestAction === key('decline_reschedule')}
-                  loadingText="A atualizar…"
-                >
-                  Recusar proposta
-                </Button>
-              </>
-            ) : null}
-          </div>
-        )}
-      </article>
+        </td>
+        <td>
+          <span className="client-sessions__notes">{request.message ?? '—'}</span>
+        </td>
+        <td>
+          <span className="client-sessions__notes">{request.trainerNote ?? request.rescheduleNote ?? '—'}</span>
+        </td>
+        <td className="neo-table__cell--right">
+          <div className="neo-table__actions">{actions}</div>
+        </td>
+      </tr>
     );
   }
 
   return (
-    <div className="sessions-view">
-      <header className="sessions-view__header">
+    <div className="client-sessions">
+      <header className="client-sessions__header">
         <div>
-          <h1 className="sessions-view__title">As minhas sessões</h1>
-          <p className="sessions-view__subtitle">
-            Gere pedidos, acompanha confirmações e mantém o teu histórico sempre organizado.
+          <h1 className="client-sessions__title">Sessões &amp; Pedidos</h1>
+          <p className="client-sessions__subtitle">
+            Visão Neo das tuas sessões com métricas reais, pedidos de reagendamento e evolução recente.
           </p>
         </div>
-        <Button
-          variant="primary"
-          leftIcon={<MessageSquarePlus size={18} aria-hidden />}
-          onClick={() => {
-            setRequestDialogOpen(true);
-            setRequestError(null);
-          }}
-        >
-          Solicitar sessão
-        </Button>
+        <div className="client-sessions__headerActions">
+          <Button variant="primary" onClick={() => setRequestDialogOpen(true)}>
+            Nova sessão
+          </Button>
+          <Link href="/dashboard/history" prefetch={false} className="btn" data-variant="ghost">
+            <span className="btn__icon btn__icon--left" aria-hidden>
+              <Download size={16} />
+            </span>
+            <span className="btn__label">Exportar histórico</span>
+          </Link>
+        </div>
       </header>
 
+      {sessionError ? <Alert tone="danger" title={sessionError} /> : null}
+      {requestError ? <Alert tone="danger" title={requestError} /> : null}
       {requestSuccess ? <Alert tone="success" title={requestSuccess} /> : null}
-      {requestError && !requestDialogOpen ? <Alert tone="danger" title={requestError} /> : null}
+      {!dashboard.metrics.supabase ? (
+        <Alert tone="warning" title="A mostrar dados de exemplo">
+          Não foi possível carregar dados em tempo real — estamos a usar um dataset actualizado automaticamente para manter a
+          experiência Neo funcional.
+        </Alert>
+      ) : null}
 
-      <div className="sessions-view__grid">
-        <section className="neo-panel sessions-panel" aria-labelledby={requestHeadingId}>
+      <section className="client-sessions__metrics" aria-label="Métricas principais">
+        {metricCards.map((metric) => {
+          const Icon = metric.icon;
+          return (
+            <article key={metric.key} className="client-sessions__metric" data-tone={metric.tone}>
+              <header>
+                <span className="client-sessions__metricIcon" aria-hidden>
+                  <Icon size={20} />
+                </span>
+                <span className="client-sessions__metricLabel">{metric.label}</span>
+              </header>
+              <p className="client-sessions__metricValue">{metric.value}</p>
+              <p className="client-sessions__metricHint">{metric.hint}</p>
+            </article>
+          );
+        })}
+      </section>
+
+      <div className="client-sessions__grid">
+        <section className="neo-panel client-sessions__panel" aria-labelledby={upcomingHeadingId}>
           <header className="neo-panel__header">
             <div className="neo-panel__meta">
-              <h2 id={requestHeadingId} className="neo-panel__title">
-                Pedidos de sessão
+              <h2 id={upcomingHeadingId} className="neo-panel__title">
+                Sessões agendadas
               </h2>
-              <p className="neo-panel__subtitle">Acompanha o estado das tuas solicitações em aberto e anteriores.</p>
+              <p className="neo-panel__subtitle">
+                Confirma presença e consulta o detalhe dos próximos treinos.
+              </p>
+            </div>
+            <span className="client-sessions__count" role="status" aria-live="polite">
+              {upcomingSessions.length} próximas
+            </span>
+          </header>
+
+          {upcomingSessions.length ? (
+            <div className="neo-table-wrapper" role="region" aria-live="polite">
+              <table className="neo-table client-sessions__table">
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>PT</th>
+                    <th>Estado</th>
+                    <th>Duração</th>
+                    <th className="sr-only">Notas</th>
+                    <th className="neo-table__cell--right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>{upcomingSessions.map(renderSessionRow)}</tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="neo-empty client-sessions__empty">
+              <span className="neo-empty__icon" aria-hidden>
+                <CalendarDays size={32} />
+              </span>
+              <p className="neo-empty__title">Sem sessões futuras</p>
+              <p className="neo-empty__description">Assim que o teu PT agendar novos treinos eles aparecerão automaticamente.</p>
+            </div>
+          )}
+        </section>
+
+        <section className="neo-panel client-sessions__panel" aria-labelledby={historyHeadingId}>
+          <header className="neo-panel__header client-sessions__historyHeader">
+            <div className="neo-panel__meta">
+              <h2 id={historyHeadingId} className="neo-panel__title">
+                Histórico recente
+              </h2>
+              <p className="neo-panel__subtitle">Filtra por estado ou PT para reveres as últimas sessões.</p>
+            </div>
+            <div className="client-sessions__historyFilters">
+              <div className="neo-input-group client-sessions__search">
+                <label htmlFor="client-sessions-search" className="neo-input-group__label">
+                  Pesquisa
+                </label>
+                <div className="neo-input-group__field">
+                  <input
+                    id="client-sessions-search"
+                    type="search"
+                    className="neo-input neo-input--compact"
+                    placeholder="Filtrar por PT ou local"
+                    value={historyQuery}
+                    onChange={(event) => setHistoryQuery(event.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="client-sessions__segmented" role="group" aria-label="Filtrar histórico">
+                {HISTORY_FILTERS.map((filter) => (
+                  <button
+                    key={filter.value}
+                    type="button"
+                    className="client-sessions__segment"
+                    data-active={historyStatus === filter.value}
+                    onClick={() => setHistoryStatus(filter.value)}
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </header>
 
-          <div className="sessions-panel__section">
-            <h3 className="sessions-panel__heading">Pendentes</h3>
-            {openRequests.length ? (
-              <div className="sessions-list">{openRequests.map(renderRequest)}</div>
-            ) : (
-              <div className="neo-empty">
-                <span className="neo-empty__icon" aria-hidden>
-                  <UserRound size={28} />
-                </span>
-                <p className="neo-empty__title">Sem pedidos pendentes</p>
-                <p className="neo-empty__description">Assim que enviares um pedido, o estado aparece aqui automaticamente.</p>
-              </div>
-            )}
-          </div>
-
-          <div className="sessions-panel__section">
-            <h3 className="sessions-panel__heading">Histórico</h3>
-            {historyRequests.length ? (
-              <div className="sessions-list sessions-list--history">{historyRequests.map(renderRequest)}</div>
-            ) : (
-              <div className="neo-empty">
-                <span className="neo-empty__icon" aria-hidden>
-                  <History size={28} />
-                </span>
-                <p className="neo-empty__title">Ainda sem histórico</p>
-                <p className="neo-empty__description">Quando os pedidos forem tratados, ficam aqui para referência futura.</p>
-              </div>
-            )}
-          </div>
+          {filteredHistory.length ? (
+            <div className="neo-table-wrapper" role="region" aria-live="polite">
+              <table className="neo-table client-sessions__table client-sessions__table--history">
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>PT</th>
+                    <th>Estado</th>
+                    <th>Duração</th>
+                    <th>Notas</th>
+                    <th>Actualizado</th>
+                  </tr>
+                </thead>
+                <tbody>{filteredHistory.map(renderHistoryRow)}</tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="neo-empty client-sessions__empty">
+              <span className="neo-empty__icon" aria-hidden>
+                <Clock3 size={32} />
+              </span>
+              <p className="neo-empty__title">Sem resultados</p>
+              <p className="neo-empty__description">
+                Ajusta a pesquisa ou o filtro para encontrares as sessões registadas nos últimos meses.
+              </p>
+            </div>
+          )}
         </section>
 
-        <div className="sessions-schedule">
-          <section className="neo-panel sessions-panel" aria-labelledby={upcomingHeadingId}>
-            <header className="neo-panel__header">
-              <div className="neo-panel__meta">
-                <h2 id={upcomingHeadingId} className="neo-panel__title">
-                  Próximas sessões
-                </h2>
-                <p className="neo-panel__subtitle">Confirma presença e adiciona os treinos rapidamente ao calendário.</p>
-              </div>
-            </header>
+        <section className="neo-panel client-sessions__panel client-sessions__panel--timeline" aria-label="Tendência de sessões">
+          <header className="neo-panel__header">
+            <div className="neo-panel__meta">
+              <h2 className="neo-panel__title">Tendência (14 dias)</h2>
+              <p className="neo-panel__subtitle">
+                Sessões agendadas, concluídas e canceladas nos últimos dias — destaca padrões de assiduidade.
+              </p>
+            </div>
+            <div className="client-sessions__timelineMeta">
+              {dashboard.metrics.busiestDayLabel ? `Dia com mais sessões: ${dashboard.metrics.busiestDayLabel}` : 'Sem picos recentes'}
+            </div>
+          </header>
+          <ul className="client-sessions__timeline">{dashboard.timeline.map(renderTimelinePoint)}</ul>
+        </section>
 
-            {sessionError ? <Alert tone="danger" title={sessionError} /> : null}
+        <section className="neo-panel client-sessions__panel" aria-labelledby={requestHeadingId}>
+          <header className="neo-panel__header client-sessions__requestsHeader">
+            <div className="neo-panel__meta">
+              <h2 id={requestHeadingId} className="neo-panel__title">
+                Pedidos ao PT
+              </h2>
+              <p className="neo-panel__subtitle">Acompanha o estado de cada pedido e responde rapidamente às propostas.</p>
+            </div>
+            <div className="client-sessions__tabs" role="tablist">
+              <button
+                type="button"
+                role="tab"
+                className="client-sessions__tab"
+                data-active={requestTab === 'open'}
+                onClick={() => setRequestTab('open')}
+              >
+                Em aberto ({openRequests.length})
+              </button>
+              <button
+                type="button"
+                role="tab"
+                className="client-sessions__tab"
+                data-active={requestTab === 'history'}
+                onClick={() => setRequestTab('history')}
+              >
+                Histórico ({closedRequests.length})
+              </button>
+            </div>
+          </header>
 
-            {upcomingSessions.length ? (
-              <div className="sessions-list">{upcomingSessions.map(renderSession)}</div>
-            ) : (
-              <div className="neo-empty">
-                <span className="neo-empty__icon" aria-hidden>
-                  <CalendarDays size={28} />
-                </span>
-                <p className="neo-empty__title">Não tens sessões agendadas</p>
-                <p className="neo-empty__description">Quando um treino for confirmado pelo teu PT, será mostrado imediatamente.</p>
-              </div>
-            )}
-          </section>
+          {(requestTab === 'open' ? openRequests : closedRequests).length ? (
+            <div className="neo-table-wrapper" role="region" aria-live="polite">
+              <table className="neo-table client-sessions__table client-sessions__table--requests">
+                <thead>
+                  <tr>
+                    <th>Pedido</th>
+                    <th>PT</th>
+                    <th>Estado</th>
+                    <th>Mensagem</th>
+                    <th>Resposta do PT</th>
+                    <th className="neo-table__cell--right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(requestTab === 'open' ? openRequests : closedRequests).map(renderRequestRow)}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="neo-empty client-sessions__empty">
+              <span className="neo-empty__icon" aria-hidden>
+                <RefreshCcw size={32} />
+              </span>
+              <p className="neo-empty__title">
+                {requestTab === 'open' ? 'Sem pedidos pendentes' : 'Sem histórico de pedidos'}
+              </p>
+              <p className="neo-empty__description">
+                {requestTab === 'open'
+                  ? 'Quando criares um pedido de sessão, podes acompanhá-lo aqui e aceitar remarcações.'
+                  : 'Assim que um pedido for resolvido, fica disponível neste separador para consulta futura.'}
+              </p>
+            </div>
+          )}
+        </section>
 
-          <section className="neo-panel sessions-panel" aria-labelledby={historyHeadingId}>
-            <header className="neo-panel__header">
-              <div className="neo-panel__meta">
-                <h2 id={historyHeadingId} className="neo-panel__title">
-                  Histórico recente
-                </h2>
-                <p className="neo-panel__subtitle">Revê as últimas sessões concluídas ou canceladas.</p>
-              </div>
-            </header>
+        <section className="neo-panel client-sessions__panel client-sessions__panel--insights" aria-label="Insights adicionais">
+          <header className="neo-panel__header">
+            <div className="neo-panel__meta">
+              <h2 className="neo-panel__title">Insights rápidos</h2>
+              <p className="neo-panel__subtitle">
+                Distribuição de presenças, ranking de PT e actividades recentes para planear o próximo ciclo.
+              </p>
+            </div>
+          </header>
 
-            {pastSessions.length ? (
-              <div className="sessions-list sessions-list--history">{pastSessions.map(renderSession)}</div>
-            ) : (
-              <div className="neo-empty">
-                <span className="neo-empty__icon" aria-hidden>
-                  <CalendarDays size={28} />
-                </span>
-                <p className="neo-empty__title">Sem sessões anteriores</p>
-                <p className="neo-empty__description">Assim que terminares uma sessão, ela fica registada nesta secção.</p>
-              </div>
-            )}
-          </section>
-        </div>
+          <div className="client-sessions__insightsGrid">
+            <article className="client-sessions__insight">
+              <h3>Estado das sessões</h3>
+              <ul>
+                {dashboard.attendance.map((item) => (
+                  <li key={item.key}>
+                    <span className="status-pill" data-state={item.tone}>
+                      {item.label}
+                    </span>
+                    <span className="client-sessions__insightValue">{item.count}</span>
+                    <span className="client-sessions__insightHint">{item.percentage}%</span>
+                  </li>
+                ))}
+              </ul>
+            </article>
+            <article className="client-sessions__insight">
+              <h3>Top PT</h3>
+              <ul>
+                {dashboard.trainers.length ? (
+                  dashboard.trainers.map((trainer) => (
+                    <li key={trainer.trainerId}>
+                      <span className="client-sessions__insightLabel">
+                        {trainer.trainerName ?? trainer.trainerEmail ?? 'Personal trainer'}
+                      </span>
+                      <span className="client-sessions__insightValue">{trainer.upcoming} agendada(s)</span>
+                      <span className="client-sessions__insightHint">{trainer.completed} concluída(s)</span>
+                    </li>
+                  ))
+                ) : (
+                  <li className="client-sessions__insightEmpty">Sem dados suficientes.</li>
+                )}
+              </ul>
+            </article>
+            <article className="client-sessions__insight client-sessions__insight--activity">
+              <h3>Atividade recente</h3>
+              <ol>
+                {dashboard.activities.length ? (
+                  dashboard.activities.map((activity) => (
+                    <li key={activity.id}>
+                      <span className="client-sessions__activityTitle">{activity.title}</span>
+                      <span className="client-sessions__activityMeta">{activity.description}</span>
+                      <span className="client-sessions__activityTime">{formatRelative(activity.at)}</span>
+                    </li>
+                  ))
+                ) : (
+                  <li className="client-sessions__insightEmpty">Sem actividade nos últimos dias.</li>
+                )}
+              </ol>
+            </article>
+          </div>
+        </section>
       </div>
 
       {requestDialogOpen ? (
@@ -722,7 +994,7 @@ export default function SessionsClient({ initialSessions, initialRequests }: Pro
                   Solicitar nova sessão
                 </h2>
                 <p className="neo-dialog__subtitle">
-                  Escolhe o profissional, define data e deixa notas relevantes para acelarar a confirmação.
+                  Escolhe o profissional, define data e partilha notas relevantes para acelerar a confirmação.
                 </p>
               </div>
               <button
@@ -743,11 +1015,7 @@ export default function SessionsClient({ initialSessions, initialRequests }: Pro
 
             {requestError ? <Alert tone="danger" title={requestError} /> : null}
 
-            <form
-              id={dialogFormId}
-              className="neo-dialog__content sessions-request-form"
-              onSubmit={submitRequest}
-            >
+            <form id={dialogFormId} className="neo-dialog__content sessions-request-form" onSubmit={submitRequest}>
               <label className="sessions-field">
                 <span className="sessions-field__label">Personal trainer</span>
                 <select
@@ -789,9 +1057,7 @@ export default function SessionsClient({ initialSessions, initialRequests }: Pro
                   min={15}
                   step={5}
                   value={requestForm.duration}
-                  onChange={(event) =>
-                    setRequestForm((prev) => ({ ...prev, duration: Number(event.target.value || 0) }))
-                  }
+                  onChange={(event) => setRequestForm((prev) => ({ ...prev, duration: Number(event.target.value || 0) }))}
                   disabled={requestBusy}
                 />
               </label>
@@ -828,7 +1094,8 @@ export default function SessionsClient({ initialSessions, initialRequests }: Pro
                 variant="primary"
                 loading={requestBusy}
                 loadingText="A enviar…"
-                leftIcon={requestBusy ? <Loader2 size={16} className="icon-spin" aria-hidden /> : <CheckCircle2 size={16} aria-hidden />}>
+                leftIcon={requestBusy ? <Loader2 size={16} className="icon-spin" aria-hidden /> : <CheckCircle2 size={16} aria-hidden />}
+              >
                 Enviar pedido
               </Button>
             </footer>
