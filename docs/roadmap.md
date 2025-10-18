@@ -49,7 +49,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [ ] Introduzir testes automatizados (unitários/integrados) para ACL, logs e operações críticas.
 
 ## Fase 3 - Funcionalidades Futuras
-- [ ] Finalizar módulo de facturação/pagamentos (ligar UI a dados reais e/ou integração com gateway).
+- [x] Finalizar módulo de facturação/pagamentos (UI `.neo` ligada à tabela `billing_invoices`, API `/api/billing/dashboard` e fallbacks determinísticos prontos para integração com gateway).
 - [ ] Implementar relatórios avançados (financeiros, progresso do cliente, desempenho de PTs) — visão inicial entregue com métricas reais e ranking de treinadores; expandir para previsões e benchmarking.
 - [ ] Evoluir sistema de mensagens/notificações para suporte a envio em tempo real e threads.
 - [ ] Completar gestão da biblioteca de exercícios com CRUD e selector avançado.

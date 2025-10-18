@@ -1,28 +1,37 @@
-export const dynamic = 'force-dynamic';
-
-import { redirect } from 'next/navigation';
+import { NextResponse } from 'next/server';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { tryCreateServerClient } from '@/lib/supabaseServer';
-import BillingClient from './BillingClient';
 import { buildBillingDashboard } from '@/lib/billing/dashboard';
 import { getBillingDashboardFallback } from '@/lib/fallback/billing';
-import type { BillingInvoiceRecord, BillingMethod, BillingStatus } from '@/lib/billing/types';
+import type { BillingInvoiceRecord, BillingStatus, BillingMethod } from '@/lib/billing/types';
 
 const VALID_STATUS: BillingStatus[] = ['paid', 'pending', 'refunded'];
 const VALID_METHOD: BillingMethod[] = ['mbway', 'visa', 'transfer', 'multibanco', 'cash'];
 
-export default async function BillingPage() {
+type SuccessPayload = ReturnType<typeof buildBillingDashboard> & {
+  ok: true;
+  source: 'supabase' | 'fallback';
+};
+
+type ErrorPayload = {
+  ok: false;
+  message: string;
+};
+
+export async function GET(): Promise<NextResponse<SuccessPayload | ErrorPayload>> {
   const session = await getSessionUserSafe();
-  if (!session?.user?.id) redirect('/login');
+  if (!session?.user?.id) {
+    return NextResponse.json({ ok: false, message: 'Não autenticado.' }, { status: 401 });
+  }
 
   const userMeta = (session.user as { user_metadata?: { full_name?: string | null; name?: string | null } }).user_metadata;
-  const viewerName = userMeta?.full_name ?? userMeta?.name ?? session.user.email ?? null;
+  const fallbackViewerName = userMeta?.full_name ?? userMeta?.name ?? session.user.email ?? null;
 
-  const fallback = getBillingDashboardFallback(viewerName);
+  const fallback = getBillingDashboardFallback(fallbackViewerName);
 
   const sb = tryCreateServerClient();
   if (!sb) {
-    return <BillingClient initialData={{ ...fallback, ok: true, source: 'fallback' }} viewerName={viewerName} />;
+    return NextResponse.json({ ok: true, source: 'fallback', ...fallback });
   }
 
   const { data, error } = await sb
@@ -34,14 +43,15 @@ export default async function BillingPage() {
     .limit(720);
 
   if (error) {
-    console.error('[billing-page] falha ao carregar faturação', error);
-    return <BillingClient initialData={{ ...fallback, ok: true, source: 'fallback' }} viewerName={viewerName} />;
+    console.error('[billing-dashboard] falha ao carregar faturação', error);
+    return NextResponse.json({ ok: true, source: 'fallback', ...fallback });
   }
 
   const records: BillingInvoiceRecord[] = (data ?? []).map((row: any) => {
     const status = VALID_STATUS.includes(row.status) ? row.status : 'paid';
     const method = VALID_METHOD.includes(row.method) ? row.method : 'mbway';
     const amount = typeof row.amount === 'number' ? row.amount : Number(row.amount ?? 0);
+
     return {
       id: String(row.id ?? crypto.randomUUID()),
       clientId: row.client_id ?? null,
@@ -60,5 +70,5 @@ export default async function BillingPage() {
   });
 
   const dashboard = buildBillingDashboard(records, { now: new Date() });
-  return <BillingClient initialData={{ ...dashboard, ok: true, source: 'supabase' }} viewerName={viewerName} />;
+  return NextResponse.json({ ok: true, source: 'supabase', ...dashboard });
 }

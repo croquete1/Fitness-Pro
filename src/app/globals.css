@@ -5769,6 +5769,14 @@ h1,.h1{
   display:grid;
   gap:8px;
 }
+.client-billing__updatedAt{
+  margin-left:auto;
+  font-size:12px;
+  font-weight:600;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:var(--muted-fg);
+}
 .client-billing__metrics{
   display:grid;
   gap:16px;
@@ -5778,6 +5786,50 @@ h1,.h1{
   padding:18px;
   display:grid;
   gap:6px;
+}
+.client-billing__nextDue{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+  align-items:center;
+  padding:14px 18px;
+  border-radius:var(--radius-lg);
+  border:1px solid var(--border-strong);
+  background:var(--surface-strong);
+}
+.client-billing__nextDueHint{
+  font-size:12px;
+  font-weight:600;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:var(--muted-fg);
+}
+.client-billing__nextDueMeta{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  min-width:0;
+}
+.client-billing__nextDueMeta strong{
+  font-size:16px;
+  font-weight:600;
+  color:var(--text-strong);
+}
+.client-billing__nextDueMeta span{
+  font-size:13px;
+  color:var(--muted-fg);
+}
+.client-billing__nextDueValue{
+  margin-left:auto;
+  font-size:20px;
+  font-weight:600;
+  color:var(--text-strong);
+}
+.client-billing__chart{
+  min-height:220px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
 }
 .client-billing__filters{
   display:flex;
@@ -5797,9 +5849,96 @@ h1,.h1{
 .client-billing__empty{
   gap:12px;
 }
+.client-billing__methods{
+  list-style:none;
+  margin:0;
+  padding:0;
+  display:grid;
+  gap:12px;
+}
+.client-billing__methodRow{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:12px;
+  align-items:center;
+  padding:12px 16px;
+  border-radius:var(--radius-md);
+  border:1px solid var(--border-subtle);
+  background:var(--surface-strong);
+}
+.client-billing__methodRow>div:first-child{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  min-width:0;
+}
+.client-billing__methodRow>div:first-child span{
+  font-size:13px;
+  color:var(--muted-fg);
+}
+.client-billing__methodRow>span{
+  font-weight:600;
+  color:var(--text-strong);
+}
+.client-billing__methodBar{
+  grid-column:1 / span 2;
+  height:6px;
+  border-radius:999px;
+  background:color-mix(in srgb, var(--border-subtle) 40%, transparent);
+  position:relative;
+  overflow:hidden;
+}
+.client-billing__methodBar span{
+  position:absolute;
+  inset:0;
+  border-radius:999px;
+  background:var(--neo-chart-primary);
+}
+.client-billing__highlights{
+  display:grid;
+  gap:16px;
+  grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+}
+.client-billing__highlight{
+  padding:18px;
+  display:grid;
+  gap:6px;
+  border-radius:var(--radius-lg);
+}
+.client-billing__highlightMeta{
+  font-size:12px;
+  color:var(--muted-fg);
+}
 .client-billing__table th,
 .client-billing__table td{
   vertical-align:middle;
+}
+.client-billing__tableClient{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.client-billing__tableClient span{
+  font-size:12px;
+  color:var(--muted-fg);
+}
+.client-billing__tableService{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.client-billing__tableService small{
+  color:var(--muted-fg);
+}
+.client-billing__error{
+  border:1px solid color-mix(in srgb, var(--danger) 35%, transparent);
+  background:color-mix(in srgb, var(--danger) 6%, transparent);
+  padding:16px;
+  border-radius:var(--radius-md);
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  color:var(--text-strong);
 }
 
 @media (min-width:768px){
@@ -5815,6 +5954,9 @@ h1,.h1{
   }
   .client-billing__resultCount{
     margin-left:16px;
+  }
+  .client-billing__methodRow{
+    grid-template-columns:minmax(0,1fr) auto 200px;
   }
 }
 
