@@ -32,6 +32,7 @@ Executámos `npm run neo:audit` para mapear utilitários ainda baseados em Tailw
 ## Progresso recente
 
 - O painel de mensagens do cliente (`src/app/(app)/dashboard/messages/**/*`) foi totalmente reconstruído como dashboard analítico `.neo`, com cartões hero, gráfico temporal, distribuição por canal, destaques automáticos e linha temporal interactiva alimentados por dados reais via `/api/messages/dashboard` (com fallback determinístico em `src/lib/fallback/messages.ts`).
+- O painel principal do cliente (`src/app/(app)/dashboard/DashboardClient.tsx`) foi migrado para o tema `.neo`, com métricas hero, gráfico temporal, destaques, sessões, carteira, notificações e recomendações alimentadas pela nova rota `/api/client/dashboard/route.ts` e pelo pipeline em `src/lib/client/dashboard/*` (com fallback realista em `src/lib/fallback/client-dashboard.ts`).
 - O fluxo de onboarding administrativo (`src/app/(app)/dashboard/admin/onboarding/AdminOnboardingListClient.tsx`) abandonou MUI/DataGrid em favor do design system `.neo`, com métricas reais do Supabase, filtros declarativos e tabela acessível sem utilitários legados.
 - O atalho móvel (`src/components/common/MobileFAB.tsx`) ganhou estilos dedicados `.neo-fab`, com menu translúcido e botão temático responsivo.
 - O cabeçalho do treinador (`src/components/trainer/TrainerHeader.tsx`) foi reconstruído com o padrão `neo-app-header`, substituindo gradients Tailwind por tokens do tema e avatar com contorno Neo.
