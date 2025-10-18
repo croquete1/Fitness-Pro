@@ -1,1000 +1,943 @@
 'use client';
 
 import * as React from 'react';
+import useSWR from 'swr';
 import {
-  Box,
-  Stack,
-  TextField,
-  MenuItem,
-  Button,
-  IconButton,
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
   Tooltip,
-  Paper,
-  Divider,
-  CircularProgress,
-  Snackbar,
-  Alert,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Chip,
-  Typography,
-  useMediaQuery,
-  useTheme,
-} from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import DeleteOutline from '@mui/icons-material/DeleteOutline';
-import EditOutlined from '@mui/icons-material/EditOutlined';
-import FileDownloadOutlined from '@mui/icons-material/FileDownloadOutlined';
-import PrintOutlined from '@mui/icons-material/PrintOutlined';
-import ContentCopyOutlined from '@mui/icons-material/ContentCopyOutlined';
-import { DataGrid, GridColDef, GridToolbar } from '@mui/x-data-grid';
-import { useRouter } from 'next/navigation';
-import AdminExerciseFormClient from './AdminExerciseFormClient';
+  XAxis,
+  YAxis,
+} from 'recharts';
+import {
+  ArrowUpRight,
+  BarChart3,
+  CalendarClock,
+  Download,
+  Edit,
+  Filter,
+  Layers,
+  LineChart,
+  Plus,
+  Printer,
+  RefreshCcw,
+  Search,
+  Tag,
+  Trash2,
+} from 'lucide-react';
+import clsx from 'clsx';
+import { usePathname, useRouter } from 'next/navigation';
+
+import PageHeader from '@/components/ui/PageHeader';
+import Button from '@/components/ui/Button';
+import Alert from '@/components/ui/Alert';
 import PublishToggle from '@/components/exercise/PublishToggle';
-import { getExerciseMediaInfo } from '@/lib/exercises/media';
-import { parseTagList } from '@/lib/exercises/tags';
+import { ExerciseFormValues } from '@/lib/exercises/schema';
 import { supabaseBrowser } from '@/lib/supabaseBrowser';
+import AdminExerciseFormClient from './AdminExerciseFormClient';
+import {
+  type AdminExercisesDashboardData,
+  type AdminExercisesDashboardParams,
+  type AdminExercisesDashboardResult,
+  type AdminExerciseRow,
+  type AdminExercisesHighlight,
+  type AdminExercisesHeroMetric,
+  type AdminExercisesTimelinePoint,
+} from '@/lib/admin/exercises/types';
 
-type Difficulty = 'Fácil' | 'Média' | 'Difícil' | string;
-
-export type Row = {
-  id: string;
-  name: string;
-  muscle_group?: string | null;
-  equipment?: string | null;
-  muscle_tags?: string[];
-  equipment_tags?: string[];
-  difficulty?: Difficulty | null;
-  description?: string | null;
-  video_url?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-  is_global?: boolean | null;
-  is_published?: boolean | null;
-  owner_id?: string | null;
-  owner_name?: string | null;
-  creator_id?: string | null;
-  creator_name?: string | null;
-  creator_email?: string | null;
-  owner_email?: string | null;
-  published_at?: string | null;
-  audience?: string | null;
-  creator_label?: string | null;
-  created_label?: string | null;
+type Props = {
+  initialData: AdminExercisesDashboardData;
+  initialParams: Required<Omit<AdminExercisesDashboardParams, 'q' | 'difficulty' | 'equipment' | 'muscle'>> & {
+    q?: string;
+    difficulty?: string;
+    equipment?: string;
+    muscle?: string;
+  };
 };
 
-function unwrapRecord<T>(value: T | T[] | null | undefined): T | null {
-  if (Array.isArray(value)) return value[0] ?? null;
-  return value ?? null;
-}
+type Filters = {
+  q: string;
+  scope: 'all' | 'global' | 'personal';
+  published: 'all' | 'published' | 'draft';
+  difficulty: string;
+  equipment: string;
+  muscle: string;
+  range: '30d' | '90d' | '180d' | '365d';
+  sort: 'created_desc' | 'updated_desc' | 'name_asc';
+  page: number;
+  pageSize: number;
+};
 
-function pickFirstRecord<T>(...candidates: Array<T | T[] | null | undefined>): T | null {
-  for (const candidate of candidates) {
-    const record = unwrapRecord(candidate);
-    if (record) return record;
+type MessageState = {
+  tone: 'success' | 'danger' | 'info';
+  text: string;
+};
+
+const RANGE_LABEL: Record<Filters['range'], string> = {
+  '30d': 'Últimos 30 dias',
+  '90d': 'Últimos 90 dias',
+  '180d': 'Últimos 6 meses',
+  '365d': 'Últimos 12 meses',
+};
+
+const fetcher = async (url: string): Promise<AdminExercisesDashboardResult> => {
+  const response = await fetch(url, { cache: 'no-store' });
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || 'Falha ao carregar dados');
   }
-  return null;
+  return (await response.json()) as AdminExercisesDashboardResult;
+};
+
+function formatNumber(value: number): string {
+  return new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 }).format(value);
 }
 
-export default function ExercisesClient({ pageSize = 20, initialFilters }: {
-  pageSize?: number;
-  initialFilters?: { muscle_group?: string; difficulty?: string; equipment?: string; q?: string };
+function formatShare(value: number): string {
+  return new Intl.NumberFormat('pt-PT', {
+    style: 'percent',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 1,
+  }).format(value);
+}
+
+function formatRelative(iso: string | null): string {
+  if (!iso) return '—';
+  try {
+    const date = new Date(iso);
+    if (!Number.isFinite(date.getTime())) return '—';
+    const diff = date.getTime() - Date.now();
+    const abs = Math.abs(diff);
+    const minute = 60_000;
+    const hour = 3_600_000;
+    const day = 86_400_000;
+    const formatter = new Intl.RelativeTimeFormat('pt-PT', { numeric: 'auto' });
+    if (abs < hour) return formatter.format(Math.round(diff / minute), 'minute');
+    if (abs < day) return formatter.format(Math.round(diff / hour), 'hour');
+    if (abs < 30 * day) return formatter.format(Math.round(diff / day), 'day');
+    return formatter.format(Math.round(diff / (30 * day)), 'month');
+  } catch {
+    return '—';
+  }
+}
+
+function ExerciseTooltip({ active, payload }: any) {
+  if (!active || !payload?.length) return null;
+  const point = payload[0].payload as AdminExercisesTimelinePoint;
+  return (
+    <div className="admin-exercises__tooltip" role="presentation">
+      <span className="admin-exercises__tooltipLabel">{point.label}</span>
+      <dl>
+        <div>
+          <dt>Criados</dt>
+          <dd>{point.created}</dd>
+        </div>
+        <div>
+          <dt>Publicados</dt>
+          <dd>{point.published}</dd>
+        </div>
+        <div>
+          <dt>Catálogo global</dt>
+          <dd>{point.global}</dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
+function MetricCard({ metric }: { metric: AdminExercisesHeroMetric }) {
+  return (
+    <article className={clsx('neo-card', 'admin-exercises__metric', `tone-${metric.tone}`)}>
+      <header>
+        <span className="admin-exercises__metricLabel">{metric.label}</span>
+        {metric.trend ? (
+          <span
+            className={clsx('admin-exercises__metricTrend', metric.trend.direction === 'up' ? 'up' : 'down')}
+            aria-label={metric.trend.label}
+          >
+            <ArrowUpRight aria-hidden />
+            {metric.trend.label}
+          </span>
+        ) : null}
+      </header>
+      <strong className="admin-exercises__metricValue">{metric.value}</strong>
+      {metric.helper ? <p className="admin-exercises__metricHelper">{metric.helper}</p> : null}
+    </article>
+  );
+}
+
+function HighlightCard({ highlight }: { highlight: AdminExercisesHighlight }) {
+  return (
+    <article className={clsx('neo-card', 'admin-exercises__highlight', `tone-${highlight.tone}`)}>
+      <h3>{highlight.title}</h3>
+      <p>{highlight.description}</p>
+    </article>
+  );
+}
+
+function DistributionList({
+  title,
+  icon,
+  items,
+  emptyLabel,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  items: AdminExercisesDashboardData['muscles'];
+  emptyLabel: string;
 }) {
+  return (
+    <section className="neo-panel admin-exercises__panel" aria-label={title}>
+      <header className="neo-panel__header">
+        <div>
+          <h3 className="neo-panel__title">{title}</h3>
+          <p className="neo-panel__subtitle">Distribuição baseada nos filtros actuais.</p>
+        </div>
+        <span className="neo-panel__icon" aria-hidden>
+          {icon}
+        </span>
+      </header>
+      <ul className="admin-exercises__distribution">
+        {items.length ? (
+          items.map((item) => (
+            <li key={item.key}>
+              <div>
+                <span className="admin-exercises__distributionLabel">{item.label}</span>
+                <span className="admin-exercises__distributionMeta">{formatNumber(item.count)} exercícios</span>
+              </div>
+              <span className={clsx('admin-exercises__distributionShare', `tone-${item.tone}`)}>
+                {formatShare(item.share)}
+              </span>
+            </li>
+          ))
+        ) : (
+          <li className="admin-exercises__distributionEmpty">{emptyLabel}</li>
+        )}
+      </ul>
+    </section>
+  );
+}
+
+export default function AdminExercisesClient({ initialData, initialParams }: Props) {
   const router = useRouter();
-  const theme = useTheme();
-  const isMdDown = useMediaQuery(theme.breakpoints.down('md'));
+  const pathname = usePathname();
+  const [filters, setFilters] = React.useState<Filters>({
+    q: initialParams.q ?? '',
+    scope: initialParams.scope,
+    published: initialParams.published,
+    difficulty: initialParams.difficulty ?? '',
+    equipment: initialParams.equipment ?? '',
+    muscle: initialParams.muscle ?? '',
+    range: initialParams.range,
+    sort: initialParams.sort,
+    page: initialParams.page ?? 0,
+    pageSize: initialParams.pageSize ?? 20,
+  });
+  const [message, setMessage] = React.useState<MessageState | null>(null);
+  const [createOpen, setCreateOpen] = React.useState(false);
+  const [cloneRow, setCloneRow] = React.useState<AdminExerciseRow | null>(null);
+  const [isRefreshing, startRefreshTransition] = React.useTransition();
 
-  const [q, setQ] = React.useState(initialFilters?.q ?? '');
-  const [muscle, setMuscle] = React.useState(initialFilters?.muscle_group ?? '');
-  const [difficulty, setDifficulty] = React.useState(initialFilters?.difficulty ?? '');
-  const [equipment, setEquipment] = React.useState(initialFilters?.equipment ?? '');
-  const [scope, setScope] = React.useState<'global' | 'personal' | 'all'>('all');
-  const [publishedState, setPublishedState] = React.useState<'all' | 'published' | 'draft'>('all');
+  const queryKey = React.useMemo(() => {
+    const params = new URLSearchParams();
+    if (filters.q) params.set('q', filters.q);
+    if (filters.scope !== 'all') params.set('scope', filters.scope);
+    if (filters.published !== 'all') params.set('published', filters.published);
+    if (filters.difficulty) params.set('difficulty', filters.difficulty);
+    if (filters.equipment) params.set('equipment', filters.equipment);
+    if (filters.muscle) params.set('muscle', filters.muscle);
+    params.set('range', filters.range);
+    params.set('page', String(filters.page));
+    params.set('pageSize', String(filters.pageSize));
+    params.set('sort', filters.sort);
+    return `/api/admin/exercises/dashboard?${params.toString()}`;
+  }, [filters]);
 
-  const [rows, setRows] = React.useState<Row[]>([]);
-  const [count, setCount] = React.useState(0);
-  const [loading, setLoading] = React.useState(false);
-  const [paginationModel, setPaginationModel] = React.useState({ page: 0, pageSize });
-  const [facets, setFacets] = React.useState<{ muscles: string[]; equipments: string[]; difficulties: string[] }>({
-    muscles: [],
-    equipments: [],
-    difficulties: [],
+  const { data, isValidating, mutate } = useSWR<AdminExercisesDashboardResult>(queryKey, fetcher, {
+    fallbackData: { ok: true, data: initialData },
+    revalidateOnFocus: false,
+    keepPreviousData: true,
   });
 
-  const [snack, setSnack] = React.useState<{ open: boolean; msg: string; sev: 'success' | 'error' | 'info' | 'warning' }>({
-    open: false,
-    msg: '',
-    sev: 'success',
-  });
-  const closeSnack = () => setSnack((s) => ({ ...s, open: false }));
-
-  const [undo, setUndo] = React.useState<{ open: boolean; row?: Row }>({ open: false });
-  const closeUndo = () => setUndo({ open: false });
-
-  const supabaseRef = React.useRef<ReturnType<typeof supabaseBrowser> | null>(null);
-  if (!supabaseRef.current) {
-    supabaseRef.current = supabaseBrowser();
-  }
-
-  const realtimeRefreshTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Dialogs
-  const [openCreate, setOpenCreate] = React.useState(false);
-  const [openClone, setOpenClone] = React.useState<{ open: boolean; initial?: Partial<Row> }>({ open: false });
-
-  const dateFormatter = React.useMemo(
-    () => new Intl.DateTimeFormat('pt-PT', { dateStyle: 'short', timeStyle: 'short' }),
-    [],
-  );
-
-  const formatDate = React.useCallback(
-    (value?: string | null) => {
-      if (!value) return '';
-      const date = new Date(value);
-      if (Number.isNaN(date.getTime())) return '';
-      return dateFormatter.format(date);
-    },
-    [dateFormatter],
-  );
-
-  const renderMediaThumb = React.useCallback(
-    (row: Pick<Row, 'video_url' | 'name'>) => {
-      const media = getExerciseMediaInfo(row.video_url);
-      return (
-        <Box
-          sx={{
-            width: 90,
-            height: 90,
-            borderRadius: 2,
-            overflow: 'hidden',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'linear-gradient(135deg, rgba(59,130,246,.08), rgba(16,185,129,.12))',
-          }}
-        >
-          {media.kind === 'image' && (
-            <Box
-              component="img"
-              src={media.src}
-              alt={`Pré-visualização do exercício ${row.name ?? ''}`.trim() || 'Pré-visualização do exercício'}
-              sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            />
-          )}
-          {media.kind === 'video' && (
-            <Box
-              component="video"
-              src={media.src}
-              muted
-              loop
-              playsInline
-              autoPlay
-              sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            />
-          )}
-          {media.kind === 'embed' && (
-            <Box
-              component="iframe"
-              src={media.src}
-              title={row.name ?? 'Pré-visualização do exercício'}
-              allow="autoplay; clipboard-write; encrypted-media; picture-in-picture"
-              sx={{ width: '100%', height: '100%', border: 0 }}
-            />
-          )}
-          {media.kind === 'none' && (
-            <Typography component="span" role="img" aria-label="Exercício" sx={{ fontSize: 28 }}>
-              💪
-            </Typography>
-          )}
-        </Box>
-      );
-    },
-    [],
-  );
-
-  const fetchFacets = React.useCallback(async () => {
-    try {
-      const params = new URLSearchParams({ facets: '1', scope, published: publishedState });
-      const res = await fetch(`/api/admin/exercises?${params.toString()}`, { cache: 'no-store' });
-      if (!res.ok) throw new Error(await res.text());
-      const data = await res.json();
-      setFacets({
-        muscles: Array.isArray(data?.muscles) ? data.muscles : [],
-        equipments: Array.isArray(data?.equipments) ? data.equipments : [],
-        difficulties: Array.isArray(data?.difficulties) ? data.difficulties : [],
-      });
-    } catch (error) {
-      console.warn('Failed to fetch exercise facets', error);
-    }
-  }, [publishedState, scope]);
-
-  const fetchRows = React.useCallback(async () => {
-    setLoading(true);
-    const u = new URL('/api/admin/exercises', window.location.origin);
-    u.searchParams.set('page', String(paginationModel.page));
-    u.searchParams.set('pageSize', String(paginationModel.pageSize));
-    u.searchParams.set('scope', scope);
-    u.searchParams.set('published', publishedState);
-    if (q) u.searchParams.set('q', q);
-    if (muscle) u.searchParams.set('muscle_group', muscle);
-    if (difficulty) u.searchParams.set('difficulty', difficulty);
-    if (equipment) u.searchParams.set('equipment', equipment);
-
-    try {
-      const r = await fetch(u.toString(), { cache: 'no-store' });
-      if (!r.ok) throw new Error(await r.text());
-      const j = await r.json();
-      const mapped = (j.rows ?? []).map((row: any) => {
-        const muscleTags = parseTagList(row.muscle_group ?? row.muscle ?? null);
-        const equipmentTags = parseTagList(row.equipment ?? null);
-        const ownerRecord = pickFirstRecord(
-          row.owner_profile,
-          row.owner_profiles,
-          row.owner_user,
-          row.owner,
-          row.ownerinfo,
-        );
-        const creatorRecord = pickFirstRecord(
-          row.creator_profile,
-          row.creator_profiles,
-          row.creator_user,
-          row.creator,
-        );
-        const ownerName =
-          row.owner_name ??
-          ownerRecord?.full_name ??
-          ownerRecord?.name ??
-          ownerRecord?.display_name ??
-          null;
-        const ownerEmail = row.owner_email ?? ownerRecord?.email ?? ownerRecord?.username ?? null;
-        const creatorName =
-          row.creator_name ??
-          creatorRecord?.full_name ??
-          creatorRecord?.name ??
-          creatorRecord?.display_name ??
-          ownerName ??
-          null;
-        const creatorEmail =
-          row.creator_email ?? creatorRecord?.email ?? ownerEmail ?? null;
-        const createdAt = row.created_at ?? row.createdAt ?? row.inserted_at ?? null;
-        const updatedAt = row.updated_at ?? row.updatedAt ?? null;
-        const audienceLabel = row.is_global ? 'Catálogo global' : ownerName ?? ownerEmail ?? '—';
-        const creatorLabel = creatorName ?? creatorEmail ?? audienceLabel;
-        return {
-          id: String(row.id),
-          name: row.name ?? '',
-          muscle_group: row.muscle_group ?? row.muscle ?? null,
-          equipment: row.equipment ?? null,
-          muscle_tags: muscleTags,
-          equipment_tags: equipmentTags,
-          difficulty: row.difficulty ?? row.level ?? null,
-          description: row.description ?? row.instructions ?? null,
-          video_url: row.video_url ?? row.video ?? null,
-          created_at: createdAt,
-          updated_at: updatedAt,
-          is_global: row.is_global ?? null,
-          is_published: row.is_published ?? row.published ?? null,
-          owner_id: row.owner_id ?? ownerRecord?.id ?? null,
-          owner_name: ownerName ?? ownerEmail ?? null,
-          owner_email: ownerEmail ?? null,
-          creator_id: row.created_by ?? creatorRecord?.id ?? ownerRecord?.id ?? null,
-          creator_name: creatorName ?? creatorEmail ?? null,
-          creator_email: creatorEmail ?? null,
-          published_at: row.published_at ?? null,
-          audience: audienceLabel,
-          creator_label: creatorLabel,
-          created_label: formatDate(createdAt),
-        } as Row;
-      });
-      setRows(mapped);
-      setCount(j.count ?? mapped.length ?? 0);
-    } catch (error) {
-      console.error('[admin/exercises] falha ao carregar', error);
-      setRows([]);
-      setCount(0);
-      setSnack({ open: true, msg: 'Falha ao carregar exercícios', sev: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  }, [difficulty, equipment, formatDate, muscle, paginationModel.page, paginationModel.pageSize, publishedState, q, scope]);
-
-  const scheduleRealtimeRefresh = React.useCallback(() => {
-    if (realtimeRefreshTimer.current) {
-      clearTimeout(realtimeRefreshTimer.current);
-    }
-    realtimeRefreshTimer.current = setTimeout(() => {
-      realtimeRefreshTimer.current = null;
-      void fetchRows();
-      void fetchFacets();
-    }, 200);
-  }, [fetchFacets, fetchRows]);
-
-  const closeCreate = React.useCallback(
-    (refresh?: boolean) => {
-      setOpenCreate(false);
-      if (refresh) {
-        void fetchRows();
-        void fetchFacets();
-      }
-    },
-    [fetchFacets, fetchRows],
-  );
-
-  const closeClone = React.useCallback(
-    (refresh?: boolean) => {
-      setOpenClone({ open: false, initial: undefined });
-      if (refresh) {
-        void fetchRows();
-        void fetchFacets();
-      }
-    },
-    [fetchFacets, fetchRows],
-  );
-
-  function mapRowToExerciseInitial(r: Row) {
-    return {
-      name: r.name ?? '',
-      muscle_group: r.muscle_group ?? '',
-      equipment: r.equipment ?? '',
-      difficulty: (r.difficulty as any) ?? undefined,
-      description: r.description ?? '',
-      video_url: r.video_url ?? '',
-    };
-  }
-
-  const updateScope = React.useCallback((next: 'global' | 'personal' | 'all') => {
-    setScope(next);
-    setPaginationModel((prev) => ({ ...prev, page: 0 }));
-  }, []);
-
-  const updatePublished = React.useCallback((next: 'all' | 'published' | 'draft') => {
-    setPublishedState(next);
-    setPaginationModel((prev) => ({ ...prev, page: 0 }));
-  }, []);
+  const dashboard = data?.ok ? data.data : initialData;
 
   React.useEffect(() => {
-    void fetchRows();
-  }, [fetchRows]);
+    const params = new URLSearchParams();
+    if (filters.q) params.set('q', filters.q);
+    if (filters.scope !== 'all') params.set('scope', filters.scope);
+    if (filters.published !== 'all') params.set('published', filters.published);
+    if (filters.difficulty) params.set('difficulty', filters.difficulty);
+    if (filters.equipment) params.set('equipment', filters.equipment);
+    if (filters.muscle) params.set('muscle', filters.muscle);
+    params.set('range', filters.range);
+    if (filters.page > 0) params.set('page', String(filters.page));
+    if (filters.pageSize !== 20) params.set('pageSize', String(filters.pageSize));
+    if (filters.sort !== 'created_desc') params.set('sort', filters.sort);
+    const next = params.toString();
+    router.replace(next ? `${pathname}?${next}` : pathname);
+  }, [filters, pathname, router]);
 
   React.useEffect(() => {
-    void fetchFacets();
-  }, [fetchFacets]);
-
-  React.useEffect(() => {
-    const sb = supabaseRef.current;
-    if (!sb) return () => {};
-
-    const channel = sb
-      .channel('admin-exercises-realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'exercises' },
-        () => {
-          scheduleRealtimeRefresh();
-        },
-      )
+    const client = supabaseBrowser();
+    const channel = client
+      .channel('admin-exercises-dashboard')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'exercises' }, () => {
+        startRefreshTransition(() => {
+          void mutate();
+        });
+      })
       .subscribe();
-
     return () => {
-      if (realtimeRefreshTimer.current) {
-        clearTimeout(realtimeRefreshTimer.current);
-        realtimeRefreshTimer.current = null;
-      }
       void channel.unsubscribe();
     };
-  }, [scheduleRealtimeRefresh]);
+  }, [mutate]);
 
-  React.useEffect(() => {
-    setPaginationModel((prev) => {
-      const total = Math.max(Math.ceil((count || 0) / prev.pageSize), 1);
-      if (prev.page >= total) {
-        const nextPage = Math.max(total - 1, 0);
-        if (nextPage === prev.page) return prev;
-        return { ...prev, page: nextPage };
-      }
-      return prev;
+  const loading = isValidating || isRefreshing;
+
+  function updateFilters(partial: Partial<Filters>, options?: { keepPage?: boolean }) {
+    setFilters((prev) => ({
+      ...prev,
+      ...partial,
+      page: options?.keepPage ? partial.page ?? prev.page : partial.page ?? 0,
+    }));
+  }
+
+  function resetFilters() {
+    setFilters({
+      q: '',
+      scope: 'all',
+      published: 'all',
+      difficulty: '',
+      equipment: '',
+      muscle: '',
+      range: '180d',
+      sort: 'created_desc',
+      page: 0,
+      pageSize: 20,
     });
-  }, [count]);
+  }
 
-  const handlePublishChange = React.useCallback((id: string, next: boolean) => {
-    setRows((prev) =>
-      prev.map((row) =>
-        row.id === id
-          ? {
-              ...row,
-              is_published: next,
-              published_at: next ? new Date().toISOString() : null,
-            }
-          : row,
-      ),
-    );
-  }, []);
-
-  const handleDuplicate = React.useCallback((row: Row) => {
-    setOpenClone({ open: true, initial: row });
-  }, []);
-
-  const handleEdit = React.useCallback(
-    (row: Row) => {
-      router.push(`/dashboard/admin/exercises/${row.id}`);
-    },
-    [router],
-  );
-
-  const handleDelete = React.useCallback(
-    async (row: Row) => {
-      if (!confirm(`Remover "${row.name}"?`)) return;
-      setRows((prev) => prev.filter((r) => r.id !== row.id));
-      setUndo({ open: true, row });
-      try {
-        const res = await fetch(`/api/admin/exercises/${row.id}`, { method: 'DELETE' });
-        if (!res.ok) throw new Error(await res.text());
-        setCount((prev) => Math.max(prev - 1, 0));
-      } catch (error: any) {
-        console.error('[admin/exercises] delete failed', error);
-        setRows((prev) => [row, ...prev]);
-        setUndo({ open: false });
-        setSnack({ open: true, msg: error?.message ?? 'Falha ao remover', sev: 'error' });
-      }
-    },
-    [],
-  );
-
-  const goToPrevPage = React.useCallback(() => {
-    setPaginationModel((prev) => {
-      if (prev.page <= 0) return prev;
-      return { ...prev, page: prev.page - 1 };
+  async function refresh() {
+    startRefreshTransition(() => {
+      void mutate();
     });
-  }, []);
+  }
 
-  const goToNextPage = React.useCallback(() => {
-    setPaginationModel((prev) => {
-      const total = Math.max(Math.ceil((count || 0) / prev.pageSize), 1);
-      if (prev.page >= total - 1) return prev;
-      return { ...prev, page: prev.page + 1 };
-    });
-  }, [count]);
+  async function handleDelete(row: AdminExerciseRow) {
+    if (!window.confirm(`Remover "${row.name}"?`)) return;
+    try {
+      const response = await fetch(`/api/admin/exercises/${row.id}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error(await response.text());
+      setMessage({ tone: 'success', text: 'Exercício removido.' });
+      startRefreshTransition(() => {
+        void mutate();
+      });
+    } catch (error: any) {
+      console.error('[admin-exercises] delete', error);
+      setMessage({ tone: 'danger', text: error?.message ?? 'Falha ao remover o exercício.' });
+    }
+  }
 
-  const totalPages = Math.max(Math.ceil((count || 0) / paginationModel.pageSize), 1);
-  const showingStart = count === 0 ? 0 : paginationModel.page * paginationModel.pageSize + 1;
-  const showingEnd = count === 0 ? 0 : Math.min(showingStart + rows.length - 1, count);
-  const isFirstPage = paginationModel.page <= 0;
-  const isLastPage = paginationModel.page >= totalPages - 1;
-
-  const columns: GridColDef<Row>[] = [
-    {
-      field: 'media',
-      headerName: '',
-      width: 100,
-      sortable: false,
-      filterable: false,
-      renderCell: (params) => (
-        <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
-          {renderMediaThumb(params.row)}
-        </Box>
-      ),
-    },
-    {
-      field: 'name',
-      headerName: 'Nome',
-      flex: 1.4,
-      minWidth: 260,
-      renderCell: (params) => {
-        const description = params.row.description ? params.row.description.slice(0, 120) : '';
-        const creator = params.row.creator_label ?? params.row.creator_name ?? params.row.creator_email ?? '—';
-        const created = params.row.created_label ?? formatDate(params.row.created_at);
-        return (
-          <Stack spacing={0.5} sx={{ py: 1 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
-              {params.row.name}
-            </Typography>
-            {description && (
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{
-                  display: '-webkit-box',
-                  WebkitBoxOrient: 'vertical',
-                  WebkitLineClamp: 2,
-                  overflow: 'hidden',
-                }}
-              >
-                {description}
-              </Typography>
-            )}
-            <Typography variant="caption" color="text.secondary">
-              {`Criado por ${creator}${created ? ` • ${created}` : ''}`}
-            </Typography>
-          </Stack>
-        );
-      },
-    },
-    {
-      field: 'muscle_group',
-      headerName: 'Grupo muscular',
-      flex: 1,
-      minWidth: 170,
-      renderCell: (params) => (
-        <Stack direction="row" spacing={0.5} flexWrap="wrap">
-          {(params.row.muscle_tags ?? []).map((tag) => (
-            <Chip key={`muscle-${params.row.id}-${tag}`} size="small" label={tag} variant="outlined" />
-          ))}
-        </Stack>
-      ),
-    },
-    {
-      field: 'equipment',
-      headerName: 'Equipamento',
-      flex: 1,
-      minWidth: 170,
-      renderCell: (params) => (
-        <Stack direction="row" spacing={0.5} flexWrap="wrap">
-          {(params.row.equipment_tags ?? []).map((tag) => (
-            <Chip key={`equipment-${params.row.id}-${tag}`} size="small" label={tag} variant="outlined" />
-          ))}
-        </Stack>
-      ),
-    },
-    {
-      field: 'difficulty',
-      headerName: 'Dificuldade',
-      width: 140,
-      renderCell: (params) =>
-        params.row.difficulty ? (
-          <Chip
-            size="small"
-            label={params.row.difficulty}
-            color={
-              params.row.difficulty === 'Difícil'
-                ? 'error'
-                : params.row.difficulty === 'Média'
-                ? 'warning'
-                : 'success'
-            }
-            variant="outlined"
-          />
-        ) : null,
-    },
-    {
-      field: 'audience',
-      headerName: 'Disponível para',
-      flex: 0.9,
-      minWidth: 200,
-      renderCell: (params) => (
-        <Typography variant="body2" noWrap>
-          {params.row.audience ?? '—'}
-        </Typography>
-      ),
-    },
-    {
-      field: 'status',
-      headerName: 'Estado',
-      width: 200,
-      sortable: false,
-      filterable: false,
-      renderCell: (params) =>
-        params.row.is_global ? (
-          <PublishToggle
-            id={params.row.id}
-            published={!!params.row.is_published}
-            onChange={(next) => handlePublishChange(params.row.id, next)}
-          />
-        ) : (
-          <Chip size="small" label="Rascunho privado" color="default" variant="outlined" />
-        ),
-    },
-    {
-      field: 'created_at',
-      headerName: 'Criado em',
-      minWidth: 190,
-      valueFormatter: (p: any) => formatDate(p?.value as string | null),
-    },
-    {
-      field: 'actions',
-      headerName: 'Ações',
-      width: 210,
-      sortable: false,
-      filterable: false,
-      renderCell: (p) => (
-        <Stack direction="row" spacing={0.5}>
-          <Tooltip title="Duplicar (Criar a partir de…)">
-            <IconButton size="small" onClick={() => handleDuplicate(p.row)}>
-              <ContentCopyOutlined fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Editar">
-            <IconButton size="small" onClick={() => handleEdit(p.row)}>
-              <EditOutlined fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Remover">
-            <IconButton size="small" color="error" onClick={() => handleDelete(p.row)}>
-              <DeleteOutline fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Stack>
-      ),
-    },
-  ];
+  const paginatedRows = dashboard.table.rows;
+  const totalPages = Math.max(Math.ceil((dashboard.table.total || 0) / filters.pageSize), 1);
+  const showingStart = filters.page * filters.pageSize + 1;
+  const showingEnd = Math.min(dashboard.table.total, showingStart + paginatedRows.length - 1);
 
   function exportCSV() {
+    if (!paginatedRows.length) {
+      setMessage({ tone: 'info', text: 'Não existem exercícios para exportar.' });
+      return;
+    }
     const header = [
       'id',
-      'name',
-      'muscle_group',
-      'equipment',
-      'difficulty',
-      'audience',
-      'is_global',
-      'is_published',
-      'creator',
-      'creator_email',
-      'created_at',
-      'published_at',
-      'description',
-      'video_url',
+      'nome',
+      'musculo',
+      'equipamento',
+      'dificuldade',
+      'audiencia',
+      'publicado',
+      'global',
+      'criador',
+      'email',
+      'criado_em',
+      'publicado_em',
+      'descricao',
+      'video',
     ];
     const lines = [
       header.join(','),
-      ...rows.map(r => [
-        r.id,
-        r.name,
-        r.muscle_group ?? '',
-        r.equipment ?? '',
-        r.difficulty ?? '',
-        r.audience ?? '',
-        r.is_global ? 'global' : 'privado',
-        r.is_published ? 'publicado' : 'rascunho',
-        r.creator_name ?? r.creator_email ?? '',
-        r.creator_email ?? '',
-        r.created_at ? formatDate(r.created_at) : '',
-        r.published_at ? formatDate(r.published_at) : '',
-        (r.description ?? '').replace(/\r?\n/g,' '),
-        r.video_url ?? '',
-      ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')),
+      ...paginatedRows.map((row) =>
+        [
+          row.id,
+          row.name,
+          row.muscleGroup ?? '',
+          row.equipment ?? '',
+          row.difficulty ?? '',
+          row.audienceLabel,
+          row.isPublished ? 'sim' : 'nao',
+          row.isGlobal ? 'global' : 'privado',
+          row.creatorLabel,
+          row.creatorEmail ?? '',
+          row.createdAt ?? '',
+          row.publishedAt ?? '',
+          (row.description ?? '').replace(/\r?\n/g, ' '),
+          row.videoUrl ?? '',
+        ]
+          .map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`)
+          .join(','),
+      ),
     ].join('\n');
 
-    const url = URL.createObjectURL(new Blob([lines], { type:'text/csv;charset=utf-8;' }));
-    const a = Object.assign(document.createElement('a'), { href:url, download:'exercises.csv' });
-    a.click(); URL.revokeObjectURL(url);
+    const blob = new Blob([lines], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'exercicios.csv';
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   function printList() {
-    const w = window.open('', '_blank', 'noopener,noreferrer,width=900,height=700'); if (!w) return;
-    const rowsHtml = rows.map(r => {
-      const cells = [
-        r.name,
-        r.muscle_group ?? '',
-        r.equipment ?? '',
-        r.difficulty ?? '',
-        r.audience ?? '',
-        r.is_global ? 'Catálogo global' : 'Privado',
-        r.is_published ? 'Publicado' : 'Rascunho',
-        r.creator_label ?? r.creator_name ?? r.creator_email ?? '',
-        r.created_at ? formatDate(r.created_at) : '',
-        r.published_at ? formatDate(r.published_at) : '',
-        (r.description ?? '').replace(/\r?\n/g, ' '),
-      ].map(c => `<td>${String(c)}</td>`).join('');
-      return `<tr>${cells}</tr>`;
-    }).join('');
+    if (!paginatedRows.length) {
+      setMessage({ tone: 'info', text: 'Não existem exercícios para imprimir.' });
+      return;
+    }
+    const popup = window.open('', '_blank', 'noopener,noreferrer,width=900,height=700');
+    if (!popup) return;
+    const rows = paginatedRows
+      .map((row) => {
+        const cells = [
+          row.name,
+          row.muscleGroup ?? '',
+          row.equipment ?? '',
+          row.difficulty ?? '',
+          row.audienceLabel,
+          row.isPublished ? 'Publicado' : 'Rascunho',
+          row.creatorLabel,
+          row.createdAt ?? '',
+          row.publishedAt ?? '',
+        ]
+          .map((cell) => `<td>${String(cell ?? '')}</td>`) 
+          .join('');
+        return `<tr>${cells}</tr>`;
+      })
+      .join('');
 
-    w.document.open(); w.document.write(
-      '<html><head><meta charset="utf-8" /><title>Exercícios</title>' +
-      '<style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto; padding:16px;}h1{font-size:18px;margin:0 0 12px;}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #e5e7eb;padding:6px 8px;text-align:left;font-size:12px;}th{background:#f8fafc;}</style>' +
-      `</head><body><h1>Exercícios</h1><table><thead><tr><th>Nome</th><th>Grupo</th><th>Equipamento</th><th>Dificuldade</th><th>Disponível para</th><th>Origem</th><th>Estado</th><th>Criado por</th><th>Criado em</th><th>Publicado</th><th>Descrição</th></tr></thead><tbody>${rowsHtml}</tbody></table><script>window.onload=function(){window.print();}</script></body></html>`
-    ); w.document.close();
+    popup.document.open();
+    popup.document.write(`
+      <html>
+        <head>
+          <meta charSet="utf-8" />
+          <title>Exercícios</title>
+          <style>
+            body { font-family: system-ui, -apple-system, Segoe UI, sans-serif; padding: 24px; }
+            h1 { font-size: 20px; margin: 0 0 16px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #d1d5db; padding: 6px 8px; text-align: left; font-size: 12px; }
+            th { background: #f3f4f6; }
+          </style>
+        </head>
+        <body>
+          <h1>Catálogo de exercícios</h1>
+          <table>
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Grupo muscular</th>
+                <th>Equipamento</th>
+                <th>Dificuldade</th>
+                <th>Disponibilidade</th>
+                <th>Estado</th>
+                <th>Criado por</th>
+                <th>Criado em</th>
+                <th>Publicado em</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+          <script>window.onload = function () { window.print(); };</script>
+        </body>
+      </html>
+    `);
+    popup.document.close();
+  }
+
+  function mapCloneInitial(row: AdminExerciseRow) {
+    const difficultyOptions: ExerciseFormValues['difficulty'][] = ['Fácil', 'Média', 'Difícil'];
+    const normalisedDifficulty = difficultyOptions.find((option) => option === row.difficulty) ?? undefined;
+    return {
+      name: row.name ?? '',
+      muscle_group: row.muscleGroup ?? '',
+      equipment: row.equipment ?? '',
+      difficulty: normalisedDifficulty,
+      description: row.description ?? '',
+      video_url: row.videoUrl ?? '',
+    };
   }
 
   return (
-    <Box sx={{ display: 'grid', gap: 1.5 }}>
-      <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: 2 }}>
-        <Stack
-          direction={{ xs: 'column', lg: 'row' }}
-          spacing={{ xs: 1.5, lg: 1 }}
-          alignItems={{ xs: 'stretch', lg: 'center' }}
-          justifyContent="space-between"
-        >
-          <Stack
-            direction={{ xs: 'column', md: 'row' }}
-            spacing={1}
-            sx={{ flexWrap: 'wrap', width: '100%', rowGap: 1 }}
-          >
-            <TextField
-              label="Pesquisar"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              sx={{ minWidth: { xs: '100%', sm: 220 }, flex: { xs: '1 1 100%', md: '0 0 auto' } }}
-            />
-            <TextField
-              select
-              label="Origem"
-              value={scope}
-              onChange={(e) => updateScope(e.target.value as 'global' | 'personal' | 'all')}
-              sx={{ minWidth: { xs: '100%', sm: 180 }, flex: { xs: '1 1 100%', md: '0 0 auto' } }}
-            >
-              <MenuItem value="all">Todos</MenuItem>
-              <MenuItem value="global">Catálogo global</MenuItem>
-              <MenuItem value="personal">Privados</MenuItem>
-            </TextField>
-            <TextField
-              select
-              label="Estado"
-              value={publishedState}
-              onChange={(e) => updatePublished(e.target.value as 'all' | 'published' | 'draft')}
-              sx={{ minWidth: { xs: '100%', sm: 160 }, flex: { xs: '1 1 100%', md: '0 0 auto' } }}
-            >
-              <MenuItem value="all">Todos</MenuItem>
-              <MenuItem value="published">Publicado</MenuItem>
-              <MenuItem value="draft">Rascunho</MenuItem>
-            </TextField>
-            <TextField
-              select
-              label="Grupo muscular"
-              value={muscle}
-              onChange={(e) => setMuscle(e.target.value)}
-              sx={{ minWidth: { xs: '100%', sm: 180 }, flex: { xs: '1 1 100%', md: '0 0 auto' } }}
-            >
-              <MenuItem value="">Todos</MenuItem>
-              {facets.muscles.map((option) => (
-                <MenuItem key={`facet-muscle-${option}`} value={option}>
-                  {option}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              select
-              label="Dificuldade"
-              value={difficulty}
-              onChange={(e) => setDifficulty(e.target.value)}
-              sx={{ minWidth: { xs: '100%', sm: 160 }, flex: { xs: '1 1 100%', md: '0 0 auto' } }}
-            >
-              <MenuItem value="">Todas</MenuItem>
-              {facets.difficulties.map((option) => (
-                <MenuItem key={`facet-difficulty-${option}`} value={option}>
-                  {option}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              select
-              label="Equipamento"
-              value={equipment}
-              onChange={(e) => setEquipment(e.target.value)}
-              sx={{ minWidth: { xs: '100%', sm: 180 }, flex: { xs: '1 1 100%', md: '0 0 auto' } }}
-            >
-              <MenuItem value="">Todos</MenuItem>
-              {facets.equipments.map((option) => (
-                <MenuItem key={`facet-equipment-${option}`} value={option}>
-                  {option}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Stack>
-          <Stack
-            direction="row"
-            spacing={1}
-            sx={{
-              flexWrap: 'wrap',
-              justifyContent: { xs: 'flex-start', lg: 'flex-end' },
-              width: { xs: '100%', lg: 'auto' },
-            }}
-          >
-            <Tooltip title="Exportar CSV">
-              <IconButton onClick={exportCSV} aria-label="Exportar lista para CSV">
-                <FileDownloadOutlined />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Imprimir">
-              <IconButton onClick={printList} aria-label="Imprimir lista de exercícios">
-                <PrintOutlined />
-              </IconButton>
-            </Tooltip>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setOpenCreate(true)}
-              sx={{ flexShrink: 0 }}
-            >
+    <div className="admin-exercises">
+      <PageHeader
+        title="Catálogo de exercícios"
+        subtitle="Analisa o desempenho do catálogo, acompanha publicações e gere as opções disponíveis para a equipa."
+        sticky
+      />
+
+      <div className="admin-exercises__layout">
+        <section className="admin-exercises__metrics" aria-label="Indicadores principais">
+          {dashboard.hero.map((metric) => (
+            <MetricCard key={metric.id} metric={metric} />
+          ))}
+        </section>
+
+        <section className="admin-exercises__toolbar" aria-label="Filtros e acções">
+          <div className="admin-exercises__filters">
+            <label className="admin-exercises__field">
+              <span className="sr-only">Pesquisar exercícios</span>
+              <Search aria-hidden className="admin-exercises__fieldIcon" />
+              <input
+                className="neo-field"
+                placeholder="Pesquisar por nome, grupo ou equipamento"
+                value={filters.q}
+                onChange={(event) => updateFilters({ q: event.target.value })}
+              />
+            </label>
+
+            <label className="admin-exercises__field">
+              <span className="admin-exercises__fieldLabel">Origem</span>
+              <select
+                className="neo-field"
+                value={filters.scope}
+                onChange={(event) => updateFilters({ scope: event.target.value as Filters['scope'] })}
+              >
+                <option value="all">Todos</option>
+                <option value="global">Catálogo global</option>
+                <option value="personal">Privados</option>
+              </select>
+            </label>
+
+            <label className="admin-exercises__field">
+              <span className="admin-exercises__fieldLabel">Estado</span>
+              <select
+                className="neo-field"
+                value={filters.published}
+                onChange={(event) => updateFilters({ published: event.target.value as Filters['published'] })}
+              >
+                <option value="all">Todos</option>
+                <option value="published">Publicados</option>
+                <option value="draft">Rascunho</option>
+              </select>
+            </label>
+
+            <label className="admin-exercises__field">
+              <span className="admin-exercises__fieldLabel">Dificuldade</span>
+              <select
+                className="neo-field"
+                value={filters.difficulty}
+                onChange={(event) => updateFilters({ difficulty: event.target.value })}
+              >
+                <option value="">Todas</option>
+                {dashboard.facets.difficulties.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="admin-exercises__field">
+              <span className="admin-exercises__fieldLabel">Grupo muscular</span>
+              <select
+                className="neo-field"
+                value={filters.muscle}
+                onChange={(event) => updateFilters({ muscle: event.target.value })}
+              >
+                <option value="">Todos</option>
+                {dashboard.facets.muscles.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="admin-exercises__field">
+              <span className="admin-exercises__fieldLabel">Equipamento</span>
+              <select
+                className="neo-field"
+                value={filters.equipment}
+                onChange={(event) => updateFilters({ equipment: event.target.value })}
+              >
+                <option value="">Todos</option>
+                {dashboard.facets.equipments.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="admin-exercises__field">
+              <span className="admin-exercises__fieldLabel">Intervalo</span>
+              <select
+                className="neo-field"
+                value={filters.range}
+                onChange={(event) => updateFilters({ range: event.target.value as Filters['range'] })}
+              >
+                <option value="30d">30 dias</option>
+                <option value="90d">90 dias</option>
+                <option value="180d">6 meses</option>
+                <option value="365d">12 meses</option>
+              </select>
+            </label>
+
+            <label className="admin-exercises__field">
+              <span className="admin-exercises__fieldLabel">Ordenar por</span>
+              <select
+                className="neo-field"
+                value={filters.sort}
+                onChange={(event) => updateFilters({ sort: event.target.value as Filters['sort'] })}
+              >
+                <option value="created_desc">Mais recentes</option>
+                <option value="updated_desc">Actualizados</option>
+                <option value="name_asc">Nome (A-Z)</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="admin-exercises__actions">
+            <Button variant="ghost" leftIcon={<Filter aria-hidden />} onClick={resetFilters}>
+              Limpar filtros
+            </Button>
+            <Button variant="ghost" leftIcon={<RefreshCcw aria-hidden />} loading={loading} onClick={refresh}>
+              Actualizar
+            </Button>
+            <Button variant="ghost" leftIcon={<Printer aria-hidden />} onClick={printList}>
+              Imprimir
+            </Button>
+            <Button variant="ghost" leftIcon={<Download aria-hidden />} onClick={exportCSV}>
+              Exportar CSV
+            </Button>
+            <Button variant="primary" leftIcon={<Plus aria-hidden />} onClick={() => setCreateOpen(true)}>
               Novo exercício
             </Button>
-          </Stack>
-        </Stack>
-      </Paper>
+          </div>
+        </section>
 
-      <Divider />
+        {message ? (
+          <Alert tone={message.tone} title={message.text}>
+            <button
+              type="button"
+              className="neo-alert__dismiss"
+              onClick={() => setMessage(null)}
+            >
+              Fechar
+            </button>
+          </Alert>
+        ) : null}
 
-      {isMdDown ? (
-        <Stack spacing={1.5}>
-          {loading ? (
-            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, textAlign: 'center' }}>
-              <CircularProgress size={24} />
-            </Paper>
-          ) : rows.length === 0 ? (
-            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, textAlign: 'center' }}>
-              <Typography variant="body2" color="text.secondary">
-                Nenhum exercício encontrado para os filtros selecionados.
-              </Typography>
-            </Paper>
-          ) : (
-            rows.map((row) => (
-              <Paper
-                key={row.id}
-                variant="outlined"
-                sx={{
-                  p: 1.5,
-                  borderRadius: 2,
-                  display: 'flex',
-                  flexDirection: { xs: 'column', sm: 'row' },
-                  gap: 1.5,
-                }}
+        <section className="neo-panel admin-exercises__panel" aria-label="Evolução do catálogo">
+          <header className="neo-panel__header">
+            <div>
+              <h3 className="neo-panel__title">Evolução do catálogo</h3>
+              <p className="neo-panel__subtitle">{RANGE_LABEL[filters.range]}</p>
+            </div>
+            <LineChart aria-hidden />
+          </header>
+          <div className="admin-exercises__chart">
+            <ResponsiveContainer width="100%" height={280}>
+              <AreaChart data={dashboard.timeline} margin={{ top: 16, left: 0, right: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="chartCreated" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#1d4ed8" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="#1d4ed8" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="chartPublished" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#059669" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="#059669" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="4 4" vertical={false} />
+                <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
+                <YAxis allowDecimals={false} tickLine={false} axisLine={false} fontSize={12} width={40} />
+                <Tooltip content={<ExerciseTooltip />} cursor={{ stroke: '#94a3b8', strokeWidth: 1 }} />
+                <Area type="monotone" dataKey="created" stroke="#1d4ed8" fill="url(#chartCreated)" strokeWidth={2} />
+                <Area type="monotone" dataKey="published" stroke="#059669" fill="url(#chartPublished)" strokeWidth={2} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+
+        <section className="admin-exercises__insights" aria-label="Distribuições e destaques">
+          <DistributionList
+            title="Dificuldades aplicadas"
+            icon={<BarChart3 aria-hidden />}
+            items={dashboard.difficulties}
+            emptyLabel="Sem dados de dificuldade."
+          />
+          <DistributionList
+            title="Grupos musculares"
+            icon={<Layers aria-hidden />}
+            items={dashboard.muscles}
+            emptyLabel="Sem grupos musculares relevantes."
+          />
+          <DistributionList
+            title="Equipamento utilizado"
+            icon={<Tag aria-hidden />}
+            items={dashboard.equipments}
+            emptyLabel="Sem equipamento associado."
+          />
+        </section>
+
+        <section className="admin-exercises__highlights" aria-label="Destaques">
+          {dashboard.highlights.map((highlight) => (
+            <HighlightCard key={highlight.id} highlight={highlight} />
+          ))}
+        </section>
+
+        <section className="neo-panel admin-exercises__panel admin-exercises__table" aria-label="Lista de exercícios">
+          <header className="neo-panel__header">
+            <div>
+              <h3 className="neo-panel__title">Exercícios disponíveis</h3>
+              <p className="neo-panel__subtitle">
+                {dashboard.table.total === 0
+                  ? 'Sem resultados para os filtros seleccionados.'
+                  : `A mostrar ${showingStart}-${showingEnd} de ${dashboard.table.total}`}
+              </p>
+            </div>
+            <CalendarClock aria-hidden />
+          </header>
+
+          <div className="admin-exercises__tableWrapper">
+            {paginatedRows.length ? (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Exercício</th>
+                    <th>Grupo muscular</th>
+                    <th>Equipamento</th>
+                    <th>Dificuldade</th>
+                    <th>Disponível para</th>
+                    <th>Publicado</th>
+                    <th>Actualizado</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedRows.map((row) => (
+                    <tr key={row.id}>
+                      <td>
+                        <span className="admin-exercises__tableName">{row.name}</span>
+                        {row.description ? (
+                          <span className="admin-exercises__tableDescription">{row.description}</span>
+                        ) : null}
+                        <span className="admin-exercises__tableMeta">Criado por {row.creatorLabel}</span>
+                      </td>
+                      <td>
+                        {row.muscleTags.length ? (
+                          <ul className="admin-exercises__tags">
+                            {row.muscleTags.map((tag) => (
+                              <li key={`${row.id}-muscle-${tag}`}>{tag}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <span className="admin-exercises__tableEmpty">—</span>
+                        )}
+                      </td>
+                      <td>
+                        {row.equipmentTags.length ? (
+                          <ul className="admin-exercises__tags">
+                            {row.equipmentTags.map((tag) => (
+                              <li key={`${row.id}-equipment-${tag}`}>{tag}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <span className="admin-exercises__tableEmpty">—</span>
+                        )}
+                      </td>
+                      <td>
+                        {row.difficulty ? (
+                          <span className={clsx('admin-exercises__badge', row.difficulty.toLowerCase())}>{row.difficulty}</span>
+                        ) : (
+                          <span className="admin-exercises__tableEmpty">—</span>
+                        )}
+                      </td>
+                      <td>{row.audienceLabel}</td>
+                      <td>
+                        {row.isGlobal ? (
+                          <PublishToggle
+                            id={row.id}
+                            published={!!row.isPublished}
+                            onChange={() => {
+                              startRefreshTransition(() => {
+                                void mutate();
+                              });
+                            }}
+                          />
+                        ) : (
+                          <span className="admin-exercises__badge neutral">Privado</span>
+                        )}
+                      </td>
+                      <td>{formatRelative(row.updatedAt)}</td>
+                      <td>
+                        <div className="admin-exercises__tableActions">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            leftIcon={<Edit aria-hidden />}
+                            onClick={() => {
+                              router.push(`/dashboard/admin/exercises/${row.id}`);
+                            }}
+                          >
+                            Editar
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            leftIcon={<ArrowUpRight aria-hidden />}
+                            onClick={() => {
+                              setCloneRow(row);
+                            }}
+                          >
+                            Duplicar
+                          </Button>
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            leftIcon={<Trash2 aria-hidden />}
+                            onClick={() => handleDelete(row)}
+                          >
+                            Remover
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="neo-empty">
+                <span className="neo-empty__icon" aria-hidden>
+                  📦
+                </span>
+                <p className="neo-empty__title">Sem resultados</p>
+                <p className="neo-empty__description">Ajusta os filtros ou cria um novo exercício.</p>
+              </div>
+            )}
+          </div>
+
+          {dashboard.table.total > filters.pageSize ? (
+            <footer className="admin-exercises__pagination">
+              <span>
+                Página {filters.page + 1} de {totalPages}
+              </span>
+              <div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={filters.page === 0 || loading}
+                  onClick={() => updateFilters({ page: Math.max(filters.page - 1, 0) }, { keepPage: true })}
+                >
+                  Anterior
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={filters.page + 1 >= totalPages || loading}
+                  onClick={() => updateFilters({ page: Math.min(filters.page + 1, totalPages - 1) }, { keepPage: true })}
+                >
+                  Seguinte
+                </Button>
+              </div>
+              <label className="admin-exercises__pageSize">
+                <span>Tamanho da página</span>
+                <select
+                  className="neo-field"
+                  value={filters.pageSize}
+                  onChange={(event) => updateFilters({ pageSize: Number(event.target.value || 20), page: 0 })}
+                >
+                  {[10, 20, 50, 100].map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </footer>
+          ) : null}
+        </section>
+      </div>
+
+      {createOpen ? (
+        <div className="neo-dialog-backdrop" role="dialog" aria-modal="true" aria-label="Criar exercício">
+          <div className="neo-dialog admin-exercises__dialog" role="document">
+            <header className="neo-dialog__header">
+              <div>
+                <h2 className="neo-dialog__title">Novo exercício</h2>
+                <p className="neo-dialog__subtitle">Preenche os detalhes para disponibilizar no catálogo.</p>
+              </div>
+              <button
+                type="button"
+                className="btn"
+                data-variant="ghost"
+                data-size="sm"
+                onClick={() => setCreateOpen(false)}
               >
-                <Box sx={{ width: { xs: '100%', sm: 108 }, display: 'flex', justifyContent: 'center' }}>
-                  {renderMediaThumb(row)}
-                </Box>
-                <Stack spacing={1} sx={{ flexGrow: 1 }}>
-                  <Stack spacing={0.5}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                      {row.name}
-                    </Typography>
-                    {row.description && (
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{
-                          display: '-webkit-box',
-                          WebkitBoxOrient: 'vertical',
-                          WebkitLineClamp: 3,
-                          overflow: 'hidden',
-                        }}
-                      >
-                        {row.description}
-                      </Typography>
-                    )}
-                    <Typography variant="caption" color="text.secondary">
-                      {`Criado por ${row.creator_label ?? row.creator_name ?? row.creator_email ?? '—'}${row.created_label ? ` • ${row.created_label}` : ''}`}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {`Disponível para: ${row.audience ?? '—'}`}
-                    </Typography>
-                  </Stack>
-                  <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                    {(row.muscle_tags ?? []).map((tag) => (
-                      <Chip key={`mobile-muscle-${row.id}-${tag}`} size="small" label={tag} variant="outlined" />
-                    ))}
-                    {(row.equipment_tags ?? []).map((tag) => (
-                      <Chip key={`mobile-equipment-${row.id}-${tag}`} size="small" label={tag} variant="outlined" />
-                    ))}
-                    {row.difficulty && (
-                      <Chip
-                        size="small"
-                        label={row.difficulty}
-                        color={
-                          row.difficulty === 'Difícil'
-                            ? 'error'
-                            : row.difficulty === 'Média'
-                            ? 'warning'
-                            : 'success'
-                        }
-                        variant="outlined"
-                      />
-                    )}
-                  </Stack>
-                  <Stack
-                    direction="row"
-                    spacing={1}
-                    alignItems="center"
-                    justifyContent="space-between"
-                    flexWrap="wrap"
-                    rowGap={1}
-                  >
-                    <Chip
-                      size="small"
-                      label={row.is_global ? 'Catálogo global' : 'Privado'}
-                      color={row.is_global ? 'default' : 'primary'}
-                      variant={row.is_global ? 'outlined' : 'filled'}
-                    />
-                    <Stack direction="row" spacing={0.5} alignItems="center">
-                      {row.is_global ? (
-                        <PublishToggle
-                          id={row.id}
-                          published={!!row.is_published}
-                          onChange={(next) => handlePublishChange(row.id, next)}
-                        />
-                      ) : (
-                        <Chip size="small" label="Rascunho privado" variant="outlined" />
-                      )}
-                      <Tooltip title="Duplicar (Criar a partir de…)">
-                        <IconButton size="small" onClick={() => handleDuplicate(row)} aria-label="Duplicar exercício">
-                          <ContentCopyOutlined fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Editar">
-                        <IconButton size="small" onClick={() => handleEdit(row)} aria-label="Editar exercício">
-                          <EditOutlined fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Remover">
-                        <IconButton size="small" color="error" onClick={() => handleDelete(row)} aria-label="Remover exercício">
-                          <DeleteOutline fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Stack>
-                  </Stack>
-                </Stack>
-              </Paper>
-            ))
-          )}
-          <Stack
-            direction={{ xs: 'column', sm: 'row' }}
-            spacing={1}
-            alignItems={{ xs: 'flex-start', sm: 'center' }}
-            justifyContent="space-between"
-            sx={{ px: 0.5 }}
-          >
-            <Typography variant="body2" color="text.secondary">
-              {count === 0 ? 'Sem registos' : `Mostrando ${showingStart}-${showingEnd} de ${count}`}
-            </Typography>
-            <Stack direction="row" spacing={1}>
-              <Button variant="outlined" size="small" onClick={goToPrevPage} disabled={isFirstPage || loading}>
-                Anterior
-              </Button>
-              <Button variant="outlined" size="small" onClick={goToNextPage} disabled={isLastPage || loading}>
-                Seguinte
-              </Button>
-            </Stack>
-          </Stack>
-        </Stack>
-      ) : (
-        <div style={{ width: '100%' }}>
-          <DataGrid
-            rows={rows}
-            columns={columns as unknown as GridColDef[]}
-            loading={loading}
-            rowCount={count}
-            paginationMode="server"
-            paginationModel={paginationModel}
-            onPaginationModelChange={setPaginationModel}
-            disableRowSelectionOnClick
-            slots={{ toolbar: GridToolbar, loadingOverlay: () => <CircularProgress size={24} /> }}
-            autoHeight
-            density="compact"
-            pageSizeOptions={[10, 20, 50, 100]}
-          />
+                Fechar
+              </button>
+            </header>
+            <div className="neo-dialog__content">
+              <AdminExerciseFormClient
+                mode="create"
+                onSuccess={() => {
+                  setCreateOpen(false);
+                  startRefreshTransition(() => {
+                    void mutate();
+                  });
+                }}
+                onCancel={() => setCreateOpen(false)}
+              />
+            </div>
+          </div>
         </div>
-      )}
+      ) : null}
 
-      {/* Dialog: novo */}
-      <Dialog open={openCreate} onClose={() => closeCreate()} fullWidth maxWidth="sm">
-        <DialogTitle>➕ Novo exercício</DialogTitle>
-        <DialogContent dividers>
-          <AdminExerciseFormClient
-            mode="create"
-            onSuccess={() => closeCreate(true)}
-            onCancel={() => closeCreate()}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => closeCreate()}>Fechar</Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Dialog: duplicar */}
-      <Dialog open={openClone.open} onClose={() => closeClone()} fullWidth maxWidth="sm">
-        <DialogTitle>📄 Criar exercício a partir de…</DialogTitle>
-        <DialogContent dividers>
-          <AdminExerciseFormClient
-            mode="create"
-            initial={openClone.initial ? mapRowToExerciseInitial(openClone.initial as Row) : undefined}
-            onSuccess={() => closeClone(true)}
-            onCancel={() => closeClone()}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => closeClone()}>Fechar</Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+      {cloneRow ? (
+        <div className="neo-dialog-backdrop" role="dialog" aria-modal="true" aria-label="Duplicar exercício">
+          <div className="neo-dialog admin-exercises__dialog" role="document">
+            <header className="neo-dialog__header">
+              <div>
+                <h2 className="neo-dialog__title">Duplicar exercício</h2>
+                <p className="neo-dialog__subtitle">Cria uma nova entrada com base no exercício seleccionado.</p>
+              </div>
+              <button
+                type="button"
+                className="btn"
+                data-variant="ghost"
+                data-size="sm"
+                onClick={() => setCloneRow(null)}
+              >
+                Fechar
+              </button>
+            </header>
+            <div className="neo-dialog__content">
+              <AdminExerciseFormClient
+                mode="create"
+                initial={mapCloneInitial(cloneRow)}
+                onSuccess={() => {
+                  setCloneRow(null);
+                  startRefreshTransition(() => {
+                    void mutate();
+                  });
+                }}
+                onCancel={() => setCloneRow(null)}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }

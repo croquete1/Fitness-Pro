@@ -1,20 +1,13 @@
 export const dynamic = 'force-dynamic';
 
 import { redirect } from 'next/navigation';
-import { createServerClient } from '@/lib/supabaseServer';
+import { tryCreateServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole } from '@/lib/roles';
-import Paper from '@mui/material/Paper';
-import Typography from '@mui/material/Typography';
-import Table from '@mui/material/Table';
-import TableHead from '@mui/material/TableHead';
-import TableBody from '@mui/material/TableBody';
-import TableRow from '@mui/material/TableRow';
-import TableCell from '@mui/material/TableCell';
-import Box from '@mui/material/Box';
-import AdminUserRowActions from '@/components/admin/AdminUserRowActions';
-
-type U = { id: string; name?: string | null; email?: string | null; role?: string | null; status?: string | null; approved?: boolean | null; created_at?: string | null };
+import UsersClient from './UsersClient';
+import { getAdminUsersDashboardFallback } from '@/lib/fallback/users';
+import { buildAdminUsersDashboard } from '@/lib/users/dashboard';
+import type { AdminUserRecord } from '@/lib/users/types';
 
 export default async function UsersAdminPage() {
   const session = await getSessionUserSafe();
@@ -22,49 +15,39 @@ export default async function UsersAdminPage() {
   const role = toAppRole(session.user.role) ?? 'CLIENT';
   if (role !== 'ADMIN') redirect('/dashboard');
 
-  const sb = createServerClient();
-  const { data } = await sb.from('users').select('id,name,email,role,status,approved,created_at').order('created_at', { ascending: false }).limit(500);
-  const rows = (data ?? []) as U[];
+  const sb = tryCreateServerClient();
+  if (!sb) {
+    const fallback = getAdminUsersDashboardFallback();
+    return <UsersClient initialData={fallback} viewerName={session.user.email ?? null} />;
+  }
 
-  const nameCellSx = { whiteSpace: 'normal', wordBreak: 'break-word', maxWidth: { xs: '100%', md: 220 } } as const;
-  const infoCellSx = { whiteSpace: 'normal', wordBreak: 'break-word' } as const;
-  const metaCellSx = { whiteSpace: { xs: 'normal', md: 'nowrap' } } as const;
+  const { data, error } = await sb
+    .from('users')
+    .select('id,name,email,role,status,approved,active,created_at,last_login_at,last_seen_at,online')
+    .order('created_at', { ascending: false })
+    .limit(1000);
 
-  return (
-    <Paper elevation={0} sx={{ p: 2 }}>
-      <Typography variant="h6" fontWeight={800} sx={{ mb: 2 }}>Utilizadores</Typography>
+  if (error) {
+    console.error('[admin-users-page] erro ao listar utilizadores', error);
+    const fallback = getAdminUsersDashboardFallback();
+    return <UsersClient initialData={fallback} viewerName={session.user.email ?? null} />;
+  }
 
-      <Box sx={{ borderRadius: 2, border: 1, borderColor: 'divider', width: '100%' }}>
-        <Table size="small" sx={{ width: '100%' }}>
-          <TableHead>
-            <TableRow>
-              <TableCell sx={nameCellSx}>Nome</TableCell>
-              <TableCell sx={nameCellSx}>Email</TableCell>
-              <TableCell sx={metaCellSx}>Role</TableCell>
-              <TableCell sx={metaCellSx}>Estado</TableCell>
-              <TableCell sx={metaCellSx}>Registo</TableCell>
-              <TableCell align="right">Ações</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {rows.map((u) => (
-              <TableRow key={u.id}>
-                <TableCell sx={nameCellSx}>{u.name || '—'}</TableCell>
-                <TableCell sx={infoCellSx}>{u.email || '—'}</TableCell>
-                <TableCell sx={metaCellSx}>{u.role || '—'}</TableCell>
-                <TableCell sx={metaCellSx}>{u.status ?? (u.approved ? 'ACTIVE' : 'PENDING')}</TableCell>
-                <TableCell sx={metaCellSx}>{u.created_at ? new Date(u.created_at).toLocaleString('pt-PT') : '—'}</TableCell>
-                <TableCell align="right">
-                  <AdminUserRowActions id={u.id} currRole={u.role || 'CLIENT'} currStatus={u.status || (u.approved ? 'ACTIVE' : 'PENDING')} />
-                </TableCell>
-              </TableRow>
-            ))}
-            {rows.length === 0 && (
-              <TableRow><TableCell colSpan={6} align="center">Sem utilizadores.</TableCell></TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </Box>
-    </Paper>
-  );
+  const records: AdminUserRecord[] = (data ?? []).map((row: any) => ({
+    id: String(row.id ?? crypto.randomUUID()),
+    name: row.name ?? null,
+    email: row.email ?? null,
+    role: row.role ?? null,
+    status: row.status ?? null,
+    approved: row.approved ?? null,
+    active: row.active ?? null,
+    createdAt: row.created_at ?? null,
+    lastLoginAt: row.last_login_at ?? row.last_sign_in_at ?? null,
+    lastSeenAt: row.last_seen_at ?? null,
+    online: row.online ?? row.is_online ?? null,
+  }));
+
+  const dashboard = buildAdminUsersDashboard(records, { supabase: true });
+
+  return <UsersClient initialData={dashboard} viewerName={session.user.email ?? null} />;
 }

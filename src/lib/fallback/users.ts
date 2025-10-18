@@ -1,3 +1,6 @@
+import { buildAdminUsersDashboard } from '../users/dashboard';
+import type { AdminUserRecord, AdminUsersDashboardData } from '../users/types';
+
 export type FallbackUser = {
   id: string;
   name: string | null;
@@ -371,63 +374,20 @@ export function getSampleApprovals({ page, pageSize, search, status }: SampleApp
   };
 }
 
-export type SampleSearchPayload = {
-  users: Array<{ id: string; name: string; role: string; email: string | null }>;
-  sessions: Array<{ id: string; when: string; trainer: string; client: string; location: string | null }>;
-  approvals: Array<{ id: string; name: string | null; email: string | null; status: string }>;
-};
-
-export function searchFallbackDataset(term: string): SampleSearchPayload {
-  const query = term.trim().toLowerCase();
-  if (!query) {
-    return { users: [], sessions: [], approvals: [] };
-  }
-
-  const users = BASE_USERS.filter((user) =>
-    [user.name, user.email, user.id]
-      .filter(Boolean)
-      .some((value) => String(value).toLowerCase().includes(query)),
-  )
-    .slice(0, 10)
-    .map((user) => ({
-      id: user.id,
-      name: user.name ?? user.email ?? user.id,
-      role: user.role,
-      email: user.email ?? null,
-    }));
-
-  const sessions = SAMPLE_SESSIONS.filter((session) => {
-    const trainer = safeName(session.trainer_id).toLowerCase();
-    const client = safeName(session.client_id).toLowerCase();
-    const location = session.location?.toLowerCase() ?? '';
-    return (
-      trainer.includes(query) ||
-      client.includes(query) ||
-      location.includes(query) ||
-      session.id.toLowerCase().includes(query)
-    );
-  })
-    .slice(0, 8)
-    .map((session) => ({
-      id: session.id,
-      when: session.start_time,
-      trainer: safeName(session.trainer_id),
-      client: safeName(session.client_id),
-      location: session.location ?? null,
-    }));
-
-  const approvals = SAMPLE_APPROVALS.filter((approval) =>
-    [approval.name, approval.email, approval.user_id]
-      .filter(Boolean)
-      .some((value) => String(value).toLowerCase().includes(query)),
-  )
-    .slice(0, 6)
-    .map((approval) => ({
-      id: approval.id,
-      name: approval.name ?? safeName(approval.user_id),
-      email: approval.email ?? null,
-      status: approval.status,
-    }));
-
-  return { users, sessions, approvals };
+export function getAdminUsersDashboardFallback(): AdminUsersDashboardData {
+  const { rows } = getSampleUsers({ page: 0, pageSize: 1000 });
+  const records: AdminUserRecord[] = rows.map((row) => ({
+    id: String(row.id),
+    name: row.name ?? null,
+    email: row.email ?? null,
+    role: row.role ?? null,
+    status: row.status ?? null,
+    approved: row.approved ?? null,
+    active: row.active ?? null,
+    createdAt: row.created_at ?? null,
+    lastLoginAt: row.last_login_at ?? null,
+    lastSeenAt: row.last_seen_at ?? null,
+    online: row.online ?? false,
+  }));
+  return buildAdminUsersDashboard(records, { supabase: false });
 }
