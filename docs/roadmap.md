@@ -44,6 +44,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Migrar o painel de logs do sistema para `.neo`, com métricas hero, linha temporal, distribuição e tabela alimentadas pela nova rota `/api/system/logs/dashboard`, utilitários `src/lib/system/logs/*` e fallback determinístico em `src/lib/fallback/system-logs.ts`.
 - [x] Reimaginar o painel de definições com métricas `.neo`, gráfico temporal e formulários integrados ligados ao Supabase (src/app/(app)/dashboard/settings/**/*, src/app/api/settings/dashboard/route.ts, src/lib/settings/*, src/lib/fallback/settings.ts).
 - [x] Migrar o painel de perfil para `.neo`, com métricas hero, timeline, destaques e formulários ligados ao Supabase (`src/app/(app)/dashboard/profile/**/*`, `/api/profile/dashboard`, `src/lib/profile/*`, `src/lib/fallback/profile.ts`).
+- [x] Migrar a biblioteca de exercícios administrativa para o tema `.neo`, com métricas analíticas, distribuições e gestão ligada ao Supabase (`src/app/(app)/dashboard/admin/exercises/**/*`, `/api/admin/exercises/dashboard`, `src/lib/admin/exercises/*`, `src/lib/fallback/admin-exercises.ts`).
 - [ ] Refinar as sidebars de PT/cliente com badges dinâmicos e entradas contextuais (quick actions, indicadores de progresso).
 - [ ] Definir padrão consistente para uso de rotas Next.js vs. cliente Supabase (tempo real) e aplicá-lo aos módulos de mensagens/notificações.
 - [ ] Optimizar consultas com índices e vistas materializadas (existe esboço, mas falta adopção generalizada).
