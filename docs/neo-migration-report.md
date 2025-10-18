@@ -6,7 +6,6 @@ Executámos `npm run neo:audit` para mapear utilitários ainda baseados em Tailw
 
 ## Componentes que ainda usam Tailwind utilitário
 
-- O fluxo de onboarding administrativo continua com utilitários legados (`src/app/(app)/dashboard/admin/onboarding/**`), embora o dashboard principal, approvals e roster já estejam totalmente em `.neo`.
 - Diversos editores administrativos (`src/components/plan/PlanEditor.tsx`, `src/components/packages/PackageEditor.tsx`) preservam tokens `rounded-*`, `gap-*` e responsividade utilitária.
 
 ## Dependências ainda baseadas em MUI
@@ -33,6 +32,7 @@ Executámos `npm run neo:audit` para mapear utilitários ainda baseados em Tailw
 ## Progresso recente
 
 - O painel de mensagens do cliente (`src/app/(app)/dashboard/messages/**/*`) passou a usar exclusivamente estruturas `.neo` (`neo-stack`, `neo-inline`, `neo-code`), eliminando espaçamentos utilitários e tokens Tailwind antigos.
+- O fluxo de onboarding administrativo (`src/app/(app)/dashboard/admin/onboarding/AdminOnboardingListClient.tsx`) abandonou MUI/DataGrid em favor do design system `.neo`, com métricas reais do Supabase, filtros declarativos e tabela acessível sem utilitários legados.
 - O atalho móvel (`src/components/common/MobileFAB.tsx`) ganhou estilos dedicados `.neo-fab`, com menu translúcido e botão temático responsivo.
 - O cabeçalho do treinador (`src/components/trainer/TrainerHeader.tsx`) foi reconstruído com o padrão `neo-app-header`, substituindo gradients Tailwind por tokens do tema e avatar com contorno Neo.
 - A agenda de PT (`src/app/(app)/dashboard/pt/schedule/TrainerScheduleClient.tsx`) recebeu uma revisão estrutural: filtros, métricas e tabela agora usam novos utilitários `.neo`, botões declarativos (`data-variant`) e feedbacks (`neo-spinner`, `neo-table-empty`).
