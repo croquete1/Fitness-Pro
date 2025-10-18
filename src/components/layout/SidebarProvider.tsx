@@ -24,6 +24,14 @@ export default function SidebarProvider({ children }: { children: React.ReactNod
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [peek, _setPeek] = React.useState(false);
 
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const stored = window.localStorage.getItem('fp:sidebar-collapsed');
+    if (stored === '1') {
+      setCollapsed(true);
+    }
+  }, []);
+
   const setPeek = React.useCallback((value: boolean) => {
     _setPeek(Boolean(value));
   }, []);
@@ -39,6 +47,11 @@ export default function SidebarProvider({ children }: { children: React.ReactNod
   const toggleCollapse = React.useCallback(() => {
     setCollapsed((prev) => !prev);
   }, []);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem('fp:sidebar-collapsed', collapsed ? '1' : '0');
+  }, [collapsed]);
 
   React.useEffect(() => {
     if (!collapsed || isMobile) {

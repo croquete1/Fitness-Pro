@@ -1,35 +1,56 @@
 'use client';
 
 import * as React from 'react';
-import type { AppRole } from '@/lib/roles';
-import { useColorMode } from '@/components/layout/ColorModeProvider';
-import Button from '@/components/ui/Button';
+import useSWR from 'swr';
 import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import {
+  AlertTriangle,
+  BellRing,
+  Laptop,
+  RefreshCw,
+  ShieldCheck,
+} from 'lucide-react';
+
+import PageHeader from '@/components/ui/PageHeader';
+import Alert from '@/components/ui/Alert';
+import Button from '@/components/ui/Button';
+import { useColorMode } from '@/components/layout/ColorModeProvider';
+import type { AppRole } from '@/lib/roles';
+import {
+  defaultAdminSettings,
+  defaultClientSettings,
+  defaultTrainerSettings,
   type AdminSettings,
   type ClientSettings,
   type NotificationPreferences,
   type ThemePreference,
   type TrainerSettings,
-  defaultAdminSettings,
-  defaultClientSettings,
-  defaultTrainerSettings,
-} from './settings.defaults';
+} from '@/lib/settings/defaults';
+import type {
+  SettingsActivity,
+  SettingsDashboardData,
+  SettingsDashboardResponse,
+  SettingsDevice,
+  SettingsModel,
+} from '@/lib/settings/types';
+
+const RANGE_OPTIONS = [
+  { value: '30', label: '30 dias' },
+  { value: '60', label: '60 dias' },
+  { value: '90', label: '90 dias' },
+] as const;
+
+type RangeValue = (typeof RANGE_OPTIONS)[number]['value'];
 
 type Status = { type: 'idle' | 'success' | 'error'; message?: string };
-
-export type SettingsModel = {
-  id: string;
-  role: AppRole;
-  name: string;
-  phone: string | null;
-  email: string;
-  language: string;
-  theme: ThemePreference;
-  notifications: NotificationPreferences;
-  adminPreferences?: AdminSettings;
-  trainerPreferences?: TrainerSettings;
-  clientPreferences?: ClientSettings;
-};
 
 type AccountState = { name: string; phone: string | null; email: string };
 
@@ -43,6 +64,10 @@ type RolePreferences =
   | { role: 'ADMIN'; value: AdminSettings }
   | { role: 'PT'; value: TrainerSettings }
   | { role: 'CLIENT'; value: ClientSettings };
+
+type DashboardResult = SettingsDashboardResponse & { ok: true };
+
+type DashboardFetcherError = Error & { status?: number };
 
 function SectionCard({ children }: { children: React.ReactNode }) {
   return <section className="neo-panel settings-section">{children}</section>;
@@ -121,7 +146,7 @@ function Select({
 }: {
   value: string;
   onChange: (value: string) => void;
-  options: { value: string; label: string }[];
+  options: ReadonlyArray<{ value: string; label: string }>;
   disabled?: boolean;
 }) {
   return (
@@ -152,6 +177,226 @@ function StatusMessage({ status }: { status: Status }) {
 
 function isEqualNotifications(a: NotificationPreferences, b: NotificationPreferences) {
   return a.email === b.email && a.push === b.push && a.sms === b.sms && a.summary === b.summary;
+}
+
+function formatRelativeLabel(value: string | null | undefined) {
+  if (!value) return '—';
+  try {
+    return new Intl.RelativeTimeFormat('pt-PT', { numeric: 'auto' }).format(
+      Math.round((new Date(value).getTime() - Date.now()) / 86_400_000),
+      'day',
+    );
+  } catch {
+    return '—';
+  }
+}
+
+const dashboardFetcher = async (url: string): Promise<DashboardResult> => {
+  const response = await fetch(url, { credentials: 'include' });
+  if (!response.ok) {
+    const message = (await response.text().catch(() => '')) || 'Não foi possível sincronizar as métricas.';
+    const error = new Error(message) as DashboardFetcherError;
+    error.status = response.status;
+    throw error;
+  }
+  const payload = (await response.json()) as SettingsDashboardResponse | { ok?: boolean; message?: string };
+  if (!payload || typeof payload !== 'object' || !('ok' in payload) || !payload.ok) {
+    const message = (payload as any)?.message ?? 'Não foi possível sincronizar as métricas.';
+    throw new Error(message);
+  }
+  return payload as DashboardResult;
+};
+
+function HeroMetricCard({ metric }: { metric: SettingsDashboardData['hero'][number] }) {
+  return (
+    <article className="settings-hero-card" data-tone={metric.trend?.direction ?? 'neutral'}>
+      <div className="settings-hero-card__body">
+        <p className="settings-hero-card__label">{metric.label}</p>
+        <p className="settings-hero-card__value">{metric.value}</p>
+        {metric.helper ? <p className="settings-hero-card__helper">{metric.helper}</p> : null}
+      </div>
+      {metric.trend ? (
+        <span className="settings-hero-card__trend" data-direction={metric.trend.direction}>
+          {metric.trend.label}
+        </span>
+      ) : null}
+    </article>
+  );
+}
+
+function HeroMetrics({ metrics }: { metrics: SettingsDashboardData['hero'] }) {
+  return (
+    <div className="settings-hero-grid">
+      {metrics.map((metric) => (
+        <HeroMetricCard key={metric.id} metric={metric} />
+      ))}
+    </div>
+  );
+}
+
+const chartTooltipFormatter = (value: number) => `${value} eventos`;
+
+function TimelineCard({
+  data,
+  loading,
+  rangeLabel,
+}: {
+  data: SettingsDashboardData['timeline'];
+  loading: boolean;
+  rangeLabel: string;
+}) {
+  return (
+    <section className="neo-panel settings-analytics-card settings-analytics-card--timeline">
+      <header className="settings-analytics-card__header">
+        <h2>Actividade de segurança</h2>
+        <span>{rangeLabel}</span>
+      </header>
+      <div className="settings-analytics-card__body settings-analytics-card__body--chart">
+        <ResponsiveContainer width="100%" height={260}>
+          <AreaChart data={data} margin={{ left: 0, right: 0, top: 12, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--neo-border-subtle)" />
+            <XAxis dataKey="label" stroke="var(--neo-text-muted)" fontSize={12} />
+            <YAxis stroke="var(--neo-text-muted)" fontSize={12} allowDecimals={false} />
+            <Tooltip formatter={chartTooltipFormatter} labelClassName="settings-chart-tooltip__label" />
+            <Area type="monotone" dataKey="logins" stackId="1" stroke="var(--neo-primary)" fill="var(--neo-primary-soft)" />
+            <Area type="monotone" dataKey="mfa" stackId="1" stroke="#7c3aed" fill="rgba(124,58,237,0.16)" />
+            <Area type="monotone" dataKey="recoveries" stackId="1" stroke="#0ea5e9" fill="rgba(14,165,233,0.16)" />
+            <Area type="monotone" dataKey="failures" stackId="2" stroke="#f97316" fill="rgba(249,115,22,0.16)" />
+          </AreaChart>
+        </ResponsiveContainer>
+        {loading ? <span className="settings-analytics-card__loading">A actualizar…</span> : null}
+      </div>
+    </section>
+  );
+}
+
+function HighlightsCard({
+  highlights,
+}: {
+  highlights: SettingsDashboardData['highlights'];
+}) {
+  if (!highlights.length) return null;
+  return (
+    <section className="neo-panel settings-analytics-card">
+      <header className="settings-analytics-card__header">
+        <h2>Recomendações</h2>
+        <span>Boas práticas de segurança</span>
+      </header>
+      <ul className="settings-highlights">
+        {highlights.map((highlight) => (
+          <li key={highlight.id} data-tone={highlight.tone}>
+            <div className="settings-highlight__icon">
+              {highlight.tone === 'success' ? <ShieldCheck size={18} /> : highlight.tone === 'warning' ? <AlertTriangle size={18} /> : <BellRing size={18} />}
+            </div>
+            <div>
+              <p className="settings-highlight__title">{highlight.title}</p>
+              <p className="settings-highlight__description">{highlight.description}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function NotificationsCard({
+  dashboard,
+}: {
+  dashboard: SettingsDashboardData;
+}) {
+  const { notifications } = dashboard;
+  return (
+    <section className="neo-panel settings-analytics-card">
+      <header className="settings-analytics-card__header">
+        <h2>Notificações</h2>
+        <span>{notifications.summary}</span>
+      </header>
+      <div className="settings-notifications">
+        <div className="settings-notifications__summary">
+          <p className="settings-notifications__digest">{notifications.digest.label}</p>
+          <p className="settings-notifications__schedule">{notifications.digest.schedule}</p>
+          {notifications.digest.helper ? (
+            <p className="settings-notifications__helper">{notifications.digest.helper}</p>
+          ) : null}
+          <p className="settings-notifications__deliverability">
+            Taxa de entrega:{' '}
+            <strong>
+              {new Intl.NumberFormat('pt-PT', { style: 'percent', minimumFractionDigits: 0, maximumFractionDigits: 1 }).format(
+                notifications.deliverability.successRate,
+              )}
+            </strong>
+            <span> · {notifications.deliverability.label}</span>
+          </p>
+        </div>
+        <div className="settings-notifications__channels">
+          {notifications.channels.map((channel) => (
+            <article key={channel.id} data-enabled={channel.enabled}>
+              <header>
+                <h3>{channel.label}</h3>
+                <span>{channel.enabled ? 'Activo' : 'Inactivo'}</span>
+              </header>
+              <p>{channel.description ?? '—'}</p>
+              <footer>
+                <span>Actualizado {formatRelativeLabel(channel.updatedAt)}</span>
+              </footer>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function DevicesCard({ devices }: { devices: SettingsDevice[] }) {
+  return (
+    <section className="neo-panel settings-analytics-card">
+      <header className="settings-analytics-card__header">
+        <h2>Dispositivos recentes</h2>
+        <span>{devices.length ? 'Sessões activas e revogadas' : 'Sem actividade detectada'}</span>
+      </header>
+      <div className="settings-devices">
+        {devices.length ? (
+          devices.map((device) => (
+            <article key={device.id} data-status={device.status} data-risk={device.risk}>
+              <div className="settings-devices__icon">
+                <Laptop size={18} />
+              </div>
+              <div className="settings-devices__meta">
+                <p className="settings-devices__name">{device.label}</p>
+                <p className="settings-devices__location">{device.location}</p>
+                <p className="settings-devices__time">{device.relative}</p>
+              </div>
+              <span className="settings-devices__status">{device.status === 'active' ? 'Activo' : 'Revogado'}</span>
+            </article>
+          ))
+        ) : (
+          <p className="settings-devices__empty">Ainda não temos dispositivos registados neste período.</p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function ActivityCard({ activity }: { activity: SettingsActivity[] }) {
+  return (
+    <section className="neo-panel settings-analytics-card">
+      <header className="settings-analytics-card__header">
+        <h2>Últimas acções</h2>
+        <span>{activity.length ? 'Eventos registados recentemente' : 'Sem eventos'}</span>
+      </header>
+      <ul className="settings-activity">
+        {activity.map((item) => (
+          <li key={item.id} data-tone={item.tone}>
+            <div>
+              <p className="settings-activity__title">{item.title}</p>
+              <p className="settings-activity__description">{item.description}</p>
+            </div>
+            <time className="settings-activity__time">{item.relative}</time>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
 }
 
 function AccountSettingsCard({
@@ -204,7 +449,7 @@ function AccountSettingsCard({
       <header className="settings-section__header">
         <h2 className="settings-section__title">Dados da conta</h2>
         <p className="settings-section__description">
-          Atualiza o nome visível e o contacto associado à tua conta.
+          Actualiza o nome visível e o contacto associado à tua conta.
         </p>
       </header>
 
@@ -215,9 +460,7 @@ function AccountSettingsCard({
         <Field label="Telefone" description="Utilizado para alertas críticos e suporte.">
           <TextInput
             value={form.phone ?? ''}
-            onChange={(value) =>
-              setForm((prev) => ({ ...prev, phone: value.trim().length ? value : null }))
-            }
+            onChange={(value) => setForm((prev) => ({ ...prev, phone: value.trim().length ? value : null }))}
             placeholder="(+351) 910 000 000"
           />
         </Field>
@@ -282,15 +525,15 @@ function CredentialsCard({
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         const reason = data?.error === 'INVALID_CURRENT_PASSWORD'
-          ? 'A palavra-passe atual está incorreta.'
-          : 'Não foi possível atualizar as credenciais.';
+          ? 'A palavra-passe actual está incorrecta.'
+          : 'Não foi possível actualizar as credenciais.';
         throw new Error(reason);
       }
       if (emailChanged) {
         onEmailChange(form.email.trim());
       }
       setForm({ email: form.email.trim(), currentPassword: '', newPassword: '', confirmPassword: '' });
-      setStatus({ type: 'success', message: 'Credenciais atualizadas com sucesso.' });
+      setStatus({ type: 'success', message: 'Credenciais actualizadas com sucesso.' });
     } catch (error) {
       setStatus({
         type: 'error',
@@ -306,7 +549,7 @@ function CredentialsCard({
       <header className="settings-section__header">
         <h2 className="settings-section__title">Credenciais</h2>
         <p className="settings-section__description">
-          Atualiza o email de acesso e define uma nova palavra-passe.
+          Actualiza o email de acesso e define uma nova palavra-passe.
         </p>
       </header>
 
@@ -314,7 +557,7 @@ function CredentialsCard({
         <Field label="Email de acesso">
           <TextInput type="email" value={form.email} onChange={(value) => setForm((prev) => ({ ...prev, email: value }))} />
         </Field>
-        <Field label="Palavra-passe atual" description="Necessária para definir uma nova palavra-passe.">
+        <Field label="Palavra-passe actual" description="Necessária para definir uma nova palavra-passe.">
           <TextInput
             type="password"
             value={form.currentPassword}
@@ -353,178 +596,7 @@ function CredentialsCard({
       <div className="settings-actions">
         <StatusMessage status={status} />
         <Button type="submit" variant="primary" disabled={disabled} loading={saving} loadingText="A guardar…">
-          {saving ? 'A guardar…' : 'Atualizar credenciais'}
-        </Button>
-      </div>
-    </form>
-  );
-}
-
-function PreferencesCard({
-  role,
-  initialPrefs,
-  rolePrefs,
-  onSaved,
-}: {
-  role: AppRole;
-  initialPrefs: PreferencesState;
-  rolePrefs: RolePreferences['value'];
-  onSaved: (prefs: PreferencesState, rolePrefs: RolePreferences['value']) => void;
-}) {
-  const { set: setColorMode } = useColorMode();
-  const [form, setForm] = React.useState<PreferencesState>(initialPrefs);
-  const [roleForm, setRoleForm] = React.useState<RolePreferences['value']>(rolePrefs);
-  const [status, setStatus] = React.useState<Status>({ type: 'idle' });
-  const [saving, setSaving] = React.useState(false);
-
-  React.useEffect(() => {
-    setForm(initialPrefs);
-  }, [
-    initialPrefs.language,
-    initialPrefs.theme,
-    initialPrefs.notifications.email,
-    initialPrefs.notifications.push,
-    initialPrefs.notifications.sms,
-    initialPrefs.notifications.summary,
-  ]);
-
-  React.useEffect(() => {
-    setRoleForm(rolePrefs);
-  }, [rolePrefs]);
-
-  const notificationsDirty = !isEqualNotifications(form.notifications, initialPrefs.notifications);
-  const dirty =
-    notificationsDirty ||
-    form.language !== initialPrefs.language ||
-    form.theme !== initialPrefs.theme ||
-    JSON.stringify(roleForm) !== JSON.stringify(rolePrefs);
-
-  async function onSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    if (!dirty || saving) return;
-    setSaving(true);
-    setStatus({ type: 'idle' });
-    try {
-      const res = await fetch('/api/me/settings/preferences', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          language: form.language,
-          theme: form.theme,
-          notifications: form.notifications,
-          roleSettings: roleForm,
-        }),
-      });
-      if (!res.ok) throw new Error('ERR');
-      onSaved(form, roleForm);
-      const resolvedMode =
-        form.theme === 'system'
-          ? defaultThemeFromSystem()
-          : (form.theme as Exclude<ThemePreference, 'system'>);
-      setColorMode(resolvedMode);
-      setStatus({ type: 'success', message: 'Preferências atualizadas.' });
-    } catch {
-      setStatus({ type: 'error', message: 'Não foi possível guardar as preferências.' });
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <form onSubmit={onSubmit} className="settings-form">
-      <header className="settings-section__header">
-        <h2 className="settings-section__title">Preferências</h2>
-        <p className="settings-section__description">
-          Ajusta idioma, notificações e definições específicas do teu papel.
-        </p>
-      </header>
-
-      <div className="settings-fields" data-columns="2">
-        <Field label="Idioma da interface">
-          <Select
-            value={form.language}
-            onChange={(value) => setForm((prev) => ({ ...prev, language: value }))}
-            options={[
-              { value: 'pt-PT', label: 'Português (Portugal)' },
-              { value: 'en-US', label: 'English (US)' },
-            ]}
-          />
-        </Field>
-        <Field label="Tema visual">
-          <Select
-            value={form.theme}
-            onChange={(value) => setForm((prev) => ({ ...prev, theme: value as ThemePreference }))}
-            options={[
-              { value: 'system', label: 'Automático (sistema)' },
-              { value: 'light', label: 'Claro' },
-              { value: 'dark', label: 'Escuro' },
-            ]}
-          />
-        </Field>
-      </div>
-
-      <div className="settings-subpanel">
-        <p className="settings-subpanel__title">Notificações gerais</p>
-        <div className="settings-toggle-grid">
-          <Checkbox
-            checked={form.notifications.email}
-            onChange={(value) =>
-              setForm((prev) => ({
-                ...prev,
-                notifications: { ...prev.notifications, email: value },
-              }))
-            }
-            label="Receber emails sobre atividade relevante"
-          />
-          <Checkbox
-            checked={form.notifications.push}
-            onChange={(value) =>
-              setForm((prev) => ({
-                ...prev,
-                notifications: { ...prev.notifications, push: value },
-              }))
-            }
-            label="Ativar alertas na aplicação"
-          />
-          <Checkbox
-            checked={form.notifications.sms}
-            onChange={(value) =>
-              setForm((prev) => ({
-                ...prev,
-                notifications: { ...prev.notifications, sms: value },
-              }))
-            }
-            label="Receber SMS para eventos críticos"
-          />
-          <Field label="Resumo periódico">
-            <Select
-              value={form.notifications.summary}
-              onChange={(value) =>
-                setForm((prev) => ({
-                  ...prev,
-                  notifications: {
-                    ...prev.notifications,
-                    summary: value as NotificationPreferences['summary'],
-                  },
-                }))
-              }
-              options={[
-                { value: 'daily', label: 'Diário' },
-                { value: 'weekly', label: 'Semanal' },
-                { value: 'monthly', label: 'Mensal' },
-                { value: 'never', label: 'Nunca' },
-              ]}
-            />
-          </Field>
-        </div>
-      </div>
-
-      <RolePreferencesSection role={role} value={roleForm} onChange={setRoleForm} />
-
-      <div className="settings-actions">
-        <StatusMessage status={status} />
-        <Button type="submit" variant="primary" disabled={!dirty} loading={saving} loadingText="A guardar…">
-          Guardar preferências
+          {saving ? 'A guardar…' : 'Actualizar credenciais'}
         </Button>
       </div>
     </form>
@@ -647,12 +719,171 @@ function RolePreferencesSection({
   );
 }
 
+function PreferencesCard({
+  role,
+  initialPrefs,
+  rolePrefs,
+  onSaved,
+}: {
+  role: AppRole;
+  initialPrefs: PreferencesState;
+  rolePrefs: RolePreferences['value'];
+  onSaved: (prefs: PreferencesState, rolePrefs: RolePreferences['value']) => void;
+}) {
+  const { set: setColorMode } = useColorMode();
+  const [form, setForm] = React.useState<PreferencesState>(initialPrefs);
+  const [roleForm, setRoleForm] = React.useState<RolePreferences['value']>(rolePrefs);
+  const [status, setStatus] = React.useState<Status>({ type: 'idle' });
+  const [saving, setSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    setForm(initialPrefs);
+  }, [
+    initialPrefs.language,
+    initialPrefs.theme,
+    initialPrefs.notifications.email,
+    initialPrefs.notifications.push,
+    initialPrefs.notifications.sms,
+    initialPrefs.notifications.summary,
+  ]);
+
+  React.useEffect(() => {
+    setRoleForm(rolePrefs);
+  }, [rolePrefs]);
+
+  const notificationsDirty = !isEqualNotifications(form.notifications, initialPrefs.notifications);
+  const dirty =
+    notificationsDirty ||
+    form.language !== initialPrefs.language ||
+    form.theme !== initialPrefs.theme ||
+    JSON.stringify(roleForm) !== JSON.stringify(rolePrefs);
+
+  async function onSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!dirty || saving) return;
+    setSaving(true);
+    setStatus({ type: 'idle' });
+    try {
+      const res = await fetch('/api/me/settings/preferences', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          language: form.language,
+          theme: form.theme,
+          notifications: form.notifications,
+          roleSettings: roleForm,
+        }),
+      });
+      if (!res.ok) throw new Error('ERR');
+      onSaved(form, roleForm);
+      const resolvedMode =
+        form.theme === 'system'
+          ? defaultThemeFromSystem()
+          : (form.theme as Exclude<ThemePreference, 'system'>);
+      setColorMode(resolvedMode);
+      setStatus({ type: 'success', message: 'Preferências actualizadas.' });
+    } catch {
+      setStatus({ type: 'error', message: 'Não foi possível guardar as preferências.' });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="settings-form">
+      <header className="settings-section__header">
+        <h2 className="settings-section__title">Preferências</h2>
+        <p className="settings-section__description">
+          Ajusta idioma, notificações e definições específicas do teu papel.
+        </p>
+      </header>
+
+      <div className="settings-fields" data-columns="2">
+        <Field label="Idioma">
+          <Select
+            value={form.language}
+            onChange={(value) => setForm((prev) => ({ ...prev, language: value }))}
+            options={[
+              { value: 'pt-PT', label: 'Português (Portugal)' },
+              { value: 'en-US', label: 'Inglês' },
+            ]}
+          />
+        </Field>
+        <Field label="Tema">
+          <Select
+            value={form.theme}
+            onChange={(value) => setForm((prev) => ({ ...prev, theme: value as ThemePreference }))}
+            options={[
+              { value: 'system', label: 'Automático' },
+              { value: 'light', label: 'Claro' },
+              { value: 'dark', label: 'Escuro' },
+            ]}
+          />
+        </Field>
+      </div>
+
+      <div className="settings-toggle-grid">
+        <Checkbox
+          checked={form.notifications.email}
+          onChange={(val) =>
+            setForm((prev) => ({ ...prev, notifications: { ...prev.notifications, email: val } }))
+          }
+          label="Receber alertas por email"
+        />
+        <Checkbox
+          checked={form.notifications.push}
+          onChange={(val) =>
+            setForm((prev) => ({ ...prev, notifications: { ...prev.notifications, push: val } }))
+          }
+          label="Notificações push"
+        />
+        <Checkbox
+          checked={form.notifications.sms}
+          onChange={(val) =>
+            setForm((prev) => ({ ...prev, notifications: { ...prev.notifications, sms: val } }))
+          }
+          label="Alertas via SMS"
+        />
+        <Field label="Resumo semanal">
+          <Select
+            value={form.notifications.summary}
+            onChange={(val) =>
+              setForm((prev) => ({ ...prev, notifications: { ...prev.notifications, summary: val as NotificationPreferences['summary'] } }))
+            }
+            options={[
+              { value: 'daily', label: 'Diário' },
+              { value: 'weekly', label: 'Semanal' },
+              { value: 'monthly', label: 'Mensal' },
+              { value: 'never', label: 'Desactivar' },
+            ]}
+          />
+        </Field>
+      </div>
+
+      <RolePreferencesSection role={role} value={roleForm} onChange={setRoleForm} />
+
+      <div className="settings-actions">
+        <StatusMessage status={status} />
+        <Button type="submit" variant="primary" disabled={!dirty} loading={saving} loadingText="A guardar…">
+          Guardar preferências
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 function defaultThemeFromSystem(): Exclude<ThemePreference, 'system'> {
   if (typeof window === 'undefined') return 'light';
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
-export default function SettingsClient({ model }: { model: SettingsModel }) {
+export default function SettingsClient({
+  model,
+  initialDashboard,
+}: {
+  model: SettingsModel;
+  initialDashboard: SettingsDashboardResponse;
+}) {
   const [account, setAccount] = React.useState<AccountState>({
     name: model.name,
     phone: model.phone,
@@ -671,6 +902,7 @@ export default function SettingsClient({ model }: { model: SettingsModel }) {
   }, [model.role, model.adminPreferences, model.trainerPreferences, model.clientPreferences]);
 
   const [rolePrefs, setRolePrefs] = React.useState<RolePreferences['value']>(initialRolePrefs);
+  const [range, setRange] = React.useState<RangeValue>('30');
 
   React.useEffect(() => {
     setAccount({ name: model.name, phone: model.phone, email: model.email });
@@ -690,33 +922,98 @@ export default function SettingsClient({ model }: { model: SettingsModel }) {
     initialRolePrefs,
   ]);
 
+  const {
+    data: dashboard,
+    error,
+    isValidating,
+    mutate,
+  } = useSWR<DashboardResult>(`/api/settings/dashboard?range=${range}`, dashboardFetcher, {
+    fallbackData: initialDashboard,
+    revalidateOnFocus: false,
+    keepPreviousData: true,
+  });
+
+  const analytics = dashboard ?? initialDashboard;
+  const analyticsData: SettingsDashboardData = analytics;
+
+  const fallbackActive = analytics.source === 'fallback';
+
   return (
-    <div className="settings-view">
-      <SectionCard>
-        <AccountSettingsCard
-          account={account}
-          onSaved={(next) => setAccount(next)}
-        />
-      </SectionCard>
+    <div className="settings-dashboard neo-dashboard">
+      <PageHeader
+        title="Definições"
+        subtitle="Controla preferências da conta, métricas de segurança e canais de comunicação."
+        actions={
+          <div className="settings-header-actions">
+            <Select value={range} onChange={(value) => setRange(value as RangeValue)} options={RANGE_OPTIONS} />
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => mutate()}
+              loading={isValidating}
+              leftIcon={<RefreshCw size={16} />}
+              title="Actualizar métricas"
+            >
+              Actualizar
+            </Button>
+          </div>
+        }
+      />
 
-      <SectionCard>
-        <CredentialsCard
-          email={account.email}
-          onEmailChange={(value) => setAccount((prev) => ({ ...prev, email: value }))}
-        />
-      </SectionCard>
+      {error ? (
+        <div className="settings-error-banner">
+          <Alert tone="danger" title={error.message} />
+        </div>
+      ) : null}
+      {fallbackActive ? (
+        <div className="settings-fallback-banner">
+          <Alert tone="warning" title="A mostrar dados de referência">
+            Não foi possível ligar ao Supabase. Estás a ver métricas de demonstração.
+          </Alert>
+        </div>
+      ) : null}
 
-      <SectionCard>
-        <PreferencesCard
-          role={model.role}
-          initialPrefs={preferences}
-          rolePrefs={rolePrefs}
-          onSaved={(prefs, roleSpecific) => {
-            setPreferences(prefs);
-            setRolePrefs(roleSpecific);
-          }}
-        />
-      </SectionCard>
+      <section className="settings-hero">
+        <HeroMetrics metrics={analyticsData.hero} />
+      </section>
+
+      <div className="settings-dashboard__layout">
+        <section className="settings-dashboard__analytics">
+          <TimelineCard data={analyticsData.timeline} loading={isValidating} rangeLabel={analyticsData.rangeLabel} />
+          <HighlightsCard highlights={analyticsData.highlights} />
+          <NotificationsCard dashboard={analyticsData} />
+          <DevicesCard devices={analyticsData.devices} />
+          <ActivityCard activity={analyticsData.activity} />
+        </section>
+
+        <aside className="settings-dashboard__forms">
+          <SectionCard>
+            <AccountSettingsCard
+              account={account}
+              onSaved={(next) => setAccount(next)}
+            />
+          </SectionCard>
+
+          <SectionCard>
+            <CredentialsCard
+              email={account.email}
+              onEmailChange={(value) => setAccount((prev) => ({ ...prev, email: value }))}
+            />
+          </SectionCard>
+
+          <SectionCard>
+            <PreferencesCard
+              role={model.role}
+              initialPrefs={preferences}
+              rolePrefs={rolePrefs}
+              onSaved={(prefs, roleSpecific) => {
+                setPreferences(prefs);
+                setRolePrefs(roleSpecific);
+              }}
+            />
+          </SectionCard>
+        </aside>
+      </div>
     </div>
   );
 }
