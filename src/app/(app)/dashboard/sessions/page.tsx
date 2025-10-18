@@ -3,7 +3,8 @@ export const dynamic = 'force-dynamic';
 import { redirect } from 'next/navigation';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { createServerClient } from '@/lib/supabaseServer';
-import SessionsClient, { type ClientSession, type SessionRequest } from './SessionsClient';
+import SessionsClient from './SessionsClient';
+import type { ClientSession, SessionRequest } from '@/lib/sessions/types';
 
 export default async function ClientSessionsPage() {
   const session = await getSessionUserSafe();
@@ -24,6 +25,7 @@ export default async function ClientSessionsPage() {
     durationMin: row.duration_min ?? null,
     location: row.location ?? null,
     notes: row.notes ?? null,
+    trainerId: row.trainer?.id ?? null,
     trainerName: row.trainer?.name ?? null,
     trainerEmail: row.trainer?.email ?? null,
     status: row.status ?? null,
