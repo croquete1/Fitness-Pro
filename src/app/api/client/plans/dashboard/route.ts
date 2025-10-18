@@ -1,36 +1,37 @@
-export const dynamic = 'force-dynamic';
-
-import { redirect } from 'next/navigation';
+import { NextResponse } from 'next/server';
 import { getSessionUserSafe } from '@/lib/session-bridge';
-import { toAppRole } from '@/lib/roles';
-import { createServerClient } from '@/lib/supabaseServer';
-import PlansClient from './PlansClient';
-import { getClientPlansFallback } from '@/lib/fallback/plans';
+import { tryCreateServerClient } from '@/lib/supabaseServer';
 import { buildClientPlansDashboard } from '@/lib/plans/dashboard';
+import { getClientPlansFallback } from '@/lib/fallback/plans';
 import type { ClientPlan } from '@/lib/plans/types';
 
-export default async function ClientPlansPage() {
-  const sessionUser = await getSessionUserSafe();
-  if (!sessionUser?.user?.id) redirect('/login');
+export async function GET() {
+  const session = await getSessionUserSafe();
+  const uid = session?.user?.id;
+  if (!uid) {
+    return NextResponse.json({ ok: false, message: 'Sessão inválida.' }, { status: 401 });
+  }
 
-  const role = toAppRole(sessionUser.user.role) ?? 'CLIENT';
-  if (role !== 'CLIENT' && role !== 'ADMIN') redirect('/dashboard');
+  const sb = tryCreateServerClient();
+  if (!sb) {
+    const fallback = getClientPlansFallback();
+    return NextResponse.json({ ok: true, ...fallback, source: 'fallback' as const });
+  }
 
-  const sb = createServerClient();
   const { data, error } = await sb
     .from('training_plans')
     .select(
       `id,title,status,created_at,updated_at,start_date,end_date,trainer_id,
       trainer:users!training_plans_trainer_id_fkey(id,name,email)`,
     )
-    .eq('client_id', sessionUser.user.id)
+    .eq('client_id', uid)
     .order('updated_at', { ascending: false })
     .order('created_at', { ascending: false });
 
   if (error) {
-    console.error('[client-plans] falha ao carregar planos', error);
+    console.error('[client-plans] erro ao refrescar planos', error);
     const fallback = getClientPlansFallback();
-    return <PlansClient initialData={fallback} />;
+    return NextResponse.json({ ok: true, ...fallback, source: 'fallback' as const });
   }
 
   const plans: ClientPlan[] = (data ?? []).map((plan: any) => ({
@@ -48,5 +49,5 @@ export default async function ClientPlansPage() {
 
   const dashboard = buildClientPlansDashboard(plans, { supabase: true });
 
-  return <PlansClient initialData={dashboard} />;
+  return NextResponse.json({ ok: true, ...dashboard, source: 'supabase' as const });
 }

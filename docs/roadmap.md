@@ -33,11 +33,14 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 ## Fase 2 - Melhorias Estruturais
 - [ ] Validar carregamento real da lista de utilizadores/aprovações no Supabase (remoção dos fallbacks quando a API estiver estável e seeds completos).
 - [ ] Harmonizar o toggle de tema (cookies + localStorage) para eliminar flashes e estados mistos no login.
-- [ ] Migrar toda a consola administrativa para o design system `.neo`, consolidando tabelas, filtros e quick actions (aprovações, notificações e roster já convertidos).
+- [ ] Migrar toda a consola administrativa para o design system `.neo`, consolidando tabelas, filtros e quick actions (aprovações, centro de notificações do utilizador, onboarding, histórico, roster e agora a gestão de utilizadores em `/dashboard/users` já convertidos).
+- [x] Recriar o painel de métricas do cliente no tema `.neo`, com integração Supabase, filtros temporais e gráficos interactivos (src/app/(app)/dashboard/clients/metrics/**/*).
+- [x] Reimaginar o módulo de sessões do cliente no tema `.neo`, com métricas, timeline, ranking de PT e gestão de pedidos ligada ao Supabase (src/app/(app)/dashboard/sessions/**/*).
+- [x] Reestruturar o painel de planos do cliente no tema `.neo`, com métricas reais, gráfico temporal, insights automáticos e fallback sincronizado com o Supabase (src/app/(app)/dashboard/plans/**/*, src/app/api/client/plans/dashboard/route.ts).
 - [ ] Refinar as sidebars de PT/cliente com badges dinâmicos e entradas contextuais (quick actions, indicadores de progresso).
 - [ ] Definir padrão consistente para uso de rotas Next.js vs. cliente Supabase (tempo real) e aplicá-lo aos módulos de mensagens/notificações.
 - [ ] Optimizar consultas com índices e vistas materializadas (existe esboço, mas falta adopção generalizada).
-- [ ] Polir UX/UI das páginas em construção (Relatórios, Biblioteca, Definições) garantindo responsividade total.
+- [ ] Polir UX/UI das páginas em construção (Relatórios já no tema `.neo` com métricas reais; resta Biblioteca e Definições) garantindo responsividade total.
 - [ ] Harmonizar o design dos dashboards (admin, PT e cliente) com a linguagem visual HMS, validando breakpoints mobile/desktop.
 - [ ] Completar o fluxo operacional do PT (clientes, planos, agenda e biblioteca) com dados reais e interacções consistentes.
 - [ ] Documentar configuração e variáveis de ambiente actualizadas após migração para Supabase.
@@ -46,8 +49,8 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [ ] Introduzir testes automatizados (unitários/integrados) para ACL, logs e operações críticas.
 
 ## Fase 3 - Funcionalidades Futuras
-- [ ] Finalizar módulo de facturação/pagamentos (ligar UI a dados reais e/ou integração com gateway).
-- [ ] Implementar relatórios avançados (financeiros, progresso do cliente, desempenho de PTs).
+- [x] Finalizar módulo de facturação/pagamentos (UI `.neo` ligada à tabela `billing_invoices`, API `/api/billing/dashboard` e fallbacks determinísticos prontos para integração com gateway).
+- [ ] Implementar relatórios avançados (financeiros, progresso do cliente, desempenho de PTs) — visão inicial entregue com métricas reais e ranking de treinadores; expandir para previsões e benchmarking.
 - [ ] Evoluir sistema de mensagens/notificações para suporte a envio em tempo real e threads.
 - [ ] Completar gestão da biblioteca de exercícios com CRUD e selector avançado.
 - [ ] Introduzir um planeador de sessões/agenda com sincronização externa (Google/Apple) e insights de disponibilidade.
