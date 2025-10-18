@@ -6,7 +6,7 @@ Executámos `npm run neo:audit` para mapear utilitários ainda baseados em Tailw
 
 ## Componentes que ainda usam Tailwind utilitário
 
-- O módulo massivo do dashboard administrativo continua a concentrar grande parte dos utilitários legados (`src/app/(app)/dashboard/admin/**`).
+- Os fluxos administrativos de gestão (approvals, roster, onboarding) continuam com utilitários legados (`src/app/(app)/dashboard/admin/**`), embora o dashboard principal já esteja totalmente em `.neo`.
 - Diversos editores administrativos (`src/components/plan/PlanEditor.tsx`, `src/components/packages/PackageEditor.tsx`) preservam tokens `rounded-*`, `gap-*` e responsividade utilitária.
 
 ## Dependências ainda baseadas em MUI
@@ -18,7 +18,6 @@ Executámos `npm run neo:audit` para mapear utilitários ainda baseados em Tailw
 ## Funcionalidades com dados mock ou TODOs
 
 - As rotas críticas de perfil de cliente (`/api/users/[id]/notes|packages|anthropometry|sessions|plans`) foram ligadas ao Supabase com validação de permissões, eliminando o `_memdb` em memória. 【F:src/app/api/users/[id]/notes/route.ts†L1-L112】【F:src/app/api/users/[id]/packages/route.ts†L1-L87】【F:src/app/api/users/[id]/anthropometry/route.ts†L1-L146】【F:src/app/api/users/[id]/sessions/route.ts†L1-L141】【F:src/app/api/users/[id]/plans/route.ts†L1-L55】
-- Endpoints como `src/app/api/dashboard/stats/route.ts` permanecem com `// TODO: busca real no DB` e devolvem cartões com classes Tailwind. 【F:src/app/api/stats/route.ts†L1-L12】
 - Continuam por migrar os módulos administrativos que usam dados simulados ou caches locais, especialmente na listagem de aprovações e histórico de planos.
 
 ## Gargalos de performance percebida
@@ -38,6 +37,9 @@ Executámos `npm run neo:audit` para mapear utilitários ainda baseados em Tailw
 - O cabeçalho do treinador (`src/components/trainer/TrainerHeader.tsx`) foi reconstruído com o padrão `neo-app-header`, substituindo gradients Tailwind por tokens do tema e avatar com contorno Neo.
 - A agenda de PT (`src/app/(app)/dashboard/pt/schedule/TrainerScheduleClient.tsx`) recebeu uma revisão estrutural: filtros, métricas e tabela agora usam novos utilitários `.neo`, botões declarativos (`data-variant`) e feedbacks (`neo-spinner`, `neo-table-empty`).
 - O painel de relatórios operacionais (`src/app/(app)/dashboard/reports/ReportsDashboardClient.tsx`) foi migrado para estruturas `.neo`, introduzindo filtros colados, métricas temáticas e estados vazios consistentes sem qualquer utilitário Tailwind.
+- O centro de operações administrativo (`src/app/(app)/dashboard/admin/AdminDashboardClient.tsx`) passou a usar apenas padrões `.neo`, com métricas, agenda e listagens reconstruídas sem utilitários Tailwind e botões alinhados aos `data-variant` do tema.
+- Os cartões auxiliares do painel admin (`src/components/admin/MotivationAdminCard.tsx`, `src/components/admin/AdminQuickNotesCard.tsx`) foram actualizados para layouts `.neo`, abandonando `flex` utilitário e classes de espaçamento.
+- A rota `/api/stats` liga-se agora ao Supabase para gerar contagens reais (utilizadores recentes, pacotes activos, sessões futuras e notas) e devolve tons temáticos em vez de classes Tailwind. 【F:src/app/api/stats/route.ts†L1-L75】
 - O perfil detalhado do cliente (`src/app/(app)/dashboard/users/[id]/profile.client.tsx`) foi reescrito sem MUI, adoptando cards, métricas e formulários `.neo` com estados acessíveis e botões partilhados.
 - Implementámos tabelas reais no Supabase para pacotes e notas de clientes (`supabase/migrations/20250328_add_client_notes_and_packages.sql`), permitindo que o front-end consuma dados vivos e remova mocks legados.
 

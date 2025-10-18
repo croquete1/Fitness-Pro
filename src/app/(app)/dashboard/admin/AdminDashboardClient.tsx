@@ -121,19 +121,19 @@ function QuickMetricCard({ label, value, hint, href, tone = 'info', icon }: Quic
   const formattedValue = formatter.format(value);
 
   const content = (
-    <div className="flex h-full flex-col justify-between gap-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="space-y-2">
-          <span className="neo-surface__hint uppercase tracking-wide text-xs">{label}</span>
-          <span className="neo-surface__value text-2xl font-semibold text-fg">{formattedValue}</span>
-          {hint && <p className="text-xs text-muted">{hint}</p>}
+    <div className="admin-quick-metric__layout">
+      <div className="admin-quick-metric__header">
+        <div className="admin-quick-metric__meta">
+          <span className="admin-quick-metric__label">{label}</span>
+          <span className="admin-quick-metric__value">{formattedValue}</span>
+          {hint && <p className="admin-quick-metric__hint">{hint}</p>}
         </div>
-        <span className="rounded-full bg-white/60 p-2 text-primary shadow-sm ring-1 ring-inset ring-white/60 dark:bg-slate-900/60 dark:text-primary dark:ring-slate-700/60">
+        <span className="admin-quick-metric__icon" aria-hidden>
           {icon}
         </span>
       </div>
-      <span className="link-arrow mt-auto inline-flex items-center gap-1 text-sm font-medium">
-        Abrir <ArrowUpRight className="h-4 w-4" aria-hidden />
+      <span className="link-arrow admin-quick-metric__cta">
+        Abrir <ArrowUpRight className="neo-icon neo-icon--sm" aria-hidden />
       </span>
     </div>
   );
@@ -142,8 +142,8 @@ function QuickMetricCard({ label, value, hint, href, tone = 'info', icon }: Quic
     <Link
       href={href}
       prefetch={false}
-      className="neo-surface neo-surface--interactive h-full rounded-3xl p-5"
-      data-variant={tone}
+      className="neo-surface neo-surface--interactive admin-quick-metric"
+      data-tone={tone}
       aria-label={`${label} – abrir detalhes`}
     >
       {content}
@@ -153,13 +153,13 @@ function QuickMetricCard({ label, value, hint, href, tone = 'info', icon }: Quic
 
 function PulseMetricCard({ label, value, hint, tone = 'warn' }: PulseMetric) {
   return (
-    <div className="neo-surface rounded-2xl border border-white/20 bg-white/60 p-4 text-sm shadow-sm backdrop-blur-sm dark:border-slate-800/60 dark:bg-slate-900/40">
-      <div className="flex items-center justify-between gap-2">
-        <span className="uppercase tracking-[0.24em] text-[11px] text-muted">{label}</span>
+    <div className="admin-pulse-card">
+      <div className="admin-pulse-card__header">
+        <span className="admin-pulse-card__label">{label}</span>
         <StatusPill tone={tone}>{tone === 'ok' ? 'Saudável' : tone === 'warn' ? 'Atenção' : 'Revê'}</StatusPill>
       </div>
-      <p className="mt-3 text-2xl font-semibold text-fg">{value}</p>
-      {hint && <p className="mt-2 text-xs text-muted">{hint}</p>}
+      <p className="admin-pulse-card__value">{value}</p>
+      {hint && <p className="admin-pulse-card__hint">{hint}</p>}
     </div>
   );
 }
@@ -183,7 +183,7 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
       hint: `${data.totals.clients} clientes · ${data.totals.trainers} Personal Trainers`,
       href: '/dashboard/admin/users',
       tone: 'primary',
-      icon: <Users className="h-4 w-4" aria-hidden />,
+      icon: <Users className="neo-icon neo-icon--sm" aria-hidden />,
     },
     {
       label: 'Sessões hoje',
@@ -191,7 +191,7 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
       hint: 'próximas 24h',
       href: '/dashboard/admin/pts-schedule',
       tone: 'accent',
-      icon: <CalendarCheck className="h-4 w-4" aria-hidden />,
+      icon: <CalendarCheck className="neo-icon neo-icon--sm" aria-hidden />,
     },
     {
       label: 'Aprovações pendentes',
@@ -199,7 +199,7 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
       hint: 'aguardam revisão',
       href: '/dashboard/admin/approvals',
       tone: 'warning',
-      icon: <UserCheck className="h-4 w-4" aria-hidden />,
+      icon: <UserCheck className="neo-icon neo-icon--sm" aria-hidden />,
     },
     {
       label: 'Novos registos',
@@ -207,7 +207,7 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
       hint: 'últimos dias',
       href: '/dashboard/admin/users?filter=recent',
       tone: 'success',
-      icon: <UserPlus className="h-4 w-4" aria-hidden />,
+      icon: <UserPlus className="neo-icon neo-icon--sm" aria-hidden />,
     },
   ];
 
@@ -246,12 +246,12 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
   const agendaRows = React.useMemo(() => data.agenda.slice(0, 6), [data.agenda]);
 
   return (
-    <div className="space-y-10 pb-16">
+    <div className="admin-dashboard">
       <PageHeader
         title={
-          <div className="flex flex-col gap-3">
-            <span className="caps-tag text-xs tracking-[0.32em] text-muted">Centro de operações</span>
-            <span className="text-3xl font-semibold text-fg">
+          <div className="admin-dashboard__headline">
+            <span className="caps-tag">Centro de operações</span>
+            <span className="admin-dashboard__title">
               {greeting.emoji} {greeting.label}, {name || 'Admin'}!
             </span>
           </div>
@@ -262,11 +262,23 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
             : 'O Supabase não está configurado neste ambiente — utilizamos dados de exemplo para não interromper o fluxo.'
         }
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <Link href="/dashboard/system" className="btn ghost" prefetch={false}>
+          <div className="admin-dashboard__actions">
+            <Link
+              href="/dashboard/system"
+              className="btn"
+              data-variant="ghost"
+              data-size="md"
+              prefetch={false}
+            >
               Monitorização
             </Link>
-            <Link href="/dashboard/admin/approvals" className="btn primary" prefetch={false}>
+            <Link
+              href="/dashboard/admin/approvals"
+              className="btn"
+              data-variant="primary"
+              data-size="md"
+              prefetch={false}
+            >
               Aprovações
             </Link>
           </div>
@@ -275,17 +287,17 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
 
       <section className="admin-hero">
         <div className="admin-hero__header">
-          <div className="flex flex-wrap items-center gap-2 text-sm">
+          <div className="admin-dashboard__status">
             <StatusPill tone={supabase ? 'ok' : 'warn'}>
               {supabase ? 'Live Supabase' : 'Modo amostra'}
             </StatusPill>
-            <span className="text-sm/6 opacity-80">
+            <span className="admin-dashboard__status-note">
               {supabase
                 ? 'Actualizado em tempo real — dados de produção visíveis apenas a partir deste ambiente.'
                 : 'Dados fictícios para acelerar o design e QA sem dependências externas.'}
             </span>
           </div>
-          <p className="text-base text-white/90 dark:text-slate-200">
+          <p className="admin-dashboard__hero-text">
             Mantém o controlo da operação: valida novos utilizadores, acompanha os Personal Trainers e garante que cada cliente
             recebe acompanhamento humano com atenção permanente.
           </p>
@@ -297,55 +309,51 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
         </div>
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-[1.35fr_1fr]">
-        <div className="grid gap-6">
-          <div className="grid gap-4 md:grid-cols-2">
+      <section className="admin-dashboard__layout">
+        <div className="admin-dashboard__column">
+          <div className="admin-dashboard__pulse-grid">
             {pulse.map((metric) => (
               <PulseMetricCard key={metric.label} {...metric} />
             ))}
           </div>
 
-          <div className="neo-panel space-y-4">
-            <header className="flex flex-wrap items-center justify-between gap-3">
+          <div className="neo-panel admin-panel">
+            <header className="neo-panel__header admin-panel__header">
               <div>
-                <h2 className="neo-panel__title flex items-center gap-2 text-lg">
-                  <CalendarDays className="h-5 w-5 text-primary" aria-hidden /> Próximas sessões
+                <h2 className="neo-panel__title admin-panel__title">
+                  <CalendarDays className="neo-icon" aria-hidden /> Próximas sessões
                 </h2>
                 <p className="neo-panel__subtitle">
                   {supabase ? 'Agenda sincronizada com Supabase' : 'Agenda simulada para ambientes locais'}
                 </p>
               </div>
-              <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary dark:bg-primary/15">
+              <span className="admin-panel__badge" data-variant="primary">
                 {agendaRows.length}
               </span>
             </header>
             {agendaRows.length === 0 ? (
-              <div className="neo-surface rounded-2xl border border-dashed border-white/40 bg-white/40 p-6 text-sm text-muted backdrop-blur-sm dark:border-slate-700/60 dark:bg-slate-900/30">
+              <div className="admin-panel__empty">
                 Não existem sessões marcadas. Agenda uma nova sessão para manter os clientes activos e a operação em ritmo.
               </div>
             ) : (
-              <ul className="space-y-3">
+              <ul className="admin-agenda__list">
                 {agendaRows.map((session) => {
                   const { day, time } = formatAgendaTime(session);
                   return (
-                    <li
-                      key={session.id}
-                      className="neo-surface flex flex-col gap-3 rounded-2xl p-4 sm:flex-row sm:items-center sm:justify-between"
-                      data-variant="neutral"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="rounded-2xl bg-primary/15 px-3 py-2 text-center text-primary dark:bg-primary/20">
-                          <p className="text-xs font-medium uppercase tracking-widest">{day}</p>
-                          <p className="text-base font-semibold text-fg">{time}</p>
+                    <li key={session.id} className="neo-surface admin-agenda__item" data-variant="neutral">
+                      <div className="admin-agenda__row">
+                        <div className="admin-agenda__slot">
+                          <p className="admin-agenda__slot-day">{day}</p>
+                          <p className="admin-agenda__slot-time">{time}</p>
                         </div>
-                        <div className="space-y-2">
-                          <p className="text-sm font-semibold text-fg">{session.client_name}</p>
-                          <div className="flex flex-wrap items-center gap-3 text-xs text-muted">
-                            <span className="inline-flex items-center gap-1">
-                              <Activity className="h-3.5 w-3.5" aria-hidden /> PT: {session.trainer_name}
+                        <div className="admin-agenda__details">
+                          <p className="admin-agenda__client">{session.client_name}</p>
+                          <div className="admin-agenda__meta">
+                            <span className="admin-agenda__meta-item">
+                              <Activity className="neo-icon neo-icon--xs" aria-hidden /> PT: {session.trainer_name}
                             </span>
-                            <span className="inline-flex items-center gap-1">
-                              <MapPin className="h-3.5 w-3.5" aria-hidden />
+                            <span className="admin-agenda__meta-item">
+                              <MapPin className="neo-icon neo-icon--xs" aria-hidden />
                               {session.location ? session.location : 'Local a definir'}
                             </span>
                           </div>
@@ -354,9 +362,11 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
                       <Link
                         href={`/dashboard/admin/pts-schedule/${session.id}`}
                         prefetch={false}
-                        className="btn ghost flex items-center gap-2 text-sm"
+                        className="btn admin-agenda__link"
+                        data-variant="ghost"
+                        data-size="sm"
                       >
-                        Rever sessão <ArrowUpRight className="h-4 w-4" aria-hidden />
+                        Rever sessão <ArrowUpRight className="neo-icon neo-icon--sm" aria-hidden />
                       </Link>
                     </li>
                   );
@@ -366,45 +376,41 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
           </div>
         </div>
 
-        <div className="grid gap-6">
-          <div className="neo-panel space-y-4">
-            <header className="flex items-center justify-between gap-3">
+        <div className="admin-dashboard__column">
+          <div className="neo-panel admin-panel">
+            <header className="neo-panel__header admin-panel__header">
               <div>
-                <h2 className="neo-panel__title flex items-center gap-2 text-lg">
-                  <Sparkles className="h-5 w-5 text-accent" aria-hidden /> Trainers em destaque
+                <h2 className="neo-panel__title admin-panel__title">
+                  <Sparkles className="neo-icon" aria-hidden /> Trainers em destaque
                 </h2>
                 <p className="neo-panel__subtitle">Top sessões na última semana</p>
               </div>
-              <span className="rounded-full bg-accent/15 px-3 py-1 text-sm font-medium text-accent">
+              <span className="admin-panel__badge" data-variant="accent">
                 {data.topTrainers.length}
               </span>
             </header>
             {data.topTrainers.length === 0 ? (
-              <p className="text-sm text-muted">
+              <div className="admin-panel__empty">
                 Ainda não temos dados suficientes para destacar Personal Trainers. Assim que o Supabase estiver ligado, vais ver o
                 ranking em tempo real.
-              </p>
+              </div>
             ) : (
-              <ul className="space-y-3">
+              <ul className="admin-trainers__list">
                 {data.topTrainers.map((trainer) => (
-                  <li
-                    key={trainer.id}
-                    className="neo-surface flex items-center gap-3 rounded-2xl p-4"
-                    data-variant="neutral"
-                  >
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/15 text-sm font-semibold text-accent">
-                      {initials(trainer.name)}
-                    </span>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-fg">{trainer.name}</p>
-                      <p className="text-xs text-muted">Sessões: {trainer.total}</p>
+                  <li key={trainer.id} className="neo-surface admin-trainers__item" data-variant="neutral">
+                    <span className="admin-trainers__avatar">{initials(trainer.name)}</span>
+                    <div className="admin-trainers__body">
+                      <p className="admin-trainers__name">{trainer.name}</p>
+                      <p className="admin-trainers__info">Sessões: {trainer.total}</p>
                     </div>
                     <Link
                       href={`/dashboard/admin/roster/${trainer.id}`}
                       prefetch={false}
-                      className="btn ghost flex items-center gap-2 text-xs"
+                      className="btn admin-trainers__action"
+                      data-variant="ghost"
+                      data-size="sm"
                     >
-                      Abrir perfil <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
+                      Abrir perfil <ArrowUpRight className="neo-icon neo-icon--xs" aria-hidden />
                     </Link>
                   </li>
                 ))}
@@ -412,38 +418,32 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
             )}
           </div>
 
-          <div className="neo-panel space-y-4">
-            <header className="flex items-center justify-between gap-3">
+          <div className="neo-panel admin-panel">
+            <header className="neo-panel__header admin-panel__header">
               <div>
-                <h2 className="neo-panel__title flex items-center gap-2 text-lg">
-                  <Users className="h-5 w-5 text-primary" aria-hidden /> Novos utilizadores
+                <h2 className="neo-panel__title admin-panel__title">
+                  <Users className="neo-icon" aria-hidden /> Novos utilizadores
                 </h2>
                 <p className="neo-panel__subtitle">Últimas entradas</p>
               </div>
-              <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary dark:bg-primary/15">
+              <span className="admin-panel__badge" data-variant="primary">
                 {data.recentUsers.length}
               </span>
             </header>
             {data.recentUsers.length === 0 ? (
-              <p className="text-sm text-muted">
+              <div className="admin-panel__empty">
                 Ainda não existem registos recentes. Assim que os convites forem enviados, vais ver aqui a actividade contínua.
-              </p>
+              </div>
             ) : (
-              <ul className="space-y-3">
+              <ul className="admin-users__list">
                 {data.recentUsers.map((user) => (
-                  <li
-                    key={user.id}
-                    className="neo-surface flex items-center gap-3 rounded-2xl p-4"
-                    data-variant="neutral"
-                  >
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary dark:bg-primary/25">
-                      {initials(user.name)}
-                    </span>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-fg">{user.name}</p>
-                      <p className="text-xs text-muted">{user.email ?? 'sem email registado'}</p>
+                  <li key={user.id} className="neo-surface admin-users__item" data-variant="neutral">
+                    <span className="admin-users__avatar">{initials(user.name)}</span>
+                    <div className="admin-users__body">
+                      <p className="admin-users__name">{user.name}</p>
+                      <p className="admin-users__info">{user.email ?? 'sem email registado'}</p>
                     </div>
-                    <span className="text-xs text-muted">{formatRelative(user.createdAt)}</span>
+                    <span className="admin-users__time">{formatRelative(user.createdAt)}</span>
                   </li>
                 ))}
               </ul>
@@ -452,7 +452,7 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
         </div>
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-2">
+      <section className="admin-dashboard__layout">
         <MotivationAdminCard />
         <AdminQuickNotesCard />
       </section>
