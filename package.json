@@ -20,6 +20,7 @@
     "find:supabase-browser": "rg -n \"createBrowserClient|supabaseBrowser\\(\" src || true",
     "find:tables": "rg -n \"plan_day_items|plan_day_exercises\" src || true",
     "doctor:mui": "npm ls @emotion/react @emotion/styled @emotion/cache @emotion/server @mui/material @mui/system @mui/utils @mui/styled-engine @mui/x-data-grid || echo ok",
+    "neo:audit": "node scripts/neo-theme-audit.mjs",
     "prepare": "husky",
     "test:e2e": "playwright test"
   },

@@ -411,10 +411,13 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
     void fetchRows();
   }, [fetchRows]);
 
+  const filtersLayoutGap = { '--neo-stack-gap': '20px' } as React.CSSProperties;
+  const footerGap = { '--neo-stack-gap': '14px' } as React.CSSProperties;
+
   return (
-    <div className="space-y-6">
-      <section className="neo-panel space-y-5" aria-labelledby="pt-schedule-heading">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="neo-stack neo-stack--xl">
+      <section className="neo-panel neo-stack neo-stack--xl" aria-labelledby="pt-schedule-heading">
+        <div className="neo-inline neo-inline--wrap neo-inline--between neo-inline--md">
           <div>
             <h2 id="pt-schedule-heading" className="neo-panel__title">
               Agenda do personal trainer
@@ -423,53 +426,57 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
               Orquestra sessões com um cockpit completo e mantém o ritmo dos teus atletas.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="neo-inline neo-inline--wrap neo-inline--sm">
             <StatusPill tone={statusState} label={statusMessage} />
             <button
               type="button"
-              className="btn ghost inline-flex items-center gap-2"
+              className="btn"
+              data-variant="ghost"
+              data-size="sm"
               onClick={() => void fetchRows()}
               disabled={loading}
             >
-              <RefreshIcon className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
-              Recarregar
+              <span className="btn__label">
+                <span className="btn__icon">
+                  <RefreshIcon className={loading ? 'neo-icon neo-icon--sm neo-spin' : 'neo-icon neo-icon--sm'} />
+                </span>
+                Recarregar
+              </span>
             </button>
           </div>
         </div>
 
-        <div className="neo-grid auto-fit min-[260px]:grid-cols-2 lg:grid-cols-4">
-          <article className="neo-surface space-y-2 p-4" data-variant="primary">
-            <span className="neo-surface__hint uppercase tracking-wide">Sessões hoje</span>
-            <span className="neo-surface__value text-2xl font-semibold text-fg">
+        <div className="neo-grid neo-grid--auto neo-grid--metrics-lg">
+          <article className="neo-surface neo-surface--padded neo-stack neo-stack--sm" data-variant="primary">
+            <span className="neo-surface__hint neo-text--uppercase">Sessões hoje</span>
+            <span className="neo-surface__value">
               {loadingCounts ? '…' : today ?? 0}
             </span>
-            <p className="text-xs text-muted">Número de sessões com início nas próximas 24 horas.</p>
+            <p className="neo-text--xs neo-text--muted">Número de sessões com início nas próximas 24 horas.</p>
           </article>
-          <article className="neo-surface space-y-2 p-4" data-variant="success">
-            <span className="neo-surface__hint uppercase tracking-wide">Próximos 7 dias</span>
-            <span className="neo-surface__value text-2xl font-semibold text-fg">
+          <article className="neo-surface neo-surface--padded neo-stack neo-stack--sm" data-variant="success">
+            <span className="neo-surface__hint neo-text--uppercase">Próximos 7 dias</span>
+            <span className="neo-surface__value">
               {loadingCounts ? '…' : next7 ?? 0}
             </span>
-            <p className="text-xs text-muted">Carga semanal para planear recuperações e treinos.</p>
+            <p className="neo-text--xs neo-text--muted">Carga semanal para planear recuperações e treinos.</p>
           </article>
-          <article className="neo-surface space-y-2 p-4" data-variant="info">
-            <span className="neo-surface__hint uppercase tracking-wide">Filtro actual</span>
-            <span className="neo-surface__value text-2xl font-semibold text-fg">
-              {status ? statusLabel(status) : 'Todos'}
-            </span>
-            <p className="text-xs text-muted">Amostra mostrada na tabela abaixo.</p>
+          <article className="neo-surface neo-surface--padded neo-stack neo-stack--sm" data-variant="info">
+            <span className="neo-surface__hint neo-text--uppercase">Filtro actual</span>
+            <span className="neo-surface__value">{status ? statusLabel(status) : 'Todos'}</span>
+            <p className="neo-text--xs neo-text--muted">Amostra mostrada na tabela abaixo.</p>
           </article>
-          <article className="neo-surface space-y-2 p-4" data-variant="warning">
-            <span className="neo-surface__hint uppercase tracking-wide">Registos sincronizados</span>
-            <span className="neo-surface__value text-2xl font-semibold text-fg">{count}</span>
-            <p className="text-xs text-muted">Somatório de sessões carregadas deste período.</p>
+          <article className="neo-surface neo-surface--padded neo-stack neo-stack--sm" data-variant="warning">
+            <span className="neo-surface__hint neo-text--uppercase">Registos sincronizados</span>
+            <span className="neo-surface__value">{count}</span>
+            <p className="neo-text--xs neo-text--muted">Somatório de sessões carregadas deste período.</p>
           </article>
         </div>
 
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div className="grid gap-3 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-center lg:gap-3">
-            <label className="grid gap-1 text-xs font-medium uppercase tracking-wide text-muted">
-              Estado
+        <div className="neo-stack-lg-row" style={filtersLayoutGap}>
+          <div className="neo-filters-grid">
+            <label className="neo-stack neo-stack--xs">
+              <span className="neo-text--xs neo-text--uppercase neo-text--muted neo-text--semibold">Estado</span>
               <select
                 className="neo-input"
                 value={status}
@@ -485,8 +492,8 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
                 ))}
               </select>
             </label>
-            <label className="grid gap-1 text-xs font-medium uppercase tracking-wide text-muted">
-              Pesquisa rápida
+            <label className="neo-stack neo-stack--xs">
+              <span className="neo-text--xs neo-text--uppercase neo-text--muted neo-text--semibold">Pesquisa rápida</span>
               <input
                 className="neo-input"
                 placeholder="Filtrar por cliente, local ou estado"
@@ -495,23 +502,38 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
               />
             </label>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button type="button" className="btn ghost inline-flex items-center gap-2" onClick={exportCSV}>
-              <DownloadIcon className="h-4 w-4" /> Exportar CSV
+          <div className="neo-inline neo-inline--wrap neo-inline--sm">
+            <button type="button" className="btn" data-variant="ghost" data-size="sm" onClick={exportCSV}>
+              <span className="btn__label">
+                <span className="btn__icon">
+                  <DownloadIcon className="neo-icon neo-icon--sm" />
+                </span>
+                Exportar CSV
+              </span>
             </button>
-            <button type="button" className="btn ghost inline-flex items-center gap-2" onClick={printList}>
-              <PrintIcon className="h-4 w-4" /> Imprimir
+            <button type="button" className="btn" data-variant="ghost" data-size="sm" onClick={printList}>
+              <span className="btn__label">
+                <span className="btn__icon">
+                  <PrintIcon className="neo-icon neo-icon--sm" />
+                </span>
+                Imprimir
+              </span>
             </button>
-            <button type="button" className="btn primary inline-flex items-center gap-2" onClick={() => setCreateOpen(true)}>
-              <PlusIcon className="h-4 w-4" /> Nova sessão
+            <button type="button" className="btn" data-variant="primary" onClick={() => setCreateOpen(true)}>
+              <span className="btn__label">
+                <span className="btn__icon">
+                  <PlusIcon className="neo-icon neo-icon--sm" />
+                </span>
+                Nova sessão
+              </span>
             </button>
           </div>
         </div>
       </section>
 
-      <section className="neo-panel space-y-4" aria-label="Tabela da agenda">
+      <section className="neo-panel neo-stack neo-stack--lg" aria-label="Tabela da agenda">
         {error && !loading && (
-          <div className="rounded-2xl border border-dashed border-red-300/70 bg-red-50/70 p-4 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
+          <div className="neo-alert" style={{ '--alert-color': 'var(--danger)' } as React.CSSProperties}>
             {error}
           </div>
         )}
@@ -524,7 +546,7 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
                 <th scope="col">Local</th>
                 <th scope="col">Estado</th>
                 <th scope="col">Notas</th>
-                <th scope="col" className="text-right">
+                <th scope="col" style={{ textAlign: 'right' }}>
                   Acções
                 </th>
               </tr>
@@ -533,9 +555,11 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
               {loading && filteredRows.length === 0 && (
                 <tr>
                   <td colSpan={6}>
-                    <div className="flex items-center justify-center gap-3 rounded-2xl border border-dashed border-white/50 bg-white/40 p-6 text-sm text-muted dark:border-slate-700/60 dark:bg-slate-900/40">
-                      <span className="h-3 w-3 animate-spin rounded-full border-[2.5px] border-transparent border-t-current" aria-hidden />
-                      A sincronizar agenda…
+                    <div className="neo-table-empty">
+                      <div className="neo-inline neo-inline--center neo-inline--sm neo-text--sm neo-text--muted">
+                        <span className="neo-spinner" aria-hidden />
+                        A sincronizar agenda…
+                      </div>
                     </div>
                   </td>
                 </tr>
@@ -543,7 +567,7 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
               {!loading && filteredRows.length === 0 && (
                 <tr>
                   <td colSpan={6}>
-                    <div className="rounded-2xl border border-dashed border-white/40 bg-white/30 p-6 text-center text-sm text-muted dark:border-slate-700/60 dark:bg-slate-900/30">
+                    <div className="neo-table-empty">
                       Nenhuma sessão corresponde aos filtros actuais. Ajusta o estado ou limpa a pesquisa para ver mais registos.
                     </div>
                   </td>
@@ -554,38 +578,43 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
                 return (
                   <tr key={row.id}>
                     <td>
-                      <div className="space-y-1">
-                        <span className="text-sm font-semibold text-fg">{slot.day}</span>
-                        <p className="text-xs text-muted">
+                      <div className="neo-stack neo-stack--xs">
+                        <span className="neo-text--sm neo-text--semibold text-fg">{slot.day}</span>
+                        <p className="neo-text--xs neo-text--muted">
                           {slot.start} → {slot.end}
                         </p>
-                        <span className="text-[11px] uppercase tracking-wide text-muted">{formatDateTime(row.start_time)}</span>
+                        <span className="neo-text--xs neo-text--uppercase neo-text--muted">{formatDateTime(row.start_time)}</span>
                       </div>
                     </td>
                     <td>
-                      <span className="text-sm font-medium text-fg">{row.client_id ?? '—'}</span>
+                      <span className="neo-text--sm neo-text--semibold text-fg">{row.client_id ?? '—'}</span>
                     </td>
                     <td>
-                      <span className="text-sm text-muted">{row.location ?? 'A definir'}</span>
+                      <span className="neo-text--sm neo-text--muted">{row.location ?? 'A definir'}</span>
                     </td>
                     <td>
                       <StatusPill tone={statusTone(row.status)} label={statusLabel(row.status ?? null)} />
                     </td>
                     <td>
-                      <span className="text-xs text-muted">{row.notes ?? '—'}</span>
+                      <span className="neo-text--xs neo-text--muted">{row.notes ?? '—'}</span>
                     </td>
-                    <td className="text-right">
-                      <div className="flex justify-end gap-2">
+                    <td style={{ textAlign: 'right' }}>
+                      <div className="neo-inline neo-inline--end neo-inline--sm">
                         <button
                           type="button"
-                          className="btn ghost text-xs"
+                          className="btn"
+                          data-variant="ghost"
+                          data-size="sm"
                           onClick={() => router.push(`/dashboard/pt/schedule/${row.id}`)}
                         >
                           Editar
                         </button>
                         <button
                           type="button"
-                          className="btn ghost text-xs text-danger"
+                          className="btn"
+                          data-variant="ghost"
+                          data-size="sm"
+                          style={{ color: 'var(--danger)' }}
                           onClick={() => void handleDelete(row.id)}
                           disabled={deletingId === row.id}
                         >
@@ -599,15 +628,15 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
             </tbody>
           </table>
         </div>
-        <div className="flex flex-col gap-3 border-t border-white/20 pt-4 text-sm text-muted dark:border-slate-700/60 md:flex-row md:items-center md:justify-between">
+        <div className="neo-panel__footer" style={footerGap}>
           <div>
             {count === 0 ? 'Sem registos' : `A mostrar ${filteredRows.length} registo(s) · ${rangeStart} – ${rangeEnd} de ${count}`}
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2 text-xs uppercase tracking-wide">
+          <div className="neo-inline neo-inline--wrap neo-inline--md">
+            <label className="neo-inline neo-inline--sm neo-text--xs neo-text--uppercase neo-text--muted">
               <span>Itens por página</span>
               <select
-                className="neo-input py-2 pl-3 pr-9 text-sm"
+                className="neo-input neo-input--compact neo-text--sm"
                 value={pagination.pageSize}
                 onChange={(event) =>
                   setPagination({ page: 0, pageSize: Number(event.target.value) || pageSize })
@@ -620,29 +649,33 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
                 ))}
               </select>
             </label>
-            <div className="flex items-center gap-2">
+            <div className="neo-inline neo-inline--sm neo-text--xs neo-text--uppercase neo-text--muted">
               <button
                 type="button"
-                className="btn icon"
+                className="btn neo-icon-btn"
+                data-variant="ghost"
+                data-size="sm"
                 onClick={() => setPagination((prev) => ({ ...prev, page: Math.max(0, currentPage - 1) }))}
                 disabled={currentPage === 0}
                 aria-label="Página anterior"
               >
-                <ChevronLeftIcon className="h-4 w-4" />
+                <ChevronLeftIcon className="neo-icon neo-icon--sm" />
               </button>
-              <span className="text-xs uppercase tracking-wide">
+              <span>
                 Página {currentPage + 1} de {totalPages}
               </span>
               <button
                 type="button"
-                className="btn icon"
+                className="btn neo-icon-btn"
+                data-variant="ghost"
+                data-size="sm"
                 onClick={() =>
                   setPagination((prev) => ({ ...prev, page: Math.min(totalPages - 1, currentPage + 1) }))
                 }
                 disabled={currentPage >= totalPages - 1}
                 aria-label="Próxima página"
               >
-                <ChevronRightIcon className="h-4 w-4" />
+                <ChevronRightIcon className="neo-icon neo-icon--sm" />
               </button>
             </div>
           </div>

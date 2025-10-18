@@ -30,12 +30,12 @@ export default function MarkToggle({ id, initialRead }: Props) {
 
   return (
     <button
+      type="button"
       onClick={onToggle}
       disabled={pending}
-      className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold border transition
-        ${read
-          ? 'border-slate-300/70 bg-white hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-800'
-          : 'border-emerald-300/60 bg-emerald-50/60 text-emerald-700 hover:bg-emerald-100/70 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200'}`}
+      className="neo-toggle-chip"
+      data-state={read ? 'on' : 'off'}
+      data-loading={pending}
       aria-pressed={read}
       title={read ? 'Marcar como não lida' : 'Marcar como lida'}
     >
