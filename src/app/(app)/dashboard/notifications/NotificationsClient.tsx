@@ -1,60 +1,143 @@
 "use client";
 
-import * as React from "react";
-import Link from "next/link";
-import Spinner from "@/components/ui/Spinner";
-import Modal from "@/components/ui/Modal";
-import Badge from "@/components/ui/Badge";
-import Button from "@/components/ui/Button";
+import * as React from 'react';
+import Link from 'next/link';
+import Spinner from '@/components/ui/Spinner';
+import Modal from '@/components/ui/Modal';
+import Button from '@/components/ui/Button';
+import { describeType } from '@/lib/notifications/dashboard';
+import type { NotificationDashboardData, NotificationRow } from '@/lib/notifications/types';
 
-export type Row = {
-  id: string;
-  title: string | null;
-  body?: string | null;
-  href?: string | null;
-  read: boolean;
-  created_at: string | null;
-};
+type StatusFilter = 'all' | 'unread' | 'read';
+type MarkEndpoint = 'mark-read' | 'mark-unread' | 'mark-all-read';
 
-type Props = { rows: Row[] };
+const STATUS_FILTERS: Array<{ value: StatusFilter; label: string }> = [
+  { value: 'all', label: 'Todas' },
+  { value: 'unread', label: 'Por ler' },
+  { value: 'read', label: 'Lidas' },
+];
 
-type StatusFilter = "all" | "unread" | "read";
+function formatNumber(value: number, options?: Intl.NumberFormatOptions) {
+  return new Intl.NumberFormat('pt-PT', options).format(value);
+}
 
-type MarkEndpoint = "mark-read" | "mark-unread" | "mark-all-read";
+function formatPercentage(value: number) {
+  return `${formatNumber(value, { maximumFractionDigits: 1, minimumFractionDigits: value % 1 === 0 ? 0 : 1 })}%`;
+}
 
-export default function NotificationsClient({ rows }: Props) {
-  const [data, setData] = React.useState<Row[]>(rows);
-  const [total, setTotal] = React.useState<number>(rows.length);
+function formatDateTime(value: string | null) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString('pt-PT', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function formatRelative(value: string | null) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  const now = new Date();
+  const diffMs = date.getTime() - now.getTime();
+  const rtf = new Intl.RelativeTimeFormat('pt-PT', { numeric: 'auto' });
+  const minutes = Math.round(diffMs / 60000);
+  const hours = Math.round(diffMs / 3600000);
+  const days = Math.round(diffMs / 86400000);
+  if (Math.abs(minutes) < 60) return rtf.format(minutes, 'minute');
+  if (Math.abs(hours) < 48) return rtf.format(hours, 'hour');
+  return rtf.format(days, 'day');
+}
+
+function formatDayLabel(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('pt-PT', { day: '2-digit', month: 'short' });
+}
+
+function computeMetricCards(metrics: NotificationDashboardData['metrics']) {
+  const unreadShare = metrics.total > 0 ? Math.round((metrics.unread / metrics.total) * 100) : 0;
+  return [
+    {
+      key: 'total',
+      label: 'Total entregues',
+      value: formatNumber(metrics.total),
+      hint: metrics.lastDeliveryAt ? `Última: ${formatRelative(metrics.lastDeliveryAt)}` : 'Sem envios',
+      variant: 'neutral' as const,
+    },
+    {
+      key: 'unread',
+      label: 'Por ler',
+      value: formatNumber(metrics.unread),
+      hint: `${unreadShare}% do total`,
+      variant: metrics.unread > 0 ? ('warning' as const) : ('success' as const),
+    },
+    {
+      key: 'delivered7d',
+      label: 'Envios (7d)',
+      value: formatNumber(metrics.delivered7d),
+      hint:
+        metrics.delivered7d > 0
+          ? `Leitura: ${formatPercentage(metrics.readRate7d)}`
+          : 'Sem envios nos últimos 7 dias',
+      delta: metrics.delivered7dDelta ?? null,
+      variant: 'primary' as const,
+    },
+    {
+      key: 'average',
+      label: 'Média diária (14d)',
+      value: formatNumber(metrics.averagePerDay14d, { maximumFractionDigits: 1 }),
+      hint: metrics.busiestHourLabel ? `Hora de pico: ${metrics.busiestHourLabel}` : 'Sem dados suficientes',
+      variant: 'teal' as const,
+    },
+  ];
+}
+
+type Props = NotificationDashboardData;
+
+export default function NotificationsClient({ initialRows, initialTotal, metrics }: Props) {
+  const [data, setData] = React.useState<NotificationRow[]>(initialRows);
+  const [total, setTotal] = React.useState<number>(initialTotal);
   const [loading, setLoading] = React.useState(false);
-  const [status, setStatus] = React.useState<StatusFilter>("all");
-  const [search, setSearch] = React.useState("");
+  const [status, setStatus] = React.useState<StatusFilter>('all');
+  const [typeFilter, setTypeFilter] = React.useState<string>('all');
+  const [search, setSearch] = React.useState('');
   const deferredSearch = React.useDeferredValue(search);
   const [page, setPage] = React.useState(0);
-  const [pageSize, setPageSize] = React.useState(10);
+  const [pageSize, setPageSize] = React.useState(25);
   const [selection, setSelection] = React.useState<Set<string>>(new Set());
-  const [current, setCurrent] = React.useState<Row | null>(null);
+  const [current, setCurrent] = React.useState<NotificationRow | null>(null);
   const [modalOpen, setModalOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    setData(initialRows);
+    setTotal(initialTotal);
+  }, [initialRows, initialTotal]);
 
   React.useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
     (async () => {
       try {
-        const url = new URL("/api/notifications/list", window.location.origin);
-        url.searchParams.set("status", status);
-        url.searchParams.set("page", String(page));
-        url.searchParams.set("pageSize", String(pageSize));
-        if (deferredSearch) url.searchParams.set("q", deferredSearch);
-        const response = await fetch(url.toString(), { cache: "no-store", signal: controller.signal });
+        const url = new URL('/api/notifications/list', window.location.origin);
+        url.searchParams.set('status', status);
+        url.searchParams.set('page', String(page));
+        url.searchParams.set('pageSize', String(pageSize));
+        if (typeFilter && typeFilter !== 'all') url.searchParams.set('type', typeFilter);
+        if (deferredSearch) url.searchParams.set('q', deferredSearch);
+        const response = await fetch(url.toString(), { cache: 'no-store', signal: controller.signal });
         if (!response.ok) throw new Error(`Erro ${response.status}`);
-        const json = await response.json();
+        const json = (await response.json()) as { items: NotificationRow[]; total: number };
         if (controller.signal.aborted) return;
         setData(json.items ?? []);
         setTotal(json.total ?? 0);
         setSelection(new Set());
       } catch (error) {
         if (controller.signal.aborted) return;
-        console.error(error);
+        console.error('[notifications] erro a carregar lista', error);
         setData([]);
         setTotal(0);
       } finally {
@@ -66,11 +149,11 @@ export default function NotificationsClient({ rows }: Props) {
     return () => {
       controller.abort();
     };
-  }, [status, page, pageSize, deferredSearch]);
+  }, [status, page, pageSize, typeFilter, deferredSearch]);
 
   React.useEffect(() => {
     setPage(0);
-  }, [status, deferredSearch, pageSize]);
+  }, [status, deferredSearch, pageSize, typeFilter]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -85,48 +168,48 @@ export default function NotificationsClient({ rows }: Props) {
 
   const mark = React.useCallback(
     async (endpoint: MarkEndpoint, ids?: string[]) => {
-      if (endpoint !== "mark-all-read" && (!ids || ids.length === 0)) {
+      if (endpoint !== 'mark-all-read' && (!ids || ids.length === 0)) {
         return;
       }
       try {
         await fetch(`/api/notifications/${endpoint}`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ ids }),
         });
         setData((prev) => {
-          if (endpoint === "mark-all-read") {
+          if (endpoint === 'mark-all-read') {
             return prev.map((row) => ({ ...row, read: true }));
           }
           return prev.map((row) => {
             if (!ids?.includes(row.id)) return row;
-            if (endpoint === "mark-read") return { ...row, read: true };
-            if (endpoint === "mark-unread") return { ...row, read: false };
+            if (endpoint === 'mark-read') return { ...row, read: true };
+            if (endpoint === 'mark-unread') return { ...row, read: false };
             return row;
           });
         });
         setSelection(new Set());
         setCurrent((prev) => {
           if (!prev) return prev;
-          if (endpoint === "mark-all-read") return { ...prev, read: true };
+          if (endpoint === 'mark-all-read') return { ...prev, read: true };
           if (ids?.includes(prev.id)) {
-            return { ...prev, read: endpoint === "mark-read" };
+            return { ...prev, read: endpoint === 'mark-read' };
           }
           return prev;
         });
       } catch (error) {
-        console.error(error);
+        console.error('[notifications] erro a actualizar estado', error);
       }
     },
     [],
   );
 
   const openRow = React.useCallback(
-    (row: Row) => {
+    (row: NotificationRow) => {
       setCurrent(row);
       setModalOpen(true);
       if (!row.read) {
-        void mark("mark-read", [row.id]);
+        void mark('mark-read', [row.id]);
       }
     },
     [mark],
@@ -144,86 +227,222 @@ export default function NotificationsClient({ rows }: Props) {
     });
   }, []);
 
-  const filters: Array<{ value: StatusFilter; label: string }> = React.useMemo(
-    () => [
-      { value: "all", label: "Todos" },
-      { value: "unread", label: "Por ler" },
-      { value: "read", label: "Lidas" },
-    ],
-    [],
+  const metricsCards = React.useMemo(() => computeMetricCards(metrics), [metrics]);
+
+  const typeOptions = React.useMemo(() => {
+    const options = metrics.categories.map((category) => ({
+      key: category.type,
+      label: category.label,
+      count: category.total,
+    }));
+    options.unshift({ key: 'all', label: 'Todos os tipos', count: metrics.total });
+    return options;
+  }, [metrics]);
+
+  const maxTimelineValue = React.useMemo(
+    () => metrics.timeline.reduce((acc, point) => Math.max(acc, point.sent, point.read), 0),
+    [metrics.timeline],
   );
 
   return (
-    <div className="notifications-center">
-      <section className="neo-panel notifications-center__panel" aria-labelledby="notifications-heading">
-        <header className="notifications-center__header">
-          <div className="notifications-center__heading">
-            <h1 id="notifications-heading" className="notifications-center__title">
+    <div className="notifications-dashboard">
+      <section className="neo-panel notifications-dashboard__panel" aria-labelledby="notifications-heading">
+        <header className="notifications-dashboard__header">
+          <div className="notifications-dashboard__heading">
+            <h1 id="notifications-heading" className="notifications-dashboard__title">
               Centro de notificações
             </h1>
-            <p className="notifications-center__subtitle">
-              Revê alertas recentes, pesquisa e mantém o teu histórico organizado.
+            <p className="notifications-dashboard__subtitle">
+              Revê alertas operacionais, acompanha métricas de leitura e mantém o histórico organizado.
             </p>
           </div>
-          <span className="notifications-center__summary">{total} notificação(ões)</span>
+          <div className="notifications-dashboard__headerMeta">
+            <span
+              className="neo-tag"
+              data-tone={metrics.supabase ? 'success' : 'warning'}
+              aria-live="polite"
+            >
+              {metrics.supabase ? 'Sincronizado com Supabase' : 'Modo demonstração'}
+            </span>
+            <span className="notifications-dashboard__lastDelivery">
+              Última entrega: {formatRelative(metrics.lastDeliveryAt)}
+            </span>
+          </div>
         </header>
 
-        <div className="notifications-center__filters" role="group" aria-label="Filtrar por estado">
-          {filters.map((filter) => (
-            <Button
-              key={filter.value}
-              type="button"
-              variant={status === filter.value ? "primary" : "ghost"}
-              size="sm"
-              onClick={() => setStatus(filter.value)}
-              aria-pressed={status === filter.value}
+        <div className="notifications-dashboard__metrics neo-grid neo-grid--metricsSm">
+          {metricsCards.map((metric) => (
+            <article
+              key={metric.key}
+              className="neo-surface neo-surface--padded notifications-dashboard__metric"
+              data-variant={metric.variant}
             >
-              {filter.label}
-            </Button>
+              <header className="notifications-dashboard__metricHeader">
+                <span className="notifications-dashboard__metricLabel">{metric.label}</span>
+                {metric.key === 'delivered7d' && typeof metric.delta === 'number' && metric.delta !== 0 ? (
+                  <span
+                    className="notifications-dashboard__metricDelta"
+                    data-positive={metric.delta > 0 || undefined}
+                    data-negative={metric.delta < 0 || undefined}
+                  >
+                    {metric.delta > 0 ? `+${metric.delta}` : metric.delta}
+                  </span>
+                ) : null}
+              </header>
+              <div className="notifications-dashboard__metricValue">{metric.value}</div>
+              {metric.hint ? (
+                <p className="notifications-dashboard__metricHint">{metric.hint}</p>
+              ) : null}
+            </article>
           ))}
-          <div className="notifications-center__spacer" />
-          <label className="neo-input-group__field notifications-center__search">
-            <span className="neo-input-group__label">Pesquisar</span>
-            <input
-              type="search"
-              className="neo-input"
-              placeholder="Palavra-chave..."
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          </label>
         </div>
 
-        <div className="notifications-center__actions">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => mark("mark-read", selectedIds)}
-            disabled={!selectedIds.length}
-          >
-            Marcar selecionadas como lidas
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => mark("mark-unread", selectedIds)}
-            disabled={!selectedIds.length}
-          >
-            Marcar selecionadas como por ler
-          </Button>
-          <Button type="button" variant="secondary" size="sm" onClick={() => mark("mark-all-read")}>Marcar tudo como lido</Button>
+        <div className="notifications-dashboard__insights">
+          <section className="neo-surface neo-surface--padded notifications-dashboard__timelineSection" aria-label="Envios dos últimos 14 dias">
+            <header className="notifications-dashboard__sectionHeader">
+              <h2 className="notifications-dashboard__sectionTitle">Actividade recente</h2>
+              <div className="notifications-dashboard__timelineLegend" aria-hidden="true">
+                <span data-tone="sent">Enviadas</span>
+                <span data-tone="read">Lidas</span>
+              </div>
+            </header>
+            <div className="notifications-dashboard__timeline" role="list">
+              {metrics.timeline.map((point) => {
+                const sentHeight = maxTimelineValue > 0 ? Math.round((point.sent / maxTimelineValue) * 100) : 0;
+                const readHeight = maxTimelineValue > 0 ? Math.round((point.read / maxTimelineValue) * 100) : 0;
+                return (
+                  <div
+                    key={point.date}
+                    className="notifications-dashboard__timelineItem"
+                    role="listitem"
+                    aria-label={`${formatDayLabel(point.date)} · ${point.sent} enviadas · ${point.read} lidas`}
+                    title={`${formatDayLabel(point.date)} · ${point.sent} enviadas · ${point.read} lidas`}
+                  >
+                    <div className="notifications-dashboard__timelineBars" aria-hidden="true">
+                      <span className="notifications-dashboard__timelineBar" data-tone="sent" style={{ height: `${sentHeight}%` }} />
+                      <span className="notifications-dashboard__timelineBar" data-tone="read" style={{ height: `${readHeight}%` }} />
+                    </div>
+                    <span className="notifications-dashboard__timelineLabel">{formatDayLabel(point.date)}</span>
+                    <span className="notifications-dashboard__timelineValue">{formatNumber(point.sent)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="neo-surface neo-surface--padded notifications-dashboard__categoriesSection" aria-label="Distribuição por tipo">
+            <header className="notifications-dashboard__sectionHeader">
+              <h2 className="notifications-dashboard__sectionTitle">Tipos mais enviados</h2>
+            </header>
+            <ul className="notifications-dashboard__categories">
+              {metrics.categories.length === 0 ? (
+                <li className="notifications-dashboard__empty">Sem dados suficientes</li>
+              ) : (
+                metrics.categories.map((category) => (
+                  <li key={category.type} className="notifications-dashboard__category">
+                    <div className="notifications-dashboard__categoryHeader">
+                      <span className="neo-tag" data-tone={category.tone}>
+                        {category.label}
+                      </span>
+                      <span className="notifications-dashboard__categoryCount">{formatNumber(category.total)}</span>
+                    </div>
+                    <div className="notifications-dashboard__categoryBar" role="presentation">
+                      <span
+                        className="notifications-dashboard__categoryFill"
+                        style={{ width: `${Math.min(100, category.percentage)}%` }}
+                      />
+                    </div>
+                    <div className="notifications-dashboard__categoryMeta">
+                      <span>{formatPercentage(category.readRate)} lidas</span>
+                      <span>{formatNumber(category.unread)} por ler</span>
+                    </div>
+                  </li>
+                ))
+              )}
+            </ul>
+          </section>
         </div>
 
-        <div className="notifications-center__table" role="region" aria-live="polite">
+        <div className="notifications-dashboard__controls" role="region" aria-label="Controlos de filtragem">
+          <div className="notifications-dashboard__status" role="group" aria-label="Filtrar por estado">
+            {STATUS_FILTERS.map((filter) => (
+              <Button
+                key={filter.value}
+                type="button"
+                variant={status === filter.value ? 'primary' : 'ghost'}
+                size="sm"
+                onClick={() => setStatus(filter.value)}
+                aria-pressed={status === filter.value}
+              >
+                {filter.label}
+              </Button>
+            ))}
+          </div>
+          <div className="notifications-dashboard__search">
+            <label className="neo-input-group__field">
+              <span className="neo-input-group__label">Pesquisar</span>
+              <input
+                type="search"
+                className="neo-input"
+                placeholder="Título ou conteúdo..."
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </label>
+          </div>
+          <div className="notifications-dashboard__types" role="radiogroup" aria-label="Filtrar por tipo">
+            <div className="neo-segmented notifications-dashboard__typesSegment">
+              {typeOptions.map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  className="neo-segmented__btn"
+                  data-active={typeFilter === option.key}
+                  onClick={() => setTypeFilter(option.key)}
+                  role="radio"
+                  aria-checked={typeFilter === option.key}
+                  tabIndex={typeFilter === option.key ? 0 : -1}
+                >
+                  <span className="notifications-dashboard__typesLabel">{option.label}</span>
+                  <span className="neo-segmented__count">{formatNumber(option.count)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="notifications-dashboard__actions">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => mark('mark-read', selectedIds)}
+              disabled={!selectedIds.length}
+            >
+              Marcar selecionadas como lidas
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => mark('mark-unread', selectedIds)}
+              disabled={!selectedIds.length}
+            >
+              Marcar selecionadas como por ler
+            </Button>
+            <Button type="button" variant="secondary" size="sm" onClick={() => mark('mark-all-read')}>
+              Marcar tudo como lido
+            </Button>
+          </div>
+        </div>
+
+        <div className="notifications-dashboard__table" role="region" aria-live="polite">
           <table className="neo-table">
             <thead>
               <tr>
-                <th className="notifications-center__cell--select">
+                <th className="notifications-dashboard__cellSelect">
                   <span className="sr-only">Selecionar</span>
                 </th>
                 <th>Notificação</th>
+                <th>Tipo</th>
                 <th>Data</th>
                 <th>Estado</th>
               </tr>
@@ -231,8 +450,8 @@ export default function NotificationsClient({ rows }: Props) {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={4}>
-                    <div className="notifications-center__loading" aria-live="assertive">
+                  <td colSpan={5}>
+                    <div className="notifications-dashboard__loading" aria-live="assertive">
                       <Spinner size={16} /> A carregar notificações…
                     </div>
                   </td>
@@ -241,7 +460,7 @@ export default function NotificationsClient({ rows }: Props) {
 
               {!loading && !data.length && (
                 <tr>
-                  <td colSpan={4}>
+                  <td colSpan={5}>
                     <div className="neo-empty">
                       <span className="neo-empty__icon" aria-hidden>
                         🔕
@@ -257,18 +476,17 @@ export default function NotificationsClient({ rows }: Props) {
 
               {!loading &&
                 data.map((row) => {
-                  const formattedDate = row.created_at
-                    ? new Date(row.created_at).toLocaleString("pt-PT")
-                    : "—";
+                  const formattedDate = formatDateTime(row.created_at);
+                  const typeMeta = describeType(row.type ?? null);
                   return (
                     <tr
                       key={row.id}
-                      className="notifications-center__row"
+                      className="notifications-dashboard__row"
                       data-read={row.read || undefined}
                       onClick={() => openRow(row)}
                     >
                       <td
-                        className="notifications-center__cell--select"
+                        className="notifications-dashboard__cellSelect"
                         onClick={(event) => event.stopPropagation()}
                       >
                         <input
@@ -280,18 +498,23 @@ export default function NotificationsClient({ rows }: Props) {
                         />
                       </td>
                       <td>
-                        <div className="notifications-center__message">
-                          <span className="notifications-center__messageTitle">{row.title || '(sem título)'}</span>
+                        <div className="notifications-dashboard__message">
+                          <span className="notifications-dashboard__messageTitle">{row.title || '(sem título)'}</span>
                           {row.body && (
-                            <span className="notifications-center__messageExcerpt">{row.body}</span>
+                            <span className="notifications-dashboard__messageExcerpt">{row.body}</span>
                           )}
                         </div>
                       </td>
-                      <td className="notifications-center__timestamp">{formattedDate}</td>
                       <td>
-                        <Badge variant={row.read ? "neutral" : "warning"}>
-                          {row.read ? "Lida" : "Por ler"}
-                        </Badge>
+                        <span className="neo-tag" data-tone={typeMeta.tone}>
+                          {typeMeta.label}
+                        </span>
+                      </td>
+                      <td className="notifications-dashboard__timestamp">{formattedDate}</td>
+                      <td>
+                        <span className="neo-tag" data-tone={row.read ? 'success' : 'warning'}>
+                          {row.read ? 'Lida' : 'Por ler'}
+                        </span>
                       </td>
                     </tr>
                   );
@@ -300,11 +523,11 @@ export default function NotificationsClient({ rows }: Props) {
           </table>
         </div>
 
-        <footer className="notifications-center__footer" aria-label="Paginação">
-          <div className="notifications-center__paginationSummary">
-            Página {page + 1} de {totalPages} · {total} registo(s)
+        <footer className="notifications-dashboard__footer" aria-label="Paginação">
+          <div className="notifications-dashboard__paginationSummary">
+            Página {page + 1} de {totalPages} · {formatNumber(total)} registo(s)
           </div>
-          <div className="notifications-center__paginationControls">
+          <div className="notifications-dashboard__paginationControls">
             <Button type="button" variant="ghost" size="sm" onClick={() => setPage(0)} disabled={page === 0}>
               «
             </Button>
@@ -335,7 +558,7 @@ export default function NotificationsClient({ rows }: Props) {
             >
               »
             </Button>
-            <label className="neo-input-group__field notifications-center__pageSize">
+            <label className="neo-input-group__field notifications-dashboard__pageSize">
               <span className="neo-input-group__label">Por página</span>
               <select
                 className="neo-input"
@@ -356,26 +579,36 @@ export default function NotificationsClient({ rows }: Props) {
       <Modal
         open={modalOpen && !!current}
         onClose={() => setModalOpen(false)}
-        title={current?.title || "Notificação"}
+        title={current?.title || 'Notificação'}
         size="md"
       >
-        <div className="notifications-center__modal">
-          <div className="notifications-center__modalTimestamp">
-            {current?.created_at ? new Date(current.created_at).toLocaleString("pt-PT") : "—"}
+        <div className="notifications-dashboard__modal">
+          <div className="notifications-dashboard__modalTimestamp">
+            {current?.created_at ? formatDateTime(current.created_at) : '—'}
           </div>
-          <div className="notifications-center__modalBody">{current?.body || "—"}</div>
+          <div className="notifications-dashboard__modalBody">{current?.body || '—'}</div>
           {current?.href && (
             <Link href={current.href} className="btn" prefetch={false}>
               Abrir destino
             </Link>
           )}
-          <div className="notifications-center__modalActions">
+          <div className="notifications-dashboard__modalActions">
             {!current?.read ? (
-              <Button type="button" variant="primary" size="sm" onClick={() => current && mark("mark-read", [current.id])}>
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={() => current && mark('mark-read', [current.id])}
+              >
                 Marcar como lida
               </Button>
             ) : (
-              <Button type="button" variant="ghost" size="sm" onClick={() => current && mark("mark-unread", [current.id])}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => current && mark('mark-unread', [current.id])}
+              >
                 Marcar por ler
               </Button>
             )}
