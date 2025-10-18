@@ -31,17 +31,14 @@ export default async function TrainerHeader() {
   const initials = initialsFrom(display);
 
   return (
-    <header className="sticky top-0 z-30 border-b bg-white/60 dark:bg-black/30 backdrop-blur">
-      <div className="mx-auto max-w-screen-2xl flex items-center justify-between gap-4 px-4 py-3">
-        <div className="font-semibold">HMS · Personal Trainer</div>
-        <div className="flex items-center gap-3">
-          <div
-            className="w-8 h-8 rounded-full overflow-hidden ring-1 ring-black/10 dark:ring-white/10 flex items-center justify-center bg-gradient-to-br from-slate-700 to-slate-900 text-white text-xs font-semibold"
-            title={display}
-          >
+    <header className="neo-app-header">
+      <div className="neo-app-header__inner">
+        <div className="neo-app-header__brand">HMS · Personal Trainer</div>
+        <div className="neo-app-header__actions">
+          <div className="neo-avatar" title={display}>
             {avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img alt={display} src={avatarUrl} className="w-full h-full object-cover" />
+              <img alt={display} src={avatarUrl} />
             ) : (
               <span>{initials}</span>
             )}
