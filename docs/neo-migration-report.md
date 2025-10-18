@@ -65,6 +65,7 @@ Executámos `npm run neo:audit` para mapear utilitários ainda baseados em Tailw
 - A página de saúde operacional (`src/app/(app)/dashboard/system/health/page.tsx`) foi reescrita com `neo-stack`, `neo-grid` e `status-pill`, consumindo directamente `system_services`, `system_monitors` e `system_resilience_practices` no Supabase para eliminar dados mock. 【F:src/app/(app)/dashboard/system/health/page.tsx†L1-L247】
 - Introduzimos a migração `supabase/migrations/20250412_add_system_health_and_dashboard_chart.sql`, que adiciona `system_monitors`, `system_resilience_practices`, amplia `system_services` com `trend_label` e cria `dashboard_chart_points` com seeds e políticas. 【F:supabase/migrations/20250412_add_system_health_and_dashboard_chart.sql†L1-L136】
 - A rota `/api/dashboard/cart` agora consulta `dashboard_chart_points` para devolver séries reais, mantendo fallback quando o Supabase não está disponível. 【F:src/app/api/dashboard/cart/route.ts†L1-L43】
+- O perfil do utilizador (`src/app/(app)/dashboard/profile/**/*`, `/api/profile/dashboard`, `src/lib/profile/*`) foi reconstruído com o tema `.neo`, métricas hero, gráfico temporal, destaques dinâmicos e formulários acessíveis suportados por dados reais do Supabase e fallback determinístico. 【F:src/app/(app)/dashboard/profile/ProfileClient.tsx†L1-L497】【F:src/lib/profile/server.ts†L1-L214】【F:src/app/api/profile/dashboard/route.ts†L1-L24】【F:src/lib/fallback/profile.ts†L1-L73】
 
 ## Próximos passos recomendados
 
