@@ -1310,6 +1310,7 @@ export type Database = {
           uptime_percent: number | null;
           updated_at: string | null;
           display_order: number | null;
+          trend_label: string | null;
         };
         Insert: {
           id: string;
@@ -1320,6 +1321,7 @@ export type Database = {
           uptime_percent?: number | null;
           updated_at?: string | null;
           display_order?: number | null;
+          trend_label?: string | null;
         };
         Update: {
           id?: string;
@@ -1330,6 +1332,91 @@ export type Database = {
           uptime_percent?: number | null;
           updated_at?: string | null;
           display_order?: number | null;
+          trend_label?: string | null;
+        };
+        Relationships: [];
+      };
+
+      system_monitors: {
+        Row: {
+          id: string;
+          title: string;
+          detail: string | null;
+          status: 'ok' | 'warn' | 'down' | null;
+          display_order: number | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id: string;
+          title: string;
+          detail?: string | null;
+          status?: 'ok' | 'warn' | 'down' | null;
+          display_order?: number | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          title?: string;
+          detail?: string | null;
+          status?: 'ok' | 'warn' | 'down' | null;
+          display_order?: number | null;
+          updated_at?: string | null;
+        };
+        Relationships: [];
+      };
+
+      system_resilience_practices: {
+        Row: {
+          id: string;
+          title: string;
+          detail: string | null;
+          status: 'ok' | 'warn' | 'down' | null;
+          display_order: number | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id: string;
+          title: string;
+          detail?: string | null;
+          status?: 'ok' | 'warn' | 'down' | null;
+          display_order?: number | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          title?: string;
+          detail?: string | null;
+          status?: 'ok' | 'warn' | 'down' | null;
+          display_order?: number | null;
+          updated_at?: string | null;
+        };
+        Relationships: [];
+      };
+
+      dashboard_chart_points: {
+        Row: {
+          id: string;
+          series: string;
+          label: string;
+          value: number;
+          sort_order: number | null;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          series: string;
+          label: string;
+          value: number;
+          sort_order?: number | null;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          series?: string;
+          label?: string;
+          value?: number;
+          sort_order?: number | null;
+          created_at?: string | null;
         };
         Relationships: [];
       };

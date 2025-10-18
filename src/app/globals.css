@@ -1577,6 +1577,33 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
 
 .system-ops__list{ list-style:none; padding:0; margin:0; gap:12px; }
 
+.system-health__hero{ justify-content:space-between; gap:24px; align-items:flex-start; }
+.system-health__intro{ gap:12px; }
+.system-health__lede{ max-width:720px; }
+.system-health__status{ gap:12px; color:var(--muted-fg); font-size:13px; }
+.system-health__timestamp{ color:var(--muted-fg); font-weight:500; }
+.system-health__layout{ align-items:start; }
+.system-health__main{ gap:28px; }
+.system-health__services{ --neo-grid-gap:18px; --neo-grid-min:260px; }
+.system-health__serviceCard{ border:1px solid color-mix(in srgb, var(--border) 78%, transparent); border-radius:18px; }
+.system-health__serviceHeader{ align-items:flex-start; }
+.system-health__serviceMeta{ display:grid; gap:16px; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); }
+.system-health__serviceMetaItem{ display:flex; flex-direction:column; gap:6px; }
+.system-health__serviceMetaValue{ font-size:17px; font-weight:600; color:var(--fg); }
+.system-health__serviceFooter{ display:flex; justify-content:space-between; font-size:13px; color:var(--muted-fg); }
+.system-health__serviceUpdated{ color:color-mix(in srgb, var(--muted-fg) 88%, transparent); }
+.system-health__serviceCard[data-service-state="warn"]{ border-color:color-mix(in srgb, var(--warning) 42%, var(--border)); }
+.system-health__serviceCard[data-service-state="down"]{ border-color:color-mix(in srgb, var(--danger) 42%, var(--border)); }
+.system-health__aside{ gap:24px; }
+.system-health__asidePanel{ gap:20px; }
+.system-health__list{ list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:14px; }
+.system-health__listItem{ border:1px solid color-mix(in srgb, var(--border) 72%, transparent); border-radius:16px; display:flex; flex-direction:column; gap:10px; }
+.system-health__listHeader{ align-items:center; }
+.system-health__listTitle{ font-weight:600; color:var(--fg); }
+.system-health__listDetail{ font-size:14px; color:var(--muted-fg); }
+.system-health__listMeta{ font-size:12px; color:color-mix(in srgb, var(--muted-fg) 85%, transparent); }
+.system-health__empty{ border-radius:18px; border:1px dashed color-mix(in srgb, var(--border) 68%, transparent); background:color-mix(in srgb, var(--card-bg) 94%, transparent); }
+
 .system-metrics__grid{ --neo-grid-gap:18px; --neo-grid-min:220px; }
 .system-metrics__metric{ --neo-surface-padding:20px; }
 .system-metrics__split{

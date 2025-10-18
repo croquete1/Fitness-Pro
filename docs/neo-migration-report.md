@@ -49,6 +49,9 @@ Executámos `npm run neo:audit` para mapear utilitários ainda baseados em Tailw
 - A infraestrutura de notificações ganhou a migração `supabase/migrations/20250408_add_notifications.sql`, que define tabela, índices, triggers e políticas RLS para dados reais; os tipos foram sincronizados em `src/types/supabase.ts`.
 - O centro de controlo e a página de métricas (`src/app/(app)/dashboard/system/page.tsx` e `src/app/(app)/dashboard/system/metrics/page.tsx`) foram migrados para os padrões `.neo`, com grelhas declarativas, estados vazios acessíveis e sem utilitários Tailwind, lendo directamente das novas tabelas de observabilidade.
 - Criámos a migração `supabase/migrations/20250410_add_system_observability.sql`, que introduz `system_services`, `system_maintenance_windows` e `system_insights` com seeds, índices, triggers e políticas RLS; os tipos foram sincronizados em `src/types/supabase.ts`.
+- A página de saúde operacional (`src/app/(app)/dashboard/system/health/page.tsx`) foi reescrita com `neo-stack`, `neo-grid` e `status-pill`, consumindo directamente `system_services`, `system_monitors` e `system_resilience_practices` no Supabase para eliminar dados mock. 【F:src/app/(app)/dashboard/system/health/page.tsx†L1-L247】
+- Introduzimos a migração `supabase/migrations/20250412_add_system_health_and_dashboard_chart.sql`, que adiciona `system_monitors`, `system_resilience_practices`, amplia `system_services` com `trend_label` e cria `dashboard_chart_points` com seeds e políticas. 【F:supabase/migrations/20250412_add_system_health_and_dashboard_chart.sql†L1-L136】
+- A rota `/api/dashboard/cart` agora consulta `dashboard_chart_points` para devolver séries reais, mantendo fallback quando o Supabase não está disponível. 【F:src/app/api/dashboard/cart/route.ts†L1-L43】
 
 ## Próximos passos recomendados
 
