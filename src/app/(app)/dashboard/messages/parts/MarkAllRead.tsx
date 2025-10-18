@@ -18,9 +18,13 @@ export default function MarkAllRead() {
 
   return (
     <button
+      type="button"
       onClick={onClick}
       disabled={pending}
-      className="inline-flex items-center rounded-lg bg-indigo-600 text-white px-3 py-2 text-sm font-semibold shadow hover:bg-indigo-500 disabled:opacity-60"
+      className="btn"
+      data-variant="primary"
+      data-size="sm"
+      data-loading={pending}
     >
       {pending ? 'A marcar…' : 'Marcar todas como lidas'}
     </button>
