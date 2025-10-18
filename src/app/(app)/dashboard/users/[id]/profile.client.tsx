@@ -1,48 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import {
-  Avatar,
-  Box,
-  Button,
-  Card,
-  CardActions,
-  CardContent,
-  CardHeader,
-  Chip,
-  Container,
-  Divider,
-  Grid,
-  IconButton,
-  LinearProgress,
-  Link as MuiLink,
-  List,
-  ListItem,
-  ListItemAvatar,
-  ListItemText,
-  MenuItem,
-  Stack,
-  TextField,
-  Tooltip,
-  Typography,
-} from '@mui/material';
-import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
-import PhoneOutlinedIcon from '@mui/icons-material/PhoneOutlined';
-import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
-import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
-import EventAvailableIcon from '@mui/icons-material/EventAvailable';
-import NotesIcon from '@mui/icons-material/Notes';
-import LaunchIcon from '@mui/icons-material/Launch';
-import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import HistoryEduIcon from '@mui/icons-material/HistoryEdu';
-import Inventory2Icon from '@mui/icons-material/Inventory2';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import HourglassBottomIcon from '@mui/icons-material/HourglassBottom';
-import { alpha, useTheme } from '@mui/material/styles';
 import Link from 'next/link';
 import { useToast } from '@/components/ui/ToastProvider';
-import { withDashboardContentSx } from '@/styles/dashboardContentSx';
 
 type Role = 'ADMIN' | 'PT' | 'CLIENT';
 
@@ -271,120 +231,32 @@ function formatSessionsProgress(total?: number | null, used?: number | null) {
   return `${safeUsed}/${total} sessões utilizadas`;
 }
 
-function packageStatusIcon(status?: string | null) {
-  if (!status) return null;
-  switch (status.toUpperCase()) {
-    case 'ACTIVE':
-      return <CheckCircleOutlineIcon fontSize="small" color="success" />;
-    case 'PAUSED':
-      return <HourglassBottomIcon fontSize="small" color="warning" />;
-    case 'UPCOMING':
-      return <HourglassBottomIcon fontSize="small" color="info" />;
-    case 'ENDED':
-    case 'CANCELLED':
-      return <CheckCircleOutlineIcon fontSize="small" color="disabled" />;
-    default:
-      return null;
-  }
-}
-
-function packageStatusColor(status?: string | null): 'default' | 'success' | 'warning' | 'info' | 'error' {
-  if (!status) return 'default';
+function packageTone(status?: string | null): 'success' | 'warning' | 'neutral' {
+  if (!status) return 'neutral';
   switch (status.toUpperCase()) {
     case 'ACTIVE':
       return 'success';
     case 'PAUSED':
-      return 'warning';
     case 'UPCOMING':
-      return 'info';
+      return 'warning';
     default:
-      return 'default';
+      return 'neutral';
   }
 }
 
-function metricCard(
-  label: string,
-  value: React.ReactNode,
-  accent: string,
-  helper?: React.ReactNode,
-) {
-  return (
-    <Box
-      sx={({ palette }) => ({
-        background: alpha(accent, palette.mode === 'dark' ? 0.25 : 0.12),
-        border: '1px solid',
-        borderColor: alpha(accent, palette.mode === 'dark' ? 0.7 : 0.3),
-        borderRadius: 3,
-        px: 2.25,
-        py: 2,
-        display: 'grid',
-        gap: 0.5,
-      })}
-    >
-      <Typography variant="body2" sx={{ fontWeight: 600, opacity: 0.8 }}>
-        {label}
-      </Typography>
-      <Typography variant="h5" component="div" sx={{ fontWeight: 700 }}>
-        {value}
-      </Typography>
-      {helper ? (
-        <Typography variant="caption" sx={{ opacity: 0.7 }}>
-          {helper}
-        </Typography>
-      ) : null}
-    </Box>
-  );
+function sessionTitle(session: SessionSummary) {
+  if (session.notes) return session.notes.split('\n')[0]?.slice(0, 80) || 'Sessão';
+  if (session.trainerName) return `Sessão com ${session.trainerName}`;
+  return 'Sessão agendada';
 }
 
-function sessionLine(session: SessionSummary) {
+function metricTile(label: string, value: React.ReactNode, accent: 'primary' | 'success' | 'warning' | 'neutral', helper?: React.ReactNode) {
   return (
-    <ListItem
-      key={session.id}
-      sx={{
-        borderRadius: 2.5,
-        border: '1px solid',
-        borderColor: 'divider',
-        mb: 1.5,
-        alignItems: 'flex-start',
-      }}
-    >
-      <ListItemAvatar sx={{ minWidth: 48 }}>
-        <Avatar sx={{ bgcolor: 'primary.main', width: 40, height: 40 }}>
-          <EventAvailableIcon fontSize="small" />
-        </Avatar>
-      </ListItemAvatar>
-      <ListItemText
-        primary={
-          <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
-            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-              {formatDate(session.scheduledAt)}
-            </Typography>
-            {session.durationMin ? (
-              <Chip
-                size="small"
-                icon={<AccessTimeIcon fontSize="inherit" />}
-                label={`${session.durationMin} min`}
-              />
-            ) : null}
-            {session.location ? (
-              <Chip size="small" label={session.location} />
-            ) : null}
-          </Stack>
-        }
-        secondary={
-          <Stack spacing={0.5} sx={{ mt: 0.75 }}>
-            <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
-              {session.notes ?? 'Sessão sem notas adicionais'}
-            </Typography>
-            {session.trainerName ? (
-              <Typography variant="caption" sx={{ opacity: 0.7 }}>
-                Personal Trainer: {session.trainerName}
-              </Typography>
-            ) : null}
-          </Stack>
-        }
-      />
-    </ListItem>
+    <div className="client-profile__metric" data-tone={accent}>
+      <span className="client-profile__metricLabel">{label}</span>
+      <span className="client-profile__metricValue">{value ?? '—'}</span>
+      {helper ? <span className="client-profile__metricHelper">{helper}</span> : null}
+    </div>
   );
 }
 
@@ -398,7 +270,6 @@ export default function ClientProfileClient({
   measurement,
   activity,
 }: ClientProfilePayload) {
-  const theme = useTheme();
   const toast = useToast();
   const [trainerId, setTrainerId] = React.useState<string>(trainer.current?.id ?? '');
   const [currentTrainer, setCurrentTrainer] = React.useState<TrainerOption | null>(trainer.current);
@@ -411,7 +282,7 @@ export default function ClientProfileClient({
   const [savingNote, setSavingNote] = React.useState(false);
   const noteTextTrimmed = noteText.trim();
 
-  const measurementSummary = summarizeMeasurement(measurement);
+  const measurementSummary = React.useMemo(() => summarizeMeasurement(measurement), [measurement]);
   const metricsHistoryHref = React.useMemo(
     () => `/dashboard/profile?tab=metrics&user=${encodeURIComponent(user.id)}`,
     [user.id],
@@ -421,18 +292,16 @@ export default function ClientProfileClient({
   const circumferenceMetrics = React.useMemo(
     () =>
       measurementSummary
-        ? (
-            [
-              { key: 'waist', label: 'Cintura', value: measurementSummary.waist },
-              { key: 'hip', label: 'Anca', value: measurementSummary.hip },
-              { key: 'chest', label: 'Peito', value: measurementSummary.chest },
-              { key: 'shoulders', label: 'Ombros', value: measurementSummary.shoulders },
-              { key: 'neck', label: 'Pescoço', value: measurementSummary.neck },
-              { key: 'arm', label: 'Braço', value: measurementSummary.arm },
-              { key: 'thigh', label: 'Coxa', value: measurementSummary.thigh },
-              { key: 'calf', label: 'Barriga da perna', value: measurementSummary.calf },
-            ] as const
-          )
+        ? ([
+            { key: 'waist', label: 'Cintura', value: measurementSummary.waist },
+            { key: 'hip', label: 'Anca', value: measurementSummary.hip },
+            { key: 'chest', label: 'Peito', value: measurementSummary.chest },
+            { key: 'shoulders', label: 'Ombros', value: measurementSummary.shoulders },
+            { key: 'neck', label: 'Pescoço', value: measurementSummary.neck },
+            { key: 'arm', label: 'Braço', value: measurementSummary.arm },
+            { key: 'thigh', label: 'Coxa', value: measurementSummary.thigh },
+            { key: 'calf', label: 'Barriga da perna', value: measurementSummary.calf },
+          ] as const)
         : [],
     [measurementSummary],
   );
@@ -552,626 +421,387 @@ export default function ClientProfileClient({
   }
 
   return (
-    <Box
-      sx={{
-        position: 'relative',
-        minHeight: '100%',
-        py: { xs: 2, md: 4 },
-        background: theme.palette.mode === 'dark'
-          ? 'linear-gradient(180deg, rgba(22,30,45,0.95) 0%, rgba(11,16,28,0.98) 100%)'
-          : 'linear-gradient(180deg, #f5f7fb 0%, #ffffff 65%)',
-      }}
-    >
-      <Container sx={withDashboardContentSx({ px: { xs: 1.5, sm: 3, lg: 4 }, py: { xs: 2, md: 3 } })}>
-        <Grid container spacing={{ xs: 3, md: 4, xl: 5 }} alignItems="stretch">
-          <Grid item xs={12} lg={4} xl={3}>
-          <Stack spacing={3}>
-            <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider' }}>
-              <CardContent>
-                <Stack spacing={2.5} alignItems="center" textAlign="center">
-                  <Avatar
-                    src={user.avatarUrl ?? undefined}
-                    sx={{ width: 92, height: 92, bgcolor: 'primary.main', fontSize: 32, fontWeight: 700 }}
-                  >
-                    {initialsFromName(user.name)}
-                  </Avatar>
-                  <Box>
-                    <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                      {user.name ?? user.email ?? 'Utilizador'}
-                    </Typography>
-                    <Stack direction="row" spacing={1} justifyContent="center" sx={{ mt: 1 }}>
-                      <Chip size="small" label={roleDisplay(user.role)} color={user.role === 'ADMIN' ? 'secondary' : user.role === 'PT' ? 'primary' : 'default'} />
-                      <Chip
-                        size="small"
-                        label={statusDisplay(user.status)}
-                        color={user.status?.toUpperCase() === 'ACTIVE' ? 'success' : user.status?.toUpperCase() === 'PENDING' ? 'warning' : 'default'}
-                      />
-                    </Stack>
-                  </Box>
+    <div className="client-profile neo-stack neo-stack--lg">
+      <section className="client-profile__hero neo-panel">
+        <div className="client-profile__heroMain">
+          <div className="client-profile__avatar" aria-hidden>
+            {user.avatarUrl ? (
+              <img src={user.avatarUrl} alt="" />
+            ) : (
+              <span>{initialsFromName(user.name)}</span>
+            )}
+          </div>
+          <div className="client-profile__heroInfo">
+            <h1 className="client-profile__name">{user.name ?? user.email ?? 'Utilizador'}</h1>
+            <div className="client-profile__tags neo-inline neo-inline--sm neo-inline--wrap">
+              <span className="neo-tag" data-tone={user.role === 'ADMIN' ? 'warning' : user.role === 'PT' ? 'primary' : 'neutral'}>
+                {roleDisplay(user.role)}
+              </span>
+              <span className="neo-tag" data-tone={user.status?.toUpperCase() === 'ACTIVE' ? 'success' : 'neutral'}>
+                {statusDisplay(user.status)}
+              </span>
+              {user.online ? (
+                <span className="neo-tag" data-tone="success">Online agora</span>
+              ) : (
+                <span className="neo-tag" data-tone="neutral">Offline</span>
+              )}
+            </div>
+          </div>
+        </div>
+        <dl className="client-profile__meta">
+          <div>
+            <dt>Último acesso</dt>
+            <dd>{formatDate(user.lastSignInAt)}</dd>
+          </div>
+          <div>
+            <dt>Última vez online</dt>
+            <dd>{formatDate(user.lastSeenAt)}</dd>
+          </div>
+          <div>
+            <dt>Conta criada</dt>
+            <dd>{formatDate(user.createdAt)}</dd>
+          </div>
+        </dl>
+      </section>
 
-                  <Divider flexItem sx={{ borderStyle: 'dashed' }} />
+      <div className="client-profile__layout">
+        <aside className="client-profile__sidebar neo-stack neo-stack--lg">
+          <section className="neo-panel client-profile__card">
+            <h2 className="client-profile__sectionTitle">Detalhes do cliente</h2>
+            <div className="neo-stack neo-stack--md">
+              <InfoRow icon={<MailIcon />} label="Email" value={user.email ?? '—'} href={user.email ? `mailto:${user.email}` : undefined} />
+              <InfoRow icon={<PhoneIcon />} label="Telefone" value={user.phone ?? '—'} href={user.phone ? `tel:${user.phone}` : undefined} />
+              <InfoRow icon={<UserIcon />} label="Username" value={user.username ?? '—'} />
+              <InfoRow icon={<IdIcon />} label="ID do utilizador" value={user.id} copyable />
+            </div>
+          </section>
 
-                  <Stack spacing={1.5} sx={{ width: '100%' }}>
-                    <InfoRow icon={<EmailOutlinedIcon fontSize="small" />} label="Email" value={user.email ?? '—'} href={user.email ? `mailto:${user.email}` : undefined} />
-                    <InfoRow icon={<PhoneOutlinedIcon fontSize="small" />} label="Telefone" value={user.phone ?? '—'} href={user.phone ? `tel:${user.phone}` : undefined} />
-                    <InfoRow icon={<PersonOutlineIcon fontSize="small" />} label="Username" value={user.username ?? '—'} />
-                    <InfoRow icon={<AssignmentIndIcon fontSize="small" />} label="ID do utilizador" value={user.id} copyable />
-                  </Stack>
+          <section className="neo-panel client-profile__card">
+            <div className="client-profile__cardHeader">
+              <h2 className="client-profile__sectionTitle">Resumo de atividade</h2>
+              <span className="client-profile__muted">{activity.lastActivity ? `Atualizado ${formatDate(activity.lastActivity)}` : 'Sem registos recentes'}</span>
+            </div>
+            <div className="client-profile__metrics neo-grid neo-grid--auto">
+              {metricTile('Planos de treino', activity.totalPlans, 'primary', `Ativos: ${activity.activePlans} · Rascunhos: ${activity.draftPlans}`)}
+              {metricTile('Sessões futuras', activity.upcomingSessions, 'success', activity.lastSession ? `Última sessão: ${formatDate(activity.lastSession)}` : 'Sem sessões realizadas')}
+              {metricTile('Planos arquivados', activity.archivedPlans, 'warning', activity.lastPlanUpdate ? `Última atualização: ${formatDate(activity.lastPlanUpdate)}` : undefined)}
+            </div>
+          </section>
 
-                  <Divider flexItem sx={{ borderStyle: 'dashed' }} />
-
-                  <Stack spacing={0.5} sx={{ width: '100%' }}>
-                    <Typography variant="caption" sx={{ opacity: 0.7 }}>
-                      Estado atual
-                    </Typography>
-                    <Stack direction="row" spacing={1} justifyContent="center" alignItems="center">
-                      <Chip
-                        size="small"
-                        label={user.online ? 'Online agora' : 'Offline'}
-                        color={user.online ? 'success' : 'default'}
-                        variant={user.online ? 'filled' : 'outlined'}
-                      />
-                      {!user.online && user.lastSeenAt ? (
-                        <Typography variant="body2" color="text.secondary">
-                          Visto {formatDate(user.lastSeenAt, { timeStyle: 'short' })}
-                        </Typography>
-                      ) : null}
-                    </Stack>
-                    <Typography variant="caption" sx={{ opacity: 0.7, mt: 1 }}>
-                      Último acesso
-                    </Typography>
-                    <Typography variant="body2">{formatDate(user.lastSignInAt)}</Typography>
-                    <Typography variant="caption" sx={{ opacity: 0.7, mt: 1 }}>
-                      Última vez online
-                    </Typography>
-                    <Typography variant="body2">{formatDate(user.lastSeenAt)}</Typography>
-                    <Typography variant="caption" sx={{ opacity: 0.7, mt: 1 }}>
-                      Conta criada em
-                    </Typography>
-                    <Typography variant="body2">{formatDate(user.createdAt)}</Typography>
-                  </Stack>
-                </Stack>
-              </CardContent>
-            </Card>
-
-            <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider' }}>
-              <CardHeader
-                avatar={<FitnessCenterIcon color="primary" />}
-                title="Resumo de atividade"
-                subheader={activity.lastActivity ? `Última atualização: ${formatDate(activity.lastActivity)}` : 'Sem atividade recente'}
-              />
-              <CardContent>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
-                    {metricCard('Planos de treino', activity.totalPlans, theme.palette.primary.main, `Ativos: ${activity.activePlans} · Rascunhos: ${activity.draftPlans}`)}
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    {metricCard('Sessões futuras', activity.upcomingSessions, theme.palette.success.main, activity.lastSession ? `Última sessão: ${formatDate(activity.lastSession)}` : 'Sem sessões realizadas')}
-                  </Grid>
-                  <Grid item xs={12}>
-                    {metricCard('Planos arquivados', activity.archivedPlans, theme.palette.warning.main, activity.lastPlanUpdate ? `Última atualização: ${formatDate(activity.lastPlanUpdate)}` : undefined)}
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
-
-            <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider' }}>
-              <CardHeader
-                avatar={<NotesIcon color="primary" />}
-                title="Última avaliação física"
-                subheader={measurementSummary?.date ? formatDate(measurementSummary.date) : 'Sem registos ainda'}
-              />
-              <CardContent>
-                {measurementSummary ? (
-                  <Stack spacing={3}>
-                    <Grid container spacing={2}>
-                      <Grid item xs={12} sm={6} md={3}>
-                        {metricCard(
-                          'Peso',
-                          measurementSummary.weight ? `${measurementSummary.weight} kg` : '—',
-                          theme.palette.info.main,
-                        )}
-                      </Grid>
-                      <Grid item xs={12} sm={6} md={3}>
-                        {metricCard(
-                          'Altura',
-                          measurementSummary.height ? `${measurementSummary.height} cm` : '—',
-                          theme.palette.info.main,
-                          measurementSummary.height && measurementSummary.height >= 3
-                            ? `${Math.round((measurementSummary.height / 100) * 100) / 100} m`
-                            : undefined,
-                        )}
-                      </Grid>
-                      <Grid item xs={12} sm={6} md={3}>
-                        {metricCard(
-                          'IMC',
-                          measurementSummary.bmi ?? '—',
-                          theme.palette.secondary.main,
-                          bmiClassification(measurementSummary.bmi ?? null) ?? undefined,
-                        )}
-                      </Grid>
-                      <Grid item xs={12} sm={6} md={3}>
-                        {metricCard(
-                          'Gordura corporal',
-                          measurementSummary.bodyFat != null ? `${measurementSummary.bodyFat}%` : '—',
-                          theme.palette.success.main,
-                        )}
-                      </Grid>
-                    </Grid>
-
-                    {hasCircumferenceData ? (
-                      <Stack spacing={2}>
-                        <Divider flexItem sx={{ opacity: 0.5 }}>
-                          <Typography variant="caption" sx={{ textTransform: 'uppercase', letterSpacing: 0.6 }}>
-                            Medidas corporais
-                          </Typography>
-                        </Divider>
-                        <Grid container spacing={2}>
-                          {circumferenceMetrics.map((metric) => (
-                            <Grid item xs={6} sm={4} md={3} key={metric.key}>
-                              {metricCard(
-                                metric.label,
-                                formatMeasurementValue(metric.value, ' cm'),
-                                theme.palette.primary.light,
-                              )}
-                            </Grid>
-                          ))}
-                        </Grid>
-                      </Stack>
-                    ) : null}
-
-                    <Stack spacing={1.5}>
-                      <Typography variant="body2" sx={{ opacity: 0.7 }}>
-                        Registo efetuado em {formatDate(measurementSummary.date)}
-                      </Typography>
-                      <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
-                        {measurementSummary.notes ?? 'Sem notas adicionais.'}
-                      </Typography>
-                    </Stack>
-
-                    <Button component={Link} href={metricsHistoryHref} endIcon={<LaunchIcon />} variant="outlined">
-                      Abrir histórico completo
-                    </Button>
-                  </Stack>
-                ) : (
-                  <Stack spacing={3} alignItems="center" textAlign="center" sx={{ py: 6 }}>
-                    <Box
-                      sx={{
-                        width: 96,
-                        height: 96,
-                        display: 'grid',
-                        placeItems: 'center',
-                        borderRadius: '50%',
-                        border: '1px dashed',
-                        borderColor: alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.4 : 0.3),
-                        backgroundColor: alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.12 : 0.06),
-                        color: theme.palette.primary.main,
-                      }}
-                    >
-                      <NotesIcon sx={{ fontSize: 40 }} />
-                    </Box>
-                    <Stack spacing={1}>
-                      <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                        Sem avaliações antropométricas
-                      </Typography>
-                      <Typography variant="body2" sx={{ maxWidth: 360, opacity: 0.75 }}>
-                        Este cliente ainda não possui medições registadas pelo Personal Trainer ou pelo próprio cliente.
-                      </Typography>
-                    </Stack>
-                    <Button component={Link} href={metricsHistoryHref} endIcon={<LaunchIcon />} variant="outlined">
-                      Abrir histórico e registar
-                    </Button>
-                  </Stack>
-                )}
-              </CardContent>
-            </Card>
-          </Stack>
-        </Grid>
-
-        <Grid item xs={12} md={8}>
-          <Stack spacing={3}>
-            <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider' }}>
-              <CardHeader
-                title="Gestão de Personal Trainer"
-                subheader={currentTrainer ? `Atual: ${currentTrainer.name}` : 'Nenhum Personal Trainer associado'}
-                action={savingTrainer ? <LinearProgress sx={{ width: 120, borderRadius: 999 }} /> : null}
-              />
-              <CardContent>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'stretch', sm: 'center' }}>
-                  <TextField
-                    select
-                    label="Personal Trainer"
-                    value={trainerId}
-                    disabled={!trainer.allowEdit}
-                    onChange={(event) => setTrainerId(event.target.value)}
-                    sx={{ minWidth: { xs: '100%', sm: 260 } }}
-                  >
-                    <MenuItem value="">— Sem Personal Trainer —</MenuItem>
-                    {trainer.options.map((option) => (
-                      <MenuItem key={option.id} value={option.id}>
-                        {option.name}
-                        {option.email ? <Typography component="span" variant="caption" sx={{ ml: 1, opacity: 0.65 }}>({option.email})</Typography> : null}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-
-                  <Stack direction="row" spacing={1}>
-                    <Button
-                      variant="contained"
-                      disabled={!trainer.allowEdit || savingTrainer || trainerId === (currentTrainer?.id ?? '')}
-                      onClick={saveTrainerLink}
-                    >
-                      Guardar alterações
-                    </Button>
-                    <Tooltip title="Repor seleção">
-                      <span>
-                        <IconButton
-                          onClick={() => setTrainerId(currentTrainer?.id ?? '')}
-                          disabled={!trainer.allowEdit || savingTrainer || trainerId === (currentTrainer?.id ?? '')}
-                          size="large"
-                        >
-                          <RefreshIcon />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
-                  </Stack>
-                </Stack>
-              </CardContent>
+          <section className="neo-panel client-profile__card">
+            <div className="client-profile__cardHeader">
+              <h2 className="client-profile__sectionTitle">Gestão do PT</h2>
+              <span className="client-profile__muted">Controla o vínculo entre o cliente e um treinador principal.</span>
+            </div>
+            <form className="neo-stack neo-stack--md" onSubmit={(event) => { event.preventDefault(); saveTrainerLink(); }}>
+              <label className="neo-input-group__label" htmlFor="trainer-select">
+                Personal Trainer
+              </label>
+              <select
+                id="trainer-select"
+                className="neo-input"
+                value={trainerId}
+                onChange={(event) => setTrainerId(event.target.value)}
+                disabled={!trainer.allowEdit}
+              >
+                <option value="">Sem treinador atribuído</option>
+                {trainer.options.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </select>
               {currentTrainer ? (
-                <CardActions sx={{ justifyContent: 'space-between', px: 3 }}>
-                  <Typography variant="body2" sx={{ opacity: 0.7 }}>
-                    {`Última definição: ${formatDate(activity.lastPlanUpdate)}`}
-                  </Typography>
-                  <MuiLink component={Link} href={`/dashboard/pt/clients/${user.id}`} underline="hover">
-                    Abrir vista do PT
-                  </MuiLink>
-                </CardActions>
-              ) : null}
-            </Card>
+                <p className="client-profile__muted">Atual: {currentTrainer.name}</p>
+              ) : (
+                <p className="client-profile__muted">Sem PT definido</p>
+              )}
+              <button type="submit" className="neo-button neo-button--primary" disabled={savingTrainer || !trainer.allowEdit}>
+                {savingTrainer ? 'A guardar…' : 'Guardar alterações'}
+              </button>
+            </form>
+          </section>
+        </aside>
 
-            <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider' }}>
-              <CardHeader
-                avatar={<Inventory2Icon color="primary" />}
-                title="Pacotes de sessões"
-                subheader={
-                  loadingPackages
-                    ? 'A carregar pacotes…'
-                    : currentPackage
-                      ? `${currentPackage.name ?? 'Pacote sem título'} · ${packageStatusLabel(currentPackage.status)}`
-                      : 'Nenhum pacote ativo'
-                }
-              />
-              <CardContent>
-                {loadingPackages ? (
-                  <LinearProgress sx={{ borderRadius: 999 }} />
-                ) : currentPackage ? (
-                  <Stack spacing={3}>
-                    <Box
-                      sx={{
-                        borderRadius: 3,
-                        border: '1px solid',
-                        borderColor: alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.4 : 0.2),
-                        background: alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.2 : 0.08),
-                        p: 2.5,
-                      }}
-                    >
-                      <Stack spacing={1.5}>
-                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ xs: 'flex-start', sm: 'center' }}>
-                          <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                            {currentPackage.name ?? 'Pacote sem título'}
-                          </Typography>
-                          <Chip
-                            size="small"
-                            icon={packageStatusIcon(currentPackage.status)}
-                            label={packageStatusLabel(currentPackage.status)}
-                            color={packageStatusColor(currentPackage.status)}
-                          />
-                        </Stack>
-                        <Stack spacing={0.5}>
-                          {formatSessionsProgress(currentPackage.sessionsTotal, currentPackage.sessionsUsed) ? (
-                            <Typography variant="body2">
-                              {formatSessionsProgress(currentPackage.sessionsTotal, currentPackage.sessionsUsed)}
-                            </Typography>
-                          ) : null}
-                          <Typography variant="body2" sx={{ opacity: 0.75 }}>
-                            Iniciado em {formatDate(currentPackage.startedAt)}
-                            {currentPackage.endsAt ? ` · Expira em ${formatDate(currentPackage.endsAt)}` : ''}
-                          </Typography>
-                          {currentPackage.notes ? (
-                            <Typography variant="body2" sx={{ opacity: 0.85, whiteSpace: 'pre-line' }}>
-                              {currentPackage.notes}
-                            </Typography>
-                          ) : null}
-                        </Stack>
-                      </Stack>
-                    </Box>
+        <main className="client-profile__main neo-stack neo-stack--lg">
+          <section className="neo-panel client-profile__card">
+            <div className="client-profile__cardHeader">
+              <h2 className="client-profile__sectionTitle">Avaliação física</h2>
+              <div className="client-profile__cardMeta">
+                <span>{measurementSummary?.date ? formatDate(measurementSummary.date) : 'Sem registos'}</span>
+                <Link href={metricsHistoryHref} className="neo-button neo-button--ghost neo-button--small">
+                  Ver histórico
+                </Link>
+              </div>
+            </div>
+            {measurementSummary ? (
+              <div className="neo-stack neo-stack--lg">
+                <div className="neo-grid neo-grid--auto client-profile__metricGrid">
+                  {metricTile('Peso', measurementSummary.weight ? `${measurementSummary.weight} kg` : '—', 'primary')}
+                  {metricTile('Altura', measurementSummary.height ? `${measurementSummary.height} cm` : '—', 'primary', measurementSummary.height && measurementSummary.height >= 3 ? `${Math.round((measurementSummary.height / 100) * 100) / 100} m` : undefined)}
+                  {metricTile('IMC', measurementSummary.bmi ?? '—', 'warning', bmiClassification(measurementSummary.bmi ?? null) ?? undefined)}
+                  {metricTile('Gordura corporal', measurementSummary.bodyFat != null ? `${measurementSummary.bodyFat}%` : '—', 'success')}
+                </div>
 
-                    {packageHistory.length ? (
-                      <Stack spacing={1.5}>
-                        <Typography variant="subtitle2" sx={{ textTransform: 'uppercase', letterSpacing: 0.8 }}>
-                          Histórico recente
-                        </Typography>
-                        <List disablePadding>
-                          {packageHistory.map((pkg) => (
-                            <ListItem
-                              key={pkg.id}
-                              sx={{ borderBottom: '1px solid', borderColor: 'divider', py: 1.5, alignItems: 'flex-start' }}
-                            >
-                              <ListItemText
-                                primary={
-                                  <Stack
-                                    direction={{ xs: 'column', sm: 'row' }}
-                                    spacing={1.5}
-                                    alignItems={{ xs: 'flex-start', sm: 'center' }}
-                                  >
-                                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                                      {pkg.name ?? 'Pacote sem título'}
-                                    </Typography>
-                                    <Chip
-                                      size="small"
-                                      icon={packageStatusIcon(pkg.status)}
-                                      label={packageStatusLabel(pkg.status)}
-                                      color={packageStatusColor(pkg.status)}
-                                    />
-                                  </Stack>
-                                }
-                                secondary={
-                                  <Stack spacing={0.5} sx={{ mt: 0.75 }}>
-                                    <Typography variant="body2">
-                                      {formatDate(pkg.startedAt)}
-                                      {pkg.endsAt ? ` → ${formatDate(pkg.endsAt)}` : ''}
-                                    </Typography>
-                                    {formatSessionsProgress(pkg.sessionsTotal, pkg.sessionsUsed) ? (
-                                      <Typography variant="caption">
-                                        {formatSessionsProgress(pkg.sessionsTotal, pkg.sessionsUsed)}
-                                      </Typography>
-                                    ) : null}
-                                    {pkg.notes ? (
-                                      <Typography variant="caption" sx={{ opacity: 0.7, whiteSpace: 'pre-line' }}>
-                                        {pkg.notes}
-                                      </Typography>
-                                    ) : null}
-                                  </Stack>
-                                }
-                              />
-                            </ListItem>
-                          ))}
-                        </List>
-                      </Stack>
-                    ) : null}
-                  </Stack>
-                ) : (
-                  <Typography variant="body2" sx={{ opacity: 0.75 }}>
-                    Ainda não existem pacotes de sessões registados.
-                  </Typography>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider' }}>
-              <CardHeader
-                title="Planos de treino ativos"
-                subheader={plans.length ? `${plans.length} planos recentes` : 'Sem planos registados'}
-                action={
-                  <Button component={Link} href={`/dashboard/plans`} endIcon={<LaunchIcon />} size="small">
-                    Ver todos
-                  </Button>
-                }
-              />
-              <CardContent>
-                {plans.length === 0 ? (
-                  <Typography variant="body2" sx={{ opacity: 0.75 }}>
-                    Ainda não existem planos de treino para este cliente. Cria um novo plano para acompanhares a jornada.
-                  </Typography>
-                ) : (
-                  <List sx={{ width: '100%', p: 0 }}>
-                    {plans.map((plan) => (
-                      <React.Fragment key={plan.id}>
-                        <ListItem
-                          secondaryAction={
-                            <Button component={Link} href={`/dashboard/pt/plans/${plan.id}`} size="small" variant="outlined">
-                              Abrir
-                            </Button>
-                          }
-                          sx={{
-                            border: '1px solid',
-                            borderColor: 'divider',
-                            borderRadius: 3,
-                            mb: 1.5,
-                            alignItems: 'flex-start',
-                          }}
-                        >
-                          <ListItemAvatar>
-                            <Avatar sx={{ bgcolor: 'secondary.main' }}>
-                              <FitnessCenterIcon />
-                            </Avatar>
-                          </ListItemAvatar>
-                          <ListItemText
-                            primary={
-                              <Stack direction="row" spacing={1.25} alignItems="center" flexWrap="wrap">
-                                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                                  {plan.title ?? 'Plano sem título'}
-                                </Typography>
-                                {plan.status ? <Chip size="small" label={plan.status} /> : null}
-                              </Stack>
-                            }
-                            secondary={
-                              <Stack spacing={0.5} sx={{ mt: 0.75 }}>
-                                <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                                  Atualizado em {formatDate(plan.updatedAt)}
-                                </Typography>
-                                {plan.trainerName ? (
-                                  <Typography variant="caption" sx={{ opacity: 0.7 }}>
-                                    Responsável: {plan.trainerName}
-                                  </Typography>
-                                ) : null}
-                              </Stack>
-                            }
-                          />
-                        </ListItem>
-                      </React.Fragment>
-                    ))}
-                  </List>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider' }}>
-              <CardHeader title="Sessões" subheader="Próximas marcações e histórico recente" />
-              <CardContent>
-                <Grid container spacing={3}>
-                  <Grid item xs={12} md={6}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                      Próximas sessões
-                    </Typography>
-                    {upcomingSessions.length === 0 ? (
-                      <Typography variant="body2" sx={{ opacity: 0.7 }}>
-                        Não existem sessões agendadas.
-                      </Typography>
-                    ) : (
-                      <List disablePadding>
-                        {upcomingSessions.map((session) => sessionLine(session))}
-                      </List>
-                    )}
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                      Últimas sessões
-                    </Typography>
-                    {recentSessions.length === 0 ? (
-                      <Typography variant="body2" sx={{ opacity: 0.7 }}>
-                        Ainda não existem sessões concluídas.
-                      </Typography>
-                    ) : (
-                      <List disablePadding>
-                        {recentSessions.map((session) => sessionLine(session))}
-                      </List>
-                    )}
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
-
-            <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider' }}>
-              <CardHeader
-                avatar={<HistoryEduIcon color="primary" />}
-                title="Notas e observações"
-                subheader={
-                  loadingNotes
-                    ? 'A carregar notas…'
-                    : notes.length
-                      ? `${notes.length} nota${notes.length > 1 ? 's' : ''} registada${notes.length > 1 ? 's' : ''}`
-                      : 'Sem notas personalizadas'
-                }
-              />
-              <CardContent>
-                <Stack spacing={3}>
-                  <Box component="form" onSubmit={submitNote}>
-                    <Stack spacing={1.5}>
-                      <TextField
-                        label="Adicionar nova nota"
-                        placeholder="Registe feedback, progresso ou alertas importantes"
-                        multiline
-                        minRows={3}
-                        fullWidth
-                        value={noteText}
-                        onChange={(event) => setNoteText(event.target.value)}
-                      />
-                      <Stack direction="row" spacing={1} justifyContent="flex-end">
-                        <Button type="submit" variant="contained" disabled={savingNote || !noteTextTrimmed}>
-                          {savingNote ? 'A guardar…' : 'Guardar nota'}
-                        </Button>
-                      </Stack>
-                    </Stack>
-                  </Box>
-
-                  {loadingNotes ? (
-                    <LinearProgress sx={{ borderRadius: 999 }} />
-                  ) : notes.length ? (
-                    <Stack spacing={2}>
-                      {notes.map((note) => (
-                        <Box key={note.id} sx={{ p: 2.5, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
-                          <Stack
-                            direction={{ xs: 'column', sm: 'row' }}
-                            spacing={1}
-                            justifyContent="space-between"
-                            alignItems={{ xs: 'flex-start', sm: 'center' }}
-                          >
-                            <Typography variant="subtitle2">{note.author || 'Equipa'}</Typography>
-                            <Typography variant="caption" sx={{ opacity: 0.7 }}>
-                              {formatDate(note.createdAt)}
-                            </Typography>
-                          </Stack>
-                          <Typography variant="body2" sx={{ mt: 1.25, whiteSpace: 'pre-line' }}>
-                            {note.text}
-                          </Typography>
-                        </Box>
+                {hasCircumferenceData ? (
+                  <div className="neo-stack neo-stack--md">
+                    <h3 className="client-profile__subheading">Medidas corporais</h3>
+                    <div className="neo-grid neo-grid--auto client-profile__metricGrid">
+                      {circumferenceMetrics.map((metric) => (
+                        <div key={metric.key} className="client-profile__metric" data-tone="neutral">
+                          <span className="client-profile__metricLabel">{metric.label}</span>
+                          <span className="client-profile__metricValue">{formatMeasurementValue(metric.value, ' cm')}</span>
+                        </div>
                       ))}
-                    </Stack>
-                  ) : (
-                    <Typography variant="body2" sx={{ opacity: 0.75 }}>
-                      Ainda não existem notas registadas para este cliente.
-                    </Typography>
-                  )}
+                    </div>
+                  </div>
+                ) : null}
 
-                  {hasAutoNotes ? (
-                    <Stack spacing={1.5}>
-                      <Divider textAlign="left">
-                        <Typography variant="caption" sx={{ textTransform: 'uppercase', letterSpacing: 0.8 }}>
-                          Observações automáticas
-                        </Typography>
-                      </Divider>
-                      {measurement?.notes ? (
-                        <Box sx={{ p: 2, borderRadius: 3, border: '1px dashed', borderColor: 'divider' }}>
-                          <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-                            Avaliação física ({formatDate(measurement.date)})
-                          </Typography>
-                          <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
-                            {measurement.notes}
-                          </Typography>
-                        </Box>
-                      ) : null}
-                      {sessionNotes.map((session) => (
-                        <Box key={`auto-note-${session.id}`} sx={{ p: 2, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
-                          <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-                            Sessão de {formatDate(session.scheduledAt)}
-                          </Typography>
-                          <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
-                            {session.notes}
-                          </Typography>
-                          {session.trainerName ? (
-                            <Typography variant="caption" sx={{ opacity: 0.6, display: 'block', mt: 0.75 }}>
-                              Personal Trainer: {session.trainerName}
-                            </Typography>
-                          ) : null}
-                        </Box>
-                      ))}
-                    </Stack>
+                {measurementSummary.notes ? (
+                  <div className="client-profile__noteBox">
+                    <h3 className="client-profile__subheading">Observações</h3>
+                    <p className="client-profile__noteText">{measurementSummary.notes}</p>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <p className="client-profile__muted">Ainda não existem medições registadas.</p>
+            )}
+          </section>
+
+          <section className="neo-panel client-profile__card">
+            <div className="client-profile__cardHeader">
+              <h2 className="client-profile__sectionTitle">Pacotes de sessões</h2>
+              <span className="client-profile__muted">Resumo de pacotes ativos e históricos.</span>
+            </div>
+            {loadingPackages ? (
+              <div className="client-profile__loading">A carregar pacotes…</div>
+            ) : currentPackage ? (
+              <div className="neo-stack neo-stack--lg">
+                <div className="client-profile__package">
+                  <div className="client-profile__packageHeader">
+                    <div className="client-profile__packageTitle">
+                      <span className="client-profile__packageName">{currentPackage.name ?? 'Pacote sem título'}</span>
+                      <span className="neo-tag" data-tone={packageTone(currentPackage.status)}>
+                        {packageStatusLabel(currentPackage.status)}
+                      </span>
+                    </div>
+                    <span className="client-profile__muted">
+                      Iniciado em {formatDate(currentPackage.startedAt)}
+                      {currentPackage.endsAt ? ` · Expira em ${formatDate(currentPackage.endsAt)}` : ''}
+                    </span>
+                  </div>
+                  {formatSessionsProgress(currentPackage.sessionsTotal, currentPackage.sessionsUsed) ? (
+                    <span className="client-profile__muted">
+                      {formatSessionsProgress(currentPackage.sessionsTotal, currentPackage.sessionsUsed)}
+                    </span>
                   ) : null}
-                </Stack>
-              </CardContent>
-            </Card>
-          </Stack>
-        </Grid>
-      </Grid>
-      </Container>
-    </Box>
+                  {currentPackage.notes ? (
+                    <p className="client-profile__noteText">{currentPackage.notes}</p>
+                  ) : null}
+                </div>
+
+                {packageHistory.length ? (
+                  <div className="neo-stack neo-stack--md">
+                    <h3 className="client-profile__subheading">Histórico recente</h3>
+                    <div className="neo-stack neo-stack--md">
+                      {packageHistory.map((pkg) => (
+                        <div key={pkg.id} className="client-profile__package client-profile__package--history">
+                          <div className="client-profile__packageTitle">
+                            <span className="client-profile__packageName">{pkg.name ?? 'Pacote sem título'}</span>
+                            <span className="neo-tag" data-tone={packageTone(pkg.status)}>
+                              {packageStatusLabel(pkg.status)}
+                            </span>
+                          </div>
+                          <span className="client-profile__muted">
+                            {formatDate(pkg.startedAt)}
+                            {pkg.endsAt ? ` → ${formatDate(pkg.endsAt)}` : ''}
+                          </span>
+                          {formatSessionsProgress(pkg.sessionsTotal, pkg.sessionsUsed) ? (
+                            <span className="client-profile__muted">
+                              {formatSessionsProgress(pkg.sessionsTotal, pkg.sessionsUsed)}
+                            </span>
+                          ) : null}
+                          {pkg.notes ? <p className="client-profile__noteText">{pkg.notes}</p> : null}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <p className="client-profile__muted">Ainda não existem pacotes registados para este cliente.</p>
+            )}
+          </section>
+
+          <section className="neo-panel client-profile__card">
+            <div className="client-profile__cardHeader">
+              <h2 className="client-profile__sectionTitle">Planos de treino</h2>
+              <div className="client-profile__cardMeta">
+                <span>{plans.length ? `${plans.length} planos recentes` : 'Sem planos registados'}</span>
+                <Link href="/dashboard/plans" className="neo-button neo-button--ghost neo-button--small">
+                  Ver todos
+                </Link>
+              </div>
+            </div>
+            {plans.length === 0 ? (
+              <p className="client-profile__muted">
+                Ainda não existem planos de treino para este cliente. Cria um novo plano para acompanhares a jornada.
+              </p>
+            ) : (
+              <div className="neo-stack neo-stack--md">
+                {plans.map((plan) => (
+                  <article key={plan.id} className="client-profile__plan">
+                    <div className="client-profile__planInfo">
+                      <div className="client-profile__planTitle">
+                        <span className="client-profile__planName">{plan.title ?? 'Plano sem título'}</span>
+                        {plan.status ? <span className="neo-tag" data-tone="neutral">{plan.status}</span> : null}
+                      </div>
+                      <span className="client-profile__muted">Atualizado em {formatDate(plan.updatedAt)}</span>
+                      {plan.trainerName ? (
+                        <span className="client-profile__muted">Responsável: {plan.trainerName}</span>
+                      ) : null}
+                    </div>
+                    <Link href={`/dashboard/pt/plans/${plan.id}`} className="neo-button neo-button--ghost neo-button--small">
+                      Abrir
+                    </Link>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="neo-panel client-profile__card">
+            <div className="client-profile__cardHeader">
+              <h2 className="client-profile__sectionTitle">Sessões</h2>
+              <span className="client-profile__muted">Próximas marcações e histórico recente.</span>
+            </div>
+            <div className="client-profile__sessions">
+              <div>
+                <h3 className="client-profile__subheading">Próximas sessões</h3>
+                {upcomingSessions.length === 0 ? (
+                  <p className="client-profile__muted">Não existem sessões agendadas.</p>
+                ) : (
+                  <ul className="client-profile__sessionList">
+                    {upcomingSessions.map((session) => (
+                      <li key={session.id}>
+                        <span className="client-profile__sessionTitle">{sessionTitle(session)}</span>
+                        <span className="client-profile__muted">{formatDate(session.scheduledAt)}</span>
+                        {session.location ? <span className="client-profile__muted">Local: {session.location}</span> : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div>
+                <h3 className="client-profile__subheading">Últimas sessões</h3>
+                {recentSessions.length === 0 ? (
+                  <p className="client-profile__muted">Ainda não existem sessões concluídas.</p>
+                ) : (
+                  <ul className="client-profile__sessionList">
+                    {recentSessions.map((session) => (
+                      <li key={session.id}>
+                        <span className="client-profile__sessionTitle">{sessionTitle(session)}</span>
+                        <span className="client-profile__muted">{formatDate(session.scheduledAt)}</span>
+                        {session.location ? <span className="client-profile__muted">Local: {session.location}</span> : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </section>
+
+          <section className="neo-panel client-profile__card">
+            <div className="client-profile__cardHeader">
+              <h2 className="client-profile__sectionTitle">Notas e observações</h2>
+              <span className="client-profile__muted">
+                {loadingNotes
+                  ? 'A carregar notas…'
+                  : notes.length
+                    ? `${notes.length} nota${notes.length > 1 ? 's' : ''} registada${notes.length > 1 ? 's' : ''}`
+                    : 'Sem notas personalizadas'}
+              </span>
+            </div>
+            <div className="neo-stack neo-stack--lg">
+              <form className="neo-stack neo-stack--md" onSubmit={submitNote}>
+                <label className="neo-input-group__label" htmlFor="note-text">
+                  Adicionar nova nota
+                </label>
+                <textarea
+                  id="note-text"
+                  className="neo-input neo-input--textarea"
+                  placeholder="Registe feedback, progresso ou alertas importantes"
+                  value={noteText}
+                  onChange={(event) => setNoteText(event.target.value)}
+                  rows={4}
+                />
+                <div className="neo-inline neo-inline--end">
+                  <button type="submit" className="neo-button neo-button--primary" disabled={savingNote || !noteTextTrimmed}>
+                    {savingNote ? 'A guardar…' : 'Guardar nota'}
+                  </button>
+                </div>
+              </form>
+
+              {loadingNotes ? (
+                <div className="client-profile__loading">A carregar notas…</div>
+              ) : notes.length ? (
+                <div className="neo-stack neo-stack--md">
+                  {notes.map((note) => (
+                    <article key={note.id} className="client-profile__noteCard">
+                      <header className="client-profile__noteHeader">
+                        <span className="client-profile__noteAuthor">{note.author || 'Equipa'}</span>
+                        <span className="client-profile__muted">{formatDate(note.createdAt)}</span>
+                      </header>
+                      <p className="client-profile__noteText">{note.text}</p>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="client-profile__muted">Ainda não existem notas registadas para este cliente.</p>
+              )}
+
+              {hasAutoNotes ? (
+                <div className="neo-stack neo-stack--md">
+                  <h3 className="client-profile__subheading">Observações automáticas</h3>
+                  {measurement?.notes ? (
+                    <article className="client-profile__noteCard client-profile__noteCard--dashed">
+                      <header className="client-profile__noteHeader">
+                        <span className="client-profile__noteAuthor">Avaliação física ({formatDate(measurement.date)})</span>
+                      </header>
+                      <p className="client-profile__noteText">{measurement.notes}</p>
+                    </article>
+                  ) : null}
+                  {sessionNotes.map((session) => (
+                    <article key={`auto-note-${session.id}`} className="client-profile__noteCard">
+                      <header className="client-profile__noteHeader">
+                        <span className="client-profile__noteAuthor">Sessão de {formatDate(session.scheduledAt)}</span>
+                        {session.trainerName ? (
+                          <span className="client-profile__muted">Personal Trainer: {session.trainerName}</span>
+                        ) : null}
+                      </header>
+                      <p className="client-profile__noteText">{session.notes}</p>
+                    </article>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
   );
 }
 
-function InfoRow({
-  icon,
-  label,
-  value,
-  href,
-  copyable,
-}: {
+type InfoRowProps = {
   icon: React.ReactNode;
   label: string;
   value: string;
   href?: string;
   copyable?: boolean;
-}) {
+};
+
+function InfoRow({ icon, label, value, href, copyable }: InfoRowProps) {
   const [copied, setCopied] = React.useState(false);
 
   async function copy() {
@@ -1185,57 +815,79 @@ function InfoRow({
   }
 
   const content = (
-    <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="space-between">
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
-        <Box sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center' }}>{icon}</Box>
-        <Stack sx={{ minWidth: 0 }}>
-          <Typography variant="caption" sx={{ opacity: 0.7 }}>
-            {label}
-          </Typography>
-          <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>
-            {value || '—'}
-          </Typography>
-        </Stack>
-      </Stack>
+    <div className="client-profile__infoRow">
+      <span className="client-profile__infoIcon" aria-hidden>
+        {icon}
+      </span>
+      <div className="client-profile__infoBody">
+        <span className="client-profile__infoLabel">{label}</span>
+        <span className="client-profile__infoValue">{value || '—'}</span>
+      </div>
       {copyable && value ? (
-        <Tooltip title={copied ? 'Copiado!' : 'Copiar valor'}>
-          <IconButton size="small" onClick={copy}>
-            <ContentCopyIcon fontSize="inherit" />
-          </IconButton>
-        </Tooltip>
+        <button type="button" className="client-profile__iconButton" onClick={copy} aria-live="polite">
+          {copied ? <CheckIcon /> : <CopyIcon />}
+          <span className="sr-only">{copied ? 'Valor copiado' : 'Copiar valor'}</span>
+        </button>
       ) : null}
-    </Stack>
+    </div>
   );
 
   if (href && value && value !== '—') {
+    const external = href.startsWith('http');
     return (
-      <MuiLink href={href} underline="hover" target={href.startsWith('http') ? '_blank' : undefined} rel="noreferrer">
+      <a className="client-profile__infoLink" href={href} target={external ? '_blank' : undefined} rel={external ? 'noreferrer' : undefined}>
         {content}
-      </MuiLink>
+      </a>
     );
   }
 
   return content;
 }
 
-function RefreshIcon() {
-  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10" /><path d="M20.49 15a9 9 0 0 1-14.13 3.36L1 14" /></svg>;
+function MailIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden focusable="false">
+      <path d="M3.75 4h16.5A1.75 1.75 0 0 1 22 5.75v12.5A1.75 1.75 0 0 1 20.25 20H3.75A1.75 1.75 0 0 1 2 18.25V5.75A1.75 1.75 0 0 1 3.75 4Zm0 1.5a.25.25 0 0 0-.25.25v.34l8.27 5.17 8.23-5.17V5.75a.25.25 0 0 0-.25-.25H3.75Zm16.5 3.08-7.8 4.9a.75.75 0 0 1-.8 0l-7.9-4.96v8.48c0 .14.11.25.25.25h16.5c.14 0 .25-.11.25-.25V8.58Z" />
+    </svg>
+  );
 }
 
-function ContentCopyIcon(props: { fontSize?: 'inherit' }) {
+function PhoneIcon() {
   return (
-    <svg
-      width={props.fontSize === 'inherit' ? '1em' : 20}
-      height={props.fontSize === 'inherit' ? '1em' : 20}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    <svg viewBox="0 0 24 24" aria-hidden focusable="false">
+      <path d="M7.17 3.45a1.8 1.8 0 0 1 1.86-.43l.21.09a2.5 2.5 0 0 1 1.44 1.7l.58 2.73a1.8 1.8 0 0 1-.58 1.72L9.63 9.2a10.45 10.45 0 0 0 5.18 5.18l.05-.05a1.8 1.8 0 0 1 1.72-.58l2.73.58a2.5 2.5 0 0 1 1.79 1.65l.1.32a1.8 1.8 0 0 1-.4 1.75l-1.48 1.63a2.6 2.6 0 0 1-2.45.78c-7.02-1.44-12.63-7.05-14.07-14.07a2.6 2.6 0 0 1 .78-2.45Z" />
+    </svg>
+  );
+}
+
+function UserIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden focusable="false">
+      <path d="M12 4a4 4 0 1 1 0 8 4 4 0 0 1 0-8Zm0 9.5c4.05 0 7.5 2.43 7.5 5.42V20H4.5v-1.08c0-2.99 3.45-5.42 7.5-5.42Z" />
+    </svg>
+  );
+}
+
+function IdIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden focusable="false">
+      <path d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm2 4v10h10V7H7Zm3 2h4a1 1 0 1 1 0 2h-4a1 1 0 1 1 0-2Zm0 4h4a1 1 0 1 1 0 2h-4a1 1 0 1 1 0-2Z" />
+    </svg>
+  );
+}
+
+function CopyIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden focusable="false">
+      <path d="M8 3a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-1v4a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-1h3a2 2 0 0 0 2-2V3Zm2 0v10H5V5a2 2 0 0 1 2-2h3Z" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden focusable="false">
+      <path d="M20.3 5.7a1 1 0 0 1 0 1.4l-9.24 9.24a1 1 0 0 1-1.42 0L3.7 10.4a1 1 0 1 1 1.42-1.42l4.12 4.12 8.53-8.52a1 1 0 0 1 1.42 0Z" />
     </svg>
   );
 }
