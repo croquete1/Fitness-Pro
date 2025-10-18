@@ -38,7 +38,9 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Reimaginar o módulo de sessões do cliente no tema `.neo`, com métricas, timeline, ranking de PT e gestão de pedidos ligada ao Supabase (src/app/(app)/dashboard/sessions/**/*).
 - [x] Reestruturar o painel de planos do cliente no tema `.neo`, com métricas reais, gráfico temporal, insights automáticos e fallback sincronizado com o Supabase (src/app/(app)/dashboard/plans/**/*, src/app/api/client/plans/dashboard/route.ts).
 - [x] Migrar o painel de planos do PT para o tema `.neo`, com métricas agregadas, timeline semanal e destaques operacionais ligados à nova rota `/api/pt/plans/dashboard` e utilitários `src/lib/trainer/plans/*`.
+- [x] Reconstruir o painel de mensagens (`src/app/(app)/dashboard/messages/**/*`, `/api/messages/dashboard`) com cartões hero, gráfico temporal, distribuição por canal, destaques automáticos e fallbacks determinísticos em `src/lib/fallback/messages.ts`.
 - [x] Reimaginar o painel de métricas operacionais com dashboards `.neo`, API `/api/system/metrics`, utilitários `src/lib/system/*` e fallback determinístico em `src/lib/fallback/system.ts`.
+- [x] Migrar o painel de logs do sistema para `.neo`, com métricas hero, linha temporal, distribuição e tabela alimentadas pela nova rota `/api/system/logs/dashboard`, utilitários `src/lib/system/logs/*` e fallback determinístico em `src/lib/fallback/system-logs.ts`.
 - [ ] Refinar as sidebars de PT/cliente com badges dinâmicos e entradas contextuais (quick actions, indicadores de progresso).
 - [ ] Definir padrão consistente para uso de rotas Next.js vs. cliente Supabase (tempo real) e aplicá-lo aos módulos de mensagens/notificações.
 - [ ] Optimizar consultas com índices e vistas materializadas (existe esboço, mas falta adopção generalizada).
