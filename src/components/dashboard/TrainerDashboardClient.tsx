@@ -3,7 +3,6 @@
 import * as React from 'react';
 import Link from 'next/link';
 import type { Route } from 'next';
-import clsx from 'clsx';
 import PageHeader from '@/components/ui/PageHeader';
 import { greetingForDate } from '@/lib/time';
 
@@ -67,7 +66,13 @@ function StatusPill({ tone, label }: { tone: StatusTone; label: string }) {
 
 function ArrowTopRightIcon() {
   return (
-    <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={1.6}>
+    <svg
+      viewBox="0 0 24 24"
+      className="neo-icon neo-icon--xs"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.6}
+    >
       <path d="M7 17L17 7M17 7H9M17 7V15" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -77,12 +82,10 @@ function RefreshIcon({ spinning }: { spinning: boolean }) {
   return (
     <svg
       viewBox="0 0 24 24"
-      width={16}
-      height={16}
+      className={`neo-icon neo-icon--sm${spinning ? ' neo-spin' : ''}`}
       fill="none"
       stroke="currentColor"
       strokeWidth={1.6}
-      className={clsx(spinning && 'animate-spin')}
     >
       <path
         d="M21 12a9 9 0 0 0-9-9 9 9 0 0 0-8.66 6H5a1 1 0 0 1 0 2H2a1 1 0 0 1-1-1V4a1 1 0 0 1 2 0v1.18A11 11 0 0 1 12 1a11 11 0 1 1-10.95 12h2A9 9 0 1 0 21 12Z"
@@ -112,23 +115,24 @@ function MetricTile({
     <Link
       href={href}
       prefetch={false}
-      className="neo-surface neo-surface--interactive flex flex-col justify-between gap-3 p-4 transition-transform hover:-translate-y-0.5"
+      className="neo-surface neo-surface--interactive neo-surface--padded trainer-dashboard__metric"
       data-variant={tone}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="space-y-1">
-          <span className="neo-surface__hint uppercase tracking-wide">{label}</span>
-          <span className="neo-surface__value text-2xl font-semibold text-fg">{value}</span>
+      <div className="trainer-dashboard__metric-header">
+        <div className="trainer-dashboard__metric-meta">
+          <span className="trainer-dashboard__metric-label">{label}</span>
+          <span className="trainer-dashboard__metric-value">{value}</span>
         </div>
         {icon && (
-          <span className="text-2xl" aria-hidden>
+          <span className="trainer-dashboard__metric-icon" aria-hidden>
             {icon}
           </span>
         )}
       </div>
-      {hint && <p className="text-xs text-muted">{hint}</p>}
-      <span className="link-arrow mt-auto inline-flex items-center gap-1 text-sm font-medium">
-        Abrir <ArrowTopRightIcon />
+      {hint && <p className="trainer-dashboard__metric-hint">{hint}</p>}
+      <span className="link-arrow trainer-dashboard__metric-link">
+        Abrir
+        <ArrowTopRightIcon />
       </span>
     </Link>
   );
@@ -347,22 +351,27 @@ export default function TrainerDashboardClient({ name, data, supabase }: Props) 
   ];
 
   return (
-    <div className="space-y-6 px-4 py-6 md:px-8">
+    <div className="trainer-dashboard neo-stack neo-stack--xl">
       <PageHeader
         sticky={false}
         title={
-          <span className="flex flex-wrap items-center gap-3">
-            <span className="text-3xl" aria-hidden>
+          <span className="trainer-dashboard__greeting neo-inline neo-inline--wrap neo-inline--sm">
+            <span className="trainer-dashboard__greeting-emoji" aria-hidden>
               {greetingInfo.emoji}
             </span>
-            <span className="heading-solid text-3xl font-extrabold leading-tight text-fg">{greetingLabel}</span>
+            <span className="trainer-dashboard__greeting-text">{greetingLabel}</span>
           </span>
         }
         subtitle="Controla sessões, clientes e planos com uma visão accionável e integrada."
         actions={
-          <div className="neo-quick-actions">
-            {quickActions.map((action) => (
-              <Link key={action.href} href={action.href} className="btn" prefetch={false}>
+          <div className="trainer-dashboard__actions neo-inline neo-inline--wrap neo-inline--sm">
+            {quickActions.map((action, index) => (
+              <Link
+                key={action.href}
+                href={action.href}
+                className={`neo-button ${index === 0 ? 'neo-button--primary' : 'neo-button--ghost'} neo-button--small`}
+                prefetch={false}
+              >
                 {action.label}
               </Link>
             ))}
@@ -370,9 +379,9 @@ export default function TrainerDashboardClient({ name, data, supabase }: Props) 
         }
       />
 
-      <section className="neo-panel space-y-5" aria-labelledby="trainer-metrics-heading">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
+      <section className="neo-panel trainer-dashboard__panel" aria-labelledby="trainer-metrics-heading">
+        <div className="neo-panel__header trainer-dashboard__panel-header">
+          <div className="neo-panel__meta">
             <h2 id="trainer-metrics-heading" className="neo-panel__title">
               Cockpit do treinador
             </h2>
@@ -380,7 +389,7 @@ export default function TrainerDashboardClient({ name, data, supabase }: Props) 
           </div>
           <StatusPill tone={supabase ? 'ok' : 'warn'} label={supabase ? 'Sincronizado' : 'Modo offline'} />
         </div>
-        <div className="neo-grid auto-fit min-[420px]:grid-cols-2 xl:grid-cols-4">
+        <div className="neo-grid neo-grid--auto trainer-dashboard__metrics">
           {metricCards.map((metric) => (
             <MetricTile
               key={metric.label}
@@ -393,35 +402,39 @@ export default function TrainerDashboardClient({ name, data, supabase }: Props) 
             />
           ))}
         </div>
-        <div className="neo-grid auto-fit min-[420px]:grid-cols-2">
+        <div className="trainer-dashboard__insights-grid">
           {insights.map((insight, index) => (
-            <div key={`${insight.message}-${index}`} className="neo-surface p-4" data-variant={insightVariant(insight.tone)}>
-              <div className="flex items-start gap-3">
-                <span className="text-xl" aria-hidden>
+            <div
+              key={`${insight.message}-${index}`}
+              className="neo-surface neo-surface--padded trainer-dashboard__insight-card"
+              data-variant={insightVariant(insight.tone)}
+            >
+              <div className="trainer-dashboard__insight-content">
+                <span className="trainer-dashboard__insight-icon" aria-hidden>
                   {insight.icon}
                 </span>
-                <p className="text-sm text-fg">{insight.message}</p>
+                <p className="trainer-dashboard__insight-text">{insight.message}</p>
               </div>
             </div>
           ))}
         </div>
       </section>
 
-      <div className="grid gap-5 xl:grid-cols-[2fr_1fr]">
-        <div className="space-y-5">
-          <section className="neo-panel space-y-4" aria-labelledby="weekly-agenda-heading">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
+      <div className="trainer-dashboard__body">
+        <div className="trainer-dashboard__column">
+          <section className="neo-panel trainer-dashboard__panel" aria-labelledby="weekly-agenda-heading">
+            <div className="neo-panel__header trainer-dashboard__panel-header">
+              <div className="neo-panel__meta">
                 <h2 id="weekly-agenda-heading" className="neo-panel__title">
                   Agenda semanal
                 </h2>
                 <p className="neo-panel__subtitle">Organiza as sessões desta semana por dia.</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="trainer-dashboard__panel-actions neo-inline neo-inline--sm">
                 {weeklyLoading && <StatusPill tone="warn" label="A actualizar…" />}
                 <button
                   type="button"
-                  className="btn ghost inline-flex items-center gap-2"
+                  className="neo-button neo-button--ghost neo-button--small"
                   onClick={() => refreshWeeklyAgenda()}
                   disabled={weeklyLoading}
                 >
@@ -429,33 +442,28 @@ export default function TrainerDashboardClient({ name, data, supabase }: Props) 
                 </button>
               </div>
             </div>
-            <div className="neo-grid auto-fit min-[360px]:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+            <div className="trainer-dashboard__week-grid">
               {weeklyAgenda.map((day) => (
                 <article
                   key={day.iso}
-                  className="neo-surface space-y-3 p-4"
+                  className="neo-surface neo-surface--padded trainer-dashboard__week-card"
                   data-variant={day.sessions.length > 2 ? 'primary' : undefined}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-semibold text-fg">{day.label}</span>
-                    <span className="text-xs text-muted">{day.sessions.length} sessão(s)</span>
+                  <div className="trainer-dashboard__week-card-header">
+                    <span className="trainer-dashboard__week-card-label">{day.label}</span>
+                    <span className="trainer-dashboard__week-card-count">{day.sessions.length} sessão(s)</span>
                   </div>
-                  <div className="grid gap-2 text-xs">
+                  <div className="trainer-dashboard__week-sessions">
                     {day.sessions.length === 0 ? (
-                      <span className="text-muted">Sem sessões agendadas.</span>
+                      <span className="trainer-dashboard__week-empty">Sem sessões agendadas.</span>
                     ) : (
                       day.sessions.slice(0, 3).map((session) => (
-                        <div
-                          key={session.id}
-                          className="rounded-xl border border-transparent bg-white/70 p-2 text-left shadow-sm transition dark:bg-slate-800/50"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm font-semibold text-fg">{formatAgendaTime(session.start_at)}</span>
-                            {session.kind && (
-                              <span className="text-[10px] uppercase tracking-wide text-muted">{session.kind}</span>
-                            )}
+                        <div key={session.id} className="trainer-dashboard__week-session">
+                          <div className="trainer-dashboard__week-session-header">
+                            <span className="trainer-dashboard__week-session-time">{formatAgendaTime(session.start_at)}</span>
+                            {session.kind && <span className="trainer-dashboard__week-session-kind">{session.kind}</span>}
                           </div>
-                          <p className="text-xs text-muted">
+                          <p className="trainer-dashboard__week-session-meta">
                             {session.client ?? 'Cliente'}
                             {session.location ? ` • ${session.location}` : ''}
                           </p>
@@ -464,7 +472,7 @@ export default function TrainerDashboardClient({ name, data, supabase }: Props) 
                     )}
                   </div>
                   {day.sessions.length > 3 && (
-                    <span className="text-[11px] uppercase tracking-wide text-muted">
+                    <span className="trainer-dashboard__week-more">
                       +{day.sessions.length - 3} sessão(ões)
                     </span>
                   )}
@@ -473,9 +481,9 @@ export default function TrainerDashboardClient({ name, data, supabase }: Props) 
             </div>
           </section>
 
-          <section className="neo-panel space-y-4" aria-labelledby="upcoming-sessions-heading">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
+          <section className="neo-panel trainer-dashboard__panel" aria-labelledby="upcoming-sessions-heading">
+            <div className="neo-panel__header trainer-dashboard__panel-header">
+              <div className="neo-panel__meta">
                 <h2 id="upcoming-sessions-heading" className="neo-panel__title">
                   Próximas sessões
                 </h2>
@@ -484,24 +492,26 @@ export default function TrainerDashboardClient({ name, data, supabase }: Props) 
               <StatusPill tone={toneFromCount(upcomingSessions.length)} label={`${upcomingSessions.length} sessão(s)`} />
             </div>
             {upcomingSessions.length === 0 ? (
-              <div className="space-y-3">
-                <p className="text-base font-semibold text-fg">Não existem sessões marcadas.</p>
-                <p className="text-sm text-muted">Cria uma nova sessão para manter os clientes activos.</p>
-                <Link href="/dashboard/pt/schedule" className="btn primary" prefetch={false}>
+              <div className="trainer-dashboard__empty neo-stack neo-stack--sm">
+                <p className="trainer-dashboard__empty-title">Não existem sessões marcadas.</p>
+                <p className="trainer-dashboard__empty-text">Cria uma nova sessão para manter os clientes activos.</p>
+                <Link href="/dashboard/pt/schedule" className="neo-button neo-button--primary" prefetch={false}>
                   Marcar nova sessão
                 </Link>
               </div>
             ) : (
-              <ul className="grid gap-3" aria-live="polite">
+              <ul className="trainer-dashboard__upcoming-list" aria-live="polite">
                 {upcomingSessions.map((session) => {
                   const { day, time } = formatSessionTime(session.start_time);
                   return (
-                    <li key={session.id} className="neo-surface space-y-2 p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="text-sm font-semibold text-fg">{session.client_name}</span>
-                        <span className="text-xs uppercase tracking-wide text-muted">{day}</span>
+                    <li key={session.id} className="neo-surface neo-surface--padded trainer-dashboard__upcoming-item">
+                      <div className="trainer-dashboard__upcoming-meta">
+                        <span className="trainer-dashboard__upcoming-client">{session.client_name}</span>
+                        <span className="trainer-dashboard__upcoming-day">{day}</span>
                       </div>
-                      <p className="text-sm text-muted">Hora: {time} · {session.location ?? 'Local a definir'}</p>
+                      <p className="trainer-dashboard__upcoming-details">
+                        Hora: {time} · {session.location ?? 'Local a definir'}
+                      </p>
                       {session.status && (
                         <StatusPill tone={sessionTone(session.status)} label={String(session.status).toUpperCase()} />
                       )}
@@ -513,54 +523,58 @@ export default function TrainerDashboardClient({ name, data, supabase }: Props) 
           </section>
         </div>
 
-        <aside className="space-y-5">
-          <section className="neo-panel space-y-4" aria-labelledby="insights-heading">
-            <div>
+        <aside className="trainer-dashboard__column">
+          <section className="neo-panel trainer-dashboard__panel" aria-labelledby="insights-heading">
+            <div className="neo-panel__meta">
               <h2 id="insights-heading" className="neo-panel__title">
                 Insights rápidos
               </h2>
               <p className="neo-panel__subtitle">Alertas e destaques para hoje.</p>
             </div>
-            <ul className="grid gap-3 text-sm">
+            <ul className="trainer-dashboard__insights-list">
               {insights.map((insight, index) => (
-                <li key={`${insight.message}-${index}`} className="neo-surface p-4" data-variant={insightVariant(insight.tone)}>
-                  <div className="flex items-start gap-3">
-                    <span className="text-xl" aria-hidden>
+                <li
+                  key={`${insight.message}-${index}`}
+                  className="neo-surface neo-surface--padded trainer-dashboard__insight-item"
+                  data-variant={insightVariant(insight.tone)}
+                >
+                  <div className="trainer-dashboard__insight-content">
+                    <span className="trainer-dashboard__insight-icon" aria-hidden>
                       {insight.icon}
                     </span>
-                    <p className="text-sm text-fg">{insight.message}</p>
+                    <p className="trainer-dashboard__insight-text">{insight.message}</p>
                   </div>
                 </li>
               ))}
             </ul>
           </section>
 
-          <section className="neo-panel space-y-4" aria-labelledby="clients-heading">
-            <div className="flex items-center justify-between gap-3">
-              <div>
+          <section className="neo-panel trainer-dashboard__panel" aria-labelledby="clients-heading">
+            <div className="neo-panel__header trainer-dashboard__panel-header">
+              <div className="neo-panel__meta">
                 <h2 id="clients-heading" className="neo-panel__title">
                   Clientes activos
                 </h2>
                 <p className="neo-panel__subtitle">Carteira sob acompanhamento.</p>
               </div>
-              <Link href="/dashboard/pt/clients" className="btn ghost" prefetch={false}>
+              <Link href="/dashboard/pt/clients" className="neo-button neo-button--ghost neo-button--small" prefetch={false}>
                 Ver todos
               </Link>
             </div>
             {data.clients.length === 0 ? (
-              <div className="space-y-3">
-                <p className="text-sm text-muted">Ainda não tens clientes associados.</p>
-                <Link href="/dashboard/pt/clients" className="btn primary" prefetch={false}>
+              <div className="trainer-dashboard__empty neo-stack neo-stack--sm">
+                <p className="trainer-dashboard__empty-text">Ainda não tens clientes associados.</p>
+                <Link href="/dashboard/pt/clients" className="neo-button neo-button--primary" prefetch={false}>
                   Adicionar cliente
                 </Link>
               </div>
             ) : (
-              <ul className="grid gap-2 text-sm">
+              <ul className="trainer-dashboard__clients-list">
                 {data.clients.map((client) => (
-                  <li key={client.id} className="neo-surface p-3">
-                    <span className="font-semibold text-fg">{client.name}</span>
+                  <li key={client.id} className="neo-surface neo-surface--padded trainer-dashboard__client-item">
+                    <span className="trainer-dashboard__client-name">{client.name}</span>
                     {client.status && (
-                      <span className="block text-xs uppercase tracking-wide text-muted">
+                      <span className="trainer-dashboard__client-status">
                         {String(client.status)}
                       </span>
                     )}

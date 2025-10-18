@@ -109,11 +109,11 @@ export default function AdminQuickNotesCard() {
   const hasError = touched && draft.trim().length === 0;
 
   return (
-    <section className="neo-panel space-y-4">
-      <header className="flex flex-wrap items-start justify-between gap-3">
+    <section className="neo-panel admin-panel">
+      <header className="neo-panel__header admin-panel__header">
         <div>
-          <h2 className="neo-panel__title flex items-center gap-2 text-lg">
-            <NotebookPen className="h-5 w-5 text-primary" aria-hidden /> Notas rápidas
+          <h2 className="neo-panel__title admin-panel__title">
+            <NotebookPen className="neo-icon" aria-hidden /> Notas rápidas
           </h2>
           <p className="neo-panel__subtitle">Guardadas localmente neste dispositivo</p>
         </div>
@@ -122,13 +122,13 @@ export default function AdminQuickNotesCard() {
         </span>
       </header>
 
-      <p className="text-sm text-muted">
+      <p className="neo-text--sm text-muted">
         Usa este painel para guardar alinhamentos internos, decisões recentes ou tarefas urgentes sem perder o foco na visão do
         produto.
       </p>
 
-      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
-        <label className="flex flex-col gap-2">
+      <div className="admin-notes__form">
+        <label className="admin-notes__field">
           <span className="sr-only">Adicionar nota</span>
           <textarea
             className={`neo-input neo-input--textarea${hasError ? ' neo-input--error' : ''}`}
@@ -149,48 +149,51 @@ export default function AdminQuickNotesCard() {
         </label>
         <button
           type="button"
-          className="btn primary h-full min-w-[160px] self-start md:self-stretch"
+          className="btn admin-notes__submit"
+          data-variant="primary"
+          data-size="md"
           onClick={addNote}
         >
           Guardar
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="admin-notes__suggestions">
         {SUGGESTIONS.map((suggestion) => (
           <button
             key={suggestion}
             type="button"
-            className="btn chip text-xs"
+            className="admin-notes__chip"
             onClick={() => handleSuggestion(suggestion)}
           >
-            <Sparkles className="mr-1 h-3 w-3" aria-hidden />
+            <Sparkles className="neo-icon neo-icon--xs" aria-hidden />
             {suggestion}
           </button>
         ))}
       </div>
 
-      <ul className="space-y-2">
+      <ul className="admin-notes__list">
         {notes.map((note) => (
-          <li key={note.id} className="neo-surface flex items-start justify-between gap-3 rounded-2xl p-4" data-variant="neutral">
-            <div className="flex-1 space-y-1">
-              <p className="whitespace-pre-line text-sm text-fg">{note.text}</p>
-              <span className="text-xs text-muted">{formatRelative(note.createdAt)}</span>
+          <li key={note.id} className="neo-surface admin-notes__note" data-variant="neutral">
+            <div className="admin-notes__note-body">
+              <p className="admin-notes__note-text">{note.text}</p>
+              <span className="admin-notes__note-meta">{formatRelative(note.createdAt)}</span>
             </div>
             <button
               type="button"
-              className="btn icon"
+              className="btn admin-notes__remove"
+              data-variant="ghost"
               aria-label="Remover nota"
               onClick={() => removeNote(note.id)}
             >
-              <Trash2 className="h-4 w-4" aria-hidden />
+              <Trash2 className="neo-icon neo-icon--sm" aria-hidden />
             </button>
           </li>
         ))}
       </ul>
 
       {notes.length === 0 && (
-        <div className="neo-surface rounded-2xl border border-dashed border-white/40 p-5 text-sm text-muted dark:border-slate-700/60">
+        <div className="admin-panel__empty">
           Ainda não guardaste notas — usa as sugestões acima para começar.
         </div>
       )}
