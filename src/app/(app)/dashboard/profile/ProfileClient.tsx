@@ -1,24 +1,34 @@
 'use client';
 
 import * as React from 'react';
+import useSWR from 'swr';
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import {
+  Bell,
+  CalendarClock,
+  CheckCircle2,
+  Loader2,
+  Mail,
+  RefreshCcw,
+  ShieldCheck,
+  Smartphone,
+  TrendingUp,
+} from 'lucide-react';
 import clsx from 'clsx';
-import { Camera, Loader2, Save, ShieldCheck, Trash2 } from 'lucide-react';
 
 import Alert from '@/components/ui/Alert';
 import Button from '@/components/ui/Button';
+import PageHeader from '@/components/ui/PageHeader';
 import { normalizeUsername, validateUsernameCandidate } from '@/lib/username';
-
-type ProfileModel = {
-  id: string;
-  email: string;
-  name: string;
-  username: string;
-  avatarUrl: string;
-  role: string | null;
-  phone: string | null;
-  birthDate: string | null;
-  bio: string | null;
-};
+import type { ProfileDashboardResponse, ProfileHeroMetric, ProfileTimelinePoint } from '@/lib/profile/types';
 
 type Status = { type: 'idle' | 'success' | 'error'; message?: string };
 
@@ -39,152 +49,133 @@ type FormState = {
   avatarUrl: string;
 };
 
-type UsernameHelperTone = 'muted' | 'checking' | 'success' | 'error';
-
-type UsernameHelper = {
-  message: string;
-  tone: UsernameHelperTone;
+type TrendProps = {
+  trend: ProfileHeroMetric['trend'];
 };
 
-function normalizeDateInput(value: string | null) {
+function toFormString(value: unknown): string {
+  if (value == null) return '';
+  return String(value).trim();
+}
+
+function sanitizeDate(value: string | null): string {
   if (!value) return '';
   if (value.length >= 10) return value.slice(0, 10);
   return value;
 }
 
-function toFormString(value: unknown) {
-  if (value == null) return '';
-  return String(value).trim();
+function sanitizeForm(account: ProfileDashboardResponse['account']): FormState {
+  return {
+    name: toFormString(account.name),
+    username: toFormString(account.username),
+    phone: toFormString(account.phone),
+    birthDate: sanitizeDate(account.birthDate),
+    bio: toFormString(account.bio),
+    avatarUrl: toFormString(account.avatarUrl),
+  };
 }
 
-function applyServerProfilePatch(base: FormState, patch: unknown): FormState {
-  if (!patch || typeof patch !== 'object') return { ...base };
+function applyServerPatch(base: FormState, patch: unknown): FormState {
+  if (!patch || typeof patch !== 'object') return base;
   const record = patch as Record<string, unknown>;
   const next: FormState = { ...base };
-
   if ('name' in record) next.name = toFormString(record.name);
   if ('username' in record) next.username = toFormString(record.username);
   if ('phone' in record) next.phone = toFormString(record.phone);
   if ('bio' in record) next.bio = toFormString(record.bio);
   if ('avatar_url' in record) next.avatarUrl = toFormString(record.avatar_url);
-  if ('birth_date' in record) {
-    const birth = typeof record.birth_date === 'string' ? record.birth_date : null;
-    next.birthDate = normalizeDateInput(birth);
-  }
-
+  if ('birth_date' in record) next.birthDate = sanitizeDate(toFormString(record.birth_date));
   return next;
 }
 
-function sanitizeInitial(profile: ProfileModel): FormState {
-  return {
-    name: (profile.name ?? '').trim(),
-    username: (profile.username ?? '').trim(),
-    phone: profile.phone ?? '',
-    birthDate: normalizeDateInput(profile.birthDate ?? null),
-    bio: (profile.bio ?? '').trim(),
-    avatarUrl: (profile.avatarUrl ?? '').trim(),
-  };
+function TrendPill({ trend }: TrendProps) {
+  if (!trend) return null;
+  return (
+    <span className={clsx('profile-hero__trend', trend.direction)} aria-label={trend.label}>
+      <TrendingUp aria-hidden />
+      {trend.label}
+    </span>
+  );
 }
 
-function AvatarPreview({
-  url,
-  email,
-  name,
-  className,
-  style,
-  size = 'lg',
-}: {
-  url: string;
-  email: string;
-  name: string;
-  className?: string;
-  style?: React.CSSProperties;
-  size?: 'md' | 'lg';
-}) {
-  const initials = React.useMemo(() => {
-    const base = name || email || '';
-    if (!base.trim()) return '?';
-    const parts = base.trim().split(/\s+/).slice(0, 2);
-    return parts.map((part) => part[0]?.toUpperCase() ?? '').join('') || base[0]?.toUpperCase() || '?';
-  }, [email, name]);
-
+function TimelineTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  const point = payload[0].payload as ProfileTimelinePoint;
   return (
-    <div className={clsx('profile-avatar', className)} data-size={size} style={style}>
-      {url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={url} alt={name || email} />
-      ) : (
-        <span>{initials}</span>
-      )}
+    <div className="profile-timeline__tooltip">
+      <span className="profile-timeline__tooltipLabel">{point.label}</span>
+      <p>
+        <strong>{point.completed}</strong> sessões confirmadas
+      </p>
+      <p>
+        <strong>{point.scheduled}</strong> agendadas
+      </p>
+      <p>
+        <strong>{point.cancelled}</strong> canceladas
+      </p>
     </div>
   );
 }
 
-function ProfileStatus({ status, id }: { status: Status; id: string }) {
-  if (status.type === 'idle') return null;
-  const tone = status.type === 'success' ? 'success' : 'danger';
-  const message =
-    status.message ??
-    (status.type === 'success'
-      ? 'Alterações guardadas com sucesso.'
-      : 'Não foi possível concluir a ação.');
-  return <Alert id={id} tone={tone} className="profile-status" title={message} />;
-}
-
-function resolveUsernameHelper(value: string, status: UsernameStatus): UsernameHelper {
+function resolveUsernameHelper(value: string, status: UsernameStatus) {
   const trimmed = value.trim();
   if (!trimmed) {
     return {
       message: 'Opcional. Usa letras, números, ponto, hífen ou underscore.',
-      tone: 'muted',
+      tone: 'muted' as const,
     };
   }
 
   switch (status.state) {
     case 'checking':
-      return { message: 'A verificar disponibilidade…', tone: 'checking' };
+      return { message: 'A verificar disponibilidade…', tone: 'checking' as const };
     case 'taken':
-      return { message: 'Este username já está em uso.', tone: 'error' };
+      return { message: 'Este username já está em uso.', tone: 'error' as const };
     case 'invalid':
       if (status.reason === 'reserved') {
-        return { message: 'Este username não está disponível.', tone: 'error' };
+        return { message: 'Este username não está disponível.', tone: 'error' as const };
       }
-      if (status.reason === 'length') {
-        return { message: 'O username deve ter entre 3 e 30 caracteres.', tone: 'error' };
-      }
-      if (status.reason === 'format') {
-        return {
-          message: 'Só podes usar letras, números, ponto, hífen ou underscore.',
-          tone: 'error',
-        };
-      }
-      return {
-        message: 'O username deve ter entre 3 e 30 caracteres válidos.',
-        tone: 'error',
-      };
+      return { message: 'Escolhe um identificador com 3 a 30 caracteres válidos.', tone: 'error' as const };
     case 'error':
-      return { message: 'Não foi possível validar o username agora.', tone: 'error' };
+      return { message: 'Não foi possível validar agora.', tone: 'error' as const };
     case 'available':
-      return { message: 'Perfeito! Este username está disponível.', tone: 'success' };
+      return { message: 'Perfeito! Este username está disponível.', tone: 'success' as const };
     case 'idle':
     default:
-      return { message: 'Este será o teu identificador público.', tone: 'muted' };
+      return { message: 'Este será o teu identificador público.', tone: 'muted' as const };
   }
 }
 
-export default function ProfileClient({ initialProfile }: { initialProfile: ProfileModel }) {
-  const initialState = React.useMemo(() => sanitizeInitial(initialProfile), [initialProfile]);
-  const [form, setForm] = React.useState<FormState>(initialState);
-  const [baseline, setBaseline] = React.useState<FormState>(initialState);
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
+export default function ProfileClient({
+  initialDashboard,
+}: {
+  initialDashboard: ProfileDashboardResponse;
+}) {
+  const { data, mutate, isValidating } = useSWR<ProfileDashboardResponse>('/api/profile/dashboard', fetcher, {
+    fallbackData: initialDashboard,
+    revalidateOnFocus: false,
+  });
+
+  const dashboard = data ?? initialDashboard;
+  const account = dashboard.account;
+
+  const [form, setForm] = React.useState<FormState>(() => sanitizeForm(account));
+  const [baseline, setBaseline] = React.useState<FormState>(() => sanitizeForm(account));
   const [status, setStatus] = React.useState<Status>({ type: 'idle' });
   const [saving, setSaving] = React.useState(false);
   const [avatarBusy, setAvatarBusy] = React.useState(false);
   const [usernameStatus, setUsernameStatus] = React.useState<UsernameStatus>({ state: 'idle' });
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const usernameHintId = React.useId();
-  const statusMessageId = React.useId();
-  const heroHeadingId = React.useId();
-  const avatarAsideLabelId = React.useId();
+  const statusId = React.useId();
+
+  React.useEffect(() => {
+    const next = sanitizeForm(account);
+    setForm(next);
+    setBaseline(next);
+  }, [account.id, account.updatedAt, account.email, account.username, account.phone, account.birthDate, account.bio, account.avatarUrl, account.name]);
 
   React.useEffect(() => {
     const candidate = form.username.trim();
@@ -217,25 +208,21 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
           cache: 'no-store',
           signal: controller.signal,
         });
-        const data = await res.json().catch(() => null);
-        if (!res.ok || !data?.ok) {
+        const payload = await res.json().catch(() => null);
+        if (!res.ok || !payload?.ok) {
           setUsernameStatus({ state: 'error' });
           return;
         }
-        if (data.reason === 'INVALID_OR_RESERVED') {
+        if (payload.reason === 'INVALID_OR_RESERVED') {
           setUsernameStatus({ state: 'invalid', reason: 'reserved' });
           return;
         }
-        if (data.available) {
-          setUsernameStatus({ state: 'available' });
-        } else {
-          setUsernameStatus({ state: 'taken' });
-        }
-      } catch (error: unknown) {
+        setUsernameStatus(payload.available ? { state: 'available' } : { state: 'taken' });
+      } catch (error) {
         if ((error as { name?: string } | null)?.name === 'AbortError') return;
         setUsernameStatus({ state: 'error' });
       }
-    }, 350);
+    }, 400);
 
     return () => {
       clearTimeout(timeout);
@@ -259,10 +246,11 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
     usernameStatus,
   ]);
 
-  const displayName = form.name.trim() || initialProfile.email;
-  const roleLabel = initialProfile.role ?? 'Cliente';
+  async function refreshDashboard() {
+    await mutate(undefined, { revalidate: true });
+  }
 
-  async function onSubmit(event: React.FormEvent) {
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving || !dirty) return;
 
@@ -272,7 +260,7 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
       return;
     }
     if (usernameStatus.state === 'invalid') {
-      setStatus({ type: 'error', message: 'Escolhe um username com 3 a 30 caracteres válidos.' });
+      setStatus({ type: 'error', message: 'Escolhe um username válido (3-30 caracteres).' });
       return;
     }
 
@@ -315,25 +303,26 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const data = await res.json().catch(() => null);
-      if (!res.ok || !data?.ok) {
-        if (data?.error === 'USERNAME_TAKEN') {
+      const response = await res.json().catch(() => null);
+      if (!res.ok || !response?.ok) {
+        if (response?.error === 'USERNAME_TAKEN') {
           setUsernameStatus({ state: 'taken' });
           throw new Error('Este username já está em uso.');
         }
-        if (data?.error === 'INVALID_USERNAME') {
+        if (response?.error === 'INVALID_USERNAME') {
           throw new Error('O username escolhido não é válido.');
         }
-        if (data?.error === 'INVALID_DATE') {
-          throw new Error('Insere uma data de nascimento válida (AAAA-MM-DD).');
+        if (response?.error === 'INVALID_DATE') {
+          throw new Error('Insere uma data válida (AAAA-MM-DD).');
         }
         throw new Error('Não foi possível guardar as alterações.');
       }
 
-      const merged = applyServerProfilePatch(next, data?.profile);
+      const merged = applyServerPatch(next, response?.profile);
       setBaseline(merged);
       setForm(merged);
-      setStatus({ type: 'success', message: 'Perfil atualizado com sucesso.' });
+      setStatus({ type: 'success', message: 'Perfil actualizado com sucesso.' });
+      await refreshDashboard();
     } catch (error) {
       setStatus({
         type: 'error',
@@ -353,19 +342,20 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
       const fd = new FormData();
       fd.append('file', file);
       const res = await fetch('/api/me/avatar', { method: 'POST', body: fd });
-      const data = await res.json().catch(() => null);
-      if (!res.ok || !data?.ok) {
-        throw new Error('Não foi possível atualizar a fotografia.');
+      const response = await res.json().catch(() => null);
+      if (!res.ok || !response?.ok) {
+        throw new Error('Não foi possível actualizar a fotografia.');
       }
-      const url = String(data.avatar_url || '');
-      const next = { ...baseline, avatarUrl: url.trim() };
+      const url = String(response.avatar_url || '').trim();
+      const next = { ...baseline, avatarUrl: url };
       setBaseline(next);
       setForm(next);
-      setStatus({ type: 'success', message: 'Fotografia atualizada.' });
+      setStatus({ type: 'success', message: 'Fotografia actualizada.' });
+      await refreshDashboard();
     } catch (error) {
       setStatus({
         type: 'error',
-        message: error instanceof Error ? error.message : 'Não foi possível atualizar a fotografia.',
+        message: error instanceof Error ? error.message : 'Não foi possível actualizar a fotografia.',
       });
     } finally {
       setAvatarBusy(false);
@@ -373,205 +363,357 @@ export default function ProfileClient({ initialProfile }: { initialProfile: Prof
     }
   }
 
+  const heroHighlight = dashboard.highlights[0];
+
   return (
-    <div className="profile-shell">
-      <section className="neo-panel profile-panel" aria-labelledby={heroHeadingId}>
-        <div className="profile-panel__hero profile-hero">
-          <div className="profile-panel__intro">
-            <span className="profile-panel__introLabel">Perfil do cliente</span>
-            <h1 id={heroHeadingId} className="profile-panel__title">
-              {displayName}
-            </h1>
-            <p className="profile-panel__description">
-              Atualiza os teus dados pessoais e controla a forma como és identificado na plataforma.
-            </p>
-          </div>
-          <div className="profile-panel__heroMeta">
-            <AvatarPreview
-              url={form.avatarUrl}
-              email={initialProfile.email}
-              name={form.name}
-              className="profile-hero__avatar"
-              size="lg"
-            />
-            <div className="profile-panel__meta">
-              <span className="profile-panel__pill">{roleLabel}</span>
-              <span className="profile-panel__metaEmail">{initialProfile.email}</span>
+    <div className="profile-dashboard">
+      <PageHeader
+        title="Perfil"
+        subtitle="Actualiza os teus dados pessoais e acompanha a tua actividade recente."
+        actions={
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={refreshDashboard}
+            leftIcon={isValidating ? <Loader2 className="icon-spin" aria-hidden /> : <RefreshCcw className="icon" aria-hidden />}
+            disabled={isValidating}
+          >
+            Actualizar métricas
+          </Button>
+        }
+      />
+
+      <section className="neo-panel profile-dashboard__hero">
+        <div className="profile-dashboard__heroHeader">
+          <div className="profile-dashboard__heroIdentity">
+            <div className="profile-dashboard__avatar" aria-hidden>
+              {form.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={form.avatarUrl} alt={account.name ?? account.email} />
+              ) : (
+                <span>{(account.name ?? account.email).slice(0, 2).toUpperCase()}</span>
+              )}
+            </div>
+            <div>
+              <h1>{account.name || account.email}</h1>
+              <p>{account.email}</p>
+              {account.role ? <span className="profile-dashboard__role">{account.role}</span> : null}
             </div>
           </div>
+          {heroHighlight ? (
+            <div className={clsx('profile-dashboard__highlight', heroHighlight.tone)}>
+              <ShieldCheck aria-hidden />
+              <div>
+                <strong>{heroHighlight.title}</strong>
+                <p>{heroHighlight.description}</p>
+              </div>
+            </div>
+          ) : null}
         </div>
 
-        <div className="profile-panel__body">
-          <aside className="profile-aside" aria-labelledby={avatarAsideLabelId}>
-            <h2 id={avatarAsideLabelId} className="sr-only">
-              Gestão da fotografia de perfil
-            </h2>
-            <AvatarPreview
-              url={form.avatarUrl}
-              email={initialProfile.email}
-              name={form.name}
-              className="profile-aside__avatar"
-              size="md"
-            />
-            <div className="profile-aside__actions">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => fileInputRef.current?.click()}
-                loading={avatarBusy}
-                leftIcon={
-                  avatarBusy ? <Loader2 className="icon-spin" aria-hidden /> : <Camera className="icon" aria-hidden />
-                }
-                loadingText="A enviar…"
-              >
-                Alterar fotografia
-              </Button>
-              {form.avatarUrl ? (
-                <button
-                  type="button"
-                  onClick={() => setForm((prev) => ({ ...prev, avatarUrl: '' }))}
-                  className="profile-aside__remove"
-                >
-                  <Trash2 className="profile-aside__removeIcon" aria-hidden />
-                  Remover fotografia
-                </button>
-              ) : null}
-            </div>
-            <p className="profile-aside__hint">
-              Dica: escolhe uma fotografia com fundo neutro e boa iluminação para melhor visibilidade.
-            </p>
-            <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={onAvatarSelected} />
-          </aside>
-
-          <form onSubmit={onSubmit} className="profile-form" aria-describedby={status.type === 'idle' ? undefined : statusMessageId}>
-            <fieldset className="profile-form__grid profile-form__grid--two">
-              <legend className="sr-only">Informação principal</legend>
-              <label className="profile-form__field">
-                <span className="profile-form__label">Nome completo</span>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-                  className="neo-field"
-                  placeholder="O teu nome"
-                  autoComplete="name"
-                />
-                <span className="profile-form__description">
-                  Como preferes ser identificado em planos e mensagens.
-                </span>
-              </label>
-              <label className="profile-form__field">
-                <span className="profile-form__label">Email</span>
-                <input type="email" value={initialProfile.email} disabled className="neo-field" />
-                <span className="profile-form__description">
-                  Email principal associado à tua conta. Gestão disponível em Definições &gt; Conta.
-                </span>
-              </label>
-              <label className="profile-form__field profile-form__field--full">
-                <span className="profile-form__label">Username</span>
-                <input
-                  type="text"
-                  value={form.username}
-                  onChange={(event) => setForm((prev) => ({ ...prev, username: event.target.value }))}
-                  className={clsx('neo-field', {
-                    'neo-field--invalid':
-                      usernameStatus.state === 'taken' || usernameStatus.state === 'invalid',
-                  })}
-                  placeholder="Ex.: andremartins"
-                  aria-describedby={usernameHintId}
-                  autoComplete="nickname"
-                />
-                <span className="profile-form__description" id={usernameHintId} data-state={usernameHelper.tone}>
-                  {usernameHelper.message}
-                </span>
-              </label>
-            </fieldset>
-
-            <fieldset className="profile-form__grid profile-form__grid--two">
-              <legend className="sr-only">Contactos e detalhes adicionais</legend>
-              <label className="profile-form__field">
-                <span className="profile-form__label">Telefone</span>
-                <input
-                  type="tel"
-                  value={form.phone}
-                  onChange={(event) => setForm((prev) => ({ ...prev, phone: event.target.value }))}
-                  placeholder="(+351) 910 000 000"
-                  className="neo-field"
-                  autoComplete="tel"
-                />
-                <span className="profile-form__description">
-                  Partilha um contacto para comunicações rápidas com o teu treinador.
-                </span>
-              </label>
-              <label className="profile-form__field">
-                <span className="profile-form__label">Data de nascimento</span>
-                <input
-                  type="date"
-                  value={form.birthDate}
-                  onChange={(event) => setForm((prev) => ({ ...prev, birthDate: event.target.value }))}
-                  className="neo-field"
-                />
-                <span className="profile-form__description">
-                  Mantém os teus dados atualizados para receber planos personalizados.
-                </span>
-              </label>
-              <label className="profile-form__field profile-form__field--full">
-                <span className="profile-form__label">Biografia</span>
-                <textarea
-                  value={form.bio}
-                  onChange={(event) => setForm((prev) => ({ ...prev, bio: event.target.value }))}
-                  rows={4}
-                  placeholder="Partilha um pouco sobre ti, objetivos ou preferências."
-                  className="neo-field"
-                />
-                <span className="profile-form__description">
-                  Dá contexto ao teu treinador sobre objetivos, historial ou preferências.
-                </span>
-              </label>
-            </fieldset>
-
-            <div className="profile-form__actions">
-              <ProfileStatus status={status} id={statusMessageId} />
-              <Button
-                type="submit"
-                variant="primary"
-                leftIcon={
-                  saving ? <Loader2 className="icon-spin" aria-hidden /> : <Save className="icon" aria-hidden />
-                }
-                disabled={!dirty || saving || usernameStatus.state === 'checking'}
-                loading={saving}
-                loadingText="A guardar…"
-              >
-                Guardar alterações
-              </Button>
-            </div>
-          </form>
+        <div className="profile-dashboard__heroMetrics">
+          {dashboard.hero.map((metric) => (
+            <article key={metric.id} className={clsx('profile-hero__metric', metric.tone)}>
+              <header>
+                <span>{metric.label}</span>
+                <TrendPill trend={metric.trend ?? null} />
+              </header>
+              <strong>{metric.value}</strong>
+              <p>{metric.helper}</p>
+            </article>
+          ))}
         </div>
       </section>
 
-      <section className="neo-panel profile-security" aria-labelledby="profile-security-heading">
-        <header className="profile-security__header">
-          <ShieldCheck className="profile-security__icon" aria-hidden />
+      <div className="profile-dashboard__grid">
+        <section className="neo-panel profile-dashboard__timeline">
+          <header>
+            <div>
+              <h2>Evolução das sessões</h2>
+              <p>Resumo das últimas duas semanas de actividade.</p>
+            </div>
+            <CalendarClock aria-hidden />
+          </header>
+          <div className="profile-timeline__chart">
+            <ResponsiveContainer width="100%" height={260}>
+              <AreaChart data={dashboard.timeline} margin={{ left: 12, right: 12, top: 16, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="profileScheduled" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="5%" stopColor="var(--neo-chart-primary)" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="var(--neo-chart-primary)" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="profileCompleted" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="5%" stopColor="var(--neo-chart-success)" stopOpacity={0.5} />
+                    <stop offset="95%" stopColor="var(--neo-chart-success)" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="profileCancelled" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="5%" stopColor="var(--neo-chart-danger)" stopOpacity={0.45} />
+                    <stop offset="95%" stopColor="var(--neo-chart-danger)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--neo-chart-grid)" />
+                <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={24} />
+                <YAxis allowDecimals={false} tickLine={false} axisLine={false} width={28} />
+                <Tooltip content={<TimelineTooltip />} cursor={{ strokeDasharray: '4 4' }} />
+                <Area
+                  type="monotone"
+                  dataKey="scheduled"
+                  stroke="var(--neo-chart-primary)"
+                  fill="url(#profileScheduled)"
+                  strokeWidth={2}
+                  name="Agendadas"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="completed"
+                  stroke="var(--neo-chart-success)"
+                  fill="url(#profileCompleted)"
+                  strokeWidth={2}
+                  name="Confirmadas"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="cancelled"
+                  stroke="var(--neo-chart-danger)"
+                  fill="url(#profileCancelled)"
+                  strokeWidth={2}
+                  name="Canceladas"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+
+        <section className="neo-panel profile-dashboard__summary">
+          <header>
+            <div>
+              <h2>Resumo & completude</h2>
+              <p>Garante que a tua conta está completa para desbloquear todos os recursos.</p>
+            </div>
+            <CheckCircle2 aria-hidden />
+          </header>
+          <div className="profile-completion">
+            <div className="profile-completion__progress" aria-label={`Perfil completo ${dashboard.completion.percentage}%`}>
+              <div style={{ width: `${dashboard.completion.percentage}%` }} />
+              <span>{dashboard.completion.percentage}% completo</span>
+            </div>
+            {dashboard.completion.missing.length ? (
+              <ul>
+                {dashboard.completion.missing.map((item) => (
+                  <li key={item.id}>{item.label}: {item.action}</li>
+                ))}
+              </ul>
+            ) : (
+              <p>Todas as informações essenciais estão preenchidas. 👏</p>
+            )}
+          </div>
+
+          <div className="profile-summary__notifications">
+            <Bell aria-hidden />
+            <div>
+              <strong>{dashboard.notifications.unread} alertas por ler</strong>
+              <p>
+                Último envio {dashboard.notifications.lastDeliveryAt ? new Date(dashboard.notifications.lastDeliveryAt).toLocaleString('pt-PT') : '—'}
+              </p>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <section className="neo-panel profile-dashboard__form">
+        <header>
           <div>
-            <h2 id="profile-security-heading" className="neo-panel__title">
-              Acesso e segurança
-            </h2>
-            <p className="neo-panel__subtitle">
-              A gestão da palavra-passe e notificações está disponível em <strong>Definições &gt; Conta</strong>.
-            </p>
+            <h2>Dados pessoais</h2>
+            <p>Actualiza a forma como és apresentado em planos, mensagens e relatórios.</p>
+          </div>
+          <div className="profile-dashboard__avatarActions">
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={onAvatarSelected} hidden />
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+              leftIcon={avatarBusy ? <Loader2 className="icon-spin" aria-hidden /> : <Smartphone className="icon" aria-hidden />}
+              loading={avatarBusy}
+            >
+              Alterar fotografia
+            </Button>
+            {form.avatarUrl ? (
+              <button type="button" className="profile-dashboard__avatarRemove" onClick={() => setForm((prev) => ({ ...prev, avatarUrl: '' }))}>
+                Remover fotografia
+              </button>
+            ) : null}
           </div>
         </header>
-        <div className="profile-security__grid">
-          <div className="profile-security__item">
-            <span className="profile-security__label">Email</span>
-            <p className="profile-security__value">{initialProfile.email}</p>
+
+        <form className="profile-form" onSubmit={onSubmit} noValidate>
+          <div className="profile-form__grid">
+            <label>
+              <span>Nome</span>
+              <input
+                type="text"
+                className="neo-field"
+                value={form.name}
+                onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+                placeholder="O teu nome"
+                autoComplete="name"
+              />
+            </label>
+            <label>
+              <span>Email</span>
+              <input type="email" className="neo-field" value={account.email} disabled />
+            </label>
+            <label className="profile-form__full">
+              <span>Username</span>
+              <input
+                type="text"
+                className={clsx('neo-field', {
+                  'neo-field--invalid': usernameStatus.state === 'taken' || usernameStatus.state === 'invalid',
+                })}
+                value={form.username}
+                onChange={(event) => setForm((prev) => ({ ...prev, username: event.target.value }))}
+                placeholder="Ex.: joana.cardoso"
+                aria-describedby={usernameHintId}
+                autoComplete="nickname"
+              />
+              <span id={usernameHintId} data-tone={usernameHelper.tone}>
+                {usernameHelper.message}
+              </span>
+            </label>
+            <label>
+              <span>Telefone</span>
+              <input
+                type="tel"
+                className="neo-field"
+                value={form.phone}
+                onChange={(event) => setForm((prev) => ({ ...prev, phone: event.target.value }))}
+                placeholder="(+351) 910 000 000"
+                autoComplete="tel"
+              />
+            </label>
+            <label>
+              <span>Data de nascimento</span>
+              <input
+                type="date"
+                className="neo-field"
+                value={form.birthDate}
+                onChange={(event) => setForm((prev) => ({ ...prev, birthDate: event.target.value }))}
+              />
+            </label>
+            <label className="profile-form__full">
+              <span>Biografia</span>
+              <textarea
+                className="neo-field"
+                rows={4}
+                value={form.bio}
+                onChange={(event) => setForm((prev) => ({ ...prev, bio: event.target.value }))}
+                placeholder="Partilha objectivos, contexto ou preferências."
+              />
+            </label>
           </div>
-          <div className="profile-security__item">
-            <span className="profile-security__label">Função</span>
-            <p className="profile-security__value">{roleLabel}</p>
+
+          <div className="profile-form__actions">
+            <ProfileStatus status={status} id={statusId} />
+            <Button
+              type="submit"
+              variant="primary"
+              leftIcon={saving ? <Loader2 className="icon-spin" aria-hidden /> : <CheckCircle2 className="icon" aria-hidden />}
+              disabled={!dirty || saving || usernameStatus.state === 'checking'}
+              loading={saving}
+            >
+              Guardar alterações
+            </Button>
           </div>
-        </div>
+        </form>
+      </section>
+
+      <div className="profile-dashboard__columns">
+        <section className="neo-panel profile-dashboard__preferences">
+          <header>
+            <div>
+              <h2>Preferências de notificação</h2>
+              <p>Revê os canais activos para alertas críticos e lembretes.</p>
+            </div>
+            <Mail aria-hidden />
+          </header>
+          <ul>
+            {dashboard.preferences.map((preference) => (
+              <li key={preference.channel} data-enabled={preference.enabled}>
+                <div>
+                  <strong>{preference.label}</strong>
+                  <p>{preference.helper}</p>
+                </div>
+                <span>
+                  {preference.enabled ? 'Activo' : 'Inactivo'}
+                  {preference.updatedAt ? ` · actualizado ${new Date(preference.updatedAt).toLocaleDateString('pt-PT')}` : ''}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="neo-panel profile-dashboard__devices">
+          <header>
+            <div>
+              <h2>Dispositivos sincronizados</h2>
+              <p>Controla acessos e sessões activas com notificações push.</p>
+            </div>
+            <Smartphone aria-hidden />
+          </header>
+          <ul>
+            {dashboard.devices.length ? (
+              dashboard.devices.map((device) => (
+                <li key={device.id} data-risk={device.risk}>
+                  <div>
+                    <strong>{device.name}</strong>
+                    <p>{device.platform}</p>
+                  </div>
+                  <span>{device.lastActiveAt ? new Date(device.lastActiveAt).toLocaleString('pt-PT') : 'Sem actividade'}</span>
+                </li>
+              ))
+            ) : (
+              <li className="profile-dashboard__empty">Nenhum dispositivo registado.</li>
+            )}
+          </ul>
+        </section>
+      </div>
+
+      <section className="neo-panel profile-dashboard__activity">
+        <header>
+          <div>
+            <h2>Actividade recente</h2>
+            <p>Os registos mais relevantes associados à tua conta.</p>
+          </div>
+          <ShieldCheck aria-hidden />
+        </header>
+        <ul>
+          {dashboard.activity.length ? (
+            dashboard.activity.map((entry) => (
+              <li key={entry.id} data-tone={entry.tone}>
+                <div>
+                  <strong>{entry.title}</strong>
+                  <p>{entry.description}</p>
+                </div>
+                <time dateTime={entry.at ?? undefined}>
+                  {entry.at ? new Date(entry.at).toLocaleString('pt-PT') : '—'}
+                </time>
+              </li>
+            ))
+          ) : (
+            <li className="profile-dashboard__empty">Sem registos recentes.</li>
+          )}
+        </ul>
       </section>
     </div>
   );
+}
+
+function ProfileStatus({ status, id }: { status: Status; id: string }) {
+  if (status.type === 'idle') return null;
+  const tone = status.type === 'success' ? 'success' : 'danger';
+  const message =
+    status.message ??
+    (status.type === 'success'
+      ? 'Alterações guardadas com sucesso.'
+      : 'Não foi possível concluir a acção.');
+  return <Alert id={id} tone={tone} className="profile-status" title={message} />;
 }
