@@ -34,6 +34,7 @@ import PageHeader from '@/components/ui/PageHeader';
 import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
 import PublishToggle from '@/components/exercise/PublishToggle';
+import { ExerciseFormValues } from '@/lib/exercises/schema';
 import { supabaseBrowser } from '@/lib/supabaseBrowser';
 import AdminExerciseFormClient from './AdminExerciseFormClient';
 import {
@@ -464,11 +465,13 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
   }
 
   function mapCloneInitial(row: AdminExerciseRow) {
+    const difficultyOptions: ExerciseFormValues['difficulty'][] = ['Fácil', 'Média', 'Difícil'];
+    const normalisedDifficulty = difficultyOptions.find((option) => option === row.difficulty) ?? undefined;
     return {
       name: row.name ?? '',
       muscle_group: row.muscleGroup ?? '',
       equipment: row.equipment ?? '',
-      difficulty: row.difficulty ?? '',
+      difficulty: normalisedDifficulty,
       description: row.description ?? '',
       video_url: row.videoUrl ?? '',
     };
@@ -624,7 +627,15 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
         </section>
 
         {message ? (
-          <Alert tone={message.tone} title={message.text} onClose={() => setMessage(null)} />
+          <Alert tone={message.tone} title={message.text}>
+            <button
+              type="button"
+              className="neo-alert__dismiss"
+              onClick={() => setMessage(null)}
+            >
+              Fechar
+            </button>
+          </Alert>
         ) : null}
 
         <section className="neo-panel admin-exercises__panel" aria-label="Evolução do catálogo">
@@ -793,9 +804,8 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
                             Duplicar
                           </Button>
                           <Button
-                            variant="ghost"
+                            variant="danger"
                             size="sm"
-                            tone="danger"
                             leftIcon={<Trash2 aria-hidden />}
                             onClick={() => handleDelete(row)}
                           >

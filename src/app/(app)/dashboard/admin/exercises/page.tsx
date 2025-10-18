@@ -68,6 +68,10 @@ export default async function AdminExercisesPage({ searchParams }: PageProps) {
   } as const;
 
   const initial = await loadAdminExercisesDashboard(params);
+  if (!initial.ok) {
+    const message = 'error' in initial ? initial.error : null;
+    throw new Error(message ?? 'Falha ao carregar catálogo de exercícios');
+  }
 
   return <AdminExercisesClient initialData={initial.data} initialParams={params} />;
 }
