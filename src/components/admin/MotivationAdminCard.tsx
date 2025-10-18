@@ -148,11 +148,11 @@ export default function MotivationAdminCard() {
   }
 
   return (
-    <section className="neo-panel space-y-4">
-      <header className="flex flex-wrap items-start justify-between gap-3">
+    <section className="neo-panel admin-panel">
+      <header className="neo-panel__header admin-panel__header">
         <div>
-          <h2 className="neo-panel__title flex items-center gap-2 text-lg">
-            <Sparkles className="h-5 w-5 text-accent" aria-hidden /> Frases motivadoras
+          <h2 className="neo-panel__title admin-panel__title">
+            <Sparkles className="neo-icon" aria-hidden /> Frases motivadoras
           </h2>
           <p className="neo-panel__subtitle">
             Activa mensagens inspiradoras que podem ser mostradas nos touchpoints internos da equipa.
@@ -161,8 +161,8 @@ export default function MotivationAdminCard() {
         {usingLocal && <span className="status-pill" data-state="warn">Modo offline</span>}
       </header>
 
-      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,0.6fr)_auto]">
-        <label className="flex flex-col gap-2">
+      <div className="admin-motivation__form">
+        <label className="admin-motivation__field">
           <span className="sr-only">Frase</span>
           <textarea
             className="neo-input neo-input--textarea"
@@ -171,7 +171,7 @@ export default function MotivationAdminCard() {
             onChange={(event) => setText(event.target.value)}
           />
         </label>
-        <label className="flex flex-col gap-2">
+        <label className="admin-motivation__field">
           <span className="sr-only">Autor</span>
           <input
             className="neo-input"
@@ -182,13 +182,15 @@ export default function MotivationAdminCard() {
         </label>
         <button
           type="button"
-          className="btn primary h-full min-w-[160px] self-start md:self-stretch"
+          className="btn admin-motivation__submit"
+          data-variant="primary"
+          data-size="md"
           onClick={add}
           disabled={busy || text.trim().length === 0}
         >
           {busy ? (
-            <span className="inline-flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            <span className="admin-motivation__busy">
+              <Loader2 className="neo-icon neo-icon--sm neo-spin" aria-hidden />
               A guardar
             </span>
           ) : (
@@ -197,32 +199,33 @@ export default function MotivationAdminCard() {
         </button>
       </div>
 
-      <p className="text-xs text-muted">
+      <p className="admin-motivation__hint">
         Quando o Supabase estiver configurado, estas frases serão sincronizadas automaticamente com a base de dados.
       </p>
 
-      <ul className="space-y-2">
+      <ul className="admin-motivation__list">
         {items.map((q) => (
-          <li key={q.id} className="neo-surface flex items-center gap-3 rounded-2xl p-4" data-variant="neutral">
+          <li key={q.id} className="neo-surface admin-motivation__item" data-variant="neutral">
             <Toggle checked={!!q.active} onChange={() => toggleActive(q)} label={q.text} />
-            <div className="flex-1 space-y-1">
-              <p className="text-sm font-medium text-fg">{q.text}</p>
-              {q.author && <p className="text-xs italic text-muted">— {q.author}</p>}
+            <div className="admin-motivation__body">
+              <p className="admin-motivation__text">{q.text}</p>
+              {q.author && <p className="admin-motivation__author">— {q.author}</p>}
             </div>
             <button
               type="button"
-              className="btn icon"
+              className="btn admin-motivation__actions"
+              data-variant="ghost"
               aria-label="Remover frase"
               onClick={() => remove(q.id)}
             >
-              <Trash2 className="h-4 w-4" aria-hidden />
+              <Trash2 className="neo-icon neo-icon--sm" aria-hidden />
             </button>
           </li>
         ))}
       </ul>
 
       {items.length === 0 && (
-        <div className="neo-surface rounded-2xl border border-dashed border-white/40 p-5 text-sm text-muted dark:border-slate-700/60">
+        <div className="admin-panel__empty">
           Sem frases registadas. Adiciona algumas mensagens motivacionais para reforçar a energia do projecto.
         </div>
       )}

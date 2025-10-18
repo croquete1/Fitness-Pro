@@ -203,35 +203,33 @@ export default async function SystemMetricsPage() {
   const headerLabel = `Actualizado às ${timeFormatter.format(now)}`;
 
   return (
-    <section className="space-y-6 px-4 py-6 md:px-8 lg:px-12">
-      <header className="neo-panel neo-panel--header">
-        <div className="space-y-2">
+    <section className="system-page neo-stack neo-stack--xl">
+      <header className="neo-panel neo-panel--header system-page__hero">
+        <div className="neo-stack neo-stack--xs system-page__intro">
           <span className="caps-tag">Inteligência operacional</span>
-          <h1 className="heading-solid text-3xl font-extrabold leading-tight">
-            Pulso da plataforma
-          </h1>
-          <p className="text-sm text-muted max-w-2xl">
+          <h1 className="system-page__title heading-solid">Pulso da plataforma</h1>
+          <p className="system-page__lede">
             Acompanha a evolução de utilizadores, sessões e emissões de notificações para antecipar gargalos e oportunidades.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="neo-inline neo-inline--wrap neo-inline--md">
           <StatusPill state="ok" label={headerLabel} />
         </div>
       </header>
 
-      <section className="neo-panel space-y-5" aria-labelledby="metrics-heading">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
+      <section className="neo-panel neo-stack neo-stack--xl system-panel" aria-labelledby="metrics-heading">
+        <div className="neo-inline neo-inline--wrap neo-inline--between neo-inline--md system-panel__header">
+          <div className="neo-stack neo-stack--xs">
             <h2 id="metrics-heading" className="neo-panel__title">Distribuição actual</h2>
             <p className="neo-panel__subtitle">Volumes agregados por tipo de utilizador e actividade.</p>
           </div>
           <StatusPill state={sessions7d > 0 ? 'ok' : 'warn'} label={`${formatNumber(sessions7d)} sessões/7d`} />
         </div>
-        <div className="neo-grid auto-fit">
+        <div className="neo-grid neo-grid--auto system-metrics__grid">
           {metricsTiles.map((metric) => (
             <article
               key={metric.id}
-              className="neo-surface neo-surface--interactive space-y-3 p-4"
+              className="neo-surface neo-surface--interactive neo-stack neo-stack--md system-metrics__metric"
               data-variant={metric.variant}
             >
               <span className="neo-surface__label">{metric.label}</span>
@@ -242,32 +240,32 @@ export default async function SystemMetricsPage() {
         </div>
       </section>
 
-      <div className="grid gap-5 xl:grid-cols-2">
-        <section className="neo-panel space-y-4" aria-labelledby="signups-heading">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
+      <div className="system-metrics__split">
+        <section className="neo-panel neo-stack neo-stack--lg system-panel" aria-labelledby="signups-heading">
+          <div className="neo-inline neo-inline--wrap neo-inline--between neo-inline--md system-panel__header">
+            <div className="neo-stack neo-stack--xs">
               <h2 id="signups-heading" className="neo-panel__title">Novos registos</h2>
               <p className="neo-panel__subtitle">Últimas contas criadas na plataforma.</p>
             </div>
             <StatusPill state={signupsState} label={`${lastSignups.length} recentes`} />
           </div>
           {lastSignups.length === 0 ? (
-            <div className="neo-surface p-4 text-sm text-muted text-center">
+            <div className="neo-surface neo-surface--padded system-empty system-empty--center">
               Sem registos recentes.
             </div>
           ) : (
-            <ul className="grid gap-3">
+            <ul className="neo-stack neo-stack--md system-metrics__list">
               {lastSignups.map((user) => (
-                <li key={user.id} className="neo-surface neo-surface--interactive p-4">
-                  <div className="flex flex-col gap-2">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="font-semibold text-fg truncate">{user.name ?? user.email}</span>
-                      <span className="text-xs text-muted shrink-0">{formatDateTime(user.created_at)}</span>
+                <li key={user.id} className="neo-surface neo-surface--interactive neo-stack neo-stack--sm system-metrics__item">
+                  <div className="neo-stack neo-stack--sm system-metrics__itemBody">
+                    <div className="neo-inline neo-inline--wrap neo-inline--between neo-inline--sm system-metrics__itemHeader">
+                      <span className="system-metrics__itemTitle">{user.name ?? user.email}</span>
+                      <span className="neo-text--xs neo-text--muted system-metrics__timestamp">{formatDateTime(user.created_at)}</span>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted break-all">
-                      <span className="uppercase tracking-wide">{roleLabel(user.role)}</span>
-                      <span>•</span>
-                      <span>{user.email}</span>
+                    <div className="system-metrics__itemMeta">
+                      <span className="system-metrics__role">{roleLabel(user.role)}</span>
+                      <span className="system-metrics__dot" aria-hidden="true">•</span>
+                      <span className="system-metrics__email">{user.email}</span>
                     </div>
                   </div>
                 </li>
@@ -276,35 +274,33 @@ export default async function SystemMetricsPage() {
           )}
         </section>
 
-        <section className="neo-panel space-y-4" aria-labelledby="sessions-heading">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
+        <section className="neo-panel neo-stack neo-stack--lg system-panel" aria-labelledby="sessions-heading">
+          <div className="neo-inline neo-inline--wrap neo-inline--between neo-inline--md system-panel__header">
+            <div className="neo-stack neo-stack--xs">
               <h2 id="sessions-heading" className="neo-panel__title">Sessões de hoje</h2>
               <p className="neo-panel__subtitle">Agenda confirmada entre {formatTime(startOfToday.toISOString())} e {formatTime(endOfToday.toISOString())}.</p>
             </div>
             <StatusPill state={sessionsState} label={`${todaySessions.length} marcadas`} />
           </div>
           {todaySessions.length === 0 ? (
-            <div className="neo-surface p-4 text-sm text-muted text-center">
+            <div className="neo-surface neo-surface--padded system-empty system-empty--center">
               Sem sessões marcadas para hoje.
             </div>
           ) : (
-            <ul className="grid gap-3">
+            <ul className="neo-stack neo-stack--md system-metrics__list">
               {todaySessions.map((session) => (
-                <li key={session.id} className="neo-surface neo-surface--interactive p-4">
-                  <div className="flex flex-col gap-2">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="font-semibold text-fg truncate">{session.notes?.trim() || 'Sessão'}</span>
-                      <span className="text-xs text-muted shrink-0">{formatTime(session.scheduled_at)}</span>
+                <li key={session.id} className="neo-surface neo-surface--interactive neo-stack neo-stack--sm system-metrics__item">
+                  <div className="neo-stack neo-stack--sm system-metrics__itemBody">
+                    <div className="neo-inline neo-inline--wrap neo-inline--between neo-inline--sm system-metrics__itemHeader">
+                      <span className="system-metrics__itemTitle">{session.notes?.trim() || 'Sessão'}</span>
+                      <span className="neo-text--xs neo-text--muted system-metrics__timestamp">{formatTime(session.scheduled_at)}</span>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
-                      {session.location ? (
-                        <span className="uppercase tracking-wide">📍 {session.location}</span>
-                      ) : (
-                        <span className="uppercase tracking-wide">Local a definir</span>
-                      )}
-                      <span>•</span>
-                      <span>ID {session.id.slice(0, 8)}</span>
+                    <div className="system-metrics__itemMeta">
+                      <span className="system-metrics__location">
+                        {session.location ? `📍 ${session.location}` : 'Local a definir'}
+                      </span>
+                      <span className="system-metrics__dot" aria-hidden="true">•</span>
+                      <span className="system-metrics__id">ID {session.id.slice(0, 8)}</span>
                     </div>
                   </div>
                 </li>

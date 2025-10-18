@@ -1,10 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
 import {
   ArrowUpRight,
-  Check,
   Download,
   MailCheck,
   Printer,
@@ -318,21 +316,24 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
   }, []);
 
   return (
-    <div className="space-y-6 px-4 py-6 md:px-8 lg:px-12">
+    <div className="admin-page neo-stack neo-stack--xl">
       <PageHeader
         title="Centro de notificações"
         subtitle="Monitoriza alertas transaccionais, campanhas e mensagens de sistema com visual futurista."
         actions={(
-          <div className="neo-quick-actions flex-wrap">
+          <div className="neo-quick-actions">
             <OpenInNewToggle checked={openInNew} onChange={setOpenInNew} label="Abrir perfis noutra aba" />
             <button
               type="button"
-              className="btn ghost"
+              className="btn"
+              data-variant="ghost"
               onClick={() => { void fetchRows(); }}
               disabled={loading}
             >
-              <RefreshCcw className="h-4 w-4" aria-hidden="true" />
-              <span>Actualizar</span>
+              <span className="btn__icon">
+                <RefreshCcw className="neo-icon neo-icon--sm" aria-hidden="true" />
+              </span>
+              <span className="btn__label">Actualizar</span>
             </button>
             <button
               type="button"
@@ -340,41 +341,63 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
               onClick={exportCSV}
               disabled={!rows.length}
             >
-              <Download className="h-4 w-4" aria-hidden="true" />
-              <span>Exportar CSV</span>
+              <span className="btn__icon">
+                <Download className="neo-icon neo-icon--sm" aria-hidden="true" />
+              </span>
+              <span className="btn__label">Exportar CSV</span>
             </button>
             <button
               type="button"
-              className="btn ghost"
+              className="btn"
+              data-variant="ghost"
               onClick={printList}
               disabled={!rows.length}
             >
-              <Printer className="h-4 w-4" aria-hidden="true" />
-              <span>Imprimir</span>
+              <span className="btn__icon">
+                <Printer className="neo-icon neo-icon--sm" aria-hidden="true" />
+              </span>
+              <span className="btn__label">Imprimir</span>
             </button>
           </div>
         )}
       />
 
       {banner && (
-        <div className="neo-surface p-4" data-variant={toneForBanner(banner.severity)} role="status" aria-live="polite">
-          <p className="text-sm font-medium text-fg">{banner.message}</p>
+        <div
+          className="neo-surface neo-surface--compact"
+          data-variant={toneForBanner(banner.severity)}
+          role="status"
+          aria-live="polite"
+        >
+          <p className="neo-text--sm text-fg">{banner.message}</p>
         </div>
       )}
 
-      <section className="neo-panel space-y-5" aria-label="Indicadores e filtros">
-        <div className="neo-grid auto-fit min-[220px]:grid-cols-2 lg:grid-cols-3">
-          {metrics.map((metric) => (
-            <article key={metric.id} className="neo-surface neo-surface--interactive space-y-2 p-4" data-variant={metric.tone}>
-              <span className="neo-surface__hint uppercase tracking-wide">{metric.label}</span>
-              <span className="neo-surface__value text-2xl font-semibold text-fg">{metric.value}</span>
-            </article>
-          ))}
+      <section className="neo-panel neo-stack neo-stack--lg" aria-label="Indicadores e filtros">
+        <div className="neo-grid neo-grid--auto admin-notifications__metrics">
+          {metrics.map((metric) => {
+            const metricValue = metric.value;
+            const isNumeric = typeof metricValue === 'number';
+            return (
+              <article
+                key={metric.id}
+                className="neo-surface neo-surface--interactive admin-notifications__metric"
+                data-variant={metric.tone}
+              >
+                <span className="neo-surface__hint">{metric.label}</span>
+                {isNumeric ? (
+                  <span className="neo-surface__value admin-notifications__metricValue">{metricValue}</span>
+                ) : (
+                  <span className="admin-notifications__metricLabel">{metricValue}</span>
+                )}
+              </article>
+            );
+          })}
         </div>
 
-        <div className="neo-grid auto-fit min-[260px]:grid-cols-2 xl:grid-cols-4" role="group" aria-label="Filtros de notificações">
-          <label htmlFor="notifications-search" className="flex flex-col gap-2">
-            <span className="neo-surface__hint uppercase tracking-wide">Pesquisar</span>
+        <div className="neo-filters-grid admin-notifications__filters" role="group" aria-label="Filtros de notificações">
+          <label htmlFor="notifications-search" className="admin-notifications__field">
+            <span className="admin-notifications__label">Pesquisar</span>
             <input
               id="notifications-search"
               type="search"
@@ -388,8 +411,8 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
             />
           </label>
 
-          <label htmlFor="notifications-type" className="flex flex-col gap-2">
-            <span className="neo-surface__hint uppercase tracking-wide">Tipo</span>
+          <label htmlFor="notifications-type" className="admin-notifications__field">
+            <span className="admin-notifications__label">Tipo</span>
             <input
               id="notifications-type"
               type="text"
@@ -403,7 +426,7 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
             />
           </label>
 
-          <label className="flex items-center gap-3">
+          <label className="admin-notifications__switch">
             <input
               type="checkbox"
               className="neo-toggle"
@@ -415,11 +438,11 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
                 setPage(0);
               }}
             />
-            <span className="neo-surface__hint uppercase tracking-wide">Apenas por ler</span>
+            <span className="admin-notifications__label">Apenas por ler</span>
           </label>
 
-          <label htmlFor="notifications-page-size" className="flex flex-col gap-2">
-            <span className="neo-surface__hint uppercase tracking-wide">Linhas por página</span>
+          <label htmlFor="notifications-page-size" className="admin-notifications__field">
+            <span className="admin-notifications__label">Linhas por página</span>
             <select
               id="notifications-page-size"
               className="neo-input"
@@ -438,16 +461,16 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
         </div>
       </section>
 
-      <section className="neo-panel space-y-4" aria-label="Tabela de notificações">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
+      <section className="neo-panel neo-stack neo-stack--lg" aria-label="Tabela de notificações">
+        <header className="neo-inline neo-inline--wrap neo-inline--between neo-inline--md">
+          <div className="neo-stack neo-stack--xs">
             <h2 className="neo-panel__title">Histórico de envios</h2>
             <p className="neo-panel__subtitle">Visualiza em detalhe as mensagens entregues recentemente.</p>
           </div>
           <span className="neo-tag" data-tone="primary">
             {count} {count === 1 ? 'notificação' : 'notificações'}
           </span>
-        </div>
+        </header>
 
         <div className="neo-table-wrapper" role="region" aria-live="polite">
           <table className="neo-table">
@@ -458,20 +481,28 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
                 <th scope="col">Estado</th>
                 <th scope="col">Criada em</th>
                 <th scope="col">Mensagem</th>
-                <th scope="col" className="text-right">Ações</th>
+                <th scope="col" style={{ textAlign: 'right' }}>Ações</th>
               </tr>
             </thead>
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={6} className="py-6 text-center text-muted">A carregar notificações…</td>
+                  <td colSpan={6}>
+                    <div className="neo-table-empty">
+                      <div className="neo-inline neo-inline--center neo-inline--sm neo-text--sm neo-text--muted">
+                        <span className="neo-spinner" aria-hidden /> A carregar notificações…
+                      </div>
+                    </div>
+                  </td>
                 </tr>
               )}
 
               {!loading && rows.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-6 text-center text-muted">
-                    Nenhuma notificação encontrada. Ajusta os filtros ou cria uma nova campanha.
+                  <td colSpan={6}>
+                    <div className="neo-table-empty">
+                      Nenhuma notificação encontrada. Ajusta os filtros ou cria uma nova campanha.
+                    </div>
                   </td>
                 </tr>
               )}
@@ -479,15 +510,20 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
               {!loading && rows.map((row) => (
                 <tr key={row.id}>
                   <td data-title="Título">
-                    <div className="flex flex-col">
-                      <span className="font-semibold text-fg">{row.title || '—'}</span>
+                    <div className="neo-stack neo-stack--xs">
+                      <span className="neo-text--semibold text-fg">{row.title || '—'}</span>
                       {row.user_id && (
                         <button
                           type="button"
-                          className="btn ghost mt-1 w-fit"
+                          className="btn"
+                          data-variant="ghost"
+                          data-size="sm"
                           onClick={() => navigate(`/dashboard/admin/users/${row.user_id}`, openInNew)}
                         >
-                          <ArrowUpRight className="h-4 w-4" aria-hidden="true" /> Ver utilizador
+                          <span className="btn__icon">
+                            <ArrowUpRight className="neo-icon neo-icon--sm" aria-hidden="true" />
+                          </span>
+                          <span className="btn__label">Ver utilizador</span>
                         </button>
                       )}
                     </div>
@@ -502,27 +538,34 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
                   </td>
                   <td data-title="Criada em">{row.created_at ? formatDate(row.created_at) : '—'}</td>
                   <td data-title="Mensagem">
-                    <p className="line-clamp-2 text-sm text-muted">{row.body || '—'}</p>
+                    <p className="admin-notifications__excerpt">{row.body || '—'}</p>
                   </td>
-                  <td data-title="Ações" className="text-right">
-                    <div className="flex flex-wrap items-center justify-end gap-2">
+                  <td data-title="Ações" style={{ textAlign: 'right' }}>
+                    <div className="neo-inline neo-inline--wrap neo-inline--end neo-inline--sm">
                       <button
                         type="button"
-                        className="btn ghost"
+                        className="btn"
+                        data-variant="ghost"
+                        data-size="sm"
                         onClick={() => { void markAsRead(row); }}
                         disabled={Boolean(row.read)}
                         title="Marcar como lida"
                       >
-                        <MailCheck className="h-4 w-4" aria-hidden="true" />
+                        <span className="btn__icon">
+                          <MailCheck className="neo-icon neo-icon--sm" aria-hidden="true" />
+                        </span>
                       </button>
                       <button
                         type="button"
-                        className="btn ghost"
-                        data-danger="true"
+                        className="btn"
+                        data-variant="ghost"
+                        data-size="sm"
                         onClick={() => { void deleteRow(row); }}
                         title="Remover"
                       >
-                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                        <span className="btn__icon">
+                          <Trash2 className="neo-icon neo-icon--sm" aria-hidden="true" />
+                        </span>
                       </button>
                     </div>
                   </td>
@@ -532,14 +575,15 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
           </table>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className="text-sm text-muted">
+        <div className="neo-inline neo-inline--wrap neo-inline--between neo-inline--sm neo-text--sm neo-text--muted">
+          <span>
             Página {page + 1} de {totalPages}
           </span>
-          <div className="flex items-center gap-2">
+          <div className="neo-inline neo-inline--sm">
             <button
               type="button"
-              className="btn ghost"
+              className="btn"
+              data-variant="ghost"
               onClick={() => setPage((prev) => Math.max(0, prev - 1))}
               disabled={page === 0 || loading}
             >
@@ -547,7 +591,8 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
             </button>
             <button
               type="button"
-              className="btn ghost"
+              className="btn"
+              data-variant="ghost"
               onClick={() => setPage((prev) => Math.min(totalPages - 1, prev + 1))}
               disabled={page >= totalPages - 1 || loading}
             >
@@ -558,15 +603,17 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
       </section>
 
       {undoRef.current && (
-        <div className="neo-panel neo-panel--compact flex flex-wrap items-center justify-between gap-3" role="status">
-          <span className="text-sm font-medium text-fg">Notificação removida. Desejas desfazer?</span>
-          <div className="flex items-center gap-2">
-            <button type="button" className="btn" onClick={() => { void undoDelete(); }}>
-              Desfazer
-            </button>
-            <button type="button" className="btn ghost" onClick={clearUndo}>
-              Ignorar
-            </button>
+        <div className="neo-panel neo-panel--compact" role="status">
+          <div className="neo-inline neo-inline--wrap neo-inline--between neo-inline--sm">
+            <span className="neo-text--sm neo-text--semibold text-fg">Notificação removida. Desejas desfazer?</span>
+            <div className="neo-inline neo-inline--sm">
+              <button type="button" className="btn" onClick={() => { void undoDelete(); }}>
+                Desfazer
+              </button>
+              <button type="button" className="btn" data-variant="ghost" onClick={clearUndo}>
+                Ignorar
+              </button>
+            </div>
           </div>
         </div>
       )}

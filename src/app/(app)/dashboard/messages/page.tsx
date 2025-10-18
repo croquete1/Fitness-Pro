@@ -20,7 +20,7 @@ export default async function ClientMessagesPage() {
   const messages: MessageRow[] = (data ?? []) as MessageRow[];
 
   return (
-    <div className="space-y-6">
+    <div className="neo-stack neo-stack--xl">
       <header className="page-header neo-panel neo-panel--header">
         <div className="page-header__body">
           <h1 className="page-header__title heading-solid">Mensagens</h1>
@@ -30,15 +30,15 @@ export default async function ClientMessagesPage() {
         </div>
       </header>
 
-      <section className="neo-panel space-y-4" aria-labelledby="messages-heading">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <section className="neo-panel neo-stack neo-stack--lg" aria-labelledby="messages-heading">
+        <div className="neo-inline neo-inline--wrap neo-inline--between neo-inline--md">
           <div>
             <h2 id="messages-heading" className="neo-panel__title">
               Histórico de mensagens
             </h2>
             <p className="neo-panel__subtitle">Mostramos as tuas últimas interações por ordem cronológica.</p>
           </div>
-          <span className="text-sm text-muted">{messages.length} mensagem(ns)</span>
+          <span className="neo-text--sm neo-text--muted">{messages.length} mensagem(ns)</span>
         </div>
 
         <MessagesFeed viewerId={session.user.id} messages={messages} />

@@ -111,6 +111,262 @@ export type Database = {
         ];
       };
 
+      client_notes: {
+        Row: {
+          id: string;
+          client_id: string;
+          author_id: string | null;
+          author_name: string | null;
+          author_role: string | null;
+          text: string;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          client_id: string;
+          author_id?: string | null;
+          author_name?: string | null;
+          author_role?: string | null;
+          text: string;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          client_id?: string;
+          author_id?: string | null;
+          author_name?: string | null;
+          author_role?: string | null;
+          text?: string;
+          created_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'client_notes_client_id_fkey';
+            columns: ['client_id'];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'client_notes_author_id_fkey';
+            columns: ['author_id'];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+
+      client_packages: {
+        Row: {
+          id: string;
+          user_id: string;
+          package_id: string | null;
+          name: string | null;
+          status: string | null;
+          started_at: string | null;
+          ends_at: string | null;
+          sessions_total: number | null;
+          sessions_used: number | null;
+          notes: string | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          package_id?: string | null;
+          name?: string | null;
+          status?: string | null;
+          started_at?: string | null;
+          ends_at?: string | null;
+          sessions_total?: number | null;
+          sessions_used?: number | null;
+          notes?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          package_id?: string | null;
+          name?: string | null;
+          status?: string | null;
+          started_at?: string | null;
+          ends_at?: string | null;
+          sessions_total?: number | null;
+          sessions_used?: number | null;
+          notes?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'client_packages_user_id_fkey';
+            columns: ['user_id'];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+
+      notifications: {
+        Row: {
+          id: string;
+          user_id: string | null;
+          title: string;
+          body: string;
+          type: string;
+          read: boolean;
+          metadata: Json;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string | null;
+          title?: string;
+          body?: string;
+          type?: string;
+          read?: boolean;
+          metadata?: Json;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string | null;
+          title?: string;
+          body?: string;
+          type?: string;
+          read?: boolean;
+          metadata?: Json;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'notifications_user_fk';
+            columns: ['user_id'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+
+      trainer_roster_assignments: {
+        Row: {
+          id: string;
+          trainer_id: string;
+          trainer_focus: string | null;
+          status: string;
+          shift: string;
+          clients_count: number;
+          highlighted_client_id: string | null;
+          next_check_in_at: string | null;
+          load_level: string | null;
+          tags: string[];
+          last_synced_at: string | null;
+          metadata: Json;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          trainer_id: string;
+          trainer_focus?: string | null;
+          status?: string;
+          shift?: string;
+          clients_count?: number;
+          highlighted_client_id?: string | null;
+          next_check_in_at?: string | null;
+          load_level?: string | null;
+          tags?: string[] | null;
+          last_synced_at?: string | null;
+          metadata?: Json | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          trainer_id?: string;
+          trainer_focus?: string | null;
+          status?: string;
+          shift?: string;
+          clients_count?: number;
+          highlighted_client_id?: string | null;
+          next_check_in_at?: string | null;
+          load_level?: string | null;
+          tags?: string[] | null;
+          last_synced_at?: string | null;
+          metadata?: Json | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'trainer_roster_assignments_trainer_fk';
+            columns: ['trainer_id'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'trainer_roster_assignments_highlighted_fk';
+            columns: ['highlighted_client_id'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+
+      trainer_roster_events: {
+        Row: {
+          id: string;
+          assignment_id: string | null;
+          owner_id: string | null;
+          title: string;
+          detail: string | null;
+          scheduled_at: string | null;
+          metadata: Json;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          assignment_id?: string | null;
+          owner_id?: string | null;
+          title: string;
+          detail?: string | null;
+          scheduled_at?: string | null;
+          metadata?: Json | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          assignment_id?: string | null;
+          owner_id?: string | null;
+          title?: string;
+          detail?: string | null;
+          scheduled_at?: string | null;
+          metadata?: Json | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'trainer_roster_events_assignment_id_fkey';
+            columns: ['assignment_id'];
+            referencedRelation: 'trainer_roster_assignments';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'trainer_roster_events_owner_id_fkey';
+            columns: ['owner_id'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+
       audit_log: {
         Row: {
           id: string;
@@ -988,6 +1244,96 @@ export type Database = {
         Relationships: [];
       };
 
+      system_insights: {
+        Row: {
+          id: string;
+          label: string;
+          value: string;
+          detail: string | null;
+          sort_order: number | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          label: string;
+          value: string;
+          detail?: string | null;
+          sort_order?: number | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          label?: string;
+          value?: string;
+          detail?: string | null;
+          sort_order?: number | null;
+          updated_at?: string | null;
+        };
+        Relationships: [];
+      };
+
+      system_maintenance_windows: {
+        Row: {
+          id: string;
+          title: string;
+          start_at: string;
+          end_at: string;
+          impact: string | null;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          start_at: string;
+          end_at: string;
+          impact?: string | null;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          title?: string;
+          start_at?: string;
+          end_at?: string;
+          impact?: string | null;
+          created_at?: string | null;
+        };
+        Relationships: [];
+      };
+
+      system_services: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          state: 'ok' | 'warn' | 'down' | null;
+          latency_ms: number | null;
+          uptime_percent: number | null;
+          updated_at: string | null;
+          display_order: number | null;
+        };
+        Insert: {
+          id: string;
+          name: string;
+          description?: string | null;
+          state?: 'ok' | 'warn' | 'down' | null;
+          latency_ms?: number | null;
+          uptime_percent?: number | null;
+          updated_at?: string | null;
+          display_order?: number | null;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string | null;
+          state?: 'ok' | 'warn' | 'down' | null;
+          latency_ms?: number | null;
+          uptime_percent?: number | null;
+          updated_at?: string | null;
+          display_order?: number | null;
+        };
+        Relationships: [];
+      };
+
       training_plan_blocks: {
         Row: {
           id: string;
@@ -1147,6 +1493,48 @@ export type Database = {
     };
 
     Views: {
+      admin_trainer_roster: {
+        Row: {
+          id: string | null;
+          trainer_id: string | null;
+          trainer_name: string | null;
+          trainer_email: string | null;
+          trainer_role: string | null;
+          trainer_focus: string | null;
+          status: string | null;
+          shift: string | null;
+          clients_count: number | null;
+          highlighted_client_id: string | null;
+          highlighted_client_name: string | null;
+          highlighted_client_email: string | null;
+          next_check_in_at: string | null;
+          load_level: string | null;
+          tags: string[] | null;
+          tags_text: string | null;
+          last_synced_at: string | null;
+          metadata: Json | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Relationships: [];
+      };
+
+      admin_trainer_roster_events: {
+        Row: {
+          id: string | null;
+          assignment_id: string | null;
+          owner_id: string | null;
+          owner_name: string | null;
+          title: string | null;
+          detail: string | null;
+          scheduled_at: string | null;
+          metadata: Json | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Relationships: [];
+      };
+
       onboarding_forms_with_user: {
         Row: {
           id: string | null;
