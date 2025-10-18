@@ -90,28 +90,29 @@ export default function MessagesFeed({
   }
 
   return (
-    <ol className="neo-panel__list" aria-live="polite">
+    <ol className="neo-panel__list neo-stack neo-stack--md" aria-live="polite">
       {messages.map((message) => {
         const body = (message.body ?? '').trim();
         const direction = resolveDirection(viewerId, message);
         return (
-          <li key={message.id} className="neo-surface space-y-3 p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-semibold uppercase tracking-wide text-muted">
+          <li key={message.id} className="neo-surface neo-surface--padded neo-stack neo-stack--sm">
+            <div className="neo-inline neo-inline--wrap neo-inline--between neo-inline--sm neo-text--xs neo-text--semibold neo-text--uppercase neo-text--muted">
               <span className="neo-tag" data-tone={direction.tone}>{direction.label}</span>
               <span>{formatDateTime(message.sent_at)}</span>
             </div>
-            <p className="text-sm leading-relaxed text-fg whitespace-pre-wrap break-words">
+            <p className="neo-text--sm neo-text--prewrap text-fg">
               {body.length > 0 ? body : '—'}
             </p>
-            <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted">
+            <div className="neo-inline neo-inline--wrap neo-inline--between neo-inline--sm neo-text--xs neo-text--muted">
               <span>
-                {direction.contextLabel}: <strong className="text-fg">{direction.counterpart}</strong>
+                {direction.contextLabel}:{' '}
+                <strong className="neo-text--semibold text-fg">{direction.counterpart}</strong>
               </span>
               <span>
-                De: <code className="rounded-md bg-[color:color-mix(in_srgb,var(--card-bg)_92%,transparent)] px-2 py-0.5 text-[color:var(--muted-fg)]">{message.from_id ?? '—'}</code>
+                De: <code className="neo-code">{message.from_id ?? '—'}</code>
               </span>
               <span>
-                Para: <code className="rounded-md bg-[color:color-mix(in_srgb,var(--card-bg)_92%,transparent)] px-2 py-0.5 text-[color:var(--muted-fg)]">{message.to_id ?? '—'}</code>
+                Para: <code className="neo-code">{message.to_id ?? '—'}</code>
               </span>
             </div>
           </li>

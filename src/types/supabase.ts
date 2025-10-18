@@ -111,6 +111,103 @@ export type Database = {
         ];
       };
 
+      client_notes: {
+        Row: {
+          id: string;
+          client_id: string;
+          author_id: string | null;
+          author_name: string | null;
+          author_role: string | null;
+          text: string;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          client_id: string;
+          author_id?: string | null;
+          author_name?: string | null;
+          author_role?: string | null;
+          text: string;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          client_id?: string;
+          author_id?: string | null;
+          author_name?: string | null;
+          author_role?: string | null;
+          text?: string;
+          created_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'client_notes_client_id_fkey';
+            columns: ['client_id'];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'client_notes_author_id_fkey';
+            columns: ['author_id'];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+
+      client_packages: {
+        Row: {
+          id: string;
+          user_id: string;
+          package_id: string | null;
+          name: string | null;
+          status: string | null;
+          started_at: string | null;
+          ends_at: string | null;
+          sessions_total: number | null;
+          sessions_used: number | null;
+          notes: string | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          package_id?: string | null;
+          name?: string | null;
+          status?: string | null;
+          started_at?: string | null;
+          ends_at?: string | null;
+          sessions_total?: number | null;
+          sessions_used?: number | null;
+          notes?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          package_id?: string | null;
+          name?: string | null;
+          status?: string | null;
+          started_at?: string | null;
+          ends_at?: string | null;
+          sessions_total?: number | null;
+          sessions_used?: number | null;
+          notes?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'client_packages_user_id_fkey';
+            columns: ['user_id'];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+
       audit_log: {
         Row: {
           id: string;
