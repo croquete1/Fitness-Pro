@@ -3,103 +3,76 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import {
-  AppBar,
-  Toolbar,
-  IconButton,
-  Typography,
-  Box,
-  Badge,
-  Tooltip,
-  Avatar,
-  Menu,
-  MenuItem,
-  ListItemIcon,
-  Divider,
-  CircularProgress,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemText,
-  OutlinedInput,
-  InputAdornment,
-} from '@mui/material';
-import NotificationsIcon from '@mui/icons-material/Notifications';
-import ChatBubbleOutline from '@mui/icons-material/ChatBubbleOutline';
-import LogoutIcon from '@mui/icons-material/Logout';
-import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
-import Brightness4Outlined from '@mui/icons-material/Brightness4Outlined';
-import SearchIcon from '@mui/icons-material/Search';
-import MenuIcon from '@mui/icons-material/Menu';
 import { useRouter } from 'next/navigation';
-import { signOut } from 'next-auth/react';
+import {
+  Bell,
+  Menu,
+  MessageSquare,
+  Search,
+  LogOut,
+  User,
+  RefreshCw,
+  ChevronDown,
+  Settings,
+} from 'lucide-react';
 import ThemeToggleButton from '@/components/theme/ThemeToggleButton';
 import { useSidebar } from '@/components/layout/SidebarProvider';
 import { useHeaderCounts } from '@/components/header/HeaderCountsContext';
 import BrandLogo from '@/components/BrandLogo';
 import { brand } from '@/lib/brand';
+import type { NavigationSummary } from '@/lib/navigation/types';
+import { signOut } from 'next-auth/react';
+
+const METRIC_CARD_LIMIT = 3;
+
+type NotificationItem = {
+  id: string;
+  title: string;
+  href?: string | null;
+  created_at?: string | null;
+};
 
 type Props = {
-  userLabel?: string;
-  rightSlot?: React.ReactNode;
-  /** opcional — se tiveres avatar do utilizador */
+  role?: string | null;
+  userLabel?: string | null;
   userAvatarUrl?: string | null;
-  /** opcional — nome (melhora as iniciais do avatar e o title) */
-  userName?: string | null;
-  /** opcional — callback de terminar sessão; se não vier, faz fallback para /api/auth/signout */
-  onSignOut?: () => Promise<void> | void;
+  navigationSummary?: NavigationSummary | null;
+  navigationLoading?: boolean;
+  onRefreshNavigation?: () => Promise<unknown> | unknown;
 };
 
 function initialsFrom(label?: string | null) {
   const s = (label ?? '').trim();
   if (!s) return '•';
   const parts = s.split(/\s+/).slice(0, 2);
-  return parts.map(p => p[0]?.toUpperCase() ?? '').join('') || '•';
+  return parts.map((part) => part[0]?.toUpperCase() ?? '').join('') || '•';
 }
 
 export default function AppHeader({
+  role = 'CLIENT',
   userLabel,
-  rightSlot,
   userAvatarUrl,
-  userName,
-  onSignOut,
+  navigationSummary,
+  navigationLoading,
+  onRefreshNavigation,
 }: Props) {
-  const { openMobile } = useSidebar();
-  const counts = useHeaderCounts?.();
-  const role = counts?.role ?? null;
   const router = useRouter();
+  const { openMobile } = useSidebar();
+  const headerCounts = useHeaderCounts();
   const [query, setQuery] = React.useState('');
 
-  const messagesCount = Number(counts?.messagesCount ?? 0);
-  const notificationsCount = Number(counts?.notificationsCount ?? 0);
-  const setCounts = counts?.setCounts;
+  const quickMetrics = React.useMemo(
+    () => navigationSummary?.quickMetrics?.slice(0, METRIC_CARD_LIMIT) ?? [],
+    [navigationSummary],
+  );
 
-  const renderBadge = (value: number, icon: React.ReactElement) =>
-    value > 0 ? (
-      <Badge color="error" badgeContent={value} max={99}>
-        {icon}
-      </Badge>
-    ) : (
-      icon
-    );
-
-  // Avatar menu state
-  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
-  const open = Boolean(anchorEl);
-  const handleOpenMenu = (e: React.MouseEvent<HTMLElement>) => setAnchorEl(e.currentTarget);
-  const handleCloseMenu = () => setAnchorEl(null);
-
-  async function handleSignOut() {
-    try {
-      if (onSignOut) {
-        await onSignOut();
-      } else {
-        await signOut({ callbackUrl: '/login' });
-      }
-    } finally {
-      // signOut já trata do redirect; o finally evita estados inconsistentes
-    }
-  }
+  const [notifAnchorOpen, setNotifAnchorOpen] = React.useState(false);
+  const [notifItems, setNotifItems] = React.useState<NotificationItem[]>([]);
+  const [notifLoading, setNotifLoading] = React.useState(false);
+  const [notifError, setNotifError] = React.useState<string | null>(null);
+  const notificationsButtonRef = React.useRef<HTMLButtonElement | null>(null);
+  const notificationsPopoverRef = React.useRef<HTMLDivElement | null>(null);
+  const hasNotifications = notifAnchorOpen && notifItems.length > 0;
 
   const submitSearch = React.useCallback(() => {
     const trimmed = query.trim();
@@ -107,24 +80,23 @@ export default function AppHeader({
     router.push(`/dashboard/search?q=${encodeURIComponent(trimmed)}`);
   }, [query, router]);
 
-  type NotificationItem = { id: string; title: string; href?: string | null; created_at?: string | null };
-  const [notifAnchor, setNotifAnchor] = React.useState<null | HTMLElement>(null);
-  const [notifItems, setNotifItems] = React.useState<NotificationItem[]>([]);
-  const [notifLoading, setNotifLoading] = React.useState(false);
-  const [notifError, setNotifError] = React.useState<string | null>(null);
-  const [notifHydrated, setNotifHydrated] = React.useState(false);
-  const notifMenuOpen = Boolean(notifAnchor);
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      submitSearch();
+    }
+  };
 
   const loadNotifications = React.useCallback(async () => {
     setNotifLoading(true);
     setNotifError(null);
     try {
-      const res = await fetch('/api/notifications/dropdown', {
+      const response = await fetch('/api/notifications/dropdown', {
         cache: 'no-store',
         credentials: 'same-origin',
       });
-      if (!res.ok) throw new Error('REQUEST_FAILED');
-      const data = await res.json();
+      if (!response.ok) throw new Error('REQUEST_FAILED');
+      const data = await response.json();
       const items: NotificationItem[] = Array.isArray(data?.items)
         ? data.items.map((item: any) => ({
             id: String(item?.id ?? crypto.randomUUID?.() ?? Date.now()),
@@ -134,284 +106,264 @@ export default function AppHeader({
           }))
         : [];
       setNotifItems(items);
-      setNotifHydrated(true);
-      if (setCounts) {
-        setCounts({ notificationsCount: items.length });
-      }
+      headerCounts.setCounts({ notificationsCount: items.length });
     } catch (error) {
-      console.warn('[header] notifications dropdown failed');
-      setNotifError('Não foi possível carregar notificações.');
+      console.warn('[header] notifications dropdown failed', error);
       setNotifItems([]);
+      setNotifError('Não foi possível carregar notificações.');
     } finally {
       setNotifLoading(false);
     }
-  }, [setCounts]);
+  }, [headerCounts]);
 
-  const handleOpenNotifications = (event: React.MouseEvent<HTMLElement>) => {
-    setNotifAnchor(event.currentTarget);
-    if (!notifHydrated) {
-      void loadNotifications();
-    }
+  const toggleNotifications = () => {
+    setNotifAnchorOpen((open) => {
+      const next = !open;
+      if (next && !notifItems.length) {
+        void loadNotifications();
+      }
+      return next;
+    });
   };
 
-  const handleCloseNotifications = () => {
-    setNotifAnchor(null);
-  };
+  const closeNotifications = () => setNotifAnchorOpen(false);
 
-  const isClient = role === 'CLIENT';
+  const [userMenuOpen, setUserMenuOpen] = React.useState(false);
+  const userButtonRef = React.useRef<HTMLButtonElement | null>(null);
+  const userMenuRef = React.useRef<HTMLDivElement | null>(null);
+  const toggleUserMenu = () => setUserMenuOpen((value) => !value);
+  const closeUserMenu = () => setUserMenuOpen(false);
+
+  const messagesCount = headerCounts.messagesCount ?? 0;
+  const notificationsCount = headerCounts.notificationsCount ?? 0;
+
+  async function handleSignOut() {
+    closeUserMenu();
+    await signOut({ callbackUrl: '/login' });
+  }
+
   const displayLabel = React.useMemo(() => {
     if (!userLabel) return undefined;
-    if (!isClient) return userLabel;
+    if (String(role).toUpperCase() !== 'CLIENT') return userLabel;
     const cleaned = userLabel.replace(/^[\s·•\-–:]*?(cliente|client[ea]?)([\s·•\-–:]+|\s+)/i, '').trim();
-    return cleaned || undefined;
-  }, [userLabel, isClient]);
+    return cleaned || userLabel;
+  }, [userLabel, role]);
 
-  const handleOpenSidebar = React.useCallback(() => {
-    openMobile(true);
-  }, [openMobile]);
+  React.useEffect(() => {
+    if (!notifAnchorOpen && !userMenuOpen) return undefined;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        if (notifAnchorOpen) setNotifAnchorOpen(false);
+        if (userMenuOpen) setUserMenuOpen(false);
+      }
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      const targetNode = event.target as Node | null;
+      if (!targetNode) return;
+      if (
+        notifAnchorOpen &&
+        notificationsPopoverRef.current &&
+        !notificationsPopoverRef.current.contains(targetNode) &&
+        !(notificationsButtonRef.current && notificationsButtonRef.current.contains(targetNode))
+      ) {
+        setNotifAnchorOpen(false);
+      }
+      if (
+        userMenuOpen &&
+        userMenuRef.current &&
+        !userMenuRef.current.contains(targetNode) &&
+        !(userButtonRef.current && userButtonRef.current.contains(targetNode))
+      ) {
+        setUserMenuOpen(false);
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('pointerdown', handlePointerDown);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('pointerdown', handlePointerDown);
+    };
+  }, [notifAnchorOpen, userMenuOpen]);
 
   return (
-    <AppBar position="sticky" color="default" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
-      <Toolbar sx={{ gap: 1, minHeight: 64, flexWrap: 'wrap' }}>
-        <IconButton
+    <header className="neo-header" data-role={String(role).toLowerCase()}>
+      <div className="neo-header__bar">
+        <button
+          type="button"
+          className="neo-header__menu"
+          onClick={() => openMobile(true)}
           aria-label="Abrir menu de navegação"
-          color="inherit"
-          onClick={handleOpenSidebar}
-          sx={{ display: { xs: 'inline-flex', md: 'none' } }}
         >
-          <MenuIcon />
-        </IconButton>
-        {/* brand */}
-        <Box
-          component={Link}
-          href="/dashboard"
-          prefetch={false}
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            textDecoration: 'none',
-            color: 'inherit',
-          }}
-        >
+          <Menu size={18} strokeWidth={1.8} />
+        </button>
+        <Link href="/dashboard" className="neo-header__brand" prefetch={false}>
           <BrandLogo size={32} priority />
-          <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: 0.4 }}>
-            {brand.name}
-          </Typography>
-        </Box>
-
-        <Box
-          sx={{
-            flex: 1,
-            maxWidth: { xs: '100%', md: 420 },
-            display: 'flex',
-            mr: { xs: 0, sm: 2 },
-          }}
-        >
-          <OutlinedInput
-            fullWidth
-            size="small"
+          <span>{brand.name}</span>
+        </Link>
+        <div className="neo-header__search">
+          <Search size={16} strokeWidth={1.6} className="neo-header__search-icon" aria-hidden />
+          <input
+            type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault();
-                submitSearch();
-              }
-            }}
-            placeholder="Pesquisar utilizadores, planos ou sessões"
-            sx={{ borderRadius: 3 }}
-            startAdornment={
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
-              </InputAdornment>
-            }
-            endAdornment={
-              query ? (
-                <InputAdornment position="end">
-                  <IconButton
-                    size="small"
-                    edge="end"
-                    aria-label="Pesquisar"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      submitSearch();
-                    }}
-                  >
-                    <SearchIcon fontSize="small" />
-                  </IconButton>
-                </InputAdornment>
-              ) : undefined
-            }
+            onKeyDown={handleKeyDown}
+            placeholder="Pesquisar clientes, planos ou sessões"
+            aria-label="Pesquisar"
           />
-        </Box>
-
-        <Box
-          sx={{
-            ml: 'auto',
-            display: 'flex',
-            alignItems: 'center',
-            gap: { xs: 0.75, sm: 1.25 },
-            flexWrap: 'wrap',
-            justifyContent: 'flex-end',
-          }}
-        >
-          {rightSlot && <Box sx={{ mr: { xs: 0, sm: 0.5 } }}>{rightSlot}</Box>}
-
-          {(role === 'CLIENT' || role === 'TRAINER') && (
-            <Tooltip title="Mensagens">
-              <IconButton component={Link} href="/dashboard/messages" prefetch={false} size="small" aria-label="Ir para Mensagens">
-                {renderBadge(messagesCount, <ChatBubbleOutline />)}
-              </IconButton>
-            </Tooltip>
-          )}
-
-          <Tooltip title="Notificações">
-            <IconButton
-              size="small"
-              aria-label="Abrir notificações"
-              onClick={handleOpenNotifications}
+          <button type="button" onClick={submitSearch} className="neo-header__search-button">
+            Pesquisar
+          </button>
+        </div>
+        <div className="neo-header__actions">
+          {onRefreshNavigation && (
+            <button
+              type="button"
+              className="neo-header__action"
+              onClick={() => onRefreshNavigation()}
+              aria-label="Actualizar métricas"
+              title="Actualizar métricas"
             >
-              {renderBadge(notificationsCount, <NotificationsIcon />)}
-            </IconButton>
-          </Tooltip>
-
-          {displayLabel && (
-            <Typography variant="body2" sx={{ color: 'text.secondary' }} title={userLabel || displayLabel}>
-              {displayLabel}
-            </Typography>
+              <RefreshCw size={16} strokeWidth={1.8} />
+            </button>
           )}
-
-          <ThemeToggleButton />
-
-          <IconButton
-            onClick={handleOpenMenu}
-            size="small"
-            aria-controls={open ? 'user-menu' : undefined}
-            aria-haspopup="menu"
-            aria-expanded={open ? 'true' : undefined}
+          <ThemeToggleButton className="neo-header__action" aria-label="Alternar tema" />
+          <Link
+            href="/dashboard/messages"
+            prefetch={false}
+            className="neo-header__action neo-header__action--badge"
+            aria-label={`${messagesCount} mensagens novas`}
           >
-            <Avatar
-              src={userAvatarUrl || undefined}
-              alt={userName || userLabel || 'Utilizador'}
-              sx={{ width: 28, height: 28, fontSize: 12, fontWeight: 700 }}
-              imgProps={{ referrerPolicy: 'no-referrer' }}
-            >
-              {initialsFrom(userName || userLabel)}
-            </Avatar>
-          </IconButton>
-        </Box>
+            <MessageSquare size={18} strokeWidth={1.8} />
+            {messagesCount > 0 && <span className="neo-header__badge">{messagesCount > 99 ? '99+' : messagesCount}</span>}
+          </Link>
+          <button
+            type="button"
+            className="neo-header__action neo-header__action--badge"
+            onClick={toggleNotifications}
+            aria-expanded={notifAnchorOpen}
+            aria-label={notificationsCount ? `${notificationsCount} notificações novas` : 'Abrir notificações'}
+            ref={notificationsButtonRef}
+          >
+            <Bell size={18} strokeWidth={1.8} />
+            {notificationsCount > 0 && (
+              <span className="neo-header__badge">{notificationsCount > 99 ? '99+' : notificationsCount}</span>
+            )}
+          </button>
+          <button
+            type="button"
+            className="neo-header__user"
+            onClick={toggleUserMenu}
+            aria-haspopup="menu"
+            aria-expanded={userMenuOpen}
+            ref={userButtonRef}
+          >
+            {userAvatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={userAvatarUrl} alt={displayLabel ?? 'Conta'} />
+            ) : (
+              <span className="neo-header__user-initials" aria-hidden>
+                {initialsFrom(displayLabel)}
+              </span>
+            )}
+            <ChevronDown size={16} strokeWidth={1.6} className="neo-header__user-caret" aria-hidden />
+          </button>
+        </div>
+      </div>
 
-        <Menu
-          id="user-menu"
-          anchorEl={anchorEl}
-          open={open}
-          onClose={handleCloseMenu}
-          keepMounted
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+      {quickMetrics.length > 0 && (
+        <div className="neo-header__metrics" aria-live={navigationLoading ? 'polite' : undefined}>
+          {quickMetrics.map((metric) => (
+            <div key={metric.id} className={`neo-header__metric neo-header__metric--${metric.tone}`}>
+              <span className="neo-header__metric-label">{metric.label}</span>
+              <span className="neo-header__metric-value">{metric.value}</span>
+              {metric.hint && <span className="neo-header__metric-hint">{metric.hint}</span>}
+            </div>
+          ))}
+          {navigationLoading && <span className="neo-header__metric-loading">Atualizando…</span>}
+        </div>
+      )}
+
+      {notifAnchorOpen && (
+        <div
+          ref={notificationsPopoverRef}
+          className="neo-header__popover"
+          role="dialog"
+          aria-label="Notificações"
+          data-tone="panel"
         >
-          <MenuItem
+          <div className="neo-header__popover-header">
+            <span>Notificações</span>
+            <button type="button" onClick={closeNotifications} aria-label="Fechar notificações">
+              ×
+            </button>
+          </div>
+          <div className="neo-header__popover-body">
+            {notifLoading && <span className="neo-header__popover-empty">A carregar…</span>}
+            {notifError && <span className="neo-header__popover-empty">{notifError}</span>}
+            {!notifLoading && !notifError && notifItems.length === 0 && (
+              <span className="neo-header__popover-empty">Sem notificações pendentes.</span>
+            )}
+            {!notifLoading && hasNotifications && (
+              <ul>
+                {notifItems.map((item) => (
+                  <li key={item.id}>
+                    {item.href ? (
+                      <Link href={item.href} prefetch={false} onClick={closeNotifications}>
+                        {item.title}
+                      </Link>
+                    ) : (
+                      <span>{item.title}</span>
+                    )}
+                    {item.created_at && (
+                      <time dateTime={item.created_at}>
+                        {new Date(item.created_at).toLocaleString('pt-PT', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          day: '2-digit',
+                          month: 'short',
+                        })}
+                      </time>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+
+      {userMenuOpen && (
+        <div ref={userMenuRef} className="neo-header__popover neo-header__popover--menu" role="menu">
+          <button
+            type="button"
             onClick={() => {
-              handleCloseMenu();
+              closeUserMenu();
               router.push('/dashboard/profile');
             }}
+            role="menuitem"
           >
-            <ListItemIcon>
-              <PersonOutlineIcon fontSize="small" />
-            </ListItemIcon>
-            Perfil
-          </MenuItem>
-
-          <MenuItem
+            <User size={16} strokeWidth={1.8} /> Perfil
+          </button>
+          <button
+            type="button"
             onClick={() => {
-              handleCloseMenu();
-              // o ThemeToggleButton acima já troca; aqui é um atalho no menu
-              // Dispara um click no toggler externo (accessibility-friendly)
-              const btn = document.querySelector<HTMLButtonElement>('[data-theme-toggle="true"]');
-              btn?.click();
+              closeUserMenu();
+              router.push('/dashboard/settings');
             }}
+            role="menuitem"
           >
-            <ListItemIcon>
-              <Brightness4Outlined fontSize="small" />
-            </ListItemIcon>
-            Alternar tema
-          </MenuItem>
-
-          <Divider />
-
-          <MenuItem
-            onClick={() => {
-              handleCloseMenu();
-              void handleSignOut();
-            }}
-          >
-            <ListItemIcon>
-              <LogoutIcon fontSize="small" />
-            </ListItemIcon>
-            Terminar sessão
-          </MenuItem>
-        </Menu>
-
-        <Menu
-          id="notifications-menu"
-          anchorEl={notifAnchor}
-          open={notifMenuOpen}
-          onClose={handleCloseNotifications}
-          keepMounted
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-          MenuListProps={{ sx: { p: 0, width: 320, maxWidth: '90vw' } }}
-        >
-          <Box sx={{ px: 2, py: 1.5 }}>
-            <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
-              Notificações recentes
-            </Typography>
-            {notifLoading ? (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <CircularProgress size={16} />
-                <Typography variant="caption" color="text.secondary">
-                  A sincronizar…
-                </Typography>
-              </Box>
-            ) : notifError ? (
-              <Typography variant="body2" color="text.secondary">
-                {notifError}
-              </Typography>
-            ) : notifItems.length === 0 ? (
-              <Typography variant="body2" color="text.secondary">
-                Sem notificações no momento.
-              </Typography>
-            ) : (
-              <List dense disablePadding sx={{ maxHeight: 260, overflowY: 'auto' }}>
-                {notifItems.map((item) => (
-                  <ListItem
-                    key={item.id}
-                    disablePadding
-                    sx={{ borderBottom: '1px solid', borderColor: 'divider' }}
-                  >
-                    <ListItemButton
-                      onClick={() => {
-                        handleCloseNotifications();
-                        if (item.href) {
-                          window.location.href = item.href;
-                        }
-                      }}
-                    >
-                      <ListItemText
-                        primaryTypographyProps={{ fontSize: 13, fontWeight: 600 }}
-                        primary={item.title}
-                        secondary={item.created_at ? new Date(item.created_at).toLocaleString() : undefined}
-                        secondaryTypographyProps={{ fontSize: 11, color: 'text.secondary' }}
-                      />
-                    </ListItemButton>
-                  </ListItem>
-                ))}
-              </List>
-            )}
-          </Box>
-        </Menu>
-      </Toolbar>
-    </AppBar>
+            <Settings size={16} strokeWidth={1.8} /> Definições
+          </button>
+          <button type="button" onClick={handleSignOut} role="menuitem" className="danger">
+            <LogOut size={16} strokeWidth={1.8} /> Terminar sessão
+          </button>
+        </div>
+      )}
+    </header>
   );
 }
+

@@ -1,39 +1,37 @@
 'use client';
 
 import * as React from 'react';
-import { Box, Container } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
 import AppHeader from '@/components/layout/AppHeader';
 import RoleSidebar from '@/components/layout/RoleSidebar';
 import {
   HeaderCountsProvider,
   type HeaderCounts,
 } from '@/components/header/HeaderCountsContext';
+import type { NavigationSummary } from '@/lib/navigation/types';
+import { useNavigationSummary } from '@/lib/navigation/useNavigationSummary';
 
 type Props = {
-  /** 'ADMIN' | 'TRAINER' | 'CLIENT' | null */
   role?: string | null;
-  /** Texto curto no topo (ex.: nome do utilizador) */
+  userId?: string | null;
   userLabel?: string | null;
-  /** Contagens iniciais para hidratar os badges do header (opcional) */
   initialCounts?: Partial<HeaderCounts>;
+  initialNavigation?: NavigationSummary | null;
   children: React.ReactNode;
 };
 
-/**
- * DashboardFrame
- * - Fornece o Header com badges (via HeaderCountsProvider)
- * - Layout com sidebar à esquerda (desktop) e conteúdo à direita
- * - Tudo client-side e MUI-puro
- */
 export default function DashboardFrame({
   role = null,
+  userId = null,
   userLabel,
   initialCounts,
+  initialNavigation,
   children,
 }: Props) {
-  const theme = useTheme();
-  const isLight = theme.palette.mode === 'light';
+  const normalisedRole = React.useMemo(
+    () => (role ? String(role).toUpperCase() : 'CLIENT'),
+    [role],
+  );
+
   const adminInitial = initialCounts
     ? {
         approvalsCount: initialCounts.approvalsCount ?? 0,
@@ -48,77 +46,34 @@ export default function DashboardFrame({
       }
     : undefined;
 
+  const { summary, loading: navigationLoading, refresh: refreshNavigation } =
+    useNavigationSummary(normalisedRole, userId, initialNavigation);
+
   return (
-    <HeaderCountsProvider
-      role={(role as any) ?? null}
-      /** ✅ Corrigido: NÃO passamos `role` dentro de `initial` */
-      initial={initialCounts ?? {}}
-    >
-      <Box
-        sx={{
-          minHeight: '100dvh',
-          bgcolor: isLight ? 'transparent' : 'background.default',
-          backgroundImage: isLight
-            ? 'linear-gradient(180deg, #f7fbff 0%, #f1f5ff 45%, #eef2ff 100%)'
-            : undefined,
-          display: 'grid',
-          gridTemplateRows: 'auto 1fr',
-        }}
-      >
-        {/* Header com badges e toggle de tema (ThemeToggleButton) */}
-        <AppHeader userLabel={userLabel ?? undefined} />
-
-        {/* Corpo: sidebar + conteúdo */}
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: {
-              xs: '1fr',
-              md: 'var(--sb-w) minmax(0,1fr)',
-            },
-            gap: 0,
-            transition: 'grid-template-columns var(--sb-dur) var(--sb-ease)',
-          }}
-        >
-          {/* Sidebar só em md+ (no mobile usas o menu do AppHeader/SidebarProvider) */}
-          <Box
-            component="aside"
-            sx={{
-              display: { xs: 'contents', md: 'block' },
-              width: { md: 'var(--sb-w)' },
-              minWidth: { md: 'var(--sb-w)' },
-              transition: 'width var(--sb-dur) var(--sb-ease)',
+    <HeaderCountsProvider role={(normalisedRole as any) ?? null} initial={initialCounts ?? {}}>
+      <div className="neo-shell" data-role={normalisedRole}>
+        <AppHeader
+          role={normalisedRole as any}
+          userLabel={userLabel ?? undefined}
+          navigationSummary={summary}
+          navigationLoading={navigationLoading}
+          onRefreshNavigation={refreshNavigation}
+        />
+        <div className="neo-shell__body">
+          <RoleSidebar
+            role={normalisedRole}
+            initialCounts={{
+              admin: adminInitial,
+              client: audienceInitial,
+              trainer: audienceInitial,
             }}
-          >
-            <RoleSidebar
-              role={role}
-              initialCounts={{
-                admin: adminInitial,
-                client: audienceInitial,
-                trainer: audienceInitial,
-              }}
-            />
-          </Box>
-
-          <Box
-            component="main"
-            sx={{
-              width: '100%',
-              px: { xs: 2, md: 3, lg: 4 },
-              py: { xs: 2, md: 3 },
-              backgroundColor: isLight ? 'transparent' : undefined,
-            }}
-          >
-            <Container
-              maxWidth={false}
-              disableGutters
-              sx={{ width: '100%', maxWidth: '100%' }}
-            >
-              {children}
-            </Container>
-          </Box>
-        </Box>
-      </Box>
+            navigationSummary={summary}
+            navigationLoading={navigationLoading}
+            onRefreshNavigation={refreshNavigation}
+          />
+          <main className="neo-shell__main">{children}</main>
+        </div>
+      </div>
     </HeaderCountsProvider>
   );
 }
