@@ -391,3 +391,21 @@ export function getAdminUsersDashboardFallback(): AdminUsersDashboardData {
   }));
   return buildAdminUsersDashboard(records, { supabase: false });
 }
+
+export function getAdminUsersDashboardFallback(): AdminUsersDashboardData {
+  const { rows } = getSampleUsers({ page: 0, pageSize: 1000 });
+  const records: AdminUserRecord[] = rows.map((row) => ({
+    id: String(row.id),
+    name: row.name ?? null,
+    email: row.email ?? null,
+    role: row.role ?? null,
+    status: row.status ?? null,
+    approved: row.approved ?? null,
+    active: row.active ?? null,
+    createdAt: row.created_at ?? null,
+    lastLoginAt: row.last_login_at ?? null,
+    lastSeenAt: row.last_seen_at ?? null,
+    online: row.online ?? false,
+  }));
+  return buildAdminUsersDashboard(records, { supabase: false });
+}
