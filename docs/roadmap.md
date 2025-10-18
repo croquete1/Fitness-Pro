@@ -33,7 +33,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 ## Fase 2 - Melhorias Estruturais
 - [ ] Validar carregamento real da lista de utilizadores/aprovações no Supabase (remoção dos fallbacks quando a API estiver estável e seeds completos).
 - [ ] Harmonizar o toggle de tema (cookies + localStorage) para eliminar flashes e estados mistos no login.
-- [ ] Migrar toda a consola administrativa para o design system `.neo`, consolidando tabelas, filtros e quick actions (aprovações, centro de notificações do utilizador, onboarding, histórico e roster já convertidos).
+- [ ] Migrar toda a consola administrativa para o design system `.neo`, consolidando tabelas, filtros e quick actions (aprovações, centro de notificações do utilizador, onboarding, histórico, roster e agora a gestão de utilizadores em `/dashboard/users` já convertidos).
 - [x] Recriar o painel de métricas do cliente no tema `.neo`, com integração Supabase, filtros temporais e gráficos interactivos (src/app/(app)/dashboard/clients/metrics/**/*).
 - [x] Reimaginar o módulo de sessões do cliente no tema `.neo`, com métricas, timeline, ranking de PT e gestão de pedidos ligada ao Supabase (src/app/(app)/dashboard/sessions/**/*).
 - [x] Reestruturar o painel de planos do cliente no tema `.neo`, com métricas reais, gráfico temporal, insights automáticos e fallback sincronizado com o Supabase (src/app/(app)/dashboard/plans/**/*, src/app/api/client/plans/dashboard/route.ts).
