@@ -17,9 +17,9 @@ Executámos `npm run neo:audit` para mapear utilitários ainda baseados em Tailw
 
 ## Funcionalidades com dados mock ou TODOs
 
-- O módulo `_memdb` ainda substitui integrações reais com Supabase para antropometria, planos, notas e sessões, mantendo dados em memória. 【F:src/app/api/_memdb.ts†L1-L84】
+- As rotas críticas de perfil de cliente (`/api/users/[id]/notes|packages|anthropometry|sessions|plans`) foram ligadas ao Supabase com validação de permissões, eliminando o `_memdb` em memória. 【F:src/app/api/users/[id]/notes/route.ts†L1-L112】【F:src/app/api/users/[id]/packages/route.ts†L1-L87】【F:src/app/api/users/[id]/anthropometry/route.ts†L1-L146】【F:src/app/api/users/[id]/sessions/route.ts†L1-L141】【F:src/app/api/users/[id]/plans/route.ts†L1-L55】
 - Endpoints como `src/app/api/dashboard/stats/route.ts` permanecem com `// TODO: busca real no DB` e devolvem cartões com classes Tailwind. 【F:src/app/api/stats/route.ts†L1-L12】
-- Rotas de sessões e notas do utilizador (`src/app/api/users/[id]/sessions/route.ts`, `src/app/api/users/[id]/notes/route.ts`) ainda têm TODOs para ligar a agenda real e associar autor autenticado. 【F:src/app/api/users/[id]/sessions/route.ts†L1-L120】【F:src/app/api/users/[id]/notes/route.ts†L1-L96】
+- Continuam por migrar os módulos administrativos que usam dados simulados ou caches locais, especialmente na listagem de aprovações e histórico de planos.
 
 ## Gargalos de performance percebida
 
@@ -38,6 +38,8 @@ Executámos `npm run neo:audit` para mapear utilitários ainda baseados em Tailw
 - O cabeçalho do treinador (`src/components/trainer/TrainerHeader.tsx`) foi reconstruído com o padrão `neo-app-header`, substituindo gradients Tailwind por tokens do tema e avatar com contorno Neo.
 - A agenda de PT (`src/app/(app)/dashboard/pt/schedule/TrainerScheduleClient.tsx`) recebeu uma revisão estrutural: filtros, métricas e tabela agora usam novos utilitários `.neo`, botões declarativos (`data-variant`) e feedbacks (`neo-spinner`, `neo-table-empty`).
 - O painel de relatórios operacionais (`src/app/(app)/dashboard/reports/ReportsDashboardClient.tsx`) foi migrado para estruturas `.neo`, introduzindo filtros colados, métricas temáticas e estados vazios consistentes sem qualquer utilitário Tailwind.
+- O perfil detalhado do cliente (`src/app/(app)/dashboard/users/[id]/profile.client.tsx`) foi reescrito sem MUI, adoptando cards, métricas e formulários `.neo` com estados acessíveis e botões partilhados.
+- Implementámos tabelas reais no Supabase para pacotes e notas de clientes (`supabase/migrations/20250328_add_client_notes_and_packages.sql`), permitindo que o front-end consuma dados vivos e remova mocks legados.
 
 ## Próximos passos recomendados
 
