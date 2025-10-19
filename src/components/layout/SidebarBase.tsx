@@ -10,7 +10,7 @@ type Props = { header?: React.ReactNode; children?: React.ReactNode };
 export default function SidebarBase({ header, children }: Props) {
   const { collapsed, isMobile, mobileOpen, closeMobile, toggleCollapse, peek, setPeek } = useSidebar();
   const isRail = !isMobile && collapsed && !peek;
-  const width = isMobile ? 'min(90vw, 320px)' : isRail ? 'var(--sb-width-collapsed)' : 'var(--sb-width)';
+  const width = isMobile ? 'min(92vw, 340px)' : isRail ? 'var(--neo-sidebar-width-rail)' : 'var(--neo-sidebar-width)';
 
   const hoverHandlers = !isMobile && collapsed
     ? {
@@ -23,18 +23,18 @@ export default function SidebarBase({ header, children }: Props) {
 
   const aside = (
     <aside
-      className={clsx('fp-sidebar', isRail && 'fp-sidebar--rail', peek && 'fp-sidebar--peek')}
+      className={clsx('neo-sidebar', isRail && 'neo-sidebar--rail', peek && 'neo-sidebar--peek')}
       style={{ width }}
       data-state={isRail ? 'rail' : 'panel'}
       {...hoverHandlers}
     >
-      <div className="fp-sidebar__header">
-        {header}
+      <div className="neo-sidebar__header">
+        <div className="neo-sidebar__title">{header}</div>
         {!isMobile && (
           <button
             type="button"
             onClick={toggleCollapse}
-            className="btn icon fp-sidebar__collapse"
+            className="neo-sidebar__collapse"
             aria-label={collapsed ? 'Expandir navegação' : 'Recolher navegação'}
             aria-pressed={collapsed}
           >
@@ -44,16 +44,21 @@ export default function SidebarBase({ header, children }: Props) {
           </button>
         )}
       </div>
-      <div className="fp-sidebar__scroll">{children}</div>
+      <div className="neo-sidebar__content">{children}</div>
     </aside>
   );
 
   if (isMobile) {
     if (!mobileOpen) return null;
     return (
-      <div className="fp-sidebar__overlay" role="dialog" aria-modal="true" onClick={closeMobile}>
-        <div className="fp-sidebar__sheet" onClick={(event) => event.stopPropagation()}>
-          <button type="button" className="btn icon fp-sidebar__close" onClick={closeMobile} aria-label="Fechar navegação">
+      <div className="neo-sidebar__overlay" role="dialog" aria-modal="true" onClick={closeMobile}>
+        <div className="neo-sidebar__sheet" onClick={(event) => event.stopPropagation()}>
+          <button
+            type="button"
+            className="neo-sidebar__close"
+            onClick={closeMobile}
+            aria-label="Fechar navegação"
+          >
             <X size={16} strokeWidth={2} aria-hidden />
           </button>
           {aside}

@@ -1,73 +1,99 @@
 "use client";
 
-import { useMemo } from "react";
-import Link from "next/link";
+import * as React from "react";
 import useSWR from "swr";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+} from "recharts";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+
 import PageHeader from "@/components/ui/PageHeader";
+import Button from "@/components/ui/Button";
+import Alert from "@/components/ui/Alert";
 import { useMe } from "@/hooks/useMe";
-import { usePoll } from "@/hooks/usePoll";
 import { greetingForDate } from "@/lib/time";
+import type {
+  ClientDashboardResponse,
+  ClientHeroMetric,
+  ClientHighlight,
+  ClientSessionRow,
+  ClientTimelinePoint,
+  ClientWalletEntry,
+} from "@/lib/client/dashboard/types";
 
-type DashboardStatsResponse = {
-  ok: boolean;
-  role: string;
-  stats: Record<string, number>;
-};
-
-type OverviewResponse = {
-  ok: true;
-  stats: {
-    totalPlans: number;
-    activePlans: number;
-    sessionsUpcoming: number;
-    unreadNotifications: number;
-  };
-  activePlan: {
-    id: string;
-    title: string | null;
-    status: string | null;
-    start_date: string | null;
-    end_date: string | null;
-    trainer_id: string | null;
-    trainer_name?: string;
-  } | null;
-  upcomingSessions: Array<{
-    id: string;
-    scheduled_at: string | null;
-    location: string | null;
-    status: string | null;
-    trainer_id: string | null;
-    trainer_name?: string;
-  }>;
-  lastMeasurement: {
-    measured_at: string | null;
-    weight_kg: number | null;
-    height_cm: number | null;
-    body_fat_pct: number | null;
-    bmi: number | null;
-    notes?: string | null;
-  } | null;
-  previousMeasurement: OverviewResponse["lastMeasurement"];
-  recommendations: string[];
-};
-
-type StatusTone = "ok" | "warn" | "down";
-
-const quickActions = [
-  { href: "/dashboard/sessions", label: "Agendar sessão" },
-  { href: "/dashboard/my-plan", label: "Ver planos" },
-  { href: "/dashboard/notifications", label: "Notificações" },
+const RANGE_OPTIONS = [
+  { value: 7, label: "7 dias" },
+  { value: 14, label: "14 dias" },
+  { value: 30, label: "30 dias" },
+  { value: 60, label: "60 dias" },
+  { value: 90, label: "90 dias" },
 ];
 
-const fetcher = async <T,>(url: string): Promise<T> => {
-  const res = await fetch(url, { credentials: "include" });
-  if (!res.ok) {
-    throw new Error(`Erro ${res.status}`);
+const numberFormatter = new Intl.NumberFormat("pt-PT", { maximumFractionDigits: 0 });
+
+function formatCurrency(amount: number, currency?: string | null): string {
+  const code = typeof currency === "string" && currency.trim().length === 3 ? currency.toUpperCase() : "EUR";
+  return new Intl.NumberFormat("pt-PT", {
+    style: "currency",
+    currency: code,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
+async function fetcher(url: string): Promise<ClientDashboardResponse> {
+  const response = await fetch(url, { credentials: "include" });
+  if (!response.ok) {
+    const message = await response.text().catch(() => "Não foi possível carregar o painel.");
+    throw new Error(message || "Não foi possível carregar o painel.");
   }
-  return res.json();
+  const json = (await response.json()) as ClientDashboardResponse | { ok?: boolean; message?: string };
+  if (!json || typeof json !== "object" || !("ok" in json) || json.ok !== true) {
+    throw new Error((json as any)?.message ?? "Não foi possível carregar o painel.");
+  }
+  return json as ClientDashboardResponse;
+}
+
+type ChartDatum = ClientTimelinePoint & { tooltipLabel: string };
+
+type TimelineTooltipProps = {
+  active?: boolean;
+  payload?: Array<{ payload: ChartDatum; value: number; dataKey: keyof ChartDatum; color: string }>;
+  label?: string;
 };
 
-function StatusPill({ tone, label }: { tone: StatusTone; label: string }) {
+function TimelineTooltip({ active, payload }: TimelineTooltipProps) {
+  if (!active || !payload?.length) return null;
+  const datum = payload[0]?.payload;
+  if (!datum) return null;
+  return (
+    <div className="client-dashboard__tooltip" role="status">
+      <p className="client-dashboard__tooltipTitle">{datum.tooltipLabel}</p>
+      <dl className="client-dashboard__tooltipList">
+        <div>
+          <dt>Agendadas</dt>
+          <dd>{numberFormatter.format(datum.scheduled)}</dd>
+        </div>
+        <div>
+          <dt>Realizadas</dt>
+          <dd>{numberFormatter.format(datum.completed)}</dd>
+        </div>
+        <div>
+          <dt>Canceladas</dt>
+          <dd>{numberFormatter.format(datum.cancelled)}</dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
+function StatusPill({ tone, label }: { tone: "ok" | "warn"; label: string }) {
   return (
     <span className="status-pill" data-state={tone}>
       {label}
@@ -75,520 +101,451 @@ function StatusPill({ tone, label }: { tone: StatusTone; label: string }) {
   );
 }
 
-function MetricTile({
-  label,
-  value,
-  hint,
-  icon,
-  href,
-  loading,
-  tone = "info",
-}: {
-  label: string;
-  value: number | string;
-  hint?: string;
-  icon?: string;
-  href?: string;
-  loading?: boolean;
-  tone?: "primary" | "accent" | "info" | "success" | "warning";
-}) {
-  const classes = ["neo-surface", "client-dashboard__metricCard"];
-  const interactive = Boolean(href && !loading);
-  if (interactive) {
-    classes.push("neo-surface--interactive");
-  }
-
-  const skeleton = <span className="client-dashboard__metricSkeleton" aria-hidden />;
-
-  const content = (
-    <>
-      <div className="client-dashboard__metric">
-        <div className="client-dashboard__metricCopy">
-          <span className="neo-surface__hint uppercase tracking-wide">{label}</span>
-          <span className="client-dashboard__metricValue">{loading ? skeleton : value}</span>
-          {hint && <p className="client-dashboard__metricHint">{hint}</p>}
-        </div>
-        {icon && (
-          <span className="client-dashboard__metricIcon" aria-hidden>
-            {icon}
-          </span>
-        )}
-      </div>
-      {interactive && (
-        <span className="link-arrow client-dashboard__metricLink">
-          Abrir <ArrowTopRightIcon />
-        </span>
-      )}
-    </>
-  );
-
-  if (interactive && href) {
-    return (
-      <Link href={href} prefetch={false} className={classes.join(" ")} data-variant={tone}>
-        {content}
-      </Link>
-    );
-  }
-
+function HeroMetrics({ metrics }: { metrics: ClientHeroMetric[] }) {
+  if (!metrics.length) return null;
   return (
-    <div className={classes.join(" ")} data-variant={tone}>
-      {content}
+    <div className="client-dashboard__hero" role="list">
+      {metrics.map((metric) => (
+        <article key={metric.key} className="client-dashboard__heroCard" data-tone={metric.tone ?? "neutral"}>
+          <span className="client-dashboard__heroLabel">{metric.label}</span>
+          <strong className="client-dashboard__heroValue">{metric.value}</strong>
+          {metric.hint ? <span className="client-dashboard__heroHint">{metric.hint}</span> : null}
+          {metric.trend ? <span className="client-dashboard__heroTrend">{metric.trend}</span> : null}
+        </article>
+      ))}
     </div>
   );
 }
 
-function ArrowTopRightIcon() {
+function HighlightsList({ highlights }: { highlights: ClientHighlight[] }) {
+  if (!highlights.length) {
+    return (
+      <div className="client-dashboard__empty" role="status">
+        <p className="neo-text--muted">Sem destaques no momento.</p>
+      </div>
+    );
+  }
+
   return (
-    <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth="1.6">
-      <path d="M7 17L17 7M17 7H9M17 7V15" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    <ul className="client-dashboard__highlightList" role="list">
+      {highlights.map((highlight) => (
+        <li key={highlight.id} className="client-dashboard__highlight" data-tone={highlight.tone}>
+          <div className="client-dashboard__highlightMeta">
+            {highlight.icon ? (
+              <span className="client-dashboard__highlightIcon" aria-hidden>
+                {highlight.icon}
+              </span>
+            ) : null}
+            <div>
+              <p className="client-dashboard__highlightTitle">{highlight.title}</p>
+              <p className="client-dashboard__highlightDescription">{highlight.description}</p>
+            </div>
+          </div>
+          {highlight.meta ? <p className="client-dashboard__highlightMetaLabel">{highlight.meta}</p> : null}
+        </li>
+      ))}
+    </ul>
   );
 }
 
-function formatDate(iso: string | null | undefined, options?: Intl.DateTimeFormatOptions) {
-  if (!iso) return "—";
-  try {
-    return new Intl.DateTimeFormat("pt-PT", options ?? {
-      day: "2-digit",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(new Date(iso));
-  } catch {
-    return "—";
+function SessionsList({ sessions }: { sessions: ClientSessionRow[] }) {
+  if (!sessions.length) {
+    return (
+      <div className="client-dashboard__empty" role="status">
+        <p className="client-dashboard__emptyTitle">Sem sessões agendadas</p>
+        <p className="client-dashboard__emptyText">Agenda uma sessão para manter o ritmo de treinos.</p>
+      </div>
+    );
   }
+
+  return (
+    <ul className="client-dashboard__sessionList" role="list">
+      {sessions.map((session) => (
+        <li key={session.id} className="client-dashboard__sessionItem">
+          <div className="client-dashboard__sessionMeta">
+            <span className="client-dashboard__sessionDay">{session.dayLabel}</span>
+            <span className="client-dashboard__sessionTime">{session.timeLabel}</span>
+          </div>
+          <div className="client-dashboard__sessionDetails">
+            <span className="client-dashboard__sessionRelative">{session.relative}</span>
+            <span className="client-dashboard__sessionLocation">
+              {session.location ? `Local: ${session.location}` : "Local a definir"}
+            </span>
+            {session.trainerName ? (
+              <span className="client-dashboard__sessionTrainer">PT: {session.trainerName}</span>
+            ) : null}
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
 }
 
-function formatMetric(value: number | null | undefined, suffix = "") {
-  if (typeof value !== "number" || Number.isNaN(value)) return "—";
-  return `${value.toFixed(1)}${suffix}`;
+function WalletEntries({ entries, currency }: { entries: ClientWalletEntry[]; currency: string }) {
+  if (!entries.length) {
+    return (
+      <div className="client-dashboard__empty" role="status">
+        <p className="client-dashboard__emptyText">Sem movimentos registados nesta carteira.</p>
+      </div>
+    );
+  }
+
+  return (
+    <ul className="client-dashboard__walletEntries" role="list">
+      {entries.map((entry) => (
+        <li key={entry.id} className="client-dashboard__walletEntry">
+          <div>
+            <p className="client-dashboard__walletDescription">{entry.description ?? "Movimento"}</p>
+            <span className="client-dashboard__walletMeta">{entry.relative}</span>
+          </div>
+          <strong className="client-dashboard__walletAmount" data-tone={entry.amount >= 0 ? "credit" : "debit"}>
+            {entry.amount >= 0 ? "+" : "−"}
+            {formatCurrency(Math.abs(entry.amount), currency)}
+          </strong>
+        </li>
+      ))}
+    </ul>
+  );
 }
 
-function planTone(status?: string | null): StatusTone {
-  const normalized = (status ?? "").toString().toUpperCase();
-  if (["ACTIVE", "APPROVED", "IN_PROGRESS", "LIVE"].includes(normalized)) return "ok";
-  if (["PAUSED", "PENDING", "WAITING", "DRAFT"].includes(normalized)) return "warn";
-  if (!normalized) return "warn";
-  return "down";
-}
+function MeasurementsTimeline({ points }: { points: ClientDashboardResponse["measurements"]["timeline"] }) {
+  if (!points.length) {
+    return (
+      <div className="client-dashboard__empty" role="status">
+        <p className="client-dashboard__emptyText">Sem medições registadas.</p>
+      </div>
+    );
+  }
 
-function sessionTone(status?: string | null): StatusTone {
-  const normalized = (status ?? "").toString().toUpperCase();
-  if (["CONFIRMED", "COMPLETED", "ACTIVE"].includes(normalized)) return "ok";
-  if (["PENDING", "RESCHEDULE", "REQUESTED", "WAITING"].includes(normalized)) return "warn";
-  if (!normalized) return "warn";
-  return "down";
+  return (
+    <ul className="client-dashboard__measurementList" role="list">
+      {points.map((point) => (
+        <li key={point.measuredAt ?? point.label} className="client-dashboard__measurementItem">
+          <span className="client-dashboard__measurementLabel">{point.label}</span>
+          <div className="client-dashboard__measurementValues">
+            <span>{point.weightKg !== null ? `${point.weightKg.toFixed(1)} kg` : "—"}</span>
+            <span>{point.bodyFatPct !== null ? `${point.bodyFatPct.toFixed(1)}% gordura` : "—"}</span>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 export default function DashboardClient() {
   const { user } = useMe();
-  const { data: statsResponse } = usePoll<DashboardStatsResponse>("/api/dashboard/stats", {
-    intervalMs: 45000,
-  });
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
 
-  const { data: overview, error: overviewError, isLoading: overviewLoading } = useSWR<OverviewResponse>(
-    "/api/dashboard/client/overview",
-    fetcher<OverviewResponse>,
+  const rangeParam = searchParams?.get("range");
+  const range = React.useMemo(() => {
+    const parsed = rangeParam ? Number.parseInt(rangeParam, 10) : NaN;
+    if (!Number.isFinite(parsed) || parsed <= 0) return 30;
+    return parsed;
+  }, [rangeParam]);
+
+  const { data, error, isLoading, mutate } = useSWR<ClientDashboardResponse>(
+    `/api/client/dashboard?range=${range}`,
+    fetcher,
     {
-      refreshInterval: 60000,
-      revalidateOnFocus: true,
+      refreshInterval: 60_000,
     },
   );
 
-  const greetingInfo = useMemo(() => greetingForDate(), []);
-  const greeting = useMemo(() => {
-    const baseName = user?.name?.trim() || "Cliente";
+  const greetingInfo = React.useMemo(() => greetingForDate(), []);
+  const greeting = React.useMemo(() => {
+    const baseName = user?.name?.trim() || user?.email?.split("@")[0] || "Cliente";
     return `${greetingInfo.label}, ${baseName}!`;
-  }, [greetingInfo.label, user?.name]);
+  }, [greetingInfo.label, user?.email, user?.name]);
 
-  const loadingKpis = !statsResponse || overviewLoading;
-  const baseStats = statsResponse?.stats ?? {};
-  const overviewStats = overview?.stats ?? {
-    totalPlans: 0,
-    activePlans: 0,
-    sessionsUpcoming: 0,
-    unreadNotifications: 0,
-  };
+  const timelineData: ChartDatum[] = React.useMemo(() => {
+    if (!data?.timeline?.length) return [];
+    return data.timeline.map((point) => ({
+      ...point,
+      tooltipLabel: point.label,
+    }));
+  }, [data?.timeline]);
 
-  const weightDelta = useMemo(() => {
-    const current = overview?.lastMeasurement?.weight_kg;
-    const previous = overview?.previousMeasurement?.weight_kg;
-    if (typeof current !== "number" || typeof previous !== "number") return null;
-    const diff = current - previous;
-    if (!Number.isFinite(diff) || diff === 0) return 0;
-    return Number(diff.toFixed(1));
-  }, [overview?.lastMeasurement?.weight_kg, overview?.previousMeasurement?.weight_kg]);
+  const handleRangeChange = React.useCallback(
+    (value: number) => {
+      const params = new URLSearchParams(searchParams ? searchParams.toString() : undefined);
+      params.set("range", String(value));
+      router.replace(`${pathname}?${params.toString()}`);
+    },
+    [pathname, router, searchParams],
+  );
 
-  const weightDeltaTone =
-    typeof weightDelta === "number"
-      ? weightDelta > 0
-        ? "up"
-        : weightDelta < 0
-        ? "down"
-        : "flat"
-      : undefined;
-
-  const kpis = [
-    {
-      label: "Planos activos",
-      value: overviewStats.activePlans ?? baseStats.myPlans ?? 0,
-      icon: "🏋️",
-      variant: "accent" as const,
-      href: "/dashboard/my-plan",
-    },
-    {
-      label: "Sessões nesta semana",
-      value: overviewStats.sessionsUpcoming ?? baseStats.myUpcoming ?? baseStats.sessions7d ?? 0,
-      icon: "🗓️",
-      variant: "success" as const,
-      href: "/dashboard/sessions",
-    },
-    {
-      label: "Notificações por ler",
-      value: overviewStats.unreadNotifications ?? baseStats.unread ?? 0,
-      icon: "🔔",
-      variant: "warning" as const,
-      href: "/dashboard/notifications",
-      hint: "Mantém-te a par das últimas novidades do teu PT.",
-    },
-    {
-      label: "Total de planos",
-      value: overviewStats.totalPlans ?? baseStats.myPlans ?? 0,
-      icon: "📚",
-      variant: "info" as const,
-      href: "/dashboard/my-plan",
-    },
-  ];
+  const handleRefresh = React.useCallback(() => {
+    void mutate();
+  }, [mutate]);
 
   return (
-    <div className="client-dashboard">
+    <div className="client-dashboard neo-stack neo-stack--xl">
       <PageHeader
         sticky={false}
         title={
-          <div className="client-dashboard__hero">
+          <div className="client-dashboard__heroHeader">
             <span className="client-dashboard__heroEmoji" aria-hidden>
               {greetingInfo.emoji}
             </span>
             <span className="client-dashboard__heroTitle">{greeting}</span>
           </div>
         }
-        subtitle="O teu cockpit pessoal com os próximos passos e evolução recente."
+        subtitle="Acompanha planos, sessões, medições e recomendações personalizadas num único painel."
         actions={
-          <div className="neo-quick-actions client-dashboard__quickActions">
-            {quickActions.map((action) => (
-              <Link key={action.href} href={action.href} className="btn" prefetch={false}>
-                {action.label}
-              </Link>
-            ))}
+          <div className="client-dashboard__headerActions">
+            <Button variant="ghost" size="sm" onClick={handleRefresh}>
+              Actualizar
+            </Button>
           </div>
         }
       />
 
-      {overviewError && (
-        <div className="client-dashboard__error" role="alert">
-          Não foi possível carregar o resumo do teu painel. Tenta novamente dentro de alguns segundos.
-        </div>
-      )}
+      {error ? (
+        <Alert tone="warning" title="Não foi possível sincronizar o painel.">
+          <p>Tenta novamente em breve ou contacta o teu PT se o problema persistir.</p>
+        </Alert>
+      ) : null}
 
       <section className="neo-panel client-dashboard__panel" aria-labelledby="client-metrics-heading">
-        <header className="neo-panel__header">
+        <header className="neo-panel__header client-dashboard__panelHeader">
           <div className="neo-panel__meta">
             <h2 id="client-metrics-heading" className="neo-panel__title">
               Indicadores principais
             </h2>
-            <p className="neo-panel__subtitle">Actualizados automaticamente a cada minuto.</p>
+            <p className="neo-panel__subtitle">Actualizados automaticamente com base nos teus dados.</p>
           </div>
-          <div className="neo-panel__actions">
-            <StatusPill tone={statsResponse?.ok ? "ok" : "warn"} label={statsResponse?.ok ? "Sincronizado" : "A sincronizar"} />
+          <StatusPill tone={data?.source === "supabase" ? "ok" : "warn"} label={data?.source === "supabase" ? "Sincronizado" : "Modo offline"} />
+        </header>
+        {isLoading && !data ? (
+          <div className="client-dashboard__skeleton" aria-hidden>
+            <div className="client-dashboard__skeletonCard" />
+            <div className="client-dashboard__skeletonCard" />
+            <div className="client-dashboard__skeletonCard" />
+            <div className="client-dashboard__skeletonCard" />
+          </div>
+        ) : (
+          <HeroMetrics metrics={data?.hero ?? []} />
+        )}
+      </section>
+
+      <section className="neo-panel client-dashboard__panel" aria-labelledby="client-timeline-heading">
+        <header className="neo-panel__header client-dashboard__panelHeader">
+          <div className="neo-panel__meta">
+            <h2 id="client-timeline-heading" className="neo-panel__title">
+              Evolução de sessões
+            </h2>
+            <p className="neo-panel__subtitle">Comparação diária de sessões agendadas, realizadas e canceladas.</p>
+          </div>
+          <div className="client-dashboard__panelActions">
+            {RANGE_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`neo-button neo-button--ghost neo-button--small${range === option.value ? " is-active" : ""}`}
+                onClick={() => handleRangeChange(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
         </header>
-        <div className="client-dashboard__metrics">
-          {kpis.map((kpi) => (
-            <MetricTile
-              key={kpi.label}
-              label={kpi.label}
-              value={kpi.value}
-              icon={kpi.icon}
-              tone={kpi.variant}
-              href={kpi.href}
-              loading={loadingKpis}
-              hint={kpi.hint}
-            />
-          ))}
-        </div>
+        {timelineData.length ? (
+          <div className="client-dashboard__chart">
+            <ResponsiveContainer width="100%" height={280}>
+              <AreaChart data={timelineData} margin={{ top: 16, right: 16, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--neo-border-muted)" />
+                <XAxis dataKey="day" tickFormatter={(value: string) => value.slice(5)} stroke="var(--neo-text-muted)" />
+                <YAxis allowDecimals={false} stroke="var(--neo-text-muted)" width={32} />
+                <Tooltip content={<TimelineTooltip />} />
+                <Area type="monotone" dataKey="scheduled" stackId="1" stroke="#7C3AED" fill="rgba(124,58,237,0.18)" name="Agendadas" />
+                <Area type="monotone" dataKey="completed" stackId="2" stroke="#22C55E" fill="rgba(34,197,94,0.18)" name="Realizadas" />
+                <Area type="monotone" dataKey="cancelled" stackId="3" stroke="#F97316" fill="rgba(249,115,22,0.18)" name="Canceladas" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="client-dashboard__empty" role="status">
+            <p className="client-dashboard__emptyText">Sem dados suficientes para mostrar a evolução no período seleccionado.</p>
+          </div>
+        )}
       </section>
 
       <div className="client-dashboard__columns">
-        <div className="client-dashboard__column client-dashboard__column--main">
-          <section className="neo-panel client-dashboard__panel" aria-labelledby="active-plan-heading">
-            <header className="neo-panel__header">
-              <div className="neo-panel__meta">
-                <h2 id="active-plan-heading" className="neo-panel__title">
-                  Plano activo
-                </h2>
-                <p className="neo-panel__subtitle">Últimas alterações e responsáveis.</p>
-              </div>
-              {overview?.activePlan && (
-                <div className="neo-panel__actions">
-                  <StatusPill
-                    tone={planTone(overview.activePlan.status)}
-                    label={(overview.activePlan.status ?? "Ativo").toString()}
-                  />
-                </div>
-              )}
-            </header>
-
-            {overviewLoading ? (
-              <div className="client-dashboard__skeletonStack">
-                <div className="client-dashboard__skeletonBlock" data-size="lg" />
-                <div className="client-dashboard__skeletonBlock" />
-                <div className="client-dashboard__skeletonBlock" />
-              </div>
-            ) : overview?.activePlan ? (
-              <div className="client-dashboard__panelBody">
-                <div className="client-dashboard__planHeader">
-                  <h3 className="client-dashboard__planTitle">
-                    {overview.activePlan.title ?? "Plano de treino"}
-                  </h3>
-                  <p className="client-dashboard__muted">
-                    PT responsável: {overview.activePlan.trainer_name ?? overview.activePlan.trainer_id ?? "—"}
-                  </p>
-                </div>
-                <dl className="client-dashboard__planStats">
-                  <div className="client-dashboard__planStat">
-                    <dt className="neo-surface__hint">Início</dt>
-                    <dd className="client-dashboard__summaryValue">
-                      {formatDate(overview.activePlan.start_date, { day: "2-digit", month: "short" })}
-                    </dd>
-                  </div>
-                  <div className="client-dashboard__planStat">
-                    <dt className="neo-surface__hint">Fim</dt>
-                    <dd className="client-dashboard__summaryValue">
-                      {formatDate(overview.activePlan.end_date, { day: "2-digit", month: "short" })}
-                    </dd>
-                  </div>
-                  <div className="client-dashboard__planStat">
-                    <dt className="neo-surface__hint">Estado</dt>
-                    <dd className="client-dashboard__summaryValue">
-                      {(overview.activePlan.status ?? "Ativo").toString()}
-                    </dd>
-                  </div>
-                </dl>
-                <div className="client-dashboard__actions">
-                  <Link
-                    href={`/dashboard/my-plan/${overview.activePlan.id}`}
-                    className="btn primary"
-                    prefetch={false}
-                  >
-                    Abrir plano
-                  </Link>
-                  <Link href="/dashboard/sessions" className="btn ghost" prefetch={false}>
-                    Ver sessões
-                  </Link>
-                </div>
-              </div>
-            ) : (
-              <div className="client-dashboard__panelBody">
-                <p className="client-dashboard__headline">Ainda não tens um plano activo.</p>
-                <p className="client-dashboard__muted">
-                  Assim que o teu Personal Trainer publicar um plano, os detalhes e próximos passos surgem aqui automaticamente.
-                </p>
-                <Link href="/dashboard/messages" className="btn primary" prefetch={false}>
-                  Contactar o PT
-                </Link>
-              </div>
-            )}
-          </section>
-
-          <section className="neo-panel client-dashboard__panel" aria-labelledby="upcoming-sessions-heading">
-            <header className="neo-panel__header">
-              <div className="neo-panel__meta">
-                <h2 id="upcoming-sessions-heading" className="neo-panel__title">
-                  Próximas sessões
-                </h2>
-                <p className="neo-panel__subtitle">Acompanhamos a agenda dos próximos 7 dias.</p>
-              </div>
-              <div className="neo-panel__actions">
-                <Link href="/dashboard/sessions" className="btn ghost" prefetch={false}>
-                  Ver agenda
-                </Link>
-              </div>
-            </header>
-
-            {overviewLoading ? (
-              <div className="client-dashboard__skeletonStack">
-                {Array.from({ length: 3 }).map((_, idx) => (
-                  <div key={idx} className="client-dashboard__skeletonBlock" data-size="card" />
-                ))}
-              </div>
-            ) : overview?.upcomingSessions?.length ? (
-              <ul className="client-dashboard__list" aria-live="polite">
-                {overview.upcomingSessions.map((session) => (
-                  <li key={session.id} className="neo-surface client-dashboard__card">
-                    <div className="client-dashboard__cardHeader">
-                      <span className="client-dashboard__headline client-dashboard__headline--small">
-                        {formatDate(session.scheduled_at)}
-                      </span>
-                      {session.status && (
-                        <StatusPill tone={sessionTone(session.status)} label={String(session.status).toUpperCase()} />
-                      )}
-                    </div>
-                    <p className="client-dashboard__muted client-dashboard__muted--small">
-                      {session.location ?? "Local a confirmar"} • {session.trainer_name ?? session.trainer_id ?? "PT por atribuir"}
-                    </p>
-                    <Link href="/dashboard/sessions" className="link-arrow client-dashboard__link" prefetch={false}>
-                      Ver detalhes <ArrowTopRightIcon />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className="client-dashboard__panelBody">
-                <p className="client-dashboard__headline">Sem sessões marcadas nos próximos 7 dias.</p>
-                <p className="client-dashboard__muted">
-                  Mantém a consistência agendando a próxima sessão ou revendo o teu plano semanal.
-                </p>
-                <Link href="/dashboard/sessions" className="btn primary" prefetch={false}>
-                  Marcar sessão
-                </Link>
-              </div>
-            )}
-          </section>
-        </div>
-
-        <aside className="client-dashboard__column client-dashboard__column--aside">
-          <section className="neo-panel client-dashboard__panel" aria-labelledby="metrics-heading">
-            <header className="neo-panel__header">
-              <div className="neo-panel__meta">
-                <h2 id="metrics-heading" className="neo-panel__title">
-                  Evolução física
-                </h2>
-                <p className="neo-panel__subtitle">Últimos registos submetidos.</p>
-              </div>
-              <div className="neo-panel__actions">
-                <Link href="/dashboard/clients/metrics" className="btn ghost" prefetch={false}>
-                  Ver métricas
-                </Link>
-              </div>
-            </header>
-
-            {overviewLoading ? (
-              <div className="client-dashboard__skeletonStack">
-                <div className="client-dashboard__skeletonBlock" data-size="lg" />
-                <div className="client-dashboard__skeletonBlock" />
-              </div>
-            ) : overview?.lastMeasurement ? (
-              <div className="client-dashboard__panelBody">
-                <div className="client-dashboard__planHeader">
-                  <p className="client-dashboard__muted client-dashboard__muted--small">
-                    Registado em {formatDate(overview.lastMeasurement.measured_at, { day: "2-digit", month: "long" })}
-                  </p>
-                  <p className="client-dashboard__value">
-                    Peso actual: {formatMetric(overview.lastMeasurement.weight_kg, " kg")}
-                  </p>
-                </div>
-                <dl className="client-dashboard__metricsSummary">
-                  <div className="client-dashboard__metricRow">
-                    <dt className="neo-surface__hint">Altura</dt>
-                    <dd className="client-dashboard__summaryValue">
-                      {formatMetric(overview.lastMeasurement.height_cm, " cm")}
-                    </dd>
-                  </div>
-                  <div className="client-dashboard__metricRow">
-                    <dt className="neo-surface__hint">Massa gorda</dt>
-                    <dd className="client-dashboard__summaryValue">
-                      {formatMetric(overview.lastMeasurement.body_fat_pct, "%")}
-                    </dd>
-                  </div>
-                  <div className="client-dashboard__metricRow">
-                    <dt className="neo-surface__hint">IMC</dt>
-                    <dd className="client-dashboard__summaryValue">
-                      {formatMetric(overview.lastMeasurement.bmi)}
-                    </dd>
-                  </div>
-                </dl>
-                {typeof weightDelta === "number" && weightDeltaTone && (
-                  <p className="client-dashboard__trend" data-tone={weightDeltaTone}>
-                    {weightDelta > 0
-                      ? `+${weightDelta} kg vs. última medição`
-                      : weightDelta < 0
-                      ? `${weightDelta} kg vs. última medição`
-                      : "Peso estável desde a medição anterior"}
-                  </p>
-                )}
-                {overview.lastMeasurement.notes && (
-                  <p className="client-dashboard__muted client-dashboard__muted--small">
-                    Nota: {overview.lastMeasurement.notes}
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div className="client-dashboard__panelBody">
-                <p className="client-dashboard__headline">Ainda não existem registos de métricas.</p>
-                <p className="client-dashboard__muted">
-                  Guarda o teu peso, altura e notas para acompanhares a evolução junto do teu Personal Trainer.
-                </p>
-                <Link href="/dashboard/clients/metrics" className="btn primary" prefetch={false}>
-                  Registar métricas
-                </Link>
-              </div>
-            )}
-          </section>
-
-          <section className="neo-panel client-dashboard__panel" aria-labelledby="quick-actions-heading">
-            <header className="neo-panel__header">
-              <div className="neo-panel__meta">
-                <h2 id="quick-actions-heading" className="neo-panel__title">
-                  Ações rápidas
-                </h2>
-                <p className="neo-panel__subtitle">Agiliza o contacto com o teu PT e histórico.</p>
-              </div>
-            </header>
-            <div className="client-dashboard__quickList">
-              <Link href="/dashboard/messages" className="neo-surface neo-surface--interactive client-dashboard__quickLink" prefetch={false}>
-                Conversar com o PT
-              </Link>
-              <Link href="/dashboard/notifications" className="neo-surface neo-surface--interactive client-dashboard__quickLink" prefetch={false}>
-                Rever notificações
-              </Link>
-              <Link href="/dashboard/history" className="neo-surface neo-surface--interactive client-dashboard__quickLink" prefetch={false}>
-                Histórico de treinos
-              </Link>
+        <section className="neo-panel client-dashboard__panel" aria-labelledby="client-plan-heading">
+          <header className="neo-panel__header client-dashboard__panelHeader">
+            <div className="neo-panel__meta">
+              <h2 id="client-plan-heading" className="neo-panel__title">
+                Plano activo
+              </h2>
+              <p className="neo-panel__subtitle">Resumo do ciclo em acompanhamento e principais destaques.</p>
             </div>
-          </section>
+          </header>
+        {data?.plan ? (
+          <div className="client-dashboard__plan">
+            <div className="client-dashboard__planHeader">
+              <h3 className="client-dashboard__planTitle">{data.plan.title}</h3>
+              <p className="client-dashboard__planStatus">{data.plan.status}</p>
+            </div>
+            <dl className="client-dashboard__planStats">
+              <div>
+                <dt>Início</dt>
+                <dd>{data.plan.startDate ? new Date(data.plan.startDate).toLocaleDateString("pt-PT", { day: "2-digit", month: "short" }) : "—"}</dd>
+              </div>
+              <div>
+                <dt>Fim</dt>
+                <dd>{data.plan.endDate ? new Date(data.plan.endDate).toLocaleDateString("pt-PT", { day: "2-digit", month: "short" }) : "—"}</dd>
+              </div>
+              <div>
+                <dt>Progresso</dt>
+                <dd>{data.plan.progressPct !== null ? `${data.plan.progressPct}%` : "—"}</dd>
+              </div>
+              <div>
+                <dt>PT responsável</dt>
+                <dd>{data.plan.trainerName ?? "—"}</dd>
+              </div>
+            </dl>
+            {data.plan.summary ? <p className="client-dashboard__planSummary">{data.plan.summary}</p> : null}
+          </div>
+        ) : (
+          <div className="client-dashboard__empty" role="status">
+            <p className="client-dashboard__emptyTitle">Ainda não tens um plano activo.</p>
+            <p className="client-dashboard__emptyText">Contacta o teu PT para receberes um novo plano personalizado.</p>
+          </div>
+        )}
+        <HighlightsList highlights={data?.highlights ?? []} />
+        </section>
 
-          <section className="neo-panel client-dashboard__panel" aria-labelledby="recommendations-heading">
-            <header className="neo-panel__header">
-              <div className="neo-panel__meta">
-                <h2 id="recommendations-heading" className="neo-panel__title">
-                  Recomendações personalizadas
-                </h2>
-                <p className="neo-panel__subtitle">Sugestões do teu PT para os próximos dias.</p>
+        <section className="neo-panel client-dashboard__panel" aria-labelledby="client-measurements-heading">
+          <header className="neo-panel__header client-dashboard__panelHeader">
+            <div className="neo-panel__meta">
+              <h2 id="client-measurements-heading" className="neo-panel__title">
+                Métricas corporais
+              </h2>
+              <p className="neo-panel__subtitle">Acompanha as últimas medições de peso e composição corporal.</p>
+            </div>
+          </header>
+          {data?.measurements?.current ? (
+            <div className="client-dashboard__measurementCurrent">
+              <div>
+                <p className="client-dashboard__measurementTitle">Última medição</p>
+                <p className="client-dashboard__measurementValue">
+                  {data.measurements.current.weightKg !== null
+                    ? `${data.measurements.current.weightKg.toFixed(1)} kg`
+                    : "—"}
+                </p>
               </div>
-            </header>
-            {overviewLoading ? (
-              <div className="client-dashboard__skeletonStack">
-                {Array.from({ length: 3 }).map((_, idx) => (
-                  <div key={idx} className="client-dashboard__skeletonBlock" data-size="line" />
-                ))}
+              <div className="client-dashboard__measurementTrend">
+                <span>
+                  {data.measurements.trend?.weight ?? data.measurements.trend?.bodyFat ?? "Sem variação"}
+                </span>
               </div>
-            ) : overview?.recommendations?.length ? (
-              <ul className="client-dashboard__recommendations">
-                {overview.recommendations.map((rec, idx) => (
-                  <li key={idx} className="neo-surface client-dashboard__recommendation" data-variant="success">
-                    {rec}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="client-dashboard__muted">
-                Tudo em dia! Continua a seguir o plano e mantém o contacto com o teu PT para potenciares os resultados.
-              </p>
-            )}
-          </section>
-        </aside>
+            </div>
+          ) : null}
+          <MeasurementsTimeline points={data?.measurements?.timeline ?? []} />
+        </section>
       </div>
+
+      <div className="client-dashboard__columns">
+        <section className="neo-panel client-dashboard__panel" aria-labelledby="client-sessions-heading">
+          <header className="neo-panel__header client-dashboard__panelHeader">
+            <div className="neo-panel__meta">
+              <h2 id="client-sessions-heading" className="neo-panel__title">
+                Próximas sessões
+              </h2>
+              <p className="neo-panel__subtitle">Organiza as sessões confirmadas e os próximos passos.</p>
+            </div>
+          </header>
+          <SessionsList sessions={data?.sessions ?? []} />
+        </section>
+
+        <section className="neo-panel client-dashboard__panel" aria-labelledby="client-wallet-heading">
+          <header className="neo-panel__header client-dashboard__panelHeader">
+            <div className="neo-panel__meta">
+              <h2 id="client-wallet-heading" className="neo-panel__title">
+                Carteira
+              </h2>
+              <p className="neo-panel__subtitle">Saldo disponível e movimentos recentes para reservas e pacotes.</p>
+            </div>
+          </header>
+          {data?.wallet ? (
+            <div className="client-dashboard__wallet">
+              <div className="client-dashboard__walletSummary">
+                <span className="client-dashboard__walletLabel">Saldo actual</span>
+                <span className="client-dashboard__walletValue">{formatCurrency(data.wallet.balance, data.wallet.currency)}</span>
+                <span className="client-dashboard__walletHint">
+                  Actualizado {data.wallet.updatedAt ? new Date(data.wallet.updatedAt).toLocaleDateString("pt-PT", { day: "2-digit", month: "short" }) : "recentemente"}
+                </span>
+              </div>
+              <WalletEntries entries={data.wallet.entries} currency={data.wallet.currency ?? "EUR"} />
+            </div>
+          ) : (
+            <div className="client-dashboard__empty" role="status">
+              <p className="client-dashboard__emptyText">Sem carteira configurada para este cliente.</p>
+            </div>
+          )}
+        </section>
+      </div>
+
+      <section className="neo-panel client-dashboard__panel" aria-labelledby="client-notifications-heading">
+        <header className="neo-panel__header client-dashboard__panelHeader">
+          <div className="neo-panel__meta">
+            <h2 id="client-notifications-heading" className="neo-panel__title">
+              Últimas notificações
+            </h2>
+            <p className="neo-panel__subtitle">Mantém-te a par das novidades enviadas pela tua equipa.</p>
+          </div>
+        </header>
+        {data?.notifications?.items?.length ? (
+          <ul className="client-dashboard__notificationList" role="list">
+            {data.notifications.items.map((notification) => (
+              <li key={notification.id} className="client-dashboard__notification">
+                <div>
+                  <p className="client-dashboard__notificationTitle">{notification.title}</p>
+                  <span className="client-dashboard__notificationMeta">{notification.relative}</span>
+                </div>
+                <span className="client-dashboard__notificationBadge" data-tone={notification.read ? "muted" : "accent"}>
+                  {notification.read ? "Lida" : "Nova"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="client-dashboard__empty" role="status">
+            <p className="client-dashboard__emptyText">Sem notificações recentes.</p>
+          </div>
+        )}
+      </section>
+
+      <section className="neo-panel client-dashboard__panel" aria-labelledby="client-recommendations-heading">
+        <header className="neo-panel__header client-dashboard__panelHeader">
+          <div className="neo-panel__meta">
+            <h2 id="client-recommendations-heading" className="neo-panel__title">
+              Recomendações
+            </h2>
+            <p className="neo-panel__subtitle">Próximos passos sugeridos para maximizar resultados.</p>
+          </div>
+        </header>
+        {data?.recommendations?.length ? (
+          <ul className="client-dashboard__recommendations" role="list">
+            {data.recommendations.map((item) => (
+              <li key={item.id} className="client-dashboard__recommendation" data-tone={item.tone}>
+                {item.icon ? (
+                  <span className="client-dashboard__recommendationIcon" aria-hidden>
+                    {item.icon}
+                  </span>
+                ) : null}
+                <p>{item.message}</p>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="client-dashboard__empty" role="status">
+            <p className="client-dashboard__emptyText">Sem recomendações adicionais no momento.</p>
+          </div>
+        )}
+      </section>
     </div>
   );
 }
-

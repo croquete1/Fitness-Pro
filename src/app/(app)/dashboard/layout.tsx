@@ -6,6 +6,7 @@ import type { Metadata } from 'next';
 import { authOptions } from '@/lib/authOptions';
 import DashboardFrame from '@/components/layout/DashboardFrame';
 import { brand } from '@/lib/brand';
+import { loadNavigationSummary } from '@/lib/navigation/server';
 
 export const metadata: Metadata = {
   title: {
@@ -24,6 +25,9 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   if (!session) redirect('/login');
 
   const role = String((session.user as any)?.role ?? 'CLIENT').toUpperCase();
+  const userId = (session.user as any)?.id ?? null;
+
+  const navigation = await loadNavigationSummary({ role, userId });
 
   // Label básico a partir da sessão (sem depender de Supabase auth)
   let userLabel: string | undefined =
@@ -43,7 +47,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   // } catch {}
 
   return (
-    <DashboardFrame role={role} userLabel={userLabel}>
+    <DashboardFrame role={role} userLabel={userLabel} userId={userId} initialNavigation={navigation}>
       {children}
     </DashboardFrame>
   );
