@@ -5,8 +5,9 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import Spinner from "@/components/ui/Spinner";
+import Alert from "@/components/ui/Alert";
 import { toast } from "sonner";
-import type { PlanDetail } from "./page";
+import type { ClientPlanDetail } from "@/lib/client/plans/detail/types";
 
 type NormalizedExerciseLog = {
   id: string;
@@ -75,10 +76,12 @@ export default function PlanDetailClient({
   meId: _meId,
   role,
   plan,
+  fallback = false,
 }: {
   meId: string;
   role: "CLIENT" | "PT" | "ADMIN";
-  plan: PlanDetail;
+  plan: ClientPlanDetail;
+  fallback?: boolean;
 }) {
   const router = useRouter();
   const [dayIdx, setDayIdx] = React.useState<number>((new Date().getDay() + 6) % 7);
@@ -93,6 +96,64 @@ export default function PlanDetailClient({
   const fileRef = React.useRef<HTMLInputElement | null>(null);
   const cacheRef = React.useRef<Map<number, CachedDay>>(new Map());
   const draftsRef = React.useRef<Map<number, DraftDay>>(new Map());
+
+  const days = React.useMemo(
+    () => [...plan.days].sort((a, b) => a.dayIndex - b.dayIndex),
+    [plan.days],
+  );
+  const currentDay = React.useMemo(
+    () => days.find((day) => day.dayIndex === dayIdx) ?? days[0] ?? { dayIndex: dayIdx, items: [] },
+    [days, dayIdx],
+  );
+  const heroMetrics = React.useMemo(() => {
+    const totalExercises = days.reduce((acc, day) => acc + day.items.length, 0);
+    const activeDays = days.filter((day) => day.items.length > 0).length;
+    const start = plan.startDate ? new Date(plan.startDate) : null;
+    const end = plan.endDate ? new Date(plan.endDate) : null;
+    const formatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 });
+    const dateFormatter = new Intl.DateTimeFormat('pt-PT', { day: '2-digit', month: 'short' });
+    const durationDays = start && end ? Math.max(1, Math.round((end.getTime() - start.getTime()) / 86_400_000)) : null;
+    const statusChipTone = statusTone(plan.status);
+    const statusHeroTone =
+      statusChipTone === 'success'
+        ? 'positive'
+        : statusChipTone === 'danger'
+          ? 'critical'
+          : statusChipTone === 'warning'
+            ? 'warning'
+            : 'neutral';
+
+    return [
+      {
+        id: 'status',
+        label: 'Estado',
+        value: (plan.status ?? 'ATIVO').toString().toUpperCase(),
+        hint: `${start ? dateFormatter.format(start) : '—'} – ${end ? dateFormatter.format(end) : '—'}`,
+        tone: statusHeroTone,
+      },
+      {
+        id: 'exercises-week',
+        label: 'Exercícios na grelha',
+        value: formatter.format(totalExercises),
+        hint: `${activeDays} dia${activeDays === 1 ? '' : 's'} com treino`,
+        tone: totalExercises > 0 ? 'positive' : 'neutral',
+      },
+      {
+        id: 'duration',
+        label: 'Duração prevista',
+        value: durationDays ? `${durationDays} dia${durationDays === 1 ? '' : 's'}` : '—',
+        hint: start && end ? 'Do início ao fim definidos' : 'Sem datas definidas',
+        tone: durationDays ? 'neutral' : 'warning',
+      },
+      {
+        id: 'today',
+        label: 'Dia seleccionado',
+        value: dayLabel(currentDay.dayIndex),
+        hint: `${currentDay.items.length} exercício${currentDay.items.length === 1 ? '' : 's'} para hoje`,
+        tone: currentDay.items.length > 0 ? 'positive' : 'neutral',
+      },
+    ] as const;
+  }, [days, plan.startDate, plan.endDate, plan.status, currentDay.dayIndex, currentDay.items.length]);
 
   const handleSelectDay = React.useCallback(
     (nextIdx: number) => {
@@ -110,6 +171,13 @@ export default function PlanDetailClient({
     const draft = draftsRef.current.get(dayIdx);
     setDayNote(draft?.note ?? "");
     setPhotoPath(draft?.photo ?? null);
+
+    if (fallback) {
+      setLoadingDayData(false);
+      setExerciseLogs({});
+      setNoteHistory([]);
+      return;
+    }
 
     const cached = cacheRef.current.get(dayIdx);
     if (cached) {
@@ -178,7 +246,7 @@ export default function PlanDetailClient({
       active = false;
       controller.abort();
     };
-  }, [plan.id, dayIdx]);
+  }, [plan.id, dayIdx, fallback]);
 
   React.useEffect(() => {
     cacheRef.current.set(dayIdx, { logs: exerciseLogs, notes: noteHistory });
@@ -196,6 +264,10 @@ export default function PlanDetailClient({
   );
 
   async function handleUpload(file: File) {
+    if (fallback) {
+      toast.error("Funcionalidade indisponível em modo offline.");
+      return;
+    }
     const fd = new FormData();
     fd.append("file", file);
     const res = await fetch("/api/uploads/workout-photo", { method: "POST", body: fd });
@@ -207,6 +279,10 @@ export default function PlanDetailClient({
   }
 
   async function saveDayNote() {
+    if (fallback) {
+      toast.error("Funcionalidade indisponível em modo offline.");
+      return;
+    }
     setSavingNote(true);
     try {
       const res = await fetch("/api/logs/day-note", {
@@ -245,14 +321,14 @@ export default function PlanDetailClient({
               <span className="neo-tag" data-tone={statusTone(plan.status)}>
                 {(plan.status ?? "ATIVO").toString().toUpperCase()}
               </span>
-              {plan.start_date && (
+              {plan.startDate && (
                 <span className="neo-tag" data-tone="neutral">
-                  Início: {new Date(plan.start_date).toLocaleDateString("pt-PT")}
+                  Início: {new Date(plan.startDate).toLocaleDateString("pt-PT")}
                 </span>
               )}
-              {plan.end_date && (
+              {plan.endDate && (
                 <span className="neo-tag" data-tone="neutral">
-                  Fim: {new Date(plan.end_date).toLocaleDateString("pt-PT")}
+                  Fim: {new Date(plan.endDate).toLocaleDateString("pt-PT")}
                 </span>
               )}
             </div>
@@ -278,6 +354,24 @@ export default function PlanDetailClient({
         </div>
       </section>
 
+      {fallback ? (
+        <Alert tone="warning" title="Modo offline" className="plan-detail__alert">
+          A apresentar dados de exemplo enquanto não conseguimos ligar ao Supabase.
+        </Alert>
+      ) : null}
+
+      <section className="neo-panel plan-detail__hero" aria-label="Resumo do plano">
+        <div className="plan-detail__heroGrid">
+          {heroMetrics.map((metric) => (
+            <article key={metric.id} className="plan-detail__heroCard" data-tone={metric.tone ?? 'neutral'}>
+              <span className="plan-detail__heroLabel">{metric.label}</span>
+              <strong className="plan-detail__heroValue">{metric.value}</strong>
+              {metric.hint ? <span className="plan-detail__heroHint">{metric.hint}</span> : null}
+            </article>
+          ))}
+        </div>
+      </section>
+
       {loadingDayData && (
         <div className="plan-detail__loading" role="status" aria-live="polite">
           <Spinner size={16} />
@@ -287,21 +381,21 @@ export default function PlanDetailClient({
 
       <section className="neo-panel plan-detail__days" aria-label="Selecionar dia do plano">
         <div className="plan-detail__daySelector neo-segmented">
-          {plan.days.map((day) => {
-            const active = day.day_index === dayIdx;
-            const isToday = day.day_index === todayIdx;
+          {days.map((day) => {
+            const active = day.dayIndex === dayIdx;
+            const isToday = day.dayIndex === todayIdx;
             const count = day.items.length;
             return (
               <button
-                key={day.day_index}
+                key={day.dayIndex}
                 type="button"
                 className="neo-segmented__btn"
                 data-active={active || undefined}
                 data-today={isToday || undefined}
-                onClick={() => handleSelectDay(day.day_index)}
+                onClick={() => handleSelectDay(day.dayIndex)}
               >
-                <span className="plan-detail__dayName">{dayLabel(day.day_index)}</span>
-                <span className="plan-detail__dayDate">{formatDateWithWeekday(day.day_index)}</span>
+                <span className="plan-detail__dayName">{dayLabel(day.dayIndex)}</span>
+                <span className="plan-detail__dayDate">{formatDateWithWeekday(day.dayIndex)}</span>
                 <span className="plan-detail__dayCount">
                   {count > 0 ? `${count} exercício${count === 1 ? "" : "s"}` : "Sem exercícios"}
                 </span>
@@ -317,19 +411,20 @@ export default function PlanDetailClient({
           <p className="neo-panel__subtitle">Expande cada exercício para registar o teu progresso.</p>
         </header>
         <div className="plan-detail__exerciseList">
-          {(plan.days[dayIdx]?.items ?? []).map((item, index) => (
+          {(currentDay.items ?? []).map((item, index) => (
             <ExerciseCard
               key={`${item.id}-${dayIdx}`}
               item={item}
               index={index}
               planId={plan.id}
               dayIndex={dayIdx}
-              log={exerciseLogs[item.exercise_id ?? ""]}
-              disabled={loadingDayData}
+              log={exerciseLogs[item.exerciseId ?? ""]}
+              disabled={loadingDayData || fallback}
+              offline={fallback}
               onSaved={handleLogSaved}
             />
           ))}
-          {!plan.days[dayIdx]?.items?.length && (
+          {!currentDay.items?.length && (
             <div className="neo-empty">
               <span className="neo-empty__icon" aria-hidden>
                 💤
@@ -368,6 +463,7 @@ export default function PlanDetailClient({
               value={dayNote}
               onChange={(event) => setDayNote(event.target.value)}
               rows={3}
+              disabled={fallback}
             />
           </label>
           <input
@@ -386,13 +482,14 @@ export default function PlanDetailClient({
               }
             }}
             className="plan-notes__fileInput"
+            disabled={fallback}
           />
           <div className="plan-notes__buttons">
             <Button
               variant="secondary"
               size="sm"
               onClick={() => fileRef.current?.click()}
-              disabled={savingNote}
+              disabled={savingNote || fallback}
             >
               📷 Anexar foto
             </Button>
@@ -400,7 +497,7 @@ export default function PlanDetailClient({
               variant="primary"
               size="sm"
               onClick={saveDayNote}
-              disabled={savingNote}
+              disabled={savingNote || fallback}
               loading={savingNote}
               loadingText="A guardar…"
             >
@@ -441,7 +538,7 @@ export default function PlanDetailClient({
   );
 }
 
-type ExerciseItem = PlanDetail["days"][number]["items"][number];
+type ExerciseItem = ClientPlanDetail["days"][number]["items"][number];
 
 function ExerciseCard({
   item,
@@ -450,6 +547,7 @@ function ExerciseCard({
   dayIndex,
   log,
   disabled,
+  offline,
   onSaved,
 }: {
   item: ExerciseItem;
@@ -458,11 +556,12 @@ function ExerciseCard({
   dayIndex: number;
   log?: NormalizedExerciseLog;
   disabled?: boolean;
+  offline?: boolean;
   onSaved: (exerciseId: string, log: NormalizedExerciseLog) => void;
 }) {
   const [open, setOpen] = React.useState(index === 0);
   const exercise = item.exercise;
-  const media = exercise?.gif_url || exercise?.video_url || null;
+  const media = exercise?.gifUrl || exercise?.videoUrl || null;
 
   return (
     <article className="neo-surface plan-exercise" data-open={open || undefined}>
@@ -487,22 +586,23 @@ function ExerciseCard({
         <div className="plan-exercise__content">
           {media && (
             <div className="plan-exercise__media">
-              {exercise?.gif_url ? (
-                <img src={exercise.gif_url} alt={exercise?.name ?? ""} loading="lazy" />
+              {exercise?.gifUrl ? (
+                <img src={exercise.gifUrl} alt={exercise?.name ?? ""} loading="lazy" />
               ) : (
-                <video src={exercise?.video_url ?? undefined} controls />
+                <video src={exercise?.videoUrl ?? undefined} controls />
               )}
             </div>
           )}
           <SeriesEditor
             planId={planId}
             dayIndex={dayIndex}
-            exerciseId={item.exercise_id}
+            exerciseId={item.exerciseId}
             defaultSets={Number(item.sets ?? 3)}
             defaultReps={String(item.reps ?? "")}
-            defaultRest={Number(item.rest_seconds ?? 60)}
+            defaultRest={Number(item.restSeconds ?? 60)}
             log={log}
             disabled={disabled}
+            offline={offline}
             onSaved={onSaved}
           />
           {item.notes && <p className="plan-exercise__coachNote">Nota do PT: {item.notes}</p>}
@@ -521,6 +621,7 @@ function SeriesEditor({
   defaultRest,
   log,
   disabled,
+  offline,
   onSaved,
 }: {
   planId: string;
@@ -531,6 +632,7 @@ function SeriesEditor({
   defaultRest: number;
   log?: NormalizedExerciseLog;
   disabled?: boolean;
+  offline?: boolean;
   onSaved: (exerciseId: string, log: NormalizedExerciseLog) => void;
 }) {
   const [sets, setSets] = React.useState<number>(Math.max(1, defaultSets));
@@ -566,6 +668,11 @@ function SeriesEditor({
   }, [log, defaultSets, defaultReps, defaultRest]);
 
   async function save() {
+    if (offline) {
+      toast.error("Funcionalidade indisponível em modo offline.");
+      return;
+    }
+    if (disabled) return;
     setSaving(true);
     try {
       const res = await fetch("/api/logs/exercise", {
