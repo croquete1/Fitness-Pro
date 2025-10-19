@@ -1,9 +1,12 @@
 // src/app/(app)/dashboard/pt/settings/folgas/EditFolgaButton.tsx
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { supabaseBrowser } from '@/lib/supabaseBrowser';
+import React, { useEffect, useId, useState } from 'react';
+import { Trash2, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+
+import Button from '@/components/ui/Button';
+import { supabaseBrowser } from '@/lib/supabaseBrowser';
 
 type Props = { folgaId: string };
 
@@ -16,177 +19,257 @@ type Folga = {
   reason: string | null;
 };
 
+type FeedbackState = { tone: 'success' | 'danger'; message: string };
+
 export default function EditFolgaButton({ folgaId }: Props) {
   const sb = supabaseBrowser();
   const router = useRouter();
 
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [initializing, setInitializing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const [date, setDate] = useState('');
-  const [startTime, setStartTime] = useState<string>('');
-  const [endTime, setEndTime] = useState<string>('');
-  const [reason, setReason] = useState<string>('');
-  const [err, setErr] = useState<string | null>(null);
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
+  const [reason, setReason] = useState('');
+  const [feedback, setFeedback] = useState<FeedbackState | null>(null);
+
+  const dialogTitleId = useId();
+  const feedbackId = useId();
 
   useEffect(() => {
     if (!open) return;
+
     let active = true;
+    setInitializing(true);
+    setFeedback(null);
+
     (async () => {
-      setLoading(true);
-      setErr(null);
       const { data, error } = await sb
         .from('pt_days_off')
         .select('id, trainer_id, date, start_time, end_time, reason')
         .eq('id', folgaId)
         .maybeSingle();
+
       if (!active) return;
+
       if (error || !data) {
-        setErr(error?.message ?? 'Não foi possível carregar a folga.');
-      } else {
-        const f = data as Folga;
-        setDate(f.date ?? '');
-        setStartTime(f.start_time ?? '');
-        setEndTime(f.end_time ?? '');
-        setReason(f.reason ?? '');
+        setFeedback({ tone: 'danger', message: error?.message || 'Não foi possível carregar a folga.' });
+        return;
       }
-      setLoading(false);
-    })();
-    return () => { active = false; };
+
+      const record = data as Folga;
+      setDate(record.date ?? '');
+      setStartTime(record.start_time ?? '');
+      setEndTime(record.end_time ?? '');
+      setReason(record.reason ?? '');
+    })()
+      .catch((error) => {
+        console.error('[pt-days-off] failed to load day off', error);
+        if (active) setFeedback({ tone: 'danger', message: 'Erro inesperado ao carregar a folga.' });
+      })
+      .finally(() => {
+        if (active) setInitializing(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [open, folgaId, sb]);
 
-  async function onSave(e: React.FormEvent) {
-    e.preventDefault();
-    setErr(null);
-    setLoading(true);
-    const { error } = await sb
-      .from('pt_days_off')
-      .update({
-        date: date || null,
-        start_time: startTime || null,
-        end_time: endTime || null,
-        reason: reason || null,
-      })
-      .eq('id', folgaId);
-    setLoading(false);
-    if (error) setErr(error.message);
-    else { setOpen(false); router.refresh(); }
+  const busy = initializing || saving || deleting;
+
+  async function onSave(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy) return;
+
+    setSaving(true);
+    setFeedback(null);
+
+    try {
+      const { error } = await sb
+        .from('pt_days_off')
+        .update({
+          date: date || null,
+          start_time: startTime || null,
+          end_time: endTime || null,
+          reason: reason || null,
+        })
+        .eq('id', folgaId);
+
+      if (error) {
+        setFeedback({ tone: 'danger', message: error.message || 'Não foi possível guardar a folga.' });
+        return;
+      }
+
+      setOpen(false);
+      router.refresh();
+    } catch (error) {
+      console.error('[pt-days-off] failed to update day off', error);
+      setFeedback({ tone: 'danger', message: 'Erro inesperado ao guardar alterações.' });
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function onDelete() {
-    if (!confirm('Eliminar esta folga?')) return;
-    setLoading(true);
-    const { error } = await sb.from('pt_days_off').delete().eq('id', folgaId);
-    setLoading(false);
-    if (error) setErr(error.message);
-    else { setOpen(false); router.refresh(); }
+    if (busy) return;
+    if (typeof window !== 'undefined' && !window.confirm('Eliminar esta folga?')) {
+      return;
+    }
+
+    setDeleting(true);
+    setFeedback(null);
+
+    try {
+      const { error } = await sb.from('pt_days_off').delete().eq('id', folgaId);
+      if (error) {
+        setFeedback({ tone: 'danger', message: error.message || 'Não foi possível eliminar a folga.' });
+        return;
+      }
+
+      setOpen(false);
+      router.refresh();
+    } catch (error) {
+      console.error('[pt-days-off] failed to delete day off', error);
+      setFeedback({ tone: 'danger', message: 'Erro inesperado ao eliminar a folga.' });
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (
     <>
-      <button
+      <Button
+        variant="ghost"
+        size="sm"
         onClick={() => setOpen(true)}
-        className="btn chip border border-slate-300 dark:border-slate-700"
+        aria-haspopup="dialog"
+        aria-expanded={open}
       >
         Editar
-      </button>
+      </Button>
 
       {open && (
-        <div className="fixed inset-0 z-50 grid place-items-center p-3">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => !loading && setOpen(false)}
-          />
-          <form
-            onSubmit={onSave}
-            className="relative w-full max-w-md rounded-2xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-4 shadow-xl"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="font-bold">Editar folga</h3>
+        <div
+          className="neo-dialog-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={dialogTitleId}
+          aria-describedby={feedback ? feedbackId : undefined}
+        >
+          <div className="neo-dialog pt-days-off__dialog">
+            <header className="neo-dialog__header">
+              <h2 id={dialogTitleId} className="neo-dialog__title">
+                Editar folga
+              </h2>
               <button
                 type="button"
-                className="text-sm opacity-70 hover:opacity-100"
-                onClick={() => !loading && setOpen(false)}
+                className="neo-icon-button"
+                onClick={() => (!busy ? setOpen(false) : undefined)}
+                aria-label="Fechar"
+                disabled={busy}
               >
-                ✕
+                <X size={16} />
               </button>
+            </header>
+
+            <div className="neo-dialog__content pt-days-off__dialogContent">
+              {initializing ? (
+                <div className="pt-days-off__dialogLoading" aria-live="polite">
+                  <span className="neo-spinner" aria-hidden />
+                  <p>A carregar detalhes da folga…</p>
+                </div>
+              ) : (
+                <form className="pt-days-off-form neo-stack neo-stack--md" onSubmit={onSave}>
+                  <div className="pt-days-off-form__grid">
+                    <div className="neo-input-group">
+                      <label className="neo-input-group__field">
+                        <span className="neo-input-group__label">Data</span>
+                        <input
+                          type="date"
+                          className="neo-input"
+                          required
+                          value={date}
+                          onChange={(event) => setDate(event.target.value)}
+                          disabled={busy}
+                        />
+                      </label>
+                    </div>
+
+                    <div className="pt-days-off-form__row">
+                      <div className="neo-input-group">
+                        <label className="neo-input-group__field">
+                          <span className="neo-input-group__label">Início (opcional)</span>
+                          <input
+                            type="time"
+                            className="neo-input"
+                            value={startTime}
+                            onChange={(event) => setStartTime(event.target.value)}
+                            disabled={busy}
+                          />
+                        </label>
+                      </div>
+                      <div className="neo-input-group">
+                        <label className="neo-input-group__field">
+                          <span className="neo-input-group__label">Fim (opcional)</span>
+                          <input
+                            type="time"
+                            className="neo-input"
+                            value={endTime}
+                            onChange={(event) => setEndTime(event.target.value)}
+                            disabled={busy}
+                          />
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="neo-input-group pt-days-off-form__reason">
+                      <label className="neo-input-group__field">
+                        <span className="neo-input-group__label">Motivo (opcional)</span>
+                        <textarea
+                          rows={3}
+                          className="neo-input neo-input--textarea"
+                          placeholder="Ex.: férias, formação…"
+                          value={reason}
+                          onChange={(event) => setReason(event.target.value)}
+                          disabled={busy}
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="pt-days-off-form__footer">
+                    <div className="pt-days-off-form__feedback" aria-live="polite" id={feedbackId}>
+                      {feedback ? (
+                        <div className="neo-alert" data-tone={feedback.tone}>
+                          <div className="neo-alert__content">
+                            <p className="neo-alert__message">{feedback.message}</p>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                    <div className="pt-days-off__dialogActions">
+                      <Button
+                        type="button"
+                        variant="danger"
+                        loading={deleting}
+                        onClick={onDelete}
+                        leftIcon={<Trash2 size={16} />}
+                      >
+                        Eliminar
+                      </Button>
+                      <Button type="submit" variant="primary" loading={saving} loadingText="A guardar…">
+                        Guardar
+                      </Button>
+                    </div>
+                  </div>
+                </form>
+              )}
             </div>
-
-            <div className="grid gap-3">
-              <label className="grid gap-1">
-                <span className="text-sm opacity-80">Data</span>
-                <input
-                  type="date"
-                  className="rounded-md border px-3 py-2 bg-white dark:bg-slate-900"
-                  required
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                />
-              </label>
-
-              <div className="grid grid-cols-2 gap-3">
-                <label className="grid gap-1">
-                  <span className="text-sm opacity-80">Início (opcional)</span>
-                  <input
-                    type="time"
-                    className="rounded-md border px-3 py-2 bg-white dark:bg-slate-900"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                  />
-                </label>
-                <label className="grid gap-1">
-                  <span className="text-sm opacity-80">Fim (opcional)</span>
-                  <input
-                    type="time"
-                    className="rounded-md border px-3 py-2 bg-white dark:bg-slate-900"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                  />
-                </label>
-              </div>
-
-              <label className="grid gap-1">
-                <span className="text-sm opacity-80">Motivo (opcional)</span>
-                <textarea
-                  rows={3}
-                  className="rounded-md border px-3 py-2 bg-white dark:bg-slate-900"
-                  placeholder="Ex.: férias, formação…"
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                />
-              </label>
-
-              {err && <div className="text-sm text-rose-600">{err}</div>}
-            </div>
-
-            <div className="mt-4 flex items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={onDelete}
-                disabled={loading}
-                className="px-3 py-2 rounded-md border border-rose-300/50 text-rose-700 dark:text-rose-400"
-              >
-                Eliminar
-              </button>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  disabled={loading}
-                  className="px-3 py-2 rounded-md border"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-3 py-2 rounded-md bg-indigo-600 text-white disabled:opacity-60"
-                >
-                  {loading ? 'A guardar…' : 'Guardar'}
-                </button>
-              </div>
-            </div>
-          </form>
+          </div>
         </div>
       )}
     </>
