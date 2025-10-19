@@ -5652,7 +5652,6 @@ h1,.h1{
   display:flex;
   justify-content:space-between;
   gap:12px;
-  align-items:flex-start;
 }
 .plans-dashboard__trainerInfo{
   display:flex;
@@ -5732,6 +5731,10 @@ h1,.h1{
 }
 .plans-dashboard__reset{
   align-self:center;
+}
+.search-dashboard__more{
+  display:flex;
+  justify-content:flex-start;
 }
 
 @media (min-width:768px){
