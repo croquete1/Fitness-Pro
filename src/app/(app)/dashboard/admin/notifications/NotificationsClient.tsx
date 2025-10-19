@@ -9,10 +9,30 @@ import {
   RefreshCcw,
   Trash2,
 } from 'lucide-react';
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import DataSourceBadge from '@/components/ui/DataSourceBadge';
 import PageHeader from '@/components/ui/PageHeader';
 import OpenInNewToggle from '@/components/ui/OpenInNewToggle';
 import { useToast } from '@/components/ui/ToastProvider';
 import { navigate } from '@/lib/nav';
+import type {
+  AdminNotificationsDashboardData,
+  AdminNotificationHeroMetric,
+  AdminNotificationHighlight,
+  AdminNotificationTimelinePoint,
+  AdminNotificationDistributionSegment,
+  AdminNotificationChannelShare,
+  AdminNotificationCampaignStat,
+  AdminNotificationBacklogRow,
+} from '@/lib/admin/notifications/types';
 
 type Row = {
   id: string;
@@ -67,6 +87,235 @@ function toneForBanner(severity: Banner['severity']) {
   }
 }
 
+const numberFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 });
+const percentFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 1 });
+const dayFormatter = new Intl.DateTimeFormat('pt-PT', { day: '2-digit', month: 'short' });
+
+type TimelineDatum = AdminNotificationTimelinePoint & { label: string };
+
+type TimelineTooltipProps = {
+  active?: boolean;
+  payload?: Array<{
+    value: number;
+    dataKey: keyof TimelineDatum;
+    color: string;
+    payload: TimelineDatum;
+  }>;
+};
+
+function TimelineTooltip({ active, payload }: TimelineTooltipProps) {
+  if (!active || !payload?.length) return null;
+  const datum = payload[0]?.payload;
+  if (!datum) return null;
+  return (
+    <div className="admin-notifications__tooltip" role="status">
+      <p className="admin-notifications__tooltipTitle">{datum.label}</p>
+      <dl className="admin-notifications__tooltipList">
+        <div>
+          <dt>Enviadas</dt>
+          <dd>{numberFormatter.format(datum.sent)}</dd>
+        </div>
+        <div>
+          <dt>Lidas</dt>
+          <dd>{numberFormatter.format(datum.read)}</dd>
+        </div>
+        <div>
+          <dt>Por ler</dt>
+          <dd>{numberFormatter.format(datum.unread)}</dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
+function HeroMetrics({ metrics }: { metrics: AdminNotificationHeroMetric[] }) {
+  if (!metrics.length) {
+    return (
+      <div className="neo-empty" role="status">
+        <p className="neo-text--muted">Sem métricas calculadas.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="admin-notifications__heroGrid">
+      {metrics.map((metric) => (
+        <article key={metric.id} className="admin-notifications__heroCard" data-tone={metric.tone}>
+          <span className="admin-notifications__heroLabel">{metric.label}</span>
+          <strong className="admin-notifications__heroValue">{metric.value}</strong>
+          {metric.helper ? <span className="admin-notifications__heroHelper">{metric.helper}</span> : null}
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function HighlightsList({ highlights }: { highlights: AdminNotificationHighlight[] }) {
+  if (!highlights.length) {
+    return (
+      <div className="neo-empty" role="status">
+        <p className="neo-text--muted">Sem destaques no momento.</p>
+      </div>
+    );
+  }
+  return (
+    <ul className="admin-notifications__highlights" role="list">
+      {highlights.map((highlight) => (
+        <li key={highlight.id} className="admin-notifications__highlight" data-tone={highlight.tone}>
+          <span className="admin-notifications__highlightIcon" aria-hidden="true">
+            {highlight.tone === 'positive' ? (
+              <MailCheck className="neo-icon neo-icon--sm" />
+            ) : highlight.tone === 'danger' ? (
+              <Trash2 className="neo-icon neo-icon--sm" />
+            ) : (
+              <ArrowUpRight className="neo-icon neo-icon--sm" />
+            )}
+          </span>
+          <div>
+            <p className="admin-notifications__highlightTitle">{highlight.title}</p>
+            <p className="admin-notifications__highlightDescription">{highlight.description}</p>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function TimelineChart({ data }: { data: TimelineDatum[] }) {
+  if (!data.length) {
+    return (
+      <div className="neo-empty" role="status">
+        <p className="neo-text--muted">Sem histórico recente.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="admin-notifications__chart">
+      <ResponsiveContainer width="100%" height={260}>
+        <AreaChart data={data} margin={{ top: 10, left: 0, right: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="4 4" stroke="var(--neo-chart-grid)" />
+          <XAxis dataKey="label" tickLine={false} stroke="var(--neo-chart-axis)" interval={data.length > 10 ? 1 : 0} />
+          <YAxis allowDecimals={false} tickLine={false} stroke="var(--neo-chart-axis)" width={34} />
+          <Tooltip content={<TimelineTooltip />} cursor={{ fill: 'var(--neo-chart-cursor)' }} />
+          <Area type="monotone" dataKey="sent" stroke="var(--neo-chart-primary)" fill="var(--neo-chart-primary-fill)" />
+          <Area type="monotone" dataKey="read" stroke="var(--neo-chart-success)" fill="var(--neo-chart-success-fill)" />
+          <Area type="monotone" dataKey="unread" stroke="var(--neo-chart-warning)" fill="var(--neo-chart-warning-fill)" />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function TypeDistribution({ segments }: { segments: AdminNotificationDistributionSegment[] }) {
+  if (!segments.length) {
+    return (
+      <div className="neo-empty" role="status">
+        <p className="neo-text--muted">Sem distribuição por tipo.</p>
+      </div>
+    );
+  }
+  const total = segments.reduce((acc, segment) => acc + segment.count, 0);
+  return (
+    <ul className="admin-notifications__distribution" role="list">
+      {segments.map((segment) => {
+        const percent = total ? Math.round((segment.count / total) * 100) : 0;
+        return (
+          <li key={segment.id} className="admin-notifications__distributionItem">
+            <div>
+              <span className="admin-notifications__distributionLabel">{segment.label}</span>
+              <span className="admin-notifications__distributionValue">{numberFormatter.format(segment.count)}</span>
+            </div>
+            <div className="admin-notifications__distributionBar" aria-hidden>
+              <span style={{ width: `${percent}%` }} data-tone={segment.tone} />
+            </div>
+            <span className="admin-notifications__distributionPercent">{percent}%</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function ChannelList({ channels }: { channels: AdminNotificationChannelShare[] }) {
+  if (!channels.length) {
+    return (
+      <div className="neo-empty" role="status">
+        <p className="neo-text--muted">Nenhum canal com actividade recente.</p>
+      </div>
+    );
+  }
+  const total = channels.reduce((acc, channel) => acc + channel.count, 0);
+  return (
+    <ul className="admin-notifications__channels" role="list">
+      {channels.map((channel) => {
+        const percent = total ? Math.round((channel.count / total) * 100) : 0;
+        return (
+          <li key={channel.id} className="admin-notifications__channel">
+            <span className="admin-notifications__channelName">{channel.label}</span>
+            <span className="admin-notifications__channelCount">{numberFormatter.format(channel.count)} envios</span>
+            <span className="admin-notifications__channelPercent">{percent}%</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function CampaignList({ campaigns }: { campaigns: AdminNotificationCampaignStat[] }) {
+  if (!campaigns.length) {
+    return (
+      <div className="neo-empty" role="status">
+        <p className="neo-text--muted">Sem campanhas registadas.</p>
+      </div>
+    );
+  }
+  return (
+    <table className="admin-notifications__campaigns">
+      <thead>
+        <tr>
+          <th>Campanha</th>
+          <th>Enviadas</th>
+          <th>Lidas</th>
+          <th>Taxa</th>
+        </tr>
+      </thead>
+      <tbody>
+        {campaigns.map((campaign) => (
+          <tr key={campaign.id}>
+            <td>{campaign.title}</td>
+            <td>{numberFormatter.format(campaign.sent)}</td>
+            <td>{numberFormatter.format(campaign.read)}</td>
+            <td>{campaign.openRate != null ? `${percentFormatter.format(campaign.openRate)}%` : '—'}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function BacklogList({ rows }: { rows: AdminNotificationBacklogRow[] }) {
+  if (!rows.length) {
+    return (
+      <div className="neo-empty" role="status">
+        <p className="neo-text--muted">Sem notificações pendentes.</p>
+      </div>
+    );
+  }
+  return (
+    <ul className="admin-notifications__backlog" role="list">
+      {rows.map((row) => (
+        <li key={row.id} className="admin-notifications__backlogItem">
+          <div className="admin-notifications__backlogMeta">
+            <span className="admin-notifications__backlogTitle">{row.title ?? 'Sem título'}</span>
+            <span className="admin-notifications__backlogUser">Utilizador: {row.userId ?? '—'}</span>
+            <span className="admin-notifications__backlogSince">Enviada em {row.createdAt ? dayFormatter.format(new Date(row.createdAt)) : '—'}</span>
+          </div>
+          <strong className="admin-notifications__backlogWaiting">{numberFormatter.format(Math.round(row.waitingHours))}h</strong>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export default function NotificationsClient({ pageSize = 20 }: { pageSize?: number }) {
   const toast = useToast();
   const [q, setQ] = React.useState('');
@@ -81,6 +330,9 @@ export default function NotificationsClient({ pageSize = 20 }: { pageSize?: numb
   const [openInNew, setOpenInNew] = React.useState(false);
   const undoRef = React.useRef<UndoState>(null);
   const [, forceUpdate] = React.useReducer((n) => n + 1, 0);
+  const [insights, setInsights] = React.useState<AdminNotificationsDashboardData | null>(null);
+  const [insightsLoading, setInsightsLoading] = React.useState(false);
+  const [insightsError, setInsightsError] = React.useState<string | null>(null);
 
   const totalPages = React.useMemo(() => {
     const size = pageSizeState > 0 ? pageSizeState : pageSize;
@@ -103,6 +355,54 @@ export default function NotificationsClient({ pageSize = 20 }: { pageSize?: numb
       { id: 'filters', label: 'Filtro activo', value: filterLabel, tone: 'info' as const },
     ];
   }, [rows, type, onlyUnread, q]);
+
+  const loadInsights = React.useCallback(async ({ signal }: { signal?: AbortSignal } = {}) => {
+    setInsightsLoading(true);
+    setInsightsError(null);
+    try {
+      const response = await fetch('/api/admin/notifications/dashboard', {
+        cache: 'no-store',
+        credentials: 'same-origin',
+        signal,
+      });
+      if (!response.ok) {
+        const message = await response.text().catch(() => null);
+        throw new Error(message || 'Falha ao carregar métricas.');
+      }
+      const payload = (await response.json()) as AdminNotificationsDashboardData | { ok?: boolean; message?: string };
+      if (!payload || typeof payload !== 'object' || (payload as any).ok !== true) {
+        throw new Error((payload as any)?.message ?? 'Falha ao carregar métricas.');
+      }
+      setInsights(payload as AdminNotificationsDashboardData);
+    } catch (error: any) {
+      if (error?.name === 'AbortError') return;
+      setInsights(null);
+      setInsightsError(error?.message || 'Falha ao carregar métricas.');
+    } finally {
+      setInsightsLoading(false);
+    }
+  }, []);
+
+  const timelineData = React.useMemo<TimelineDatum[]>(() => {
+    if (!insights?.timeline?.length) return [];
+    return insights.timeline.map((point) => {
+      const date = new Date(point.date);
+      return {
+        ...point,
+        label: Number.isNaN(date.getTime()) ? point.date : dayFormatter.format(date),
+      };
+    });
+  }, [insights]);
+
+  const supabaseOnline = insights?._supabaseConfigured !== false && insights?.source === 'supabase';
+  const typeSegments = insights?.types ?? [];
+  const channelSegments = insights?.channels ?? [];
+  const campaignRows = insights?.campaigns ?? [];
+  const backlogRows = insights?.backlog ?? [];
+  const showInsightsSkeleton = insightsLoading && !insights;
+  const datasetSummary = insights
+    ? `A mostrar ${numberFormatter.format(insights.sampleSize)} de ${numberFormatter.format(insights.datasetSize)} notificações.`
+    : 'Sem métricas calculadas.';
 
   const fetchRows = React.useCallback(async () => {
     const search = q.trim();
@@ -152,6 +452,12 @@ export default function NotificationsClient({ pageSize = 20 }: { pageSize?: numb
   React.useEffect(() => {
     void fetchRows();
   }, [fetchRows]);
+
+  React.useEffect(() => {
+    const controller = new AbortController();
+    void loadInsights({ signal: controller.signal });
+    return () => controller.abort();
+  }, [loadInsights]);
 
   React.useEffect(() => {
     const size = pageSizeState > 0 ? pageSizeState : pageSize;
@@ -258,10 +564,11 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
       if (!res.ok) throw new Error(await res.text());
       toast.success('Notificação marcada como lida.');
       setRows((prev) => prev.map((item) => (item.id === row.id ? { ...item, read: true } : item)));
+      void loadInsights();
     } catch (error: any) {
       toast.error(error?.message || 'Falha ao marcar notificação.');
     }
-  }, [toast]);
+  }, [loadInsights, toast]);
 
   const deleteRow = React.useCallback(async (row: Row) => {
     if (!window.confirm(`Remover notificação "${row.title || row.id}"?`)) return;
@@ -274,13 +581,14 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
       const res = await fetch(`/api/admin/notifications/${row.id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error(await res.text());
       toast.info('Notificação removida.');
+      void loadInsights();
     } catch (error: any) {
       toast.error(error?.message || 'Falha ao remover notificação.');
       undoRef.current = null;
       forceUpdate();
       setRows((prev) => [row, ...prev]);
     }
-  }, [scheduleUndoClear, toast]);
+  }, [loadInsights, scheduleUndoClear, toast]);
 
   const undoDelete = React.useCallback(async () => {
     const state = undoRef.current;
@@ -303,10 +611,11 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
       if (!res.ok) throw new Error(await res.text());
       toast.success('Notificação restaurada.');
       void fetchRows();
+      void loadInsights();
     } catch (error: any) {
       toast.error(error?.message || 'Falha ao restaurar notificação.');
     }
-  }, [fetchRows, toast]);
+  }, [fetchRows, loadInsights, toast]);
 
   const clearUndo = React.useCallback(() => {
     const state = undoRef.current;
@@ -327,7 +636,10 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
               type="button"
               className="btn"
               data-variant="ghost"
-              onClick={() => { void fetchRows(); }}
+              onClick={() => {
+                void fetchRows();
+                void loadInsights();
+              }}
               disabled={loading}
             >
               <span className="btn__icon">
@@ -372,6 +684,54 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
           <p className="neo-text--sm text-fg">{banner.message}</p>
         </div>
       )}
+
+      <section className="neo-panel neo-stack neo-stack--lg admin-notifications__dashboard" aria-label="Métricas de notificações">
+        <div className="admin-notifications__dashboardHeader">
+          <div>
+            <h2 className="admin-notifications__dashboardTitle">Performance de notificações</h2>
+            <p className="admin-notifications__dashboardSubtitle">Acompanha envios, leituras e backlog em tempo real.</p>
+          </div>
+          <div className="admin-notifications__dashboardMeta">
+            <DataSourceBadge
+              source={insights?.source}
+              generatedAt={insights?.generatedAt ?? null}
+              className="neo-data-badge"
+            />
+            <span className="admin-notifications__dataset neo-text--xs neo-text--muted">
+              {showInsightsSkeleton ? 'A sincronizar métricas…' : datasetSummary}
+              {supabaseOnline ? ' Supabase activo.' : ' Modo determinístico.'}
+            </span>
+          </div>
+        </div>
+
+        {insightsError && !showInsightsSkeleton ? (
+          <div className="neo-surface neo-surface--compact" data-variant="warning" role="status">
+            <p className="neo-text--sm text-fg">{insightsError}</p>
+          </div>
+        ) : null}
+
+        {showInsightsSkeleton ? (
+          <div className="neo-inline neo-inline--center neo-inline--sm neo-text--sm neo-text--muted" role="status">
+            <span className="neo-spinner" aria-hidden /> A calcular métricas…
+          </div>
+        ) : (
+          <>
+            <HeroMetrics metrics={insights?.hero ?? []} />
+            <div className="admin-notifications__dashboardGrid">
+              <TimelineChart data={timelineData} />
+              <HighlightsList highlights={insights?.highlights ?? []} />
+            </div>
+            <div className="admin-notifications__dashboardGrid admin-notifications__dashboardGrid--secondary">
+              <TypeDistribution segments={typeSegments} />
+              <ChannelList channels={channelSegments} />
+            </div>
+            <div className="admin-notifications__dashboardGrid admin-notifications__dashboardGrid--tertiary">
+              <CampaignList campaigns={campaignRows} />
+              <BacklogList rows={backlogRows} />
+            </div>
+          </>
+        )}
+      </section>
 
       <section className="neo-panel neo-stack neo-stack--lg" aria-label="Indicadores e filtros">
         <div className="neo-grid neo-grid--auto admin-notifications__metrics">

@@ -1,26 +1,35 @@
 // Server Component
 import * as React from "react";
 import Link from "next/link";
+import { formatDistanceToNowStrict } from "date-fns";
+import { pt } from "date-fns/locale";
+
 import { createServerClient } from "@/lib/supabaseServer";
 import { getSessionUserSafe } from "@/lib/session-bridge";
+import { getClientDashboardFallback } from "@/lib/fallback/client-dashboard";
 
 type StatusTone = "ok" | "warn" | "down";
+
+type TableRow = {
+  id: string;
+  dayLabel: string;
+  timeLabel: string;
+  relative: string;
+  location: string | null;
+  trainerName: string | null;
+  status: string | null;
+  tone: StatusTone;
+};
 
 const dateFormatter = new Intl.DateTimeFormat("pt-PT", {
   day: "2-digit",
   month: "short",
+});
+
+const timeFormatter = new Intl.DateTimeFormat("pt-PT", {
   hour: "2-digit",
   minute: "2-digit",
 });
-
-function formatDate(value: string | null) {
-  if (!value) return "—";
-  try {
-    return dateFormatter.format(new Date(value));
-  } catch {
-    return "—";
-  }
-}
 
 function friendlyStatus(value: string | null) {
   if (!value) return "—";
@@ -41,6 +50,34 @@ function toneForStatus(value: string | null): StatusTone {
   return "down";
 }
 
+function formatRelative(value: string | null) {
+  if (!value) return "—";
+  try {
+    return formatDistanceToNowStrict(new Date(value), { addSuffix: true, locale: pt });
+  } catch {
+    return "—";
+  }
+}
+
+function resolveTrainerName(row: any): string | null {
+  if (!row) return null;
+  if (Array.isArray(row)) {
+    for (const entry of row) {
+      const name = resolveTrainerName(entry);
+      if (name) return name;
+    }
+    return null;
+  }
+  if (typeof row !== "object") return null;
+  const candidates = [row.full_name, row.display_name, row.name, row.first_name];
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+  return null;
+}
+
 export default async function ClientUpcomingTable() {
   const sessionUser = await getSessionUserSafe();
   const me = sessionUser?.user;
@@ -48,16 +85,61 @@ export default async function ClientUpcomingTable() {
 
   const supabase = createServerClient();
   const now = new Date();
+  let source: "supabase" | "fallback" = "fallback";
+  let rows: TableRow[] = [];
 
-  const { data: upcomingRows } = await supabase
-    .from("sessions")
-    .select("id,scheduled_at,location,status,trainer_id")
-    .eq("client_id", me.id)
-    .gte("scheduled_at", now.toISOString())
-    .order("scheduled_at", { ascending: true })
-    .limit(6);
+  if (supabase) {
+    const { data } = await supabase
+      .from("sessions")
+      .select(
+        "id,scheduled_at,location,client_attendance_status,trainer:trainer_id(id,full_name,display_name,first_name,name)"
+      )
+      .eq("client_id", me.id)
+      .gte("scheduled_at", now.toISOString())
+      .order("scheduled_at", { ascending: true })
+      .limit(8);
 
-  const rows = upcomingRows ?? [];
+    if (Array.isArray(data)) {
+      source = "supabase";
+      rows = (data as Array<Record<string, any>>).slice(0, 6).map((session) => {
+        const scheduled = session.scheduled_at ? new Date(session.scheduled_at) : null;
+        const dayLabel = scheduled ? dateFormatter.format(scheduled) : "—";
+        const timeLabel = scheduled ? timeFormatter.format(scheduled) : "—";
+        const status = (session.client_attendance_status ?? null) as string | null;
+        return {
+          id: session.id,
+          dayLabel,
+          timeLabel,
+          relative: formatRelative(session.scheduled_at),
+          location: session.location ?? null,
+          trainerName: resolveTrainerName(session.trainer),
+          status,
+          tone: toneForStatus(status),
+        } satisfies TableRow;
+      });
+    }
+  }
+
+  if (!rows.length) {
+    const fallback = getClientDashboardFallback(me.id, 30);
+    rows = fallback.sessions
+      .filter((session) => {
+        const scheduled = session.scheduledAt ? new Date(session.scheduledAt) : null;
+        return scheduled ? scheduled >= now : false;
+      })
+      .slice(0, 6)
+      .map((session) => ({
+        id: session.id,
+        dayLabel: session.dayLabel,
+        timeLabel: session.timeLabel,
+        relative: session.relative,
+        location: session.location,
+        trainerName: session.trainerName,
+        status: session.status,
+        tone: toneForStatus(session.status),
+      }));
+    source = "fallback";
+  }
 
   return (
     <section className="neo-panel client-dashboard__panel" aria-labelledby="client-upcoming-heading">
@@ -66,10 +148,18 @@ export default async function ClientUpcomingTable() {
           <h2 id="client-upcoming-heading" className="neo-panel__title">
             Próximas sessões
           </h2>
-          <p className="neo-panel__subtitle">Até seis compromissos futuros confirmados.</p>
+          <p className="neo-panel__subtitle">
+            Até seis compromissos futuros confirmados. Fonte: {source === "supabase" ? "Supabase" : "dados determinísticos"}.
+          </p>
         </div>
         <div className="neo-panel__actions neo-panel__actions--table">
-          <Link href="/dashboard/sessions" className="btn ghost" prefetch={false}>
+          <Link
+            href="/dashboard/sessions"
+            prefetch={false}
+            className="btn client-upcoming__action"
+            data-variant="ghost"
+            data-size="sm"
+          >
             Ver agenda
           </Link>
         </div>
@@ -88,17 +178,23 @@ export default async function ClientUpcomingTable() {
           <tbody>
             {rows.map((session) => (
               <tr key={session.id}>
-                <td>{formatDate(session.scheduled_at)}</td>
+                <td>
+                  <div className="client-upcoming__date">
+                    <span>{session.dayLabel}</span>
+                    <span>{session.timeLabel}</span>
+                  </div>
+                  <span className="client-upcoming__relative">{session.relative}</span>
+                </td>
                 <td>
                   <span className="client-upcoming__muted">{session.location ?? "—"}</span>
                 </td>
                 <td>
-                  <span className="status-pill" data-state={toneForStatus(session.status)}>
+                  <span className="status-pill" data-state={session.tone}>
                     {friendlyStatus(session.status)}
                   </span>
                 </td>
                 <td>
-                  <span className="client-upcoming__muted">{session.trainer_id ?? "—"}</span>
+                  <span className="client-upcoming__muted">{session.trainerName ?? "—"}</span>
                 </td>
               </tr>
             ))}

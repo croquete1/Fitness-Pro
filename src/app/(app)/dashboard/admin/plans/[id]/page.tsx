@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { notFound } from 'next/navigation';
-import { Container, Box, Typography } from '@mui/material';
+
 import { createServerClient } from '@/lib/supabaseServer';
 import PlanFormClient, { mapRow } from '../PlanFormClient';
 
@@ -20,11 +20,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   if (!row) return notFound();
 
   return (
-    <Container maxWidth="sm" sx={{ display: 'grid', gap: 2 }}>
-      <Typography variant="h5" fontWeight={800}>✏️ Editar plano</Typography>
-      <Box sx={{ p: 3, borderRadius: 3, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
-        <PlanFormClient mode="edit" initial={mapRow(row)} />
-      </Box>
-    </Container>
+    <div className="admin-plan-form-page">
+      <PlanFormClient mode="edit" initial={mapRow(row)} />
+    </div>
   );
 }
