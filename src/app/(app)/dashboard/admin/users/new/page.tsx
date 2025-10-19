@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Container } from '@mui/material';
+
 import UserFormClient from '../UserFormClient';
 
 export const dynamic = 'force-dynamic';
@@ -15,8 +15,9 @@ export default function Page() {
   };
 
   return (
-    <Container maxWidth="sm" sx={{ display: 'grid', gap: 2 }}>
+    <div className="admin-user-form-page">
       <UserFormClient mode="create" initial={initial} />
-    </Container>
+    </div>
   );
 }
+
