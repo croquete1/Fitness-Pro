@@ -2,14 +2,14 @@
 import { createServerClient } from '@/lib/supabaseServer';
 import SessionOrderPanel from '@/components/plan/SessionOrderPanel';
 import type { OrderItem } from '@/components/plan/OrderListDnD';
-import { Container } from '@mui/material';
-import { withDashboardContentSx } from '@/styles/dashboardContentSx';
 
 export const dynamic = 'force-dynamic';
 
 export default async function PTSessionsOrderPage() {
   const sb = createServerClient();
-  const { data: { user } } = await sb.auth.getUser();
+  const {
+    data: { user },
+  } = await sb.auth.getUser();
 
   let items: OrderItem[] = [];
   if (user) {
@@ -19,15 +19,15 @@ export default async function PTSessionsOrderPage() {
       .eq('trainer_id', user.id)
       .order('order_index', { ascending: true, nullsFirst: true })
       .order('start_at', { ascending: true });
-    items = (data ?? []).map((s: any) => ({
-      id: String(s.id),
-      label: s.title ?? s.label ?? 'Sessão',
-      secondary: s.start_at ? new Date(s.start_at).toLocaleString() : null,
+    items = (data ?? []).map((session: any) => ({
+      id: String(session.id),
+      label: session.title ?? session.label ?? 'Sessão',
+      secondary: session.start_at ? new Date(session.start_at).toLocaleString() : null,
     }));
   }
 
   return (
-    <Container sx={withDashboardContentSx()}>
+    <div className="trainer-sessions-order">
       <SessionOrderPanel
         items={items}
         onSave={async (ids) => {
@@ -40,6 +40,6 @@ export default async function PTSessionsOrderPage() {
         }}
         title="Ordenar sessões do PT"
       />
-    </Container>
+    </div>
   );
 }

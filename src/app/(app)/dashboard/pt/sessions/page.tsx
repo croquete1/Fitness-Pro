@@ -1,38 +1,21 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { formatISO, startOfWeek, endOfWeek } from 'date-fns';
 import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  Container,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Divider,
-  IconButton,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  TextField,
-  Tooltip,
-  Typography,
-} from '@mui/material';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
-import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
-import EventRepeatOutlinedIcon from '@mui/icons-material/EventRepeatOutlined';
-import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
+  ArrowLeft,
+  ArrowRight,
+  CalendarCheck2,
+  Download,
+  Edit3,
+  MinusCircle,
+  RefreshCcw,
+  Repeat2,
+  Trash2,
+} from 'lucide-react';
+
 import { toast } from '@/components/ui/Toaster';
-import { withDashboardContentSx } from '@/styles/dashboardContentSx';
 
 type Sess = {
   id: string;
@@ -48,15 +31,21 @@ type Sess = {
   client_attendance_at: string | null;
 };
 
+type AttendanceMeta = {
+  label: string;
+  tone: 'neutral' | 'warning' | 'danger' | 'success' | 'info';
+};
+
 function weekRange(from?: string) {
   const base = from ? new Date(from) : new Date();
   const s = startOfWeek(base, { weekStartsOn: 1 });
   const e = endOfWeek(base, { weekStartsOn: 1 });
   return { start: s, end: e };
 }
-function moveWeek(dir: -1|1, from?: string) {
+
+function moveWeek(direction: -1 | 1, from?: string) {
   const d = from ? new Date(from) : new Date();
-  d.setDate(d.getDate() + (7 * dir));
+  d.setDate(d.getDate() + 7 * direction);
   return d.toISOString();
 }
 
@@ -65,7 +54,10 @@ function inferDuration(session: Sess) {
     return session.duration_min;
   }
   if (session.start_at && session.end_at) {
-    return Math.max(30, Math.round((new Date(session.end_at).getTime() - new Date(session.start_at).getTime()) / 60000));
+    return Math.max(
+      30,
+      Math.round((new Date(session.end_at).getTime() - new Date(session.start_at).getTime()) / 60000)
+    );
   }
   return 60;
 }
@@ -78,18 +70,18 @@ function toInputValue(iso: string) {
   return local.toISOString().slice(0, 16);
 }
 
-function attendanceChip(status: Sess['client_attendance_status']) {
+function attendanceMeta(status: Sess['client_attendance_status']): AttendanceMeta {
   switch (status) {
     case 'confirmed':
-      return { label: 'Confirmada', color: 'success' as const };
+      return { label: 'Confirmada', tone: 'success' };
     case 'completed':
-      return { label: 'Concluída', color: 'primary' as const };
+      return { label: 'Concluída', tone: 'info' };
     case 'cancelled':
-      return { label: 'Cancelada', color: 'default' as const };
+      return { label: 'Cancelada', tone: 'neutral' };
     case 'no_show':
-      return { label: 'Faltou', color: 'warning' as const };
+      return { label: 'Faltou', tone: 'danger' };
     default:
-      return { label: 'Por confirmar', color: 'default' as const };
+      return { label: 'Por confirmar', tone: 'warning' };
   }
 }
 
@@ -97,7 +89,7 @@ export default function TrainerSessionsPage() {
   const [cursor, setCursor] = React.useState<string>(new Date().toISOString());
   const [rows, setRows] = React.useState<Sess[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [sortMode, setSortMode] = React.useState(false); // ativa arrastar-e-soltar
+  const [sortMode, setSortMode] = React.useState(false);
   const [reschedule, setReschedule] = React.useState<{ session: Sess; start: string; duration: number } | null>(null);
   const [rescheduleBusy, setRescheduleBusy] = React.useState(false);
   const [rescheduleError, setRescheduleError] = React.useState<string | null>(null);
@@ -106,6 +98,11 @@ export default function TrainerSessionsPage() {
   const fromISO = formatISO(wr.start);
   const toISO = formatISO(wr.end);
 
+  const formattedRange = React.useMemo(() => {
+    const formatter = new Intl.DateTimeFormat('pt-PT', { day: '2-digit', month: 'short' });
+    return `${formatter.format(wr.start)} — ${formatter.format(wr.end)}`;
+  }, [wr.end, wr.start]);
+
   async function load() {
     setLoading(true);
     try {
@@ -113,28 +110,45 @@ export default function TrainerSessionsPage() {
       const r = await fetch(`/api/pt/sessions?${q}`, { cache: 'no-store' });
       const j = await r.json();
       if (Array.isArray(j.items)) {
-        setRows(j.items.map((item: any) => ({
-          ...item,
-          duration_min: typeof item.duration_min === 'number' ? item.duration_min : (item.start_at && item.end_at ? Math.round((new Date(item.end_at).getTime() - new Date(item.start_at).getTime()) / 60000) : null),
-          location: item.location ?? null,
-          client_attendance_status: item.client_attendance_status ?? 'pending',
-          client_attendance_at: item.client_attendance_at ?? null,
-        })));
+        setRows(
+          j.items.map((item: any) => ({
+            ...item,
+            duration_min:
+              typeof item.duration_min === 'number'
+                ? item.duration_min
+                : item.start_at && item.end_at
+                ? Math.round((new Date(item.end_at).getTime() - new Date(item.start_at).getTime()) / 60000)
+                : null,
+            location: item.location ?? null,
+            client_attendance_status: item.client_attendance_status ?? 'pending',
+            client_attendance_at: item.client_attendance_at ?? null,
+          }))
+        );
       } else {
         setRows([]);
       }
-    } catch { setRows([]); }
+    } catch {
+      setRows([]);
+    }
     setLoading(false);
   }
-  React.useEffect(() => { load(); }, [cursor]); // eslint-disable-line
+
+  React.useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cursor]);
 
   async function remove(id: string) {
     if (!confirm('Apagar sessão?')) return;
     const prev = rows;
-    setRows((r) => r.filter(x => x.id !== id));
+    setRows((r) => r.filter((x) => x.id !== id));
     const res = await fetch(`/api/pt/sessions/${id}`, { method: 'DELETE' });
-    if (!res.ok) { setRows(prev); toast('Falha ao apagar', 2000, 'error'); }
-    else toast('Sessão apagada 🗑️', 1500, 'success');
+    if (!res.ok) {
+      setRows(prev);
+      toast('Falha ao apagar', 2000, 'error');
+    } else {
+      toast('Sessão apagada 🗑️', 1500, 'success');
+    }
   }
 
   function openRescheduleDialog(session: Sess) {
@@ -182,205 +196,441 @@ export default function TrainerSessionsPage() {
     }
   }
 
-  // ------- Drag & Drop (HTML5) -------
-  const dragIndex = React.useRef<number | null>(null);
-
-  function onDragStart(i: number) { return () => { dragIndex.current = i; }; }
-  function onDragOver(e: React.DragEvent) { e.preventDefault(); }
-  function onDrop(i: number) {
-    return async (e: React.DragEvent) => {
-      e.preventDefault();
-      const from = dragIndex.current;
-      if (from == null || from === i) return;
-      setRows((arr) => {
-        const next = arr.slice();
-        const [moved] = next.splice(from, 1);
-        next.splice(i, 0, moved);
-        // envia ordem nova ao server
-        const ids = next.map(x => x.id);
-        fetch('/api/pt/sessions', { method: 'PATCH', headers: { 'content-type':'application/json' }, body: JSON.stringify({ ids }) })
-          .then(r => r.ok ? toast('Ordem atualizada ↕️', 1200, 'success') : toast('Falha a ordenar', 1600, 'error'));
-        return next;
-      });
-      dragIndex.current = null;
-    };
-  }
-
-  // criação rápida
-  async function createQuick(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const f = new FormData(e.currentTarget);
-    const start = String(f.get('start') || '');
-    const title = String(f.get('title') || '');
-    const kind = String(f.get('kind') || 'presencial');
-    if (!start) return toast('Indica data/hora', 2000, 'warning');
+  async function createQuick(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const start = String(form.get('start') || '');
+    const title = String(form.get('title') || '');
+    const kind = String(form.get('kind') || 'presencial');
+    if (!start) {
+      toast('Indica data/hora', 2000, 'warning');
+      return;
+    }
 
     try {
       const res = await fetch('/api/pt/sessions', {
-        method: 'POST', headers: { 'content-type': 'application/json' },
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ start, durationMin: 60, title, kind }),
       });
       if (!res.ok) throw new Error(await res.text());
       toast('Sessão criada 🗓️', 1800, 'success');
-      (e.target as HTMLFormElement).reset();
-      load();
-    } catch { toast('Falha ao criar sessão', 2000, 'error'); }
+      event.currentTarget.reset();
+      void load();
+    } catch {
+      toast('Falha ao criar sessão', 2000, 'error');
+    }
   }
 
-  return (
-    <Container sx={withDashboardContentSx({ display: 'grid', gap: 2 })}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between">
-        <Typography variant="h5" fontWeight={800}>🗓️ Agenda do PT (semana)</Typography>
-        <Stack direction="row" gap={1}>
-          <Button onClick={() => setCursor(moveWeek(-1, cursor))}>◀ Semana anterior</Button>
-          <Button onClick={() => setCursor(new Date().toISOString())}>Hoje</Button>
-          <Button onClick={() => setCursor(moveWeek(1, cursor))}>Semana seguinte ▶</Button>
-        </Stack>
-      </Stack>
+  const dragIndex = React.useRef<number | null>(null);
 
-      <Card variant="outlined">
-        <CardContent>
-          <Stack direction="row" gap={1} component="form" onSubmit={createQuick}>
-            <TextField name="start" type="datetime-local" label="Início" InputLabelProps={{ shrink: true }} required />
-            <TextField name="title" label="Título (opcional)" placeholder="Sessão com cliente" sx={{ minWidth: 260 }} />
-            <TextField name="kind" label="Tipo" defaultValue="presencial" />
-            <Button type="submit" variant="contained">➕ Criar</Button>
-            <Button onClick={() => setSortMode(v => !v)}>{sortMode ? '✅ Terminar ordenação' : '↕️ Ordenar sessões'}</Button>
-          </Stack>
-        </CardContent>
-      </Card>
+  const onDragStart = (i: number) => (event: React.DragEvent<HTMLTableRowElement>) => {
+    if (!sortMode) return;
+    dragIndex.current = i;
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', String(i));
+  };
 
-      <Box sx={{ borderRadius: 3, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
-        <Table size="small">
-          <TableHead sx={{ bgcolor: 'action.hover' }}>
-            <TableRow>
-              <TableCell />
-              <TableCell>Data</TableCell>
-              <TableCell>Hora</TableCell>
-              <TableCell>Local</TableCell>
-              <TableCell>Título</TableCell>
-              <TableCell>Tipo</TableCell>
-              <TableCell>Cliente</TableCell>
-              <TableCell>Confirmação</TableCell>
-              <TableCell align="right">Ações</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={9} align="center" sx={{ py: 4 }}>A carregar…</TableCell></TableRow>
-            ) : rows.length === 0 ? (
-              <TableRow><TableCell colSpan={9} align="center" sx={{ py: 4, opacity: .7 }}>Sem sessões nesta semana.</TableCell></TableRow>
-            ) : rows.map((s, i) => {
-              const d = new Date(s.start_at);
-              const date = d.toLocaleDateString();
-              const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-              const cliente = s.client_id ? s.client_id.slice(0, 6) + '…' : '—';
-              const attendance = attendanceChip(s.client_attendance_status);
-              return (
-                <TableRow
-                  key={s.id}
-                  draggable={sortMode}
-                  onDragStart={onDragStart(i)}
-                  onDragOver={onDragOver}
-                  onDrop={onDrop(i)}
-                  sx={{ cursor: sortMode ? 'grab' : 'default' }}
-                >
-                  <TableCell width={36} sx={{ opacity: sortMode ? 1 : .3 }}>
-                    <DragIndicatorIcon fontSize="small" />
-                  </TableCell>
-                  <TableCell>{date}</TableCell>
-                  <TableCell>{time}</TableCell>
-                  <TableCell>{s.location ?? '—'}</TableCell>
-                  <TableCell>{s.title ?? 'Sessão'}</TableCell>
-                  <TableCell>{s.kind ?? '—'}</TableCell>
-                  <TableCell>{cliente}</TableCell>
-                  <TableCell>
-                    <Stack spacing={0.5}>
-                      <Chip
-                        size="small"
-                        label={attendance.label}
-                        color={attendance.color}
-                        variant={attendance.color === 'default' ? 'outlined' : 'filled'}
-                      />
-                      {s.client_attendance_at && (
-                        <Typography variant="caption" sx={{ opacity: 0.7 }}>
-                          {new Date(s.client_attendance_at).toLocaleString('pt-PT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                        </Typography>
-                      )}
-                    </Stack>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Tooltip title="Download ICS">
-                      <IconButton
-                        size="small"
-                        component="a"
-                        href={`/api/sessions/${s.id}/ics`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <CalendarMonthOutlinedIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Reagendar">
-                      <IconButton size="small" onClick={() => openRescheduleDialog(s)}>
-                        <EventRepeatOutlinedIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Editar">
-                      <IconButton size="small" href={`/dashboard/pt/sessions/${s.id}`}><EditIcon fontSize="small" /></IconButton>
-                    </Tooltip>
-                    <Tooltip title="Apagar">
-                      <IconButton size="small" color="error" onClick={() => remove(s.id)}><DeleteIcon fontSize="small" /></IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </Box>
-      <Dialog open={Boolean(reschedule)} onClose={() => (!rescheduleBusy ? setReschedule(null) : undefined)} fullWidth maxWidth="xs">
-        <DialogTitle>Reagendar sessão</DialogTitle>
-        <DialogContent sx={{ display: 'grid', gap: 2, pt: 1 }}>
-          {reschedule?.session && (
-            <>
-              <TextField
-                label="Novo início"
-                type="datetime-local"
-                value={reschedule.start}
-                onChange={(e) => setReschedule((prev) => (prev ? { ...prev, start: e.target.value } : prev))}
-                InputLabelProps={{ shrink: true }}
-                disabled={rescheduleBusy}
-              />
-              <TextField
-                label="Duração (min)"
-                type="number"
-                value={reschedule?.duration ?? ''}
-                onChange={(e) => setReschedule((prev) => (prev ? { ...prev, duration: Number(e.target.value) } : prev))}
-                disabled={rescheduleBusy}
-                inputProps={{ min: 15, step: 15 }}
-              />
-              <Divider />
-              <Stack spacing={0.5}>
-                <Typography variant="body2" fontWeight={600}>Sessão atual</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {new Date(reschedule.session.start_at).toLocaleString('pt-PT', { day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit' })}
-                </Typography>
-                {reschedule.session.location && (
-                  <Typography variant="caption" color="text.secondary">Local: {reschedule.session.location}</Typography>
-                )}
-              </Stack>
-            </>
-          )}
-          {rescheduleError && <Alert severity="error">{rescheduleError}</Alert>}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setReschedule(null)} disabled={rescheduleBusy}>Cancelar</Button>
-          <Button variant="contained" onClick={saveReschedule} disabled={rescheduleBusy}>
-            {rescheduleBusy ? 'A reagendar…' : 'Guardar'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Container>
+  const onDragOver = (event: React.DragEvent<HTMLTableRowElement>) => {
+    if (!sortMode) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  };
+
+  const onDrop = (i: number) => async (event: React.DragEvent<HTMLTableRowElement>) => {
+    if (!sortMode) return;
+    event.preventDefault();
+    const fromStr = event.dataTransfer.getData('text/plain');
+    const from = dragIndex.current ?? (fromStr ? Number(fromStr) : -1);
+    dragIndex.current = null;
+    if (from < 0 || from === i) return;
+    setRows((arr) => {
+      const next = arr.slice();
+      const [moved] = next.splice(from, 1);
+      next.splice(i, 0, moved);
+      const ids = next.map((session) => session.id);
+      fetch('/api/pt/sessions', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      })
+        .then((response) => {
+          if (!response.ok) throw new Error('');
+          toast('Ordem atualizada ↕️', 1200, 'success');
+        })
+        .catch(() => toast('Falha a ordenar', 1600, 'error'));
+      return next;
+    });
+  };
+
+  const onDragEnd = () => {
+    dragIndex.current = null;
+  };
+
+  const onKeyReorder = (i: number) => (event: React.KeyboardEvent<HTMLTableRowElement>) => {
+    if (!sortMode) return;
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (i > 0) setRows((arr) => moveArray(arr, i, i - 1));
+    }
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      if (i < rows.length - 1) setRows((arr) => moveArray(arr, i, i + 1));
+    }
+  };
+
+  const totalDuration = React.useMemo(() => rows.reduce((acc, session) => acc + inferDuration(session), 0), [rows]);
+  const confirmed = React.useMemo(
+    () => rows.filter((session) => ['confirmed', 'completed'].includes(session.client_attendance_status ?? '')).length,
+    [rows]
   );
+  const pending = React.useMemo(
+    () => rows.filter((session) => (session.client_attendance_status ?? 'pending') === 'pending').length,
+    [rows]
+  );
+
+  return (
+    <div className="trainer-sessions" aria-live="polite">
+      <header className="trainer-sessions__hero">
+        <div className="trainer-sessions__heading">
+          <h1 className="trainer-sessions__title">🗓️ Agenda semanal do PT</h1>
+          <p className="trainer-sessions__subtitle">{formattedRange}</p>
+        </div>
+        <div className="trainer-sessions__heroActions">
+          <button className="neo-button" onClick={() => setCursor(moveWeek(-1, cursor))}>
+            <ArrowLeft size={16} aria-hidden /> Semana anterior
+          </button>
+          <button className="neo-button" onClick={() => setCursor(new Date().toISOString())}>
+            <RefreshCcw size={16} aria-hidden /> Hoje
+          </button>
+          <button className="neo-button" onClick={() => setCursor(moveWeek(1, cursor))}>
+            Semana seguinte <ArrowRight size={16} aria-hidden />
+          </button>
+        </div>
+      </header>
+
+      <section className="neo-panel trainer-sessions__metrics">
+        <header className="neo-panel__header">
+          <div className="neo-panel__meta">
+            <h2 className="neo-panel__title">Resumo da semana</h2>
+            <p className="neo-panel__subtitle">Dados reais das sessões entre {formattedRange}.</p>
+          </div>
+        </header>
+        <ul className="trainer-sessions__stats" role="list">
+          <li>
+            <article className="neo-surface" data-variant="primary">
+              <span className="neo-surface__label">Sessões agendadas</span>
+              <span className="neo-surface__value">{rows.length}</span>
+              <span className="neo-surface__meta">Atualiza automaticamente via Supabase</span>
+            </article>
+          </li>
+          <li>
+            <article className="neo-surface" data-variant="success">
+              <span className="neo-surface__label">Confirmadas</span>
+              <span className="neo-surface__value">{confirmed}</span>
+              <span className="neo-surface__meta">Clientes com presença confirmada</span>
+            </article>
+          </li>
+          <li>
+            <article className="neo-surface" data-variant="warning">
+              <span className="neo-surface__label">Pendentes</span>
+              <span className="neo-surface__value">{pending}</span>
+              <span className="neo-surface__meta">A aguardar confirmação</span>
+            </article>
+          </li>
+          <li>
+            <article className="neo-surface" data-variant="neutral">
+              <span className="neo-surface__label">Minutos totais</span>
+              <span className="neo-surface__value">{totalDuration}</span>
+              <span className="neo-surface__meta">Duração estimada do plano semanal</span>
+            </article>
+          </li>
+        </ul>
+      </section>
+
+      <section className="neo-panel trainer-sessions__quick">
+        <header className="neo-panel__header">
+          <div className="neo-panel__meta">
+            <h2 className="neo-panel__title">Adicionar sessão rápida</h2>
+            <p className="neo-panel__subtitle">Regista treinos recorrentes sem sair da agenda.</p>
+          </div>
+        </header>
+        <form className="trainer-sessions__quickForm" onSubmit={createQuick}>
+          <label className="neo-input-group__field">
+            <span className="neo-input-group__label">Início</span>
+            <input name="start" type="datetime-local" className="neo-input" required />
+          </label>
+          <label className="neo-input-group__field">
+            <span className="neo-input-group__label">Título</span>
+            <input name="title" className="neo-input" placeholder="Sessão com cliente" />
+          </label>
+          <label className="neo-input-group__field">
+            <span className="neo-input-group__label">Tipo</span>
+            <input name="kind" className="neo-input" defaultValue="presencial" />
+          </label>
+          <button type="submit" className="neo-button neo-button--primary">
+            <CalendarCheck2 size={16} aria-hidden /> Criar
+          </button>
+          <button
+            type="button"
+            className={`neo-button${sortMode ? ' is-active' : ''}`}
+            onClick={() => setSortMode((value) => !value)}
+          >
+            ↕️ {sortMode ? 'Terminar ordenação' : 'Ordenar sessões'}
+          </button>
+        </form>
+      </section>
+
+      <section className="neo-panel trainer-sessions__table">
+        <header className="neo-panel__header">
+          <div className="neo-panel__meta">
+            <h2 className="neo-panel__title">Sessões planeadas</h2>
+            <p className="neo-panel__subtitle">
+              Exporta ficheiros ICS, reagenda sessões e gere confirmações em tempo real.
+            </p>
+          </div>
+          <div className="trainer-sessions__tableActions">
+            <button className="neo-button" onClick={() => void load()} disabled={loading}>
+              <RefreshCcw size={16} aria-hidden /> Atualizar
+            </button>
+          </div>
+        </header>
+
+        <div className={`neo-table-wrapper${loading ? ' is-loading' : ''}`} role="region" aria-live="polite">
+          <table className="neo-table">
+            <thead>
+              <tr>
+                <th aria-label="Reordenar" />
+                <th>Data</th>
+                <th>Hora</th>
+                <th>Local</th>
+                <th>Título</th>
+                <th>Tipo</th>
+                <th>Cliente</th>
+                <th>Estado</th>
+                <th className="trainer-sessions__actionsHeader" aria-label="Ações" />
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={9} className="trainer-sessions__loadingCell">
+                    A carregar…
+                  </td>
+                </tr>
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan={9}>
+                    <div className="neo-empty">
+                      <span className="neo-empty__icon" aria-hidden>
+                        📭
+                      </span>
+                      <p className="neo-empty__title">Sem sessões nesta semana</p>
+                      <p className="neo-empty__description">Adiciona uma sessão rápida para preencher a agenda.</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                rows.map((session, index) => {
+                  const startDate = new Date(session.start_at);
+                  const date = startDate.toLocaleDateString('pt-PT');
+                  const time = startDate.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+                  const attendance = attendanceMeta(session.client_attendance_status);
+                  const attendanceAt = session.client_attendance_at
+                    ? new Date(session.client_attendance_at).toLocaleString('pt-PT', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })
+                    : null;
+
+                  return (
+                    <tr
+                      key={session.id}
+                      draggable={sortMode}
+                      onDragStart={onDragStart(index)}
+                      onDragOver={onDragOver}
+                      onDrop={onDrop(index)}
+                      onDragEnd={onDragEnd}
+                      onKeyDown={onKeyReorder(index)}
+                      className={sortMode ? 'trainer-sessions__row--sortable' : undefined}
+                    >
+                      <td className="trainer-sessions__dragCell" aria-hidden>{sortMode ? '↕️' : ''}</td>
+                      <td>{date}</td>
+                      <td>{time}</td>
+                      <td>{session.location ?? '—'}</td>
+                      <td>{session.title ?? 'Sessão'}</td>
+                      <td>{session.kind ?? '—'}</td>
+                      <td>{session.client_id ? `${session.client_id.slice(0, 6)}…` : '—'}</td>
+                      <td>
+                        <span className="neo-tag" data-tone={attendance.tone}>
+                          {attendance.label}
+                        </span>
+                        {attendanceAt && <span className="trainer-sessions__attendanceAt">{attendanceAt}</span>}
+                      </td>
+                      <td className="trainer-sessions__actionsCell">
+                        <Link
+                          href={`/api/sessions/${session.id}/ics`}
+                          className="neo-icon-button"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label="Download ICS"
+                          title="Download ICS"
+                        >
+                          <Download size={16} />
+                        </Link>
+                        <button
+                          type="button"
+                          className="neo-icon-button"
+                          onClick={() => openRescheduleDialog(session)}
+                          aria-label="Reagendar"
+                          title="Reagendar"
+                        >
+                          <Repeat2 size={16} />
+                        </button>
+                        <Link
+                          href={`/dashboard/pt/sessions/${session.id}`}
+                          className="neo-icon-button"
+                          aria-label="Editar"
+                          title="Editar sessão"
+                        >
+                          <Edit3 size={16} />
+                        </Link>
+                        <button
+                          type="button"
+                          className="neo-icon-button"
+                          onClick={() => remove(session.id)}
+                          aria-label="Apagar"
+                          title="Apagar"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {sortMode && (
+          <p className="trainer-sessions__sortHint">
+            Ordenação ativa. Usa arrastar e largar ou as setas do teclado para reorganizar as sessões.
+          </p>
+        )}
+      </section>
+
+      {reschedule && (
+        <div className="neo-dialog-backdrop" role="dialog" aria-modal="true">
+          <div className="neo-dialog trainer-sessions__dialog">
+            <header className="neo-dialog__header">
+              <h2 className="neo-dialog__title">Reagendar sessão</h2>
+              <button
+                type="button"
+                className="neo-icon-button"
+                onClick={() => (!rescheduleBusy ? setReschedule(null) : undefined)}
+                aria-label="Fechar"
+                disabled={rescheduleBusy}
+              >
+                <MinusCircle size={18} />
+              </button>
+            </header>
+            <div className="neo-dialog__content">
+              <label className="neo-input-group__field">
+                <span className="neo-input-group__label">Novo início</span>
+                <input
+                  type="datetime-local"
+                  value={reschedule.start}
+                  onChange={(event) =>
+                    setReschedule((prev) => (prev ? { ...prev, start: event.target.value } : prev))
+                  }
+                  className="neo-input"
+                  disabled={rescheduleBusy}
+                  required
+                />
+              </label>
+              <label className="neo-input-group__field">
+                <span className="neo-input-group__label">Duração (min)</span>
+                <input
+                  type="number"
+                  value={reschedule.duration ?? ''}
+                  onChange={(event) =>
+                    setReschedule((prev) =>
+                      prev ? { ...prev, duration: Number(event.target.value) } : prev
+                    )
+                  }
+                  className="neo-input"
+                  min={15}
+                  step={15}
+                  disabled={rescheduleBusy}
+                  required
+                />
+              </label>
+              <div className="trainer-sessions__dialogMeta">
+                <p className="trainer-sessions__dialogTitle">Sessão atual</p>
+                <p className="trainer-sessions__dialogDescription">
+                  {new Date(reschedule.session.start_at).toLocaleString('pt-PT', {
+                    day: '2-digit',
+                    month: 'long',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </p>
+                {reschedule.session.location && (
+                  <p className="trainer-sessions__dialogLocation">
+                    Local: {reschedule.session.location}
+                  </p>
+                )}
+              </div>
+              {rescheduleError && (
+                <div className="neo-alert" data-tone="danger">
+                  <div className="neo-alert__content">
+                    <p className="neo-alert__message">{rescheduleError}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+            <footer className="neo-dialog__footer">
+              <button
+                type="button"
+                className="neo-button"
+                onClick={() => setReschedule(null)}
+                disabled={rescheduleBusy}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="neo-button neo-button--primary"
+                onClick={saveReschedule}
+                disabled={rescheduleBusy}
+              >
+                {rescheduleBusy ? 'A reagendar…' : 'Guardar'}
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function moveArray(list: Sess[], from: number, to: number) {
+  const next = list.slice();
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  const ids = next.map((session) => session.id);
+  fetch('/api/pt/sessions', {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ ids }),
+  })
+    .then((response) => {
+      if (!response.ok) throw new Error('');
+      toast('Ordem atualizada ↕️', 1200, 'success');
+    })
+    .catch(() => toast('Falha a ordenar', 1600, 'error'));
+  return next;
 }

@@ -2,14 +2,9 @@
 
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import {
-  Container, Card, CardHeader, CardContent, CardActions,
-  Button, Stack, Snackbar, Alert, CircularProgress,
-} from '@mui/material';
-import Save from '@mui/icons-material/Save';
-import Replay from '@mui/icons-material/Replay';
+import PageHeader from '@/components/ui/PageHeader';
+import Button from '@/components/ui/Button';
 import OrderListDnD, { type OrderItem } from '@/components/plan/OrderListDnD';
-import { withDashboardContentSx } from '@/styles/dashboardContentSx';
 
 export default function OrderBlocksPage() {
   const { planId, dayId } = useParams<{ planId: string; dayId: string }>();
@@ -66,30 +61,56 @@ export default function OrderBlocksPage() {
     }
   };
 
-  return (
-    <Container sx={withDashboardContentSx({ display: 'grid', gap: 2 })}>
-      <Card variant="outlined" sx={{ overflow: 'hidden' }}>
-        <CardHeader title="🧩 Ordenar blocos do dia" subheader="Arrasta ou usa ↑/↓ para reordenar." />
-        <CardContent sx={{ pt: 1.5 }}>
-          {loading ? (
-            <Stack alignItems="center" sx={{ py: 6 }}><CircularProgress /></Stack>
-          ) : (
-            <OrderListDnD items={items} onReorder={handleReorder} dense />
-          )}
-        </CardContent>
-        <CardActions sx={{ px: 2, pb: 2 }}>
-          <Stack direction="row" spacing={1}>
-            <Button variant="outlined" startIcon={<Replay />} onClick={handleReset} disabled={!isDirty || saving}>Repor</Button>
-            <Button variant="contained" startIcon={saving ? <CircularProgress size={18} /> : <Save />} onClick={handleSave} disabled={!isDirty || saving}>
-              Guardar ordem
-            </Button>
-          </Stack>
-        </CardActions>
-      </Card>
+  const toastTone = toast?.sev === 'success' ? 'success' : toast?.sev === 'error' ? 'danger' : 'neutral';
 
-      <Snackbar open={!!toast} autoHideDuration={4000} onClose={() => setToast(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
-        {toast && <Alert onClose={() => setToast(null)} severity={toast.sev} variant="filled">{toast.msg}</Alert>}
-      </Snackbar>
-    </Container>
+  return (
+    <div className="trainer-plan-order">
+      <PageHeader
+        title="Ordenar blocos do dia"
+        subtitle="Arrasta ou usa as setas do teclado para reorganizar a sequência."
+        sticky={false}
+      />
+
+      <section className="neo-panel trainer-plan-order__panel">
+        {toast && (
+          <div className="neo-alert" data-tone={toastTone} role="status">
+            <div className="neo-alert__content">
+              <p className="neo-alert__message">{toast.msg}</p>
+            </div>
+            <button type="button" className="neo-alert__dismiss" onClick={() => setToast(null)} aria-label="Fechar alerta">
+              ×
+            </button>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="trainer-plan-order__loading" role="status" aria-live="polite">
+            <span className="neo-spinner" aria-hidden /> A carregar blocos…
+          </div>
+        ) : (
+          <OrderListDnD items={items} onReorder={handleReorder} dense />
+        )}
+
+        <div className="trainer-plan-order__actions">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleReset}
+            disabled={!isDirty || saving}
+          >
+            Repor
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={handleSave}
+            loading={saving}
+            disabled={!isDirty || saving}
+          >
+            Guardar ordem
+          </Button>
+        </div>
+      </section>
+    </div>
   );
 }
