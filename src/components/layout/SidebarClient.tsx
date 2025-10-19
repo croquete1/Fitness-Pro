@@ -5,13 +5,118 @@ import { usePathname } from 'next/navigation';
 import SidebarBase from '@/components/layout/SidebarBase';
 import { useSidebar } from '@/components/layout/SidebarProvider';
 import { SidebarNavSection, type SidebarNavItem } from '@/components/layout/SidebarNav';
+import type { ClientCounts } from '@/lib/hooks/useCounts';
+import type { NavigationSummary, NavigationSummaryGroup } from '@/lib/navigation/types';
 
 type Props = {
-  messagesCount?: number;
-  notificationsCount?: number;
+  initialCounts?: ClientCounts;
+  summary?: NavigationSummary | null;
+  loading?: boolean;
+  onRefreshNavigation?: () => Promise<unknown> | unknown;
 };
 
-export default function SidebarClient({ messagesCount = 0, notificationsCount = 0 }: Props) {
+const FALLBACK_GROUPS = (counts?: ClientCounts): { title: string; items: SidebarNavItem[] }[] => {
+  const messages = counts?.messagesCount ?? 0;
+  const notifications = counts?.notificationsCount ?? 0;
+  return [
+    {
+      title: 'Painel',
+      items: [
+        {
+          href: '/dashboard/clients',
+          label: 'Painel',
+          icon: 'dashboard',
+          exact: true,
+          activePrefix: '/dashboard/clients',
+          description: 'Resumo do progresso e objectivos activos.',
+        },
+        {
+          href: '/dashboard/my-plan',
+          label: 'Os meus planos',
+          icon: 'plans',
+          activePrefix: '/dashboard/my-plan',
+          description: 'Planos activos, tarefas e próximos marcos.',
+        },
+        {
+          href: '/dashboard/sessions',
+          label: 'Sessões',
+          icon: 'calendar',
+          activePrefix: '/dashboard/sessions',
+          description: 'Agenda de treinos e confirmações de presença.',
+        },
+      ],
+    },
+    {
+      title: 'Comunicação',
+      items: [
+        {
+          href: '/dashboard/messages',
+          label: 'Mensagens',
+          icon: 'messages',
+          activePrefix: '/dashboard/messages',
+          badge: messages,
+          tone: messages > 0 ? 'warning' : 'neutral',
+          description: 'Conversa directa com o treinador.',
+        },
+        {
+          href: '/dashboard/notifications',
+          label: 'Notificações',
+          icon: 'notifications',
+          activePrefix: '/dashboard/notifications',
+          badge: notifications,
+          tone: notifications > 0 ? 'warning' : 'neutral',
+          description: 'Alertas, lembretes e actualizações.',
+        },
+      ],
+    },
+    {
+      title: 'Conta',
+      items: [
+        {
+          href: '/dashboard/history',
+          label: 'Histórico',
+          icon: 'history',
+          activePrefix: '/dashboard/history',
+          description: 'Registos de sessões e estatísticas.',
+        },
+        {
+          href: '/dashboard/profile',
+          label: 'Perfil',
+          icon: 'profile',
+          activePrefix: '/dashboard/profile',
+          description: 'Dados pessoais e preferências.',
+        },
+        {
+          href: '/dashboard/settings',
+          label: 'Definições',
+          icon: 'settings',
+          activePrefix: '/dashboard/settings',
+          description: 'Notificações, privacidade e integrações.',
+        },
+      ],
+    },
+  ];
+};
+
+function mapGroup(group: NavigationSummaryGroup): { title: string; items: SidebarNavItem[] } {
+  return {
+    title: group.title,
+    items: group.items.map((item) => ({
+      href: item.href,
+      label: item.label,
+      icon: item.icon,
+      badge: item.badge ?? null,
+      description: item.description ?? null,
+      kpiLabel: item.kpiLabel ?? null,
+      kpiValue: item.kpiValue ?? null,
+      tone: item.tone ?? undefined,
+      activePrefix: item.activePrefix ?? undefined,
+      exact: Boolean(item.exact),
+    })),
+  };
+}
+
+export default function SidebarClient({ initialCounts, summary, loading, onRefreshNavigation }: Props) {
   const path = usePathname();
   const { collapsed, peek, isMobile, closeMobile } = useSidebar();
   const isRail = !isMobile && collapsed && !peek;
@@ -20,33 +125,51 @@ export default function SidebarClient({ messagesCount = 0, notificationsCount = 
     if (isMobile) closeMobile();
   }, [closeMobile, isMobile]);
 
-  const painel: SidebarNavItem[] = [
-    { href: '/dashboard/clients', label: 'Painel', icon: 'dashboard', exact: true, activePrefix: '/dashboard/clients' },
-  ];
+  const groups = React.useMemo(() => {
+    if (summary?.navGroups?.length) {
+      return summary.navGroups.map(mapGroup);
+    }
+    return FALLBACK_GROUPS(initialCounts);
+  }, [summary, initialCounts]);
 
-  const treino: SidebarNavItem[] = [
-    { href: '/dashboard/my-plan', label: 'Os meus planos', icon: 'plans', activePrefix: '/dashboard/my-plan' },
-    { href: '/dashboard/sessions', label: 'Sessões', icon: 'calendar', activePrefix: '/dashboard/sessions' },
-  ];
+  const quickMetrics = React.useMemo(() => summary?.quickMetrics?.slice(0, 2) ?? [], [summary]);
 
-  const comunicacao: SidebarNavItem[] = [
-    { href: '/dashboard/messages', label: 'Mensagens', icon: 'messages', activePrefix: '/dashboard/messages', badge: messagesCount },
-    { href: '/dashboard/notifications', label: 'Notificações', icon: 'notifications', activePrefix: '/dashboard/notifications', badge: notificationsCount },
-  ];
-
-  const conta: SidebarNavItem[] = [
-    { href: '/dashboard/history', label: 'Histórico', icon: 'history', activePrefix: '/dashboard/history' },
-    { href: '/dashboard/profile', label: 'Perfil', icon: 'profile', activePrefix: '/dashboard/profile' },
-    { href: '/dashboard/settings', label: 'Definições', icon: 'settings', activePrefix: '/dashboard/settings' },
-  ];
+  const header = (
+    <div className="neo-sidebar__headline">
+      <span className="neo-sidebar__headline-label">Acesso rápido</span>
+    </div>
+  );
 
   return (
-    <SidebarBase header={<span className="nav-heading">Acesso rápido</span>}>
-      <nav className="fp-nav" aria-label="Menu do cliente">
-        <SidebarNavSection title="Painel" items={painel} currentPath={path} isRail={isRail} onNavigate={handleNavigate} />
-        <SidebarNavSection title="Treino" items={treino} currentPath={path} isRail={isRail} onNavigate={handleNavigate} />
-        <SidebarNavSection title="Comunicação" items={comunicacao} currentPath={path} isRail={isRail} onNavigate={handleNavigate} />
-        <SidebarNavSection title="Conta" items={conta} currentPath={path} isRail={isRail} onNavigate={handleNavigate} />
+    <SidebarBase header={header}>
+      {loading && !summary && (
+        <div className="neo-sidebar__skeleton" aria-live="polite">
+          <span className="neo-sidebar__skeleton-bar" />
+          <span className="neo-sidebar__skeleton-bar" />
+        </div>
+      )}
+      {quickMetrics.length > 0 && (
+        <div className="neo-sidebar__quick">
+          {quickMetrics.map((metric) => (
+            <div key={metric.id} className={`neo-sidebar__quick-card neo-sidebar__quick-card--${metric.tone}`}>
+              <span className="neo-sidebar__quick-label">{metric.label}</span>
+              <span className="neo-sidebar__quick-value">{metric.value}</span>
+              {metric.hint && <span className="neo-sidebar__quick-hint">{metric.hint}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+      <nav className="neo-sidebar__nav" aria-label="Menu do cliente">
+        {groups.map((group) => (
+          <SidebarNavSection
+            key={group.title}
+            title={group.title}
+            items={group.items}
+            currentPath={path}
+            isRail={isRail}
+            onNavigate={handleNavigate}
+          />
+        ))}
       </nav>
     </SidebarBase>
   );

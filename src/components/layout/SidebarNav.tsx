@@ -10,7 +10,11 @@ export type SidebarNavItem = {
   icon: string;
   exact?: boolean;
   activePrefix?: string | string[];
-  badge?: number;
+  badge?: number | null;
+  description?: string | null;
+  kpiLabel?: string | null;
+  kpiValue?: string | null;
+  tone?: 'primary' | 'positive' | 'warning' | 'danger' | 'neutral';
 };
 
 type Props = {
@@ -31,37 +35,58 @@ function matchesPrefix(path: string, prefix?: string | string[]) {
 
 export function SidebarNavSection({ title, items, currentPath, isRail, onNavigate }: Props) {
   return (
-    <div className="nav-group">
-      <span className="nav-section">{title}</span>
-      <div className="nav-group__items">
+    <section className="neo-sidebar__section">
+      <header className="neo-sidebar__section-header">
+        <span>{title}</span>
+      </header>
+      <ul className="neo-sidebar__list">
         {items.map((item) => {
           const active = item.exact
             ? currentPath === item.href
             : matchesPrefix(currentPath, item.activePrefix) || currentPath.startsWith(item.href);
+          const badge = typeof item.badge === 'number' ? item.badge : null;
+          const tone = item.tone ?? (badge && badge > 0 ? 'warning' : 'neutral');
 
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              prefetch={false}
-              className={clsx('nav-item', active && 'nav-item--active')}
-              aria-current={active ? 'page' : undefined}
-              title={isRail ? item.label : undefined}
-              onClick={onNavigate}
-            >
-              <span className="nav-icon" aria-hidden>
-                <NavIcon name={item.icon} />
-              </span>
-              <span className="nav-label">{item.label}</span>
-              {item.badge !== undefined && item.badge > 0 && (
-                <span className="nav-badge" aria-label={`${item.badge} itens pendentes`}>
-                  {item.badge > 99 ? '99+' : item.badge}
+            <li key={item.href} className="neo-sidebar__list-item">
+              <Link
+                href={item.href}
+                prefetch={false}
+                className={clsx('neo-sidebar__item', active && 'neo-sidebar__item--active')}
+                aria-current={active ? 'page' : undefined}
+                title={isRail ? item.label : undefined}
+                onClick={onNavigate}
+                data-tone={tone}
+              >
+                <span className="neo-sidebar__item-icon" aria-hidden>
+                  <NavIcon name={item.icon} />
                 </span>
-              )}
-            </Link>
+                <span className="neo-sidebar__item-body">
+                  <span className="neo-sidebar__item-label">{item.label}</span>
+                  {item.description && !isRail && (
+                    <span className="neo-sidebar__item-description">{item.description}</span>
+                  )}
+                </span>
+                {(item.kpiValue || badge) && (
+                  <span className="neo-sidebar__item-meta">
+                    {item.kpiValue && !isRail && (
+                      <span className="neo-sidebar__item-kpi">
+                        {item.kpiLabel && <span className="neo-sidebar__item-kpi-label">{item.kpiLabel}</span>}
+                        <span className="neo-sidebar__item-kpi-value">{item.kpiValue}</span>
+                      </span>
+                    )}
+                    {badge !== null && badge > 0 && (
+                      <span className="neo-sidebar__item-badge" data-tone={tone} aria-label={`${badge} itens pendentes`}>
+                        {badge > 99 ? '99+' : badge}
+                      </span>
+                    )}
+                  </span>
+                )}
+              </Link>
+            </li>
           );
         })}
-      </div>
-    </div>
+      </ul>
+    </section>
   );
 }
