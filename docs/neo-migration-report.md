@@ -6,13 +6,12 @@ Executámos `npm run neo:audit` para mapear utilitários ainda baseados em Tailw
 
 ## Componentes que ainda usam Tailwind utilitário
 
-- Diversos editores administrativos (`src/components/plan/PlanEditor.tsx`, `src/components/packages/PackageEditor.tsx`) preservam tokens `rounded-*`, `gap-*` e responsividade utilitária.
+- Revisar o backoffice de onboarding avançado continua prioritário: alguns grids históricos (`src/components/admin/OnboardingTimeline.tsx`) ainda usam `flex` utilitário e `space-x-*` herdado.
 
 ## Dependências ainda baseadas em MUI
 
-- `src/components/profile/ProfileForm.tsx` importa múltiplos componentes de `@mui/material` (`Box`, `Paper`, `Stack`, `TextField`, etc.), mantendo a camada de design antiga. 【F:src/components/profile/ProfileForm.tsx†L1-L165】
-- `src/components/profile/MetricsTable.tsx` e `src/components/profile/MetricsChart.tsx` continuam a usar `@mui/material` para tabelas e cartões. 【F:src/components/profile/MetricsTable.tsx†L1-L144】【F:src/components/profile/MetricsChart.tsx†L1-L120】
-- `src/styles/dashboardContentSx.ts` define estilos `SxProps` específicos de MUI, o que liga o layout à API antiga. 【F:src/styles/dashboardContentSx.ts†L1-L120】
+- O módulo de perfil (`src/components/profile/ProfileForm.tsx`) continua a importar `Box`, `Paper`, `Stack` e `TextField` de `@mui/material`, aguardando migração para campos `.neo-input`. 【F:src/components/profile/ProfileForm.tsx†L1-L165】
+- As métricas históricas (`src/components/profile/MetricsTable.tsx`, `src/components/profile/MetricsChart.tsx`) dependem de tabelas/cartões `@mui/material`, pelo que permanecem fora do tema `.neo`. 【F:src/components/profile/MetricsTable.tsx†L1-L144】【F:src/components/profile/MetricsChart.tsx†L1-L120】
 
 ## Funcionalidades com dados mock ou TODOs
 
@@ -32,6 +31,9 @@ Executámos `npm run neo:audit` para mapear utilitários ainda baseados em Tailw
 ## Progresso recente
 
 - O fluxo de autenticação (login, registo e recuperação) foi migrado para uma experiência `.neo`, com o novo `AuthNeoShell`/`AuthNeoInsights` (`src/components/auth/AuthNeoShell.tsx`, `src/components/auth/AuthNeoInsights.tsx`) a expor métricas em tempo real servidas pela rota pública `/api/public/landing` (`src/app/api/public/landing/route.ts`) e pelo agregador Supabase `src/lib/public/landing/dashboard.ts`, mantendo fallback determinístico em `src/lib/fallback/auth-landing.ts`. As páginas `src/app/login/LoginClient.tsx`, `src/app/register/RegisterClient.tsx`, `src/app/login/reset/ResetClient.tsx` e `src/app/login/forgot/page.tsx` partilham agora este layout e os novos tokens definidos em `src/app/globals.css`.
+- Os editores de planos e pacotes (`src/components/plan/PlanEditor.tsx`, `src/components/packages/PackageEditor.tsx`) foram reescritos em `.neo`, com combobox acessível, métricas em tempo real e painéis responsivos alimentados pelo Supabase, eliminando Tailwind utilitário.
+- A agenda semanal do PT (`src/app/(app)/dashboard/pt/sessions/page.tsx`) e o painel de ordenação (`src/app/(app)/dashboard/pt/sessions/order/page.tsx`) abandonaram `@mui/material`, passando a usar tabelas `.neo`, diálogos acessíveis e listas ordenáveis reutilizáveis (`src/components/plan/OrderListDnD.tsx`, `src/components/plan/SessionOrderPanel.tsx`).
+- As definições de folgas do PT (`src/app/(app)/dashboard/pt/settings/folgas/page.tsx`, `src/app/(app)/dashboard/pt/settings/folgas/FolgaForm.tsx`, `src/app/(app)/dashboard/pt/settings/folgas/EditFolgaButton.tsx`) foram reconstruídas no tema `.neo`, com métricas em tempo real, calendário interactivo e diálogo de edição alimentados pelo Supabase, eliminando utilitários Tailwind.
 - O painel de mensagens do cliente (`src/app/(app)/dashboard/messages/**/*`) foi totalmente reconstruído como dashboard analítico `.neo`, com cartões hero, gráfico temporal, distribuição por canal, destaques automáticos e linha temporal interactiva alimentados por dados reais via `/api/messages/dashboard` (com fallback determinístico em `src/lib/fallback/messages.ts`).
 - O painel principal do cliente (`src/app/(app)/dashboard/DashboardClient.tsx`) foi migrado para o tema `.neo`, com métricas hero, gráfico temporal, destaques, sessões, carteira, notificações e recomendações alimentadas pela nova rota `/api/client/dashboard/route.ts` e pelo pipeline em `src/lib/client/dashboard/*` (com fallback realista em `src/lib/fallback/client-dashboard.ts`).
 - O fluxo de onboarding administrativo (`src/app/(app)/dashboard/admin/onboarding/AdminOnboardingListClient.tsx`) abandonou MUI/DataGrid em favor do design system `.neo`, com métricas reais do Supabase, filtros declarativos e tabela acessível sem utilitários legados.
