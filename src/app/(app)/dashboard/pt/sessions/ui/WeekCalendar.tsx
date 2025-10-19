@@ -120,11 +120,11 @@ export default function WeekCalendar({
   }
 
   return (
-    <div className="card" style={{ padding: 8 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '80px repeat(7, 1fr)', gap: 6 }}>
-        <div />
+    <div className="pt-week-calendar">
+      <div className="pt-week-calendar__grid" style={{ gridTemplateColumns: `80px repeat(${days.length}, 1fr)` }}>
+        <div aria-hidden />
         {days.map((d, i) => (
-          <div key={i} style={{ textAlign: 'center', fontWeight: 700 }}>
+          <div key={i} className="pt-week-calendar__day" aria-label={d.toLocaleDateString('pt-PT')}>
             {d.toLocaleDateString('pt-PT', { weekday: 'short', day: '2-digit', month: '2-digit' })}
           </div>
         ))}
@@ -136,23 +136,25 @@ export default function WeekCalendar({
 
           return (
             <React.Fragment key={row}>
-              <div style={{ textAlign: 'right', paddingRight: 6, fontSize: 12, color: 'var(--muted)' }}>{label}</div>
+              <div className="pt-week-calendar__time" aria-hidden>
+                {label}
+              </div>
               {days.map((_, dayIdx) => {
-                const selecting = sel && sel.dayIdx === dayIdx &&
-                  row >= Math.min(sel.a, sel.b) && row <= Math.max(sel.a, sel.b);
+                const selecting =
+                  sel && sel.dayIdx === dayIdx && row >= Math.min(sel.a, sel.b) && row <= Math.max(sel.a, sel.b);
 
                 return (
                   <div
                     key={`${dayIdx}-${row}`}
+                    className="pt-week-calendar__slot"
+                    data-selecting={selecting || undefined}
                     onMouseDown={(e) => begin(dayIdx, row, e)}
-                    onMouseEnter={(e) => { if (e.buttons === 1) move(row, e); }}
-                    onMouseUp={end}
-                    style={{
-                      position: 'relative', height: rowH, borderRadius: 8,
-                      border: '1px solid var(--border)',
-                      background: selecting ? 'var(--sidebar-active)' : 'transparent',
-                      cursor: 'crosshair',
+                    onMouseEnter={(e) => {
+                      if (e.buttons === 1) move(row, e);
                     }}
+                    onMouseUp={end}
+                    role="presentation"
+                    style={{ height: rowH, borderRadius: compact ? 8 : 10 }}
                   >
                     {row === 0 && sessionsRender(dayIdx)}
                     {row === 0 && blocksRender(dayIdx)}
@@ -164,9 +166,7 @@ export default function WeekCalendar({
         })}
       </div>
 
-      <div className="small text-muted" style={{ marginTop: 8 }}>
-        Arrasta para selecionar um intervalo. Buffer base: {bufferMin} min.
-      </div>
+      <p className="pt-week-calendar__hint">Arrasta para seleccionar um intervalo. Buffer base: {bufferMin} min.</p>
     </div>
   );
 }

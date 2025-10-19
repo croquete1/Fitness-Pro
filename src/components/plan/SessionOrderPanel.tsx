@@ -1,34 +1,40 @@
-// src/components/plan/SessionOrderPanel.tsx
 'use client';
 
 import * as React from 'react';
-import {
-  Card, CardHeader, CardContent, CardActions,
-  Button, Stack, Snackbar, Alert, CircularProgress,
-} from '@mui/material';
-import Save from '@mui/icons-material/Save';
-import Replay from '@mui/icons-material/Replay';
+import { CheckCircle2, RefreshCcw, Save } from 'lucide-react';
+
 import OrderListDnD, { type OrderItem } from './OrderListDnD';
 
 type Props = {
-  items: OrderItem[];                 // ✅ prop correta
+  items: OrderItem[];
   onSave: (ids: string[]) => Promise<void>;
   title?: string;
 };
+
+type ToastState = { message: string; tone: 'success' | 'danger' | 'info' } | null;
 
 export default function SessionOrderPanel({ items, onSave, title = 'Ordenar sessões' }: Props) {
   const [list, setList] = React.useState<OrderItem[]>(items);
   const [initial, setInitial] = React.useState<OrderItem[]>(items);
   const [saving, setSaving] = React.useState(false);
-  const [toast, setToast] = React.useState<{ msg: string; sev: 'success' | 'error' | 'info' } | null>(null);
+  const [toast, setToast] = React.useState<ToastState>(null);
 
-  React.useEffect(() => { setList(items); setInitial(items); }, [items]);
+  React.useEffect(() => {
+    setList(items);
+    setInitial(items);
+  }, [items]);
 
   const isDirty = React.useMemo(() => {
-    const a = initial.map(i => i.id).join(',');
-    const b = list.map(i => i.id).join(',');
+    const a = initial.map((item) => item.id).join(',');
+    const b = list.map((item) => item.id).join(',');
     return a !== b;
   }, [initial, list]);
+
+  React.useEffect(() => {
+    if (!toast) return;
+    const timeout = window.setTimeout(() => setToast(null), toast.tone === 'success' ? 3200 : 4800);
+    return () => window.clearTimeout(timeout);
+  }, [toast]);
 
   const handleReorder = (next: OrderItem[]) => setList(next);
   const handleReset = () => setList(initial);
@@ -37,49 +43,64 @@ export default function SessionOrderPanel({ items, onSave, title = 'Ordenar sess
     if (!isDirty || saving) return;
     setSaving(true);
     try {
-      await onSave(list.map(i => i.id));
+      await onSave(list.map((item) => item.id));
       setInitial(list);
-      setToast({ msg: '✅ Ordem guardada com sucesso', sev: 'success' });
-    } catch (e: any) {
-      setToast({ msg: e?.message ?? 'Falha ao guardar ordem', sev: 'error' });
+      setToast({ message: 'Ordem guardada com sucesso.', tone: 'success' });
+    } catch (error: any) {
+      setToast({ message: error?.message ?? 'Falha ao guardar ordem.', tone: 'danger' });
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Card variant="outlined" sx={{ overflow: 'hidden' }}>
-      <CardHeader
-        title={`🗂️ ${title}`}
-        subheader="Arrasta para reordenar (ou usa as setas ↑/↓)."
-      />
-      <CardContent sx={{ pt: 1.5 }}>
-        <OrderListDnD items={list} onReorder={handleReorder} dense />
-      </CardContent>
-      <CardActions sx={{ px: 2, pb: 2 }}>
-        <Stack direction="row" spacing={1}>
-          <Button variant="outlined" startIcon={<Replay />} onClick={handleReset} disabled={!isDirty || saving}>
-            Repor
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={saving ? <CircularProgress size={18} /> : <Save />}
+    <section className="neo-panel session-order-panel" aria-live="polite">
+      <header className="session-order-panel__header">
+        <div>
+          <h1 className="session-order-panel__title">🗂️ {title}</h1>
+          <p className="session-order-panel__subtitle">
+            Arrasta, usa as setas ou o teclado para definir a ordem. Dados sincronizados com o Supabase.
+          </p>
+        </div>
+        <div className="session-order-panel__actions">
+          <button
+            type="button"
+            className="neo-button"
+            onClick={handleReset}
+            disabled={!isDirty || saving}
+          >
+            <RefreshCcw size={16} aria-hidden /> Repor
+          </button>
+          <button
+            type="button"
+            className="neo-button neo-button--primary"
             onClick={handleSave}
             disabled={!isDirty || saving}
           >
-            Guardar ordem
-          </Button>
-        </Stack>
-      </CardActions>
+            <Save size={16} aria-hidden /> Guardar ordem
+          </button>
+        </div>
+      </header>
 
-      <Snackbar
-        open={!!toast}
-        autoHideDuration={4000}
-        onClose={() => setToast(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        {toast && <Alert onClose={() => setToast(null)} severity={toast.sev} variant="filled">{toast.msg}</Alert>}
-      </Snackbar>
-    </Card>
+      <OrderListDnD items={list} onReorder={handleReorder} dense />
+
+      <footer className="session-order-panel__footer">
+        <div className="session-order-panel__hint">
+          <CheckCircle2 size={16} aria-hidden />
+          <span>
+            A lista apresenta {list.length} sessões ordenadas por prioridade. O Supabase atualiza a agenda imediatamente após
+            guardares.
+          </span>
+        </div>
+      </footer>
+
+      {toast && (
+        <div className="neo-alert" data-tone={toast.tone} role="status">
+          <div className="neo-alert__content">
+            <p className="neo-alert__message">{toast.message}</p>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }

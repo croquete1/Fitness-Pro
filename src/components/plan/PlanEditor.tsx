@@ -1,49 +1,50 @@
-// src/components/plan/PlanEditor.tsx
 'use client';
 
 import React, {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import {
+  ArrowDown,
+  ArrowUp,
+  Dumbbell,
+  Loader2,
+  ScrollText,
+  Trash2,
+} from 'lucide-react';
+
 import { showToast } from '@/components/ui/Toasts';
 import UserSelect from '@/components/users/UserSelect';
 
-type PlanWorkflowStatus = 'PENDING' | 'ACTIVE' | 'ARCHIVED' | 'DRAFT' | 'APPROVED' | string;
+const DEFAULT_SETS = 3;
+const DEFAULT_REPS = 10;
 
-/** ========= Toast wrapper à prova de tipos =========
- *  Evita erros de compilação se o Alert mudar entre {message}|{text} ou (type, msg)
- */
 function toast(type: 'success' | 'error' | 'info' | 'warning', msg: string) {
   try {
-    // shape 1: { type, text }
     (showToast as any)({ type, text: msg });
     return;
   } catch {}
   try {
-    // shape 2: { type, message }
     (showToast as any)({ type, message: msg });
     return;
   } catch {}
   try {
-    // shape 3: (type, message)
     (showToast as any)(type, msg);
   } catch {
-    // silencia em ambiente onde o provider não esteja montado
+    /* noop */
   }
 }
 
-/* ================== Tipos ================== */
+type PlanWorkflowStatus = 'PENDING' | 'ACTIVE' | 'ARCHIVED' | 'DRAFT' | 'APPROVED' | 'SUSPENDED' | string;
+
 type Exercise = {
   id: string;
   name: string;
-  /** URL de média do exercício (gif/video/png) – pode ser local (/exercises/xxx.gif) ou remota. */
   mediaUrl?: string;
-  /** imagem/diagrama de músculos */
   muscleUrl?: string;
   sets?: number;
   reps?: number;
@@ -66,23 +67,11 @@ type Mode = 'create' | 'edit';
 type Props = {
   mode: Mode;
   initial: InitialPlan;
-  /** só no modo edit */
   planId?: string;
   admin?: boolean;
-  /** callback opcional, p/ fechar modal ou navegar */
   onSaved?: (id: string) => void;
 };
 
-/* ================== Utils ================== */
-function debounce<F extends (...args: any[]) => void>(fn: F, ms = 300) {
-  let t: ReturnType<typeof setTimeout> | null = null;
-  return (...args: Parameters<F>) => {
-    if (t) clearTimeout(t);
-    t = setTimeout(() => fn(...args), ms);
-  };
-}
-
-/* ================== Picker de Exercícios ================== */
 type ExerciseLite = {
   id: string;
   name: string;
@@ -90,7 +79,31 @@ type ExerciseLite = {
   muscleUrl?: string;
 };
 
-function useExerciseSearch() {
+type PickerResult = {
+  q: string;
+  setQ: (value: string) => void;
+  items: ExerciseLite[];
+  loading: boolean;
+};
+
+const STATUS_OPTIONS: PlanWorkflowStatus[] = [
+  'PENDING',
+  'ACTIVE',
+  'APPROVED',
+  'SUSPENDED',
+  'DRAFT',
+  'ARCHIVED',
+];
+
+function debounce<F extends (...args: any[]) => void>(fn: F, ms = 320) {
+  let t: ReturnType<typeof setTimeout> | null = null;
+  return (...args: Parameters<F>) => {
+    if (t) clearTimeout(t);
+    t = setTimeout(() => fn(...args), ms);
+  };
+}
+
+function useExerciseSearch(): PickerResult {
   const [q, setQ] = useState('');
   const [items, setItems] = useState<ExerciseLite[]>([]);
   const [loading, setLoading] = useState(false);
@@ -110,11 +123,11 @@ function useExerciseSearch() {
           const data = (await res.json()) as ExerciseLite[];
           setItems(Array.isArray(data) ? data : []);
         } catch {
-          // silencioso
+          setItems([]);
         } finally {
           setLoading(false);
         }
-      }, 300),
+      }, 320),
     []
   );
 
@@ -127,57 +140,70 @@ function useExerciseSearch() {
 
 function ExercisePicker({ onPick }: { onPick: (ex: ExerciseLite) => void }) {
   const { q, setQ, items, loading } = useExerciseSearch();
+  const isIdle = !loading && q.trim().length >= 2 && items.length === 0;
 
   return (
-    <div className="grid gap-2">
-      <div className="grid gap-1">
-        <label className="text-xs opacity-70">Adicionar exercício</label>
-        <input
-          className="h-10 rounded-lg border px-3"
-          style={{ background: 'var(--btn-bg)', borderColor: 'var(--border)' }}
-          placeholder="Pesquisar exercício por nome…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
+    <div className="plan-editor__picker">
+      <div className="neo-input-group">
+        <label className="neo-input-group__field">
+          <span className="neo-input-group__label">Adicionar exercício</span>
+          <input
+            className="neo-input"
+            placeholder="Pesquisa real na biblioteca…"
+            value={q}
+            onChange={(event) => setQ(event.target.value)}
+            aria-label="Pesquisar exercício"
+          />
+        </label>
       </div>
 
-      {loading && <div className="text-xs opacity-70">A procurar…</div>}
+      <p className="plan-editor__pickerHint">
+        Pesquisa alimentada pela API de exercícios do Supabase. Mínimo de 2 caracteres.
+      </p>
+
+      {loading && (
+        <div className="plan-editor__pickerState" role="status">
+          <Loader2 className="plan-editor__spinner" aria-hidden /> A procurar exercícios…
+        </div>
+      )}
+
+      {isIdle && (
+        <div className="plan-editor__pickerState" role="status">
+          Nenhum exercício corresponde à pesquisa atual.
+        </div>
+      )}
 
       {items.length > 0 && (
-        <div className="grid gap-2" style={{ maxHeight: 280, overflow: 'auto' }}>
-          {items.map((it) => (
-            <button
-              key={it.id}
-              className="flex items-center gap-3 rounded-xl border p-2 text-left hover:bg-[var(--hover)]"
-              style={{ borderColor: 'var(--border)', background: 'var(--card-bg)' }}
-              onClick={() => onPick(it)}
-            >
-              <div
-                className="relative h-12 w-12 overflow-hidden rounded-lg border"
-                style={{ borderColor: 'var(--border)' }}
+        <ul className="plan-editor__suggestions" role="listbox" aria-label="Sugestões de exercícios">
+          {items.map((item) => (
+            <li key={item.id}>
+              <button
+                type="button"
+                className="plan-editor__suggestion"
+                onClick={() => onPick(item)}
               >
-                <Image
-                  src={it.mediaUrl || '/exercise-placeholder.png'}
-                  alt=""
-                  fill
-                  sizes="48px"
-                  style={{ objectFit: 'cover' }}
-                />
-              </div>
-              <div className="grid">
-                <div className="text-sm font-medium">{it.name}</div>
-                <div className="text-xs opacity-70">{it.id}</div>
-              </div>
-            </button>
+                <span className="plan-editor__suggestionMedia">
+                  <Image
+                    src={item.mediaUrl || '/exercise-placeholder.png'}
+                    alt=""
+                    width={48}
+                    height={48}
+                  />
+                </span>
+                <span className="plan-editor__suggestionInfo">
+                  <span className="plan-editor__suggestionTitle">{item.name}</span>
+                  <span className="plan-editor__suggestionMeta">ID {item.id}</span>
+                </span>
+              </button>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
   );
 }
 
-/* ================== PlanEditor ================== */
-export default function PlanEditor({ mode, initial, planId, onSaved, admin: _admin = false }: Props) {
+export default function PlanEditor({ mode, initial, planId, onSaved, admin = false }: Props) {
   const router = useRouter();
 
   const [trainerId, setTrainerId] = useState(initial.trainerId);
@@ -189,50 +215,72 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin: _adm
   const [busy, setBusy] = useState(false);
 
   const [trainer, setTrainer] = useState<{ id: string; name?: string | null; email?: string | null } | null>(
-    initial.trainerId ? ({ id: initial.trainerId, name: (initial as any).trainerName } as any) : null
+    initial.trainerId ? { id: initial.trainerId, name: initial.trainerName } : null
   );
   const [client, setClient] = useState<{ id: string; name?: string | null; email?: string | null } | null>(
-    initial.clientId ? ({ id: initial.clientId, name: (initial as any).clientName } as any) : null
+    initial.clientId ? { id: initial.clientId, name: initial.clientName } : null
   );
 
-  // “Zona do lixo” para arrastar e remover
-  const binRef = useRef<HTMLDivElement | null>(null);
-
   const canSave = useMemo(() => {
-    return trainerId && clientId && title.trim().length >= 3 && exercises.length > 0 && !busy;
+    const hasTitle = title.trim().length >= 3;
+    const hasExercises = exercises.length > 0;
+    return Boolean(trainerId && clientId && hasTitle && hasExercises && !busy);
   }, [trainerId, clientId, title, exercises.length, busy]);
 
-  function addExercise(item: ExerciseLite) {
-    setExercises((s) => [
-      ...s,
-      {
-        id: item.id,
-        name: item.name,
-        mediaUrl: item.mediaUrl,
-        muscleUrl: item.muscleUrl,
-        sets: 3,
-        reps: 10,
-        notes: '',
-      },
-    ]);
-    toast('success', `Adicionado: ${item.name}`);
-  }
+  const metrics = useMemo(() => {
+    const totalSets = exercises.reduce((acc, ex) => acc + (ex.sets ?? DEFAULT_SETS), 0);
+    const totalReps = exercises.reduce((acc, ex) => acc + (ex.sets ?? DEFAULT_SETS) * (ex.reps ?? DEFAULT_REPS), 0);
+    const withNotes = exercises.filter((ex) => (ex.notes ?? '').trim().length > 0).length;
+    return [
+      { label: 'Exercícios', value: exercises.length, tone: 'primary', meta: 'Itens ativos no plano' },
+      { label: 'Séries totais', value: totalSets, tone: 'success', meta: 'Volume planeado' },
+      { label: 'Repetições estimadas', value: totalReps, tone: 'neutral', meta: 'Séries × repetições' },
+      { label: 'Notas preenchidas', value: withNotes, tone: withNotes ? 'info' : 'neutral', meta: 'Exercícios com indicações' },
+    ];
+  }, [exercises]);
 
-  const removeExercise = useCallback((idx: number) => {
-    setExercises((s) => s.filter((_, i) => i !== idx));
-  }, []);
+  const addExercise = useCallback(
+    (item: ExerciseLite) => {
+      setExercises((prev) => [
+        ...prev,
+        {
+          id: item.id,
+          name: item.name,
+          mediaUrl: item.mediaUrl,
+          muscleUrl: item.muscleUrl,
+          sets: DEFAULT_SETS,
+          reps: DEFAULT_REPS,
+          notes: '',
+        },
+      ]);
+      toast('success', `Adicionado: ${item.name}`);
+    },
+    []
+  );
 
-  const moveExercise = useCallback((from: number, to: number) => {
-    setExercises((s) => {
-      const arr = s.slice();
-      const [it] = arr.splice(from, 1);
-      arr.splice(to, 0, it);
-      return arr;
+  const updateExercise = useCallback((index: number, patch: Partial<Exercise>) => {
+    setExercises((prev) => {
+      const next = prev.slice();
+      next[index] = { ...next[index], ...patch };
+      return next;
     });
   }, []);
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
+  const removeExercise = useCallback((index: number) => {
+    setExercises((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const moveExercise = useCallback((from: number, to: number) => {
+    setExercises((prev) => {
+      const next = prev.slice();
+      const [item] = next.splice(from, 1);
+      next.splice(to, 0, item);
+      return next;
+    });
+  }, []);
+
+  async function handleSave(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     if (!canSave) return;
 
     try {
@@ -272,245 +320,278 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin: _adm
 
       toast('success', 'Plano guardado com sucesso!');
 
-      // callback ou navegação
       if (onSaved && id) onSaved(id);
-      else router.push('/dashboard/pt'); // volta à área do PT/Admin
-    } catch (err: any) {
-      toast('error', err?.message ?? 'Erro ao guardar o plano');
+      else router.push('/dashboard/pt');
+    } catch (error: any) {
+      toast('error', error?.message ?? 'Erro ao guardar o plano');
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <form onSubmit={handleSave} className="grid gap-4">
-      {/* Cabeçalho */}
-      <div className="card" style={{ padding: 12 }}>
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="grid gap-2">
-            <label className="text-xs opacity-70">Título</label>
-            <input
-              className="h-10 rounded-lg border px-3"
-              style={{ background: 'var(--btn-bg)', borderColor: 'var(--border)' }}
-              placeholder="Ex.: Plano Hipertrofia A/B"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
+    <form className="plan-editor" onSubmit={handleSave} aria-live="polite">
+      <section className="neo-panel plan-editor__panel" aria-labelledby="plan-editor-heading">
+        <header className="plan-editor__header">
+          <div>
+            <h1 id="plan-editor-heading" className="plan-editor__title">
+              {mode === 'create' ? 'Criar plano de treino' : 'Editar plano de treino'}
+            </h1>
+            <p className="plan-editor__subtitle">
+              Define o plano de treino com dados reais e acompanha o impacto das alterações em tempo real.
+            </p>
+          </div>
+          <ul className="plan-editor__metrics" role="list">
+            {metrics.map((metric) => (
+              <li key={metric.label}>
+                <article className="neo-surface" data-variant={metric.tone}>
+                  <span className="neo-surface__label">{metric.label}</span>
+                  <span className="neo-surface__value">{metric.value}</span>
+                  <span className="neo-surface__meta">{metric.meta}</span>
+                </article>
+              </li>
+            ))}
+          </ul>
+        </header>
+
+        <div className="plan-editor__grid">
+          <div className="neo-input-group plan-editor__stack">
+            <label className="neo-input-group__field">
+              <span className="neo-input-group__label">Título</span>
+              <input
+                className="neo-input"
+                placeholder="Ex.: Hipertrofia avançada A/B"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                required
+                minLength={3}
+              />
+            </label>
+            <label className="neo-input-group__field">
+              <span className="neo-input-group__label">Estado</span>
+              <select
+                className="neo-input"
+                value={status}
+                onChange={(event) => setStatus(event.target.value as PlanWorkflowStatus)}
+              >
+                {STATUS_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
 
-          <div className="grid gap-2">
-            <label className="text-xs opacity-70">Estado</label>
-            <select
-              className="h-10 rounded-lg border px-3"
-              style={{ background: 'var(--btn-bg)', borderColor: 'var(--border)' }}
-              value={status}
-              onChange={(e) => setStatus(e.target.value as PlanWorkflowStatus)}
-            >
-              <option value="PENDING">PENDING</option>
-              <option value="ACTIVE">ACTIVE</option>
-              <option value="SUSPENDED">SUSPENDED</option>
-            </select>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="neo-input-group plan-editor__participants">
             <UserSelect
               label="Personal Trainer"
               role="TRAINER"
               value={trainer}
-              onChange={(v) => {
-                setTrainer(v);
-                setTrainerId(v?.id ?? initial.trainerId);
+              onChange={(value) => {
+                setTrainer(value);
+                setTrainerId(value?.id ?? initial.trainerId);
               }}
-              placeholder="Pesquisar Personal Trainer…"
-              disabled={!_admin}
+              placeholder="Seleciona o PT responsável…"
+              disabled={!admin}
             />
-
             <UserSelect
               label="Cliente"
               role="CLIENT"
               value={client}
-              onChange={(v) => {
-                setClient(v);
-                setClientId(v?.id ?? initial.clientId);
+              onChange={(value) => {
+                setClient(value);
+                setClientId(value?.id ?? initial.clientId);
               }}
-              placeholder="Pesquisar cliente…"
+              placeholder="Escolhe o cliente alvo…"
             />
           </div>
         </div>
 
-        <div className="grid gap-2 mt-3">
-          <label className="text-xs opacity-70">Notas</label>
+        <label className="neo-input-group__field plan-editor__notes">
+          <span className="neo-input-group__label">Notas gerais</span>
           <textarea
-            className="min-h-[90px] rounded-lg border px-3 py-2"
-            style={{ background: 'var(--btn-bg)', borderColor: 'var(--border)' }}
-            placeholder="Observações, indicações de carga, RIR, etc."
+            className="neo-input neo-input--textarea"
+            placeholder="Observações, diretrizes de carga, RIR, postura, etc."
             value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            onChange={(event) => setNotes(event.target.value)}
           />
-        </div>
-      </div>
+          <span className="neo-input-group__hint">
+            Estas notas ficam visíveis para o cliente e o personal trainer.
+          </span>
+        </label>
+      </section>
 
-      {/* Picker + Lista de exercícios */}
-      <div className="grid gap-3 md:grid-cols-[360px,1fr]">
-        <div className="card" style={{ padding: 12 }}>
-          <ExercisePicker onPick={addExercise} />
-        </div>
-
-        <div className="card" style={{ padding: 12 }}>
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="m-0">Exercícios</h3>
-            <div
-              ref={binRef}
-              title="Arrasta aqui para remover"
-              className="rounded-lg border px-2 py-1 text-sm opacity-80"
-              style={{ borderColor: 'var(--border)', background: 'var(--hover)' }}
-            >
-              🗑️ Remover
+      <div className="plan-editor__layout">
+        <section className="neo-panel plan-editor__pickerPanel">
+          <header className="plan-editor__sectionHeader">
+            <div>
+              <h2 className="plan-editor__sectionTitle">
+                <Dumbbell aria-hidden size={18} /> Biblioteca de exercícios
+              </h2>
+              <p className="plan-editor__sectionSubtitle">Pesquisa em tempo real na biblioteca oficial.</p>
             </div>
-          </div>
+          </header>
+          <ExercisePicker onPick={addExercise} />
+        </section>
+
+        <section className="neo-panel plan-editor__exercisePanel">
+          <header className="plan-editor__sectionHeader">
+            <div>
+              <h2 className="plan-editor__sectionTitle">
+                <ScrollText aria-hidden size={18} /> Exercícios do plano
+              </h2>
+              <p className="plan-editor__sectionSubtitle">
+                Ajusta séries, repetições e notas para cada exercício. Usa as setas para organizar a ordem do treino.
+              </p>
+            </div>
+          </header>
 
           {exercises.length === 0 ? (
-            <div className="text-sm opacity-70">Ainda sem exercícios. Procura à esquerda e adiciona.</div>
-          ) : (
-            <div className="grid gap-2">
-              {exercises.map((ex, idx) => (
-                <div
-                  key={`${ex.id}-${idx}`}
-                  className="grid gap-3 rounded-xl border p-2 md:grid-cols-[64px,1fr,auto]"
-                  style={{ borderColor: 'var(--border)', background: 'var(--card-bg)' }}
-                >
-                  <div
-                    className="relative h-16 w-16 overflow-hidden rounded-lg border"
-                    style={{ borderColor: 'var(--border)' }}
-                  >
-                    <Image
-                      src={ex.mediaUrl || '/exercise-placeholder.png'}
-                      alt=""
-                      fill
-                      sizes="64px"
-                      style={{ objectFit: 'cover' }}
-                    />
-                  </div>
-
-                  <div className="grid gap-2">
-                    <div className="text-sm font-semibold">{ex.name}</div>
-                    <div className="grid gap-2 md:grid-cols-3">
-                      <label className="grid gap-1 text-xs">
-                        <span className="opacity-70">Séries</span>
-                        <input
-                          type="number"
-                          min={1}
-                          className="h-9 rounded-lg border px-2"
-                          style={{ background: 'var(--btn-bg)', borderColor: 'var(--border)' }}
-                          value={ex.sets ?? 3}
-                          onChange={(e) =>
-                            setExercises((s) => {
-                              const clone = s.slice();
-                              clone[idx] = { ...clone[idx], sets: Number(e.target.value) || 0 };
-                              return clone;
-                            })
-                          }
-                        />
-                      </label>
-
-                      <label className="grid gap-1 text-xs">
-                        <span className="opacity-70">Repetições</span>
-                        <input
-                          type="number"
-                          min={1}
-                          className="h-9 rounded-lg border px-2"
-                          style={{ background: 'var(--btn-bg)', borderColor: 'var(--border)' }}
-                          value={ex.reps ?? 10}
-                          onChange={(e) =>
-                            setExercises((s) => {
-                              const clone = s.slice();
-                              clone[idx] = { ...clone[idx], reps: Number(e.target.value) || 0 };
-                              return clone;
-                            })
-                          }
-                        />
-                      </label>
-
-                      <label className="grid gap-1 text-xs md:col-span-1">
-                        <span className="opacity-70">Notas</span>
-                        <input
-                          className="h-9 rounded-lg border px-2"
-                          style={{ background: 'var(--btn-bg)', borderColor: 'var(--border)' }}
-                          value={ex.notes ?? ''}
-                          onChange={(e) =>
-                            setExercises((s) => {
-                              const clone = s.slice();
-                              clone[idx] = { ...clone[idx], notes: e.target.value };
-                              return clone;
-                            })
-                          }
-                        />
-                      </label>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 self-center">
-                    <button
-                      type="button"
-                      className="btn icon"
-                      title="Mover para cima"
-                      onClick={() => idx > 0 && moveExercise(idx, idx - 1)}
-                    >
-                      ⬆️
-                    </button>
-                    <button
-                      type="button"
-                      className="btn icon"
-                      title="Mover para baixo"
-                      onClick={() => idx < exercises.length - 1 && moveExercise(idx, idx + 1)}
-                    >
-                      ⬇️
-                    </button>
-                    <button
-                      type="button"
-                      className="btn icon"
-                      title="Remover"
-                      onClick={() => removeExercise(idx)}
-                    >
-                      ✖
-                    </button>
-                  </div>
-
-                  {/* preview de músculos (opcional) */}
-                  {ex.muscleUrl && (
-                    <div className="md:col-span-3">
-                      <div
-                        className="relative mt-1 h-28 w-full overflow-hidden rounded-lg border"
-                        style={{ borderColor: 'var(--border)' }}
-                      >
-                        <Image
-                          src={ex.muscleUrl}
-                          alt="Músculos trabalhados"
-                          fill
-                          sizes="100vw"
-                          style={{ objectFit: 'cover' }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+            <div className="neo-empty plan-editor__empty">
+              <span className="neo-empty__icon" aria-hidden>
+                🏋️
+              </span>
+              <p className="neo-empty__title">Ainda sem exercícios</p>
+              <p className="neo-empty__description">
+                Pesquisa na biblioteca ao lado para adicionar exercícios reais ao plano.
+              </p>
             </div>
+          ) : (
+            <ul className="plan-editor__exerciseList">
+              {exercises.map((exercise, index) => {
+                const canMoveUp = index > 0;
+                const canMoveDown = index < exercises.length - 1;
+                return (
+                  <li key={`${exercise.id}-${index}`} className="plan-editor__exercise">
+                    <div className="plan-editor__media">
+                      <Image
+                        src={exercise.mediaUrl || '/exercise-placeholder.png'}
+                        alt=""
+                        fill
+                        sizes="96px"
+                      />
+                    </div>
+
+                    <div className="plan-editor__exerciseContent">
+                      <header className="plan-editor__exerciseHeader">
+                        <h3 className="plan-editor__exerciseTitle">{exercise.name}</h3>
+                      </header>
+
+                      <div className="plan-editor__exerciseControls">
+                        <label className="neo-input-group__field">
+                          <span className="neo-input-group__label">Séries</span>
+                          <input
+                            type="number"
+                            min={1}
+                            className="neo-input neo-input--compact"
+                            value={exercise.sets ?? DEFAULT_SETS}
+                            onChange={(event) =>
+                              updateExercise(index, {
+                                sets: Number(event.target.value) || 0,
+                              })
+                            }
+                          />
+                        </label>
+                        <label className="neo-input-group__field">
+                          <span className="neo-input-group__label">Repetições</span>
+                          <input
+                            type="number"
+                            min={1}
+                            className="neo-input neo-input--compact"
+                            value={exercise.reps ?? DEFAULT_REPS}
+                            onChange={(event) =>
+                              updateExercise(index, {
+                                reps: Number(event.target.value) || 0,
+                              })
+                            }
+                          />
+                        </label>
+                        <label className="neo-input-group__field plan-editor__exerciseNote">
+                          <span className="neo-input-group__label">Notas</span>
+                          <input
+                            className="neo-input"
+                            value={exercise.notes ?? ''}
+                            onChange={(event) =>
+                              updateExercise(index, {
+                                notes: event.target.value,
+                              })
+                            }
+                            placeholder="Carga, tempo sob tensão, respiração…"
+                          />
+                        </label>
+                      </div>
+
+                      {exercise.muscleUrl && (
+                        <div className="plan-editor__muscleMap">
+                          <Image
+                            src={exercise.muscleUrl}
+                            alt="Músculos trabalhados"
+                            fill
+                            sizes="240px"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="plan-editor__exerciseActions">
+                      <button
+                        type="button"
+                        className="neo-icon-button"
+                        onClick={() => moveExercise(index, Math.max(0, index - 1))}
+                        aria-label="Mover exercício para cima"
+                        disabled={!canMoveUp}
+                      >
+                        <ArrowUp size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        className="neo-icon-button"
+                        onClick={() => moveExercise(index, Math.min(exercises.length - 1, index + 1))}
+                        aria-label="Mover exercício para baixo"
+                        disabled={!canMoveDown}
+                      >
+                        <ArrowDown size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        className="neo-icon-button"
+                        onClick={() => removeExercise(index)}
+                        aria-label="Remover exercício"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
           )}
-        </div>
+        </section>
       </div>
 
-      {/* Ações */}
-      <div className="flex items-center justify-end gap-2">
+      <footer className="plan-editor__footer">
         <button
           type="submit"
-          className="btn primary"
+          className="neo-button neo-button--primary"
           disabled={!canSave}
-          title={!canSave ? 'Preenche os campos e adiciona exercícios' : 'Guardar'}
         >
-          {busy ? 'A guardar…' : mode === 'create' ? 'Criar plano' : 'Guardar alterações'}
+          {busy ? (
+            <>
+              <Loader2 className="plan-editor__spinner" aria-hidden /> A guardar…
+            </>
+          ) : mode === 'create' ? (
+            'Criar plano'
+          ) : (
+            'Guardar alterações'
+          )}
         </button>
-      </div>
+        {!canSave && (
+          <span className="plan-editor__footerHint">
+            Preenche título, participantes e adiciona pelo menos um exercício para guardar o plano.
+          </span>
+        )}
+      </footer>
     </form>
   );
 }
