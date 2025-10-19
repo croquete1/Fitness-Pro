@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { tryCreateServerClient } from '@/lib/supabaseServer';
 import { requireAdminGuard, isGuardErr } from '@/lib/api-guards';
 import { supabaseFallbackJson, supabaseUnavailableResponse } from '@/lib/supabase/responses';
+import { getAdminPlansFallback } from '@/lib/fallback/admin-plans';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +22,28 @@ export async function GET(req: Request) {
 
   const sb = tryCreateServerClient();
   if (!sb) {
-    return supabaseFallbackJson({ rows: [], count: 0 });
+    const fallback = getAdminPlansFallback();
+    const filtered = fallback.filter((row) => {
+      const matchesQuery = q
+        ? [row.name, row.description, row.difficulty].join(' ').toLowerCase().includes(q.toLowerCase())
+        : true;
+      const matchesDifficulty = difficulty ? row.difficulty === difficulty : true;
+      return matchesQuery && matchesDifficulty;
+    });
+    const from = page * pageSize;
+    const to = from + pageSize;
+    return supabaseFallbackJson({
+      rows: filtered.slice(from, to).map((row) => ({
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        difficulty: row.difficulty,
+        duration_weeks: row.duration_weeks,
+        is_public: row.is_public,
+        created_at: row.created_at,
+      })),
+      count: filtered.length,
+    });
   }
 
   async function base(table: string) {
@@ -59,7 +81,23 @@ export async function GET(req: Request) {
   }
 
   if (!data) {
-    return NextResponse.json({ rows: [], count: 0 }, { headers: { 'cache-control': 'no-store' } });
+    const fallback = getAdminPlansFallback();
+    return NextResponse.json(
+      {
+        rows: fallback.map((row) => ({
+          id: row.id,
+          name: row.name,
+          description: row.description,
+          difficulty: row.difficulty,
+          duration_weeks: row.duration_weeks,
+          is_public: row.is_public,
+          created_at: row.created_at,
+        })),
+        count: fallback.length,
+        source: 'fallback',
+      },
+      { headers: { 'cache-control': 'no-store' } },
+    );
   }
 
   const rows = data.map((d: any) => ({
@@ -72,7 +110,7 @@ export async function GET(req: Request) {
     created_at: d.created_at ?? null,
   }));
 
-  return NextResponse.json({ rows, count }, { headers: { 'cache-control': 'no-store' } });
+  return NextResponse.json({ rows, count, source: 'supabase' }, { headers: { 'cache-control': 'no-store' } });
 }
 
 export async function POST(req: Request) {
