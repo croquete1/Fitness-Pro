@@ -5652,7 +5652,6 @@ h1,.h1{
   display:flex;
   justify-content:space-between;
   gap:12px;
-  align-items:flex-start;
 }
 .plans-dashboard__trainerInfo{
   display:flex;
