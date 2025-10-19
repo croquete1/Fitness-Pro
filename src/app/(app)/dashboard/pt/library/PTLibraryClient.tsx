@@ -1,912 +1,676 @@
 'use client';
 
 import * as React from 'react';
+import useSWR from 'swr';
 import {
-  Box,
-  Stack,
-  TextField,
-  MenuItem,
-  Button,
-  IconButton,
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
   Tooltip,
-  Paper,
-  Divider,
-  Snackbar,
-  Alert,
-  LinearProgress,
-  Pagination,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Typography,
-  Chip,
-  useMediaQuery,
-} from '@mui/material';
-import { DataGrid, GridColDef, GridToolbar } from '@mui/x-data-grid';
-import AddIcon from '@mui/icons-material/Add';
-import EditOutlined from '@mui/icons-material/EditOutlined';
-import DeleteOutline from '@mui/icons-material/DeleteOutline';
-import FileCopyOutlined from '@mui/icons-material/FileCopyOutlined';
-import VisibilityOutlined from '@mui/icons-material/VisibilityOutlined';
-import Close from '@mui/icons-material/Close';
+  XAxis,
+  YAxis,
+} from 'recharts';
+import PageHeader from '@/components/ui/PageHeader';
+import Button from '@/components/ui/Button';
+import Alert from '@/components/ui/Alert';
+import Modal from '@/components/ui/Modal';
 import TrainerExerciseFormClient from './TrainerExerciseFormClient';
+import type {
+  TrainerLibraryDashboardData,
+  TrainerLibraryHighlight,
+  TrainerLibraryTableRow,
+  TrainerLibraryTimelinePoint,
+} from '@/lib/trainer/library/types';
 import { normalizeDifficulty } from '@/lib/exercises/schema';
-import { useTheme } from '@mui/material/styles';
-import { getExerciseMediaInfo } from '@/lib/exercises/media';
-import { parseTagList } from '@/lib/exercises/tags';
 
-export type LibraryRow = {
-  id: string;
-  name: string;
-  muscle_group?: string | null;
-  equipment?: string | null;
-  muscle_tags?: string[];
-  equipment_tags?: string[];
-  difficulty?: string | null;
-  description?: string | null;
-  video_url?: string | null;
-  is_global?: boolean | null;
-  is_published?: boolean | null;
-  owner_id?: string | null;
-  created_at?: string | null;
+const fetcher = async (url: string): Promise<DashboardResponse> => {
+  const response = await fetch(url, { credentials: 'include' });
+  if (!response.ok) {
+    const message = await response.text().catch(() => '');
+    throw new Error(message || 'Não foi possível actualizar a biblioteca.');
+  }
+  const payload = (await response.json()) as DashboardResponse | { ok?: boolean; message?: string };
+  if (!payload || typeof payload !== 'object' || !('ok' in payload) || !payload.ok) {
+    throw new Error((payload as any)?.message ?? 'Não foi possível actualizar a biblioteca.');
+  }
+  return payload as DashboardResponse;
 };
 
-type Scope = 'personal' | 'global';
+type DashboardResponse = TrainerLibraryDashboardData & {
+  ok: true;
+  source: 'supabase' | 'fallback';
+};
 
-type Snack = { open: boolean; msg: string; sev: 'success' | 'error' | 'info' | 'warning' };
+type Props = {
+  initialData: DashboardResponse;
+  viewerName: string | null;
+};
 
-const DEFAULT_PAGE_SIZE = 20;
+type ScopeFilter = 'all' | 'personal' | 'global';
 
-export default function PTLibraryClient({ initialScope = 'personal' }: { initialScope?: Scope }) {
-  const theme = useTheme();
-  const isSmallDialog = useMediaQuery(theme.breakpoints.down('sm'));
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+type TimelineTooltipPayload = {
+  active?: boolean;
+  payload?: Array<{ value: number; name: string; payload: TrainerLibraryTimelinePoint }>;
+};
 
-  const [scope, setScope] = React.useState<Scope>(initialScope);
-  const [q, setQ] = React.useState('');
-  const [muscle, setMuscle] = React.useState('');
-  const [difficulty, setDifficulty] = React.useState('');
-  const [equipment, setEquipment] = React.useState('');
+const scopeLabels: Record<ScopeFilter, string> = {
+  all: 'Todos',
+  personal: 'Biblioteca pessoal',
+  global: 'Catálogo global',
+};
 
-  const [rows, setRows] = React.useState<LibraryRow[]>([]);
-  const [count, setCount] = React.useState(0);
-  const [loading, setLoading] = React.useState(false);
-  const [paginationModel, setPaginationModel] = React.useState({ page: 0, pageSize: DEFAULT_PAGE_SIZE });
-  const [facets, setFacets] = React.useState<{ muscles: string[]; equipments: string[]; difficulties: string[] }>({
-    muscles: [],
-    equipments: [],
-    difficulties: [],
-  });
-  const [snack, setSnack] = React.useState<Snack>({ open: false, msg: '', sev: 'success' });
-  const [needsPersonalRefresh, setNeedsPersonalRefresh] = React.useState(false);
+function matchesQuery(row: TrainerLibraryTableRow, query: string) {
+  if (!query.trim()) return true;
+  const value = query.trim().toLowerCase();
+  return [
+    row.name.toLowerCase(),
+    row.description?.toLowerCase() ?? '',
+    row.muscleTags.join(' ').toLowerCase(),
+    row.equipmentTags.join(' ').toLowerCase(),
+    row.difficultyLabel.toLowerCase(),
+  ].some((field) => field.includes(value));
+}
 
-  const closeSnack = () => setSnack((s) => ({ ...s, open: false }));
+function exportRows(rows: TrainerLibraryTableRow[]) {
+  const header = [
+    'ID',
+    'Nome',
+    'Escopo',
+    'Dificuldade',
+    'Grupos musculares',
+    'Equipamento',
+    'Atualizado em',
+  ];
+  const body = rows.map((row) => [
+    row.id,
+    row.name,
+    row.scopeLabel,
+    row.difficultyLabel,
+    row.muscleTags.join(' | '),
+    row.equipmentTags.join(' | '),
+    row.updatedLabel,
+  ]);
+  const csv = [header, ...body]
+    .map((cells) =>
+      cells
+        .map((value) => {
+          const safe = value ?? '';
+          const needsQuotes = /[",;\n]/.test(safe);
+          const escaped = safe.replace(/"/g, '""');
+          return needsQuotes ? `"${escaped}"` : escaped;
+        })
+        .join(','),
+    )
+    .join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `biblioteca-exercicios-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(link.href);
+}
 
-  const [openCreate, setOpenCreate] = React.useState(false);
-  const [editing, setEditing] = React.useState<LibraryRow | null>(null);
-  const [preview, setPreview] = React.useState<LibraryRow | null>(null);
-  const previewMedia = React.useMemo(() => getExerciseMediaInfo(preview?.video_url), [preview?.video_url]);
-
-  const fetchFacets = React.useCallback(async (scopeFilter: Scope) => {
-    try {
-      const res = await fetch(`/api/pt/library/exercises?facets=1&scope=${scopeFilter}`, { cache: 'no-store' });
-      if (!res.ok) throw new Error(await res.text());
-      const data = await res.json();
-      setFacets({
-        muscles: Array.isArray(data?.muscles) ? data.muscles : [],
-        equipments: Array.isArray(data?.equipments) ? data.equipments : [],
-        difficulties: Array.isArray(data?.difficulties) ? data.difficulties : [],
-      });
-    } catch (error) {
-      console.warn('failed to load exercise facets', error);
-      setFacets({ muscles: [], equipments: [], difficulties: [] });
-    }
-  }, []);
-
-  const closeCreate = (refresh?: boolean) => {
-    setOpenCreate(false);
-    if (refresh) {
-      void fetchRows();
-      void fetchFacets(scope);
-    }
-  };
-  const closeEdit = (refresh?: boolean) => {
-    setEditing(null);
-    if (refresh) {
-      void fetchRows();
-      void fetchFacets(scope);
-    }
-  };
-
-  function setScopeAndReset(next: Scope) {
-    setScope(next);
-    setPaginationModel((prev) => ({ ...prev, page: 0 }));
-  }
-
-  React.useEffect(() => {
-    if (scope === 'personal' && needsPersonalRefresh) {
-      setNeedsPersonalRefresh(false);
-      void fetchRows();
-      void fetchFacets('personal');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scope, needsPersonalRefresh, fetchFacets]);
-
-  async function fetchRows() {
-    setLoading(true);
-    const u = new URL('/api/pt/library/exercises', window.location.origin);
-    u.searchParams.set('scope', scope);
-    u.searchParams.set('page', String(paginationModel.page));
-    u.searchParams.set('pageSize', String(paginationModel.pageSize));
-    if (q) u.searchParams.set('q', q);
-    if (muscle) u.searchParams.set('muscle_group', muscle);
-    if (difficulty) u.searchParams.set('difficulty', difficulty);
-    if (equipment) u.searchParams.set('equipment', equipment);
-
-    try {
-      const r = await fetch(u.toString(), { cache: 'no-store' });
-      if (!r.ok) throw new Error(await r.text());
-      const data = await r.json();
-      const mapped = (data.rows ?? []).map((row: any) => {
-        const muscleTags = parseTagList(row.muscle_group ?? row.muscle ?? null);
-        const equipmentTags = parseTagList(row.equipment ?? null);
-        return {
-          id: String(row.id),
-          name: row.name ?? '',
-          muscle_group: row.muscle_group ?? row.muscle ?? null,
-          equipment: row.equipment ?? null,
-          muscle_tags: muscleTags,
-          equipment_tags: equipmentTags,
-          difficulty: row.difficulty ?? row.level ?? null,
-          description: row.description ?? row.instructions ?? null,
-          video_url: row.video_url ?? row.video ?? null,
-          is_global: row.is_global ?? false,
-          is_published: row.is_published ?? row.published ?? false,
-          owner_id: row.owner_id ?? null,
-          created_at: row.created_at ?? null,
-        } as LibraryRow;
-      });
-      setRows(mapped);
-      setCount(Number(data.count ?? mapped.length));
-    } catch (error: any) {
-      console.error('load exercises', error);
-      setRows([]);
-      setCount(0);
-      setSnack({ open: true, msg: 'Falha ao carregar exercícios.', sev: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  React.useEffect(() => {
-    void fetchRows();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scope, q, muscle, difficulty, equipment, paginationModel.page, paginationModel.pageSize]);
-
-  React.useEffect(() => {
-    void fetchFacets(scope);
-  }, [fetchFacets, scope]);
-
-  const cloneExercise = React.useCallback(async (row: LibraryRow) => {
-    try {
-      const res = await fetch('/api/pt/library/exercises', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sourceId: row.id }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
-      setSnack({ open: true, msg: 'Exercício copiado para a tua biblioteca.', sev: 'success' });
-      if (scope === 'personal') {
-        void fetchRows();
-      } else {
-        setNeedsPersonalRefresh(true);
-      }
-    } catch (error: any) {
-      setSnack({ open: true, msg: error?.message || 'Falha ao copiar exercício.', sev: 'error' });
-    }
-  }, [scope]);
-
-  const deleteExercise = React.useCallback(async (row: LibraryRow) => {
-    if (!confirm(`Remover "${row.name}" da tua biblioteca?`)) return;
-    try {
-      const res = await fetch(`/api/pt/library/exercises/${row.id}`, { method: 'DELETE' });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
-      setSnack({ open: true, msg: 'Exercício removido.', sev: 'success' });
-      setRows((prev) => prev.filter((r) => r.id !== row.id));
-      setCount((prev) => Math.max(prev - 1, 0));
-    } catch (error: any) {
-      setSnack({ open: true, msg: error?.message || 'Falha ao remover exercício.', sev: 'error' });
-    }
-  }, []);
-
-  const renderMediaThumbnail = React.useCallback(
-    (url: string | null | undefined, title?: string | null, variant: 'compact' | 'wide' = 'compact') => {
-      const media = getExerciseMediaInfo(url);
-      const alt = title ? `Pré-visualização de ${title}` : 'Pré-visualização do exercício';
-
-      if (variant === 'wide') {
-        return (
-          <Box
-            sx={{
-              position: 'relative',
-              borderRadius: 2,
-              overflow: 'hidden',
-              border: '1px solid',
-              borderColor: 'divider',
-              backgroundColor: 'background.paper',
-              '&::after': {
-                content: '""',
-                display: 'block',
-                paddingTop: '56.25%',
-              },
-            }}
-          >
-            {media.kind === 'image' && (
-              <Box
-                component="img"
-                src={media.src}
-                alt={alt}
-                sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-            )}
-            {media.kind === 'video' && (
-              <Box
-                component="video"
-                src={media.src}
-                autoPlay
-                loop
-                muted
-                playsInline
-                controls
-                sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-            )}
-            {media.kind === 'embed' && (
-              <Box
-                component="iframe"
-                src={media.src}
-                title={alt}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
-              />
-            )}
-            {media.kind === 'none' && (
-              <Stack
-                alignItems="center"
-                justifyContent="center"
-                sx={{ position: 'absolute', inset: 0, backgroundColor: 'action.hover' }}
-              >
-                <Typography variant="h4" component="span" role="img" aria-label="Exercício">
-                  💪
-                </Typography>
-              </Stack>
-            )}
-          </Box>
-        );
-      }
-
-      return (
-        <Box
-          sx={{
-            width: 90,
-            height: 90,
-            borderRadius: 2,
-            overflow: 'hidden',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            bgcolor: 'action.hover',
-          }}
-        >
-          {media.kind === 'image' && (
-            <Box component="img" src={media.src} alt={alt} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          )}
-          {media.kind === 'video' && (
-            <Box
-              component="video"
-              src={media.src}
-              muted
-              loop
-              autoPlay
-              playsInline
-              sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            />
-          )}
-          {media.kind === 'embed' && (
-            <Box
-              component="iframe"
-              src={media.src}
-              title={alt}
-              allow="autoplay; clipboard-write; encrypted-media; picture-in-picture"
-              sx={{ width: '100%', height: '100%', border: 0 }}
-            />
-          )}
-          {media.kind === 'none' && (
-            <Typography component="span" variant="h5" role="img" aria-label="Exercício">
-              💪
-            </Typography>
-          )}
-        </Box>
-      );
-    },
-    [],
+function TimelineTooltipContent({ active, payload }: TimelineTooltipPayload) {
+  if (!active || !payload?.length) return null;
+  const datum = payload[0]?.payload;
+  if (!datum) return null;
+  return (
+    <div className="trainer-library__tooltip" role="status">
+      <strong>{datum.label}</strong>
+      <dl>
+        <div>
+          <dt>Pessoais</dt>
+          <dd>{datum.personal}</dd>
+        </div>
+        <div>
+          <dt>Catálogo</dt>
+          <dd>{datum.global}</dd>
+        </div>
+        <div>
+          <dt>Total</dt>
+          <dd>{datum.total}</dd>
+        </div>
+      </dl>
+    </div>
   );
+}
 
-  const columns = React.useMemo<GridColDef<LibraryRow>[]>(
-    () => [
-      {
-        field: 'media',
-        headerName: '',
-        width: 96,
-        sortable: false,
-        filterable: false,
-        renderCell: (params) => renderMediaThumbnail(params.row.video_url, params.row.name, 'compact'),
-      },
-      {
-        field: 'name',
-        headerName: 'Nome',
-        flex: 1.4,
-        minWidth: 220,
-        renderCell: (params) => (
-          <Stack spacing={0.5} sx={{ py: 0.5 }}>
-            <Typography variant="body2" fontWeight={600} noWrap>
-              {params.row.name}
-            </Typography>
-            {params.row.description && (
-              <Typography variant="caption" color="text.secondary" noWrap>
-                {params.row.description}
-              </Typography>
-            )}
-          </Stack>
-        ),
-      },
-    {
-      field: 'muscle_group',
-      headerName: 'Grupo muscular',
-      flex: 0.9,
-      minWidth: 140,
-      renderCell: (params) => (
-        <Stack direction="row" spacing={0.5} flexWrap="wrap">
-          {(params.row.muscle_tags ?? []).map((tag) => (
-            <Chip key={`pt-muscle-${params.row.id}-${tag}`} label={tag} size="small" variant="outlined" />
-          ))}
-        </Stack>
-      ),
-    },
-    {
-      field: 'equipment',
-      headerName: 'Equipamento',
-      flex: 0.9,
-      minWidth: 140,
-      renderCell: (params) => (
-        <Stack direction="row" spacing={0.5} flexWrap="wrap">
-          {(params.row.equipment_tags ?? []).map((tag) => (
-            <Chip key={`pt-equipment-${params.row.id}-${tag}`} label={tag} size="small" variant="outlined" />
-          ))}
-        </Stack>
-      ),
-    },
-    {
-      field: 'difficulty',
-      headerName: 'Dificuldade',
-      width: 120,
-      renderCell: (params) =>
-        params.row.difficulty ? (
-          <Chip
-            size="small"
-            label={params.row.difficulty}
-            color={
-              params.row.difficulty === 'Difícil'
-                ? 'error'
-                : params.row.difficulty === 'Média'
-                ? 'warning'
-                : 'success'
-            }
-            variant="outlined"
-          />
-        ) : null,
-    },
-    {
-      field: 'origin',
-      headerName: 'Origem',
-      width: 150,
-      valueGetter: (params: any) => {
-        const row = (params?.row ?? {}) as LibraryRow;
-        return row.is_global ? 'Catálogo global' : 'Minha biblioteca';
-      },
-      renderCell: (params) => {
-        const row = (params?.row ?? {}) as LibraryRow;
-        const isGlobal = Boolean(row.is_global);
-        return (
-          <Chip
-            size="small"
-            label={isGlobal ? 'Catálogo global' : 'Minha biblioteca'}
-            color={isGlobal ? 'default' : 'primary'}
-            variant={isGlobal ? 'outlined' : 'filled'}
-          />
-        );
-      },
-    },
-    {
-      field: 'actions',
-      headerName: 'Ações',
-      width: 210,
-      sortable: false,
-      filterable: false,
-      renderCell: (params) => {
-        const row = (params?.row ?? null) as LibraryRow | null;
-        if (!row) return null;
-        return (
-          <Stack direction="row" spacing={0.5} alignItems="center">
-            <Tooltip title="Pré-visualizar detalhes">
-              <span>
-                <IconButton size="small" onClick={() => setPreview(row)}>
-                  <VisibilityOutlined fontSize="small" />
-                </IconButton>
-              </span>
-            </Tooltip>
-            {row.is_global ? (
-              <Tooltip title="Copiar para a minha biblioteca">
-                <span>
-                  <IconButton size="small" onClick={() => cloneExercise(row)}>
-                    <FileCopyOutlined fontSize="small" />
-                  </IconButton>
-                </span>
-              </Tooltip>
-            ) : (
-              <>
-                <Tooltip title="Editar exercício">
-                  <span>
-                    <IconButton size="small" onClick={() => setEditing(row)}>
-                      <EditOutlined fontSize="small" />
-                    </IconButton>
-                  </span>
-                </Tooltip>
-                <Tooltip title="Remover exercício">
-                  <span>
-                    <IconButton size="small" color="error" onClick={() => deleteExercise(row)}>
-                      <DeleteOutline fontSize="small" />
-                    </IconButton>
-                  </span>
-                </Tooltip>
-              </>
-            )}
-          </Stack>
-        );
-      },
-    },
-    ],
-    [cloneExercise, deleteExercise, renderMediaThumbnail],
-  );
+function HighlightsList({ highlights }: { highlights: TrainerLibraryHighlight[] }) {
+  if (!highlights.length) {
+    return (
+      <div className="trainer-library__empty" role="status">
+        <p className="neo-text--muted">Sem destaques para mostrar.</p>
+      </div>
+    );
+  }
 
   return (
-    <Box sx={{ display: 'grid', gap: 1.5 }}>
-      <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
-        <Stack
-          direction={{ xs: 'column', lg: 'row' }}
-          spacing={1.5}
-          justifyContent="space-between"
-          alignItems={{ xs: 'stretch', lg: 'center' }}
-        >
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ flexWrap: 'wrap', width: '100%' }}>
-            <TextField
-              select
-              label="Coleção"
-              value={scope}
-              onChange={(e) => setScopeAndReset(e.target.value as Scope)}
-              fullWidth
-              sx={{
-                minWidth: { sm: 200 },
-                width: { xs: '100%', sm: 'auto' },
-                flex: { xs: '1 1 100%', sm: '0 0 auto' },
-              }}
-              helperText={scope === 'global' ? 'Explora o catálogo oficial e duplica exercícios.' : 'Gere a tua biblioteca privada.'}
-            >
-              <MenuItem value="personal">Minha biblioteca</MenuItem>
-              <MenuItem value="global">Catálogo global</MenuItem>
-            </TextField>
-            <TextField
-              label="Pesquisar"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              fullWidth
-              sx={{
-                minWidth: { sm: 220 },
-                width: { xs: '100%', sm: 'auto' },
-                flex: { xs: '1 1 100%', sm: '0 0 auto' },
-              }}
-            />
-            <TextField
-              select
-              label="Grupo muscular"
-              value={muscle}
-              onChange={(e) => setMuscle(e.target.value)}
-              fullWidth
-              sx={{
-                minWidth: { sm: 180 },
-                width: { xs: '100%', sm: 'auto' },
-                flex: { xs: '1 1 100%', sm: '0 0 auto' },
-              }}
-            >
-              <MenuItem value="">Todos</MenuItem>
-              {facets.muscles.map((option) => (
-                <MenuItem key={`pt-facet-muscle-${option}`} value={option}>
-                  {option}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              select
-              label="Dificuldade"
-              value={difficulty}
-              onChange={(e) => setDifficulty(e.target.value)}
-              fullWidth
-              sx={{
-                minWidth: { sm: 160 },
-                width: { xs: '100%', sm: 'auto' },
-                flex: { xs: '1 1 100%', sm: '0 0 auto' },
-              }}
-            >
-              <MenuItem value="">Todas</MenuItem>
-              {facets.difficulties.map((option) => (
-                <MenuItem key={`pt-facet-difficulty-${option}`} value={option}>
-                  {option}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              select
-              label="Equipamento"
-              value={equipment}
-              onChange={(e) => setEquipment(e.target.value)}
-              fullWidth
-              sx={{
-                minWidth: { sm: 200 },
-                width: { xs: '100%', sm: 'auto' },
-                flex: { xs: '1 1 100%', sm: '0 0 auto' },
-              }}
-            >
-              <MenuItem value="">Todos</MenuItem>
-              {facets.equipments.map((option) => (
-                <MenuItem key={`pt-facet-equipment-${option}`} value={option}>
-                  {option}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Stack>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
-            {scope === 'global' ? (
-              <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 260 }}>
-                Dica: duplica exercícios globais para personalizá-los antes de adicionar a um plano.
-              </Typography>
-            ) : (
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => setOpenCreate(true)}
-                sx={{ width: { xs: '100%', sm: 'auto' } }}
-              >
-                Novo exercício
-              </Button>
-            )}
-          </Stack>
-        </Stack>
-      </Paper>
+    <ul className="trainer-library__highlights" role="list">
+      {highlights.map((highlight) => (
+        <li key={highlight.id} className="trainer-library__highlight" data-tone={highlight.tone}>
+          <div>
+            <p className="trainer-library__highlightTitle">{highlight.title}</p>
+            <p className="trainer-library__highlightDescription">{highlight.description}</p>
+          </div>
+          {highlight.meta ? <span className="trainer-library__highlightMeta">{highlight.meta}</span> : null}
+          {highlight.href ? (
+            <a href={highlight.href} className="trainer-library__highlightLink">
+              Abrir secção
+            </a>
+          ) : null}
+        </li>
+      ))}
+    </ul>
+  );
+}
 
-      <Divider />
+export default function PTLibraryClient({ initialData, viewerName }: Props) {
+  const { data, error, mutate, isValidating } = useSWR<DashboardResponse>(
+    '/api/pt/library/dashboard',
+    fetcher,
+    {
+      fallbackData: initialData,
+      revalidateOnMount: true,
+    },
+  );
 
-      {isMobile ? (
-        <Stack spacing={1.5}>
-          {loading && <LinearProgress sx={{ borderRadius: 999 }} />}
-          {!loading && rows.length === 0 ? (
-            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-              <Typography variant="body2" color="text.secondary">
-                Não encontrámos exercícios para os filtros seleccionados.
-              </Typography>
-            </Paper>
-          ) : (
-            rows.map((row) => {
-              const createdAtDate = row.created_at ? new Date(row.created_at) : null;
-              const createdAtLabel =
-                createdAtDate && !Number.isNaN(createdAtDate.getTime())
-                  ? createdAtDate.toLocaleDateString('pt-PT')
-                  : null;
+  const dashboard = data ?? initialData;
 
-              return (
-                <Paper key={row.id} variant="outlined" sx={{ p: 2, borderRadius: 2, display: 'grid', gap: 1.5 }}>
-                  {renderMediaThumbnail(row.video_url, row.name, 'wide')}
+  const [scopeFilter, setScopeFilter] = React.useState<ScopeFilter>('personal');
+  const [difficultyFilter, setDifficultyFilter] = React.useState<string>('all');
+  const [muscleFilter, setMuscleFilter] = React.useState<string>('all');
+  const [equipmentFilter, setEquipmentFilter] = React.useState<string>('all');
+  const [query, setQuery] = React.useState('');
+  const [actionError, setActionError] = React.useState<string | null>(null);
+  const [pendingRow, setPendingRow] = React.useState<string | null>(null);
+  const [showCreate, setShowCreate] = React.useState(false);
+  const [editing, setEditing] = React.useState<TrainerLibraryTableRow | null>(null);
+  const [preview, setPreview] = React.useState<TrainerLibraryTableRow | null>(null);
 
-                  <Stack spacing={1}>
-                  <Stack spacing={0.5}>
-                    <Typography variant="subtitle1" fontWeight={700} sx={{ wordBreak: 'break-word' }}>
-                      {row.name}
-                    </Typography>
-                    {row.description && (
-                      <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap' }}>
-                        {row.description}
-                      </Typography>
-                    )}
-                  </Stack>
+  const filteredRows = React.useMemo(() => {
+    return dashboard.rows.filter((row) => {
+      if (scopeFilter !== 'all' && row.scope !== scopeFilter) return false;
+      if (difficultyFilter !== 'all' && row.difficulty !== difficultyFilter) return false;
+      if (muscleFilter !== 'all' && !row.muscleTags.map((tag) => tag.toLowerCase()).includes(muscleFilter.toLowerCase())) {
+        return false;
+      }
+      if (
+        equipmentFilter !== 'all' &&
+        !row.equipmentTags.map((tag) => tag.toLowerCase()).includes(equipmentFilter.toLowerCase())
+      ) {
+        return false;
+      }
+      return matchesQuery(row, query);
+    });
+  }, [dashboard.rows, scopeFilter, difficultyFilter, muscleFilter, equipmentFilter, query]);
 
-                  <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                    {(row.muscle_tags ?? []).map((tag) => (
-                      <Chip key={`card-muscle-${row.id}-${tag}`} label={tag} size="small" variant="outlined" />
-                    ))}
-                    {(row.equipment_tags ?? []).map((tag) => (
-                      <Chip key={`card-equipment-${row.id}-${tag}`} label={tag} size="small" variant="outlined" />
-                    ))}
-                    {row.difficulty && (
-                      <Chip
-                        label={row.difficulty}
-                        size="small"
-                        color={
-                          row.difficulty === 'Difícil'
-                            ? 'error'
-                            : row.difficulty === 'Média'
-                            ? 'warning'
-                            : 'success'
-                        }
-                        variant="outlined"
-                      />
-                    )}
-                  </Stack>
+  const supabaseState = dashboard.supabase ? 'ok' : 'warn';
+  const supabaseLabel = dashboard.supabase ? 'Dados em tempo real' : 'Modo offline';
 
-                  <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                    <Chip
-                      label={row.is_global ? 'Catálogo global' : 'Minha biblioteca'}
-                      size="small"
-                      color={row.is_global ? 'default' : 'primary'}
-                      variant={row.is_global ? 'outlined' : 'filled'}
-                    />
-                    {createdAtLabel && (
-                      <Typography variant="caption" color="text.secondary">
-                        Atualizado em {createdAtLabel}
-                      </Typography>
-                    )}
-                  </Stack>
-                </Stack>
+  const difficultyOptions = React.useMemo(
+    () => dashboard.facets.difficulties.filter((facet) => facet.count > 0),
+    [dashboard.facets.difficulties],
+  );
 
-                <Stack
-                  direction={{ xs: 'column', sm: 'row' }}
-                  spacing={1}
-                  alignItems={{ xs: 'stretch', sm: 'center' }}
-                  justifyContent="flex-start"
-                >
-                  <Button
-                    variant="outlined"
-                    startIcon={<VisibilityOutlined fontSize="small" />}
-                    onClick={() => setPreview(row)}
-                    sx={{ width: { xs: '100%', sm: 'auto' } }}
-                  >
-                    Pré-visualizar
-                  </Button>
-                  {row.is_global ? (
-                    <Button
-                      variant="contained"
-                      startIcon={<FileCopyOutlined fontSize="small" />}
-                      onClick={() => cloneExercise(row)}
-                      sx={{ width: { xs: '100%', sm: 'auto' } }}
-                    >
-                      Copiar exercício
-                    </Button>
-                  ) : (
-                    <>
-                      <Button
-                        variant="outlined"
-                        startIcon={<EditOutlined fontSize="small" />}
-                        onClick={() => setEditing(row)}
-                        sx={{ width: { xs: '100%', sm: 'auto' } }}
-                      >
-                        Editar
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        color="error"
-                        startIcon={<DeleteOutline fontSize="small" />}
-                        onClick={() => deleteExercise(row)}
-                        sx={{ width: { xs: '100%', sm: 'auto' } }}
-                      >
-                        Remover
-                      </Button>
-                    </>
-                  )}
-                </Stack>
-              </Paper>
-              );
-            })
-          )}
+  const handleRefresh = React.useCallback(() => {
+    void mutate();
+  }, [mutate]);
 
-          {!loading && count > paginationModel.pageSize && (
-            <Stack alignItems="center">
-              <Pagination
-                count={Math.max(1, Math.ceil(Math.max(count, rows.length) / paginationModel.pageSize))}
-                page={paginationModel.page + 1}
-                color="primary"
-                onChange={(_, page) =>
-                  setPaginationModel((prev) => ({ ...prev, page: page - 1 }))
-                }
-              />
-            </Stack>
-          )}
-        </Stack>
-      ) : (
-        <Box sx={{ width: '100%', overflowX: 'auto' }}>
-          <DataGrid
-            rows={rows}
-            columns={columns as unknown as GridColDef[]}
-            loading={loading}
-            rowCount={count}
-            paginationMode="server"
-            paginationModel={paginationModel}
-            onPaginationModelChange={setPaginationModel}
-            disableRowSelectionOnClick
-            autoHeight
-            density="compact"
-            getRowHeight={() => 112}
-            pageSizeOptions={[10, 20, 50]}
-            slots={{ toolbar: GridToolbar }}
-            sx={{
-              minWidth: { xs: 720, md: '100%' },
-              border: 0,
-              bgcolor: 'background.paper',
-              '& .MuiDataGrid-columnHeaders': {
-                bgcolor: 'background.default',
-                borderBottom: '1px solid',
-                borderColor: 'divider',
-              },
-              '& .MuiDataGrid-cell': {
-                alignItems: 'center',
-                py: 1,
-              },
-              '& .MuiDataGrid-row': {
-                minHeight: 112,
-                maxHeight: 112,
-              },
-            }}
-          />
-        </Box>
-      )}
+  const handleClone = React.useCallback(
+    async (row: TrainerLibraryTableRow) => {
+      setActionError(null);
+      setPendingRow(row.id);
+      try {
+        const response = await fetch('/api/pt/library/exercises', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sourceId: row.id }),
+        });
+        if (!response.ok) {
+          const message = await response.text().catch(() => '');
+          throw new Error(message || 'Falha ao duplicar exercício.');
+        }
+        await mutate();
+      } catch (err) {
+        setActionError((err as Error).message);
+      } finally {
+        setPendingRow(null);
+      }
+    },
+    [mutate],
+  );
 
-      <Snackbar open={snack.open} autoHideDuration={3000} onClose={closeSnack}>
-        <Alert severity={snack.sev} variant="filled" onClose={closeSnack} sx={{ width: '100%' }}>
-          {snack.msg}
+  const handleDelete = React.useCallback(
+    async (row: TrainerLibraryTableRow) => {
+      if (!window.confirm(`Remover "${row.name}" da tua biblioteca?`)) return;
+      setActionError(null);
+      setPendingRow(row.id);
+      try {
+        const response = await fetch(`/api/pt/library/exercises/${row.id}`, { method: 'DELETE' });
+        if (!response.ok) {
+          const message = await response.text().catch(() => '');
+          throw new Error(message || 'Falha ao remover exercício.');
+        }
+        await mutate();
+      } catch (err) {
+        setActionError((err as Error).message);
+      } finally {
+        setPendingRow(null);
+      }
+    },
+    [mutate],
+  );
+
+  const handleFormSuccess = React.useCallback(() => {
+    setShowCreate(false);
+    setEditing(null);
+    void mutate();
+  }, [mutate]);
+
+  const editingInitial = React.useMemo(() => {
+    if (!editing) return undefined;
+    return {
+      id: editing.id,
+      name: editing.name,
+      muscle_group: editing.muscleGroup ?? editing.muscleTags.join(', '),
+      equipment: editing.equipment ?? editing.equipmentTags.join(', '),
+      difficulty: normalizeDifficulty(editing.difficultyRaw ?? editing.difficultyLabel) ?? undefined,
+      description: editing.description ?? undefined,
+      video_url: editing.videoUrl ?? undefined,
+    };
+  }, [editing]);
+
+  return (
+    <div className="trainer-library">
+      <PageHeader
+        title="Biblioteca de exercícios"
+        subtitle={
+          viewerName
+            ? `Curadoria dos exercícios utilizados por ${viewerName}.`
+            : 'Mantém o catálogo optimizado com dados em tempo real.'
+        }
+        actions={(
+          <div className="trainer-library__status">
+            <span className="status-pill" data-state={supabaseState}>
+              {supabaseLabel}
+            </span>
+            <Button variant="ghost" size="sm" onClick={handleRefresh} loading={isValidating}>
+              Atualizar
+            </Button>
+          </div>
+        )}
+        sticky={false}
+      />
+
+      {error ? (
+        <Alert tone="danger" className="trainer-library__alert" title="Falha na sincronização">
+          {error.message}
         </Alert>
-      </Snackbar>
+      ) : null}
 
-      <Dialog open={openCreate} onClose={() => closeCreate()} fullWidth maxWidth="md" fullScreen={isSmallDialog}>
-        <DialogTitle>➕ Novo exercício</DialogTitle>
-        <DialogContent dividers>
-          <TrainerExerciseFormClient
-            mode="create"
-            onSuccess={() => closeCreate(true)}
-            onCancel={() => closeCreate()}
+      {actionError ? (
+        <Alert tone="warning" className="trainer-library__alert" title="Operação incompleta">
+          {actionError}
+        </Alert>
+      ) : null}
+
+      <section className="neo-panel trainer-library__panel" aria-labelledby="trainer-library-hero">
+        <header className="trainer-library__panelHeader">
+          <div>
+            <h2 id="trainer-library-hero" className="neo-panel__title">
+              Indicadores principais
+            </h2>
+            <p className="neo-panel__subtitle">
+              Monitoriza a saúde da biblioteca pessoal e identifica oportunidades no catálogo global.
+            </p>
+          </div>
+        </header>
+        <div className="trainer-library__hero" role="list">
+          {dashboard.hero.map((metric) => (
+            <article key={metric.id} className="trainer-library__heroCard" data-tone={metric.tone ?? 'neutral'}>
+              <span className="trainer-library__heroLabel">{metric.label}</span>
+              <strong className="trainer-library__heroValue">{metric.value}</strong>
+              {metric.trend ? <span className="trainer-library__heroTrend">{metric.trend}</span> : null}
+              {metric.hint ? <span className="trainer-library__heroHint">{metric.hint}</span> : null}
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="neo-panel trainer-library__panel" aria-labelledby="trainer-library-timeline">
+        <header className="trainer-library__panelHeader">
+          <div>
+            <h2 id="trainer-library-timeline" className="neo-panel__title">
+              Criações semanais
+            </h2>
+            <p className="neo-panel__subtitle">
+              Evolução das criações pessoais e publicações globais nas últimas doze semanas.
+            </p>
+          </div>
+        </header>
+        {dashboard.timeline.length ? (
+          <div className="trainer-library__chart">
+            <ResponsiveContainer width="100%" height={320}>
+              <AreaChart data={dashboard.timeline} margin={{ top: 8, right: 24, bottom: 0, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--neo-border-subtle)" />
+                <XAxis dataKey="label" stroke="var(--neo-text-subtle)" />
+                <YAxis stroke="var(--neo-text-subtle)" allowDecimals={false} />
+                <Tooltip content={<TimelineTooltipContent />} />
+                <Area
+                  type="monotone"
+                  dataKey="personal"
+                  stackId="count"
+                  stroke="var(--neo-chart-primary)"
+                  fill="var(--neo-chart-primary-soft)"
+                  name="Pessoais"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="global"
+                  stackId="count"
+                  stroke="var(--neo-chart-info)"
+                  fill="var(--neo-chart-info-soft)"
+                  name="Catálogo"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="trainer-library__empty" role="status">
+            <p className="neo-text--muted">Ainda não existem dados suficientes para desenhar o gráfico.</p>
+          </div>
+        )}
+      </section>
+
+      <section className="neo-panel trainer-library__panel" aria-labelledby="trainer-library-difficulty">
+        <header className="trainer-library__panelHeader">
+          <div>
+            <h2 id="trainer-library-difficulty" className="neo-panel__title">
+              Distribuição por dificuldade
+            </h2>
+            <p className="neo-panel__subtitle">
+              Garante equilíbrio entre exercícios de iniciação, progressão e desafio avançado.
+            </p>
+          </div>
+        </header>
+        <div className="trainer-library__distribution" role="list">
+          {dashboard.difficulties.map((item) => (
+            <article key={item.id} className="trainer-library__distributionCard" data-tone={item.tone}>
+              <header>
+                <span>{item.label}</span>
+                <strong>{item.count}</strong>
+              </header>
+              <div className="trainer-library__distributionBar">
+                <span style={{ width: `${Math.min(100, Math.round(item.percentage))}%` }} />
+              </div>
+              <footer>{item.percentage.toFixed(1)}%</footer>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="neo-panel trainer-library__panel" aria-labelledby="trainer-library-highlights">
+        <header className="trainer-library__panelHeader">
+          <div>
+            <h2 id="trainer-library-highlights" className="neo-panel__title">
+              Destaques operacionais
+            </h2>
+            <p className="neo-panel__subtitle">
+              Insights rápidos que ajudam a decidir o próximo passo na curadoria da biblioteca.
+            </p>
+          </div>
+        </header>
+        <HighlightsList highlights={dashboard.highlights} />
+      </section>
+
+      <section className="neo-panel trainer-library__panel" aria-labelledby="trainer-library-table">
+        <header className="trainer-library__panelHeader">
+          <div>
+            <h2 id="trainer-library-table" className="neo-panel__title">
+              Exercícios catalogados
+            </h2>
+            <p className="neo-panel__subtitle">
+              Filtra, duplica e mantém actualizados os exercícios que suportam os teus planos de treino.
+            </p>
+          </div>
+          <div className="trainer-library__actions">
+            <Button variant="ghost" size="sm" onClick={() => exportRows(filteredRows)} disabled={!filteredRows.length}>
+              Exportar CSV
+            </Button>
+            <Button size="sm" onClick={() => setShowCreate(true)}>
+              Novo exercício
+            </Button>
+          </div>
+        </header>
+        <div className="trainer-library__filters">
+          <div className="trainer-library__segmented" role="group" aria-label="Filtro por origem">
+            {(Object.keys(scopeLabels) as ScopeFilter[]).map((scope) => (
+              <button
+                key={scope}
+                type="button"
+                className="trainer-library__segment"
+                data-active={scopeFilter === scope}
+                onClick={() => setScopeFilter(scope)}
+              >
+                {scopeLabels[scope]}
+              </button>
+            ))}
+          </div>
+          <input
+            type="search"
+            className="trainer-library__search"
+            placeholder="Procurar por nome, músculo ou equipamento"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
           />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => closeCreate()}>Fechar</Button>
-        </DialogActions>
-      </Dialog>
+          <select
+            className="trainer-library__select"
+            value={difficultyFilter}
+            onChange={(event) => setDifficultyFilter(event.target.value)}
+          >
+            <option value="all">Todas as dificuldades</option>
+            {difficultyOptions.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <select
+            className="trainer-library__select"
+            value={muscleFilter}
+            onChange={(event) => setMuscleFilter(event.target.value)}
+          >
+            <option value="all">Todos os músculos</option>
+            {dashboard.facets.muscles.map((option) => (
+              <option key={option.id} value={option.label}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <select
+            className="trainer-library__select"
+            value={equipmentFilter}
+            onChange={(event) => setEquipmentFilter(event.target.value)}
+          >
+            <option value="all">Todo o equipamento</option>
+            {dashboard.facets.equipments.map((option) => (
+              <option key={option.id} value={option.label}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="trainer-library__tableWrapper">
+          <table className="trainer-library__table">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Músculos</th>
+                <th>Equipamento</th>
+                <th>Dificuldade</th>
+                <th>Escopo</th>
+                <th>Actualizado</th>
+                <th aria-label="Ações" />
+              </tr>
+            </thead>
+            <tbody>
+              {filteredRows.length ? (
+                filteredRows.map((row) => (
+                  <tr key={row.id}>
+                    <td>
+                      <div className="trainer-library__cell">
+                        <strong>{row.name}</strong>
+                        {row.description ? <span>{row.description}</span> : null}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="trainer-library__tags">
+                        {row.muscleTags.length
+                          ? row.muscleTags.map((tag) => (
+                              <span key={`${row.id}-muscle-${tag}`} className="trainer-library__tag">
+                                {tag}
+                              </span>
+                            ))
+                          : '—'}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="trainer-library__tags">
+                        {row.equipmentTags.length
+                          ? row.equipmentTags.map((tag) => (
+                              <span key={`${row.id}-equipment-${tag}`} className="trainer-library__tag">
+                                {tag}
+                              </span>
+                            ))
+                          : '—'}
+                      </div>
+                    </td>
+                    <td>
+                      <span className="trainer-library__status" data-tone={row.difficultyTone}>
+                        {row.difficultyLabel}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="trainer-library__status" data-tone={row.scopeTone}>
+                        {row.scopeLabel}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="trainer-library__cell">
+                        <strong>{row.updatedRelative ?? '—'}</strong>
+                        <span>{row.updatedLabel}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="trainer-library__rowActions">
+                        <Button variant="ghost" size="sm" onClick={() => setPreview(row)}>
+                          Pré-visualizar
+                        </Button>
+                        {row.scope === 'personal' ? (
+                          <Button variant="ghost" size="sm" onClick={() => setEditing(row)}>
+                            Editar
+                          </Button>
+                        ) : null}
+                        {row.scope === 'global' ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleClone(row)}
+                            loading={pendingRow === row.id}
+                          >
+                            Duplicar
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            onClick={() => handleDelete(row)}
+                            loading={pendingRow === row.id}
+                          >
+                            Remover
+                          </Button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={7}>
+                    <div className="trainer-library__empty" role="status">
+                      <p className="neo-text--muted">
+                        Não encontrámos exercícios com os filtros actuais. Ajusta os critérios ou adiciona um novo exercício.
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-      <Dialog open={Boolean(editing)} onClose={() => closeEdit()} fullWidth maxWidth="md" fullScreen={isSmallDialog}>
-        <DialogTitle>✏️ Editar exercício</DialogTitle>
-        <DialogContent dividers>
-          {editing && (
-            <TrainerExerciseFormClient
-              mode="edit"
-              initial={{
-                ...editing,
-                difficulty: normalizeDifficulty(editing.difficulty as any),
-              }}
-              onSuccess={() => closeEdit(true)}
-              onCancel={() => closeEdit()}
-            />
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => closeEdit()}>Fechar</Button>
-        </DialogActions>
-      </Dialog>
+      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Novo exercício" size="lg">
+        <TrainerExerciseFormClient mode="create" onSuccess={handleFormSuccess} onCancel={() => setShowCreate(false)} />
+      </Modal>
 
-      <Dialog open={Boolean(preview)} onClose={() => setPreview(null)} fullWidth maxWidth="sm" fullScreen={isSmallDialog}>
-        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>{preview?.name}</span>
-          <IconButton size="small" onClick={() => setPreview(null)}>
-            <Close fontSize="small" />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent dividers sx={{ display: 'grid', gap: 1.5 }}>
-          {(preview?.muscle_tags ?? parseTagList(preview?.muscle_group)).length > 0 && (
-            <Stack direction="row" spacing={0.5} flexWrap="wrap" alignItems="center">
-              <Typography variant="body2" fontWeight={600} component="span">
-                Grupo muscular:
-              </Typography>
-              {(preview?.muscle_tags ?? parseTagList(preview?.muscle_group)).map((tag) => (
-                <Chip key={`preview-muscle-${tag}`} label={tag} size="small" variant="outlined" />
-              ))}
-            </Stack>
-          )}
-          {(preview?.equipment_tags ?? parseTagList(preview?.equipment)).length > 0 && (
-            <Stack direction="row" spacing={0.5} flexWrap="wrap" alignItems="center">
-              <Typography variant="body2" fontWeight={600} component="span">
-                Equipamento:
-              </Typography>
-              {(preview?.equipment_tags ?? parseTagList(preview?.equipment)).map((tag) => (
-                <Chip key={`preview-equipment-${tag}`} label={tag} size="small" variant="outlined" />
-              ))}
-            </Stack>
-          )}
-          {preview?.difficulty && (
-            <Typography variant="body2"><strong>Dificuldade:</strong> {preview.difficulty}</Typography>
-          )}
-          {preview?.description && (
-            <Typography variant="body2" component="div">
-              <strong>Instruções:</strong>
-              <br />
-              <span style={{ whiteSpace: 'pre-wrap' }}>{preview.description}</span>
-            </Typography>
-          )}
-          {previewMedia.kind !== 'none' ? (
-            <Box
-              sx={{
-                position: 'relative',
-                borderRadius: 2,
-                overflow: 'hidden',
-                border: '1px solid',
-                borderColor: 'divider',
-                backgroundColor: 'background.default',
-                '&::after': { content: '""', display: 'block', paddingTop: '56.25%' },
-              }}
-            >
-              {previewMedia.kind === 'image' && (
-                <Box
-                  component="img"
-                  src={previewMedia.src}
-                  alt={preview?.name ? `Pré-visualização de ${preview.name}` : 'Pré-visualização do exercício'}
-                  sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-                />
-              )}
-              {previewMedia.kind === 'video' && (
-                <Box
-                  component="video"
-                  src={previewMedia.src}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  controls
-                  sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-                />
-              )}
-              {previewMedia.kind === 'embed' && (
-                <Box
-                  component="iframe"
-                  src={previewMedia.src}
-                  title={preview?.name || 'Vídeo do exercício'}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
-                />
-              )}
-            </Box>
-          ) : (
-            <Typography variant="caption" color="text.secondary">
-              Este exercício ainda não tem vídeo associado.
-            </Typography>
-          )}
-          {preview?.is_global ? (
-            <Chip label="Catálogo global" color="default" variant="outlined" />
-          ) : (
-            <Chip label="Exercício privado" color="primary" variant="outlined" />
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setPreview(null)}>Fechar</Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+      <Modal open={Boolean(editing)} onClose={() => setEditing(null)} title="Editar exercício" size="lg">
+        {editing ? (
+          <TrainerExerciseFormClient
+            mode="edit"
+            initial={editingInitial}
+            onSuccess={handleFormSuccess}
+            onCancel={() => setEditing(null)}
+          />
+        ) : null}
+      </Modal>
+
+      <Modal open={Boolean(preview)} onClose={() => setPreview(null)} title={preview?.name ?? 'Pré-visualização'} size="lg">
+        {preview ? (
+          <div className="trainer-library__preview">
+            <section>
+              <h3>Descrição</h3>
+              <p>{preview.description ?? 'Sem descrição disponível.'}</p>
+            </section>
+            <section>
+              <h3>Grupos musculares</h3>
+              <div className="trainer-library__tags">
+                {preview.muscleTags.length ? preview.muscleTags.map((tag) => <span key={tag}>{tag}</span>) : '—'}
+              </div>
+            </section>
+            <section>
+              <h3>Equipamento</h3>
+              <div className="trainer-library__tags">
+                {preview.equipmentTags.length
+                  ? preview.equipmentTags.map((tag) => <span key={tag}>{tag}</span>)
+                  : '—'}
+              </div>
+            </section>
+            <section>
+              <h3>Dificuldade</h3>
+              <span className="trainer-library__status" data-tone={preview.difficultyTone}>
+                {preview.difficultyLabel}
+              </span>
+            </section>
+            {preview.videoUrl ? (
+              <section>
+                <h3>Vídeo</h3>
+                <div className="trainer-library__videoWrapper">
+                  <iframe
+                    src={preview.videoUrl}
+                    title={preview.name}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+              </section>
+            ) : null}
+          </div>
+        ) : null}
+      </Modal>
+    </div>
   );
 }

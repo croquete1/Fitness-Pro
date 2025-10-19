@@ -6,7 +6,7 @@ import DarkModeOutlined from '@mui/icons-material/DarkModeOutlined';
 import LightModeOutlined from '@mui/icons-material/LightModeOutlined';
 import { useColorMode } from '@/components/layout/ColorModeProvider';
 
-export default function ThemeToggleButton() {
+export default function ThemeToggleButton({ className }: { className?: string }) {
   const { mode, set } = useColorMode();
   const next = mode === 'dark' ? 'light' : 'dark';
 
@@ -18,6 +18,7 @@ export default function ThemeToggleButton() {
         data-theme-toggle="true"
         onClick={() => set(next)}
         sx={{ ml: 0.5 }}
+        className={className}
       >
         {mode === 'dark' ? <LightModeOutlined /> : <DarkModeOutlined />}
       </IconButton>
