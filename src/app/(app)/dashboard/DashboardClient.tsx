@@ -17,6 +17,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import PageHeader from "@/components/ui/PageHeader";
 import Button from "@/components/ui/Button";
 import Alert from "@/components/ui/Alert";
+import DataSourceBadge from "@/components/ui/DataSourceBadge";
 import { useMe } from "@/hooks/useMe";
 import { greetingForDate } from "@/lib/time";
 import type {
@@ -91,41 +92,6 @@ function TimelineTooltip({ active, payload }: TimelineTooltipProps) {
         </div>
       </dl>
     </div>
-  );
-}
-
-function describeRelativeBadge(iso: string | null | undefined): string | null {
-  if (!iso) return null;
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return null;
-  const diffMinutes = Math.round((Date.now() - date.getTime()) / 60000);
-  if (diffMinutes <= 0) return "há instantes";
-  if (diffMinutes === 1) return "há 1 minuto";
-  if (diffMinutes < 60) return `há ${diffMinutes} minutos`;
-  const diffHours = Math.round(diffMinutes / 60);
-  if (diffHours === 1) return "há 1 hora";
-  if (diffHours < 24) return `há ${diffHours} horas`;
-  const diffDays = Math.round(diffHours / 24);
-  if (diffDays === 1) return "há 1 dia";
-  return `há ${diffDays} dias`;
-}
-
-function DataSourceBadge({
-  source,
-  generatedAt,
-}: {
-  source?: "supabase" | "fallback";
-  generatedAt?: string | null;
-}) {
-  if (!source) return null;
-  const tone = source === "supabase" ? "ok" : "warn";
-  const label = source === "supabase" ? "Supabase em tempo real" : "Dados determinísticos";
-  const relative = describeRelativeBadge(generatedAt);
-  return (
-    <span className="client-dashboard__badge" data-tone={tone} role="status">
-      {label}
-      {relative ? ` · ${relative}` : null}
-    </span>
   );
 }
 
@@ -350,7 +316,11 @@ export default function DashboardClient() {
             </h2>
             <p className="neo-panel__subtitle">Actualizados automaticamente com base nos teus dados.</p>
           </div>
-          <DataSourceBadge source={data?.source} generatedAt={data?.generatedAt ?? null} />
+          <DataSourceBadge
+            source={data?.source}
+            generatedAt={data?.generatedAt ?? null}
+            className="client-dashboard__badge"
+          />
         </header>
         {isLoading && !data ? (
           <div className="client-dashboard__skeleton" aria-hidden>

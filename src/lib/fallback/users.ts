@@ -1,4 +1,6 @@
+import { getAdminApprovalsListFallback } from './admin-approvals';
 import { buildAdminUsersDashboard } from '../users/dashboard';
+import type { AdminApprovalListRow } from '@/lib/admin/approvals/types';
 import type { AdminUserRecord, AdminUsersDashboardData } from '../users/types';
 
 export type FallbackUser = {
@@ -323,30 +325,6 @@ export function getSampleUsers({ page, pageSize, search, role, status }: SampleQ
   };
 }
 
-type SampleApproval = {
-  id: string;
-  user_id: string;
-  name: string | null;
-  email: string | null;
-  status: 'pending' | 'approved' | 'rejected';
-  requested_at: string | null;
-};
-
-const SAMPLE_APPROVALS: SampleApproval[] = BASE_USERS.filter((user) => !user.approved || user.status !== 'ACTIVE').map(
-  (user, index) => ({
-    id: `approval-${index + 1}`,
-    user_id: user.id,
-    name: user.name,
-    email: user.email,
-    status: !user.approved || user.status === 'PENDING'
-      ? 'pending'
-      : user.status === 'SUSPENDED'
-        ? 'rejected'
-        : 'approved',
-    requested_at: user.created_at ?? null,
-  }),
-);
-
 export type SampleApprovalsQuery = {
   page: number;
   pageSize: number;
@@ -354,23 +332,24 @@ export type SampleApprovalsQuery = {
   status?: string | null;
 };
 
-export function getSampleApprovals({ page, pageSize, search, status }: SampleApprovalsQuery) {
-  const normalisedSearch = search?.trim().toLowerCase();
-  const filtered = SAMPLE_APPROVALS.filter((item) => {
-    if (status && item.status !== status.toLowerCase()) return false;
-    if (!normalisedSearch) return true;
-    return [item.name, item.email, item.user_id]
-      .filter(Boolean)
-      .some((value) => String(value).toLowerCase().includes(normalisedSearch));
+export function getSampleApprovals({ page, pageSize, search, status }: SampleApprovalsQuery): {
+  rows: AdminApprovalListRow[];
+  count: number;
+  source: 'fallback';
+  generatedAt: string;
+} {
+  const { rows, count } = getAdminApprovalsListFallback({
+    page,
+    pageSize,
+    search,
+    status,
   });
-
-  const start = Math.max(page, 0) * pageSize;
-  const end = start + pageSize;
-  const rows = filtered.slice(start, end);
 
   return {
     rows,
-    count: filtered.length,
+    count,
+    source: 'fallback',
+    generatedAt: new Date().toISOString(),
   };
 }
 
