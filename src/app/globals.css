@@ -1578,9 +1578,10 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
 .system-ops__list{ list-style:none; padding:0; margin:0; gap:12px; }
 
 .system-health__hero{ justify-content:space-between; gap:24px; align-items:flex-start; }
+.system-health__heroMetrics{ display:grid; gap:18px; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); }
 .system-health__intro{ gap:12px; }
 .system-health__lede{ max-width:720px; }
-.system-health__status{ gap:12px; color:var(--muted-fg); font-size:13px; }
+.system-health__status{ gap:12px; color:var(--muted-fg); font-size:13px; align-items:center; }
 .system-health__timestamp{ color:var(--muted-fg); font-weight:500; }
 .system-health__layout{ align-items:start; }
 .system-health__main{ gap:28px; }
