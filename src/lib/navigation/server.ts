@@ -121,6 +121,8 @@ export async function loadNavigationSummary(
   const startMonthValue = startOfMonth(now);
   const endMonthValue = endOfMonth(now);
   const nowIso = now.toISOString();
+  const walletRangeStart = startOfDay(new Date(now));
+  walletRangeStart.setDate(walletRangeStart.getDate() - 29);
 
   try {
     const approvals = await countFirst(client, [
@@ -252,6 +254,46 @@ export async function loadNavigationSummary(
         if (updatedAt) counts.libraryUpdatedAt = updatedAt;
       } catch (error) {
         console.warn('[navigation] falha ao obter última actualização da biblioteca', error);
+      }
+
+      if (role === 'CLIENT') {
+        try {
+          const [walletResult, walletEntriesResult] = await Promise.all([
+            client
+              .from('client_wallet')
+              .select('balance,currency,updated_at')
+              .eq('user_id', params.userId)
+              .maybeSingle(),
+            client
+              .from('client_wallet_entries')
+              .select('amount,created_at')
+              .eq('user_id', params.userId)
+              .gte('created_at', walletRangeStart.toISOString())
+              .order('created_at', { ascending: false })
+              .limit(120),
+          ]);
+
+          if (walletResult?.data) {
+            counts.walletBalance = Number(walletResult.data.balance ?? 0);
+            counts.walletUpdatedAt = walletResult.data.updated_at ?? null;
+          }
+
+          if (walletEntriesResult?.data) {
+            let credits = 0;
+            let debits = 0;
+            (walletEntriesResult.data as any[]).forEach((row) => {
+              const amount = Number(row?.amount ?? 0);
+              if (!Number.isFinite(amount)) return;
+              if (amount >= 0) credits += amount;
+              else debits += Math.abs(amount);
+            });
+            counts.walletCredits30d = credits;
+            counts.walletDebits30d = debits;
+            counts.walletNet30d = credits - debits;
+          }
+        } catch (error) {
+          console.warn('[navigation] falha ao obter métricas da carteira', error);
+        }
       }
     }
 

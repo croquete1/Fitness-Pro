@@ -26,6 +26,13 @@ function formatCurrency(value?: number | null): string {
   return currencyFormatter.format(value ?? 0);
 }
 
+function formatCurrencyDelta(value?: number | null): string | null {
+  const numeric = Number(value ?? 0);
+  if (!Number.isFinite(numeric) || numeric === 0) return null;
+  const formatted = currencyFormatter.format(Math.abs(numeric));
+  return numeric > 0 ? `+${formatted}` : `-${formatted}`;
+}
+
 function formatScore(value?: number | null): string {
   if (!Number.isFinite(value ?? null)) return '—';
   return decimalFormatter.format(value ?? 0);
@@ -134,7 +141,22 @@ function buildQuickMetrics(
     ];
   }
 
+  const walletMetric = {
+    id: 'wallet-balance',
+    label: 'Saldo carteira',
+    value: formatCurrency(counts.walletBalance ?? 0),
+    tone: (counts.walletBalance ?? 0) > 0 ? 'positive' : 'neutral',
+    hint:
+      counts.walletUpdatedAt
+        ? `Actualizado ${formatRelativeDate(counts.walletUpdatedAt, now) ?? 'recentemente'}`
+        : 'Sem movimentos recentes',
+    href: '/dashboard/clients/wallet',
+    delta: counts.walletNet30d ?? null,
+    deltaLabel: formatCurrencyDelta(counts.walletNet30d),
+  } satisfies NavigationQuickMetric;
+
   return [
+    walletMetric,
     {
       id: 'upcoming-sessions',
       label: 'Próximas sessões',
@@ -225,7 +247,24 @@ function buildHighlights(
     ];
   }
 
+  const walletBalance = counts.walletBalance ?? 0;
+  const walletNet = counts.walletNet30d ?? 0;
+  const walletTone = walletNet < 0 ? 'warning' : walletNet > 0 ? 'positive' : 'neutral';
+  const walletDescription = walletNet
+    ? `${formatCurrency(walletBalance)} disponíveis. ${
+        walletNet > 0 ? 'Reforço de' : 'Utilização de'
+      } ${formatCurrency(Math.abs(walletNet))} nas últimas 4 semanas.`
+    : `${formatCurrency(walletBalance)} disponíveis sem variação nas últimas 4 semanas.`;
+
   return [
+    {
+      id: 'wallet',
+      title: 'Carteira',
+      description: walletDescription,
+      href: '/dashboard/clients/wallet',
+      icon: 'wallet',
+      tone: walletTone,
+    },
     {
       id: 'sessions-today',
       title: 'Hoje',

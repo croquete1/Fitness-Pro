@@ -5652,7 +5652,6 @@ h1,.h1{
   display:flex;
   justify-content:space-between;
   gap:12px;
-  align-items:flex-start;
 }
 .plans-dashboard__trainerInfo{
   display:flex;
@@ -5733,6 +5732,10 @@ h1,.h1{
 .plans-dashboard__reset{
   align-self:center;
 }
+.search-dashboard__more{
+  display:flex;
+  justify-content:flex-start;
+}
 
 @media (min-width:768px){
   .plans-dashboard__heroHeader{
@@ -5783,47 +5786,272 @@ h1,.h1{
   }
 }
 
-/* Client wallet */
-.client-wallet{
+/* Client wallet dashboard */
+.client-wallet-dashboard{
   display:grid;
+  gap:32px;
+  padding-bottom:48px;
+}
+.client-wallet-dashboard__rangePicker{
+  display:inline-flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.client-wallet-dashboard__summary{
   gap:24px;
 }
-.client-wallet__panel{
+.client-wallet-dashboard__summaryHeader{
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+  align-items:flex-start;
+  justify-content:space-between;
+}
+.client-wallet-dashboard__summaryMeta{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  font-size:13px;
+  color:var(--neo-text-muted);
+}
+.client-wallet-dashboard__hero{
   display:grid;
   gap:16px;
+  grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));
 }
-.client-wallet__balance{
-  padding:18px;
+.client-wallet-dashboard__heroCard{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  padding:20px;
+  border-radius:18px;
+  border:1px solid var(--neo-border-soft);
+  background:var(--neo-surface);
+  min-height:140px;
+  transition:transform .2s ease, box-shadow .2s ease;
+}
+.client-wallet-dashboard__heroCard[data-tone="positive"]{
+  border-color:rgba(34,197,94,.32);
+  background:rgba(34,197,94,.08);
+}
+.client-wallet-dashboard__heroCard[data-tone="warning"]{
+  border-color:rgba(250,204,21,.32);
+  background:rgba(250,204,21,.08);
+}
+.client-wallet-dashboard__heroCard[data-tone="danger"]{
+  border-color:rgba(239,68,68,.34);
+  background:rgba(239,68,68,.08);
+}
+.client-wallet-dashboard__heroLabel{
+  font-size:13px;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  color:var(--neo-text-muted);
+}
+.client-wallet-dashboard__heroValue{
+  font-size:28px;
+  font-weight:700;
+  font-variant-numeric:tabular-nums;
+}
+.client-wallet-dashboard__heroHint{
+  font-size:13px;
+  color:var(--neo-text-muted);
+}
+.client-wallet-dashboard__heroTrend{
+  font-size:13px;
+  font-weight:600;
+  color:var(--neo-text-positive);
+}
+.client-wallet-dashboard__analytics{
+  gap:24px;
+}
+.client-wallet-dashboard__analyticsHeader{
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+  justify-content:space-between;
+}
+.client-wallet-dashboard__analyticsTotals{
+  display:flex;
+  flex-wrap:wrap;
+  gap:16px;
+  font-weight:600;
+  font-variant-numeric:tabular-nums;
+}
+.client-wallet-dashboard__chartEmpty{
+  min-height:220px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border:1px dashed var(--neo-border-soft);
+  border-radius:16px;
+  padding:24px;
+}
+.client-wallet-dashboard__highlightsPanel{
+  gap:20px;
+}
+.client-wallet-dashboard__highlights{
+  display:grid;
+  gap:16px;
+  grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));
+}
+.client-wallet-dashboard__highlight{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px;
+  padding:20px;
+  border-radius:18px;
+  border:1px solid var(--neo-border-soft);
+  background:var(--neo-surface);
+}
+.client-wallet-dashboard__highlight[data-tone="positive"]{
+  border-color:rgba(34,197,94,.32);
+  background:rgba(34,197,94,.08);
+}
+.client-wallet-dashboard__highlight[data-tone="warning"]{
+  border-color:rgba(250,204,21,.32);
+  background:rgba(250,204,21,.08);
+}
+.client-wallet-dashboard__highlight[data-tone="neutral"]{
+  border-color:var(--neo-border-soft);
+}
+.client-wallet-dashboard__highlightBody{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.client-wallet-dashboard__highlightBody h3{
   font-size:18px;
   font-weight:700;
-  color:var(--fg);
 }
-.client-wallet__header{
+.client-wallet-dashboard__highlightBody p{
+  font-size:14px;
+  color:var(--neo-text-muted);
+}
+.client-wallet-dashboard__highlightMeta{
+  font-size:13px;
+  color:var(--neo-text);
+}
+.client-wallet-dashboard__highlightIcon{
+  font-size:28px;
+  opacity:.6;
+}
+.client-wallet-dashboard__highlightEmpty{
+  border:1px dashed var(--neo-border-soft);
+  border-radius:16px;
+  padding:32px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.client-wallet-dashboard__entriesPanel{
+  gap:24px;
+}
+.client-wallet-dashboard__entriesHeader{
+  display:flex;
+  flex-direction:column;
   gap:16px;
 }
-.client-wallet__count{
+.client-wallet-dashboard__entriesActions{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+.client-wallet-dashboard__filterGroup{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.client-wallet-dashboard__search{
+  width:100%;
+  max-width:320px;
+}
+.client-wallet-dashboard__tableWrapper{
+  overflow-x:auto;
+}
+.client-wallet-dashboard__table{
+  width:100%;
+  min-width:720px;
+}
+.client-wallet-dashboard__tableDate{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+.client-wallet-dashboard__tableDate span{
   font-size:13px;
-  color:var(--muted-fg);
-  align-self:flex-start;
+  color:var(--neo-text-muted);
 }
-.client-wallet__amountHeading{
-  text-align:right;
+.client-wallet-dashboard__badge{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  border-radius:999px;
+  padding:4px 10px;
+  font-size:12px;
+  font-weight:600;
+  background:var(--neo-surface-subtle);
 }
-.client-wallet__amount{
-  text-align:right;
+.client-wallet-dashboard__badge[data-tone="credit"]{
+  color:#15803d;
+  background:rgba(34,197,94,.16);
+}
+.client-wallet-dashboard__badge[data-tone="debit"]{
+  color:#b91c1c;
+  background:rgba(239,68,68,.16);
+}
+.client-wallet-dashboard__amount{
   font-weight:700;
-  white-space:nowrap;
+  text-align:right;
+  font-variant-numeric:tabular-nums;
 }
-.client-wallet__description{
-  font-size:13px;
-  color:var(--muted-fg);
-  white-space:pre-wrap;
+.client-wallet-dashboard__amount[data-tone="credit"]{
+  color:#15803d;
+}
+.client-wallet-dashboard__amount[data-tone="debit"]{
+  color:#b91c1c;
+}
+.client-wallet-dashboard__empty{
+  padding:36px 24px;
 }
 
 @media (min-width:768px){
-  .client-wallet__count{
-    margin-left:auto;
-    align-self:center;
+  .client-wallet-dashboard__summaryHeader{
+    flex-direction:row;
+    align-items:center;
+  }
+  .client-wallet-dashboard__summaryMeta{
+    align-items:flex-end;
+  }
+  .client-wallet-dashboard__analyticsHeader{
+    flex-direction:row;
+    align-items:center;
+  }
+  .client-wallet-dashboard__entriesHeader{
+    flex-direction:row;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .client-wallet-dashboard__entriesActions{
+    flex-direction:row;
+    align-items:center;
+    gap:16px;
+  }
+}
+
+@media (min-width:1024px){
+  .client-wallet-dashboard{
+    gap:36px;
+  }
+  .client-wallet-dashboard__heroCard{
+    padding:24px;
+  }
+  .client-wallet-dashboard__heroValue{
+    font-size:32px;
+  }
+  .client-wallet-dashboard__analytics{
+    gap:32px;
   }
 }
 

@@ -65,6 +65,11 @@ export type NavigationSummaryCounts = {
   libraryPersonal?: number | null;
   libraryCatalog?: number | null;
   libraryUpdatedAt?: string | null;
+  walletBalance?: number | null;
+  walletUpdatedAt?: string | null;
+  walletCredits30d?: number | null;
+  walletDebits30d?: number | null;
+  walletNet30d?: number | null;
 };
 
 export type NavigationSummaryInput = {
