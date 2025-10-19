@@ -1,10 +1,11 @@
 'use client';
 
 import * as React from 'react';
-import {
-  Box, Stack, TextField, MenuItem, Button, Alert, Snackbar, Typography, Switch, FormControlLabel,
-} from '@mui/material';
+import { useRouter } from 'next/navigation';
 import { z } from 'zod';
+
+import Button from '@/components/ui/Button';
+import Alert from '@/components/ui/Alert';
 
 export type Role = 'admin' | 'trainer' | 'client';
 export type Status = 'active' | 'inactive';
@@ -22,7 +23,6 @@ export type UserFormValues = {
 const Roles: Role[] = ['admin', 'trainer', 'client'];
 const Statuses: Status[] = ['active', 'inactive'];
 
-// Zod compat com versões antigas
 const RoleSchema = z.union([z.literal('admin'), z.literal('trainer'), z.literal('client')]);
 const StatusSchema = z.union([z.literal('active'), z.literal('inactive')]);
 
@@ -36,13 +36,20 @@ const UserSchema = z.object({
   active: z.boolean().optional(),
 });
 
-export default function UserFormClient({
-  mode,
-  initial,
-}: {
+type Feedback = { tone: 'success' | 'danger' | 'warning' | 'info'; message: string } | null;
+
+type Props = {
   mode: 'create' | 'edit';
   initial?: Partial<UserFormValues>;
-}) {
+};
+
+function capitalize(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+export default function UserFormClient({ mode, initial }: Props) {
+  const router = useRouter();
+
   const [values, setValues] = React.useState<UserFormValues>(() => ({
     id: initial?.id,
     name: initial?.name ?? '',
@@ -55,21 +62,19 @@ export default function UserFormClient({
 
   const [errors, setErrors] = React.useState<Partial<Record<keyof UserFormValues, string>>>({});
   const [saving, setSaving] = React.useState(false);
-  const [err, setErr] = React.useState<string | null>(null);
-  const [snack, setSnack] = React.useState<{open:boolean; msg:string; sev:'success'|'error'|'info'|'warning'}>({
-    open:false, msg:'', sev:'success',
-  });
-  const closeSnack = () => setSnack((s) => ({ ...s, open:false }));
+  const [feedback, setFeedback] = React.useState<Feedback>(null);
 
-  function setField<K extends keyof UserFormValues>(k: K, v: UserFormValues[K]) {
-    setValues((prev) => ({ ...prev, [k]: v }));
-    setErrors((prev) => ({ ...prev, [k]: undefined }));
+  const headingId = React.useId();
+
+  function setField<K extends keyof UserFormValues>(key: K, value: UserFormValues[K]) {
+    setValues((prev) => ({ ...prev, [key]: value }));
+    setErrors((prev) => ({ ...prev, [key]: undefined }));
   }
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setErr(null);
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setSaving(true);
+    setFeedback(null);
     setErrors({});
 
     const parsed = UserSchema.safeParse(values);
@@ -81,16 +86,16 @@ export default function UserFormClient({
       }
       setErrors(fieldErrors);
       setSaving(false);
-      setSnack({ open: true, msg: 'Verifique os campos destacados.', sev: 'error' });
+      setFeedback({ tone: 'danger', message: 'Verifica os campos destacados.' });
       return;
     }
 
     const payload = parsed.data;
 
     try {
-      let res: Response;
+      let response: Response;
       if (mode === 'edit' && payload.id) {
-        res = await fetch(`/api/admin/users/${payload.id}`, {
+        response = await fetch(`/api/admin/users/${payload.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -103,7 +108,7 @@ export default function UserFormClient({
           }),
         });
       } else {
-        res = await fetch('/api/admin/users', {
+        response = await fetch('/api/admin/users', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -117,88 +122,177 @@ export default function UserFormClient({
         });
       }
 
-      if (!res.ok) throw new Error((await res.text()) || 'Falha ao gravar utilizador');
+      if (!response.ok) {
+        const message = await response.text().catch(() => '');
+        throw new Error(message || 'Falha ao gravar utilizador');
+      }
 
-      setSnack({ open: true, msg: mode === 'edit' ? 'Utilizador atualizado ✅' : 'Utilizador criado ✅', sev: 'success' });
-    } catch (e: any) {
-      setErr(e?.message || 'Falha ao gravar utilizador');
-      setSnack({ open: true, msg: 'Erro ao gravar', sev: 'error' });
+      setFeedback({
+        tone: 'success',
+        message: mode === 'edit' ? 'Utilizador atualizado com sucesso.' : 'Utilizador criado com sucesso.',
+      });
+    } catch (error: any) {
+      setFeedback({ tone: 'danger', message: error?.message || 'Falha ao gravar utilizador.' });
     } finally {
       setSaving(false);
     }
   }
 
+  React.useEffect(() => {
+    if (!feedback) return;
+    const handle = window.setTimeout(() => setFeedback(null), feedback.tone === 'success' ? 4000 : 6000);
+    return () => window.clearTimeout(handle);
+  }, [feedback]);
+
   return (
-    <Box component="form" onSubmit={onSubmit} sx={{ display:'grid', gap:2 }}>
-      <Typography variant="h6" fontWeight={800}>
-        {mode === 'edit' ? '✏️ Editar utilizador' : '➕ Novo utilizador'}
-      </Typography>
+    <form
+      className="neo-panel admin-user-form"
+      aria-labelledby={headingId}
+      onSubmit={onSubmit}
+      noValidate
+    >
+      <header className="neo-panel__header">
+        <div>
+          <h1 id={headingId} className="neo-panel__title">
+            {mode === 'edit' ? 'Editar utilizador' : 'Novo utilizador'}
+          </h1>
+          <p className="neo-panel__subtitle">
+            Define o perfil, estado e permissões do utilizador.
+          </p>
+        </div>
+      </header>
 
-      {err && <Alert severity="error">{err}</Alert>}
+      <div className="neo-panel__body admin-user-form__body">
+        {feedback && <Alert tone={feedback.tone} title="Estado">{feedback.message}</Alert>}
 
-      <TextField
-        label="Nome"
-        value={values.name}
-        onChange={(e) => setField('name', e.target.value)}
-        required
-        error={Boolean(errors.name)}
-        helperText={errors.name || ' '}
-      />
+        <div className="admin-user-form__grid">
+          <label className="neo-input-group__field">
+            <span className="neo-input-group__label">Nome</span>
+            <input
+              value={values.name}
+              onChange={(event) => setField('name', event.target.value)}
+              className="neo-input"
+              type="text"
+              placeholder="Nome completo"
+              autoComplete="name"
+              required
+            />
+            {errors.name ? (
+              <span className="neo-input-group__hint" data-tone="error">
+                {errors.name}
+              </span>
+            ) : (
+              <span className="neo-input-group__hint">Nome completo do utilizador.</span>
+            )}
+          </label>
 
-      <TextField
-        label="Email"
-        value={values.email}
-        onChange={(e) => setField('email', e.target.value)}
-        required
-        type="email"
-        error={Boolean(errors.email)}
-        helperText={errors.email || ' '}
-      />
+          <label className="neo-input-group__field">
+            <span className="neo-input-group__label">Email</span>
+            <input
+              value={values.email}
+              onChange={(event) => setField('email', event.target.value)}
+              className="neo-input"
+              type="email"
+              placeholder="email@exemplo.com"
+              autoComplete="email"
+              required
+            />
+            {errors.email ? (
+              <span className="neo-input-group__hint" data-tone="error">
+                {errors.email}
+              </span>
+            ) : (
+              <span className="neo-input-group__hint">Utilizado para autenticação e notificações.</span>
+            )}
+          </label>
 
-      <TextField
-        select
-        label="Perfil"
-        value={values.role}
-        onChange={(e) => setField('role', e.target.value as Role)}
-        error={Boolean(errors.role)}
-        helperText={errors.role || ' '}
-      >
-        {Roles.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-      </TextField>
+          <label className="neo-input-group__field">
+            <span className="neo-input-group__label">Perfil</span>
+            <select
+              value={values.role}
+              onChange={(event) => setField('role', event.target.value as Role)}
+              className="neo-input"
+              required
+            >
+              {Roles.map((role) => (
+                <option key={role} value={role}>
+                  {capitalize(role)}
+                </option>
+              ))}
+            </select>
+            {errors.role ? (
+              <span className="neo-input-group__hint" data-tone="error">
+                {errors.role}
+              </span>
+            ) : (
+              <span className="neo-input-group__hint">Controla as permissões no dashboard.</span>
+            )}
+          </label>
 
-      <TextField
-        select
-        label="Estado"
-        value={values.status ?? 'active'}
-        onChange={(e) => setField('status', e.target.value as Status)}
-        error={Boolean(errors.status)}
-        helperText={errors.status || ' '}
-      >
-        {Statuses.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-      </TextField>
+          <label className="neo-input-group__field">
+            <span className="neo-input-group__label">Estado</span>
+            <select
+              value={values.status ?? 'active'}
+              onChange={(event) => setField('status', event.target.value as Status)}
+              className="neo-input"
+            >
+              {Statuses.map((status) => (
+                <option key={status} value={status}>
+                  {status === 'active' ? 'Ativo' : 'Inativo'}
+                </option>
+              ))}
+            </select>
+            {errors.status ? (
+              <span className="neo-input-group__hint" data-tone="error">
+                {errors.status}
+              </span>
+            ) : (
+              <span className="neo-input-group__hint">Define se o utilizador pode iniciar sessão.</span>
+            )}
+          </label>
+        </div>
 
-      <FormControlLabel
-        control={<Switch checked={Boolean(values.approved)} onChange={(e) => setField('approved', e.target.checked)} />}
-        label="Aprovado"
-      />
+        <fieldset className="admin-user-form__toggles">
+          <legend className="admin-user-form__togglesTitle">Permissões</legend>
+          <label className="neo-checkbox">
+            <input
+              type="checkbox"
+              checked={Boolean(values.approved)}
+              onChange={(event) => setField('approved', event.target.checked)}
+            />
+            <span>
+              <span className="neo-checkbox__label">Aprovado</span>
+              <span className="neo-checkbox__hint">Pode aceder às áreas reservadas.</span>
+            </span>
+          </label>
+          <label className="neo-checkbox">
+            <input
+              type="checkbox"
+              checked={Boolean(values.active)}
+              onChange={(event) => setField('active', event.target.checked)}
+            />
+            <span>
+              <span className="neo-checkbox__label">Ativo</span>
+              <span className="neo-checkbox__hint">Marca o utilizador como ativo na plataforma.</span>
+            </span>
+          </label>
+        </fieldset>
+      </div>
 
-      <FormControlLabel
-        control={<Switch checked={Boolean(values.active)} onChange={(e) => setField('active', e.target.checked)} />}
-        label="Ativo"
-      />
-
-      <Stack direction="row" spacing={1} justifyContent="flex-end">
-        <Button type="button" onClick={() => history.back()} disabled={saving}>Cancelar</Button>
-        <Button variant="contained" type="submit" disabled={saving}>
-          {saving ? (mode === 'edit' ? 'A atualizar…' : 'A criar…') : (mode === 'edit' ? 'Guardar alterações' : 'Criar utilizador')}
+      <footer className="neo-panel__footer admin-user-form__footer">
+        <Button
+          type="button"
+          variant="ghost"
+          disabled={saving}
+          onClick={() => router.back()}
+        >
+          Cancelar
         </Button>
-      </Stack>
-
-      <Snackbar open={snack.open} autoHideDuration={3000} onClose={closeSnack}>
-        <Alert severity={snack.sev} variant="filled" onClose={closeSnack} sx={{ width:'100%' }}>
-          {snack.msg}
-        </Alert>
-      </Snackbar>
-    </Box>
+        <Button type="submit" loading={saving} loadingText={mode === 'edit' ? 'A atualizar…' : 'A criar…'}>
+          {mode === 'edit' ? 'Guardar alterações' : 'Criar utilizador'}
+        </Button>
+      </footer>
+    </form>
   );
 }
+

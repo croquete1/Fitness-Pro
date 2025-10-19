@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useId, useRef, useState } from 'react';
+import { Loader2, Search, X } from 'lucide-react';
 
 type UserLite = { id: string; name?: string | null; email?: string | null };
 
@@ -30,17 +31,15 @@ export default function UserSelect({
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const listId = useId();
 
-  // fecha dropdown ao clicar fora
   useEffect(() => {
-    function onDocClick(e: MouseEvent) {
+    function onDocClick(event: MouseEvent) {
       if (!wrapRef.current) return;
-      if (!wrapRef.current.contains(e.target as Node)) setOpen(false);
+      if (!wrapRef.current.contains(event.target as Node)) setOpen(false);
     }
     document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);
   }, []);
 
-  // pesquisa debounced
   useEffect(() => {
     if (disabled) return;
 
@@ -83,7 +82,7 @@ export default function UserSelect({
         setLoading(false);
         abortRef.current = null;
       }
-    }, 300);
+    }, 320);
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
@@ -105,65 +104,68 @@ export default function UserSelect({
   }
 
   return (
-    <div className="grid gap-1" ref={wrapRef} style={{ position: 'relative' }}>
-      <label className="text-xs opacity-70">{label}</label>
-
-      {/* Campo */}
-      <div className="relative">
+    <div className="neo-input-group__field neo-combobox" ref={wrapRef}>
+      <span className="neo-input-group__label">{label}</span>
+      <div
+        className="neo-combobox__control"
+        data-open={open && !disabled ? 'true' : undefined}
+        data-disabled={disabled ? 'true' : undefined}
+      >
+        <span className="neo-combobox__icon" aria-hidden>
+          <Search size={16} strokeWidth={2} />
+        </span>
         <input
-          className="h-10 w-full rounded-lg border px-3 pr-20"
-          style={{ background: 'var(--btn-bg)', borderColor: 'var(--border)' }}
+          className="neo-input neo-input--with-leadingIcon neo-combobox__input"
           placeholder={placeholder}
           value={q}
-          onChange={(e) => setQ(e.target.value)}
+          onChange={(event) => setQ(event.target.value)}
           onFocus={() => items.length > 0 && setOpen(true)}
           disabled={disabled}
           role="combobox"
           aria-autocomplete="list"
-          aria-expanded={open}
+          aria-expanded={open && !disabled}
           aria-controls={listId}
         />
-        {/* Ações à direita do input */}
-        <div
-          style={{ position: 'absolute', right: 6, top: 0, bottom: 0, display: 'flex', alignItems: 'center', gap: 6 }}
-        >
-          {loading && <span className="text-xs opacity-70">a procurar…</span>}
+        <div className="neo-combobox__actions" aria-hidden={disabled}>
+          {loading && (
+            <span className="neo-combobox__spinner" aria-hidden>
+              <Loader2 size={16} className="neo-combobox__spinnerIcon" />
+            </span>
+          )}
           {!!value && !disabled && (
             <button
               type="button"
-              className="btn icon"
-              title="Limpar seleção"
-              aria-label="Limpar seleção"
+              className="neo-icon-button"
               onClick={clearSelection}
+              aria-label="Limpar seleção"
             >
-              ✖
+              <X size={16} strokeWidth={2} />
             </button>
           )}
         </div>
       </div>
 
-      {/* Dropdown */}
       {open && !disabled && (
         <div
           id={listId}
           role="listbox"
-          className="absolute z-20 w-full overflow-auto rounded-xl border bg-[var(--card-bg)] shadow-lg"
-          style={{ borderColor: 'var(--border)', top: '100%', marginTop: 6, maxHeight: 280 }}
-          onMouseDown={(e) => e.preventDefault()}
+          className="neo-combobox__popover"
+          onMouseDown={(event) => event.preventDefault()}
         >
           {items.length === 0 ? (
-            <div className="p-3 text-sm opacity-70">Sem resultados…</div>
+            <div className="neo-combobox__empty">Sem resultados…</div>
           ) : (
             items.map((it) => (
               <button
                 key={it.id}
                 role="option"
                 aria-selected="false"
-                className="w-full px-3 py-2 text-left hover:bg-[var(--hover)]"
+                type="button"
+                className="neo-combobox__option"
                 onClick={() => selectItem(it)}
               >
-                <div className="text-sm font-medium">{it.name ?? '—'}</div>
-                <div className="text-xs opacity-70">{it.email ?? it.id}</div>
+                <span className="neo-combobox__optionTitle">{it.name ?? '—'}</span>
+                <span className="neo-combobox__optionSubtitle">{it.email ?? it.id}</span>
               </button>
             ))
           )}
