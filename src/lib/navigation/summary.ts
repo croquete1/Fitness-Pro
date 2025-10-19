@@ -91,6 +91,14 @@ function buildQuickMetrics(
         href: '/dashboard/billing',
       },
       {
+        id: 'catalog-global',
+        label: 'Catálogo global',
+        value: formatInteger(counts.libraryCatalog ?? 0),
+        tone: (counts.libraryCatalog ?? 0) >= 40 ? 'positive' : 'primary',
+        hint: 'Exercícios publicados disponíveis para toda a equipa',
+        href: '/dashboard/admin/catalog',
+      },
+      {
         id: 'alerts',
         label: 'Alertas abertos',
         value: formatInteger(counts.notificationsUnread ?? 0),
@@ -214,6 +222,14 @@ function buildHighlights(
         href: '/dashboard/billing',
         icon: 'plans',
         tone: (counts.revenuePending ?? 0) > 0 ? 'warning' : 'neutral',
+      },
+      {
+        id: 'catalog-health',
+        title: 'Catálogo global',
+        description: `${formatInteger(counts.libraryCatalog ?? 0)} exercícios prontos para os treinadores.`,
+        href: '/dashboard/admin/catalog',
+        icon: 'library',
+        tone: (counts.libraryCatalog ?? 0) > 0 ? 'primary' : 'warning',
       },
     ];
   }
