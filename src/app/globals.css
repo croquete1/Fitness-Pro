@@ -12174,6 +12174,52 @@ h1,.h1{
 .pt-days-off__dialogContent{ gap:18px; }
 .pt-days-off__dialogLoading{ display:grid; gap:12px; place-items:center; text-align:center; font-size:14px; color:var(--neo-text-muted); padding:24px 12px; }
 .pt-days-off__dialogActions{ display:flex; gap:12px; align-items:center; justify-content:flex-end; flex-wrap:wrap; }
+.pt-summary{ display:grid; gap:20px; }
+.pt-summary__metrics{ display:grid; gap:16px; }
+.pt-summary__grid{ display:grid; gap:16px; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); }
+.pt-summary__metric{ position:relative; padding:18px 20px; border-radius:18px; border:1px solid color-mix(in srgb, var(--border) 78%, transparent); background:color-mix(in srgb, var(--card-bg) 94%, transparent); box-shadow:var(--neo-shadow-xs); display:grid; gap:8px; }
+.pt-summary__label{ font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--neo-text-muted); }
+.pt-summary__value{ font-size:28px; font-weight:800; letter-spacing:-.02em; color:var(--neo-text-strong); }
+.pt-summary__hint{ font-size:13px; color:var(--neo-text-muted); }
+.pt-summary__calendar{ display:grid; gap:16px; }
+.pt-summary__calendarHeader{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
+.pt-summary__calendarTitle{ font-size:18px; font-weight:700; margin:0; color:var(--neo-text-strong); }
+.pt-summary__calendarHint{ font-size:14px; color:var(--neo-text-muted); margin:4px 0 0; }
+.pt-summary__status{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.pt-summary__statusHint{ font-size:13px; color:var(--neo-text-muted); }
+.pt-exercises{ display:grid; gap:20px; }
+.pt-exercises__summary{ display:grid; gap:24px; }
+.pt-exercises__status{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.pt-exercises__statusHint{ font-size:13px; color:var(--neo-text-muted); }
+.pt-exercises__metrics{ display:grid; gap:16px; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); }
+.pt-exercises__metric{ border-radius:18px; border:1px solid color-mix(in srgb, var(--border) 78%, transparent); background:color-mix(in srgb, var(--card-bg) 95%, transparent); padding:18px; display:grid; gap:6px; box-shadow:var(--neo-shadow-xs); }
+.pt-exercises__metricLabel{ font-size:13px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--neo-text-muted); }
+.pt-exercises__metricValue{ font-size:30px; font-weight:800; letter-spacing:-.02em; color:var(--neo-text-strong); }
+.pt-exercises__metricHint{ font-size:13px; color:var(--neo-text-muted); }
+.pt-exercises__filters{ display:grid; gap:16px; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); }
+.pt-exercises__filter{ min-width:0; }
+.pt-exercises__list{ display:grid; gap:16px; }
+.pt-exercises__empty{ display:grid; gap:12px; place-items:center; padding:32px 16px; border-radius:16px; border:1px dashed color-mix(in srgb, var(--border) 70%, transparent); background:color-mix(in srgb, var(--card-bg) 92%, transparent); text-align:center; }
+.pt-exercises__name{ display:grid; gap:4px; }
+.pt-exercises__secondary{ font-size:12px; color:var(--neo-text-muted); }
+.pt-exercise-note{ position:relative; display:inline-flex; align-items:center; }
+.pt-exercise-note__trigger{ font-family:inherit; }
+.pt-exercise-note__popover{ position:absolute; top:calc(100% + 8px); right:0; z-index:10; width:min(340px, 80vw); display:grid; gap:16px; padding:16px; border-radius:16px; background:var(--card-bg); border:1px solid color-mix(in srgb, var(--border) 75%, transparent); box-shadow:var(--neo-shadow-lg); }
+.pt-exercise-note__field textarea{ min-height:128px; resize:vertical; }
+.pt-exercise-note__error{ font-size:13px; color:var(--danger); margin:0; }
+.pt-exercise-note__actions{ display:flex; align-items:center; justify-content:flex-end; gap:12px; }
+.pt-week-calendar{ display:grid; gap:12px; }
+.pt-week-calendar__grid{ display:grid; gap:8px; }
+.pt-week-calendar__day{ text-align:center; font-weight:700; text-transform:uppercase; font-size:12px; letter-spacing:.04em; color:var(--neo-text-muted); }
+.pt-week-calendar__time{ text-align:right; padding-right:6px; font-size:12px; color:var(--neo-text-muted); }
+.pt-week-calendar__slot{ position:relative; border-radius:10px; border:1px solid color-mix(in srgb, var(--border) 75%, transparent); background:color-mix(in srgb, var(--card-bg) 96%, transparent); cursor:crosshair; transition:background-color var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease); overflow:hidden; }
+.pt-week-calendar__slot[data-selecting]{ background:color-mix(in srgb, var(--accent) 22%, transparent); border-color:color-mix(in srgb, var(--accent) 50%, var(--border)); }
+.pt-week-calendar__hint{ font-size:13px; color:var(--neo-text-muted); margin:0; }
+.pt-week-calendar__slot > div{ pointer-events:none; }
+@media (max-width: 720px){
+  .pt-exercises__metrics{ grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); }
+  .pt-week-calendar__grid{ grid-template-columns:60px repeat(7,minmax(0,1fr)); }
+}
 .trainer-sessions__dialogMeta{ display:flex; flex-direction:column; gap:4px; padding:12px 14px; border-radius:14px; background:color-mix(in srgb, var(--hover) 40%, transparent); }
 .trainer-sessions__dialogTitle{ font-weight:600; margin:0; }
 .trainer-sessions__dialogDescription{ margin:0; font-size:14px; }
