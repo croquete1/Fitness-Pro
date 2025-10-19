@@ -5,20 +5,24 @@ import * as React from 'react';
 import Link from 'next/link';
 import clsx from 'clsx';
 import { z } from 'zod';
-import BrandLogo from '@/components/BrandLogo';
-import ThemeToggle from '@/components/ThemeToggle';
+import { UserPlus, Mail, Lock, User } from 'lucide-react';
+
 import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
 import { toast } from '@/components/ui/Toaster';
 import { brand } from '@/lib/brand';
 import { RegisterSchema } from '@/lib/validation/auth';
+import { useLandingSummary } from '@/lib/public/landing/useLandingSummary';
+import { AuthNeoShell } from '@/components/auth/AuthNeoShell';
 
 export default function RegisterClient() {
+  const { summary, isLoading } = useLandingSummary();
   const [form, setForm] = React.useState({ name: '', email: '', password: '' });
   const [loading, setLoading] = React.useState(false);
-  const [err, setErr] = React.useState<string | null>(null);
-  const [ok, setOk] = React.useState(false);
-  const [fieldErr, setFieldErr] = React.useState<{ name?: string; email?: string; password?: string }>({});
+  const [error, setError] = React.useState<string | null>(null);
+  const [success, setSuccess] = React.useState(false);
+  const [fieldErrors, setFieldErrors] = React.useState<{ name?: string; email?: string; password?: string }>({});
+
   const FormSchema = React.useMemo(
     () =>
       RegisterSchema.extend({
@@ -36,40 +40,42 @@ export default function RegisterClient() {
     [],
   );
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setErr(null);
-    setOk(false);
-    setFieldErr({});
+  async function onSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setSuccess(false);
+    setFieldErrors({});
+
     const parsed = FormSchema.safeParse({ ...form });
     if (!parsed.success) {
       const nextErrors: { name?: string; email?: string; password?: string } = {};
-      for (const issue of parsed.error.issues) {
-        const key = issue.path[0] as 'name' | 'email' | 'password' | undefined;
-        if (key) nextErrors[key] = issue.message;
-      }
-      setFieldErr(nextErrors);
+      parsed.error.issues.forEach((issue) => {
+        const key = issue.path[0] as 'name' | 'email' | 'password';
+        nextErrors[key] = issue.message;
+      });
+      setFieldErrors(nextErrors);
       toast('Verifica os campos destacados.', 2600, 'warning');
       return;
     }
+
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/register', {
+      const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ ...parsed.data }),
+        body: JSON.stringify(parsed.data),
       });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const message = typeof j?.error === 'string' && j.error.length > 0 ? j.error : 'Falha no registo.';
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const message = typeof json?.error === 'string' && json.error.length > 0 ? json.error : 'Falha no registo.';
         throw new Error(message);
       }
-      setOk(true);
+      setSuccess(true);
       toast('Conta criada com sucesso! 🎉', 2500, 'success');
       setForm({ name: '', email: '', password: '' });
-    } catch (error: any) {
-      const message = error?.message || 'Falha de rede.';
-      setErr(message);
+    } catch (err: any) {
+      const message = err?.message || 'Falha de rede.';
+      setError(message);
       toast(message, 2500, 'error');
     } finally {
       setLoading(false);
@@ -77,101 +83,118 @@ export default function RegisterClient() {
   }
 
   return (
-    <div className="auth-screen" data-auth-root>
-      <div className="auth-wrap">
-        <div className="auth-card auth-simple">
-          <div className="auth-simple__top">
-            <div className="auth-simple__logo" aria-hidden>
-              <BrandLogo size={56} />
-            </div>
-            <ThemeToggle variant="subtle" />
+    <AuthNeoShell
+      title="Criar conta"
+      subtitle={`Junta-te à experiência ${brand.name} e desbloqueia os dashboards Neo.`}
+      summary={summary}
+      loadingSummary={isLoading}
+      footer={
+        <p className="neo-auth__footnote">
+          Já tens conta?{' '}
+          <Link href="/login" className="neo-auth__link">
+            Inicia sessão
+          </Link>
+        </p>
+      }
+    >
+      {error ? (
+        <Alert tone="danger" className="neo-auth__alert">
+          {error}
+        </Alert>
+      ) : null}
+      {success ? (
+        <Alert tone="success" className="neo-auth__alert">
+          Conta criada! Já podes iniciar sessão.
+        </Alert>
+      ) : null}
+
+      <form className="neo-auth__form" onSubmit={onSubmit} noValidate>
+        <label className="neo-auth__field">
+          <span className="neo-auth__label">Nome completo</span>
+          <div className={clsx('neo-auth__inputWrap', fieldErrors.name && 'neo-auth__inputWrap--error')}>
+            <User className="neo-auth__inputIcon" aria-hidden />
+            <input
+              className="neo-auth__input"
+              value={form.name}
+              onChange={(event) => setForm((state) => ({ ...state, name: event.target.value }))}
+              onBlur={(event) => {
+                const result = FormSchema.pick({ name: true }).safeParse({ name: event.target.value });
+                setFieldErrors((prev) => ({ ...prev, name: result.success ? undefined : result.error.issues[0]?.message }));
+              }}
+              autoComplete="name"
+              required
+            />
           </div>
+          <span className={clsx('neo-auth__helper', fieldErrors.name && 'neo-auth__helper--error')}>
+            {fieldErrors.name ?? 'Nome e apelido completos.'}
+          </span>
+        </label>
 
-          <div className="auth-simple__intro">
-            <h1 className="auth-simple__title">Criar conta</h1>
-            <p className="auth-simple__subtitle">Junta-te à equipa {brand.name}.</p>
+        <label className="neo-auth__field">
+          <span className="neo-auth__label">Email</span>
+          <div className={clsx('neo-auth__inputWrap', fieldErrors.email && 'neo-auth__inputWrap--error')}>
+            <Mail className="neo-auth__inputIcon" aria-hidden />
+            <input
+              className="neo-auth__input"
+              type="email"
+              value={form.email}
+              onChange={(event) => setForm((state) => ({ ...state, email: event.target.value }))}
+              onBlur={(event) => {
+                const result = FormSchema.pick({ email: true }).safeParse({ email: event.target.value });
+                setFieldErrors((prev) => ({ ...prev, email: result.success ? undefined : result.error.issues[0]?.message }));
+              }}
+              autoComplete="email"
+              required
+            />
           </div>
+          <span className={clsx('neo-auth__helper', fieldErrors.email && 'neo-auth__helper--error')}>
+            {fieldErrors.email ?? 'Vamos enviar as notificações para este email.'}
+          </span>
+        </label>
 
-          {err && <Alert tone="danger" className="auth-simple__alert">{err}</Alert>}
-          {ok && <Alert tone="success" className="auth-simple__alert">Conta criada! Já podes iniciar sessão.</Alert>}
+        <label className="neo-auth__field">
+          <span className="neo-auth__label">Palavra-passe</span>
+          <div className={clsx('neo-auth__inputWrap', fieldErrors.password && 'neo-auth__inputWrap--error')}>
+            <Lock className="neo-auth__inputIcon" aria-hidden />
+            <input
+              className="neo-auth__input"
+              type="password"
+              value={form.password}
+              onChange={(event) => setForm((state) => ({ ...state, password: event.target.value }))}
+              onBlur={(event) => {
+                const result = FormSchema.pick({ password: true }).safeParse({ password: event.target.value });
+                setFieldErrors((prev) => ({ ...prev, password: result.success ? undefined : result.error.issues[0]?.message }));
+              }}
+              autoComplete="new-password"
+              minLength={6}
+              required
+            />
+          </div>
+          <span className={clsx('neo-auth__helper', fieldErrors.password && 'neo-auth__helper--error')}>
+            {fieldErrors.password ?? 'Mínimo 6 caracteres.'}
+          </span>
+        </label>
 
-          <form onSubmit={onSubmit} noValidate className="auth-simple__form">
-            <label className="auth-simple__field">
-              <span className="auth-simple__label">Nome</span>
-              <input
-                className={clsx('neo-input', fieldErr.name && 'neo-input--error')}
-                value={form.name}
-                onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
-                onBlur={(e) => {
-                  const res = FormSchema.pick({ name: true }).safeParse({ name: e.target.value });
-                  setFieldErr((prev) => ({ ...prev, name: res.success ? undefined : res.error.issues[0]?.message }));
-                }}
-                autoComplete="name"
-                required
-              />
-              <span className={clsx('neo-input__helper', fieldErr.name && 'text-danger')}>
-                {fieldErr.name ?? 'Nome e apelido completos.'}
-              </span>
-            </label>
+        <Button
+          type="submit"
+          className="neo-auth__submit"
+          disabled={loading}
+          loading={loading}
+          loadingText="A criar…"
+          leftIcon={<UserPlus aria-hidden />}
+        >
+          Criar conta
+        </Button>
+      </form>
 
-            <label className="auth-simple__field">
-              <span className="auth-simple__label">Email</span>
-              <input
-                className={clsx('neo-input', fieldErr.email && 'neo-input--error')}
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm((s) => ({ ...s, email: e.target.value }))}
-                onBlur={(e) => {
-                  const res = FormSchema.pick({ email: true }).safeParse({ email: e.target.value });
-                  setFieldErr((prev) => ({ ...prev, email: res.success ? undefined : res.error.issues[0]?.message }));
-                }}
-                autoComplete="email"
-                required
-              />
-              <span className={clsx('neo-input__helper', fieldErr.email && 'text-danger')}>
-                {fieldErr.email ?? 'Vamos enviar as notificações para este email.'}
-              </span>
-            </label>
-
-            <label className="auth-simple__field">
-              <span className="auth-simple__label">Palavra-passe</span>
-              <input
-                className={clsx('neo-input', fieldErr.password && 'neo-input--error')}
-                type="password"
-                value={form.password}
-                onChange={(e) => setForm((s) => ({ ...s, password: e.target.value }))}
-                onBlur={(e) => {
-                  const res = FormSchema.pick({ password: true }).safeParse({ password: e.target.value });
-                  setFieldErr((prev) => ({ ...prev, password: res.success ? undefined : res.error.issues[0]?.message }));
-                }}
-                autoComplete="new-password"
-                minLength={6}
-                required
-              />
-              <span className={clsx('neo-input__helper', fieldErr.password && 'text-danger')}>
-                {fieldErr.password ?? 'Mínimo 6 caracteres.'}
-              </span>
-            </label>
-
-            <Button
-              type="submit"
-              className="auth-simple__submit"
-              disabled={loading}
-              loading={loading}
-              loadingText="A criar…"
-            >
-              Criar conta
-            </Button>
-          </form>
-
-          <p className="auth-simple__footnote">
-            Já tens conta?{' '}
-            <Link href="/login" className="auth-form__link auth-form__link--wavy">
-              Inicia sessão
-            </Link>
-          </p>
-        </div>
+      <div className="neo-auth__ctaPanel">
+        <h2>O que inclui a conta {brand.name}</h2>
+        <ul>
+          <li>Dashboards Neo com métricas partilhadas entre clientes, PTs e administradores.</li>
+          <li>Sincronização em tempo real com Supabase para sessões, notificações e faturação.</li>
+          <li>Fallback inteligente para continuar a operar mesmo sem ligação.</li>
+        </ul>
       </div>
-    </div>
+    </AuthNeoShell>
   );
 }

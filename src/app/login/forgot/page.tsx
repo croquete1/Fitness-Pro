@@ -1,15 +1,41 @@
+'use client';
+
+import Link from 'next/link';
+import { AlertTriangle } from 'lucide-react';
+
+import { AuthNeoShell } from '@/components/auth/AuthNeoShell';
+import { useLandingSummary } from '@/lib/public/landing/useLandingSummary';
+
 export default function ForgotPasswordPage() {
+  const { summary, isLoading } = useLandingSummary();
+
   return (
-    <div className="auth-screen" data-auth-root>
-      <div className="auth-wrap">
-        <div className="auth-card auth-simple auth-simple--notice">
-          <h1 className="auth-simple__title">Recuperar palavra-passe</h1>
-          <p className="auth-simple__subtitle">
-            Em breve poderás pedir a reposição da tua palavra-passe por email.
+    <AuthNeoShell
+      title="Recuperar palavra-passe"
+      subtitle="Em breve poderás pedir a reposição diretamente a partir deste painel."
+      summary={summary}
+      loadingSummary={isLoading}
+      tone="notice"
+      footer={
+        <p className="neo-auth__footnote">
+          Prefere suporte imediato?{' '}
+          <Link href="mailto:support@fitness.pro" className="neo-auth__link">
+            Envia-nos um email
+          </Link>
+        </p>
+      }
+    >
+      <div className="neo-auth__notice">
+        <span className="neo-auth__noticeIcon" aria-hidden>
+          <AlertTriangle />
+        </span>
+        <div>
+          <p className="neo-auth__noticeTitle">Funcionalidade em atualização</p>
+          <p className="neo-auth__noticeDescription">
+            Até lá, contacta o teu PT ou administrador para apoio imediato e registo manual da alteração.
           </p>
-          <p className="auth-simple__note">Até lá, contacta o teu PT/Admin para apoio imediato.</p>
         </div>
       </div>
-    </div>
+    </AuthNeoShell>
   );
 }
