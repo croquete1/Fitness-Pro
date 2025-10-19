@@ -10705,3 +10705,631 @@ h1,.h1{
 .admin-catalog__tableWrapper table{min-width:100%}
 .admin-catalog__footer{flex-direction:column;align-items:flex-start}
 }
+
+/* ================= Neo Auth Experience ================= */
+.neo-auth {
+  --neo-auth-bg: radial-gradient(circle at 10% 20%, color-mix(in srgb, #312e81 25%, transparent) 0%, transparent 60%),
+    radial-gradient(circle at 85% 10%, color-mix(in srgb, #0ea5e9 18%, transparent) 0%, transparent 55%),
+    #020617;
+  --neo-auth-panel: color-mix(in srgb, #0f172a 82%, transparent);
+  --neo-auth-panel-border: color-mix(in srgb, #6366f1 28%, transparent);
+  --neo-auth-surface: var(--neo-surface-raised, #111827);
+  --neo-auth-surface-muted: color-mix(in srgb, var(--neo-auth-surface) 75%, #1f2937 25%);
+  --neo-auth-input-bg: color-mix(in srgb, var(--neo-auth-surface) 72%, #020617 28%);
+  --neo-auth-input-border: color-mix(in srgb, #4f46e5 38%, transparent);
+  --neo-auth-text-strong: #f8fafc;
+  --neo-auth-text: color-mix(in srgb, #cbd5f5 92%, transparent);
+  --neo-auth-muted: color-mix(in srgb, #94a3b8 85%, transparent);
+  --neo-auth-chart-sessions: #38bdf8;
+  --neo-auth-chart-revenue: #a855f7;
+  --neo-auth-chart-grid: rgba(148, 163, 184, 0.28);
+  --neo-auth-chart-axis: rgba(148, 163, 184, 0.55);
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  background: var(--neo-auth-bg);
+  color: var(--neo-auth-text-strong);
+}
+
+.neo-auth[data-tone='notice'] {
+  --neo-auth-bg: radial-gradient(circle at 12% 12%, color-mix(in srgb, #0ea5e9 24%, transparent) 0%, transparent 60%),
+    radial-gradient(circle at 88% 8%, color-mix(in srgb, #f97316 18%, transparent) 0%, transparent 55%),
+    #0b1120;
+}
+
+.neo-auth__aside {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(2rem, 4vw, 4rem);
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.88) 0%, rgba(15, 23, 42, 0.96) 60%, rgba(15, 23, 42, 0.92) 100%);
+}
+
+.neo-auth__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--neo-space-5, 1.5rem);
+  padding: clamp(2rem, 4vw, 4rem);
+  background: color-mix(in srgb, #020617 6%, var(--neo-surface-canvas, #f8fafc));
+  color: var(--neo-text-primary, #0f172a);
+  justify-content: center;
+}
+
+.neo-auth__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.neo-auth__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-weight: 700;
+  font-size: 1.125rem;
+  color: var(--neo-text-primary, #0f172a);
+}
+
+.neo-auth__brandMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--neo-chart-primary, #4f46e5) 16%, transparent);
+}
+
+.neo-auth__brandText {
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--neo-text-secondary, #475569);
+}
+
+.neo-auth__intro {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.neo-auth__title {
+  margin: 0;
+  font-size: clamp(1.75rem, 2.6vw, 2.45rem);
+  font-weight: 800;
+  color: var(--neo-text-primary, #0f172a);
+}
+
+.neo-auth__subtitle {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--neo-text-secondary, #475569);
+  max-width: 32ch;
+}
+
+.neo-auth__card {
+  display: grid;
+  gap: 1.5rem;
+  padding: clamp(1.75rem, 2.8vw, 2.5rem);
+  border-radius: var(--neo-radius-2xl, 28px);
+  background: var(--neo-auth-surface);
+  color: var(--neo-auth-text-strong);
+  border: 1px solid var(--neo-auth-panel-border);
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.35);
+}
+
+.neo-auth__alert {
+  margin: 0;
+}
+
+.neo-auth__form {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.neo-auth__field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.neo-auth__label {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--neo-auth-text-strong) 75%, transparent);
+}
+
+.neo-auth__inputWrap {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  background: var(--neo-auth-input-bg);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.neo-auth__inputWrap:focus-within {
+  border-color: var(--neo-auth-input-border);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--neo-auth-input-border) 45%, transparent);
+}
+
+.neo-auth__inputWrap--error {
+  border-color: color-mix(in srgb, #f97316 55%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, #f97316 30%, transparent);
+}
+
+.neo-auth__input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--neo-auth-text-strong);
+  font-size: 1rem;
+}
+
+.neo-auth__input:focus {
+  outline: none;
+}
+
+.neo-auth__input::placeholder {
+  color: color-mix(in srgb, var(--neo-auth-muted) 60%, transparent);
+}
+
+.neo-auth__inputIcon {
+  width: 1.2rem;
+  height: 1.2rem;
+  color: color-mix(in srgb, var(--neo-auth-muted) 80%, transparent);
+}
+
+.neo-auth__reveal {
+  border: none;
+  background: none;
+  color: color-mix(in srgb, var(--neo-auth-muted) 80%, transparent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.neo-auth__reveal:hover {
+  color: var(--neo-auth-text-strong);
+}
+
+.neo-auth__helper {
+  font-size: 0.8rem;
+  color: color-mix(in srgb, var(--neo-auth-muted) 88%, transparent);
+}
+
+.neo-auth__helper--error {
+  color: color-mix(in srgb, #fb7185 82%, transparent);
+}
+
+.neo-auth__formFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.neo-auth__submit {
+  min-width: 160px;
+  justify-content: center;
+}
+
+.neo-auth__link {
+  font-weight: 600;
+  color: color-mix(in srgb, #6366f1 88%, transparent);
+  text-decoration: none;
+  position: relative;
+}
+
+.neo-auth__link::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: -0.1rem;
+  height: 2px;
+  background: currentColor;
+  transform-origin: left;
+  transform: scaleX(0);
+  transition: transform 0.2s ease;
+}
+
+.neo-auth__link:hover::after {
+  transform: scaleX(1);
+}
+
+.neo-auth__footnote {
+  margin: 0;
+  font-size: 0.9rem;
+  color: color-mix(in srgb, var(--neo-text-secondary, #475569) 92%, transparent);
+}
+
+.neo-auth__benefits {
+  margin: 0;
+  padding: 1.25rem 1.5rem;
+  list-style: none;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--neo-auth-surface) 78%, rgba(148, 163, 184, 0.08));
+  display: grid;
+  gap: 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--neo-auth-panel-border) 35%, transparent);
+}
+
+.neo-auth__benefits li {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--neo-auth-text-strong);
+}
+
+.neo-auth__benefits strong {
+  font-size: 0.95rem;
+}
+
+.neo-auth__benefits span {
+  font-size: 0.85rem;
+  color: color-mix(in srgb, var(--neo-auth-text-strong) 70%, transparent);
+}
+
+.neo-auth__ctaPanel {
+  display: grid;
+  gap: 0.8rem;
+  padding: 1.5rem;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--neo-auth-surface) 85%, rgba(14, 165, 233, 0.1));
+  border: 1px solid color-mix(in srgb, var(--neo-auth-panel-border) 40%, transparent);
+}
+
+.neo-auth__ctaPanel h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--neo-auth-text-strong);
+}
+
+.neo-auth__ctaPanel ul {
+  margin: 0;
+  padding-inline-start: 1.15rem;
+  display: grid;
+  gap: 0.5rem;
+  color: color-mix(in srgb, var(--neo-auth-text-strong) 76%, transparent);
+  font-size: 0.9rem;
+}
+
+.neo-auth__notice {
+  display: flex;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  border-radius: 18px;
+  background: color-mix(in srgb, #f97316 16%, transparent);
+  border: 1px solid color-mix(in srgb, #fb923c 35%, transparent);
+  align-items: flex-start;
+  color: color-mix(in srgb, #fff7ed 92%, transparent);
+}
+
+.neo-auth__noticeIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, #f97316 22%, transparent);
+  color: #fff7ed;
+}
+
+.neo-auth__noticeTitle {
+  margin: 0;
+  font-weight: 700;
+}
+
+.neo-auth__noticeDescription {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+}
+
+.neo-auth-insights {
+  position: relative;
+  width: min(640px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: clamp(2rem, 3.5vw, 2.8rem);
+  border-radius: 28px;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(15, 23, 42, 0.96) 100%);
+  border: 1px solid color-mix(in srgb, var(--neo-auth-panel-border) 60%, transparent);
+  backdrop-filter: blur(12px);
+  color: var(--neo-auth-text);
+  box-shadow: 0 32px 60px rgba(2, 6, 23, 0.55);
+}
+
+.neo-auth-insights[data-fallback='true'] {
+  border-color: color-mix(in srgb, #fbbf24 40%, transparent);
+}
+
+.neo-auth-insights__header {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.neo-auth-insights__eyebrow {
+  margin: 0;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: color-mix(in srgb, var(--neo-auth-text) 70%, transparent);
+}
+
+.neo-auth-insights__title {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #f8fafc;
+}
+
+.neo-auth-insights__meta {
+  margin: 0;
+  font-size: 0.85rem;
+  color: color-mix(in srgb, var(--neo-auth-text) 65%, transparent);
+}
+
+.neo-auth-insights__metrics {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.neo-auth-insights__metric {
+  display: grid;
+  gap: 0.4rem;
+  padding: 1rem;
+  border-radius: 18px;
+  background: color-mix(in srgb, #1e293b 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--neo-auth-panel-border) 55%, transparent);
+  box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.08);
+}
+
+.neo-auth-insights__metric[data-tone='up'] {
+  border-color: color-mix(in srgb, #22d3ee 48%, transparent);
+}
+
+.neo-auth-insights__metric[data-tone='down'] {
+  border-color: color-mix(in srgb, #f97316 45%, transparent);
+}
+
+.neo-auth-insights__metricLabel {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: color-mix(in srgb, var(--neo-auth-text) 70%, transparent);
+}
+
+.neo-auth-insights__metricValue {
+  font-size: 1.7rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.neo-auth-insights__metricHint {
+  font-size: 0.85rem;
+  color: color-mix(in srgb, var(--neo-auth-text) 72%, transparent);
+}
+
+.neo-auth-insights__metricTrend {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: color-mix(in srgb, var(--neo-auth-text) 60%, transparent);
+}
+
+.neo-auth-insights__chart {
+  height: 240px;
+  border-radius: 22px;
+  background: color-mix(in srgb, #111827 85%, transparent);
+  border: 1px solid color-mix(in srgb, var(--neo-auth-panel-border) 50%, transparent);
+  padding: 1rem;
+}
+
+.neo-auth__chartTooltip {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: #f8fafc;
+}
+
+.neo-auth__chartTooltipTitle {
+  margin: 0;
+  font-weight: 700;
+}
+
+.neo-auth__chartTooltipList {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+}
+
+.neo-auth__chartTooltipList dt {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: color-mix(in srgb, var(--neo-auth-text) 70%, transparent);
+}
+
+.neo-auth__chartTooltipList dd {
+  margin: 0;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.neo-auth-insights__grid {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.neo-auth-insights__panel {
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  border-radius: 20px;
+  background: color-mix(in srgb, #111827 90%, transparent);
+  border: 1px solid color-mix(in srgb, var(--neo-auth-panel-border) 50%, transparent);
+}
+
+.neo-auth-insights__panelHeader {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.neo-auth-insights__panelHeader h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.neo-auth-insights__panelHeader p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: color-mix(in srgb, var(--neo-auth-text) 70%, transparent);
+}
+
+.neo-auth-insights__highlightList {
+  display: grid;
+  gap: 1rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.neo-auth-insights__highlight {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.neo-auth-insights__highlight[data-tone='positive'] {
+  border-color: color-mix(in srgb, #34d399 50%, transparent);
+}
+
+.neo-auth-insights__highlight[data-tone='warning'] {
+  border-color: color-mix(in srgb, #f97316 45%, transparent);
+}
+
+.neo-auth-insights__highlightTitle {
+  margin: 0;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.neo-auth-insights__highlightDescription {
+  margin: 0;
+  font-size: 0.9rem;
+  color: color-mix(in srgb, var(--neo-auth-text) 70%, transparent);
+}
+
+.neo-auth-insights__highlightMeta {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: color-mix(in srgb, var(--neo-auth-text) 62%, transparent);
+}
+
+.neo-auth-insights__activity {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.neo-auth-insights__activityItem {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.85rem;
+  align-items: flex-start;
+}
+
+.neo-auth-insights__activityItem[data-tone='danger'] .neo-auth-insights__activityDot {
+  background: color-mix(in srgb, #f97316 42%, transparent);
+}
+
+.neo-auth-insights__activityMeta {
+  display: grid;
+  place-items: center;
+  gap: 0.35rem;
+}
+
+.neo-auth-insights__activityDot {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #34d399 55%, transparent);
+}
+
+.neo-auth-insights__activityTime {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: color-mix(in srgb, var(--neo-auth-text) 60%, transparent);
+}
+
+.neo-auth-insights__activityContent {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.neo-auth-insights__activityTitle {
+  margin: 0;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.neo-auth-insights__activityDescription {
+  margin: 0;
+  font-size: 0.85rem;
+  color: color-mix(in srgb, var(--neo-auth-text) 70%, transparent);
+}
+
+@media (max-width: 1080px) {
+  .neo-auth {
+    grid-template-columns: 1fr;
+  }
+
+  .neo-auth__aside {
+    order: -1;
+    padding: clamp(1.5rem, 6vw, 3rem);
+  }
+
+  .neo-auth__main {
+    padding-block: clamp(2rem, 6vw, 4rem);
+  }
+}
+
+@media (max-width: 768px) {
+  .neo-auth__card {
+    padding: clamp(1.35rem, 5vw, 1.75rem);
+  }
+
+  .neo-auth__formFooter {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .neo-auth__submit {
+    width: 100%;
+  }
+
+  .neo-auth-insights {
+    padding: clamp(1.5rem, 6vw, 2rem);
+  }
+}
