@@ -1,11 +1,13 @@
-'use client';
+"use client";
 
-import * as React from 'react';
-import {
-  Box, Stack, TextField, MenuItem, Button, Alert, Snackbar, FormControlLabel, Switch,
-} from '@mui/material';
-import { z } from 'zod';
-import { useRouter, useSearchParams } from 'next/navigation';
+import * as React from "react";
+import { useRouter } from "next/navigation";
+import { z } from "zod";
+
+import Button from "@/components/ui/Button";
+import Alert from "@/components/ui/Alert";
+
+const PlanExercisesEditor = React.lazy(() => import("./PlanExercisesEditor"));
 
 export type PlanValues = {
   id?: string;
@@ -28,10 +30,10 @@ export function mapRow(r: any): PlanValues {
 }
 
 // Zod compatível com versões antigas (sem required_error)
-const Diff = z.union([z.literal('Fácil'), z.literal('Média'), z.literal('Difícil')]);
+const Diff = z.union([z.literal("Fácil"), z.literal("Média"), z.literal("Difícil")]);
 const PlanSchema = z.object({
   id: z.string().optional(),
-  name: z.string().min(1, 'Nome é obrigatório').min(2, 'Nome muito curto'),
+  name: z.string().min(1, "Nome é obrigatório").min(2, "Nome muito curto"),
   description: z.string().optional(),
   difficulty: Diff.optional(),
   duration_weeks: z.coerce.number().int().positive().max(104).optional().nullable(),
@@ -42,16 +44,15 @@ export default function PlanFormClient({
   mode,
   initial,
 }: {
-  mode: 'create' | 'edit';
+  mode: "create" | "edit";
   initial?: Partial<PlanValues>;
 }) {
   const router = useRouter();
-  const qs = useSearchParams();
 
   const [values, setValues] = React.useState<PlanValues>(() => ({
     id: initial?.id,
-    name: initial?.name ?? '',
-    description: initial?.description ?? '',
+    name: initial?.name ?? "",
+    description: initial?.description ?? "",
     difficulty: (initial?.difficulty as any) ?? undefined,
     duration_weeks: initial?.duration_weeks ?? null,
     is_public: Boolean(initial?.is_public ?? false),
@@ -59,11 +60,12 @@ export default function PlanFormClient({
 
   const [errors, setErrors] = React.useState<Partial<Record<keyof PlanValues, string>>>({});
   const [saving, setSaving] = React.useState(false);
-  const [err, setErr] = React.useState<string | null>(null);
-  const [snack, setSnack] = React.useState<{ open: boolean; msg: string; sev: 'success' | 'error' | 'info' | 'warning' }>({
-    open: false, msg: '', sev: 'success',
-  });
-  const closeSnack = () => setSnack((s) => ({ ...s, open: false }));
+  const [feedback, setFeedback] = React.useState<{
+    tone: "success" | "danger" | "warning" | "info";
+    message: string;
+  } | null>(null);
+
+  const headingId = React.useId();
 
   function setField<K extends keyof PlanValues>(k: K, v: PlanValues[K]) {
     setValues((prev) => ({ ...prev, [k]: v }));
@@ -72,7 +74,9 @@ export default function PlanFormClient({
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setErr(null); setSaving(true); setErrors({});
+    setFeedback(null);
+    setSaving(true);
+    setErrors({});
 
     const parsed = PlanSchema.safeParse(values);
     if (!parsed.success) {
@@ -83,7 +87,7 @@ export default function PlanFormClient({
       }
       setErrors(fieldErrors);
       setSaving(false);
-      setSnack({ open: true, msg: 'Verifique os campos destacados.', sev: 'error' });
+      setFeedback({ tone: "danger", message: "Verifica os campos destacados." });
       return;
     }
 
@@ -91,109 +95,189 @@ export default function PlanFormClient({
 
     try {
       let res: Response;
-      if (mode === 'edit' && payload.id) {
+      if (mode === "edit" && payload.id) {
         res = await fetch(`/api/admin/plans/${payload.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
       } else {
-        res = await fetch('/api/admin/plans', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        res = await fetch("/api/admin/plans", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
       }
 
-      if (!res.ok) throw new Error((await res.text()) || 'Falha ao gravar');
-      setSnack({ open: true, msg: mode === 'edit' ? 'Plano atualizado ✅' : 'Plano criado ✅', sev: 'success' });
+      if (!res.ok) throw new Error((await res.text()) || "Falha ao gravar");
 
-      // redireciona: se o utilizador abriu em nova aba via preset (não aplicável aqui), mantinha-se;
-      // aqui simplesmente voltamos à lista.
-      router.push('/dashboard/admin/plans');
+      router.push("/dashboard/admin/plans");
     } catch (e: any) {
-      setErr(e?.message || 'Falha ao gravar plano');
-      setSnack({ open: true, msg: 'Erro ao gravar', sev: 'error' });
+      setFeedback({ tone: "danger", message: e?.message || "Falha ao gravar plano." });
     } finally {
       setSaving(false);
     }
   }
 
+  React.useEffect(() => {
+    if (!feedback) return;
+    const timeout = window.setTimeout(() => setFeedback(null), feedback.tone === "success" ? 4000 : 6000);
+    return () => window.clearTimeout(timeout);
+  }, [feedback]);
+
   return (
-    <Box sx={{ display: 'grid', gap: 2 }}>
-      <Box component="form" onSubmit={onSubmit} sx={{ display: 'grid', gap: 2 }}>
-        {err && <Alert severity="error">{err}</Alert>}
+    <div className="admin-plan-form">
+      <form
+        className="neo-panel admin-plan-form__panel"
+        aria-labelledby={headingId}
+        onSubmit={onSubmit}
+        noValidate
+      >
+        <header className="neo-panel__header">
+          <div>
+            <h1 id={headingId} className="neo-panel__title">
+              {mode === "edit" ? "Editar plano" : "Novo plano"}
+            </h1>
+            <p className="neo-panel__subtitle">
+              Define os detalhes operacionais do plano de treino.
+            </p>
+          </div>
+        </header>
 
-        <TextField
-          label="Nome"
-          value={values.name}
-          onChange={(e) => setField('name', e.target.value)}
-          required
-          error={Boolean(errors.name)}
-          helperText={errors.name || ' '}
-        />
+        <div className="neo-panel__body admin-plan-form__body">
+          {feedback && <Alert tone={feedback.tone}>{feedback.message}</Alert>}
 
-        <TextField
-          label="Descrição"
-          value={values.description ?? ''}
-          onChange={(e) => setField('description', e.target.value)}
-          multiline
-          minRows={3}
-          error={Boolean((errors as any).description)}
-          helperText={(errors as any).description || ' '}
-        />
+          <div className="admin-plan-form__grid">
+            <label className="neo-input-group__field">
+              <span className="neo-input-group__label">Nome</span>
+              <input
+                value={values.name}
+                onChange={(event) => setField("name", event.target.value)}
+                className="neo-input"
+                type="text"
+                placeholder="Plano de hipertrofia 12 semanas"
+                autoComplete="off"
+                required
+              />
+              {errors.name ? (
+                <span className="neo-input-group__hint" data-tone="error">
+                  {errors.name}
+                </span>
+              ) : (
+                <span className="neo-input-group__hint">Título visível para administradores e PTs.</span>
+              )}
+            </label>
 
-        <TextField
-          select
-          label="Dificuldade"
-          value={values.difficulty ?? ''}
-          onChange={(e) => setField('difficulty', (e.target.value || undefined) as PlanValues['difficulty'])}
-          helperText="Opcional"
-        >
-          <MenuItem value="">—</MenuItem>
-          <MenuItem value="Fácil">Fácil</MenuItem>
-          <MenuItem value="Média">Média</MenuItem>
-          <MenuItem value="Difícil">Difícil</MenuItem>
-        </TextField>
+            <label className="neo-input-group__field admin-plan-form__description">
+              <span className="neo-input-group__label">Descrição</span>
+              <textarea
+                value={values.description ?? ""}
+                onChange={(event) => setField("description", event.target.value)}
+                className="neo-input"
+                rows={4}
+                placeholder="Resumo do objectivo, frequência semanal e notas principais."
+              />
+              {errors.description ? (
+                <span className="neo-input-group__hint" data-tone="error">
+                  {errors.description}
+                </span>
+              ) : (
+                <span className="neo-input-group__hint">Opcional — apresentado em listagens e relatórios.</span>
+              )}
+            </label>
 
-        <TextField
-          type="number"
-          label="Duração (semanas)"
-          value={values.duration_weeks ?? ''}
-          onChange={(e) => setField('duration_weeks', e.target.value === '' ? null : Number(e.target.value))}
-          inputProps={{ min: 1, max: 104 }}
-          helperText="Opcional (1–104)"
-        />
+            <label className="neo-input-group__field">
+              <span className="neo-input-group__label">Dificuldade</span>
+              <select
+                value={values.difficulty ?? ""}
+                onChange={(event) =>
+                  setField("difficulty", (event.target.value || undefined) as PlanValues["difficulty"]) }
+                className="neo-input"
+              >
+                <option value="">Selecione</option>
+                <option value="Fácil">Fácil</option>
+                <option value="Média">Média</option>
+                <option value="Difícil">Difícil</option>
+              </select>
+              {errors.difficulty ? (
+                <span className="neo-input-group__hint" data-tone="error">
+                  {errors.difficulty}
+                </span>
+              ) : (
+                <span className="neo-input-group__hint">Ajuda a segmentar planos por nível de experiência.</span>
+              )}
+            </label>
 
-        <FormControlLabel
-          control={<Switch checked={Boolean(values.is_public)} onChange={(e) => setField('is_public', e.target.checked)} />}
-          label="Plano público"
-        />
+            <label className="neo-input-group__field">
+              <span className="neo-input-group__label">Duração (semanas)</span>
+              <input
+                value={values.duration_weeks ?? ""}
+                onChange={(event) =>
+                  setField(
+                    "duration_weeks",
+                    event.target.value === "" ? null : Number(event.target.value),
+                  )
+                }
+                className="neo-input"
+                type="number"
+                min={1}
+                max={104}
+                inputMode="numeric"
+                placeholder="12"
+              />
+              {errors.duration_weeks ? (
+                <span className="neo-input-group__hint" data-tone="error">
+                  {errors.duration_weeks}
+                </span>
+              ) : (
+                <span className="neo-input-group__hint">Opcional — usado em relatórios e métricas.</span>
+              )}
+            </label>
+          </div>
 
-        <Stack direction="row" spacing={1} justifyContent="flex-end">
-          <Button type="button" onClick={() => history.back()} disabled={saving}>Cancelar</Button>
-          <Button variant="contained" type="submit" disabled={saving}>
-            {saving ? (mode === 'edit' ? 'A atualizar…' : 'A criar…') : (mode === 'edit' ? 'Guardar alterações' : 'Criar plano')}
+          <label className="neo-checkbox admin-plan-form__visibility">
+            <input
+              type="checkbox"
+              checked={Boolean(values.is_public)}
+              onChange={(event) => setField("is_public", event.target.checked)}
+            />
+            <span>
+              <span className="neo-checkbox__label">Plano público</span>
+              <span className="neo-checkbox__hint">Disponibiliza o plano na biblioteca partilhada.</span>
+            </span>
+          </label>
+        </div>
+
+        <footer className="neo-panel__footer admin-plan-form__footer">
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={saving}
+            onClick={() => router.back()}
+          >
+            Cancelar
           </Button>
-        </Stack>
-      </Box>
+          <Button
+            type="submit"
+            loading={saving}
+            loadingText={mode === "edit" ? "A actualizar…" : "A criar…"}
+          >
+            {mode === "edit" ? "Guardar alterações" : "Criar plano"}
+          </Button>
+        </footer>
+      </form>
 
-      {/* Editor de exercícios apenas quando já existe ID (modo editar) */}
-      {mode === 'edit' && values.id && (
-        <React.Suspense fallback={null}>
-          {/* import dinâmico para evitar pesar a página de "Novo" */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <Box sx={{ mt: 1 }}>
-            {React.createElement(require('./PlanExercisesEditor').default, { planId: values.id })}
-          </Box>
+      {mode === "edit" && values.id && (
+        <React.Suspense
+          fallback={(
+            <div className="admin-plan-form__lazyFallback" role="status" aria-live="polite">
+              A carregar editor de exercícios…
+            </div>
+          )}
+        >
+          <PlanExercisesEditor planId={values.id} planName={values.name} />
         </React.Suspense>
       )}
-
-      <Snackbar open={snack.open} autoHideDuration={3000} onClose={closeSnack}>
-        <Alert severity={snack.sev} variant="filled" onClose={closeSnack} sx={{ width: '100%' }}>
-          {snack.msg}
-        </Alert>
-      </Snackbar>
-    </Box>
+    </div>
   );
 }

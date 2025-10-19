@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import useSWR from "swr";
+import clsx from "clsx";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -16,6 +17,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import PageHeader from "@/components/ui/PageHeader";
 import Button from "@/components/ui/Button";
 import Alert from "@/components/ui/Alert";
+import DataSourceBadge from "@/components/ui/DataSourceBadge";
 import { useMe } from "@/hooks/useMe";
 import { greetingForDate } from "@/lib/time";
 import type {
@@ -93,18 +95,16 @@ function TimelineTooltip({ active, payload }: TimelineTooltipProps) {
   );
 }
 
-function StatusPill({ tone, label }: { tone: "ok" | "warn"; label: string }) {
-  return (
-    <span className="status-pill" data-state={tone}>
-      {label}
-    </span>
-  );
-}
-
 function HeroMetrics({ metrics }: { metrics: ClientHeroMetric[] }) {
-  if (!metrics.length) return null;
+  if (!metrics.length) {
+    return (
+      <div className="client-dashboard__empty" role="status">
+        <p className="neo-text--muted">Sem indicadores disponíveis.</p>
+      </div>
+    );
+  }
   return (
-    <div className="client-dashboard__hero" role="list">
+    <div className={clsx("client-dashboard__hero", "neo-grid", "neo-grid--auto")} role="list">
       {metrics.map((metric) => (
         <article key={metric.key} className="client-dashboard__heroCard" data-tone={metric.tone ?? "neutral"}>
           <span className="client-dashboard__heroLabel">{metric.label}</span>
@@ -316,7 +316,11 @@ export default function DashboardClient() {
             </h2>
             <p className="neo-panel__subtitle">Actualizados automaticamente com base nos teus dados.</p>
           </div>
-          <StatusPill tone={data?.source === "supabase" ? "ok" : "warn"} label={data?.source === "supabase" ? "Sincronizado" : "Modo offline"} />
+          <DataSourceBadge
+            source={data?.source}
+            generatedAt={data?.generatedAt ?? null}
+            className="client-dashboard__badge"
+          />
         </header>
         {isLoading && !data ? (
           <div className="client-dashboard__skeleton" aria-hidden>
@@ -338,16 +342,18 @@ export default function DashboardClient() {
             </h2>
             <p className="neo-panel__subtitle">Comparação diária de sessões agendadas, realizadas e canceladas.</p>
           </div>
-          <div className="client-dashboard__panelActions">
+          <div className="client-dashboard__panelActions" role="toolbar" aria-label="Intervalo temporal">
             {RANGE_OPTIONS.map((option) => (
-              <button
+              <Button
                 key={option.value}
-                type="button"
-                className={`neo-button neo-button--ghost neo-button--small${range === option.value ? " is-active" : ""}`}
+                variant="ghost"
+                size="sm"
+                className={clsx("client-dashboard__rangeButton", range === option.value && "is-active")}
+                data-active={range === option.value || undefined}
                 onClick={() => handleRangeChange(option.value)}
               >
                 {option.label}
-              </button>
+              </Button>
             ))}
           </div>
         </header>

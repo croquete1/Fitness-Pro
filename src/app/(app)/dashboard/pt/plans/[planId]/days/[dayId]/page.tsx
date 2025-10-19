@@ -1,10 +1,8 @@
 // src/app/(app)/dashboard/pt/plans/[planId]/days/[dayId]/page.tsx
-import * as React from 'react';
-import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { Container, Typography, Stack, Button, Chip } from '@mui/material';
+import { redirect } from 'next/navigation';
+
 import { createServerClient } from '@/lib/supabaseServer';
-import { withDashboardContentSx } from '@/styles/dashboardContentSx';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,25 +23,54 @@ export default async function PlanDayPage({ params }: { params: Promise<Params> 
 
   if (!day) {
     return (
-      <Container sx={withDashboardContentSx({ display: 'grid', gap: 2 })}>
-        <Typography variant="h5" fontWeight={800}>📅 Dia</Typography>
-        <Typography color="text.secondary" sx={{ mt: 2 }}>Dia não encontrado.</Typography>
-      </Container>
+      <div className="trainer-plan-day">
+        <header className="neo-panel neo-panel--header trainer-plan-day__header">
+          <div>
+            <h1 className="trainer-plan-day__title">Dia de plano</h1>
+            <p className="trainer-plan-day__subtitle">Dia não encontrado.</p>
+          </div>
+        </header>
+        <section className="neo-panel">
+          <div className="neo-empty">
+            <span className="neo-empty__icon" aria-hidden>
+              📅
+            </span>
+            <p className="neo-empty__title">Dia não encontrado</p>
+            <p className="neo-empty__description">Verifica se o dia ainda existe neste plano.</p>
+            <Link className="btn" data-variant="secondary" data-size="sm" href={`/dashboard/pt/plans/${planId}`}>
+              Voltar ao plano
+            </Link>
+          </div>
+        </section>
+      </div>
     );
   }
 
   return (
-    <Container sx={withDashboardContentSx({ display: 'grid', gap: 2 })}>
-      <Stack direction="row" spacing={1} alignItems="center">
-        <Typography variant="h5" fontWeight={800}>📅 Dia {day.order_index ?? ''}{day.name ? ` — ${day.name}` : ''}</Typography>
-        <Chip size="small" label="PT" />
-      </Stack>
-      {day.notes && <Typography color="text.secondary" sx={{ mt: .5 }}>{day.notes}</Typography>}
+    <div className="trainer-plan-day">
+      <header className="neo-panel neo-panel--header trainer-plan-day__header">
+        <div>
+          <h1 className="trainer-plan-day__title">{`Dia ${day.order_index ?? ''}${day.name ? ` — ${day.name}` : ''}`}</h1>
+          <p className="trainer-plan-day__subtitle">{day.notes || 'Resumo e acesso rápido aos blocos de treino.'}</p>
+        </div>
+        <span className="neo-tag" data-tone="neutral">Plano do PT</span>
+      </header>
 
-      <Stack direction="row" spacing={1.5} sx={{ mt: 2 }}>
-        <Button variant="contained" component={Link} href={`/dashboard/pt/plans/${planId}/days/${dayId}/blocks`}>🏋️ Ver blocos</Button>
-        <Button variant="outlined" component={Link} href={`/dashboard/pt/plans/${planId}`}>← Voltar ao plano</Button>
-      </Stack>
-    </Container>
+      <section className="neo-panel trainer-plan-day__actions">
+        <div className="trainer-plan-day__buttons">
+          <Link
+            className="btn"
+            data-variant="primary"
+            data-size="sm"
+            href={`/dashboard/pt/plans/${planId}/days/${dayId}/blocks`}
+          >
+            🏋️ Ver blocos
+          </Link>
+          <Link className="btn" data-variant="ghost" data-size="sm" href={`/dashboard/pt/plans/${planId}`}>
+            ← Voltar ao plano
+          </Link>
+        </div>
+      </section>
+    </div>
   );
 }
