@@ -1,27 +1,24 @@
+export const dynamic = 'force-dynamic';
+
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import PTLibraryClient from './PTLibraryClient';
 import { getSessionUserSafe } from '@/lib/session-bridge';
-import { toAppRole } from '@/lib/roles';
+import { isAdmin, isPT, toAppRole } from '@/lib/roles';
+import { loadTrainerLibraryDashboard } from '@/lib/trainer/library/server';
 
 export const metadata: Metadata = { title: 'Biblioteca de exercícios' };
 
 export default async function LibraryPtPage() {
   const session = await getSessionUserSafe();
-  const me = session?.user;
-  if (!me?.id) redirect('/login');
-  const role = toAppRole(me.role) ?? 'CLIENT';
-  if (role !== 'PT' && role !== 'ADMIN') redirect('/dashboard');
+  if (!session?.user?.id) redirect('/login');
 
-  return (
-    <section className="space-y-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold">Biblioteca de exercícios</h1>
-        <p className="text-sm text-muted">
-          Mantém os teus exercícios organizados, personaliza o catálogo global e reutiliza-os rapidamente nos planos de treino.
-        </p>
-      </header>
-      <PTLibraryClient />
-    </section>
-  );
+  const role = toAppRole(session.user.role) ?? 'CLIENT';
+  if (!isPT(role) && !isAdmin(role)) redirect('/dashboard');
+
+  const userMeta = (session.user as { user_metadata?: { full_name?: string | null; name?: string | null } }).user_metadata;
+  const viewerName = userMeta?.full_name ?? userMeta?.name ?? session.user.email ?? null;
+
+  const result = await loadTrainerLibraryDashboard(session.user.id);
+  return <PTLibraryClient initialData={result} viewerName={viewerName} />;
 }
