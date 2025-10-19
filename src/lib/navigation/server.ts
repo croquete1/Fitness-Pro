@@ -233,6 +233,32 @@ export async function loadNavigationSummary(
     if (satisfaction !== null && satisfactionTotal && satisfactionTotal > 0) {
       counts.satisfactionScore = satisfaction / satisfactionTotal;
     }
+
+    if (params.userId) {
+      const libraryPersonal = await safeCount(client, 'exercises', (query) =>
+        query.eq('owner_id', params.userId).eq('is_global', false),
+      );
+      if (libraryPersonal !== null) counts.libraryPersonal = libraryPersonal;
+
+      try {
+        const { data: latest } = await client
+          .from('exercises')
+          .select('updated_at,created_at')
+          .eq('owner_id', params.userId)
+          .eq('is_global', false)
+          .order('updated_at', { ascending: false, nullsFirst: false })
+          .limit(1);
+        const updatedAt = latest?.[0]?.updated_at ?? latest?.[0]?.created_at ?? null;
+        if (updatedAt) counts.libraryUpdatedAt = updatedAt;
+      } catch (error) {
+        console.warn('[navigation] falha ao obter última actualização da biblioteca', error);
+      }
+    }
+
+    const libraryCatalog = await safeCount(client, 'exercises', (query) =>
+      query.eq('is_global', true).eq('is_published', true),
+    );
+    if (libraryCatalog !== null) counts.libraryCatalog = libraryCatalog;
   } catch (error) {
     console.error('[navigation] falha ao gerar resumo de navegação', error);
     return fallback;

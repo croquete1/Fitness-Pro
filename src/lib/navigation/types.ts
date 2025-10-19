@@ -62,6 +62,9 @@ export type NavigationSummaryCounts = {
   revenueMonth?: number | null;
   revenuePending?: number | null;
   satisfactionScore?: number | null;
+  libraryPersonal?: number | null;
+  libraryCatalog?: number | null;
+  libraryUpdatedAt?: string | null;
 };
 
 export type NavigationSummaryInput = {

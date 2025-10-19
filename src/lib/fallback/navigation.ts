@@ -22,6 +22,9 @@ function baseCounts(now: Date): NavigationSummaryCounts {
     revenueMonth: baseRevenue,
     revenuePending: 1450,
     satisfactionScore: 4.7,
+    libraryPersonal: 32,
+    libraryCatalog: 48,
+    libraryUpdatedAt: new Date(now.getTime() - 36 * 60 * 60 * 1000).toISOString(),
   };
 }
 
@@ -44,6 +47,9 @@ export function computeNavigationFallbackCounts(
       revenueMonth: counts.revenueMonth ?? 0,
       revenuePending: counts.revenuePending ?? 0,
       satisfactionScore: counts.satisfactionScore ?? 4.6,
+      libraryPersonal: counts.libraryPersonal ?? 22,
+      libraryCatalog: counts.libraryCatalog ?? 45,
+      libraryUpdatedAt: counts.libraryUpdatedAt ?? new Date().toISOString(),
     };
   }
 
@@ -62,6 +68,9 @@ export function computeNavigationFallbackCounts(
       revenueMonth: 0,
       revenuePending: 45,
       satisfactionScore: 4.9,
+      libraryPersonal: counts.libraryPersonal ?? 0,
+      libraryCatalog: counts.libraryCatalog ?? 48,
+      libraryUpdatedAt: counts.libraryUpdatedAt ?? new Date().toISOString(),
     };
   }
 

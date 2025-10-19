@@ -40,6 +40,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Reimaginar o painel principal do cliente no tema `.neo`, com métricas hero, gráfico temporal, destaques, sessões, carteira, notificações e recomendações alimentadas por dados reais via `/api/client/dashboard/route.ts`, utilitários `src/lib/client/dashboard/*` e fallback determinístico em `src/lib/fallback/client-dashboard.ts`.
 - [x] Migrar o painel de planos do PT para o tema `.neo`, com métricas agregadas, timeline semanal e destaques operacionais ligados à nova rota `/api/pt/plans/dashboard` e utilitários `src/lib/trainer/plans/*`.
 - [x] Migrar a agenda de treinos do PT para o tema `.neo`, com métricas hero, distribuição de presenças, destaques operacionais e tabela filtrável servidos pela rota `/api/pt/workouts/dashboard` e utilitários `src/lib/trainer/workouts/*`.
+- [x] Migrar a biblioteca de exercícios do PT para o tema `.neo`, com métricas hero, gráfico temporal, distribuições e tabela filtrável alimentadas pela rota `/api/pt/library/dashboard`, utilitários `src/lib/trainer/library/*` e fallback determinístico em `src/lib/fallback/trainer-library.ts`.
 - [x] Reimaginar o painel principal do treinador no tema `.neo`, com métricas hero, gráfico temporal, agenda semanal, destaques operacionais e pedidos alimentados pela nova rota `/api/trainer/dashboard/route.ts`, utilitários `src/lib/trainer/dashboard/*` e fallback determinístico em `src/lib/fallback/trainer-dashboard.ts`.
 - [x] Reconstruir o painel de mensagens (`src/app/(app)/dashboard/messages/**/*`, `/api/messages/dashboard`) com cartões hero, gráfico temporal, distribuição por canal, destaques automáticos e fallbacks determinísticos em `src/lib/fallback/messages.ts`.
 - [x] Reimaginar o painel de métricas operacionais com dashboards `.neo`, API `/api/system/metrics`, utilitários `src/lib/system/*` e fallback determinístico em `src/lib/fallback/system.ts`.
@@ -51,7 +52,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [ ] Refinar as sidebars de PT/cliente com badges dinâmicos e entradas contextuais (quick actions, indicadores de progresso).
 - [ ] Definir padrão consistente para uso de rotas Next.js vs. cliente Supabase (tempo real) e aplicá-lo aos módulos de mensagens/notificações.
 - [ ] Optimizar consultas com índices e vistas materializadas (existe esboço, mas falta adopção generalizada).
-- [ ] Polir UX/UI das páginas em construção (Relatórios e Definições já no tema `.neo` com métricas reais; resta Biblioteca) garantindo responsividade total.
+- [x] Polir UX/UI das páginas em construção (Relatórios, Definições e Biblioteca adoptaram o tema `.neo` com métricas reais e responsividade reforçada).
 - [ ] Harmonizar o design dos dashboards (admin, PT e cliente) com a linguagem visual HMS, validando breakpoints mobile/desktop.
 - [ ] Completar o fluxo operacional do PT (clientes, planos, agenda e biblioteca) com dados reais e interacções consistentes.
 - [ ] Documentar configuração e variáveis de ambiente actualizadas após migração para Supabase.

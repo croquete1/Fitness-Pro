@@ -14,6 +14,7 @@ const currencyFormatter = new Intl.NumberFormat('pt-PT', {
   maximumFractionDigits: 0,
 });
 const decimalFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 1, minimumFractionDigits: 0 });
+const relativeFormatter = new Intl.RelativeTimeFormat('pt-PT', { numeric: 'auto' });
 
 function formatInteger(value?: number | null): string {
   if (!Number.isFinite(value ?? null)) return '0';
@@ -30,7 +31,32 @@ function formatScore(value?: number | null): string {
   return decimalFormatter.format(value ?? 0);
 }
 
-function buildQuickMetrics(role: NavigationSummaryInput['role'], counts: NavigationSummaryCounts): NavigationQuickMetric[] {
+function formatRelativeDate(value?: string | null, now?: Date): string | null {
+  if (!value) return null;
+  const target = new Date(value);
+  if (Number.isNaN(target.getTime())) return null;
+  const base = now ?? new Date();
+  const diff = target.getTime() - base.getTime();
+  const abs = Math.abs(diff);
+  const thresholds: Array<{ limit: number; unit: Intl.RelativeTimeFormatUnit; size: number }> = [
+    { limit: 60_000, unit: 'second', size: 1_000 },
+    { limit: 3_600_000, unit: 'minute', size: 60_000 },
+    { limit: 86_400_000, unit: 'hour', size: 3_600_000 },
+    { limit: 604_800_000, unit: 'day', size: 86_400_000 },
+    { limit: 2_629_746_000, unit: 'week', size: 604_800_000 },
+    { limit: 31_556_952_000, unit: 'month', size: 2_629_746_000 },
+    { limit: Infinity, unit: 'year', size: 31_556_952_000 },
+  ];
+  const bucket = thresholds.find((item) => abs < item.limit) ?? thresholds[thresholds.length - 1]!;
+  const valueRounded = Math.round(diff / bucket.size);
+  return relativeFormatter.format(valueRounded, bucket.unit);
+}
+
+function buildQuickMetrics(
+  role: NavigationSummaryInput['role'],
+  counts: NavigationSummaryCounts,
+  now: Date,
+): NavigationQuickMetric[] {
   if (role === 'ADMIN') {
     return [
       {
@@ -87,20 +113,23 @@ function buildQuickMetrics(role: NavigationSummaryInput['role'], counts: Navigat
         href: '/dashboard/pt/plans',
       },
       {
+        id: 'library-personal',
+        label: 'Exercícios pessoais',
+        value: formatInteger(counts.libraryPersonal ?? 0),
+        tone: (counts.libraryPersonal ?? 0) >= 25 ? 'positive' : 'primary',
+        hint:
+          counts.libraryUpdatedAt
+            ? `Actualizado ${formatRelativeDate(counts.libraryUpdatedAt, now) ?? 'recentemente'}`
+            : 'Disponíveis para usar nos planos',
+        href: '/dashboard/pt/library',
+      },
+      {
         id: 'messages-unread',
         label: 'Mensagens por responder',
         value: formatInteger(counts.messagesUnread ?? 0),
         tone: (counts.messagesUnread ?? 0) > 0 ? 'warning' : 'neutral',
         hint: 'Novos contactos dos clientes',
         href: '/dashboard/messages',
-      },
-      {
-        id: 'satisfaction',
-        label: 'Satisfação média',
-        value: formatScore(counts.satisfactionScore ?? 4.6),
-        tone: 'positive',
-        hint: 'Pontuação média das avaliações dos clientes',
-        href: '/dashboard/pt/plans',
       },
     ];
   }
@@ -141,7 +170,11 @@ function buildQuickMetrics(role: NavigationSummaryInput['role'], counts: Navigat
   ];
 }
 
-function buildHighlights(role: NavigationSummaryInput['role'], counts: NavigationSummaryCounts): NavigationHighlight[] {
+function buildHighlights(
+  role: NavigationSummaryInput['role'],
+  counts: NavigationSummaryCounts,
+  now: Date,
+): NavigationHighlight[] {
   if (role === 'ADMIN') {
     return [
       {
@@ -179,6 +212,14 @@ function buildHighlights(role: NavigationSummaryInput['role'], counts: Navigatio
         description: `${formatInteger(counts.sessionsUpcoming ?? 0)} sessões agendadas nos próximos dias.`,
         href: '/dashboard/pt/workouts',
         icon: 'calendar',
+        tone: 'neutral',
+      },
+      {
+        id: 'library-catalog',
+        title: 'Catálogo global',
+        description: `${formatInteger(counts.libraryCatalog ?? 0)} exercícios prontos a duplicar.`,
+        href: '/dashboard/pt/library?scope=global',
+        icon: 'library',
         tone: 'neutral',
       },
     ];
@@ -392,6 +433,8 @@ function buildGroups(role: NavigationSummaryInput['role'], counts: NavigationSum
             href: '/dashboard/pt/library',
             icon: 'library',
             description: 'Colecção personalizada de exercícios PT.',
+            kpiLabel: 'Pessoais',
+            kpiValue: formatInteger(counts.libraryPersonal ?? 0),
           },
           {
             id: 'trainer-history',
@@ -516,8 +559,8 @@ function buildGroups(role: NavigationSummaryInput['role'], counts: NavigationSum
 
 export function buildNavigationSummary(input: NavigationSummaryInput): NavigationSummary {
   const now = input.now ?? new Date();
-  const quickMetrics = buildQuickMetrics(input.role, input.counts);
-  const highlights = buildHighlights(input.role, input.counts);
+  const quickMetrics = buildQuickMetrics(input.role, input.counts, now);
+  const highlights = buildHighlights(input.role, input.counts, now);
   const navGroups = buildGroups(input.role, input.counts);
 
   return {
