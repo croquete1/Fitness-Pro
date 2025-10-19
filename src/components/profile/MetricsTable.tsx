@@ -1,33 +1,70 @@
 'use client';
-import * as React from 'react';
-import Paper from '@mui/material/Paper';
-import Typography from '@mui/material/Typography';
-import Table from '@mui/material/Table';
-import TableHead from '@mui/material/TableHead';
-import TableBody from '@mui/material/TableBody';
-import TableRow from '@mui/material/TableRow';
-import TableCell from '@mui/material/TableCell';
 
-export default function MetricsTable({ points }: { points: { date: string; weight?: number | null; bodyfat_pct?: number | null }[] }) {
-  const rows = [...points].reverse().slice(0, 30);
+import * as React from 'react';
+
+type MetricPoint = {
+  date: string;
+  weight?: number | null;
+  bodyfat_pct?: number | null;
+};
+
+function formatDate(value: string) {
+  try {
+    return new Intl.DateTimeFormat('pt-PT', {
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(value));
+  } catch {
+    return value;
+  }
+}
+
+export default function MetricsTable({ points }: { points: MetricPoint[] }) {
+  const rows = React.useMemo(() => [...points].reverse().slice(0, 30), [points]);
+
   return (
-    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
-      <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1 }}>Registos</Typography>
-      <Table size="small">
-        <TableHead>
-          <TableRow><TableCell>Data</TableCell><TableCell>Peso (kg)</TableCell><TableCell>% Gordura</TableCell></TableRow>
-        </TableHead>
-        <TableBody>
-          {rows.map((r, i) => (
-            <TableRow key={i}>
-              <TableCell>{new Date(r.date).toLocaleString('pt-PT')}</TableCell>
-              <TableCell>{r.weight ?? '—'}</TableCell>
-              <TableCell>{r.bodyfat_pct ?? '—'}</TableCell>
-            </TableRow>
-          ))}
-          {rows.length === 0 && <TableRow><TableCell colSpan={3} align="center">Sem registos.</TableCell></TableRow>}
-        </TableBody>
-      </Table>
-    </Paper>
+    <section className="neo-panel profile-metrics__table" aria-label="Registos antropométricos">
+      <header className="neo-panel__header">
+        <div>
+          <h3 className="neo-panel__title">Registos recentes</h3>
+          <p className="neo-panel__subtitle">
+            Histórico das últimas medições sincronizadas.
+          </p>
+        </div>
+      </header>
+
+      {rows.length === 0 ? (
+        <div className="neo-empty">
+          <span className="neo-empty__icon" aria-hidden="true">
+            📭
+          </span>
+          <p className="neo-empty__title">Sem registos</p>
+          <p className="neo-empty__description">As medições serão apresentadas aqui após a primeira sincronização.</p>
+        </div>
+      ) : (
+        <div className="neo-table-wrapper">
+          <table className="neo-table">
+            <thead>
+              <tr>
+                <th scope="col">Data</th>
+                <th scope="col">Peso (kg)</th>
+                <th scope="col">% Gordura</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, index) => (
+                <tr key={`${row.date}-${index}`}>
+                  <td>{formatDate(row.date)}</td>
+                  <td>{row.weight == null ? '—' : row.weight.toLocaleString('pt-PT', { maximumFractionDigits: 1 })}</td>
+                  <td>{row.bodyfat_pct == null ? '—' : `${row.bodyfat_pct.toFixed(1)}%`}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }
