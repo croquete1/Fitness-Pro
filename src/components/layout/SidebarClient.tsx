@@ -1,12 +1,20 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
+import clsx from 'clsx';
 import { usePathname } from 'next/navigation';
 import SidebarBase from '@/components/layout/SidebarBase';
 import { useSidebar } from '@/components/layout/SidebarProvider';
 import { SidebarNavSection, type SidebarNavItem } from '@/components/layout/SidebarNav';
+import SidebarHighlights from '@/components/layout/SidebarHighlights';
+import DataSourceBadge from '@/components/ui/DataSourceBadge';
 import type { ClientCounts } from '@/lib/hooks/useCounts';
-import type { NavigationSummary, NavigationSummaryGroup } from '@/lib/navigation/types';
+import type {
+  NavigationHighlight,
+  NavigationSummary,
+  NavigationSummaryGroup,
+} from '@/lib/navigation/types';
 
 type Props = {
   initialCounts?: ClientCounts;
@@ -98,6 +106,38 @@ const FALLBACK_GROUPS = (counts?: ClientCounts): { title: string; items: Sidebar
   ];
 };
 
+const FALLBACK_HIGHLIGHTS = (counts?: ClientCounts): NavigationHighlight[] => {
+  const messages = counts?.messagesCount ?? 0;
+  const notifications = counts?.notificationsCount ?? 0;
+
+  return [
+    {
+      id: 'sessions-focus',
+      title: 'Confirmar presença',
+      description: 'Revê a agenda da semana e confirma as sessões.',
+      href: '/dashboard/sessions',
+      icon: 'calendar',
+      tone: 'primary',
+    },
+    {
+      id: 'messages-focus',
+      title: 'Mensagens por ler',
+      description: `${messages} conversas aguardam resposta.`,
+      href: '/dashboard/messages',
+      icon: 'messages',
+      tone: messages > 0 ? 'warning' : 'neutral',
+    },
+    {
+      id: 'notifications-focus',
+      title: 'Alertas recentes',
+      description: `${notifications} notificações por ler.`,
+      href: '/dashboard/notifications',
+      icon: 'notifications',
+      tone: notifications > 0 ? 'warning' : 'neutral',
+    },
+  ];
+};
+
 function mapGroup(group: NavigationSummaryGroup): { title: string; items: SidebarNavItem[] } {
   return {
     title: group.title,
@@ -133,10 +173,29 @@ export default function SidebarClient({ initialCounts, summary, loading, onRefre
   }, [summary, initialCounts]);
 
   const quickMetrics = React.useMemo(() => summary?.quickMetrics?.slice(0, 2) ?? [], [summary]);
+  const highlights = React.useMemo(
+    () => summary?.highlights ?? FALLBACK_HIGHLIGHTS(initialCounts),
+    [summary, initialCounts],
+  );
+  const dataSource: 'supabase' | 'fallback' | undefined = summary
+    ? 'supabase'
+    : initialCounts
+    ? 'fallback'
+    : undefined;
+  const generatedAt = summary?.updatedAt ?? null;
 
   const header = (
     <div className="neo-sidebar__headline">
-      <span className="neo-sidebar__headline-label">Acesso rápido</span>
+      <div className="neo-sidebar__headline-meta">
+        <span className="neo-sidebar__headline-label">Acesso rápido</span>
+        {dataSource && (
+          <DataSourceBadge
+            source={dataSource}
+            generatedAt={generatedAt}
+            className="neo-sidebar__headline-badge"
+          />
+        )}
+      </div>
     </div>
   );
 
@@ -150,13 +209,48 @@ export default function SidebarClient({ initialCounts, summary, loading, onRefre
       )}
       {quickMetrics.length > 0 && (
         <div className="neo-sidebar__quick">
-          {quickMetrics.map((metric) => (
-            <div key={metric.id} className={`neo-sidebar__quick-card neo-sidebar__quick-card--${metric.tone}`}>
-              <span className="neo-sidebar__quick-label">{metric.label}</span>
-              <span className="neo-sidebar__quick-value">{metric.value}</span>
-              {metric.hint && <span className="neo-sidebar__quick-hint">{metric.hint}</span>}
-            </div>
-          ))}
+          {quickMetrics.map((metric) => {
+            const tone = metric.tone ?? 'neutral';
+            const className = clsx(
+              'neo-sidebar__quick-card',
+              `neo-sidebar__quick-card--${tone}`,
+              metric.href && 'neo-sidebar__quick-card--link',
+            );
+
+            if (metric.href) {
+              return (
+                <Link
+                  key={metric.id}
+                  href={metric.href}
+                  prefetch={false}
+                  className={className}
+                  onClick={handleNavigate}
+                >
+                  <span className="neo-sidebar__quick-label">{metric.label}</span>
+                  <span className="neo-sidebar__quick-value">{metric.value}</span>
+                  {metric.hint && <span className="neo-sidebar__quick-hint">{metric.hint}</span>}
+                  {metric.deltaLabel && (
+                    <span className="neo-sidebar__quick-delta" data-tone={metric.delta && metric.delta < 0 ? 'negative' : 'positive'}>
+                      {metric.deltaLabel}
+                    </span>
+                  )}
+                </Link>
+              );
+            }
+
+            return (
+              <div key={metric.id} className={className} role="status">
+                <span className="neo-sidebar__quick-label">{metric.label}</span>
+                <span className="neo-sidebar__quick-value">{metric.value}</span>
+                {metric.hint && <span className="neo-sidebar__quick-hint">{metric.hint}</span>}
+                {metric.deltaLabel && (
+                  <span className="neo-sidebar__quick-delta" data-tone={metric.delta && metric.delta < 0 ? 'negative' : 'positive'}>
+                    {metric.deltaLabel}
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
       <nav className="neo-sidebar__nav" aria-label="Menu do cliente">
@@ -171,6 +265,9 @@ export default function SidebarClient({ initialCounts, summary, loading, onRefre
           />
         ))}
       </nav>
+      {highlights.length > 0 && (
+        <SidebarHighlights title="Prioridades" items={highlights} onNavigate={handleNavigate} />
+      )}
     </SidebarBase>
   );
 }

@@ -1,13 +1,21 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
+import clsx from 'clsx';
 import { RefreshCw } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import SidebarBase from '@/components/layout/SidebarBase';
 import { useSidebar } from '@/components/layout/SidebarProvider';
 import { SidebarNavSection, type SidebarNavItem } from '@/components/layout/SidebarNav';
+import SidebarHighlights from '@/components/layout/SidebarHighlights';
+import DataSourceBadge from '@/components/ui/DataSourceBadge';
 import type { ClientCounts } from '@/lib/hooks/useCounts';
-import type { NavigationSummary, NavigationSummaryGroup } from '@/lib/navigation/types';
+import type {
+  NavigationHighlight,
+  NavigationSummary,
+  NavigationSummaryGroup,
+} from '@/lib/navigation/types';
 
 type Props = {
   initialCounts?: ClientCounts;
@@ -130,20 +138,44 @@ const FALLBACK_GROUPS = (counts?: ClientCounts): { title: string; items: Sidebar
   ];
 };
 
-const FALLBACK_HIGHLIGHTS = [
-  {
-    id: 'flow-plan',
-    title: 'Assistente de planos',
-    description: 'Segue o fluxo guiado para desenhar planos em minutos.',
-    href: '/dashboard/pt/plans/new',
-  },
-  {
-    id: 'session-book',
-    title: 'Agendar sessão rápida',
-    description: 'Marca uma sessão avulsa sem sair do painel.',
-    href: '/dashboard/pt/sessions/new',
-  },
-];
+const FALLBACK_HIGHLIGHTS = (counts?: ClientCounts): NavigationHighlight[] => {
+  const messages = counts?.messagesCount ?? 0;
+  const notifications = counts?.notificationsCount ?? 0;
+  return [
+    {
+      id: 'flow-plan',
+      title: 'Assistente de planos',
+      description: 'Segue o fluxo guiado para desenhar planos em minutos.',
+      href: '/dashboard/pt/plans/new',
+      icon: 'plans',
+      tone: 'primary',
+    },
+    {
+      id: 'session-book',
+      title: 'Agendar sessão rápida',
+      description: 'Marca uma sessão avulsa sem sair do painel.',
+      href: '/dashboard/pt/sessions/new',
+      icon: 'calendar-plus',
+      tone: 'positive',
+    },
+    {
+      id: 'messages',
+      title: 'Mensagens por ler',
+      description: `${messages} conversas aguardam resposta.`,
+      href: '/dashboard/messages',
+      icon: 'messages',
+      tone: messages > 0 ? 'warning' : 'neutral',
+    },
+    {
+      id: 'alerts',
+      title: 'Alertas operacionais',
+      description: `${notifications} notificações por analisar.`,
+      href: '/dashboard/notifications',
+      icon: 'notifications',
+      tone: notifications > 0 ? 'warning' : 'neutral',
+    },
+  ];
+};
 
 function mapGroup(group: NavigationSummaryGroup): { title: string; items: SidebarNavItem[] } {
   return {
@@ -181,13 +213,28 @@ export default function SidebarPT({ initialCounts, summary, loading, onRefreshNa
 
   const quickMetrics = React.useMemo(() => summary?.quickMetrics?.slice(0, 3) ?? [], [summary]);
   const highlights = React.useMemo(
-    () => summary?.highlights ?? FALLBACK_HIGHLIGHTS,
-    [summary],
+    () => summary?.highlights ?? FALLBACK_HIGHLIGHTS(initialCounts),
+    [summary, initialCounts],
   );
+  const dataSource: 'supabase' | 'fallback' | undefined = summary
+    ? 'supabase'
+    : initialCounts
+    ? 'fallback'
+    : undefined;
+  const generatedAt = summary?.updatedAt ?? null;
 
   const header = (
     <div className="neo-sidebar__headline">
-      <span className="neo-sidebar__headline-label">Cockpit PT</span>
+      <div className="neo-sidebar__headline-meta">
+        <span className="neo-sidebar__headline-label">Cockpit PT</span>
+        {dataSource && (
+          <DataSourceBadge
+            source={dataSource}
+            generatedAt={generatedAt}
+            className="neo-sidebar__headline-badge"
+          />
+        )}
+      </div>
       {onRefreshNavigation && (
         <button
           type="button"
@@ -212,13 +259,48 @@ export default function SidebarPT({ initialCounts, summary, loading, onRefreshNa
       )}
       {quickMetrics.length > 0 && (
         <div className="neo-sidebar__quick">
-          {quickMetrics.map((metric) => (
-            <div key={metric.id} className={`neo-sidebar__quick-card neo-sidebar__quick-card--${metric.tone}`}>
-              <span className="neo-sidebar__quick-label">{metric.label}</span>
-              <span className="neo-sidebar__quick-value">{metric.value}</span>
-              {metric.hint && <span className="neo-sidebar__quick-hint">{metric.hint}</span>}
-            </div>
-          ))}
+          {quickMetrics.map((metric) => {
+            const tone = metric.tone ?? 'neutral';
+            const className = clsx(
+              'neo-sidebar__quick-card',
+              `neo-sidebar__quick-card--${tone}`,
+              metric.href && 'neo-sidebar__quick-card--link',
+            );
+
+            if (metric.href) {
+              return (
+                <Link
+                  key={metric.id}
+                  href={metric.href}
+                  prefetch={false}
+                  className={className}
+                  onClick={handleNavigate}
+                >
+                  <span className="neo-sidebar__quick-label">{metric.label}</span>
+                  <span className="neo-sidebar__quick-value">{metric.value}</span>
+                  {metric.hint && <span className="neo-sidebar__quick-hint">{metric.hint}</span>}
+                  {metric.deltaLabel && (
+                    <span className="neo-sidebar__quick-delta" data-tone={metric.delta && metric.delta < 0 ? 'negative' : 'positive'}>
+                      {metric.deltaLabel}
+                    </span>
+                  )}
+                </Link>
+              );
+            }
+
+            return (
+              <div key={metric.id} className={className} role="status">
+                <span className="neo-sidebar__quick-label">{metric.label}</span>
+                <span className="neo-sidebar__quick-value">{metric.value}</span>
+                {metric.hint && <span className="neo-sidebar__quick-hint">{metric.hint}</span>}
+                {metric.deltaLabel && (
+                  <span className="neo-sidebar__quick-delta" data-tone={metric.delta && metric.delta < 0 ? 'negative' : 'positive'}>
+                    {metric.deltaLabel}
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
       <nav className="neo-sidebar__nav" aria-label="Menu do personal trainer">
@@ -234,26 +316,7 @@ export default function SidebarPT({ initialCounts, summary, loading, onRefreshNa
         ))}
       </nav>
       {highlights.length > 0 && (
-        <div className="neo-sidebar__highlights">
-          <span className="neo-sidebar__highlights-title">Fluxo recomendado</span>
-          <ul className="neo-sidebar__highlights-list">
-            {highlights.map((highlight) => (
-              <li key={highlight.id}>
-                <a
-                  className="neo-sidebar__highlight"
-                  href={highlight.href ?? '#'}
-                  onClick={(event) => {
-                    if (!highlight.href) event.preventDefault();
-                    handleNavigate();
-                  }}
-                >
-                  <span className="neo-sidebar__highlight-title">{highlight.title}</span>
-                  <span className="neo-sidebar__highlight-desc">{highlight.description}</span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <SidebarHighlights title="Fluxo recomendado" items={highlights} onNavigate={handleNavigate} />
       )}
     </SidebarBase>
   );
