@@ -24,6 +24,7 @@ import {
   History,
   PlusCircle,
   CalendarPlus,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 
@@ -51,6 +52,7 @@ const map: Record<string, LucideIcon> = {
   history: History,
   'plus-circle': PlusCircle,
   'calendar-plus': CalendarPlus,
+  wallet: Wallet,
   refresh: RefreshCw,
   logout: LogOut,
   menu: Menu,
