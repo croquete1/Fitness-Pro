@@ -4,10 +4,12 @@ import * as React from 'react';
 import Link from 'next/link';
 import clsx from 'clsx';
 import { usePathname } from 'next/navigation';
+import { RefreshCw } from 'lucide-react';
 import SidebarBase from '@/components/layout/SidebarBase';
 import { useSidebar } from '@/components/layout/SidebarProvider';
 import { SidebarNavSection, type SidebarNavItem } from '@/components/layout/SidebarNav';
 import SidebarHighlights from '@/components/layout/SidebarHighlights';
+import SidebarQuickMetrics from '@/components/layout/SidebarQuickMetrics';
 import DataSourceBadge from '@/components/ui/DataSourceBadge';
 import type { ClientCounts } from '@/lib/hooks/useCounts';
 import type {
@@ -62,8 +64,8 @@ const FALLBACK_GROUPS = (counts?: ClientCounts): { title: string; items: Sidebar
           label: 'Mensagens',
           icon: 'messages',
           activePrefix: '/dashboard/messages',
-          badge: messages,
-          tone: messages > 0 ? 'warning' : 'neutral',
+          badge: messages || null,
+          tone: messages > 0 ? 'warning' : undefined,
           description: 'Conversa directa com o treinador.',
         },
         {
@@ -71,8 +73,8 @@ const FALLBACK_GROUPS = (counts?: ClientCounts): { title: string; items: Sidebar
           label: 'Notificações',
           icon: 'notifications',
           activePrefix: '/dashboard/notifications',
-          badge: notifications,
-          tone: notifications > 0 ? 'warning' : 'neutral',
+          badge: notifications || null,
+          tone: notifications > 0 ? 'warning' : undefined,
           description: 'Alertas, lembretes e actualizações.',
         },
       ],
@@ -106,6 +108,16 @@ const FALLBACK_GROUPS = (counts?: ClientCounts): { title: string; items: Sidebar
   ];
 };
 
+const describeMessages = (pending: number) => {
+  if (pending <= 0) return 'Tudo em dia nas mensagens.';
+  return `${pending} ${pending === 1 ? 'conversa aguarda' : 'conversas aguardam'} resposta.`;
+};
+
+const describeNotifications = (pending: number) => {
+  if (pending <= 0) return 'Sem novos alertas.';
+  return `${pending} ${pending === 1 ? 'alerta recente' : 'alertas recentes'} para rever.`;
+};
+
 const FALLBACK_HIGHLIGHTS = (counts?: ClientCounts): NavigationHighlight[] => {
   const messages = counts?.messagesCount ?? 0;
   const notifications = counts?.notificationsCount ?? 0;
@@ -122,18 +134,18 @@ const FALLBACK_HIGHLIGHTS = (counts?: ClientCounts): NavigationHighlight[] => {
     {
       id: 'messages-focus',
       title: 'Mensagens por ler',
-      description: `${messages} conversas aguardam resposta.`,
+      description: describeMessages(messages),
       href: '/dashboard/messages',
       icon: 'messages',
-      tone: messages > 0 ? 'warning' : 'neutral',
+      tone: messages > 0 ? 'warning' : undefined,
     },
     {
       id: 'notifications-focus',
       title: 'Alertas recentes',
-      description: `${notifications} notificações por ler.`,
+      description: describeNotifications(notifications),
       href: '/dashboard/notifications',
       icon: 'notifications',
-      tone: notifications > 0 ? 'warning' : 'neutral',
+      tone: notifications > 0 ? 'warning' : undefined,
     },
   ];
 };
@@ -172,7 +184,7 @@ export default function SidebarClient({ initialCounts, summary, loading, onRefre
     return FALLBACK_GROUPS(initialCounts);
   }, [summary, initialCounts]);
 
-  const quickMetrics = React.useMemo(() => summary?.quickMetrics?.slice(0, 2) ?? [], [summary]);
+  const quickMetrics = React.useMemo(() => summary?.quickMetrics ?? [], [summary]);
   const highlights = React.useMemo(
     () => summary?.highlights ?? FALLBACK_HIGHLIGHTS(initialCounts),
     [summary, initialCounts],
@@ -196,6 +208,16 @@ export default function SidebarClient({ initialCounts, summary, loading, onRefre
           />
         )}
       </div>
+      {onRefreshNavigation && (
+        <button
+          type="button"
+          className="neo-sidebar__headline-action"
+          onClick={() => onRefreshNavigation()}
+          aria-label="Actualizar recomendações"
+        >
+          <RefreshCw size={16} strokeWidth={1.8} aria-hidden />
+        </button>
+      )}
     </div>
   );
 
@@ -207,52 +229,7 @@ export default function SidebarClient({ initialCounts, summary, loading, onRefre
           <span className="neo-sidebar__skeleton-bar" />
         </div>
       )}
-      {quickMetrics.length > 0 && (
-        <div className="neo-sidebar__quick">
-          {quickMetrics.map((metric) => {
-            const tone = metric.tone ?? 'neutral';
-            const className = clsx(
-              'neo-sidebar__quick-card',
-              `neo-sidebar__quick-card--${tone}`,
-              metric.href && 'neo-sidebar__quick-card--link',
-            );
-
-            if (metric.href) {
-              return (
-                <Link
-                  key={metric.id}
-                  href={metric.href}
-                  prefetch={false}
-                  className={className}
-                  onClick={handleNavigate}
-                >
-                  <span className="neo-sidebar__quick-label">{metric.label}</span>
-                  <span className="neo-sidebar__quick-value">{metric.value}</span>
-                  {metric.hint && <span className="neo-sidebar__quick-hint">{metric.hint}</span>}
-                  {metric.deltaLabel && (
-                    <span className="neo-sidebar__quick-delta" data-tone={metric.delta && metric.delta < 0 ? 'negative' : 'positive'}>
-                      {metric.deltaLabel}
-                    </span>
-                  )}
-                </Link>
-              );
-            }
-
-            return (
-              <div key={metric.id} className={className} role="status">
-                <span className="neo-sidebar__quick-label">{metric.label}</span>
-                <span className="neo-sidebar__quick-value">{metric.value}</span>
-                {metric.hint && <span className="neo-sidebar__quick-hint">{metric.hint}</span>}
-                {metric.deltaLabel && (
-                  <span className="neo-sidebar__quick-delta" data-tone={metric.delta && metric.delta < 0 ? 'negative' : 'positive'}>
-                    {metric.deltaLabel}
-                  </span>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
+      <SidebarQuickMetrics metrics={quickMetrics} maxVisible={2} onNavigate={handleNavigate} />
       <nav className="neo-sidebar__nav" aria-label="Menu do cliente">
         {groups.map((group) => (
           <SidebarNavSection
