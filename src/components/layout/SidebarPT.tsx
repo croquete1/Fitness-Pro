@@ -6,8 +6,15 @@ import { usePathname } from 'next/navigation';
 import SidebarBase from '@/components/layout/SidebarBase';
 import { useSidebar } from '@/components/layout/SidebarProvider';
 import { SidebarNavSection, type SidebarNavItem } from '@/components/layout/SidebarNav';
+import SidebarHighlights from '@/components/layout/SidebarHighlights';
+import SidebarQuickMetrics from '@/components/layout/SidebarQuickMetrics';
+import DataSourceBadge from '@/components/ui/DataSourceBadge';
 import type { ClientCounts } from '@/lib/hooks/useCounts';
-import type { NavigationSummary, NavigationSummaryGroup } from '@/lib/navigation/types';
+import type {
+  NavigationHighlight,
+  NavigationSummary,
+  NavigationSummaryGroup,
+} from '@/lib/navigation/types';
 
 type Props = {
   initialCounts?: ClientCounts;
@@ -93,8 +100,8 @@ const FALLBACK_GROUPS = (counts?: ClientCounts): { title: string; items: Sidebar
           label: 'Mensagens',
           icon: 'messages',
           activePrefix: ['/dashboard/pt/messages', '/dashboard/messages'],
-          badge: messages,
-          tone: messages > 0 ? 'warning' : 'neutral',
+          badge: messages || null,
+          tone: messages > 0 ? 'warning' : undefined,
           description: 'Chats com clientes e colegas.',
         },
         {
@@ -102,8 +109,8 @@ const FALLBACK_GROUPS = (counts?: ClientCounts): { title: string; items: Sidebar
           label: 'Notificações',
           icon: 'notifications',
           activePrefix: ['/dashboard/notifications'],
-          badge: notifications,
-          tone: notifications > 0 ? 'warning' : 'neutral',
+          badge: notifications || null,
+          tone: notifications > 0 ? 'warning' : undefined,
           description: 'Alertas de presença e sistema.',
         },
       ],
@@ -130,20 +137,54 @@ const FALLBACK_GROUPS = (counts?: ClientCounts): { title: string; items: Sidebar
   ];
 };
 
-const FALLBACK_HIGHLIGHTS = [
-  {
-    id: 'flow-plan',
-    title: 'Assistente de planos',
-    description: 'Segue o fluxo guiado para desenhar planos em minutos.',
-    href: '/dashboard/pt/plans/new',
-  },
-  {
-    id: 'session-book',
-    title: 'Agendar sessão rápida',
-    description: 'Marca uma sessão avulsa sem sair do painel.',
-    href: '/dashboard/pt/sessions/new',
-  },
-];
+const describePendingMessages = (pending: number) => {
+  if (pending <= 0) return 'Inbox limpa — nada pendente.';
+  return `${pending} ${pending === 1 ? 'conversa aguarda' : 'conversas aguardam'} resposta.`;
+};
+
+const describeOperationalAlerts = (pending: number) => {
+  if (pending <= 0) return 'Sem alertas operacionais.';
+  return `${pending} ${pending === 1 ? 'alerta operacional' : 'alertas operacionais'} por rever.`;
+};
+
+const FALLBACK_HIGHLIGHTS = (counts?: ClientCounts): NavigationHighlight[] => {
+  const messages = counts?.messagesCount ?? 0;
+  const notifications = counts?.notificationsCount ?? 0;
+  return [
+    {
+      id: 'flow-plan',
+      title: 'Assistente de planos',
+      description: 'Segue o fluxo guiado para desenhar planos em minutos.',
+      href: '/dashboard/pt/plans/new',
+      icon: 'plans',
+      tone: 'primary',
+    },
+    {
+      id: 'session-book',
+      title: 'Agendar sessão rápida',
+      description: 'Marca uma sessão avulsa sem sair do painel.',
+      href: '/dashboard/pt/sessions/new',
+      icon: 'calendar-plus',
+      tone: 'positive',
+    },
+    {
+      id: 'messages',
+      title: 'Mensagens por ler',
+      description: describePendingMessages(messages),
+      href: '/dashboard/messages',
+      icon: 'messages',
+      tone: messages > 0 ? 'warning' : undefined,
+    },
+    {
+      id: 'alerts',
+      title: 'Alertas operacionais',
+      description: describeOperationalAlerts(notifications),
+      href: '/dashboard/notifications',
+      icon: 'notifications',
+      tone: notifications > 0 ? 'warning' : undefined,
+    },
+  ];
+};
 
 function mapGroup(group: NavigationSummaryGroup): { title: string; items: SidebarNavItem[] } {
   return {
@@ -179,15 +220,30 @@ export default function SidebarPT({ initialCounts, summary, loading, onRefreshNa
     return FALLBACK_GROUPS(initialCounts);
   }, [summary, initialCounts]);
 
-  const quickMetrics = React.useMemo(() => summary?.quickMetrics?.slice(0, 3) ?? [], [summary]);
+  const quickMetrics = React.useMemo(() => summary?.quickMetrics ?? [], [summary]);
   const highlights = React.useMemo(
-    () => summary?.highlights ?? FALLBACK_HIGHLIGHTS,
-    [summary],
+    () => summary?.highlights ?? FALLBACK_HIGHLIGHTS(initialCounts),
+    [summary, initialCounts],
   );
+  const dataSource: 'supabase' | 'fallback' | undefined = summary
+    ? 'supabase'
+    : initialCounts
+    ? 'fallback'
+    : undefined;
+  const generatedAt = summary?.updatedAt ?? null;
 
   const header = (
     <div className="neo-sidebar__headline">
-      <span className="neo-sidebar__headline-label">Cockpit PT</span>
+      <div className="neo-sidebar__headline-meta">
+        <span className="neo-sidebar__headline-label">Cockpit PT</span>
+        {dataSource && (
+          <DataSourceBadge
+            source={dataSource}
+            generatedAt={generatedAt}
+            className="neo-sidebar__headline-badge"
+          />
+        )}
+      </div>
       {onRefreshNavigation && (
         <button
           type="button"
@@ -210,17 +266,7 @@ export default function SidebarPT({ initialCounts, summary, loading, onRefreshNa
           <span className="neo-sidebar__skeleton-bar" />
         </div>
       )}
-      {quickMetrics.length > 0 && (
-        <div className="neo-sidebar__quick">
-          {quickMetrics.map((metric) => (
-            <div key={metric.id} className={`neo-sidebar__quick-card neo-sidebar__quick-card--${metric.tone}`}>
-              <span className="neo-sidebar__quick-label">{metric.label}</span>
-              <span className="neo-sidebar__quick-value">{metric.value}</span>
-              {metric.hint && <span className="neo-sidebar__quick-hint">{metric.hint}</span>}
-            </div>
-          ))}
-        </div>
-      )}
+      <SidebarQuickMetrics metrics={quickMetrics} maxVisible={3} onNavigate={handleNavigate} />
       <nav className="neo-sidebar__nav" aria-label="Menu do personal trainer">
         {groups.map((group) => (
           <SidebarNavSection
@@ -234,26 +280,7 @@ export default function SidebarPT({ initialCounts, summary, loading, onRefreshNa
         ))}
       </nav>
       {highlights.length > 0 && (
-        <div className="neo-sidebar__highlights">
-          <span className="neo-sidebar__highlights-title">Fluxo recomendado</span>
-          <ul className="neo-sidebar__highlights-list">
-            {highlights.map((highlight) => (
-              <li key={highlight.id}>
-                <a
-                  className="neo-sidebar__highlight"
-                  href={highlight.href ?? '#'}
-                  onClick={(event) => {
-                    if (!highlight.href) event.preventDefault();
-                    handleNavigate();
-                  }}
-                >
-                  <span className="neo-sidebar__highlight-title">{highlight.title}</span>
-                  <span className="neo-sidebar__highlight-desc">{highlight.description}</span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <SidebarHighlights title="Fluxo recomendado" items={highlights} onNavigate={handleNavigate} />
       )}
     </SidebarBase>
   );
