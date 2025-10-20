@@ -15,7 +15,7 @@ export async function GET(req: Request) {
 
     if (!start || !end) return NextResponse.json({ hasConflict: false });
 
-    let q = sb.from('pts_sessions')
+    let q = sb.from('sessions')
       .select('id,trainer_id,client_id,start_time,end_time');
 
     const orFilters = [

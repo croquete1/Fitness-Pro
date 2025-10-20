@@ -1,32 +1,29 @@
 'use client';
 
 import * as React from 'react';
-import { Container, Box, Typography } from '@mui/material';
-import SessionFormClient from '../SessionFormClient';
 import { useSearchParams } from 'next/navigation';
 
-export default function Page() {
-  const sp = useSearchParams();
+import PageHeader from '@/components/ui/PageHeader';
+import SessionFormClient from '../SessionFormClient';
 
-  // lê presets da toolbar (se existirem)
+export default function Page() {
+  const params = useSearchParams();
   const initial = React.useMemo(() => {
-    const get = (k: string) => sp.get(k) ?? '';
+    const get = (key: string) => params.get(key) ?? '';
     return {
       start_time: get('start_time'),
       end_time: get('end_time'),
       trainer_id: get('trainer_id') || undefined,
       client_id: get('client_id') || undefined,
     };
-  }, [sp]);
+  }, [params]);
 
   return (
-    <Container maxWidth="md" sx={{ display: 'grid', gap: 2 }}>
-      <Box>
-        <Typography variant="h6" fontWeight={800}>
-          ➕ Nova sessão
-        </Typography>
-      </Box>
-      <SessionFormClient mode="create" initial={initial} />
-    </Container>
+    <div className="admin-pts-schedule__formPage">
+      <PageHeader title="Nova sessão" subtitle="Agenda uma nova sessão para a tua equipa." sticky={false} />
+      <div className="admin-pts-schedule__formCard">
+        <SessionFormClient mode="create" initial={initial} />
+      </div>
+    </div>
   );
 }

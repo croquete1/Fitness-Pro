@@ -2840,6 +2840,12 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
   gap:8px;
   font-size:14px;
 }
+.admin-motivation__busy{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  font-size:14px;
+}
 .admin-notifications__dashboard{
   display:grid;
   gap:var(--neo-space-6);
@@ -3883,6 +3889,9 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
   gap:4px;
   font-size:12px;
   font-weight:600;
+  color:var(--muted-fg);
+  text-align:center;
+  padding:8px;
 }
 .profile-hero__trend svg{ width:14px; height:14px; }
 .profile-hero__trend.up{ color:#bbf7d0; }
@@ -4111,6 +4120,7 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
 .profile-metrics__table .neo-table th{
   padding:10px 12px;
 }
+.profile-dashboard__avatarRemove:hover{ color:var(--danger-strong); }
 
 .profile-dashboard__columns{
   display:grid;
@@ -8294,8 +8304,7 @@ h1,.h1{
 }
 .settings-analytics-card__body{
   display:grid;
-  gap:24px;
-  padding-bottom:64px;
+  gap:16px;
 }
 .settings-analytics-card__body--chart{
   min-height:240px;
@@ -9049,10 +9058,6 @@ h1,.h1{
 .notifications-dashboard__paginationSummary{
   font-size:13px;
   color:var(--muted-fg);
-  display:-webkit-box;
-  -webkit-line-clamp:2;
-  -webkit-box-orient:vertical;
-  overflow:hidden;
 }
 .notifications-dashboard__paginationControls{
   display:flex;
@@ -14402,3 +14407,51 @@ h1,.h1{
     width:100%;
   }
 }
+
+.admin-pts-schedule{ display:grid; gap:24px; padding-bottom:40px; }
+.admin-pts-schedule__actions{ display:flex; gap:12px; align-items:center; }
+.admin-pts-schedule__meta{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; padding:12px 18px; border-radius:14px; background:color-mix(in srgb, var(--neo-surface-raised) 72%, transparent); border:1px solid color-mix(in srgb, var(--neo-border-strong) 35%, transparent); }
+.admin-pts-schedule__metaDetail{ display:flex; gap:16px; color:color-mix(in srgb, var(--muted-fg) 85%, transparent); font-size:0.85rem; }
+.admin-pts-schedule__metaDetail .neo-icon{ margin-right:6px; }
+.admin-pts-schedule__hero{ display:grid; gap:18px; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); }
+.admin-pts-schedule__heroCard{ position:relative; display:flex; flex-direction:column; gap:6px; padding:20px; border-radius:16px; background:color-mix(in srgb, var(--neo-surface) 92%, transparent); border:1px solid color-mix(in srgb, var(--neo-border) 35%, transparent); box-shadow:var(--neo-shadow-sm); min-height:140px; }
+.admin-pts-schedule__heroCard[data-tone="danger"]{ border-color:color-mix(in srgb, var(--danger) 24%, transparent); }
+.admin-pts-schedule__heroCard[data-tone="warning"]{ border-color:color-mix(in srgb, var(--warning) 24%, transparent); }
+.admin-pts-schedule__heroCard[data-tone="success"]{ border-color:color-mix(in srgb, var(--success) 22%, transparent); }
+.admin-pts-schedule__heroCard[data-tone="primary"]{ border-color:color-mix(in srgb, var(--neo-primary) 28%, transparent); }
+.admin-pts-schedule__heroHeader{ display:flex; align-items:center; gap:10px; }
+.admin-pts-schedule__heroIcon{ width:34px; height:34px; border-radius:12px; display:inline-flex; align-items:center; justify-content:center; background:color-mix(in srgb, var(--neo-primary) 15%, transparent); color:var(--neo-primary-strong); }
+.admin-pts-schedule__heroLabel{ font-size:0.95rem; color:color-mix(in srgb, var(--muted-fg) 82%, transparent); }
+.admin-pts-schedule__heroValue{ font-size:1.9rem; font-weight:700; letter-spacing:-0.01em; color:var(--neo-text-strong); }
+.admin-pts-schedule__heroHint{ font-size:0.85rem; color:color-mix(in srgb, var(--muted-fg) 88%, transparent); }
+.admin-pts-schedule__insights{ display:grid; gap:20px; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); }
+.admin-pts-schedule__panel{ display:flex; flex-direction:column; gap:12px; padding:18px; border-radius:16px; background:color-mix(in srgb, var(--neo-surface) 95%, transparent); border:1px solid color-mix(in srgb, var(--neo-border) 30%, transparent); box-shadow:var(--neo-shadow-xs); }
+.admin-pts-schedule__panel header h3{ font-size:0.95rem; font-weight:700; color:var(--neo-text-strong); }
+.admin-pts-schedule__panel ul{ list-style:none; margin:0; padding:0; display:grid; gap:10px; }
+.admin-pts-schedule__panel li{ display:flex; flex-direction:column; gap:4px; padding:10px 12px; border-radius:12px; background:color-mix(in srgb, var(--neo-surface) 88%, transparent); border:1px solid color-mix(in srgb, var(--neo-border) 25%, transparent); }
+.admin-pts-schedule__panel li[data-tone="ok"]{ border-color:color-mix(in srgb, var(--success) 22%, transparent); }
+.admin-pts-schedule__panel li[data-tone="warn"]{ border-color:color-mix(in srgb, var(--warning) 25%, transparent); }
+.admin-pts-schedule__panel li[data-tone="down"]{ border-color:color-mix(in srgb, var(--danger) 25%, transparent); }
+.admin-pts-schedule__panel li strong{ font-size:1.2rem; font-weight:700; }
+.admin-pts-schedule__trainerName{ font-weight:600; color:var(--neo-text-strong); }
+.admin-pts-schedule__trainerMeta{ font-size:0.85rem; color:color-mix(in srgb, var(--muted-fg) 85%, transparent); }
+.admin-pts-schedule__trainerNext{ font-size:0.8rem; color:color-mix(in srgb, var(--muted-fg) 82%, transparent); }
+.admin-pts-schedule__table{ display:grid; gap:14px; }
+.admin-pts-schedule__tableToolbar{ display:flex; flex-wrap:wrap; gap:16px; align-items:center; justify-content:space-between; }
+.admin-pts-schedule__filters{ display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+.admin-pts-schedule__filter{ display:flex; flex-direction:column; gap:6px; font-size:0.75rem; text-transform:uppercase; color:color-mix(in srgb, var(--muted-fg) 80%, transparent); }
+.admin-pts-schedule__filter select{ min-width:160px; }
+.admin-pts-schedule__search{ display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:10px; background:color-mix(in srgb, var(--neo-surface) 92%, transparent); border:1px solid color-mix(in srgb, var(--neo-border) 25%, transparent); }
+.admin-pts-schedule__search input{ border:none; background:transparent; outline:none; font-size:0.95rem; color:var(--neo-text); min-width:200px; }
+.admin-pts-schedule__rowActions{ display:flex; gap:6px; align-items:center; justify-content:flex-end; }
+.admin-pts-schedule__rowActions .btn{ padding:6px; min-width:auto; }
+.admin-pts-schedule__status{ display:inline-flex; align-items:center; justify-content:center; padding:4px 10px; border-radius:999px; font-size:0.8rem; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; background:color-mix(in srgb, var(--neo-surface) 88%, transparent); }
+.admin-pts-schedule__status[data-tone="ok"]{ color:var(--success); }
+.admin-pts-schedule__status[data-tone="warn"]{ color:var(--warning); }
+.admin-pts-schedule__status[data-tone="down"]{ color:var(--danger); }
+.admin-pts-schedule__status[data-tone="neutral"]{ color:color-mix(in srgb, var(--muted-fg) 80%, transparent); }
+.admin-pts-schedule__cellMeta{ display:inline-flex; gap:6px; align-items:center; font-size:0.9rem; color:var(--neo-text); }
+.admin-pts-schedule__time{ display:flex; flex-direction:column; gap:2px; }
+.admin-pts-schedule__timeHint{ font-size:0.78rem; color:color-mix(in srgb, var(--muted-fg) 78%, transparent); }
+.admin-pts-schedule__formPage{ display:grid; gap:20px; padding-bottom:40px; }
+.admin-pts-schedule__formCard{ padding:20px; border-radius:18px; background:color-mix(in srgb, var(--neo-surface) 96%, transparent); border:1px solid color-mix(in srgb, var(--neo-border) 30%, transparent); box-shadow:var(--neo-shadow-sm); }

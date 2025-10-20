@@ -30,12 +30,12 @@ export async function PATCH(_req: Request, ctx: Ctx) {
     const patch = PatchSchema.parse(body);
 
     const { data: before } = await sb
-      .from('pts_sessions')
+      .from('sessions')
       .select('id, trainer_id, client_id, start_time, end_time, status, location')
       .eq('id', id)
       .maybeSingle();
 
-    const { error } = await sb.from('pts_sessions')
+    const { error } = await sb.from('sessions')
       .update(patch)
       .eq('id', id);
 
@@ -68,12 +68,12 @@ export async function DELETE(_req: Request, ctx: Ctx) {
       );
     }
     const { data: before } = await sb
-      .from('pts_sessions')
+      .from('sessions')
       .select('id, trainer_id, client_id, start_time, end_time, status, location')
       .eq('id', id)
       .maybeSingle();
 
-    const { error } = await sb.from('pts_sessions')
+    const { error } = await sb.from('sessions')
       .delete()
       .eq('id', id);
 
