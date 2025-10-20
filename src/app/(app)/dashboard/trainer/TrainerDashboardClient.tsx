@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import useSWR from 'swr';
+import { Download } from 'lucide-react';
 import {
   Area,
   AreaChart,
@@ -14,6 +15,7 @@ import {
 import PageHeader from '@/components/ui/PageHeader';
 import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
+import DataSourceBadge from '@/components/ui/DataSourceBadge';
 import type {
   TrainerDashboardResponse,
   TrainerHeroMetric,
@@ -46,6 +48,23 @@ type Props = {
 };
 
 const numberFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 });
+
+type ClientToneFilter = 'all' | TrainerClientSnapshot['tone'];
+
+const CLIENT_TONE_FILTERS: Array<{ id: ClientToneFilter; label: string; tone: TrainerClientSnapshot['tone'] | null }> = [
+  { id: 'all', label: 'Todos', tone: null },
+  { id: 'positive', label: 'Em progresso', tone: 'positive' },
+  { id: 'warning', label: 'Atenção', tone: 'warning' },
+  { id: 'critical', label: 'Risco', tone: 'critical' },
+  { id: 'neutral', label: 'Sem alerta', tone: 'neutral' },
+];
+
+const TONE_PRIORITY: Record<TrainerClientSnapshot['tone'], number> = {
+  critical: 0,
+  warning: 1,
+  positive: 2,
+  neutral: 3,
+};
 
 function formatUpdatedAt(value: string) {
   const date = new Date(value);
@@ -152,22 +171,93 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
   });
 
   const dashboard = data ?? initialData;
-  const supabaseState = dashboard.supabase ? 'ok' : 'warn';
-  const supabaseLabel = dashboard.supabase ? 'Dados em tempo real' : 'Modo offline';
 
   const greeting = React.useMemo(() => firstName(viewerName ?? dashboard.trainerName), [viewerName, dashboard.trainerName]);
 
   const [clientQuery, setClientQuery] = React.useState('');
+  const [clientToneFilter, setClientToneFilter] = React.useState<ClientToneFilter>('all');
+
+  const normalizedQuery = React.useMemo(() => clientQuery.trim().toLowerCase(), [clientQuery]);
+  const hasFilters = normalizedQuery.length > 0 || clientToneFilter !== 'all';
+
+  const clearFilters = React.useCallback(() => {
+    setClientQuery('');
+    setClientToneFilter('all');
+  }, []);
+
   const filteredClients = React.useMemo(() => {
-    if (!clientQuery.trim()) return dashboard.clients;
-    const query = clientQuery.trim().toLowerCase();
-    return dashboard.clients.filter((client) =>
-      [client.name, client.email ?? '', client.lastSessionLabel, client.nextSessionLabel]
-        .join(' ')
-        .toLowerCase()
-        .includes(query),
+    return dashboard.clients
+      .filter((client) => {
+        const matchesQuery = normalizedQuery.length === 0
+        ? true
+        : [client.name, client.email ?? '', client.lastSessionLabel, client.nextSessionLabel]
+            .join(' ')
+            .toLowerCase()
+            .includes(normalizedQuery);
+        const matchesTone = clientToneFilter === 'all' ? true : client.tone === clientToneFilter;
+        return matchesQuery && matchesTone;
+      })
+      .sort((a, b) => {
+        const toneDiff = (TONE_PRIORITY[a.tone] ?? 99) - (TONE_PRIORITY[b.tone] ?? 99);
+        if (toneDiff !== 0) return toneDiff;
+        return a.name.localeCompare(b.name, 'pt-PT', { sensitivity: 'base' });
+      });
+  }, [dashboard.clients, normalizedQuery, clientToneFilter]);
+
+  const clientStats = React.useMemo(() => {
+    const totals = filteredClients.reduce(
+      (acc, client) => {
+        acc.upcoming += client.upcoming;
+        acc.completed += client.completed;
+        if (client.tone === 'critical' || client.tone === 'warning') {
+          acc.attention += 1;
+        }
+        return acc;
+      },
+      { total: filteredClients.length, upcoming: 0, completed: 0, attention: 0 },
     );
-  }, [dashboard.clients, clientQuery]);
+
+    return {
+      ...totals,
+      totalLabel: numberFormatter.format(totals.total),
+      upcomingLabel: numberFormatter.format(totals.upcoming),
+      completedLabel: numberFormatter.format(totals.completed),
+      attentionLabel: numberFormatter.format(totals.attention),
+    };
+  }, [filteredClients]);
+
+  const handleRefresh = React.useCallback(() => {
+    void mutate();
+  }, [mutate]);
+
+  const exportClients = React.useCallback(() => {
+    if (filteredClients.length === 0) return;
+
+    const header = ['Cliente', 'Email', 'Próximas', 'Concluídas', 'Última sessão', 'Próxima sessão', 'Prioridade'];
+    const rows = filteredClients.map((client) => [
+      client.name,
+      client.email ?? '',
+      String(client.upcoming),
+      String(client.completed),
+      client.lastSessionLabel,
+      client.nextSessionLabel,
+      client.tone,
+    ]);
+
+    const csv = [header, ...rows]
+      .map((row) => row.map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`).join(';'))
+      .join('\n');
+
+    const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `carteira-clientes-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [filteredClients]);
 
   return (
     <div className="trainer-dashboard">
@@ -177,11 +267,19 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
         sticky={false}
         actions={
           <div className="trainer-dashboard__actions">
-            <span className="status-pill" data-state={supabaseState}>
-              {supabaseLabel}
-            </span>
-            <Button onClick={() => mutate()} variant="ghost" size="sm" disabled={isValidating}>
-              Actualizar
+            <DataSourceBadge
+              source={dashboard.source}
+              generatedAt={dashboard.updatedAt}
+              className="trainer-dashboard__data-source"
+            />
+            <Button
+              onClick={handleRefresh}
+              variant="ghost"
+              size="sm"
+              disabled={isValidating}
+              aria-busy={isValidating}
+            >
+              {isValidating ? 'A actualizar…' : 'Actualizar'}
             </Button>
           </div>
         }
@@ -382,16 +480,56 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
               </h2>
               <p className="neo-panel__subtitle">Resumo de acompanhamento por cliente.</p>
             </div>
-            <div className="trainer-dashboard__clients-search">
-              <input
-                type="search"
-                placeholder="Filtrar clientes"
-                value={clientQuery}
-                onChange={(event) => setClientQuery(event.target.value)}
-                className="trainer-dashboard__clients-input"
-                aria-label="Filtrar clientes"
-              />
+            <div className="trainer-dashboard__clients-tools">
+              <div className="trainer-dashboard__clients-search">
+                <input
+                  type="search"
+                  placeholder="Filtrar clientes"
+                  value={clientQuery}
+                  onChange={(event) => setClientQuery(event.target.value)}
+                  className="trainer-dashboard__clients-input"
+                  aria-label="Filtrar clientes"
+                />
+              </div>
+              <div className="trainer-dashboard__tone-toggle" role="group" aria-label="Filtrar por prioridade">
+                {CLIENT_TONE_FILTERS.map((filter) => (
+                  <button
+                    key={filter.id}
+                    type="button"
+                    className="trainer-dashboard__tone-button"
+                    data-active={clientToneFilter === filter.id}
+                    data-tone={filter.tone ?? 'all'}
+                    aria-pressed={clientToneFilter === filter.id}
+                    onClick={() => setClientToneFilter(filter.id)}
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
+              <Button
+                onClick={exportClients}
+                variant="ghost"
+                size="sm"
+                leftIcon={<Download size={16} aria-hidden />}
+                disabled={filteredClients.length === 0}
+              >
+                Exportar CSV
+              </Button>
             </div>
+          </div>
+          <div className="trainer-dashboard__clients-summary" aria-live="polite">
+            <span className="trainer-dashboard__clients-summary-item">
+              {clientStats.totalLabel} cliente(s)
+            </span>
+            <span className="trainer-dashboard__clients-summary-item">
+              {clientStats.upcomingLabel} sessão(ões) futuras
+            </span>
+            <span className="trainer-dashboard__clients-summary-item">
+              {clientStats.completedLabel} concluídas
+            </span>
+            <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--critical">
+              {clientStats.attentionLabel} a precisar de atenção
+            </span>
           </div>
           <div className="trainer-dashboard__clients-table" role="table">
             <div className="trainer-dashboard__clients-row trainer-dashboard__clients-row--head" role="row">
@@ -403,7 +541,14 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
             </div>
             {filteredClients.length === 0 ? (
               <div className="trainer-dashboard__clients-empty" role="row">
-                <div role="cell">Nenhum cliente corresponde ao filtro.</div>
+                <div role="cell">
+                  <p>Nenhum cliente corresponde ao filtro.</p>
+                  {hasFilters && (
+                    <button type="button" className="trainer-dashboard__clients-reset" onClick={clearFilters}>
+                      Limpar filtros
+                    </button>
+                  )}
+                </div>
               </div>
             ) : (
               filteredClients.map((client) => (
