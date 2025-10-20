@@ -44,25 +44,7 @@ export async function GET(): Promise<Response> {
 
     return NextResponse.json({ items });
   } catch {
-    // Fallback sem depender de DB (não falha o build)
-    const mock: ApiMessage[] = [
-      {
-        id: 'm1',
-        from: 'sistema@fitnesspro.app',
-        subject: 'Bem-vindo à HMS',
-        preview: 'A tua conta foi criada com sucesso.',
-        createdAt: new Date().toISOString(),
-        unread: true,
-      },
-      {
-        id: 'm2',
-        from: 'andre@fitnesspro.app',
-        subject: 'Plano atualizado',
-        preview: 'Já tens o plano de perna com foco em extensão...',
-        createdAt: new Date(Date.now() - 86400000).toISOString(),
-        unread: false,
-      },
-    ];
-    return NextResponse.json({ items: mock });
+    // Fallback sem dados fictícios quando o Supabase não responde
+    return NextResponse.json({ items: [] satisfies ApiMessage[] });
   }
 }
