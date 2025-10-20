@@ -11,181 +11,15 @@ import { SidebarNavSection, type SidebarNavItem } from '@/components/layout/Side
 import SidebarHighlights from '@/components/layout/SidebarHighlights';
 import SidebarQuickMetrics from '@/components/layout/SidebarQuickMetrics';
 import DataSourceBadge from '@/components/ui/DataSourceBadge';
+import { getNavigationFallbackWithOverrides } from '@/lib/fallback/navigation';
 import type { ClientCounts } from '@/lib/hooks/useCounts';
-import type {
-  NavigationHighlight,
-  NavigationSummary,
-  NavigationSummaryGroup,
-} from '@/lib/navigation/types';
+import type { NavigationSummary, NavigationSummaryGroup, NavigationSummaryCounts } from '@/lib/navigation/types';
 
 type Props = {
   initialCounts?: ClientCounts;
   summary?: NavigationSummary | null;
   loading?: boolean;
   onRefreshNavigation?: () => Promise<unknown> | unknown;
-};
-
-const FALLBACK_GROUPS = (counts?: ClientCounts): { title: string; items: SidebarNavItem[] }[] => {
-  const messages = counts?.messagesCount ?? 0;
-  const notifications = counts?.notificationsCount ?? 0;
-  return [
-    {
-      title: 'Overview',
-      items: [
-        {
-          href: '/dashboard/pt',
-          label: 'Painel',
-          icon: 'dashboard',
-          exact: true,
-          activePrefix: '/dashboard/pt',
-          description: 'Resumo diário com métricas de treino.',
-        },
-        {
-          href: '/dashboard/pt/workouts',
-          label: 'Sessões',
-          icon: 'calendar',
-          activePrefix: ['/dashboard/pt/workouts', '/dashboard/pt/schedule'],
-          description: 'Agenda, confirmações e remarcações.',
-        },
-        {
-          href: '/dashboard/pt/plans',
-          label: 'Planos',
-          icon: 'plans',
-          activePrefix: ['/dashboard/pt/plans', '/dashboard/pt/training-plans'],
-          description: 'Planos activos e planeamento semanal.',
-        },
-      ],
-    },
-    {
-      title: 'Clientes',
-      items: [
-        {
-          href: '/dashboard/pt/clients',
-          label: 'Os meus clientes',
-          icon: 'users',
-          activePrefix: ['/dashboard/pt/clients'],
-          description: 'Perfis, progresso e notas.',
-        },
-        {
-          href: '/dashboard/history',
-          label: 'Histórico',
-          icon: 'history',
-          activePrefix: ['/dashboard/history'],
-          description: 'Sessões realizadas e avaliações.',
-        },
-      ],
-    },
-    {
-      title: 'Biblioteca',
-      items: [
-        {
-          href: '/dashboard/pt/library',
-          label: 'Biblioteca',
-          icon: 'library',
-          activePrefix: ['/dashboard/pt/library'],
-          description: 'Exercícios e playlists personalizadas.',
-        },
-        {
-          href: '/dashboard/admin/exercises',
-          label: 'Catálogo global',
-          icon: 'dumbbell',
-          activePrefix: ['/dashboard/admin/exercises'],
-          description: 'Referência de exercícios aprovados.',
-        },
-      ],
-    },
-    {
-      title: 'Comunicação',
-      items: [
-        {
-          href: '/dashboard/pt/messages',
-          label: 'Mensagens',
-          icon: 'messages',
-          activePrefix: ['/dashboard/pt/messages', '/dashboard/messages'],
-          badge: messages || null,
-          tone: messages > 0 ? 'warning' : undefined,
-          description: 'Chats com clientes e colegas.',
-        },
-        {
-          href: '/dashboard/notifications',
-          label: 'Notificações',
-          icon: 'notifications',
-          activePrefix: ['/dashboard/notifications'],
-          badge: notifications || null,
-          tone: notifications > 0 ? 'warning' : undefined,
-          description: 'Alertas de presença e sistema.',
-        },
-      ],
-    },
-    {
-      title: 'Conta',
-      items: [
-        {
-          href: '/dashboard/profile',
-          label: 'Perfil',
-          icon: 'profile',
-          activePrefix: ['/dashboard/profile'],
-          description: 'Informação pessoal e disponibilidade.',
-        },
-        {
-          href: '/dashboard/settings',
-          label: 'Definições',
-          icon: 'settings',
-          activePrefix: ['/dashboard/settings'],
-          description: 'Preferências de notificações e integrações.',
-        },
-      ],
-    },
-  ];
-};
-
-const describePendingMessages = (pending: number) => {
-  if (pending <= 0) return 'Inbox limpa — nada pendente.';
-  return `${pending} ${pending === 1 ? 'conversa aguarda' : 'conversas aguardam'} resposta.`;
-};
-
-const describeOperationalAlerts = (pending: number) => {
-  if (pending <= 0) return 'Sem alertas operacionais.';
-  return `${pending} ${pending === 1 ? 'alerta operacional' : 'alertas operacionais'} por rever.`;
-};
-
-const FALLBACK_HIGHLIGHTS = (counts?: ClientCounts): NavigationHighlight[] => {
-  const messages = counts?.messagesCount ?? 0;
-  const notifications = counts?.notificationsCount ?? 0;
-  return [
-    {
-      id: 'flow-plan',
-      title: 'Assistente de planos',
-      description: 'Segue o fluxo guiado para desenhar planos em minutos.',
-      href: '/dashboard/pt/plans/new',
-      icon: 'plans',
-      tone: 'primary',
-    },
-    {
-      id: 'session-book',
-      title: 'Agendar sessão rápida',
-      description: 'Marca uma sessão avulsa sem sair do painel.',
-      href: '/dashboard/pt/sessions/new',
-      icon: 'calendar-plus',
-      tone: 'positive',
-    },
-    {
-      id: 'messages',
-      title: 'Mensagens por ler',
-      description: describePendingMessages(messages),
-      href: '/dashboard/messages',
-      icon: 'messages',
-      tone: messages > 0 ? 'warning' : undefined,
-    },
-    {
-      id: 'alerts',
-      title: 'Alertas operacionais',
-      description: describeOperationalAlerts(notifications),
-      href: '/dashboard/notifications',
-      icon: 'notifications',
-      tone: notifications > 0 ? 'warning' : undefined,
-    },
-  ];
 };
 
 function mapGroup(group: NavigationSummaryGroup): { title: string; items: SidebarNavItem[] } {
@@ -215,17 +49,27 @@ export default function SidebarPT({ initialCounts, summary, loading, onRefreshNa
     if (isMobile) closeMobile();
   }, [closeMobile, isMobile]);
 
-  const groups = React.useMemo(() => {
-    if (summary?.navGroups?.length) {
-      return summary.navGroups.map(mapGroup);
-    }
-    return FALLBACK_GROUPS(initialCounts);
-  }, [summary, initialCounts]);
+  const messagesCount = initialCounts?.messagesCount ?? null;
+  const notificationsCount = initialCounts?.notificationsCount ?? null;
 
-  const quickMetrics = React.useMemo(() => summary?.quickMetrics ?? [], [summary]);
-  const highlights = React.useMemo(
-    () => summary?.highlights ?? FALLBACK_HIGHLIGHTS(initialCounts),
-    [summary, initialCounts],
+  const fallbackOverrides = React.useMemo(() => {
+    if (messagesCount == null && notificationsCount == null) return undefined;
+    return {
+      messagesUnread: messagesCount ?? undefined,
+      notificationsUnread: notificationsCount ?? undefined,
+    } satisfies Partial<NavigationSummaryCounts>;
+  }, [messagesCount, notificationsCount]);
+
+  const fallbackSummary = React.useMemo(
+    () => (summary ? null : getNavigationFallbackWithOverrides('TRAINER', fallbackOverrides ?? {})),
+    [summary, fallbackOverrides],
+  );
+
+  const effectiveSummary = summary ?? fallbackSummary;
+
+  const groups = React.useMemo(
+    () => (effectiveSummary?.navGroups ?? []).map(mapGroup),
+    [effectiveSummary],
   );
   const dataSource: 'supabase' | 'fallback' | undefined = summary
     ? 'supabase'
@@ -233,6 +77,16 @@ export default function SidebarPT({ initialCounts, summary, loading, onRefreshNa
     ? 'fallback'
     : undefined;
   const generatedAt = summary?.updatedAt ?? null;
+
+  const quickMetrics = React.useMemo(() => effectiveSummary?.quickMetrics ?? [], [effectiveSummary]);
+  const highlights = React.useMemo(() => effectiveSummary?.highlights ?? [], [effectiveSummary]);
+
+  const dataSource: 'supabase' | 'fallback' | undefined = summary
+    ? 'supabase'
+    : effectiveSummary
+    ? 'fallback'
+    : undefined;
+  const generatedAt = effectiveSummary?.updatedAt ?? null;
 
   const header = (
     <div className="neo-sidebar__headline">
