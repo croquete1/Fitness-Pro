@@ -1,14 +1,15 @@
-// src/components/profile/ProfileForm.tsx
 'use client';
 
 import * as React from 'react';
-import { Box, Paper, Stack, TextField, MenuItem, Avatar, Button, Typography, Snackbar, Alert, Divider, CircularProgress } from '@mui/material';
+import clsx from 'clsx';
+
+import Button from '@/components/ui/Button';
 
 type Initial = {
   username: string;
   name: string;
   email: string;
-  role: 'CLIENT'|'PT'|'TRAINER'|'ADMIN';
+  role: 'CLIENT' | 'PT' | 'TRAINER' | 'ADMIN';
   avatar_url: string;
   gender: string;
   dob: string;
@@ -16,152 +17,354 @@ type Initial = {
   weight_kg: number | null;
 };
 
+type UsernameState = {
+  checking: boolean;
+  ok: boolean;
+  reason?: string;
+};
+
+type Feedback = {
+  tone: 'success' | 'danger' | 'warning' | 'info';
+  message: string;
+};
+
+type Helper = {
+  tone: 'muted' | 'checking' | 'success' | 'error';
+  message: string;
+};
+
+function resolveUsernameHelper(changed: boolean, username: string, state: UsernameState): Helper {
+  const trimmed = username.trim();
+  if (!changed || !trimmed) {
+    return { tone: 'muted', message: 'O teu identificador público.' };
+  }
+
+  if (state.checking) {
+    return { tone: 'checking', message: 'A verificar disponibilidade…' };
+  }
+
+  if (!state.ok) {
+    if (state.reason === 'invalid_format') {
+      return {
+        tone: 'error',
+        message: 'Usa 3–24 caracteres válidos (letras, números, ponto, hífen ou underscore).',
+      };
+    }
+    if (state.reason === 'taken') {
+      return { tone: 'error', message: 'Este username já está ocupado.' };
+    }
+    if (state.reason === 'reserved') {
+      return { tone: 'error', message: 'Este username não está disponível.' };
+    }
+    return { tone: 'error', message: 'Não foi possível validar o username.' };
+  }
+
+  return { tone: 'success', message: 'Perfeito! Este username está disponível.' };
+}
+
 export default function ProfileForm({ initial }: { initial: Initial }) {
   const [form, setForm] = React.useState<Initial>(initial);
   const [saving, setSaving] = React.useState(false);
   const [dirty, setDirty] = React.useState(false);
-  const [toast, setToast] = React.useState<{ open: boolean; sev:'success'|'error'; msg:string }>({ open:false, sev:'success', msg:'' });
+  const [feedback, setFeedback] = React.useState<Feedback | null>(null);
+  const [statusMessage, setStatusMessage] = React.useState<string>('Sem alterações por guardar.');
 
-  // username live check
-  const [uState, setUState] = React.useState<{checking:boolean; ok:boolean; reason?:string}>({ checking:false, ok:true });
-  const usernameChanged = form.username.trim() && form.username.trim() !== (initial.username || '').trim();
+  const [usernameState, setUsernameState] = React.useState<UsernameState>({ checking: false, ok: true });
+  const usernameChanged = React.useMemo(() => {
+    const current = form.username.trim();
+    const baseline = (initial.username || '').trim();
+    return Boolean(current && current !== baseline);
+  }, [form.username, initial.username]);
+
   React.useEffect(() => {
-    const u = form.username.trim();
-    if (!u || !usernameChanged) { setUState({ checking:false, ok:true }); return; }
-    setUState({ checking:true, ok:false });
-    const id = setTimeout(async () => {
-      try{
-        const r = await fetch('/api/profile/check-username?q='+encodeURIComponent(u), { cache:'no-store' });
-        const j = await r.json();
-        setUState({ checking:false, ok: !!j?.available, reason: j?.reason });
-      }catch{ setUState({ checking:false, ok:false }); }
+    const candidate = form.username.trim();
+    if (!candidate || !usernameChanged) {
+      setUsernameState({ checking: false, ok: true });
+      return;
+    }
+
+    const controller = new AbortController();
+    setUsernameState({ checking: true, ok: false });
+
+    const handle = window.setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/profile/check-username?q=${encodeURIComponent(candidate)}`, {
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+        const json = await res.json().catch(() => ({}));
+        const ok = Boolean(json?.available);
+        setUsernameState({ checking: false, ok, reason: ok ? undefined : json?.reason });
+      } catch (error: any) {
+        if (error?.name === 'AbortError') return;
+        setUsernameState({ checking: false, ok: false });
+      }
     }, 350);
-    return () => clearTimeout(id);
-  }, [form.username]); // eslint-disable-line
 
-  const usernameError = usernameChanged && !uState.checking && !uState.ok;
+    return () => {
+      window.clearTimeout(handle);
+      controller.abort();
+    };
+  }, [form.username, usernameChanged]);
 
-  function set<K extends keyof Initial>(k:K, v:Initial[K]) {
-    setForm(f => ({ ...f, [k]: v }));
+  const usernameHelper = React.useMemo(
+    () => resolveUsernameHelper(usernameChanged, form.username, usernameState),
+    [form.username, usernameChanged, usernameState],
+  );
+
+  const usernameError = usernameChanged && !usernameState.checking && !usernameState.ok;
+
+  const fileRef = React.useRef<HTMLInputElement | null>(null);
+  const [uploading, setUploading] = React.useState(false);
+
+  const statusId = React.useId();
+  const usernameHelperId = React.useId();
+
+  function set<K extends keyof Initial>(key: K, value: Initial[K]) {
+    setForm((prev) => ({ ...prev, [key]: value }));
     setDirty(true);
+    setStatusMessage('Tens alterações por guardar.');
   }
 
-  // Upload avatar (auto-aplica sem “Guardar”)
-  const [uploading, setUploading] = React.useState(false);
-  const fileRef = React.useRef<HTMLInputElement|null>(null);
-  function pickFile(){ fileRef.current?.click(); }
-  async function onFileChange(e: React.ChangeEvent<HTMLInputElement>){
-    const file = e.target.files?.[0]; if(!file) return;
+  const pickFile = () => fileRef.current?.click();
+
+  async function onFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
     setUploading(true);
-    try{
-      const fd = new FormData(); fd.append('file', file);
-      const r = await fetch('/api/profile/upload-avatar', { method:'POST', body: fd });
-      const j = await r.json();
-      if (r.ok && j?.url) {
-        setForm(f => ({ ...f, avatar_url: j.url })); // auto-ativa
-        setToast({ open:true, sev:'success', msg:'Avatar atualizado.' });
+    try {
+      const payload = new FormData();
+      payload.append('file', file);
+      const response = await fetch('/api/profile/upload-avatar', {
+        method: 'POST',
+        body: payload,
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (response.ok && data?.url) {
+        setForm((prev) => ({ ...prev, avatar_url: data.url }));
+        setDirty(true);
+        setStatusMessage('Tens alterações por guardar.');
+        setFeedback({ tone: 'success', message: 'Avatar actualizado.' });
       } else {
-        setToast({ open:true, sev:'error', msg:'Falha no upload do avatar.' });
+        setFeedback({ tone: 'danger', message: 'Falha no upload do avatar.' });
       }
+    } catch {
+      setFeedback({ tone: 'danger', message: 'Não foi possível carregar o avatar.' });
     } finally {
+      if (fileRef.current) {
+        fileRef.current.value = '';
+      }
       setUploading(false);
-      if (fileRef.current) fileRef.current.value = '';
     }
   }
 
-  async function onSubmit(e: React.FormEvent){
-    e.preventDefault();
-    if (saving || usernameError || !dirty) return;
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (saving || !dirty || usernameError) return;
+
     setSaving(true);
-    try{
-      const r = await fetch('/api/profile/update', {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json' },
+    setFeedback(null);
+    setStatusMessage('A guardar alterações…');
+
+    try {
+      const response = await fetch('/api/profile/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       });
-      if (!r.ok) {
-        const j = await r.json().catch(()=> ({}));
-        if (j?.field==='username' && j?.reason==='taken'){
-          setUState({ checking:false, ok:false, reason:'taken' });
-          setToast({ open:true, sev:'error', msg:'Esse username já está ocupado.' });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        if (payload?.field === 'username' && payload?.reason === 'taken') {
+          setUsernameState({ checking: false, ok: false, reason: 'taken' });
+          setFeedback({ tone: 'danger', message: 'Esse username já está ocupado.' });
         } else {
-          setToast({ open:true, sev:'error', msg:'Falha ao guardar alterações.' });
+          setFeedback({ tone: 'danger', message: 'Falha ao guardar alterações.' });
         }
-      } else {
-        setDirty(false);
-        setToast({ open:true, sev:'success', msg:'Perfil atualizado.' });
+        setStatusMessage('Ocorreram erros ao guardar.');
+        return;
       }
+
+      setDirty(false);
+      setStatusMessage('Perfil actualizado com sucesso.');
+      setFeedback({ tone: 'success', message: 'Perfil actualizado.' });
+    } catch {
+      setFeedback({ tone: 'danger', message: 'Erro inesperado ao guardar.' });
+      setStatusMessage('Erro ao guardar.');
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <form onSubmit={onSubmit}>
-      <Box sx={{ display:'grid', gridTemplateColumns:{ xs:'1fr', md:'2fr 1fr' }, gap:2 }}>
-        {/* Dados */}
-        <Paper variant="outlined" sx={{ p:2, borderRadius:3 }}>
-          <Typography variant="h6" fontWeight={800} sx={{ mb:1 }}>Dados da conta</Typography>
-          <Stack spacing={2}>
-            <TextField
-              label="Username"
+    <form className="profile-form" onSubmit={onSubmit} noValidate aria-describedby={statusId}>
+      <section className="neo-panel">
+        <header className="neo-panel__header">
+          <div className="neo-panel__meta">
+            <h2 className="neo-panel__title">Dados da conta</h2>
+            <p className="neo-panel__subtitle">
+              Actualiza o identificador e os dados básicos do teu perfil.
+            </p>
+          </div>
+          <span className="status-pill" data-state={dirty ? 'warn' : 'neutral'}>
+            {dirty ? 'Alterações por guardar' : 'Sincronizado'}
+          </span>
+        </header>
+
+        <div className="profile-form__grid">
+          <label>
+            <span>Username</span>
+            <input
+              type="text"
+              className={clsx('neo-field', usernameError && 'neo-field--invalid')}
               value={form.username}
-              onChange={(e)=>set('username', e.target.value)}
-              error={usernameError}
-              helperText={
-                uState.checking ? 'A verificar disponibilidade…'
-                : usernameError ? (uState.reason==='invalid_format' ? 'Use 3–24 chars (letras, números, ".", "_" ou "-").' : 'Username indisponível.')
-                : 'O teu identificador público.'
-              }
-              InputProps={{ endAdornment: uState.checking ? <CircularProgress size={16}/> : undefined }}
-              fullWidth
+              onChange={(event) => set('username', event.target.value)}
+              placeholder="Ex.: joao.silva"
+              aria-describedby={usernameHelperId}
+              autoComplete="nickname"
             />
-            <Stack direction={{ xs:'column', sm:'row' }} spacing={2}>
-              <TextField label="Nome" value={form.name} onChange={(e)=>set('name', e.target.value)} fullWidth/>
-              <TextField type="email" label="Email" value={form.email} onChange={(e)=>set('email', e.target.value)} fullWidth/>
-            </Stack>
-            <Stack direction={{ xs:'column', sm:'row' }} spacing={2}>
-              <TextField select label="Género" value={form.gender || ''} onChange={(e)=>set('gender', e.target.value)} fullWidth>
-                <option value=""></option>
-                <option value="male">Masculino</option>
-                <option value="female">Feminino</option>
-                <option value="other">Outro</option>
-                <option value="prefer_not">Prefiro não dizer</option>
-              </TextField>
-              <TextField type="date" label="Data de nascimento" value={form.dob ? form.dob.substring(0,10) : ''} onChange={(e)=>set('dob', e.target.value)} InputLabelProps={{ shrink:true }} fullWidth/>
-            </Stack>
-            <Stack direction={{ xs:'column', sm:'row' }} spacing={2}>
-              <TextField type="number" label="Altura (cm)" value={form.height_cm ?? ''} onChange={(e)=>set('height_cm', e.target.value===''?null:Number(e.target.value))} fullWidth/>
-              <TextField type="number" label="Peso (kg)" value={form.weight_kg ?? ''} onChange={(e)=>set('weight_kg', e.target.value===''?null:Number(e.target.value))} fullWidth/>
-            </Stack>
-          </Stack>
-        </Paper>
+            <span id={usernameHelperId} data-tone={usernameHelper.tone}>
+              {usernameHelper.message}
+              {usernameState.checking && <span className="neo-spinner" aria-hidden />}
+            </span>
+          </label>
 
-        {/* Avatar */}
-        <Paper variant="outlined" sx={{ p:2, borderRadius:3 }}>
-          <Typography variant="h6" fontWeight={800} sx={{ mb:1 }}>Avatar</Typography>
-          <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
-            <Avatar src={form.avatar_url || undefined} sx={{ width: 72, height: 72 }} />
-            <Stack direction="row" spacing={1}>
-              <Button variant="outlined" onClick={pickFile} disabled={uploading}>{uploading?'A enviar…':'Carregar foto'}</Button>
-              <Button variant="text" disabled={uploading || !form.avatar_url} onClick={()=>set('avatar_url','')}>Remover</Button>
-            </Stack>
-            <input ref={fileRef} hidden type="file" accept="image/*" onChange={onFileChange}/>
-          </Stack>
+          <label>
+            <span>Nome</span>
+            <input
+              type="text"
+              className="neo-field"
+              value={form.name}
+              onChange={(event) => set('name', event.target.value)}
+              placeholder="O teu nome"
+              autoComplete="name"
+            />
+          </label>
 
-          <Divider sx={{ my:2 }}/>
-          {dirty && (
-            <Stack direction="row" justifyContent="flex-end">
-              <Button type="submit" variant="contained" disabled={saving || usernameError}>{saving?'A guardar…':'Guardar alterações'}</Button>
-            </Stack>
+          <label>
+            <span>Email</span>
+            <input
+              type="email"
+              className="neo-field"
+              value={form.email}
+              onChange={(event) => set('email', event.target.value)}
+              placeholder="nome@empresa.com"
+              autoComplete="email"
+            />
+          </label>
+
+          <label>
+            <span>Género</span>
+            <select
+              className="neo-field"
+              value={form.gender || ''}
+              onChange={(event) => set('gender', event.target.value)}
+            >
+              <option value="">Seleciona…</option>
+              <option value="male">Masculino</option>
+              <option value="female">Feminino</option>
+              <option value="other">Outro</option>
+              <option value="prefer_not">Prefiro não dizer</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Data de nascimento</span>
+            <input
+              type="date"
+              className="neo-field"
+              value={form.dob ? form.dob.slice(0, 10) : ''}
+              onChange={(event) => set('dob', event.target.value)}
+            />
+          </label>
+
+          <label>
+            <span>Altura (cm)</span>
+            <input
+              type="number"
+              className="neo-field"
+              inputMode="decimal"
+              value={form.height_cm ?? ''}
+              onChange={(event) => {
+                const { value } = event.target;
+                set('height_cm', value === '' ? null : Number(value));
+              }}
+              placeholder="Ex.: 172"
+            />
+          </label>
+
+          <label>
+            <span>Peso (kg)</span>
+            <input
+              type="number"
+              className="neo-field"
+              inputMode="decimal"
+              value={form.weight_kg ?? ''}
+              onChange={(event) => {
+                const { value } = event.target;
+                set('weight_kg', value === '' ? null : Number(value));
+              }}
+              placeholder="Ex.: 68"
+            />
+          </label>
+        </div>
+      </section>
+
+      <section className="neo-panel profile-dashboard__form" aria-label="Gestão de avatar">
+        <header>
+          <div>
+            <h2>Avatar</h2>
+            <p>Actualiza a fotografia usada nos dashboards e planos partilhados.</p>
+          </div>
+          <div className="profile-dashboard__avatarActions">
+            <input ref={fileRef} hidden type="file" accept="image/*" onChange={onFileChange} />
+            <Button variant="secondary" size="sm" onClick={pickFile} loading={uploading}>
+              {uploading ? 'A enviar…' : 'Carregar fotografia'}
+            </Button>
+            <button
+              type="button"
+              className="profile-dashboard__avatarRemove"
+              onClick={() => {
+                set('avatar_url', '');
+              }}
+              disabled={uploading || !form.avatar_url}
+            >
+              Remover fotografia
+            </button>
+          </div>
+        </header>
+
+        <div className="profile-dashboard__avatar" aria-hidden="true">
+          {form.avatar_url ? (
+            <img src={form.avatar_url} alt="" />
+          ) : (
+            <span className="profile-dashboard__avatarPlaceholder">Sem fotografia</span>
           )}
-          {!dirty && <Typography variant="caption" sx={{ opacity:.7 }}>Sem alterações por guardar.</Typography>}
-        </Paper>
-      </Box>
+        </div>
 
-      <Snackbar open={toast.open} autoHideDuration={2400} onClose={()=>setToast({...toast,open:false})}>
-        <Alert variant="filled" severity={toast.sev} onClose={()=>setToast({...toast,open:false})}>{toast.msg}</Alert>
-      </Snackbar>
+        <div className="profile-form__actions">
+          <div className="profile-status" role="status" id={statusId} aria-live="polite">
+            {feedback && (
+              <div className="neo-alert" data-tone={feedback.tone}>
+                <div className="neo-alert__content">
+                  <p className="neo-alert__message">{feedback.message}</p>
+                </div>
+              </div>
+            )}
+            <p className="neo-text--sm text-muted">{statusMessage}</p>
+          </div>
+          <Button
+            type="submit"
+            variant="primary"
+            loading={saving}
+            disabled={!dirty || saving || usernameState.checking || usernameError}
+          >
+            Guardar alterações
+          </Button>
+        </div>
+      </section>
     </form>
   );
 }

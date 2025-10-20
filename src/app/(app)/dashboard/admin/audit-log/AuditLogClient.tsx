@@ -1,805 +1,557 @@
-"use client";
+'use client';
 
-import * as React from "react";
+import * as React from 'react';
+import useSWR from 'swr';
+import clsx from 'clsx';
+import { AlertTriangle, Download, Filter, History, RefreshCcw, Search } from 'lucide-react';
 import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Divider,
-  Grid,
-  MenuItem,
-  Pagination,
-  Paper,
-  Snackbar,
-  Stack,
-  TextField,
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
   Tooltip,
-  Typography,
-  useMediaQuery,
-  useTheme,
-} from "@mui/material";
-import DownloadOutlined from "@mui/icons-material/DownloadOutlined";
-import RefreshOutlined from "@mui/icons-material/RefreshOutlined";
-import SearchOutlined from "@mui/icons-material/SearchOutlined";
-import HistoryOutlined from "@mui/icons-material/HistoryOutlined";
-import PersonOutline from "@mui/icons-material/PersonOutline";
-import TopicOutlined from "@mui/icons-material/TopicOutlined";
-import { DataGrid, GridColDef, GridRenderCellParams } from "@mui/x-data-grid";
+  XAxis,
+  YAxis,
+} from 'recharts';
+import PageHeader from '@/components/ui/PageHeader';
+import Button from '@/components/ui/Button';
+import Alert from '@/components/ui/Alert';
+import DataSourceBadge, { describeDataSourceRelative } from '@/components/ui/DataSourceBadge';
+import Spinner from '@/components/ui/Spinner';
+import type { AuditDashboardResponse } from '@/app/api/admin/audit-log/dashboard/route';
+import type { AuditLogMeta, AuditLogRow } from '@/lib/admin/audit-log/types';
+import {
+  ADMIN_AUDIT_DASHBOARD_FALLBACK,
+  ADMIN_AUDIT_FALLBACK_ROWS,
+  ADMIN_AUDIT_META_FALLBACK,
+} from '@/lib/fallback/admin-audit-log';
 
-const KIND_LABELS: Record<string, string> = {
-  CREATE: "Criação",
-  UPDATE: "Atualização",
-  DELETE: "Remoção",
-  LOGIN: "Login",
-  LOGOUT: "Logout",
-  PUBLISH: "Publicação",
-  UNPUBLISH: "Retirada",
-  CLONE: "Clone",
-  APPROVE: "Aprovação",
-  SUSPEND: "Suspensão",
-  INVITE: "Convite",
-  RESET_PASSWORD: "Recuperação",
-  TRAINING_PLAN_CREATE: "Plano criado",
-  TRAINING_PLAN_UPDATE: "Plano atualizado",
-  TRAINING_PLAN_DELETE: "Plano removido",
-  TRAINING_PLAN_CLONE: "Plano clonado",
-  TRAINING_PLAN_PUBLISH: "Plano publicado",
-  TRAINING_PLAN_UNPUBLISH: "Plano despublicado",
-  USER_CREATE: "Utilizador criado",
-  USER_UPDATE: "Utilizador atualizado",
-  USER_DELETE: "Utilizador removido",
-  USER_SUSPEND: "Utilizador suspenso",
-  USER_APPROVE: "Utilizador aprovado",
-  EXERCISE_PUBLISH: "Exercício publicado",
-  EXERCISE_UNPUBLISH: "Exercício despublicado",
+const PAGE_SIZE_OPTIONS = [20, 50, 100];
+
+const dateTimeFormatter = new Intl.DateTimeFormat('pt-PT', {
+  day: '2-digit',
+  month: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
+const tooltipDateFormatter = new Intl.DateTimeFormat('pt-PT', {
+  day: '2-digit',
+  month: 'short',
+});
+
+const fallbackDashboard: AuditDashboardResponse = {
+  ...ADMIN_AUDIT_DASHBOARD_FALLBACK,
+  ok: true,
+  source: 'fallback',
+  missingTable: false,
 };
 
-const TARGET_TYPE_LABELS: Record<string, string> = {
-  USER: "Utilizador",
-  TRAINING_PLAN: "Plano",
-  EXERCISE: "Exercício",
-  SESSION: "Sessão",
-  SYSTEM: "Sistema",
-  NOTIFICATION: "Notificação",
-};
-
-type AuditRow = {
-  id: string;
-  created_at: string | null;
-  kind: string | null;
-  category: string | null;
-  action: string | null;
-  target_type: string | null;
-  target_id: string | null;
-  target: string | null;
-  actor_id: string | null;
-  actor: string | null;
-  note: string | null;
-  details: Record<string, unknown> | null;
-  payload: Record<string, unknown> | null;
-  meta: Record<string, unknown> | null;
-  ip: string | null;
-  user_agent: string | null;
-};
-
-type MetaResponse = {
-  kinds: string[];
-  targetTypes: string[];
-  actors: { id: string | null; label: string | null }[];
-};
-
-type FetchResponse = {
-  items: AuditRow[];
+type AuditListResponse = {
+  items: AuditLogRow[];
   count: number;
   page: number;
   pageSize: number;
-  meta?: MetaResponse;
+  meta?: AuditLogMeta;
   missingTable?: boolean;
+  source: 'supabase' | 'fallback';
 };
 
-const INITIAL_ROWS: AuditRow[] = [];
+const fallbackList: AuditListResponse = {
+  items: ADMIN_AUDIT_FALLBACK_ROWS.slice(0, PAGE_SIZE_OPTIONS[0]),
+  count: ADMIN_AUDIT_FALLBACK_ROWS.length,
+  page: 1,
+  pageSize: PAGE_SIZE_OPTIONS[0],
+  meta: ADMIN_AUDIT_META_FALLBACK,
+  missingTable: false,
+  source: 'fallback' as const,
+};
 
-function formatDate(value: string | null): string {
-  if (!value) return "—";
+const fetcher = async <T,>(url: string): Promise<T> => {
+  const res = await fetch(url, { credentials: 'include', cache: 'no-store' });
+  if (!res.ok) {
+    const message = await res.text().catch(() => '');
+    throw new Error(message || 'Não foi possível sincronizar os dados.');
+  }
+  return (await res.json()) as T;
+};
+
+function formatDate(value: string | null | undefined): string {
+  if (!value) return '—';
   try {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return value;
-    return date.toLocaleString();
+    return dateTimeFormatter.format(new Date(value));
   } catch {
     return value;
   }
 }
 
-function coalesceDetails(row: AuditRow): Record<string, unknown> | null {
-  return row.details || row.payload || row.meta || null;
-}
-
-function chipColor(kind?: string | null): "default" | "primary" | "success" | "warning" | "error" {
-  if (!kind) return "default";
-  const normalized = kind.toUpperCase();
-  if (normalized.includes("DELETE")) return "error";
-  if (normalized.includes("CREATE") || normalized.includes("LOGIN") || normalized.includes("APPROVE")) return "success";
-  if (normalized.includes("SUSPEND") || normalized.includes("LOGOUT")) return "warning";
-  return "primary";
+function describeDetails(row: AuditLogRow): string | null {
+  if (row.note?.trim()) return row.note.trim();
+  if (row.details && Object.keys(row.details).length) {
+    return Object.keys(row.details)
+      .slice(0, 3)
+      .join(', ');
+  }
+  if (row.payload && Object.keys(row.payload).length) {
+    return Object.keys(row.payload)
+      .slice(0, 3)
+      .join(', ');
+  }
+  if (row.meta && Object.keys(row.meta).length) {
+    return Object.keys(row.meta)
+      .slice(0, 3)
+      .join(', ');
+  }
+  return null;
 }
 
 export default function AuditLogClient() {
-  const theme = useTheme();
-  const downSm = useMediaQuery(theme.breakpoints.down("sm"));
-  const downMd = useMediaQuery(theme.breakpoints.down("md"));
-  const [rows, setRows] = React.useState<AuditRow[]>(INITIAL_ROWS);
-  const [rowCount, setRowCount] = React.useState(0);
-  const [loading, setLoading] = React.useState(false);
-  const [paginationModel, setPaginationModel] = React.useState({ page: 0, pageSize: 20 });
-  const [filters, setFilters] = React.useState({
-    kind: "",
-    targetType: "",
-    actor: "",
-    actorId: "",
-    search: "",
-  });
-  const [debouncedSearch, setDebouncedSearch] = React.useState("");
-  const [meta, setMeta] = React.useState<MetaResponse | null>(null);
-  const [metaLoaded, setMetaLoaded] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-  const [missingTable, setMissingTable] = React.useState(false);
-  const [snack, setSnack] = React.useState<{ open: boolean; message: string; severity: "error" | "success" | "info" | "warning" }>(
-    { open: false, message: "", severity: "info" },
-  );
-  const [detailsRow, setDetailsRow] = React.useState<AuditRow | null>(null);
-  const [exporting, setExporting] = React.useState(false);
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(PAGE_SIZE_OPTIONS[0]);
+  const [kindFilter, setKindFilter] = React.useState('');
+  const [targetFilter, setTargetFilter] = React.useState('');
+  const [actorFilter, setActorFilter] = React.useState('');
+  const [search, setSearch] = React.useState('');
+  const [debouncedSearch, setDebouncedSearch] = React.useState('');
+  const [meta, setMeta] = React.useState<AuditLogMeta | null>(fallbackList.meta ?? null);
 
   React.useEffect(() => {
-    const timer = window.setTimeout(() => setDebouncedSearch(filters.search.trim()), 300);
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
     return () => window.clearTimeout(timer);
-  }, [filters.search]);
-
-  const fetchRows = React.useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams();
-      params.set("page", String(paginationModel.page + 1));
-      params.set("pageSize", String(paginationModel.pageSize));
-      if (filters.kind) params.set("kind", filters.kind);
-      if (filters.targetType) params.set("targetType", filters.targetType);
-      if (filters.actorId) {
-        params.set("actorId", filters.actorId);
-      } else if (filters.actor) {
-        params.set("actor", filters.actor);
-      }
-      if (debouncedSearch) params.set("search", debouncedSearch);
-      if (!metaLoaded) params.set("meta", "1");
-
-      const res = await fetch(`/api/admin/audit-log?${params.toString()}`, {
-        credentials: "same-origin",
-        cache: "no-store",
-      });
-
-      if (res.status === 401 || res.status === 403) {
-        setError("Não tens permissões para ver os logs de auditoria.");
-        setRows(INITIAL_ROWS);
-        setRowCount(0);
-        return;
-      }
-
-      if (!res.ok) {
-        throw new Error(`Falha ao carregar logs (${res.status})`);
-      }
-
-      const json = (await res.json()) as FetchResponse;
-      setRows(json.items ?? []);
-      setRowCount(json.count ?? 0);
-      setMissingTable(Boolean(json.missingTable));
-      if (!metaLoaded && json.meta) {
-        setMeta(json.meta);
-        setMetaLoaded(true);
-      }
-    } catch (err: any) {
-      setError(err?.message ?? "Falha ao carregar logs.");
-      setRows(INITIAL_ROWS);
-      setRowCount(0);
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    debouncedSearch,
-    filters.actor,
-    filters.actorId,
-    filters.kind,
-    filters.targetType,
-    metaLoaded,
-    paginationModel.page,
-    paginationModel.pageSize,
-  ]);
+  }, [search]);
 
   React.useEffect(() => {
-    void fetchRows();
-  }, [fetchRows]);
+    setPage(1);
+  }, [kindFilter, targetFilter, actorFilter, debouncedSearch, pageSize]);
 
-  const handleExport = React.useCallback(async () => {
-    setExporting(true);
-    try {
-      const params = new URLSearchParams();
-      params.set("format", "csv");
-      params.set("page", "1");
-      params.set("pageSize", "500");
-      if (filters.kind) params.set("kind", filters.kind);
-      if (filters.targetType) params.set("targetType", filters.targetType);
-      if (filters.actorId) {
-        params.set("actorId", filters.actorId);
-      } else if (filters.actor) {
-        params.set("actor", filters.actor);
-      }
-      const term = filters.search.trim();
-      if (term) params.set("search", term);
+  const listUrl = React.useMemo(() => {
+    const params = new URLSearchParams();
+    params.set('page', String(page));
+    params.set('pageSize', String(pageSize));
+    if (kindFilter) params.set('kind', kindFilter);
+    if (targetFilter) params.set('targetType', targetFilter);
+    if (actorFilter) params.set('actorId', actorFilter);
+    if (debouncedSearch) params.set('search', debouncedSearch);
+    if (!meta) params.set('meta', '1');
+    return `/api/admin/audit-log?${params.toString()}`;
+  }, [page, pageSize, kindFilter, targetFilter, actorFilter, debouncedSearch, meta]);
 
-      const res = await fetch(`/api/admin/audit-log?${params.toString()}`, {
-        credentials: "same-origin",
-      });
-      if (!res.ok) throw new Error("Não foi possível exportar os logs.");
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `audit-log-${new Date().toISOString().slice(0, 10)}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-      setSnack({ open: true, message: "Exportação concluída.", severity: "success" });
-    } catch (err: any) {
-      setSnack({ open: true, message: err?.message ?? "Falha na exportação.", severity: "error" });
-    } finally {
-      setExporting(false);
-    }
-  }, [filters.actor, filters.actorId, filters.kind, filters.search, filters.targetType]);
+  const {
+    data: listData,
+    error: listError,
+    isLoading: listLoading,
+    mutate: mutateList,
+  } = useSWR<AuditListResponse>(listUrl, fetcher, {
+    keepPreviousData: true,
+    fallbackData: fallbackList,
+  });
 
-  const columns = React.useMemo<GridColDef<AuditRow>[]>(() => {
-    const renderKind = (params: GridRenderCellParams<AuditRow, string | null>) => {
-      const value = params.row.kind ?? params.row.action ?? "—";
-      const label = value ? (KIND_LABELS[value] ?? value) : "—";
-      return (
-        <Chip
-          size="small"
-          label={label}
-          color={chipColor(value)}
-          sx={{ fontWeight: 600 }}
-        />
-      );
-    };
-
-    const renderTarget = (params: GridRenderCellParams<AuditRow, string | null>) => {
-      const type = params.row.target_type ? (TARGET_TYPE_LABELS[params.row.target_type] ?? params.row.target_type) : "—";
-      const label = params.row.target ?? params.row.target_id ?? "—";
-      return (
-        <Stack direction="column" spacing={0.5}>
-          <Stack direction={downSm ? "column" : "row"} spacing={downSm ? 0.5 : 1} alignItems={downSm ? "flex-start" : "center"}>
-            <TopicOutlined fontSize="inherit" />
-            <Typography variant="body2" fontWeight={600} noWrap={!downSm}>
-              {label}
-            </Typography>
-          </Stack>
-          <Typography variant="caption" color="text.secondary">
-            {type}
-          </Typography>
-        </Stack>
-      );
-    };
-
-    const renderActor = (params: GridRenderCellParams<AuditRow, string | null>) => {
-      const label = params.row.actor || params.row.actor_id || "—";
-      return (
-        <Stack direction="row" spacing={1} alignItems="center">
-          <PersonOutline fontSize="inherit" />
-          <Typography variant="body2" noWrap={!downSm}>{label}</Typography>
-        </Stack>
-      );
-    };
-
-    const renderDetails = (params: GridRenderCellParams<AuditRow, unknown>) => {
-      const details = coalesceDetails(params.row);
-      if (!details) return <Typography variant="body2">—</Typography>;
-      return (
-        <Button size="small" onClick={() => setDetailsRow(params.row)} variant="outlined">
-          Ver
-        </Button>
-      );
-    };
-
-    return [
-      {
-        field: "created_at",
-        headerName: "Quando",
-        flex: 1,
-        minWidth: 180,
-        renderCell: (params) => (
-          <Stack direction="row" spacing={1} alignItems="center">
-            <HistoryOutlined fontSize="inherit" />
-            <Typography variant="body2">{formatDate(params.row.created_at)}</Typography>
-          </Stack>
-        ),
-      },
-      {
-        field: "kind",
-        headerName: "Tipo",
-        flex: 1,
-        minWidth: 160,
-        sortable: false,
-        renderCell: renderKind,
-      },
-      {
-        field: "actor",
-        headerName: "Responsável",
-        flex: 1,
-        minWidth: 160,
-        sortable: false,
-        renderCell: renderActor,
-      },
-      {
-        field: "target",
-        headerName: "Alvo",
-        flex: 1.2,
-        minWidth: 200,
-        sortable: false,
-        renderCell: renderTarget,
-      },
-      {
-        field: "note",
-        headerName: "Mensagem",
-        flex: 1.4,
-        minWidth: 220,
-        sortable: false,
-        renderCell: (params) => (
-          <Tooltip title={params.value ?? "Sem nota"} placement="top-start">
-            <Typography variant="body2" noWrap={!downSm}>
-              {params.value ?? "—"}
-            </Typography>
-          </Tooltip>
-        ),
-      },
-      {
-        field: "ip",
-        headerName: "IP",
-        flex: 0.6,
-        minWidth: 140,
-        sortable: false,
-        renderCell: (params) => (
-          <Typography variant="body2" noWrap={!downSm}>
-            {params.value ?? "—"}
-          </Typography>
-        ),
-      },
-      {
-        field: "details",
-        headerName: "Detalhes",
-        flex: 0.5,
-        minWidth: 120,
-        sortable: false,
-        renderCell: renderDetails,
-      },
-    ];
-  }, [downSm]);
-
-  const visibleColumns = React.useMemo(() => {
-    if (!downSm) return columns;
-    return columns.filter((column) => column.field !== "ip" && column.field !== "details");
-  }, [columns, downSm]);
-
-  const clearFilters = React.useCallback(() => {
-    setFilters({ kind: "", targetType: "", actor: "", actorId: "", search: "" });
-    setPaginationModel((prev) => ({ ...prev, page: 0 }));
-    setMetaLoaded(false);
-  }, []);
-
-  const actorOptions = meta?.actors ?? [];
-  const actorSelectValue = React.useMemo(() => {
-    if (filters.actorId) return `id:${filters.actorId}`;
-    if (filters.actor) return `label:${filters.actor}`;
-    return "";
-  }, [filters.actor, filters.actorId]);
-
-  const headingVariant = downSm ? "h5" : "h4";
-  const descriptionVariant = downSm ? "body2" : "body1";
-  const pageCount = React.useMemo(() => {
-    if (!rowCount || paginationModel.pageSize <= 0) {
-      return 1;
-    }
-    return Math.max(1, Math.ceil(rowCount / paginationModel.pageSize));
-  }, [paginationModel.pageSize, rowCount]);
-
-  const renderKindChip = React.useCallback(
-    (row: AuditRow) => {
-      const value = row.kind ?? row.action ?? "—";
-      const label = value ? KIND_LABELS[value] ?? value : "—";
-      return <Chip size="small" label={label} color={chipColor(value)} sx={{ fontWeight: 600 }} />;
-    },
-    [],
-  );
+  const {
+    data: dashboardData,
+    error: dashboardError,
+    mutate: mutateDashboard,
+  } = useSWR<AuditDashboardResponse>('/api/admin/audit-log/dashboard', fetcher, {
+    revalidateOnFocus: false,
+    fallbackData: fallbackDashboard,
+  });
 
   React.useEffect(() => {
-    const maxPage = Math.max(0, pageCount - 1);
-    setPaginationModel((prev) => {
-      if (prev.page > maxPage) {
-        return { ...prev, page: maxPage };
-      }
-      return prev;
-    });
-  }, [pageCount]);
+    if (listData?.meta) {
+      setMeta(listData.meta);
+    }
+  }, [listData?.meta]);
+
+  const totalPages = React.useMemo(() => {
+    const count = listData?.count ?? 0;
+    return Math.max(1, Math.ceil(count / pageSize));
+  }, [listData?.count, pageSize]);
+
+  const canPrev = page > 1;
+  const canNext = page < totalPages;
+
+  const refreshAll = React.useCallback(() => {
+    void Promise.all([mutateDashboard(), mutateList()]);
+  }, [mutateDashboard, mutateList]);
+
+  const handleExport = React.useCallback(() => {
+    const url = new URL('/api/admin/audit-log', window.location.origin);
+    url.searchParams.set('format', 'csv');
+    if (kindFilter) url.searchParams.set('kind', kindFilter);
+    if (targetFilter) url.searchParams.set('targetType', targetFilter);
+    if (actorFilter) url.searchParams.set('actorId', actorFilter);
+    if (debouncedSearch) url.searchParams.set('search', debouncedSearch);
+    window.location.assign(url.toString());
+  }, [actorFilter, debouncedSearch, kindFilter, targetFilter]);
+
+  const timelineData = dashboardData?.timeline ?? [];
+  const heroMetrics = dashboardData?.heroMetrics ?? [];
+  const kindShares = dashboardData?.kindShares ?? [];
+  const actorShares = dashboardData?.actorShares ?? [];
+  const highlights = dashboardData?.highlights ?? [];
+
+  const usingFallback =
+    (dashboardData?.source ?? 'fallback') === 'fallback' || (listData?.source ?? 'fallback') === 'fallback';
+  const missingTable = Boolean(dashboardData?.missingTable || listData?.missingTable);
+
+  const dataSource = (dashboardData?.source === 'supabase' || listData?.source === 'supabase')
+    ? 'supabase'
+    : 'fallback';
+  const generatedAt = dashboardData?.generatedAt ?? listData?.items?.[0]?.created_at ?? null;
 
   return (
-    <Stack spacing={2}>
-      <Typography variant={headingVariant} fontWeight={700} sx={{ letterSpacing: -0.2 }}>
-        Auditoria
-      </Typography>
-      <Typography variant={descriptionVariant} color="text.secondary">
-        Consulta e exportação dos registos de ações administrativas.
-      </Typography>
+    <div className="audit-log-dashboard">
+      <PageHeader
+        title="Logs de auditoria"
+        subtitle="Monitoriza as ações críticas de administradores, treinadores e clientes em tempo real."
+        actions={(
+          <div className="audit-log-dashboard__headerActions">
+            <Button variant="secondary" onClick={refreshAll} leftIcon={<RefreshCcw size={16} />}>Atualizar</Button>
+            <Button variant="ghost" onClick={handleExport} leftIcon={<Download size={16} />}>Exportar CSV</Button>
+          </div>
+        )}
+      />
+
+      <div className="audit-log-dashboard__metaBar">
+        <DataSourceBadge source={dataSource} generatedAt={generatedAt} />
+        <div className="audit-log-dashboard__metaInfo" role="status">
+          Última atualização {describeDataSourceRelative(generatedAt) ?? 'agora mesmo'}
+        </div>
+      </div>
+
+      {usingFallback && (
+        <Alert tone="warning" className="audit-log-dashboard__alert" title="A mostrar dados determinísticos">
+          Não foi possível sincronizar com o Supabase. Estás a ver uma amostra consistente para continuar a análise.
+        </Alert>
+      )}
 
       {missingTable && (
-        <Alert severity="warning">
-          Tabela de auditoria não encontrada. Executa o script <code>scripts/supabase-audit-log.sql</code> no Supabase para criares os triggers de logging.
+        <Alert tone="danger" className="audit-log-dashboard__alert" title="Tabela de auditoria em falta">
+          Garante que a extensão de auditoria está ativa na tua instância do Supabase e volta a sincronizar.
         </Alert>
       )}
 
-      {error && (
-        <Alert severity="error">{error}</Alert>
+      {dashboardError && (
+        <Alert tone="danger" className="audit-log-dashboard__alert" title="Não foi possível sincronizar as métricas">
+          Estamos a apresentar os últimos dados disponíveis. Tenta atualizar novamente dentro de alguns minutos.
+        </Alert>
       )}
 
-      <Card>
-        <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-          <Stack spacing={2}>
-            <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} sm={6} md={3}>
-                <TextField
-                  select
-                  fullWidth
-                  label="Tipo"
-                  value={filters.kind}
-                  onChange={(event) => {
-                    setFilters((prev) => ({ ...prev, kind: event.target.value }));
-                    setPaginationModel((prev) => ({ ...prev, page: 0 }));
-                    setMetaLoaded(true);
-                  }}
-                  size="small"
-                >
-                  <MenuItem value="">Todos</MenuItem>
-                  {(meta?.kinds ?? []).map((kind) => (
-                    <MenuItem key={kind} value={kind}>
-                      {KIND_LABELS[kind] ?? kind}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <TextField
-                  select
-                  fullWidth
-                  label="Categoria"
-                  value={filters.targetType}
-                  onChange={(event) => {
-                    setFilters((prev) => ({ ...prev, targetType: event.target.value }));
-                    setPaginationModel((prev) => ({ ...prev, page: 0 }));
-                    setMetaLoaded(true);
-                  }}
-                  size="small"
-                >
-                  <MenuItem value="">Todas</MenuItem>
-                  {(meta?.targetTypes ?? []).map((target) => (
-                    <MenuItem key={target} value={target}>
-                      {TARGET_TYPE_LABELS[target] ?? target}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <TextField
-                  select
-                  fullWidth
-                  label="Responsável"
-                  value={actorSelectValue}
-                  onChange={(event) => {
-                    const value = String(event.target.value ?? "");
-                    setFilters((prev) => ({
-                      ...prev,
-                      actorId: value.startsWith("id:") ? value.slice(3) : "",
-                      actor: value.startsWith("label:") ? value.slice(6) : "",
-                    }));
-                    setPaginationModel((prev) => ({ ...prev, page: 0 }));
-                    setMetaLoaded(true);
-                  }}
-                  size="small"
-                >
-                  <MenuItem value="">Todos</MenuItem>
-                  {actorOptions.map((option) => {
-                    const label = option.label ?? option.id ?? "—";
-                    const value = option.id
-                      ? `id:${option.id}`
-                      : option.label
-                        ? `label:${option.label}`
-                        : "label:—";
-                    return (
-                      <MenuItem key={`${option.id ?? option.label ?? "anon"}`} value={value}>
-                        {label}
-                      </MenuItem>
-                    );
-                  })}
-                </TextField>
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <TextField
-                  fullWidth
-                  label="Pesquisa"
-                  placeholder="nota, alvo, IP..."
-                  value={filters.search}
-                  onChange={(event) => setFilters((prev) => ({ ...prev, search: event.target.value }))}
-                  size="small"
-                  InputProps={{
-                    startAdornment: (
-                      <Box component="span" sx={{ display: "inline-flex", alignItems: "center", mr: 1 }}>
-                        <SearchOutlined fontSize="small" color="action" />
-                      </Box>
-                    ),
-                  }}
-                />
-              </Grid>
-            </Grid>
+      <section className="audit-log-dashboard__hero" aria-label="Métricas principais">
+        {heroMetrics.map((metric) => (
+          <article key={metric.id} className="audit-log-dashboard__heroCard" data-tone={metric.tone}>
+            <span className="audit-log-dashboard__heroLabel">{metric.label}</span>
+            <span className="audit-log-dashboard__heroValue">{metric.value}</span>
+            <span className="audit-log-dashboard__heroHelper">{metric.helper}</span>
+          </article>
+        ))}
+      </section>
 
-            <Stack
-              direction={downMd ? "column" : "row"}
-              spacing={downMd ? 1.5 : 1}
-              justifyContent={downMd ? "stretch" : "flex-end"}
-              alignItems={downMd ? "stretch" : "center"}
-            >
-              <Button
-                variant={downMd ? "outlined" : "text"}
-                color="inherit"
-                onClick={clearFilters}
-                startIcon={<RefreshOutlined />}
-                fullWidth={downMd}
-              >
-                Limpar filtros
-              </Button>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleExport}
-                startIcon={<DownloadOutlined />}
-                disabled={exporting || loading}
-                fullWidth={downMd}
-              >
-                Exportar CSV
-              </Button>
-            </Stack>
-
-            <Divider />
-
-            {downSm ? (
-              <Stack spacing={2}>
-                {loading && rows.length === 0 ? (
-                  <Stack alignItems="center" justifyContent="center" py={6}>
-                    <CircularProgress size={28} thickness={4} />
-                  </Stack>
-                ) : rows.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary" textAlign="center" py={4}>
-                    Nenhum registo encontrado.
-                  </Typography>
-                ) : (
-                  rows.map((row) => {
-                    const targetTypeLabel = row.target_type
-                      ? TARGET_TYPE_LABELS[row.target_type] ?? row.target_type
-                      : "—";
-                    const targetLabel = row.target ?? row.target_id ?? "—";
-                    const actorLabel = row.actor ?? row.actor_id ?? "—";
-                    const details = coalesceDetails(row);
-
-                    return (
-                      <Paper key={row.id} variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-                        <Stack spacing={1.5}>
-                          <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1.5}>
-                            <Stack spacing={0.25}>
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                                sx={{ textTransform: "uppercase", letterSpacing: 0.4 }}
-                              >
-                                Quando
-                              </Typography>
-                              <Typography variant="body2" fontWeight={600}>
-                                {formatDate(row.created_at)}
-                              </Typography>
-                            </Stack>
-                            {renderKindChip(row)}
-                          </Stack>
-
-                          <Stack spacing={0.25}>
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                              sx={{ textTransform: "uppercase", letterSpacing: 0.4 }}
-                            >
-                              Responsável
-                            </Typography>
-                            <Typography variant="body2" fontWeight={600}>
-                              {actorLabel}
-                            </Typography>
-                          </Stack>
-
-                          <Stack spacing={0.25}>
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                              sx={{ textTransform: "uppercase", letterSpacing: 0.4 }}
-                            >
-                              Alvo
-                            </Typography>
-                            <Typography variant="body2" fontWeight={600}>
-                              {targetLabel}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {targetTypeLabel}
-                            </Typography>
-                          </Stack>
-
-                          <Stack spacing={0.25}>
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                              sx={{ textTransform: "uppercase", letterSpacing: 0.4 }}
-                            >
-                              Mensagem
-                            </Typography>
-                            <Typography variant="body2">{row.note ?? "—"}</Typography>
-                          </Stack>
-
-                          <Stack spacing={0.25}>
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                              sx={{ textTransform: "uppercase", letterSpacing: 0.4 }}
-                            >
-                              IP
-                            </Typography>
-                            <Typography variant="body2">{row.ip ?? "—"}</Typography>
-                          </Stack>
-
-                          {details ? (
-                            <Box>
-                              <Button variant="outlined" size="small" onClick={() => setDetailsRow(row)} fullWidth>
-                                Ver detalhes
-                              </Button>
-                            </Box>
-                          ) : null}
-                        </Stack>
-                      </Paper>
-                    );
-                  })
-                )}
-
-                <Stack
-                  direction="row"
-                  spacing={2}
-                  justifyContent="space-between"
-                  alignItems="center"
-                  flexWrap="wrap"
-                  rowGap={2}
-                >
-                  <Pagination
-                    count={pageCount}
-                    page={paginationModel.page + 1}
-                    color="primary"
-                    onChange={(_, value) =>
-                      setPaginationModel((prev) => ({
-                        ...prev,
-                        page: value - 1,
-                      }))
-                    }
-                    sx={{ mx: "auto" }}
-                  />
-                  <TextField
-                    select
-                    label="Por página"
-                    size="small"
-                    value={paginationModel.pageSize}
-                    onChange={(event) =>
-                      setPaginationModel((prev) => ({
-                        ...prev,
-                        pageSize: Number(event.target.value) || prev.pageSize,
-                        page: 0,
-                      }))
-                    }
-                    sx={{ minWidth: 140 }}
-                  >
-                    {[10, 20, 50].map((size) => (
-                      <MenuItem key={size} value={size}>
-                        {size}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                </Stack>
-              </Stack>
+      <div className="audit-log-dashboard__grid">
+        <article className="audit-log-dashboard__panel audit-log-dashboard__panel--chart">
+          <header className="audit-log-dashboard__panelHeader">
+            <h2>Histórico das últimas 2 semanas</h2>
+            <p>Acompanha o volume diário de eventos por categoria crítica.</p>
+          </header>
+          <div className="audit-log-dashboard__chart">
+            {timelineData.length === 0 ? (
+              <div className="audit-log-dashboard__empty" role="status">
+                <span className="audit-log-dashboard__emptyIcon" aria-hidden>
+                  <History size={18} />
+                </span>
+                <p className="audit-log-dashboard__emptyTitle">Sem registos suficientes</p>
+                <p className="audit-log-dashboard__emptyDescription">
+                  Assim que novos eventos forem registados mostramos aqui a evolução diária.
+                </p>
+              </div>
             ) : (
-              <Box
-                sx={{
-                  width: "100%",
-                  height: 640,
-                  minHeight: 520,
-                  overflowX: "auto",
-                }}
-              >
-                <DataGrid
-                  rows={rows}
-                  columns={visibleColumns}
-                  loading={loading}
-                  rowCount={rowCount}
-                  pageSizeOptions={[10, 20, 50]}
-                  paginationMode="server"
-                  paginationModel={paginationModel}
-                  onPaginationModelChange={(model) => setPaginationModel(model)}
-                  disableRowSelectionOnClick
-                  density="comfortable"
-                  sx={{
-                    border: "none",
-                    "& .MuiDataGrid-columnHeaders": {
-                      backgroundColor:
-                        theme.palette.mode === "light"
-                          ? "rgba(15, 23, 42, 0.04)"
-                          : "rgba(148, 163, 184, 0.12)",
-                    },
-                    "& .MuiDataGrid-cell:focus, & .MuiDataGrid-cell:focus-within": {
-                      outline: "none",
-                    },
-                  }}
-                />
-              </Box>
+              <ResponsiveContainer width="100%" height={260}>
+                <AreaChart data={timelineData} margin={{ left: 8, right: 8, top: 16, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--neo-border-subtle)" />
+                  <XAxis
+                    dataKey="date"
+                    tickFormatter={(value) => tooltipDateFormatter.format(new Date(value))}
+                    stroke="var(--muted-fg)"
+                    fontSize={12}
+                  />
+                  <YAxis
+                    stroke="var(--muted-fg)"
+                    fontSize={12}
+                    allowDecimals={false}
+                  />
+                  <Tooltip
+                    labelFormatter={(value) => tooltipDateFormatter.format(new Date(value))}
+                    contentStyle={{
+                      background: 'var(--neo-surface-raised)',
+                      borderRadius: 8,
+                      border: '1px solid var(--neo-border-subtle)',
+                    }}
+                  />
+                  <Area type="monotone" dataKey="total" stroke="var(--neo-primary)" fill="rgba(73, 99, 230, 0.16)" />
+                  <Area type="monotone" dataKey="security" stroke="var(--neo-warning)" fill="rgba(235, 164, 54, 0.18)" />
+                  <Area type="monotone" dataKey="plans" stroke="var(--neo-teal)" fill="rgba(16, 180, 156, 0.18)" />
+                  <Area type="monotone" dataKey="users" stroke="var(--danger)" fill="rgba(229, 72, 77, 0.16)" />
+                </AreaChart>
+              </ResponsiveContainer>
             )}
-          </Stack>
-        </CardContent>
-      </Card>
+          </div>
+        </article>
 
-      <Dialog open={Boolean(detailsRow)} onClose={() => setDetailsRow(null)} maxWidth="md" fullWidth>
-        <DialogTitle>Detalhes do log</DialogTitle>
-        <DialogContent dividers>
-          {detailsRow ? (
-            <Box
-              component="pre"
-              sx={{
-                fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
-                whiteSpace: "pre-wrap",
-                wordBreak: "break-word",
-                fontSize: 13,
-              }}
+        <article className="audit-log-dashboard__panel">
+          <header className="audit-log-dashboard__panelHeader">
+            <h2>Eventos mais frequentes</h2>
+            <p>Tipos de ação com maior incidência nos últimos 45 dias.</p>
+          </header>
+          <ul className="audit-log-dashboard__list" role="list">
+            {kindShares.length === 0 ? (
+              <li className="audit-log-dashboard__listEmpty">Sem dados suficientes para calcular a distribuição.</li>
+            ) : (
+              kindShares.map((entry) => (
+                <li key={entry.kind}>
+                  <span className="audit-log-dashboard__listLabel">{entry.kind}</span>
+                  <span className="audit-log-dashboard__listValue">{entry.count}</span>
+                </li>
+              ))
+            )}
+          </ul>
+        </article>
+
+        <article className="audit-log-dashboard__panel">
+          <header className="audit-log-dashboard__panelHeader">
+            <h2>Actores mais ativos</h2>
+            <p>Utilizadores com mais eventos auditados no período.</p>
+          </header>
+          <ul className="audit-log-dashboard__list" role="list">
+            {actorShares.length === 0 ? (
+              <li className="audit-log-dashboard__listEmpty">Sem eventos com actor identificado.</li>
+            ) : (
+              actorShares.map((entry) => (
+                <li key={entry.id ?? entry.label}>
+                  <span className="audit-log-dashboard__listLabel">{entry.label}</span>
+                  <span className="audit-log-dashboard__listValue">{entry.count}</span>
+                </li>
+              ))
+            )}
+          </ul>
+        </article>
+
+        <article className="audit-log-dashboard__panel audit-log-dashboard__panel--highlights">
+          <header className="audit-log-dashboard__panelHeader">
+            <h2>Destaques recentes</h2>
+            <p>Últimos eventos com impacto operacional imediato.</p>
+          </header>
+          <ul className="audit-log-dashboard__highlights" role="list">
+            {highlights.length === 0 ? (
+              <li className="audit-log-dashboard__listEmpty">Sem destaques para mostrar.</li>
+            ) : (
+              highlights.map((item) => (
+                <li key={item.id} data-tone={item.tone}>
+                  <span className="audit-log-dashboard__highlightTitle">{item.label}</span>
+                  <span className="audit-log-dashboard__highlightDescription">{item.description}</span>
+                  <span className="audit-log-dashboard__highlightMeta">{item.createdAt}</span>
+                </li>
+              ))
+            )}
+          </ul>
+        </article>
+      </div>
+
+      <section className="audit-log-dashboard__tableSection" aria-labelledby="audit-log-table-heading">
+        <header className="audit-log-dashboard__tableHeader">
+          <div>
+            <h2 id="audit-log-table-heading">Eventos individuais</h2>
+            <p>Filtra, pesquisa e exporta cada ação registada.</p>
+          </div>
+          <div className="audit-log-dashboard__filters">
+            <label className="audit-log-dashboard__search">
+              <Search size={16} aria-hidden className="audit-log-dashboard__searchIcon" />
+              <span className="sr-only">Pesquisar por notas, alvo ou IP</span>
+              <input
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Nota, alvo, IP, agente…"
+                className="neo-input"
+              />
+            </label>
+            <select
+              value={kindFilter}
+              onChange={(event) => setKindFilter(event.target.value)}
+              className="neo-input"
+              aria-label="Filtrar por tipo de evento"
             >
-              {JSON.stringify(coalesceDetails(detailsRow), null, 2)}
-            </Box>
-          ) : null}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDetailsRow(null)}>Fechar</Button>
-        </DialogActions>
-      </Dialog>
+              <option value="">Todos os tipos</option>
+              {meta?.kinds?.map((kind) => (
+                <option key={kind} value={kind}>
+                  {kind}
+                </option>
+              ))}
+            </select>
+            <select
+              value={targetFilter}
+              onChange={(event) => setTargetFilter(event.target.value)}
+              className="neo-input"
+              aria-label="Filtrar por tipo de alvo"
+            >
+              <option value="">Todos os alvos</option>
+              {meta?.targetTypes?.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+            <select
+              value={actorFilter}
+              onChange={(event) => setActorFilter(event.target.value)}
+              className="neo-input"
+              aria-label="Filtrar por actor"
+            >
+              <option value="">Todos os actores</option>
+              {meta?.actors?.map((actorOption) => (
+                <option key={actorOption.id ?? actorOption.label ?? 'anon'} value={actorOption.id ?? ''}>
+                  {actorOption.label ?? '—'}
+                </option>
+              ))}
+            </select>
+          </div>
+        </header>
 
-      <Snackbar
-        open={snack.open}
-        autoHideDuration={4000}
-        onClose={() => setSnack((prev) => ({ ...prev, open: false }))}
-      >
-        <Alert
-          severity={snack.severity}
-          onClose={() => setSnack((prev) => ({ ...prev, open: false }))}
-          sx={{ width: "100%" }}
-        >
-          {snack.message}
-        </Alert>
-      </Snackbar>
-    </Stack>
+        <div className={clsx('neo-table-wrapper', listLoading && 'is-loading')} role="region" aria-live="polite">
+          {listLoading && (
+            <div className="neo-table__loading" role="status">
+              <Spinner size={16} /> A carregar eventos…
+            </div>
+          )}
+
+          {listError ? (
+            <div className="audit-log-dashboard__empty" role="status">
+              <span className="audit-log-dashboard__emptyIcon" aria-hidden>
+                <AlertTriangle size={18} />
+              </span>
+              <p className="audit-log-dashboard__emptyTitle">Não foi possível carregar os eventos</p>
+              <p className="audit-log-dashboard__emptyDescription">
+                Tenta novamente. Se o erro persistir confirma as permissões do Supabase.
+              </p>
+              <Button variant="ghost" onClick={() => mutateList()}>
+                Tentar novamente
+              </Button>
+            </div>
+          ) : null}
+
+          {!listError && (listData?.items?.length ?? 0) === 0 && !listLoading ? (
+            <div className="audit-log-dashboard__empty" role="status">
+              <span className="audit-log-dashboard__emptyIcon" aria-hidden>
+                <Filter size={18} />
+              </span>
+              <p className="audit-log-dashboard__emptyTitle">Sem eventos a apresentar</p>
+              <p className="audit-log-dashboard__emptyDescription">
+                Ajusta os filtros ou espera por novas ações para monitorizar a atividade aqui.
+              </p>
+              {(kindFilter || targetFilter || actorFilter || debouncedSearch) && (
+                <Button variant="ghost" onClick={() => {
+                  setKindFilter('');
+                  setTargetFilter('');
+                  setActorFilter('');
+                  setSearch('');
+                }}>
+                  Limpar filtros
+                </Button>
+              )}
+            </div>
+          ) : null}
+
+          {(listData?.items?.length ?? 0) > 0 && !listError && (
+            <table className="neo-table audit-log-dashboard__table">
+              <thead>
+                <tr>
+                  <th scope="col">Quando</th>
+                  <th scope="col">Evento</th>
+                  <th scope="col">Alvo</th>
+                  <th scope="col">Actor</th>
+                  <th scope="col">Detalhes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {listData?.items?.map((row) => (
+                  <tr key={row.id}>
+                    <td>{formatDate(row.created_at)}</td>
+                    <td>
+                      <div className="audit-log-dashboard__cellPrimary">
+                        <strong>{row.kind ?? '—'}</strong>
+                        <span>{row.action ?? row.category ?? '—'}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="audit-log-dashboard__cellPrimary">
+                        <strong>{row.target ?? '—'}</strong>
+                        <span>{row.target_type ?? row.target_id ?? '—'}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="audit-log-dashboard__cellPrimary">
+                        <strong>{row.actor ?? '—'}</strong>
+                        <span>{row.actor_id ?? '—'}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="audit-log-dashboard__cellPrimary">
+                        <strong>{describeDetails(row) ?? 'Sem nota'}</strong>
+                        <span>{row.ip ?? row.user_agent ?? '—'}</span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <footer className="audit-log-dashboard__pagination" aria-label="Paginação de eventos">
+          <div className="audit-log-dashboard__paginationInfo">
+            <span>
+              Página {page} de {totalPages}
+            </span>
+            <span>
+              {listData?.count ?? 0} evento{(listData?.count ?? 0) === 1 ? '' : 's'} registado{(listData?.count ?? 0) === 1 ? '' : 's'}
+            </span>
+          </div>
+          <div className="audit-log-dashboard__paginationControls">
+            <label className="audit-log-dashboard__pageSize">
+              <span>Por página</span>
+              <select
+                value={String(pageSize)}
+                onChange={(event) => setPageSize(Number(event.target.value))}
+                className="neo-input"
+              >
+                {PAGE_SIZE_OPTIONS.map((option) => (
+                  <option key={option} value={String(option)}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="audit-log-dashboard__paginationButtons">
+              <button
+                type="button"
+                className="btn"
+                data-variant="ghost"
+                onClick={() => canPrev && setPage((prev) => Math.max(1, prev - 1))}
+                disabled={!canPrev}
+              >
+                Anterior
+              </button>
+              <button
+                type="button"
+                className="btn"
+                data-variant="ghost"
+                onClick={() => canNext && setPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={!canNext}
+              >
+                Seguinte
+              </button>
+            </div>
+          </div>
+        </footer>
+      </section>
+    </div>
   );
 }

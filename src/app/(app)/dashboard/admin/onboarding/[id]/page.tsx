@@ -16,7 +16,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 
   const { data: form } = await sb
     .from('onboarding_forms')
-    .select('*')
+    .select('*, profiles(name), users(email)')
     .eq('id', id)
     .maybeSingle();
 
@@ -40,5 +40,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       : (n.profiles ?? null),
   }));
 
-  return <AdminOnboardingReviewClient form={form ?? null} notes={notes} />;
+  const viewerName = s?.name ?? s?.user?.name ?? null;
+
+  return <AdminOnboardingReviewClient form={form ?? null} notes={notes} viewerName={viewerName} />;
 }

@@ -1,10 +1,8 @@
 // src/app/(app)/dashboard/pt/plans/[planId]/days/[dayId]/blocks/page.tsx
-import * as React from 'react';
-import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { Container, Typography, Stack, Button, Card, CardContent, Chip } from '@mui/material';
+import { redirect } from 'next/navigation';
+
 import { createServerClient } from '@/lib/supabaseServer';
-import { withDashboardContentSx } from '@/styles/dashboardContentSx';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,37 +21,71 @@ export default async function PlanDayBlocksPage({ params }: { params: Promise<Pa
     .eq('day_id', dayId)
     .order('order_index', { ascending: true });
 
+  const orderedBlocks = (blocks ?? []).map((block: any, index: number) => ({
+    ...block,
+    position: block.order_index ?? index + 1,
+  }));
+
   return (
-    <Container sx={withDashboardContentSx({ display: 'grid', gap: 2 })}>
-      <Stack direction="row" spacing={1} alignItems="center">
-        <Typography variant="h5" fontWeight={800}>🏋️ Blocos do dia</Typography>
-        <Chip size="small" label={`${(blocks ?? []).length}`} />
-      </Stack>
+    <div className="trainer-plan-blocks">
+      <header className="neo-panel neo-panel--header trainer-plan-blocks__header">
+        <div>
+          <h1 className="trainer-plan-blocks__title">Blocos do dia</h1>
+          <p className="trainer-plan-blocks__subtitle">
+            Consulta e edita rapidamente os blocos deste plano.
+          </p>
+        </div>
+        <span className="neo-tag" data-tone="neutral">{orderedBlocks.length} bloco(s)</span>
+      </header>
 
-      <Stack direction="row" spacing={1.5} sx={{ mt: 2 }}>
-        <Button variant="contained" component={Link} href={`/dashboard/pt/plans/${planId}/days/${dayId}/blocks/order`}>↕️ Ordenar blocos</Button>
-        <Button variant="outlined" component={Link} href={`/dashboard/pt/plans/${planId}`}>← Voltar ao plano</Button>
-      </Stack>
+      <section className="neo-panel trainer-plan-blocks__actions">
+        <div className="trainer-plan-blocks__buttons">
+          <Link
+            className="btn"
+            data-variant="primary"
+            data-size="sm"
+            href={`/dashboard/pt/plans/${planId}/days/${dayId}/blocks/order`}
+          >
+            ↕️ Ordenar blocos
+          </Link>
+          <Link className="btn" data-variant="ghost" data-size="sm" href={`/dashboard/pt/plans/${planId}`}>
+            ← Voltar ao plano
+          </Link>
+        </div>
+      </section>
 
-      <Stack spacing={1.5} sx={{ mt: 3 }}>
-        {(blocks ?? []).length === 0 && (
-          <Typography color="text.secondary">Ainda não há blocos neste dia.</Typography>
+      <section className="trainer-plan-blocks__list">
+        {orderedBlocks.length === 0 ? (
+          <div className="neo-empty">
+            <span className="neo-empty__icon" aria-hidden>
+              📦
+            </span>
+            <p className="neo-empty__title">Sem blocos configurados</p>
+            <p className="neo-empty__description">Adiciona blocos para estruturar exercícios, tempos e notas.</p>
+          </div>
+        ) : (
+          <ul className="trainer-plan-blocks__grid">
+            {orderedBlocks.map((block) => (
+              <li key={block.id} className="neo-surface trainer-plan-blocks__item">
+                <div>
+                  <h3>
+                    #{block.position} — {block.title || 'Bloco'}
+                  </h3>
+                  {block.notes && <p className="neo-text--sm text-muted">{block.notes}</p>}
+                </div>
+                <Link
+                  href={`/dashboard/pt/plans/${planId}/days/${dayId}/blocks/${block.id}`}
+                  className="btn"
+                  data-variant="secondary"
+                  data-size="sm"
+                >
+                  ✏️ Editar
+                </Link>
+              </li>
+            ))}
+          </ul>
         )}
-
-        {(blocks ?? []).map((b: any, idx: number) => (
-          <Card key={b.id} variant="outlined">
-            <CardContent sx={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: 1 }}>
-              <div>
-                <Typography fontWeight={700}>#{b.order_index ?? idx + 1} — {b.title || 'Bloco'}</Typography>
-                {b.notes && <Typography variant="body2" color="text.secondary">{b.notes}</Typography>}
-              </div>
-              <Stack direction="row" spacing={1}>
-                <Button size="small" component={Link} href={`/dashboard/pt/plans/${planId}/days/${dayId}/blocks/${b.id}`}>✏️ Editar</Button>
-              </Stack>
-            </CardContent>
-          </Card>
-        ))}
-      </Stack>
-    </Container>
+      </section>
+    </div>
   );
 }

@@ -1,447 +1,516 @@
 'use client';
 
 import * as React from 'react';
-import {
-  Alert,
-  Button,
-  Chip,
-  Paper,
-  Stack,
-  Typography,
-  Divider,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-} from '@mui/material';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import HighlightOffIcon from '@mui/icons-material/HighlightOff';
-import EventRepeatOutlinedIcon from '@mui/icons-material/EventRepeatOutlined';
-import EventAvailableOutlinedIcon from '@mui/icons-material/EventAvailableOutlined';
+import { CalendarClock, CheckCircle2, Clock3, RefreshCcw, Repeat2, XCircle } from 'lucide-react';
 
-export type TrainerRequest = {
-  id: string;
-  sessionId: string | null;
-  status: string;
-  requestedStart: string | null;
-  requestedEnd: string | null;
-  proposedStart: string | null;
-  proposedEnd: string | null;
-  message: string | null;
-  trainerNote: string | null;
-  rescheduleNote: string | null;
-  createdAt: string | null;
-  updatedAt: string | null;
-  respondedAt: string | null;
-  proposedAt: string | null;
-  client: { id: string; name: string | null; email: string | null } | null;
-};
+import PageHeader from '@/components/ui/PageHeader';
+import Button from '@/components/ui/Button';
+import Alert from '@/components/ui/Alert';
+import DataSourceBadge, { describeDataSourceRelative } from '@/components/ui/DataSourceBadge';
+import { formatRelativeTime } from '@/lib/datetime/relative';
+import type {
+  TrainerRescheduleRequestView,
+  TrainerRescheduleAgendaDay,
+  TrainerRescheduleInsight,
+} from '@/lib/trainer/reschedules/types';
+import type { TrainerReschedulesResponse } from '@/lib/trainer/reschedules/server';
 
-export type TrainerAgendaSession = {
-  id: string;
-  start: string | null;
-  end: string | null;
-  durationMin: number;
-  location: string | null;
-  status: string | null;
-  client: { id: string; name: string | null } | null;
-};
+const DASHBOARD_ENDPOINT = '/api/pt/reschedules/dashboard';
+const SESSION_REQUEST_ENDPOINT = '/api/trainer/session-requests';
 
 type Props = {
-  initialRequests: TrainerRequest[];
-  weeklySessions: TrainerAgendaSession[];
+  initialData: TrainerReschedulesResponse;
 };
 
-function toDate(value: string | null) {
-  if (!value) return null;
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? null : d;
-}
+type Feedback = { tone: 'success' | 'danger'; message: string } | null;
 
-function formatDateTime(value: string | null) {
-  const d = toDate(value);
-  if (!d) return 'Data por definir';
-  return d.toLocaleString('pt-PT', {
-    weekday: 'short',
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
+type DeclineState = { id: string; note: string } | null;
+type RescheduleState = { id: string; start: string; duration: number; note: string } | null;
 
-function formatTime(value: string | null) {
-  const d = toDate(value);
-  if (!d) return '—';
-  return d.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
-}
-
-function formatRange(start: string | null, end: string | null) {
-  if (!start) return 'Data por definir';
-  const startStr = formatDateTime(start);
-  if (!end) return startStr;
-  return `${startStr} — ${formatTime(end)}`;
-}
-
-function clientDisplay(client: TrainerRequest['client']) {
-  if (!client) return 'Cliente indefinido';
-  if (client.name && client.email) return `${client.name} (${client.email})`;
-  return client.name ?? client.email ?? client.id;
-}
-
-function requestStatusInfo(status: string) {
-  const normalized = status?.toLowerCase();
-  switch (normalized) {
-    case 'pending':
-      return { label: 'Aguardando', color: 'warning' as const };
-    case 'accepted':
-      return { label: 'Aceite', color: 'success' as const };
-    case 'declined':
-      return { label: 'Recusado', color: 'error' as const };
-    case 'cancelled':
-      return { label: 'Cancelado', color: 'default' as const };
-    case 'reschedule_pending':
-      return { label: 'Remarcação pendente', color: 'info' as const };
-    case 'reschedule_declined':
-      return { label: 'Remarcação recusada', color: 'warning' as const };
+function toneToPill(tone: TrainerRescheduleRequestView['statusTone']): 'ok' | 'warn' | 'down' | 'neutral' {
+  switch (tone) {
+    case 'positive':
+      return 'ok';
+    case 'warning':
+      return 'warn';
+    case 'critical':
+      return 'down';
     default:
-      return { label: status, color: 'default' as const };
+      return 'neutral';
   }
 }
 
-function sessionStatusChip(status: string | null | undefined) {
-  if (!status) return null;
-  const normalized = status.toString().toLowerCase();
-  if (normalized === 'scheduled') return { label: 'Agendado', color: 'info' as const };
-  if (normalized === 'done' || normalized === 'completed') return { label: 'Concluído', color: 'success' as const };
-  if (normalized === 'cancelled') return { label: 'Cancelado', color: 'error' as const };
-  return { label: status, color: 'default' as const };
+function toInputValue(value: string | null): string {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const offset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
 }
 
-export default function TrainerReschedulesClient({ initialRequests, weeklySessions }: Props) {
-  const [requests, setRequests] = React.useState<TrainerRequest[]>(initialRequests);
-  const [error, setError] = React.useState<string | null>(null);
-  const [success, setSuccess] = React.useState<string | null>(null);
-  const [actionBusy, setActionBusy] = React.useState<string | null>(null);
-  const [declineDialog, setDeclineDialog] = React.useState<{ id: string; note: string } | null>(null);
-  const [rescheduleDialog, setRescheduleDialog] = React.useState<{ id: string; start: string; duration: number; note: string } | null>(null);
-
-  const sortedRequests = React.useMemo(() => {
-    return [...requests].sort((a, b) => {
-      const aTime = toDate(a.createdAt)?.getTime() ?? toDate(a.requestedStart)?.getTime() ?? 0;
-      const bTime = toDate(b.createdAt)?.getTime() ?? toDate(b.requestedStart)?.getTime() ?? 0;
-      return bTime - aTime;
-    });
-  }, [requests]);
-
-  const pendingRequests = sortedRequests.filter((r) => r.status === 'pending');
-  const otherRequests = sortedRequests.filter((r) => r.status !== 'pending');
-
-  const sessionsByDay = React.useMemo(() => {
-    const groups = new Map<string, TrainerAgendaSession[]>();
-    for (const session of weeklySessions) {
-      const dayKey = toDate(session.start)?.toISOString().slice(0, 10) ?? 'sem-data';
-      const list = groups.get(dayKey) ?? [];
-      list.push(session);
-      groups.set(dayKey, list);
+function inferDuration(request: TrainerRescheduleRequestView): number {
+  if (request.requestedStart && request.requestedEnd) {
+    const start = new Date(request.requestedStart);
+    const end = new Date(request.requestedEnd);
+    if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
+      const minutes = Math.round((end.getTime() - start.getTime()) / 60000);
+      if (minutes > 0) return minutes;
     }
-    return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [weeklySessions]);
+  }
+  return 60;
+}
 
-  async function mutateRequest(id: string, payload: Record<string, any>, successMsg: string) {
-    setActionBusy(`${id}:${payload.action}`);
-    setError(null);
-    setSuccess(null);
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="trainer-reschedules__empty" role="status">
+      <span className="neo-text--muted neo-text--sm">{message}</span>
+    </div>
+  );
+}
+
+export default function TrainerReschedulesClient({ initialData }: Props) {
+  const [data, setData] = React.useState(initialData);
+  const [loading, setLoading] = React.useState(false);
+  const [feedback, setFeedback] = React.useState<Feedback>(null);
+  const [actionBusy, setActionBusy] = React.useState<string | null>(null);
+  const [declineDialog, setDeclineDialog] = React.useState<DeclineState>(null);
+  const [rescheduleDialog, setRescheduleDialog] = React.useState<RescheduleState>(null);
+
+  const updatedRelative = React.useMemo(() => formatRelativeTime(data.updatedAt), [data.updatedAt]);
+  const generatedRelative = React.useMemo(() => describeDataSourceRelative(data.generatedAt), [data.generatedAt]);
+
+  async function refresh(manual = false) {
+    setLoading(true);
     try {
-      const res = await fetch(`/api/trainer/session-requests/${id}`, {
+      const response = await fetch(DASHBOARD_ENDPOINT, { cache: 'no-store' });
+      if (!response.ok) {
+        throw new Error((await response.text()) || 'Não foi possível sincronizar os dados.');
+      }
+      const payload = (await response.json()) as TrainerReschedulesResponse;
+      if (!payload?.ok) {
+        throw new Error('Resposta inválida da API de remarcações.');
+      }
+      setData(payload);
+      if (manual) {
+        setFeedback({ tone: 'success', message: 'Dados actualizados com sucesso.' });
+      }
+    } catch (error: any) {
+      setFeedback({ tone: 'danger', message: error?.message ?? 'Não foi possível actualizar os dados.' });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function mutateRequest(id: string, payload: Record<string, unknown>, successMessage: string) {
+    setActionBusy(`${id}:${payload.action ?? 'update'}`);
+    setFeedback(null);
+    try {
+      const response = await fetch(`${SESSION_REQUEST_ENDPOINT}/${id}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const text = await res.text();
+      const raw = await response.text();
       let json: any = {};
-      try { json = text ? JSON.parse(text) : {}; } catch { json = {}; }
-      if (!res.ok) {
-        throw new Error(json?.details || json?.error || text || 'Operação falhou.');
+      if (raw) {
+        try {
+          json = JSON.parse(raw);
+        } catch (error) {
+          console.warn('[trainer-reschedules] resposta inesperada', error);
+        }
       }
-      if (json?.request) {
-        setRequests((prev) => prev.map((req) => (req.id === id ? (json.request as TrainerRequest) : req)));
+      if (!response.ok) {
+        throw new Error(json?.details || json?.error || raw || 'Operação falhou.');
       }
-      if (successMsg) setSuccess(successMsg);
-    } catch (e: any) {
-      setError(e?.message || 'Não foi possível actualizar o pedido.');
+      await refresh(true);
+      setFeedback({ tone: 'success', message: successMessage });
+    } catch (error: any) {
+      setFeedback({ tone: 'danger', message: error?.message ?? 'Não foi possível actualizar o pedido.' });
     } finally {
       setActionBusy(null);
     }
   }
 
-  function openRescheduleDialog(request: TrainerRequest) {
-    const baseStart = request.requestedStart ?? request.proposedStart ?? '';
-    const startLocal = baseStart ? new Date(baseStart) : null;
-    const localValue = startLocal
-      ? new Date(startLocal.getTime() - startLocal.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
-      : '';
-    const duration = request.requestedEnd && request.requestedStart
-      ? Math.max(30, Math.round((toDate(request.requestedEnd)!.getTime() - toDate(request.requestedStart)!.getTime()) / 60000))
-      : 60;
-    setRescheduleDialog({ id: request.id, start: localValue, duration, note: '' });
+  function openDecline(request: TrainerRescheduleRequestView) {
+    if (!request.canDecline) return;
+    setDeclineDialog({ id: request.id, note: '' });
   }
 
-  return (
-    <Paper elevation={0} sx={{ p: 2, display: 'grid', gap: 3 }}>
-      <Typography variant="h6" fontWeight={800}>Remarcações e pedidos pendentes</Typography>
+  function openReschedule(request: TrainerRescheduleRequestView) {
+    if (!request.canPropose && !request.canAccept) return;
+    const baseStart = request.proposedStart ?? request.requestedStart ?? null;
+    setRescheduleDialog({
+      id: request.id,
+      start: toInputValue(baseStart),
+      duration: inferDuration(request),
+      note: request.rescheduleNote ?? '',
+    });
+  }
 
-      {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
-      {success && <Alert severity="success" onClose={() => setSuccess(null)}>{success}</Alert>}
+  function renderRequests(requests: TrainerRescheduleRequestView[], variant: 'pending' | 'history') {
+    if (!requests.length) {
+      return <EmptyState message={variant === 'pending' ? 'Sem pedidos em espera. Boa gestão!' : 'Sem histórico recente.'} />;
+    }
 
-      <Stack spacing={2}>
-        <Typography variant="subtitle1" fontWeight={700}>Pedidos por aprovar</Typography>
-        {pendingRequests.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">Sem pedidos em espera. Boa gestão!</Typography>
-        ) : (
-          <Stack spacing={1.5}>
-            {pendingRequests.map((request) => (
-              <Paper key={request.id} variant="outlined" sx={{ p: 2, borderRadius: 2, display: 'grid', gap: 1 }}>
-                <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={1.5} alignItems={{ sm: 'center' }}>
-                  <Stack spacing={0.5}>
-                    <Typography variant="subtitle1" fontWeight={700}>{clientDisplay(request.client)}</Typography>
-                    <Typography variant="body2" color="text.secondary">Proposto: {formatRange(request.requestedStart, request.requestedEnd)}</Typography>
-                    {request.message && (
-                      <Typography variant="body2" color="text.secondary">Mensagem do cliente: {request.message}</Typography>
-                    )}
-                  </Stack>
-                  <Chip label="A aguardar" color="warning" variant="outlined" />
-                </Stack>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-                  <Button
-                    variant="contained"
-                    color="success"
-                    startIcon={<CheckCircleOutlineIcon fontSize="small" />}
-                    disabled={actionBusy === `${request.id}:accept`}
-                    onClick={() => mutateRequest(request.id, { action: 'accept' }, 'Sessão aceite e agendada.')}
-                  >
-                    Aceitar pedido
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    startIcon={<HighlightOffIcon fontSize="small" />}
-                    disabled={actionBusy === `${request.id}:decline`}
-                    onClick={() => setDeclineDialog({ id: request.id, note: '' })}
-                  >
-                    Recusar
-                  </Button>
-                </Stack>
-              </Paper>
-            ))}
-          </Stack>
-        )}
-      </Stack>
+    return (
+      <ul className="trainer-reschedules__requestList">
+        {requests.map((request) => (
+          <li key={request.id} className="trainer-reschedules__requestItem">
+            <article className="trainer-reschedules__requestCard">
+              <header className="trainer-reschedules__requestHeader">
+                <div>
+                  <h3 className="trainer-reschedules__requestTitle">{request.clientLabel}</h3>
+                  <p className="trainer-reschedules__requestSubtitle">{request.requestedRange}</p>
+                  {request.message ? (
+                    <p className="trainer-reschedules__requestMessage">Mensagem: {request.message}</p>
+                  ) : null}
+                </div>
+                <span className="status-pill" data-state={toneToPill(request.statusTone)}>{request.statusLabel}</span>
+              </header>
 
-      <Divider />
+              {request.proposedLabel ? (
+                <p className="trainer-reschedules__requestMeta" data-highlight={request.awaitingClient || undefined}>
+                  Última proposta: {request.proposedLabel}
+                </p>
+              ) : null}
+              {request.rescheduleNote ? (
+                <p className="trainer-reschedules__requestMeta">Nota enviada: {request.rescheduleNote}</p>
+              ) : null}
+              {request.trainerNote ? (
+                <p className="trainer-reschedules__requestMeta">Nota anterior: {request.trainerNote}</p>
+              ) : null}
+              {request.respondedLabel ? (
+                <p className="trainer-reschedules__requestMeta">Actualizado {request.respondedLabel}</p>
+              ) : null}
 
-      <Stack spacing={2}>
-        <Typography variant="subtitle1" fontWeight={700}>Outros pedidos</Typography>
-        {otherRequests.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">Sem histórico adicional.</Typography>
-        ) : (
-          <Stack spacing={1.5}>
-            {otherRequests.map((request) => {
-              const normalized = request.status?.toString().toLowerCase();
-              const isAwaitingClient = normalized === 'reschedule_pending';
-              const canPropose = normalized === 'accepted' || normalized === 'reschedule_declined';
-              const statusInfo = requestStatusInfo(request.status ?? '');
-              return (
-                <Paper key={request.id} variant="outlined" sx={{ p: 2, borderRadius: 2, display: 'grid', gap: 1 }}>
-                  <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={1.5} alignItems={{ sm: 'center' }}>
-                    <Stack spacing={0.5}>
-                      <Typography variant="subtitle1" fontWeight={700}>{clientDisplay(request.client)}</Typography>
-                      <Typography variant="body2" color="text.secondary">Pedido: {formatRange(request.requestedStart, request.requestedEnd)}</Typography>
-                      {request.proposedStart && (
-                        <Typography variant="body2" color={isAwaitingClient ? 'info.main' : 'text.secondary'}>
-                          Última proposta: {formatRange(request.proposedStart, request.proposedEnd)}
-                        </Typography>
-                      )}
-                      {request.rescheduleNote && (
-                        <Typography variant="body2" color="text.secondary">Nota: {request.rescheduleNote}</Typography>
-                      )}
-                      {request.trainerNote && (
-                        <Typography variant="body2" color="text.secondary">Nota anterior: {request.trainerNote}</Typography>
-                      )}
-                      {request.respondedAt && (
-                        <Typography variant="caption" color="text.secondary">Actualizado: {formatDateTime(request.respondedAt)}</Typography>
-                      )}
-                    </Stack>
-                    <Chip
-                      label={statusInfo.label}
-                      color={statusInfo.color}
-                      variant={statusInfo.color === 'default' ? 'outlined' : 'filled'}
-                    />
-                  </Stack>
-                  {isAwaitingClient && (
-                    <Typography variant="body2" color="text.secondary">
-                      Aguardando resposta do cliente à proposta de remarcação.
-                    </Typography>
-                  )}
-                  {canPropose && (
+              <footer className="trainer-reschedules__requestFooter">
+                {request.awaitingClient ? (
+                  <span className="neo-text--muted neo-text--sm">
+                    Aguardando confirmação do cliente.
+                  </span>
+                ) : null}
+
+                <div className="trainer-reschedules__requestActions">
+                  {request.canAccept && (
                     <Button
-                      variant="outlined"
-                      startIcon={<EventRepeatOutlinedIcon fontSize="small" />}
-                      onClick={() => openRescheduleDialog(request)}
-                      disabled={actionBusy === `${request.id}:propose_reschedule`}
+                      size="sm"
+                      variant="success"
+                      leftIcon={<CheckCircle2 size={16} aria-hidden />}
+                      loading={actionBusy === `${request.id}:accept`}
+                      onClick={() =>
+                        mutateRequest(request.id, { action: 'accept' }, 'Sessão aceite e agendada.')
+                      }
+                    >
+                      Aceitar pedido
+                    </Button>
+                  )}
+                  {request.canDecline && (
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      leftIcon={<XCircle size={16} aria-hidden />}
+                      onClick={() => openDecline(request)}
+                    >
+                      Recusar
+                    </Button>
+                  )}
+                  {request.canPropose && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      leftIcon={<Repeat2 size={16} aria-hidden />}
+                      loading={actionBusy === `${request.id}:propose_reschedule`}
+                      onClick={() => openReschedule(request)}
                     >
                       Propor nova remarcação
                     </Button>
                   )}
-                </Paper>
-              );
-            })}
-          </Stack>
-        )}
-      </Stack>
+                </div>
+              </footer>
+            </article>
+          </li>
+        ))}
+      </ul>
+    );
+  }
 
-      <Divider />
+  function renderInsights(insights: TrainerRescheduleInsight[]) {
+    if (!insights.length) {
+      return <EmptyState message="Sem insights disponíveis." />;
+    }
+    return (
+      <ul className="trainer-reschedules__insightList">
+        {insights.map((insight) => (
+          <li key={insight.id} className="trainer-reschedules__insight" data-tone={insight.tone}>
+            <div className="trainer-reschedules__insightBody">
+              <span className="trainer-reschedules__insightTitle">{insight.title}</span>
+              <span className="trainer-reschedules__insightDescription">{insight.description}</span>
+            </div>
+            {insight.value ? (
+              <span className="trainer-reschedules__insightValue">{insight.value}</span>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    );
+  }
 
-      <Stack spacing={1.5}>
-        <Typography variant="subtitle1" fontWeight={700}>Agenda da semana</Typography>
-        {sessionsByDay.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">Ainda não há sessões marcadas para esta semana.</Typography>
-        ) : (
-          <Stack spacing={1.25}>
-            {sessionsByDay.map(([day, sessions]) => {
-              const date = day !== 'sem-data' ? formatDateTime(`${day}T00:00:00Z`) : 'Data a definir';
-              return (
-                <Paper key={day} variant="outlined" sx={{ p: 2, borderRadius: 2, display: 'grid', gap: 1 }}>
-                  <Typography variant="subtitle2" fontWeight={700}>{date.split(',')[0]}</Typography>
-                  <Stack spacing={0.75}>
-                    {sessions.map((session) => {
-                      const statusChip = sessionStatusChip(session.status);
-                      return (
-                        <Stack key={session.id} direction="row" spacing={1} alignItems="center" justifyContent="space-between">
-                          <Stack spacing={0.25}>
-                            <Typography fontWeight={600}>{session.client?.name ?? 'Cliente'}</Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              {formatRange(session.start, session.end)}
-                              {session.location ? ` · ${session.location}` : ''}
-                            </Typography>
-                          </Stack>
-                          {statusChip && <Chip label={statusChip.label} color={statusChip.color} size="small" />}
-                        </Stack>
-                      );
-                    })}
-                  </Stack>
-                </Paper>
-              );
-            })}
-          </Stack>
-        )}
-      </Stack>
+  function renderAgenda(days: TrainerRescheduleAgendaDay[]) {
+    if (!days.length) {
+      return <EmptyState message="Ainda não há sessões marcadas para esta semana." />;
+    }
+    return (
+      <ul className="trainer-reschedules__agendaList">
+        {days.map((day) => (
+          <li key={day.id} className="trainer-reschedules__agendaDay">
+            <header className="trainer-reschedules__agendaHeader">
+              <CalendarClock size={18} aria-hidden />
+              <span className="trainer-reschedules__agendaLabel">{day.label}</span>
+            </header>
+            <ul className="trainer-reschedules__agendaSessions">
+              {day.sessions.map((session) => (
+                <li key={session.id} className="trainer-reschedules__agendaSession">
+                  <div>
+                    <span className="trainer-reschedules__agendaClient">{session.clientName}</span>
+                    <span className="trainer-reschedules__agendaTime">{session.rangeLabel}</span>
+                    {session.location ? (
+                      <span className="trainer-reschedules__agendaLocation">{session.location}</span>
+                    ) : null}
+                  </div>
+                  <span className="status-pill" data-state={session.statusTone}>{session.statusLabel}</span>
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ul>
+    );
+  }
 
-      <Dialog
-        open={Boolean(declineDialog)}
-        onClose={() => setDeclineDialog(null)}
-        fullWidth
-        maxWidth="sm"
-      >
-        <DialogTitle>Recusar pedido</DialogTitle>
-        <DialogContent sx={{ display: 'grid', gap: 2 }}>
-          <Typography variant="body2" color="text.secondary">
-            Partilha uma nota opcional para o cliente saber o motivo.
-          </Typography>
-          <TextField
-            label="Nota para o cliente"
-            multiline
-            minRows={3}
-            value={declineDialog?.note ?? ''}
-            onChange={(event) => setDeclineDialog((prev) => (prev ? { ...prev, note: event.target.value } : prev))}
-          />
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setDeclineDialog(null)}>Cancelar</Button>
-          <Button
-            color="error"
-            variant="contained"
-            startIcon={<HighlightOffIcon fontSize="small" />}
-            onClick={() => {
-              if (!declineDialog) return;
-              mutateRequest(declineDialog.id, { action: 'decline', note: declineDialog.note || undefined }, 'Pedido recusado.');
-              setDeclineDialog(null);
-            }}
-          >
-            Confirmar recusa
-          </Button>
-        </DialogActions>
-      </Dialog>
+  return (
+    <div className="trainer-reschedules">
+      <PageHeader
+        sticky={false}
+        title="Remarcações de sessões"
+        subtitle="Acompanha pedidos pendentes, decisões recentes e a agenda semanal com dados em tempo real."
+        actions={
+          <span className="trainer-reschedules__supabaseState">
+            <span className="status-pill" data-state={data.source === 'supabase' ? 'ok' : 'warn'}>
+              {data.source === 'supabase' ? 'Supabase activo' : 'Modo fallback'}
+            </span>
+          </span>
+        }
+      />
 
-      <Dialog
-        open={Boolean(rescheduleDialog)}
-        onClose={() => setRescheduleDialog(null)}
-        fullWidth
-        maxWidth="sm"
-      >
-        <DialogTitle>Propor nova remarcação</DialogTitle>
-        <DialogContent sx={{ display: 'grid', gap: 2 }}>
-          <TextField
-            type="datetime-local"
-            label="Novo início"
-            value={rescheduleDialog?.start ?? ''}
-            onChange={(event) => setRescheduleDialog((prev) => (prev ? { ...prev, start: event.target.value } : prev))}
-            required
-          />
-          <TextField
-            type="number"
-            label="Duração (minutos)"
-            value={rescheduleDialog?.duration ?? 60}
-            onChange={(event) => setRescheduleDialog((prev) => (prev ? { ...prev, duration: Number(event.target.value) } : prev))}
-            inputProps={{ min: 15, step: 5 }}
-            required
-          />
-          <TextField
-            label="Nota para o cliente"
-            multiline
-            minRows={3}
-            value={rescheduleDialog?.note ?? ''}
-            onChange={(event) => setRescheduleDialog((prev) => (prev ? { ...prev, note: event.target.value } : prev))}
-            placeholder="Sugere o motivo ou logística da nova data."
-          />
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setRescheduleDialog(null)}>Cancelar</Button>
-          <Button
-            variant="contained"
-            startIcon={<EventAvailableOutlinedIcon fontSize="small" />}
-            disabled={actionBusy === `${rescheduleDialog?.id}:propose_reschedule`}
-            onClick={() => {
-              if (!rescheduleDialog) return;
-              if (!rescheduleDialog.start) {
-                setError('Indica a data para a remarcação.');
-                return;
-              }
-              const duration = Number(rescheduleDialog.duration);
-              if (!duration || duration <= 0) {
-                setError('Define uma duração válida.');
-                return;
-              }
-              const startDate = new Date(rescheduleDialog.start);
-              if (Number.isNaN(startDate.getTime())) {
-                setError('Data/hora inválida.');
-                return;
-              }
-              const endDate = new Date(startDate.getTime() + duration * 60000);
-              mutateRequest(rescheduleDialog.id, {
-                action: 'propose_reschedule',
-                start: startDate.toISOString(),
-                end: endDate.toISOString(),
-                note: rescheduleDialog.note || undefined,
-              }, 'Proposta de remarcação enviada ao cliente.');
-              setRescheduleDialog(null);
-            }}
-          >
-            Enviar proposta
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Paper>
+      <section className="neo-panel trainer-reschedules__summary">
+        <header className="trainer-reschedules__summaryHeader">
+          <div className="trainer-reschedules__meta">
+            <DataSourceBadge source={data.source} generatedAt={data.generatedAt} />
+            <span className="trainer-reschedules__metaItem">
+              Última actualização {updatedRelative ?? 'agora'}
+            </span>
+            {generatedRelative ? (
+              <span className="trainer-reschedules__metaItem">Snapshot {generatedRelative}</span>
+            ) : null}
+          </div>
+          <div className="trainer-reschedules__actions">
+            <Button
+              size="sm"
+              variant="ghost"
+              leftIcon={<RefreshCcw size={16} aria-hidden />}
+              loading={loading}
+              onClick={() => refresh(true)}
+            >
+              Actualizar
+            </Button>
+          </div>
+        </header>
+        <div className="trainer-reschedules__hero" role="list">
+          {data.hero.map((metric) => (
+            <article key={metric.id} className="trainer-reschedules__heroCard" data-tone={metric.tone ?? 'neutral'}>
+              <div className="trainer-reschedules__heroIcon" aria-hidden>
+                {metric.id === 'pending-total' && <Clock3 size={18} />}
+                {metric.id === 'awaiting-client' && <Repeat2 size={18} />}
+                {metric.id === 'response-time' && <CalendarClock size={18} />}
+                {metric.id === 'acceptance-rate' && <CheckCircle2 size={18} />}
+              </div>
+              <span className="trainer-reschedules__heroLabel">{metric.label}</span>
+              <strong className="trainer-reschedules__heroValue">{metric.value}</strong>
+              {metric.hint ? <span className="trainer-reschedules__heroHint">{metric.hint}</span> : null}
+            </article>
+          ))}
+        </div>
+      </section>
+
+      {feedback ? (
+        <Alert tone={feedback.tone === 'success' ? 'success' : 'danger'} title={feedback.tone === 'success' ? 'Tudo pronto' : 'Atenção'}>
+          {feedback.message}
+        </Alert>
+      ) : null}
+
+      <section className="trainer-reschedules__grid">
+        <article className="neo-panel trainer-reschedules__panel">
+          <header className="trainer-reschedules__panelHeader">
+            <h2 className="neo-panel__title">Pedidos por aprovar</h2>
+            <p className="neo-panel__subtitle">Processa pedidos pendentes dos clientes antes que expirem.</p>
+          </header>
+          {renderRequests(data.pending, 'pending')}
+        </article>
+        <article className="neo-panel trainer-reschedules__panel">
+          <header className="trainer-reschedules__panelHeader">
+            <h2 className="neo-panel__title">Insights rápidos</h2>
+            <p className="neo-panel__subtitle">Resumo automático com foco na carga da semana e decisões recentes.</p>
+          </header>
+          {renderInsights(data.insights)}
+        </article>
+      </section>
+
+      <section className="trainer-reschedules__grid trainer-reschedules__grid--wide">
+        <article className="neo-panel trainer-reschedules__panel">
+          <header className="trainer-reschedules__panelHeader">
+            <h2 className="neo-panel__title">Histórico recente</h2>
+            <p className="neo-panel__subtitle">Consulta remarcações já tratadas para manter o contexto.</p>
+          </header>
+          {renderRequests(data.history, 'history')}
+        </article>
+        <article className="neo-panel trainer-reschedules__panel">
+          <header className="trainer-reschedules__panelHeader">
+            <h2 className="neo-panel__title">Agenda da semana</h2>
+            <p className="neo-panel__subtitle">Sessões confirmadas com estado e localização.</p>
+          </header>
+          {renderAgenda(data.agenda)}
+        </article>
+      </section>
+
+      {declineDialog ? (
+        <div className="neo-dialog-backdrop" role="dialog" aria-modal="true">
+          <div className="neo-dialog trainer-reschedules__dialog" role="document">
+            <header className="neo-dialog__header">
+              <h2 className="neo-dialog__title">Recusar pedido</h2>
+              <p className="neo-dialog__subtitle">Partilha uma nota opcional para o cliente saber o motivo.</p>
+            </header>
+            <div className="neo-dialog__content">
+              <label className="neo-input-group__field">
+                <span className="neo-input-group__label">Nota para o cliente</span>
+                <textarea
+                  className="neo-input neo-input--textarea"
+                  value={declineDialog.note}
+                  onChange={(event) => setDeclineDialog({ id: declineDialog.id, note: event.target.value })}
+                  rows={4}
+                />
+              </label>
+            </div>
+            <footer className="neo-dialog__footer">
+              <Button variant="ghost" onClick={() => setDeclineDialog(null)}>
+                Cancelar
+              </Button>
+              <Button
+                variant="danger"
+                leftIcon={<XCircle size={16} aria-hidden />}
+                loading={actionBusy === `${declineDialog.id}:decline`}
+                onClick={() => {
+                  void mutateRequest(
+                    declineDialog.id,
+                    { action: 'decline', note: declineDialog.note || undefined },
+                    'Pedido recusado com sucesso.',
+                  );
+                  setDeclineDialog(null);
+                }}
+              >
+                Confirmar recusa
+              </Button>
+            </footer>
+          </div>
+        </div>
+      ) : null}
+
+      {rescheduleDialog ? (
+        <div className="neo-dialog-backdrop" role="dialog" aria-modal="true">
+          <div className="neo-dialog trainer-reschedules__dialog" role="document">
+            <header className="neo-dialog__header">
+              <h2 className="neo-dialog__title">Propor nova remarcação</h2>
+              <p className="neo-dialog__subtitle">Define a nova data/hora e partilha contexto com o cliente.</p>
+            </header>
+            <div className="neo-dialog__content trainer-reschedules__dialogContent">
+              <label className="neo-input-group__field">
+                <span className="neo-input-group__label">Novo início</span>
+                <input
+                  className="neo-input"
+                  type="datetime-local"
+                  value={rescheduleDialog.start}
+                  onChange={(event) => setRescheduleDialog((prev) => (prev ? { ...prev, start: event.target.value } : prev))}
+                  required
+                />
+              </label>
+              <label className="neo-input-group__field">
+                <span className="neo-input-group__label">Duração (minutos)</span>
+                <input
+                  className="neo-input"
+                  type="number"
+                  min={15}
+                  step={5}
+                  value={rescheduleDialog.duration}
+                  onChange={(event) =>
+                    setRescheduleDialog((prev) =>
+                      prev ? { ...prev, duration: Number(event.target.value) || prev.duration } : prev,
+                    )
+                  }
+                />
+              </label>
+              <label className="neo-input-group__field">
+                <span className="neo-input-group__label">Nota para o cliente</span>
+                <textarea
+                  className="neo-input neo-input--textarea"
+                  rows={3}
+                  value={rescheduleDialog.note}
+                  onChange={(event) => setRescheduleDialog((prev) => (prev ? { ...prev, note: event.target.value } : prev))}
+                  placeholder="Sugere o motivo ou logística da nova data."
+                />
+              </label>
+            </div>
+            <footer className="neo-dialog__footer">
+              <Button variant="ghost" onClick={() => setRescheduleDialog(null)}>
+                Cancelar
+              </Button>
+              <Button
+                variant="primary"
+                leftIcon={<Repeat2 size={16} aria-hidden />}
+                loading={actionBusy === `${rescheduleDialog.id}:propose_reschedule`}
+                onClick={() => {
+                  if (!rescheduleDialog.start) {
+                    setFeedback({ tone: 'danger', message: 'Indica a data para a remarcação.' });
+                    return;
+                  }
+                  const duration = Number(rescheduleDialog.duration);
+                  if (!duration || duration <= 0) {
+                    setFeedback({ tone: 'danger', message: 'Define uma duração válida.' });
+                    return;
+                  }
+                  const startDate = new Date(rescheduleDialog.start);
+                  if (Number.isNaN(startDate.getTime())) {
+                    setFeedback({ tone: 'danger', message: 'Data/hora inválida.' });
+                    return;
+                  }
+                  const endDate = new Date(startDate.getTime() + duration * 60000);
+                  void mutateRequest(
+                    rescheduleDialog.id,
+                    {
+                      action: 'propose_reschedule',
+                      start: startDate.toISOString(),
+                      end: endDate.toISOString(),
+                      note: rescheduleDialog.note || undefined,
+                    },
+                    'Proposta de remarcação enviada ao cliente.',
+                  );
+                  setRescheduleDialog(null);
+                }}
+              >
+                Enviar proposta
+              </Button>
+            </footer>
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }

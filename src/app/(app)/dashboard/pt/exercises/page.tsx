@@ -6,17 +6,10 @@ import { redirect } from 'next/navigation';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole, type AppRole } from '@/lib/roles';
 import { createServerClient } from '@/lib/supabaseServer';
-import PTExerciseNote from './PTExerciseNote';
+import PTExercisesClient, { type PTExercise } from './PTExercisesClient';
+import { getPTExercisesFallback } from '@/lib/fallback/pt-exercises';
 
 export const metadata: Metadata = { title: 'Exercícios (PT) · HMS' };
-
-type ExerciseRow = {
-  id: string;
-  name: string;
-  muscle_group: string | null;
-  equipment: string | null;
-  difficulty: string | null;
-};
 
 export default async function PTExercisesPage() {
   // Sessão
@@ -32,52 +25,34 @@ export default async function PTExercisesPage() {
 
   const { data, error } = await sb
     .from('exercises')
-    .select('id,name,muscle_group,equipment,difficulty')
-    .order('name', { ascending: true })
-    .returns<ExerciseRow[]>();
+    .select('id,name,muscle_group,equipment,difficulty,updated_at,created_at')
+    .order('name', { ascending: true });
+
+  let supabase = true;
+  let rows: PTExercise[];
 
   if (error) {
-    return (
-      <div className="card" style={{ padding: 12 }}>
-        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>Exercícios</h1>
-        <p className="small text-muted" style={{ marginTop: 8, color: 'var(--danger)' }}>
-          Ocorreu um erro ao carregar a lista de exercícios. Tenta novamente mais tarde.
-        </p>
-      </div>
-    );
+    supabase = false;
+    rows = getPTExercisesFallback().map((row) => ({
+      id: row.id,
+      name: row.name,
+      muscleGroup: row.muscle_group,
+      equipment: row.equipment,
+      difficulty: row.difficulty,
+      updatedAt: row.updated_at,
+      createdAt: row.updated_at,
+    }));
+  } else {
+    rows = (data ?? []).map((row) => ({
+      id: String(row.id),
+      name: row.name ?? 'Exercício',
+      muscleGroup: row.muscle_group ?? null,
+      equipment: row.equipment ?? null,
+      difficulty: row.difficulty ?? null,
+      updatedAt: row.updated_at ?? null,
+      createdAt: row.created_at ?? null,
+    }));
   }
 
-  const items = Array.isArray(data) ? data : [];
-
-  return (
-    <div style={{ display: 'grid', gap: 12 }}>
-      <div className="card" style={{ padding: 12 }}>
-        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>Exercícios</h1>
-      </div>
-
-      <div className="card" style={{ padding: 12 }}>
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-          {items.map((e) => (
-            <li
-              key={e.id}
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr auto auto auto',
-                gap: 8,
-                padding: '10px 0',
-                borderTop: '1px solid var(--border)',
-                alignItems: 'center',
-              }}
-            >
-              <div style={{ fontWeight: 700 }}>{e.name}</div>
-              <div className="small text-muted">{e.muscle_group ?? '—'}</div>
-              <div className="small text-muted">{e.equipment ?? '—'}</div>
-              <PTExerciseNote exerciseId={e.id} />
-            </li>
-          ))}
-          {items.length === 0 && <li className="small text-muted">Sem exercícios.</li>}
-        </ul>
-      </div>
-    </div>
-  );
+  return <PTExercisesClient exercises={rows} supabase={supabase} />;
 }

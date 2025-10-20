@@ -1,15 +1,13 @@
-// src/components/plan/OrderListDnD.tsx
 'use client';
 
 import * as React from 'react';
 import {
-  List, ListItem, ListItemIcon, ListItemText, IconButton, Stack,
-} from '@mui/material';
-import DragIndicator from '@mui/icons-material/DragIndicator';
-import ArrowUpward from '@mui/icons-material/ArrowUpward';
-import ArrowDownward from '@mui/icons-material/ArrowDownward';
-import Edit from '@mui/icons-material/Edit';
-import Delete from '@mui/icons-material/Delete';
+  ArrowDown,
+  ArrowUp,
+  GripVertical,
+  Pencil,
+  Trash2,
+} from 'lucide-react';
 
 export type OrderItem = {
   id: string;
@@ -18,20 +16,14 @@ export type OrderItem = {
 };
 
 type Props = {
-  /** Array na ordem atual (controlado pelo pai) */
   items: OrderItem[];
-  /** Devolve o array na nova ordem sempre que reordenares */
   onReorder: (next: OrderItem[]) => void;
-  /** Ações opcionais por item */
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
-  /** Lista compacta */
   dense?: boolean;
 };
 
-export default function OrderListDnD({
-  items, onReorder, onEdit, onDelete, dense,
-}: Props) {
+export default function OrderListDnD({ items, onReorder, onEdit, onDelete, dense }: Props) {
   const dragIndex = React.useRef<number | null>(null);
 
   function move(from: number, to: number) {
@@ -42,93 +34,106 @@ export default function OrderListDnD({
     onReorder(next);
   }
 
-  const onDragStart = (i: number) => (e: React.DragEvent<HTMLLIElement>) => {
+  const onDragStart = (i: number) => (event: React.DragEvent<HTMLLIElement>) => {
     dragIndex.current = i;
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', String(i));
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', String(i));
   };
-  const onDragOver = (_i: number) => (e: React.DragEvent<HTMLLIElement>) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+
+  const onDragOver = (_i: number) => (event: React.DragEvent<HTMLLIElement>) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
   };
-  const onDrop = (i: number) => (e: React.DragEvent<HTMLLIElement>) => {
-    e.preventDefault();
-    const fromStr = e.dataTransfer.getData('text/plain');
+
+  const onDrop = (i: number) => (event: React.DragEvent<HTMLLIElement>) => {
+    event.preventDefault();
+    const fromStr = event.dataTransfer.getData('text/plain');
     const from = dragIndex.current ?? (fromStr ? Number(fromStr) : -1);
     dragIndex.current = null;
     if (from >= 0) move(from, i);
   };
-  const onDragEnd = () => { dragIndex.current = null; };
 
-  const onKeyReorder = (i: number) => (e: React.KeyboardEvent<HTMLLIElement>) => {
-    if (e.key === 'ArrowUp') { e.preventDefault(); move(i, Math.max(0, i - 1)); }
-    if (e.key === 'ArrowDown') { e.preventDefault(); move(i, Math.min(items.length - 1, i + 1)); }
+  const onDragEnd = () => {
+    dragIndex.current = null;
+  };
+
+  const onKeyReorder = (i: number) => (event: React.KeyboardEvent<HTMLLIElement>) => {
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      move(i, Math.max(0, i - 1));
+    }
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      move(i, Math.min(items.length - 1, i + 1));
+    }
   };
 
   return (
-    <List dense={dense} disablePadding sx={{ display: 'grid', gap: 0.5 }}>
-      {items.map((it, i) => (
-        <ListItem
-          key={it.id}
+    <ul className={`neo-sortable${dense ? ' neo-sortable--dense' : ''}`} role="list">
+      {items.map((item, index) => (
+        <li
+          key={item.id}
+          className="neo-sortable__item"
           draggable
-          onDragStart={onDragStart(i)}
-          onDragOver={onDragOver(i)}
-          onDrop={onDrop(i)}
+          onDragStart={onDragStart(index)}
+          onDragOver={onDragOver(index)}
+          onDrop={onDrop(index)}
           onDragEnd={onDragEnd}
-          onKeyDown={onKeyReorder(i)}
+          onKeyDown={onKeyReorder(index)}
           tabIndex={0}
-          aria-grabbed={dragIndex.current === i || undefined}
-          sx={{
-            border: 1,
-            borderColor: 'divider',
-            borderRadius: 1.5,
-            px: 1,
-            '&:focus-visible': (t) => ({ outline: 'none', boxShadow: `0 0 0 3px ${t.palette.primary.main}40` }),
-          }}
-          secondaryAction={
-            <Stack direction="row" spacing={0.5}>
-              {onEdit && (
-                <IconButton size="small" aria-label="Editar" onClick={() => onEdit(it.id)}>
-                  <Edit fontSize="inherit" />
-                </IconButton>
-              )}
-              {onDelete && (
-                <IconButton size="small" aria-label="Apagar" onClick={() => onDelete(it.id)}>
-                  <Delete fontSize="inherit" />
-                </IconButton>
-              )}
-              <IconButton
-                size="small"
-                aria-label="Mover para cima"
-                onClick={() => move(i, Math.max(0, i - 1))}
-                disabled={i === 0}
-              >
-                <ArrowUpward fontSize="inherit" />
-              </IconButton>
-              <IconButton
-                size="small"
-                aria-label="Mover para baixo"
-                onClick={() => move(i, Math.min(items.length - 1, i + 1))}
-                disabled={i === items.length - 1}
-              >
-                <ArrowDownward fontSize="inherit" />
-              </IconButton>
-              <IconButton size="small" aria-label="Arrastar" sx={{ cursor: 'grab' }}>
-                <DragIndicator fontSize="inherit" />
-              </IconButton>
-            </Stack>
-          }
+          aria-grabbed={dragIndex.current === index || undefined}
         >
-          <ListItemIcon sx={{ minWidth: 32, color: 'text.secondary' }}>
-            <DragIndicator />
-          </ListItemIcon>
-          <ListItemText
-            primary={it.label ?? 'Elemento'}
-            secondary={it.secondary ?? undefined}
-            primaryTypographyProps={{ fontWeight: 600 }}
-          />
-        </ListItem>
+          <span className="neo-sortable__handle" aria-hidden>
+            <GripVertical size={16} strokeWidth={2} />
+          </span>
+
+          <div className="neo-sortable__body">
+            <span className="neo-sortable__title">{item.label ?? 'Elemento'}</span>
+            {item.secondary && <span className="neo-sortable__subtitle">{item.secondary}</span>}
+          </div>
+
+          <div className="neo-sortable__actions">
+            {onEdit && (
+              <button
+                type="button"
+                className="neo-icon-button"
+                onClick={() => onEdit(item.id)}
+                aria-label="Editar"
+              >
+                <Pencil size={16} />
+              </button>
+            )}
+            {onDelete && (
+              <button
+                type="button"
+                className="neo-icon-button"
+                onClick={() => onDelete(item.id)}
+                aria-label="Apagar"
+              >
+                <Trash2 size={16} />
+              </button>
+            )}
+            <button
+              type="button"
+              className="neo-icon-button"
+              onClick={() => move(index, Math.max(0, index - 1))}
+              aria-label="Mover para cima"
+              disabled={index === 0}
+            >
+              <ArrowUp size={16} />
+            </button>
+            <button
+              type="button"
+              className="neo-icon-button"
+              onClick={() => move(index, Math.min(items.length - 1, index + 1))}
+              aria-label="Mover para baixo"
+              disabled={index === items.length - 1}
+            >
+              <ArrowDown size={16} />
+            </button>
+          </div>
+        </li>
       ))}
-    </List>
+    </ul>
   );
 }

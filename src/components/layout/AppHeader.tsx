@@ -5,6 +5,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
+  ArrowUpRight,
   Bell,
   Menu,
   MessageSquare,
@@ -14,23 +15,22 @@ import {
   RefreshCw,
   ChevronDown,
   Settings,
+  CheckCheck,
+  Loader2,
 } from 'lucide-react';
 import ThemeToggleButton from '@/components/theme/ThemeToggleButton';
 import { useSidebar } from '@/components/layout/SidebarProvider';
 import { useHeaderCounts } from '@/components/header/HeaderCountsContext';
+import DataSourceBadge from '@/components/ui/DataSourceBadge';
+import { useNotificationItems } from '@/components/header/useNotificationItems';
 import BrandLogo from '@/components/BrandLogo';
 import { brand } from '@/lib/brand';
 import type { NavigationSummary } from '@/lib/navigation/types';
 import { signOut } from 'next-auth/react';
+import { formatRelativeTime } from '@/lib/datetime/relative';
+import { useToast } from '@/components/ui/ToastProvider';
 
 const METRIC_CARD_LIMIT = 3;
-
-type NotificationItem = {
-  id: string;
-  title: string;
-  href?: string | null;
-  created_at?: string | null;
-};
 
 type Props = {
   role?: string | null;
@@ -59,6 +59,7 @@ export default function AppHeader({
   const router = useRouter();
   const { openMobile } = useSidebar();
   const headerCounts = useHeaderCounts();
+  const toast = useToast();
   const [query, setQuery] = React.useState('');
 
   const quickMetrics = React.useMemo(
@@ -67,12 +68,19 @@ export default function AppHeader({
   );
 
   const [notifAnchorOpen, setNotifAnchorOpen] = React.useState(false);
-  const [notifItems, setNotifItems] = React.useState<NotificationItem[]>([]);
-  const [notifLoading, setNotifLoading] = React.useState(false);
-  const [notifError, setNotifError] = React.useState<string | null>(null);
+  const {
+    items: notifItems,
+    unreadCount: notifUnreadCount,
+    source: notifSource,
+    syncedAt: notifSyncedAt,
+    loading: notifLoading,
+    error: notifError,
+    refresh: refreshNotifications,
+    setItems: setNotifItems,
+  } = useNotificationItems({ limit: 8 });
+  const [markingAll, setMarkingAll] = React.useState(false);
   const notificationsButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const notificationsPopoverRef = React.useRef<HTMLDivElement | null>(null);
-  const hasNotifications = notifAnchorOpen && notifItems.length > 0;
 
   const submitSearch = React.useCallback(() => {
     const trimmed = query.trim();
@@ -87,46 +95,63 @@ export default function AppHeader({
     }
   };
 
-  const loadNotifications = React.useCallback(async () => {
-    setNotifLoading(true);
-    setNotifError(null);
-    try {
-      const response = await fetch('/api/notifications/dropdown', {
-        cache: 'no-store',
-        credentials: 'same-origin',
-      });
-      if (!response.ok) throw new Error('REQUEST_FAILED');
-      const data = await response.json();
-      const items: NotificationItem[] = Array.isArray(data?.items)
-        ? data.items.map((item: any) => ({
-            id: String(item?.id ?? crypto.randomUUID?.() ?? Date.now()),
-            title: String(item?.title ?? 'Notificação'),
-            href: item?.href ?? null,
-            created_at: item?.created_at ?? null,
-          }))
-        : [];
-      setNotifItems(items);
-      headerCounts.setCounts({ notificationsCount: items.length });
-    } catch (error) {
-      console.warn('[header] notifications dropdown failed', error);
-      setNotifItems([]);
-      setNotifError('Não foi possível carregar notificações.');
-    } finally {
-      setNotifLoading(false);
-    }
-  }, [headerCounts]);
-
   const toggleNotifications = () => {
     setNotifAnchorOpen((open) => {
       const next = !open;
-      if (next && !notifItems.length) {
-        void loadNotifications();
+      if (next) {
+        void refreshNotifications();
       }
       return next;
     });
   };
 
-  const closeNotifications = () => setNotifAnchorOpen(false);
+  const closeNotifications = React.useCallback(() => setNotifAnchorOpen(false), []);
+
+  const handleNotificationClick = React.useCallback(
+    (itemId: string, href: string | null) => {
+      closeNotifications();
+      setNotifItems((prev) => {
+        const next = prev.map((row) => (row.id === itemId ? { ...row, read: true } : row));
+        const unread = next.filter((row) => !row.read).length;
+        headerCounts.setCounts({ notificationsCount: unread });
+        return next;
+      });
+      if (href) {
+        router.push(href);
+      }
+      void fetch('/api/notifications/mark', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ ids: [itemId], read: true }),
+      }).catch(() => {
+        /* silencioso */
+      });
+    },
+    [closeNotifications, headerCounts, router, setNotifItems],
+  );
+
+  const markAllNotifications = React.useCallback(async () => {
+    if (notifUnreadCount === 0) return;
+    setMarkingAll(true);
+    try {
+      const response = await fetch('/api/notifications/mark-all-read', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        throw new Error('Não foi possível marcar notificações como lidas.');
+      }
+      setNotifItems((prev) => prev.map((row) => ({ ...row, read: true })));
+      headerCounts.setCounts({ notificationsCount: 0 });
+      toast.success('Todas as notificações foram marcadas como lidas.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Não foi possível marcar como lidas.';
+      toast.error(message);
+    } finally {
+      setMarkingAll(false);
+    }
+  }, [headerCounts, notifUnreadCount, setNotifItems, toast]);
 
   const [userMenuOpen, setUserMenuOpen] = React.useState(false);
   const userButtonRef = React.useRef<HTMLButtonElement | null>(null);
@@ -296,40 +321,81 @@ export default function AppHeader({
           data-tone="panel"
         >
           <div className="neo-header__popover-header">
-            <span>Notificações</span>
+            <div>
+              <span>Notificações</span>
+              <p className="neo-header__popover-description">
+                Últimas interacções entre clientes, PTs e equipa de gestão.
+              </p>
+            </div>
             <button type="button" onClick={closeNotifications} aria-label="Fechar notificações">
               ×
             </button>
           </div>
+          <div className="neo-header__popover-meta">
+            <DataSourceBadge source={notifSource} generatedAt={notifSyncedAt} />
+            <span className="neo-header__popover-count">
+              {notifUnreadCount === 0 ? 'Tudo lido' : `${notifUnreadCount} por ler`}
+            </span>
+            <button
+              type="button"
+              onClick={markAllNotifications}
+              className="neo-header__popover-mark"
+              disabled={markingAll || notifUnreadCount === 0}
+            >
+              {markingAll ? (
+                <Loader2 className="neo-icon neo-icon--xs neo-spin" aria-hidden />
+              ) : (
+                <CheckCheck className="neo-icon neo-icon--xs" aria-hidden />
+              )}
+              <span>{markingAll ? 'A marcar…' : 'Marcar tudo'}</span>
+            </button>
+          </div>
           <div className="neo-header__popover-body">
-            {notifLoading && <span className="neo-header__popover-empty">A carregar…</span>}
+            {notifLoading && <span className="neo-header__popover-empty">A sincronizar notificações…</span>}
             {notifError && <span className="neo-header__popover-empty">{notifError}</span>}
             {!notifLoading && !notifError && notifItems.length === 0 && (
               <span className="neo-header__popover-empty">Sem notificações pendentes.</span>
             )}
-            {!notifLoading && hasNotifications && (
-              <ul>
-                {notifItems.map((item) => (
-                  <li key={item.id}>
-                    {item.href ? (
-                      <Link href={item.href} prefetch={false} onClick={closeNotifications}>
-                        {item.title}
-                      </Link>
-                    ) : (
-                      <span>{item.title}</span>
-                    )}
-                    {item.created_at && (
-                      <time dateTime={item.created_at}>
-                        {new Date(item.created_at).toLocaleString('pt-PT', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          day: '2-digit',
-                          month: 'short',
-                        })}
-                      </time>
-                    )}
-                  </li>
-                ))}
+            {!notifLoading && !notifError && notifItems.length > 0 && (
+              <ul className="neo-header__notificationList">
+                {notifItems.map((item) => {
+                  const relative = formatRelativeTime(item.createdAt);
+                  const absolute =
+                    item.createdAt &&
+                    new Date(item.createdAt).toLocaleString('pt-PT', {
+                      day: '2-digit',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    });
+                  return (
+                    <li key={item.id}>
+                      <button
+                        type="button"
+                        className="neo-header__notification"
+                        onClick={() => handleNotificationClick(item.id, item.href)}
+                      >
+                        <div className="neo-header__notificationBody">
+                          <span className="neo-header__notificationTitle">{item.title}</span>
+                          {item.body && (
+                            <span className="neo-header__notificationExcerpt">{item.body}</span>
+                          )}
+                          <span className="neo-header__notificationMeta">
+                            <time dateTime={item.createdAt ?? undefined} title={absolute ?? undefined}>
+                              {relative ?? absolute ?? 'há instantes'}
+                            </time>
+                            {!item.read && <span className="neo-header__notificationUnread">· novo</span>}
+                          </span>
+                        </div>
+                        {item.href && (
+                          <span className="neo-header__notificationIcon" aria-hidden>
+                            <ArrowUpRight size={16} strokeWidth={1.6} />
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>

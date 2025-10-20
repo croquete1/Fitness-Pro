@@ -1,141 +1,371 @@
 'use client';
 
 import * as React from 'react';
-import {
-  Paper, Stack, Typography, Switch, Button, Divider, List, ListItem, ListItemButton,
-  ListItemText, ListItemIcon, TextField, Pagination, Box, Chip
-} from '@mui/material';
-import CircleIcon from '@mui/icons-material/Circle';
-import DoneAllIcon from '@mui/icons-material/DoneAll';
-import MarkEmailReadOutlinedIcon from '@mui/icons-material/MarkEmailReadOutlined';
-import MarkEmailUnreadOutlinedIcon from '@mui/icons-material/MarkEmailUnreadOutlined';
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { useRouter } from 'next/navigation';
+import { ArrowUpRight, CheckCheck, MailOpen, MailX, RefreshCcw, Search } from 'lucide-react';
+import Button from '@/components/ui/Button';
+import Alert from '@/components/ui/Alert';
+import Spinner from '@/components/ui/Spinner';
+import DataSourceBadge from '@/components/ui/DataSourceBadge';
+import type { NotificationRow } from '@/lib/notifications/types';
 
-type Notif = {
-  id: string;
-  title: string;
-  body?: string | null;
-  href?: string | null;
-  read: boolean;
-  created_at: string;
+type StatusFilter = 'all' | 'unread' | 'read';
+
+type ListResponse = {
+  items: NotificationRow[];
+  total: number;
+  counts?: { all: number; unread: number; read: number };
+  source?: 'supabase' | 'fallback';
+  generatedAt?: string | null;
 };
 
-export default function NotificationsCenterClient({ initialItems }: { initialItems: Notif[] }) {
+type NotificationsCenterClientProps = {
+  initialItems?: NotificationRow[];
+  initialTotal?: number;
+  initialCounts?: { all: number; unread: number; read: number };
+  initialSource?: 'supabase' | 'fallback';
+  initialGeneratedAt?: string | null;
+};
+
+type StatusSegment = {
+  value: StatusFilter;
+  label: string;
+  icon: React.ReactNode;
+};
+
+const STATUS_SEGMENTS: StatusSegment[] = [
+  { value: 'all', label: 'Todas', icon: <CheckCheck size={16} aria-hidden /> },
+  { value: 'unread', label: 'Por ler', icon: <MailX size={16} aria-hidden /> },
+  { value: 'read', label: 'Lidas', icon: <MailOpen size={16} aria-hidden /> },
+];
+
+const dateFormatter = new Intl.DateTimeFormat('pt-PT', {
+  day: '2-digit',
+  month: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
+const numberFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 });
+
+function formatDate(value: string | null | undefined): string {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return dateFormatter.format(date);
+}
+
+function countForStatus(counts: { all: number; unread: number; read: number }, status: StatusFilter): number {
+  switch (status) {
+    case 'unread':
+      return counts.unread;
+    case 'read':
+      return counts.read;
+    default:
+      return counts.all;
+  }
+}
+
+export default function NotificationsCenterClient({
+  initialItems = [],
+  initialTotal = 0,
+  initialCounts,
+  initialSource = 'fallback',
+  initialGeneratedAt = null,
+}: NotificationsCenterClientProps) {
   const router = useRouter();
-  const [onlyUnread, setOnlyUnread] = React.useState(true);
-  const [q, setQ] = React.useState('');
-  const [page, setPage] = React.useState(1);
-  const [pageSize] = React.useState(10);
-  const [items, setItems] = React.useState<Notif[]>(initialItems ?? []);
-  const [total, setTotal] = React.useState<number>(initialItems?.length ?? 0);
+  const [status, setStatus] = React.useState<StatusFilter>('unread');
+  const [page, setPage] = React.useState(0);
+  const pageSize = 12;
+  const [query, setQuery] = React.useState('');
+  const deferredQuery = React.useDeferredValue(query);
+  const [items, setItems] = React.useState<NotificationRow[]>(initialItems);
+  const [counts, setCounts] = React.useState<{ all: number; unread: number; read: number }>(
+    initialCounts ?? { all: initialTotal, unread: initialItems.filter((item) => !item.read).length, read: initialItems.filter((item) => item.read).length },
+  );
+  const [source, setSource] = React.useState<'supabase' | 'fallback'>(initialSource);
+  const [generatedAt, setGeneratedAt] = React.useState<string | null>(initialGeneratedAt);
   const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = React.useState(0);
 
-  async function load(p = page, query = q, unread = onlyUnread) {
+  React.useEffect(() => {
+    const controller = new AbortController();
     setLoading(true);
-    try {
-      const r = await fetch(`/api/notifications/list?unread=${unread ? '1' : '0'}&page=${p}&pageSize=${pageSize}&q=${encodeURIComponent(query)}`, { cache: 'no-store' });
-      const data = await r.json();
-      setItems(data.items ?? []);
-      setTotal(data.total ?? (data.items?.length ?? 0));
-    } finally {
-      setLoading(false);
+    setError(null);
+
+    (async () => {
+      try {
+        const url = new URL('/api/notifications/list', window.location.origin);
+        url.searchParams.set('status', status);
+        url.searchParams.set('page', String(page));
+        url.searchParams.set('pageSize', String(pageSize));
+        if (deferredQuery) {
+          url.searchParams.set('q', deferredQuery);
+        }
+        const response = await fetch(url.toString(), {
+          cache: 'no-store',
+          credentials: 'include',
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          const message = await response.text().catch(() => '');
+          throw new Error(message || `Falha ao carregar notificações (${response.status}).`);
+        }
+        const payload = (await response.json()) as ListResponse;
+        if (controller.signal.aborted) return;
+        setItems(payload.items ?? []);
+        setCounts((prev) => ({
+          all:
+            typeof payload.counts?.all === 'number'
+              ? payload.counts.all
+              : status === 'all'
+                ? payload.total ?? prev.all
+                : prev.all,
+          unread:
+            typeof payload.counts?.unread === 'number'
+              ? payload.counts.unread
+              : status === 'unread'
+                ? payload.total ?? prev.unread
+                : prev.unread,
+          read:
+            typeof payload.counts?.read === 'number'
+              ? payload.counts.read
+              : status === 'read'
+                ? payload.total ?? prev.read
+                : prev.read,
+        }));
+        setSource(payload.source === 'supabase' ? 'supabase' : 'fallback');
+        setGeneratedAt(typeof payload.generatedAt === 'string' ? payload.generatedAt : null);
+      } catch (err: any) {
+        if (controller.signal.aborted) return;
+        console.error('[notifications:center] falha a carregar', err);
+        setItems([]);
+        setError(err?.message ?? 'Não foi possível carregar notificações.');
+        setSource('fallback');
+        setGeneratedAt(null);
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    })();
+
+    return () => controller.abort();
+  }, [status, page, pageSize, deferredQuery, refreshKey]);
+
+  React.useEffect(() => {
+    setPage(0);
+  }, [status, deferredQuery]);
+
+  const totalForStatus = React.useMemo(() => countForStatus(counts, status), [counts, status]);
+  const totalPages = Math.max(1, Math.ceil(totalForStatus / pageSize));
+
+  React.useEffect(() => {
+    if (page > totalPages - 1) {
+      setPage(totalPages - 1);
     }
-  }
+  }, [page, totalPages]);
 
-  React.useEffect(() => { load(1, q, onlyUnread); setPage(1); /* reset page ao mudar filtros */ }, [onlyUnread]);
-  React.useEffect(() => { const t = setTimeout(() => load(1, q, onlyUnread), 250); return () => clearTimeout(t); }, [q]);
-  React.useEffect(() => { load(page, q, onlyUnread); }, [page]);
+  const markAllRead = React.useCallback(async () => {
+    try {
+      await fetch('/api/notifications/mark-all-read', { method: 'POST' });
+      setStatus('unread');
+      setPage(0);
+      setRefreshKey((key) => key + 1);
+    } catch (err) {
+      console.error('[notifications:center] falha a marcar tudo como lido', err);
+    }
+  }, []);
 
-  async function mark(id: string, read: boolean) {
-    await fetch(read ? '/api/notifications/mark-read' : '/api/notifications/mark-unread', {
-      method: 'PATCH',
-      body: JSON.stringify({ id }),
-    });
-    load(page, q, onlyUnread);
-  }
+  const toggleRead = React.useCallback(async (row: NotificationRow) => {
+    try {
+      await fetch(`/api/notifications/${row.read ? 'mark-unread' : 'mark-read'}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ids: [row.id] }),
+      });
+      setRefreshKey((key) => key + 1);
+    } catch (err) {
+      console.error('[notifications:center] falha a actualizar estado', err);
+    }
+  }, []);
 
-  async function markAll() {
-    await fetch('/api/notifications/mark-all-read', { method: 'POST' });
-    load(page, q, onlyUnread);
-  }
-
-  const pages = Math.max(1, Math.ceil(total / pageSize));
+  const refresh = React.useCallback(() => {
+    setRefreshKey((key) => key + 1);
+  }, []);
 
   return (
-    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="center">
-        <Typography variant="h6" fontWeight={900} sx={{ flex: 1 }}>
-          Centro de notificações
-        </Typography>
-        <TextField
-          size="small"
-          placeholder="Procurar…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          sx={{ width: { xs: '100%', sm: 260 } }}
-        />
-        <Stack direction="row" spacing={1} alignItems="center">
-          <Switch checked={onlyUnread} onChange={(e) => setOnlyUnread(e.target.checked)} />
-          <Typography variant="body2">Só não lidas</Typography>
-        </Stack>
-        <Button size="small" startIcon={<DoneAllIcon />} onClick={markAll}>
-          Marcar tudo como lido
-        </Button>
-      </Stack>
+    <section className="notifications-center neo-panel neo-stack neo-stack--xl" aria-live="polite">
+      <header className="notifications-center__header">
+        <div className="notifications-center__heading">
+          <div className="neo-stack neo-stack--xs">
+            <h2 className="notifications-center__title">Centro de notificações</h2>
+            <p className="notifications-center__subtitle">
+              {totalForStatus > 0
+                ? `${numberFormatter.format(totalForStatus)} notificações ${status === 'unread' ? 'por ler' : status === 'read' ? 'lidas' : 'no filtro seleccionado'}`
+                : 'Sem notificações para o filtro actual.'}
+            </p>
+          </div>
+        </div>
+        <div className="notifications-center__meta">
+          <DataSourceBadge source={source} generatedAt={generatedAt} />
+          <div className="notifications-center__metaActions">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={refresh}
+              title="Actualizar notificações"
+              leftIcon={<RefreshCcw size={14} aria-hidden />}
+              disabled={loading}
+            >
+              Refrescar
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={markAllRead}
+              title="Marcar todas as notificações como lidas"
+              disabled={loading || totalForStatus === 0}
+            >
+              Marcar tudo como lido
+            </Button>
+          </div>
+        </div>
+      </header>
 
-      <Divider sx={{ my: 2 }} />
+      <section className="notifications-center__summary" aria-label="Resumo de notificações">
+        <article className="notifications-center__metric" data-tone="primary">
+          <span className="notifications-center__metricLabel">Total filtrado</span>
+          <strong className="notifications-center__metricValue">{numberFormatter.format(counts.all)}</strong>
+          <span className="notifications-center__metricHint">Última sincronização {generatedAt ? formatDate(generatedAt) : 'desconhecida'}</span>
+        </article>
+        <article className="notifications-center__metric" data-tone={counts.unread > 0 ? 'warning' : 'success'}>
+          <span className="notifications-center__metricLabel">Por ler</span>
+          <strong className="notifications-center__metricValue">{numberFormatter.format(counts.unread)}</strong>
+          <span className="notifications-center__metricHint">
+            {counts.all > 0
+              ? `${Math.round((counts.unread / Math.max(1, counts.all)) * 100)}% do total`
+              : 'Sem notificações registadas'}
+          </span>
+        </article>
+        <article className="notifications-center__metric" data-tone="info">
+          <span className="notifications-center__metricLabel">Lidas</span>
+          <strong className="notifications-center__metricValue">{numberFormatter.format(counts.read)}</strong>
+          <span className="notifications-center__metricHint">Inclui histórico confirmado</span>
+        </article>
+      </section>
 
-      <List disablePadding>
-        {items.map((n) => (
-          <ListItem key={n.id} disablePadding divider secondaryAction={
-            <Stack direction="row" spacing={1}>
-              <Button
-                size="small"
-                variant="outlined"
-                startIcon={n.read ? <MarkEmailUnreadOutlinedIcon /> : <MarkEmailReadOutlinedIcon />}
-                onClick={() => mark(n.id, !n.read)}
-              >
-                {n.read ? 'Marcar por ler' : 'Marcar lida'}
-              </Button>
-              {n.href && (
-                <Button
-                  size="small"
-                  variant="contained"
-                  endIcon={<OpenInNewIcon />}
-                  onClick={() => router.push(n.href!)}
-                >
-                  Abrir
-                </Button>
-              )}
-            </Stack>
-          }>
-            <ListItemButton onClick={() => n.href ? router.push(n.href) : undefined}>
-              <ListItemIcon sx={{ minWidth: 28 }}>
-                {!n.read ? <CircleIcon sx={{ fontSize: 8 }} color="primary" /> : <span />}
-              </ListItemIcon>
-              <ListItemText
-                primary={
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <span style={{ fontWeight: n.read ? 600 : 800 }}>{n.title}</span>
-                    <Chip size="small" variant="outlined" label={new Date(n.created_at).toLocaleString('pt-PT')} />
-                  </Box>
-                }
-                secondary={n.body}
-                primaryTypographyProps={{ noWrap: false }}
-                secondaryTypographyProps={{ noWrap: false }}
-              />
-            </ListItemButton>
-          </ListItem>
-        ))}
-        {!loading && items.length === 0 && (
-          <ListItem><ListItemText primary="Sem resultados." /></ListItem>
-        )}
-      </List>
+      <div className="notifications-center__controls">
+        <div className="notifications-center__search">
+          <Search size={16} aria-hidden />
+          <input
+            type="search"
+            placeholder="Procurar por título ou mensagem…"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            className="notifications-center__searchInput"
+            aria-label="Pesquisar notificações"
+          />
+        </div>
+        <div className="neo-segmented notifications-center__tabs" role="tablist" aria-label="Filtrar notificações por estado">
+          {STATUS_SEGMENTS.map((segment) => (
+            <button
+              key={segment.value}
+              type="button"
+              className="neo-segmented__btn"
+              data-active={segment.value === status}
+              onClick={() => setStatus(segment.value)}
+              role="tab"
+              aria-selected={segment.value === status}
+            >
+              <span className="notifications-center__tabIcon" aria-hidden>
+                {segment.icon}
+              </span>
+              <span className="notifications-center__tabLabel">{segment.label}</span>
+              <span className="neo-segmented__count">{countForStatus(counts, segment.value)}</span>
+            </button>
+          ))}
+        </div>
+      </div>
 
-      <Stack direction="row" justifyContent="center" sx={{ mt: 2 }}>
-        <Pagination count={pages} page={page} onChange={(_, p) => setPage(p)} />
-      </Stack>
-    </Paper>
+      {error && !loading ? (
+        <Alert tone="warning" title="Falha ao sincronizar notificações" role="alert">
+          {error}
+        </Alert>
+      ) : null}
+
+      {loading ? (
+        <div className="notifications-center__loading" role="status" aria-live="assertive">
+          <Spinner size={24} />
+          <span className="neo-text--sm neo-text--muted">A sincronizar notificações…</span>
+        </div>
+      ) : (
+        <div className="notifications-center__list" role="list">
+          {items.map((item) => (
+            <article key={item.id} className="notifications-center__item" data-read={item.read} role="listitem">
+              <div className="notifications-center__itemHeader">
+                <div className="notifications-center__itemMeta">
+                  <span className="notifications-center__itemTitle">{item.title ?? 'Notificação'}</span>
+                  <time className="notifications-center__itemDate" dateTime={item.created_at ?? undefined}>
+                    {formatDate(item.created_at)}
+                  </time>
+                </div>
+                <div className="notifications-center__itemActions">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => toggleRead(item)}
+                    title={item.read ? 'Marcar como não lida' : 'Marcar como lida'}
+                  >
+                    {item.read ? 'Marcar como não lida' : 'Marcar como lida'}
+                  </Button>
+                  {item.href ? (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => router.push(item.href ?? '/dashboard/notifications')}
+                      rightIcon={<ArrowUpRight size={14} aria-hidden />}
+                    >
+                      Abrir
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+              {item.body ? <p className="notifications-center__itemBody">{item.body}</p> : null}
+            </article>
+          ))}
+          {!items.length && !error ? (
+            <div className="notifications-center__empty" role="status">
+              <span className="neo-text--sm neo-text--muted">Sem notificações para este filtro.</span>
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {totalPages > 1 ? (
+        <nav className="notifications-center__pagination" aria-label="Paginação de notificações">
+          <button
+            type="button"
+            className="neo-button neo-button--ghost neo-button--small"
+            onClick={() => setPage((prev) => Math.max(0, prev - 1))}
+            disabled={loading || page === 0}
+          >
+            Anterior
+          </button>
+          <span className="notifications-center__paginationStatus">
+            Página {page + 1} de {totalPages}
+          </span>
+          <button
+            type="button"
+            className="neo-button neo-button--ghost neo-button--small"
+            onClick={() => setPage((prev) => Math.min(totalPages - 1, prev + 1))}
+            disabled={loading || page >= totalPages - 1}
+          >
+            Seguinte
+          </button>
+        </nav>
+      ) : null}
+    </section>
   );
 }
