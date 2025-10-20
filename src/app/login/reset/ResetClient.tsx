@@ -8,7 +8,6 @@ import { ShieldCheck, Lock } from 'lucide-react';
 import { supabaseBrowser } from '@/lib/supabaseBrowser';
 import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
-import { useLandingSummary } from '@/lib/public/landing/useLandingSummary';
 import { AuthNeoShell } from '@/components/auth/AuthNeoShell';
 
 function evaluatePassword(value: string) {
@@ -24,8 +23,6 @@ export default function ResetClient() {
   const router = useRouter();
   const code = searchParams.get('code');
   const supabase = supabaseBrowser();
-  const { summary, isLoading } = useLandingSummary();
-
   const [ready, setReady] = React.useState(false);
   const [password, setPassword] = React.useState('');
   const [loading, setLoading] = React.useState(false);
@@ -74,9 +71,7 @@ export default function ResetClient() {
   return (
     <AuthNeoShell
       title="Definir nova palavra-passe"
-      subtitle="Garante a proteção dos teus dados e mantém a conta alinhada com a equipa."
-      summary={summary}
-      loadingSummary={isLoading}
+      subtitle="Escolhe uma palavra-passe segura para retomar o acesso."
       tone="notice"
       footer={
         <p className="neo-auth__footnote">
