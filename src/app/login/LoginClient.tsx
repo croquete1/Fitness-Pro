@@ -12,7 +12,6 @@ import { Mail, Lock, Eye, EyeOff, LogIn } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
 import { toast } from '@/components/ui/Toaster';
-import { useLandingSummary } from '@/lib/public/landing/useLandingSummary';
 import { AuthNeoShell } from '@/components/auth/AuthNeoShell';
 
 const loginSchema = z.object({
@@ -48,8 +47,6 @@ function mapAuthError(code?: string | null) {
 
 export default function LoginClient() {
   const searchParams = useSearchParams();
-  const { summary, isLoading: loadingSummary } = useLandingSummary();
-
   const nextParam = searchParams.get('next');
   const errParam = searchParams.get('error');
 
@@ -131,9 +128,7 @@ export default function LoginClient() {
   return (
     <AuthNeoShell
       title="Inicia sessão"
-      subtitle="Acompanha métricas, sessões e faturação em tempo real."
-      summary={summary}
-      loadingSummary={loadingSummary}
+      subtitle="Acede ao painel com as tuas credenciais para continuar."
       footer={
         <p className="neo-auth__footnote">
           Ainda não tens acesso?{' '}
@@ -219,21 +214,6 @@ export default function LoginClient() {
           </Button>
         </div>
       </form>
-
-      <ul className="neo-auth__benefits" role="list">
-        <li>
-          <strong>Acesso omnicanal</strong>
-          <span>Sincroniza treinos, planos e notificações em tempo real.</span>
-        </li>
-        <li>
-          <strong>Pagamentos claros</strong>
-          <span>Faturação, recibos e saldo sempre actualizados.</span>
-        </li>
-        <li>
-          <strong>Insights partilhados</strong>
-          <span>Clientes, PTs e admin alinham decisões com base nos mesmos dados.</span>
-        </li>
-      </ul>
     </AuthNeoShell>
   );
 }

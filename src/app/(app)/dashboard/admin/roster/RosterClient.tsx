@@ -165,7 +165,7 @@ export default function RosterClient() {
       setCount(payload.count ?? (payload.assignments ?? []).length);
 
       if (payload._supabaseConfigured === false) {
-        setBanner({ tone: 'info', message: 'Supabase ainda não está ligado — a amostra mock mantém a UI funcional.' });
+        setBanner({ tone: 'info', message: 'Supabase ainda não está ligado — sem dados de escala disponíveis.' });
       } else if (payload.error) {
         setBanner({ tone: 'warning', message: 'Algumas entradas podem estar temporariamente indisponíveis.' });
       }

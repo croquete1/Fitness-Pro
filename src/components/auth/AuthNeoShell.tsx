@@ -15,6 +15,7 @@ type AuthNeoShellProps = {
   loadingSummary?: boolean;
   footer?: React.ReactNode;
   tone?: 'default' | 'notice';
+  showInsights?: boolean;
 };
 
 export function AuthNeoShell({
@@ -25,12 +26,17 @@ export function AuthNeoShell({
   loadingSummary,
   footer,
   tone = 'default',
+  showInsights = false,
 }: AuthNeoShellProps) {
+  const hasInsights = showInsights && (!!summary || !!loadingSummary);
+
   return (
-    <div className="neo-auth" data-tone={tone}>
-      <aside className="neo-auth__aside">
-        <AuthNeoInsights summary={summary} loading={loadingSummary} />
-      </aside>
+    <div className="neo-auth" data-tone={tone} data-has-insights={hasInsights ? 'true' : 'false'}>
+      {hasInsights ? (
+        <aside className="neo-auth__aside">
+          <AuthNeoInsights summary={summary} loading={loadingSummary} />
+        </aside>
+      ) : null}
 
       <main className="neo-auth__main" aria-live="polite">
         <header className="neo-auth__header">

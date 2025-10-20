@@ -12793,15 +12793,50 @@ h1,.h1{
   --neo-auth-chart-axis: rgba(148, 163, 184, 0.55);
   min-height: 100vh;
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  grid-template-columns: minmax(0, 1fr);
   background: var(--neo-auth-bg);
   color: var(--neo-auth-text-strong);
+}
+
+.neo-auth[data-has-insights='true'] {
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+}
+
+.neo-auth[data-has-insights='false'] {
+  padding: clamp(2rem, 4vw, 4rem);
+  justify-items: center;
+  gap: clamp(2rem, 4vw, 3.5rem);
 }
 
 .neo-auth[data-tone='notice'] {
   --neo-auth-bg: radial-gradient(circle at 12% 12%, color-mix(in srgb, #0ea5e9 24%, transparent) 0%, transparent 60%),
     radial-gradient(circle at 88% 8%, color-mix(in srgb, #f97316 18%, transparent) 0%, transparent 55%),
     #0b1120;
+}
+
+:root[data-theme='light'] .neo-auth {
+  --neo-auth-bg: radial-gradient(circle at 12% 8%, color-mix(in srgb, var(--primary) 18%, transparent) 0%, transparent 58%),
+    radial-gradient(circle at 88% 0%, color-mix(in srgb, var(--accent) 14%, transparent) 0%, transparent 55%),
+    var(--bg);
+  --neo-auth-panel-border: color-mix(in srgb, var(--border) 74%, transparent);
+  --neo-auth-surface: color-mix(in srgb, var(--card) 98%, transparent);
+  --neo-auth-surface-muted: color-mix(in srgb, var(--card) 88%, transparent);
+  --neo-auth-input-bg: var(--field-bg);
+  --neo-auth-input-border: var(--field-border);
+  --neo-auth-text-strong: var(--fg);
+  --neo-auth-text: color-mix(in srgb, var(--fg) 80%, transparent);
+  --neo-auth-muted: color-mix(in srgb, var(--muted-fg) 88%, transparent);
+}
+
+:root[data-theme='dark'] .neo-auth {
+  --neo-auth-text-strong: #f8fafc;
+  --neo-auth-text: color-mix(in srgb, #cbd5f5 92%, transparent);
+  --neo-auth-muted: color-mix(in srgb, #94a3b8 85%, transparent);
+  --neo-auth-surface: color-mix(in srgb, #111827 94%, transparent);
+  --neo-auth-surface-muted: color-mix(in srgb, #111827 82%, transparent);
+  --neo-auth-input-bg: color-mix(in srgb, #0f172a 82%, #020617 18%);
+  --neo-auth-input-border: color-mix(in srgb, #4f46e5 38%, transparent);
+  --neo-auth-panel-border: color-mix(in srgb, #6366f1 28%, transparent);
 }
 
 .neo-auth__aside {
@@ -12819,9 +12854,21 @@ h1,.h1{
   flex-direction: column;
   gap: var(--neo-space-5, 1.5rem);
   padding: clamp(2rem, 4vw, 4rem);
-  background: color-mix(in srgb, #020617 6%, var(--neo-surface-canvas, #f8fafc));
-  color: var(--neo-text-primary, #0f172a);
+  background: color-mix(in srgb, var(--neo-auth-surface) 96%, transparent);
+  color: var(--neo-auth-text-strong);
   justify-content: center;
+  border-radius: clamp(18px, 3vw, 28px);
+  border: 1px solid color-mix(in srgb, var(--neo-auth-panel-border) 45%, transparent);
+  box-shadow: 0 24px 72px color-mix(in srgb, rgba(15, 23, 42, 0.22) 70%, transparent);
+  width: min(100%, 520px);
+}
+
+.neo-auth[data-has-insights='true'] .neo-auth__main {
+  width: auto;
+}
+
+.neo-auth[data-has-insights='false'] .neo-auth__main {
+  justify-self: center;
 }
 
 .neo-auth__header {
@@ -12837,7 +12884,7 @@ h1,.h1{
   gap: 0.75rem;
   font-weight: 700;
   font-size: 1.125rem;
-  color: var(--neo-text-primary, #0f172a);
+  color: var(--neo-auth-text-strong);
 }
 
 .neo-auth__brandMark {
@@ -12852,7 +12899,7 @@ h1,.h1{
 .neo-auth__brandText {
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--neo-text-secondary, #475569);
+  color: var(--neo-auth-muted);
 }
 
 .neo-auth__intro {
@@ -12864,13 +12911,13 @@ h1,.h1{
   margin: 0;
   font-size: clamp(1.75rem, 2.6vw, 2.45rem);
   font-weight: 800;
-  color: var(--neo-text-primary, #0f172a);
+  color: var(--neo-auth-text-strong);
 }
 
 .neo-auth__subtitle {
   margin: 0;
   font-size: 1rem;
-  color: var(--neo-text-secondary, #475569);
+  color: var(--neo-auth-muted);
   max-width: 32ch;
 }
 

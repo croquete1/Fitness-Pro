@@ -12,11 +12,9 @@ import Alert from '@/components/ui/Alert';
 import { toast } from '@/components/ui/Toaster';
 import { brand } from '@/lib/brand';
 import { RegisterSchema } from '@/lib/validation/auth';
-import { useLandingSummary } from '@/lib/public/landing/useLandingSummary';
 import { AuthNeoShell } from '@/components/auth/AuthNeoShell';
 
 export default function RegisterClient() {
-  const { summary, isLoading } = useLandingSummary();
   const [form, setForm] = React.useState({ name: '', email: '', password: '' });
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -85,9 +83,7 @@ export default function RegisterClient() {
   return (
     <AuthNeoShell
       title="Criar conta"
-      subtitle={`Junta-te à experiência ${brand.name} e desbloqueia os dashboards Neo.`}
-      summary={summary}
-      loadingSummary={isLoading}
+      subtitle={`Preenche os teus dados para entrares no ecossistema ${brand.name}.`}
       footer={
         <p className="neo-auth__footnote">
           Já tens conta?{' '}
@@ -186,15 +182,6 @@ export default function RegisterClient() {
           Criar conta
         </Button>
       </form>
-
-      <div className="neo-auth__ctaPanel">
-        <h2>O que inclui a conta {brand.name}</h2>
-        <ul>
-          <li>Dashboards Neo com métricas partilhadas entre clientes, PTs e administradores.</li>
-          <li>Sincronização em tempo real com Supabase para sessões, notificações e faturação.</li>
-          <li>Fallback inteligente para continuar a operar mesmo sem ligação.</li>
-        </ul>
-      </div>
     </AuthNeoShell>
   );
 }
