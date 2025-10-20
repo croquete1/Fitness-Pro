@@ -72,22 +72,22 @@ export function useSidebarNavigationSummary({ role, summary, fallbackOverrides }
 
   const effectiveSummary = summary ?? fallbackSummary;
 
-  const groups = React.useMemo(() => {
+  const navGroups = React.useMemo(() => {
     if (!effectiveSummary) return [];
     return effectiveSummary.navGroups.map(mapGroup).filter((group) => group.items.length > 0);
   }, [effectiveSummary]);
 
-  const quickMetrics = React.useMemo(
+  const metricList = React.useMemo(
     () => dedupeById<NavigationQuickMetric>(effectiveSummary?.quickMetrics),
     [effectiveSummary],
   );
 
-  const highlights = React.useMemo(
+  const highlightList = React.useMemo(
     () => dedupeById<NavigationHighlight>(effectiveSummary?.highlights),
     [effectiveSummary],
   );
 
-  const source = React.useMemo<'supabase' | 'fallback' | undefined>(() => {
+  const dataSource = React.useMemo<'supabase' | 'fallback' | undefined>(() => {
     if (summary) return 'supabase';
     if (effectiveSummary) return 'fallback';
     return undefined;
@@ -95,5 +95,11 @@ export function useSidebarNavigationSummary({ role, summary, fallbackOverrides }
 
   const generatedAt = effectiveSummary?.updatedAt ?? null;
 
-  return { groups, quickMetrics, highlights, source, generatedAt };
+  return {
+    groups: navGroups,
+    quickMetrics: metricList,
+    highlights: highlightList,
+    source: dataSource,
+    generatedAt,
+  };
 }

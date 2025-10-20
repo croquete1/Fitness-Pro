@@ -32,6 +32,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Reforçar pesquisas/admin lookup para usar Supabase directamente (com fallbacks) e desbloquear atribuição de PTs. Fontes: `src/app/api/admin/lookup/people/route.ts`, `src/app/api/search/{clients,trainer}/route.ts`, `src/app/api/admin/assign-pt/route.ts`.
 - [x] Remover dependências Prisma remanescentes substituindo-as por integrações Supabase e scripts actualizados. Fontes: `src/lib/events.ts`, `src/lib/planLog.ts`, `scripts/{create-admin,promote-admin,reset-password}.mjs`.
 - [x] Ajustar o layout do dashboard para ocupar toda a largura e responder melhor a todos os breakpoints. Fontes: `src/components/layout/DashboardFrame.tsx` e páginas `dashboard/*` com `Container maxWidth={false}`.
+- [x] Corrigir regressão de build das sidebars `.neo` consolidando o hook partilhado `useSidebarNavigationSummary` sem redeclaração de identificadores. Fontes: `src/components/layout/useSidebarNavigationSummary.ts`, `src/components/layout/Sidebar{Client,PT}.tsx`.
 
 ## Fase 2 - Melhorias Estruturais
 - [x] Validar carregamento real da lista de utilizadores/aprovações no Supabase (remoção dos fallbacks quando a API estiver estável e seeds completos).

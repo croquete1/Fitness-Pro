@@ -42,7 +42,7 @@ export default function SidebarClient({ initialCounts, summary, loading, onRefre
     } satisfies Partial<NavigationSummaryCounts>;
   }, [messagesCount, notificationsCount]);
 
-  const { groups, quickMetrics, highlights, source, generatedAt } = useSidebarNavigationSummary({
+  const { groups: navGroups, quickMetrics, highlights, source, generatedAt } = useSidebarNavigationSummary({
     role: 'CLIENT',
     summary,
     fallbackOverrides,
@@ -83,7 +83,7 @@ export default function SidebarClient({ initialCounts, summary, loading, onRefre
       )}
       <SidebarQuickMetrics metrics={quickMetrics} maxVisible={2} onNavigate={handleNavigate} />
       <nav className="neo-sidebar__nav" aria-label="Menu do cliente">
-        {groups.map((group) => (
+        {navGroups.map((group) => (
           <SidebarNavSection
             key={group.title}
             title={group.title}

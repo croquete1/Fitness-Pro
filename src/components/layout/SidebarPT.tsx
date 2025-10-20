@@ -42,44 +42,11 @@ export default function SidebarPT({ initialCounts, summary, loading, onRefreshNa
     } satisfies Partial<NavigationSummaryCounts>;
   }, [messagesCount, notificationsCount]);
 
-  const { groups, quickMetrics, highlights, source, generatedAt } = useSidebarNavigationSummary({
+  const { groups: navGroups, quickMetrics, highlights, source, generatedAt } = useSidebarNavigationSummary({
     role: 'TRAINER',
     summary,
     fallbackOverrides,
   });
-
-  const effectiveSummary = summary ?? fallbackSummary;
-
-  const groups = React.useMemo(
-    () => (effectiveSummary?.navGroups ?? []).map(mapGroup),
-    [effectiveSummary],
-  );
-  const dataSource: 'supabase' | 'fallback' | undefined = summary
-    ? 'supabase'
-    : initialCounts
-    ? 'fallback'
-    : undefined;
-  const generatedAt = summary?.updatedAt ?? null;
-
-  const quickMetrics = React.useMemo(() => effectiveSummary?.quickMetrics ?? [], [effectiveSummary]);
-  const highlights = React.useMemo(() => effectiveSummary?.highlights ?? [], [effectiveSummary]);
-
-  const dataSource: 'supabase' | 'fallback' | undefined = summary
-    ? 'supabase'
-    : effectiveSummary
-    ? 'fallback'
-    : undefined;
-  const generatedAt = effectiveSummary?.updatedAt ?? null;
-
-  const quickMetrics = React.useMemo(() => effectiveSummary?.quickMetrics ?? [], [effectiveSummary]);
-  const highlights = React.useMemo(() => effectiveSummary?.highlights ?? [], [effectiveSummary]);
-
-  const dataSource: 'supabase' | 'fallback' | undefined = summary
-    ? 'supabase'
-    : effectiveSummary
-    ? 'fallback'
-    : undefined;
-  const generatedAt = effectiveSummary?.updatedAt ?? null;
 
   const header = (
     <div className="neo-sidebar__headline">
@@ -117,7 +84,7 @@ export default function SidebarPT({ initialCounts, summary, loading, onRefreshNa
       )}
       <SidebarQuickMetrics metrics={quickMetrics} maxVisible={3} onNavigate={handleNavigate} />
       <nav className="neo-sidebar__nav" aria-label="Menu do personal trainer">
-        {groups.map((group) => (
+        {navGroups.map((group) => (
           <SidebarNavSection
             key={group.title}
             title={group.title}
