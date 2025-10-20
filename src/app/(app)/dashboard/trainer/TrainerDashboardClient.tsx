@@ -15,6 +15,7 @@ import {
 import PageHeader from '@/components/ui/PageHeader';
 import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
+import DataSourceBadge from '@/components/ui/DataSourceBadge';
 import type {
   TrainerDashboardResponse,
   TrainerHeroMetric,
@@ -57,6 +58,13 @@ const CLIENT_TONE_FILTERS: Array<{ id: ClientToneFilter; label: string; tone: Tr
   { id: 'critical', label: 'Risco', tone: 'critical' },
   { id: 'neutral', label: 'Sem alerta', tone: 'neutral' },
 ];
+
+const TONE_PRIORITY: Record<TrainerClientSnapshot['tone'], number> = {
+  critical: 0,
+  warning: 1,
+  positive: 2,
+  neutral: 3,
+};
 
 function formatUpdatedAt(value: string) {
   const date = new Date(value);
@@ -163,28 +171,38 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
   });
 
   const dashboard = data ?? initialData;
-  const supabaseState = dashboard.supabase ? 'ok' : 'warn';
-  const supabaseLabel = dashboard.supabase ? 'Dados em tempo real' : 'Modo offline';
 
   const greeting = React.useMemo(() => firstName(viewerName ?? dashboard.trainerName), [viewerName, dashboard.trainerName]);
 
   const [clientQuery, setClientQuery] = React.useState('');
   const [clientToneFilter, setClientToneFilter] = React.useState<ClientToneFilter>('all');
 
-  const filteredClients = React.useMemo(() => {
-    const query = clientQuery.trim().toLowerCase();
+  const normalizedQuery = React.useMemo(() => clientQuery.trim().toLowerCase(), [clientQuery]);
+  const hasFilters = normalizedQuery.length > 0 || clientToneFilter !== 'all';
 
-    return dashboard.clients.filter((client) => {
-      const matchesQuery = !query
+  const clearFilters = React.useCallback(() => {
+    setClientQuery('');
+    setClientToneFilter('all');
+  }, []);
+
+  const filteredClients = React.useMemo(() => {
+    return dashboard.clients
+      .filter((client) => {
+        const matchesQuery = normalizedQuery.length === 0
         ? true
         : [client.name, client.email ?? '', client.lastSessionLabel, client.nextSessionLabel]
             .join(' ')
             .toLowerCase()
-            .includes(query);
-      const matchesTone = clientToneFilter === 'all' ? true : client.tone === clientToneFilter;
-      return matchesQuery && matchesTone;
-    });
-  }, [dashboard.clients, clientQuery, clientToneFilter]);
+            .includes(normalizedQuery);
+        const matchesTone = clientToneFilter === 'all' ? true : client.tone === clientToneFilter;
+        return matchesQuery && matchesTone;
+      })
+      .sort((a, b) => {
+        const toneDiff = (TONE_PRIORITY[a.tone] ?? 99) - (TONE_PRIORITY[b.tone] ?? 99);
+        if (toneDiff !== 0) return toneDiff;
+        return a.name.localeCompare(b.name, 'pt-PT', { sensitivity: 'base' });
+      });
+  }, [dashboard.clients, normalizedQuery, clientToneFilter]);
 
   const clientStats = React.useMemo(() => {
     const totals = filteredClients.reduce(
@@ -201,10 +219,16 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
 
     return {
       ...totals,
+      totalLabel: numberFormatter.format(totals.total),
       upcomingLabel: numberFormatter.format(totals.upcoming),
       completedLabel: numberFormatter.format(totals.completed),
+      attentionLabel: numberFormatter.format(totals.attention),
     };
   }, [filteredClients]);
+
+  const handleRefresh = React.useCallback(() => {
+    void mutate();
+  }, [mutate]);
 
   const exportClients = React.useCallback(() => {
     if (filteredClients.length === 0) return;
@@ -243,11 +267,19 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
         sticky={false}
         actions={
           <div className="trainer-dashboard__actions">
-            <span className="status-pill" data-state={supabaseState}>
-              {supabaseLabel}
-            </span>
-            <Button onClick={() => mutate()} variant="ghost" size="sm" disabled={isValidating}>
-              Actualizar
+            <DataSourceBadge
+              source={dashboard.source}
+              generatedAt={dashboard.updatedAt}
+              className="trainer-dashboard__data-source"
+            />
+            <Button
+              onClick={handleRefresh}
+              variant="ghost"
+              size="sm"
+              disabled={isValidating}
+              aria-busy={isValidating}
+            >
+              {isValidating ? 'A actualizar…' : 'Actualizar'}
             </Button>
           </div>
         }
@@ -467,6 +499,7 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
                     className="trainer-dashboard__tone-button"
                     data-active={clientToneFilter === filter.id}
                     data-tone={filter.tone ?? 'all'}
+                    aria-pressed={clientToneFilter === filter.id}
                     onClick={() => setClientToneFilter(filter.id)}
                   >
                     {filter.label}
@@ -486,7 +519,7 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
           </div>
           <div className="trainer-dashboard__clients-summary" aria-live="polite">
             <span className="trainer-dashboard__clients-summary-item">
-              {clientStats.total} cliente(s)
+              {clientStats.totalLabel} cliente(s)
             </span>
             <span className="trainer-dashboard__clients-summary-item">
               {clientStats.upcomingLabel} sessão(ões) futuras
@@ -495,7 +528,7 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
               {clientStats.completedLabel} concluídas
             </span>
             <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--critical">
-              {clientStats.attention} a precisar de atenção
+              {clientStats.attentionLabel} a precisar de atenção
             </span>
           </div>
           <div className="trainer-dashboard__clients-table" role="table">
@@ -508,7 +541,14 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
             </div>
             {filteredClients.length === 0 ? (
               <div className="trainer-dashboard__clients-empty" role="row">
-                <div role="cell">Nenhum cliente corresponde ao filtro.</div>
+                <div role="cell">
+                  <p>Nenhum cliente corresponde ao filtro.</p>
+                  {hasFilters && (
+                    <button type="button" className="trainer-dashboard__clients-reset" onClick={clearFilters}>
+                      Limpar filtros
+                    </button>
+                  )}
+                </div>
               </div>
             ) : (
               filteredClients.map((client) => (

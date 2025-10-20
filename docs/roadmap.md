@@ -72,6 +72,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Refinar as sidebars de PT/cliente com badges dinâmicos e entradas contextuais (quick actions, indicadores de progresso). Fontes: `src/components/layout/SidebarClient.tsx`, `src/components/layout/SidebarPT.tsx`, `src/lib/fallback/navigation.ts`.
 - [x] Consolidar o resumo de navegação partilhado com deduplicação de métricas/destaques e badge de origem consistente nas sidebars. Fontes: `src/components/layout/useSidebarNavigationSummary.ts`, `src/components/layout/SidebarClient.tsx`, `src/components/layout/SidebarPT.tsx`.
 - [x] Refinar a carteira de clientes do PT com filtros de prioridade, exportação CSV e sumários rápidos directamente no dashboard. Fontes: `src/app/(app)/dashboard/trainer/TrainerDashboardClient.tsx`, `src/app/globals.css`.
+- [x] Harmonizar o cockpit do treinador com badge de origem de dados, ordenação automática por prioridade e reset acessível de filtros na carteira. Fontes: `src/app/(app)/dashboard/trainer/TrainerDashboardClient.tsx`, `src/app/globals.css`.
 - [x] Reimaginar o cartão de tarefas pessoais no tema `.neo`, com persistência versionada, métricas de progresso e estilos dedicados. Fontes: `src/components/dashboard/TaskListCard.tsx`, `src/app/globals.css`.
 - [ ] Definir padrão consistente para uso de rotas Next.js vs. cliente Supabase (tempo real) e aplicá-lo aos módulos de mensagens/notificações.
 - [ ] Optimizar consultas com índices e vistas materializadas (existe esboço, mas falta adopção generalizada).
