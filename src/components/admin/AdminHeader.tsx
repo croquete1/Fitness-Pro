@@ -2,7 +2,7 @@
 export const dynamic = 'force-dynamic';
 
 import React from 'react';
-import ThemeToggle from '@/components/layout/ThemeToggle';
+import ThemeToggle from '@/components/ThemeToggle';
 import SignOutButton from '@/components/auth/SignOutConfirmButton';
 import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
