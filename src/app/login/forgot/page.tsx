@@ -4,17 +4,11 @@ import Link from 'next/link';
 import { AlertTriangle } from 'lucide-react';
 
 import { AuthNeoShell } from '@/components/auth/AuthNeoShell';
-import { useLandingSummary } from '@/lib/public/landing/useLandingSummary';
-
 export default function ForgotPasswordPage() {
-  const { summary, isLoading } = useLandingSummary();
-
   return (
     <AuthNeoShell
       title="Recuperar palavra-passe"
       subtitle="Em breve poderás pedir a reposição diretamente a partir deste painel."
-      summary={summary}
-      loadingSummary={isLoading}
       tone="notice"
       footer={
         <p className="neo-auth__footnote">
