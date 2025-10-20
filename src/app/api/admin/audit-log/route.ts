@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole } from '@/lib/roles';
 import { AUDIT_TABLE_CANDIDATES, isMissingAuditTableError } from '@/lib/audit';
+import { ADMIN_AUDIT_FALLBACK_ROWS, ADMIN_AUDIT_META_FALLBACK } from '@/lib/fallback/admin-audit-log';
 
 type AuditRow = {
   id: string;
@@ -27,6 +28,16 @@ type MetaResponse = {
   kinds: string[];
   targetTypes: string[];
   actors: { id: string | null; label: string | null }[];
+};
+
+type FetchResponse = {
+  items: AuditRow[];
+  count: number;
+  page: number;
+  pageSize: number;
+  meta?: MetaResponse;
+  missingTable?: boolean;
+  source: 'supabase' | 'fallback';
 };
 
 type ActorOption = { id: string | null; label: string | null };
@@ -301,6 +312,7 @@ export async function GET(req: NextRequest) {
           pageSize,
           meta: meta ? { ...meta, actors: hydrated.actors ?? meta.actors } : undefined,
           missingTable: false,
+          source: 'supabase',
         });
       } catch (err) {
         if (isMissingAuditTableError(err)) {
@@ -312,20 +324,41 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    if (lastMissing) {
-      return NextResponse.json({
-        items: [],
-        count: 0,
-        page,
-        pageSize,
-        meta: includeMeta ? { kinds: [], targetTypes: [], actors: [] } : undefined,
-        missingTable: true,
+    const fallbackTotal = ADMIN_AUDIT_FALLBACK_ROWS.length;
+    if (format === 'csv') {
+      const csv = toCsv(ADMIN_AUDIT_FALLBACK_ROWS);
+      return new NextResponse(csv, {
+        headers: {
+          'content-type': 'text/csv; charset=utf-8',
+          'content-disposition': `attachment; filename="audit-log-${new Date().toISOString()}.csv"`,
+        },
       });
     }
 
-    return NextResponse.json({ items: [], count: 0, page, pageSize, missingTable: false });
+    const fallbackItems = ADMIN_AUDIT_FALLBACK_ROWS.slice(from, from + pageSize);
+    return NextResponse.json({
+      items: fallbackItems,
+      count: fallbackTotal,
+      page,
+      pageSize,
+      meta: includeMeta ? ADMIN_AUDIT_META_FALLBACK : undefined,
+      missingTable: lastMissing,
+      source: 'fallback',
+    });
   } catch (err) {
     console.error('[audit-log] unexpected error', err);
-    return NextResponse.json({ items: [], count: 0, page, pageSize, missingTable: false }, { status: 500 });
+    const fallbackItems = ADMIN_AUDIT_FALLBACK_ROWS.slice(from, from + pageSize);
+    return NextResponse.json(
+      {
+        items: fallbackItems,
+        count: ADMIN_AUDIT_FALLBACK_ROWS.length,
+        page,
+        pageSize,
+        meta: includeMeta ? ADMIN_AUDIT_META_FALLBACK : undefined,
+        missingTable: false,
+        source: 'fallback',
+      },
+      { status: 500 },
+    );
   }
 }

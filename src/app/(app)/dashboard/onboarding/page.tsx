@@ -13,5 +13,7 @@ export default async function Page() {
   const sb = createServerClient();
   const { data } = await sb.from('onboarding_forms').select('*').eq('user_id', s.user.id).maybeSingle();
 
-  return <ClientOnboardingFormClient initial={data ?? null} />;
+  const viewerName = s?.name ?? s?.user?.name ?? null;
+
+  return <ClientOnboardingFormClient initial={data ?? null} viewerName={viewerName} />;
 }

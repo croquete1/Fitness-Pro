@@ -11,8 +11,11 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { AlertTriangle, CalendarDays, Download, Filter, RefreshCcw, Search, Wallet } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
 import Button from '@/components/ui/Button';
+import Alert from '@/components/ui/Alert';
+import DataSourceBadge from '@/components/ui/DataSourceBadge';
 import type { BillingDashboardData, BillingLedgerRow, BillingStatus } from '@/lib/billing/types';
 
 type DashboardResponse = BillingDashboardData & {
@@ -72,6 +75,18 @@ function formatTooltipDate(label: string): string {
   }
 }
 
+const RELATIVE = new Intl.RelativeTimeFormat('pt-PT', { numeric: 'auto' });
+
+function formatRelativeDays(target: string | null): string | null {
+  if (!target) return null;
+  const parsed = new Date(target);
+  if (!Number.isFinite(parsed.getTime())) return null;
+  const diffMs = parsed.getTime() - Date.now();
+  const diffDays = Math.round(diffMs / 86_400_000);
+  if (diffDays === 0) return 'hoje';
+  return RELATIVE.format(diffDays, 'day');
+}
+
 function matchesQuery(row: BillingLedgerRow, query: string): boolean {
   if (!query) return true;
   const normalized = query.toLowerCase();
@@ -128,6 +143,14 @@ function exportLedger(rows: BillingLedgerRow[]) {
 
 const STATUS_ORDER: BillingStatus[] = ['paid', 'pending', 'refunded'];
 
+type HeroMetric = {
+  id: string;
+  label: string;
+  value: string;
+  helper: string;
+  tone: 'primary' | 'warning' | 'teal' | 'pink' | 'neutral';
+};
+
 export default function BillingClient({ initialData, viewerName }: Props) {
   const { data, error, isLoading } = useSWR<DashboardResponse>('/api/billing/dashboard', fetcher, {
     fallbackData: initialData,
@@ -137,6 +160,16 @@ export default function BillingClient({ initialData, viewerName }: Props) {
   const dashboard = data ?? initialData;
   const [statusFilter, setStatusFilter] = React.useState<'all' | BillingStatus>('all');
   const [query, setQuery] = React.useState('');
+  const queryInputId = React.useId();
+
+  const overdueInvoices = React.useMemo(() => {
+    const now = Date.now();
+    return dashboard.ledger.filter((row) => {
+      if (row.status !== 'pending' || !row.dueAt) return false;
+      const dueDate = new Date(row.dueAt);
+      return Number.isFinite(dueDate.getTime()) && dueDate.getTime() < now;
+    });
+  }, [dashboard.ledger]);
 
   const ledger = React.useMemo(() => {
     const baseRows = statusFilter === 'all'
@@ -154,39 +187,42 @@ export default function BillingClient({ initialData, viewerName }: Props) {
     return map;
   }, [dashboard.statuses]);
 
-  const heroMetrics = React.useMemo(
-    () => [
+  const heroMetrics = React.useMemo<HeroMetric[]>(() => {
+    const paid = statusSummary.get('paid') ?? 0;
+    const total = statusSummary.get('all') ?? dashboard.range.invoiceCount;
+    const conversion = total > 0 ? Math.round((paid / total) * 100) : 0;
+
+    return [
       {
         id: 'volume',
         label: 'Volume total',
         value: formatCurrency(dashboard.totals.volume),
-        tone: 'primary' as const,
-        helper: `${dashboard.range.invoiceCount} lançamentos`,
+        tone: 'primary',
+        helper: `${dashboard.range.invoiceCount} lançamento${dashboard.range.invoiceCount === 1 ? '' : 's'}`,
       },
       {
         id: 'outstanding',
         label: 'Por receber',
         value: formatCurrency(dashboard.totals.outstanding),
-        tone: 'warning' as const,
-        helper: `${statusSummary.get('pending') ?? 0} pendentes activos`,
+        tone: 'warning',
+        helper: `${statusSummary.get('pending') ?? 0} pendentes (${overdueInvoices.length} vencidos)`,
       },
       {
         id: 'refunded',
         label: 'Reembolsado',
         value: formatCurrency(dashboard.totals.refunded),
-        tone: 'pink' as const,
-        helper: `${dashboard.totals.refundedCount} ocorrências`,
+        tone: 'pink',
+        helper: `${dashboard.totals.refundedCount} ocorrência${dashboard.totals.refundedCount === 1 ? '' : 's'}`,
       },
       {
-        id: 'average',
-        label: 'Ticket médio',
-        value: formatCurrency(dashboard.totals.average),
-        tone: 'teal' as const,
-        helper: `Período ${dashboard.range.label.toLowerCase()}`,
+        id: 'conversion',
+        label: 'Taxa de cobrança',
+        value: `${conversion}%`,
+        tone: 'teal',
+        helper: `Base de ${total} lançamento${total === 1 ? '' : 's'}`,
       },
-    ],
-    [dashboard.range.invoiceCount, dashboard.range.label, dashboard.totals, statusSummary],
-  );
+    ];
+  }, [dashboard.range.invoiceCount, dashboard.totals, overdueInvoices.length, statusSummary]);
 
   const timelineData = React.useMemo(() => {
     return dashboard.timeline.map((point) => ({
@@ -198,8 +234,6 @@ export default function BillingClient({ initialData, viewerName }: Props) {
   const hasTimeline = timelineData.length > 0;
 
   const nextDue = dashboard.nextDue;
-
-  const sourceLabel = dashboard.source === 'supabase' ? 'Supabase (tempo real)' : 'Dataset offline';
 
   const lastUpdatedLabel = React.useMemo(() => {
     try {
@@ -222,73 +256,99 @@ export default function BillingClient({ initialData, viewerName }: Props) {
     [dashboard.statuses],
   );
 
+  const handleExport = React.useCallback(() => {
+    exportLedger(dashboard.ledger);
+  }, [dashboard.ledger]);
+
+  const overdueRelative = nextDue ? formatRelativeDays(nextDue.dueAt) : null;
+
   return (
-    <div className="client-billing" data-loading={isLoading}>
+    <div className="billing-dashboard" data-loading={isLoading}>
       <PageHeader
         title="Faturação"
         subtitle={
           viewerName
-            ? `Olá ${viewerName.split(' ')[0]}, aqui tens o resumo da tua faturação e pagamentos recentes.`
-            : 'Monitoriza o ritmo de faturação, identifica pendentes críticos e exporta relatórios para a tua equipa.'
+            ? `Olá ${viewerName.split(' ')[0]}, acompanha aqui o estado financeiro real das tuas vendas.`
+            : 'Monitoriza a facturação, identifica riscos de cobrança e exporta relatórios com um clique.'
         }
         actions={
-          <Button type="button" variant="primary" onClick={() => exportLedger(dashboard.ledger)}>
+          <Button type="button" variant="primary" onClick={handleExport} leftIcon={<Download size={16} />}>
             Exportar CSV
           </Button>
         }
         sticky={false}
       />
 
-      <section className="neo-panel client-billing__panel" aria-labelledby="billing-hero-heading">
-        <header className="client-billing__sectionHeader">
-          <div className="client-billing__sectionMeta">
-            <span className="caps-tag">Resumo financeiro</span>
-            <h2 id="billing-hero-heading" className="neo-panel__title">
-              Ritmo actual de faturação
+      <div className="billing-dashboard__metaBar" role="status">
+        <div className="billing-dashboard__metaItem">
+          <Wallet size={16} aria-hidden />
+          <span>{dashboard.range.label}</span>
+        </div>
+        <div className="billing-dashboard__metaItem">
+          <RefreshCcw size={16} aria-hidden />
+          <span>Actualizado {lastUpdatedLabel}</span>
+        </div>
+        <DataSourceBadge source={dashboard.source} generatedAt={dashboard.generatedAt} />
+      </div>
+
+      <section className="neo-panel billing-dashboard__panel" aria-labelledby="billing-hero-heading">
+        <header className="billing-dashboard__sectionHeader">
+          <div>
+            <span className="billing-dashboard__sectionHint">Resumo financeiro</span>
+            <h2 id="billing-hero-heading" className="billing-dashboard__sectionTitle">
+              Performance da facturação
             </h2>
-            <p className="neo-panel__subtitle">{dashboard.range.label}</p>
           </div>
-          <span className="status-pill" data-state={dashboard.source === 'supabase' ? 'ok' : 'warn'}>
-            {sourceLabel}
-          </span>
+          {overdueInvoices.length > 0 && (
+            <span className="billing-dashboard__tag" data-variant="warning">
+              {overdueInvoices.length} vencido{overdueInvoices.length === 1 ? '' : 's'} a atenção
+            </span>
+          )}
         </header>
 
-        <div className="client-billing__metrics">
+        <div className="billing-dashboard__hero" role="list">
           {heroMetrics.map((metric) => (
-            <article key={metric.id} className="neo-surface client-billing__metric" data-variant={metric.tone}>
-              <span className="neo-surface__hint">{metric.label}</span>
-              <span className="neo-surface__value">{metric.value}</span>
-              <p className="neo-surface__meta">{metric.helper}</p>
+            <article key={metric.id} className="billing-dashboard__heroCard" data-tone={metric.tone} role="listitem">
+              <span className="billing-dashboard__heroLabel">{metric.label}</span>
+              <strong className="billing-dashboard__heroValue">{metric.value}</strong>
+              <span className="billing-dashboard__heroHelper">{metric.helper}</span>
             </article>
           ))}
         </div>
 
         {nextDue && (
-          <div className="client-billing__nextDue" role="status">
-            <span className="client-billing__nextDueHint">Próximo vencimento</span>
-            <div className="client-billing__nextDueMeta">
-              <strong>{nextDue.serviceName}</strong>
-              <span>{dateFormatter.format(new Date(nextDue.dueAt))}</span>
+          <div className="billing-dashboard__nextDue" role="status">
+            <div className="billing-dashboard__nextDueIcon" aria-hidden>
+              <CalendarDays size={18} />
             </div>
-            <span className="client-billing__nextDueValue">{formatCurrency(nextDue.amount)}</span>
+            <div className="billing-dashboard__nextDueMeta">
+              <span className="billing-dashboard__nextDueHint">Próximo vencimento</span>
+              <strong>{nextDue.serviceName}</strong>
+              <span>{nextDue.clientName}</span>
+            </div>
+            <div className="billing-dashboard__nextDueInfo">
+              <span>{formatCurrency(nextDue.amount)}</span>
+              {overdueRelative ? <small>{overdueRelative}</small> : null}
+            </div>
           </div>
         )}
       </section>
 
-      <section className="neo-panel client-billing__panel" aria-labelledby="billing-timeline-heading">
-        <header className="client-billing__sectionHeader">
-          <div className="client-billing__sectionMeta">
-            <h2 id="billing-timeline-heading" className="neo-panel__title">
-              Evolução semanal
+      <section className="neo-panel billing-dashboard__panel" aria-labelledby="billing-timeline-heading">
+        <header className="billing-dashboard__sectionHeader">
+          <div>
+            <span className="billing-dashboard__sectionHint">Histórico</span>
+            <h2 id="billing-timeline-heading" className="billing-dashboard__sectionTitle">
+              Volume por data de emissão
             </h2>
-            <p className="neo-panel__subtitle">Volume recebido vs. pendente por data de emissão.</p>
+            <p className="billing-dashboard__sectionSubtitle">
+              Compara valores recebidos, pendentes e reembolsados para antecipar fluxos de caixa.
+            </p>
           </div>
-          <span className="client-billing__updatedAt">Actualizado {lastUpdatedLabel}</span>
         </header>
-
-        <div className="client-billing__chart" role="region" aria-live="polite">
+        <div className="billing-dashboard__chart" role="region" aria-live="polite">
           {hasTimeline ? (
-            <ResponsiveContainer width="100%" height={260}>
+            <ResponsiveContainer width="100%" height={280}>
               <AreaChart data={timelineData} margin={{ left: 0, top: 10, right: 16, bottom: 0 }}>
                 <CartesianGrid vertical={false} strokeDasharray="3 3" />
                 <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
@@ -306,35 +366,40 @@ export default function BillingClient({ initialData, viewerName }: Props) {
               </AreaChart>
             </ResponsiveContainer>
           ) : (
-            <div className="neo-empty client-billing__empty">
-              <span className="neo-empty__icon" aria-hidden="true">📉</span>
-              <p className="neo-empty__title">Sem dados suficientes</p>
-              <p className="neo-empty__description">
-                Assim que tiveres histórico de faturação iremos desenhar a evolução automaticamente.
+            <div className="billing-dashboard__empty" role="status">
+              <span className="billing-dashboard__emptyIcon" aria-hidden>
+                <AlertTriangle size={18} />
+              </span>
+              <p className="billing-dashboard__emptyTitle">Sem dados suficientes</p>
+              <p className="billing-dashboard__emptyDescription">
+                Assim que houver histórico de faturação iremos mostrar a evolução automaticamente.
               </p>
             </div>
           )}
         </div>
       </section>
 
-      <section className="neo-panel client-billing__panel" aria-labelledby="billing-methods-heading">
-        <header className="client-billing__sectionHeader">
-          <div className="client-billing__sectionMeta">
-            <h2 id="billing-methods-heading" className="neo-panel__title">
-              Métodos de pagamento
+      <section className="neo-panel billing-dashboard__panel" aria-labelledby="billing-methods-heading">
+        <header className="billing-dashboard__sectionHeader">
+          <div>
+            <span className="billing-dashboard__sectionHint">Pagamentos</span>
+            <h2 id="billing-methods-heading" className="billing-dashboard__sectionTitle">
+              Métodos preferidos dos clientes
             </h2>
-            <p className="neo-panel__subtitle">Distribuição por volume dos últimos lançamentos.</p>
           </div>
         </header>
-        <ul className="client-billing__methods">
+        <ul className="billing-dashboard__methods">
           {dashboard.methods.map((method) => (
-            <li key={method.method} className="client-billing__methodRow">
+            <li key={method.method} className="billing-dashboard__methodRow">
               <div>
                 <strong>{method.label}</strong>
-                <span>{method.count} lançamentos</span>
+                <span>{method.count} lançamento{method.count === 1 ? '' : 's'}</span>
               </div>
-              <span>{formatCurrency(method.volume)}</span>
-              <div className="client-billing__methodBar" aria-hidden="true">
+              <div className="billing-dashboard__methodInfo">
+                <span>{formatCurrency(method.volume)}</span>
+                <span>{Math.round(method.share * 100)}%</span>
+              </div>
+              <div className="billing-dashboard__methodBar" aria-hidden="true">
                 <span style={{ width: `${Math.min(100, Math.round(method.share * 100))}%` }} />
               </div>
             </li>
@@ -342,75 +407,85 @@ export default function BillingClient({ initialData, viewerName }: Props) {
         </ul>
       </section>
 
-      <section className="neo-panel client-billing__panel" aria-labelledby="billing-highlights-heading">
-        <header className="client-billing__sectionHeader">
-          <div className="client-billing__sectionMeta">
-            <h2 id="billing-highlights-heading" className="neo-panel__title">
-              Destaques operacionais
+      <section className="neo-panel billing-dashboard__panel" aria-labelledby="billing-highlights-heading">
+        <header className="billing-dashboard__sectionHeader">
+          <div>
+            <span className="billing-dashboard__sectionHint">Insights automáticos</span>
+            <h2 id="billing-highlights-heading" className="billing-dashboard__sectionTitle">
+              Alertas de fluxo de caixa
             </h2>
-            <p className="neo-panel__subtitle">Acompanha pendentes críticos e eventos financeiros relevantes.</p>
           </div>
         </header>
-        <div className="client-billing__highlights">
+        <div className="billing-dashboard__highlights" role="list">
           {dashboard.highlights.map((highlight) => (
-            <article key={highlight.id} className="neo-surface client-billing__highlight" data-variant={highlight.tone}>
-              <span className="neo-surface__hint">{highlight.title}</span>
-              <span className="neo-surface__value">{highlight.value}</span>
-              <p className="neo-surface__meta">{highlight.description}</p>
-              {highlight.meta && <span className="neo-surface__meta client-billing__highlightMeta">{highlight.meta}</span>}
+            <article
+              key={highlight.id}
+              className="billing-dashboard__highlight"
+              data-tone={highlight.tone}
+              role="listitem"
+            >
+              <span className="billing-dashboard__highlightLabel">{highlight.title}</span>
+              <strong className="billing-dashboard__highlightValue">{highlight.value}</strong>
+              <p className="billing-dashboard__highlightDescription">{highlight.description}</p>
+              {highlight.meta ? <span className="billing-dashboard__highlightMeta">{highlight.meta}</span> : null}
             </article>
           ))}
         </div>
       </section>
 
-      <section className="neo-panel client-billing__panel" aria-labelledby="billing-ledger-heading">
-        <header className="client-billing__sectionHeader">
-          <div className="client-billing__sectionMeta">
-            <h2 id="billing-ledger-heading" className="neo-panel__title">
-              Livro de faturação
+      <section className="neo-panel billing-dashboard__panel" aria-labelledby="billing-ledger-heading">
+        <header className="billing-dashboard__sectionHeader billing-dashboard__sectionHeader--stack">
+          <div>
+            <span className="billing-dashboard__sectionHint">Livro de faturação</span>
+            <h2 id="billing-ledger-heading" className="billing-dashboard__sectionTitle">
+              Movimentos detalhados
             </h2>
-            <p className="neo-panel__subtitle">Filtra e exporta os lançamentos financeiros rapidamente.</p>
+            <p className="billing-dashboard__sectionSubtitle">
+              Filtra, prioriza e exporta os lançamentos financeiros em segundos.
+            </p>
           </div>
-          <div className="neo-segmented" role="tablist" aria-label="Filtrar por estado">
-            {sortedStatuses.map((entry) => (
-              <button
-                key={entry.id}
-                type="button"
-                className="neo-segmented__btn"
-                data-active={statusFilter === entry.id}
-                aria-pressed={statusFilter === entry.id}
-                onClick={() => setStatusFilter(entry.id as 'all' | BillingStatus)}
-              >
-                <span>{entry.label}</span>
-                <span className="neo-segmented__count">{entry.count}</span>
-              </button>
-            ))}
+          <div className="billing-dashboard__filters">
+            <div className="neo-segmented billing-dashboard__statusFilter" role="tablist" aria-label="Filtrar por estado">
+              {sortedStatuses.map((entry) => (
+                <button
+                  key={entry.id}
+                  type="button"
+                  className="neo-segmented__btn"
+                  data-active={statusFilter === entry.id}
+                  aria-pressed={statusFilter === entry.id}
+                  onClick={() => setStatusFilter(entry.id as 'all' | BillingStatus)}
+                >
+                  <span>{entry.label}</span>
+                  <span className="neo-segmented__count">{entry.count}</span>
+                </button>
+              ))}
+            </div>
+            <label htmlFor={queryInputId} className="billing-dashboard__search">
+              <Search size={16} aria-hidden className="billing-dashboard__searchIcon" />
+              <span className="sr-only">Pesquisar lançamentos</span>
+              <input
+                id={queryInputId}
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Cliente, serviço, referência…"
+                className="neo-input"
+              />
+            </label>
+            <span className="billing-dashboard__filtersCount">
+              {ledger.length} lançamento{ledger.length === 1 ? '' : 's'}
+            </span>
           </div>
         </header>
 
-        <div className="client-billing__filters">
-          <label className="neo-input-group__field client-billing__search">
-            <span className="neo-input-group__label">Pesquisar</span>
-            <input
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Cliente, serviço, referência…"
-              className="neo-input"
-              aria-label="Pesquisar lançamentos"
-            />
-          </label>
-          <div className="client-billing__resultCount">
-            {ledger.length} lançamento{ledger.length === 1 ? '' : 's'}
-          </div>
-        </div>
-
         <div className="neo-table-wrapper" role="region" aria-live="polite">
           {ledger.length === 0 ? (
-            <div className="neo-empty client-billing__empty">
-              <span className="neo-empty__icon" aria-hidden="true">🪐</span>
-              <p className="neo-empty__title">Sem lançamentos para mostrar</p>
-              <p className="neo-empty__description">
+            <div className="billing-dashboard__empty" role="status">
+              <span className="billing-dashboard__emptyIcon" aria-hidden>
+                <Filter size={18} />
+              </span>
+              <p className="billing-dashboard__emptyTitle">Sem lançamentos para mostrar</p>
+              <p className="billing-dashboard__emptyDescription">
                 Ajusta os filtros ou sincroniza novos pagamentos para veres o histórico aqui.
               </p>
               {(statusFilter !== 'all' || query.trim().length > 0) && (
@@ -420,7 +495,7 @@ export default function BillingClient({ initialData, viewerName }: Props) {
               )}
             </div>
           ) : (
-            <table className="neo-table client-billing__table">
+            <table className="neo-table billing-dashboard__table">
               <thead>
                 <tr>
                   <th scope="col">Cliente</th>
@@ -436,15 +511,15 @@ export default function BillingClient({ initialData, viewerName }: Props) {
                 {ledger.map((row) => (
                   <tr key={row.id}>
                     <td>
-                      <div className="client-billing__tableClient">
+                      <div className="billing-dashboard__tableClient">
                         <strong>{row.clientName}</strong>
-                        {row.reference && <span>{row.reference}</span>}
+                        {row.reference ? <span>{row.reference}</span> : null}
                       </div>
                     </td>
                     <td>
-                      <div className="client-billing__tableService">
+                      <div className="billing-dashboard__tableService">
                         <span>{row.serviceName}</span>
-                        {row.notes && <small>{row.notes}</small>}
+                        {row.notes ? <small>{row.notes}</small> : null}
                       </div>
                     </td>
                     <td>{row.issuedLabel}</td>
@@ -464,12 +539,11 @@ export default function BillingClient({ initialData, viewerName }: Props) {
         </div>
       </section>
 
-      {error && (
-        <div className="client-billing__error" role="alert">
-          <strong>Erro ao actualizar a faturação.</strong>
-          <span>{error.message}</span>
-        </div>
-      )}
+      {error ? (
+        <Alert tone="danger" className="billing-dashboard__alert" role="alert" title="Erro ao actualizar a faturação">
+          {error.message}
+        </Alert>
+      ) : null}
     </div>
   );
 }
