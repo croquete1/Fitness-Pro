@@ -1,96 +1,297 @@
 'use client';
-import * as React from 'react';
-import Paper from '@mui/material/Paper';
-import Typography from '@mui/material/Typography';
-import Stack from '@mui/material/Stack';
-import Button from '@mui/material/Button';
-import Tabs from '@mui/material/Tabs';
-import Tab from '@mui/material/Tab';
-import List from '@mui/material/List';
-import ListItem from '@mui/material/ListItem';
-import ListItemButton from '@mui/material/ListItemButton';
-import ListItemText from '@mui/material/ListItemText';
-import Pagination from '@mui/material/Pagination';
-import CircularProgress from '@mui/material/CircularProgress';
 
-type Noti = { id: string; title: string; body?: string; href?: string; read?: boolean; created_at?: string | null };
+import * as React from 'react';
+import Link from 'next/link';
+import { ArrowUpRight, CheckCheck, MailOpen, MailX } from 'lucide-react';
+import Button from '@/components/ui/Button';
+import Spinner from '@/components/ui/Spinner';
+import Alert from '@/components/ui/Alert';
+import DataSourceBadge from '@/components/ui/DataSourceBadge';
+import type { NotificationRow } from '@/lib/notifications/types';
+
+type StatusFilter = 'all' | 'unread' | 'read';
+
+type ListResponse = {
+  items: NotificationRow[];
+  total: number;
+  counts?: { all: number; unread: number; read: number };
+  source?: 'supabase' | 'fallback';
+  generatedAt?: string | null;
+};
+
+type StatusSegment = {
+  value: StatusFilter;
+  label: string;
+  icon: React.ReactNode;
+};
+
+const STATUS_SEGMENTS: StatusSegment[] = [
+  { value: 'all', label: 'Todas', icon: <CheckCheck size={16} aria-hidden /> },
+  { value: 'unread', label: 'Por ler', icon: <MailX size={16} aria-hidden /> },
+  { value: 'read', label: 'Lidas', icon: <MailOpen size={16} aria-hidden /> },
+];
+
+const formatter = new Intl.DateTimeFormat('pt-PT', {
+  day: '2-digit',
+  month: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
+function formatDate(value: string | null | undefined): string {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return formatter.format(date);
+}
+
+function getTotalForStatus(counts: { all: number; unread: number; read: number }, status: StatusFilter): number {
+  switch (status) {
+    case 'unread':
+      return counts.unread;
+    case 'read':
+      return counts.read;
+    default:
+      return counts.all;
+  }
+}
 
 export default function NotificationsListClient() {
-  const [tab, setTab] = React.useState<'all' | 'unread' | 'read'>('unread');
-  const [page, setPage] = React.useState(1);
-  const [pageSize] = React.useState(10);
-  const [items, setItems] = React.useState<Noti[]>([]);
-  const [count, setCount] = React.useState(0);
-  const [loading, setLoading] = React.useState(false);
+  const [status, setStatus] = React.useState<StatusFilter>('unread');
+  const [page, setPage] = React.useState(0);
+  const pageSize = 10;
+  const [items, setItems] = React.useState<NotificationRow[]>([]);
+  const [counts, setCounts] = React.useState<{ all: number; unread: number; read: number }>({ all: 0, unread: 0, read: 0 });
+  const [source, setSource] = React.useState<'supabase' | 'fallback'>('fallback');
+  const [generatedAt, setGeneratedAt] = React.useState<string | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = React.useState(0);
 
-  const pages = Math.max(1, Math.ceil(count / pageSize));
-
-  async function load() {
+  React.useEffect(() => {
+    const controller = new AbortController();
     setLoading(true);
-    try {
-      const r = await fetch(`/api/notifications?status=${tab}&page=${page}&pageSize=${pageSize}`, { cache: 'no-store' });
-      const j = await r.json();
-      setItems(j?.items ?? []);
-      setCount(j?.count ?? 0);
-    } finally {
-      setLoading(false);
+    setError(null);
+
+    (async () => {
+      try {
+        const url = new URL('/api/notifications/list', window.location.origin);
+        url.searchParams.set('status', status);
+        url.searchParams.set('page', String(page));
+        url.searchParams.set('pageSize', String(pageSize));
+        const response = await fetch(url.toString(), {
+          cache: 'no-store',
+          credentials: 'include',
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          const message = await response.text().catch(() => '');
+          throw new Error(message || `Falha ao carregar notificações (${response.status}).`);
+        }
+        const payload = (await response.json()) as ListResponse;
+        if (controller.signal.aborted) return;
+        setItems(payload.items ?? []);
+        setCounts((prev) => ({
+          all:
+            typeof payload.counts?.all === 'number'
+              ? payload.counts.all
+              : status === 'all'
+                ? payload.total ?? prev.all
+                : prev.all,
+          unread:
+            typeof payload.counts?.unread === 'number'
+              ? payload.counts.unread
+              : status === 'unread'
+                ? payload.total ?? prev.unread
+                : prev.unread,
+          read:
+            typeof payload.counts?.read === 'number'
+              ? payload.counts.read
+              : status === 'read'
+                ? payload.total ?? prev.read
+                : prev.read,
+        }));
+        setSource(payload.source === 'supabase' ? 'supabase' : 'fallback');
+        setGeneratedAt(typeof payload.generatedAt === 'string' ? payload.generatedAt : null);
+      } catch (err: any) {
+        if (controller.signal.aborted) return;
+        console.error('[notifications:list] falha a carregar', err);
+        setItems([]);
+        setCounts((prev) => prev);
+        setSource('fallback');
+        setGeneratedAt(null);
+        setError(err?.message ?? 'Não foi possível carregar notificações.');
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    })();
+
+    return () => controller.abort();
+  }, [status, page, pageSize, refreshKey]);
+
+  React.useEffect(() => {
+    setPage(0);
+  }, [status]);
+
+  const totalForStatus = React.useMemo(() => getTotalForStatus(counts, status), [counts, status]);
+  const totalPages = Math.max(1, Math.ceil(totalForStatus / pageSize));
+
+  React.useEffect(() => {
+    if (page > totalPages - 1) {
+      setPage(totalPages - 1);
     }
-  }
+  }, [page, totalPages]);
 
-  React.useEffect(() => { load(); /* eslint-disable-next-line */ }, [tab, page]);
+  const markAllRead = React.useCallback(async () => {
+    try {
+      await fetch('/api/notifications/mark-all-read', { method: 'POST' });
+      setStatus('unread');
+      setPage(0);
+      setRefreshKey((key) => key + 1);
+    } catch (err) {
+      console.error('[notifications:list] falha a marcar tudo como lido', err);
+    }
+  }, []);
 
-  async function toggle(n: Noti) {
-    await fetch(`/api/notifications/${n.id}/read`, { method: 'POST', body: JSON.stringify({ read: !n.read }) });
-    load();
-  }
-
-  async function markAll() {
-    await fetch('/api/notifications/mark-all-read', { method: 'POST' });
-    if (tab !== 'read') setTab('unread'); // força refresh útil
-    load();
-  }
+  const toggleRead = React.useCallback(async (row: NotificationRow) => {
+    try {
+      await fetch(`/api/notifications/${row.read ? 'mark-unread' : 'mark-read'}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ids: [row.id] }),
+      });
+      setRefreshKey((key) => key + 1);
+    } catch (err) {
+      console.error('[notifications:list] falha a actualizar estado', err);
+    }
+  }, []);
 
   return (
-    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-        <Typography variant="h6" fontWeight={800}>Centro de notificações</Typography>
-        <Button onClick={markAll} disabled={loading || !items.length}>Marcar tudo como lido</Button>
-      </Stack>
+    <section className="neo-panel notifications-list" aria-live="polite">
+      <header className="notifications-list__header">
+        <div className="notifications-list__intro">
+          <div className="neo-stack neo-stack--xs">
+            <h2 className="notifications-list__title">Centro de notificações</h2>
+            <p className="notifications-list__subtitle">
+              {totalForStatus > 0
+                ? `${totalForStatus} notificações ${status === 'unread' ? 'por ler' : status === 'read' ? 'lidas' : 'no filtro seleccionado'}`
+                : 'Sem notificações no filtro actual.'}
+            </p>
+          </div>
+        </div>
+        <div className="notifications-list__meta">
+          <DataSourceBadge source={source} generatedAt={generatedAt} />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={markAllRead}
+            disabled={loading || totalForStatus === 0}
+            title="Marcar todas as notificações como lidas"
+          >
+            Marcar tudo como lido
+          </Button>
+        </div>
+      </header>
 
-      <Tabs value={tab} onChange={(_, v) => { setPage(1); setTab(v); }} sx={{ mb: 1 }}>
-        <Tab value="all" label="Todas" />
-        <Tab value="unread" label="Por ler" />
-        <Tab value="read" label="Lidas" />
-      </Tabs>
+      <div className="neo-segmented notifications-list__tabs" role="tablist" aria-label="Filtrar notificações por estado">
+        {STATUS_SEGMENTS.map((segment) => (
+          <button
+            key={segment.value}
+            type="button"
+            className="neo-segmented__btn"
+            data-active={segment.value === status}
+            onClick={() => setStatus(segment.value)}
+            role="tab"
+            aria-selected={segment.value === status}
+          >
+            <span className="notifications-list__tabIcon" aria-hidden>
+              {segment.icon}
+            </span>
+            <span className="notifications-list__tabLabel">{segment.label}</span>
+            <span className="neo-segmented__count">{getTotalForStatus(counts, segment.value)}</span>
+          </button>
+        ))}
+      </div>
+
+      {error && !loading ? (
+        <Alert tone="warning" title="Falha ao sincronizar notificações" role="alert">
+          {error}
+        </Alert>
+      ) : null}
 
       {loading ? (
-        <Stack alignItems="center" sx={{ py: 4 }}><CircularProgress size={28} /></Stack>
+        <div className="notifications-list__loading" role="status" aria-live="assertive">
+          <Spinner size={24} />
+          <span className="neo-text--sm neo-text--muted">A sincronizar notificações…</span>
+        </div>
       ) : (
-        <>
-          <List>
-            {items.map((n) => (
-              <ListItem key={n.id} divider disablePadding
-                secondaryAction={<Button size="small" onClick={() => toggle(n)}>{n.read ? 'Marcar como não lida' : 'Marcar como lida'}</Button>}>
-                <ListItemButton component="a" href={n.href || '/dashboard/notifications'}>
-                  <ListItemText
-                    primary={`${n.title}${n.read ? '' : ' •'}`}
-                    secondary={n.body}
-                    primaryTypographyProps={{ fontWeight: n.read ? 400 : 700, noWrap: true }}
-                    secondaryTypographyProps={{ noWrap: true }}
-                  />
-                </ListItemButton>
-              </ListItem>
-            ))}
-            {!items.length && <Typography variant="body2" sx={{ opacity: .7, px: 2, py: 3 }}>Sem notificações.</Typography>}
-          </List>
-
-          {pages > 1 && (
-            <Stack alignItems="center" sx={{ mt: 1 }}>
-              <Pagination page={page} count={pages} onChange={(_, p) => setPage(p)} />
-            </Stack>
-          )}
-        </>
+        <div className="notifications-list__items" role="list">
+          {items.map((item) => (
+            <article key={item.id} className="notifications-list__item" data-read={item.read} role="listitem">
+              <div className="notifications-list__itemHeader">
+                <div className="notifications-list__itemMeta">
+                  <span className="notifications-list__itemTitle">{item.title ?? 'Notificação'}</span>
+                  <time className="notifications-list__itemDate" dateTime={item.created_at ?? undefined}>
+                    {formatDate(item.created_at)}
+                  </time>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => toggleRead(item)}
+                  title={item.read ? 'Marcar como não lida' : 'Marcar como lida'}
+                >
+                  {item.read ? 'Marcar como não lida' : 'Marcar como lida'}
+                </Button>
+              </div>
+              {item.body ? <p className="notifications-list__itemBody">{item.body}</p> : null}
+              <footer className="notifications-list__itemFooter">
+                {item.href ? (
+                  <Link className="notifications-list__itemLink" href={item.href}>
+                    Abrir detalhe
+                    <ArrowUpRight size={14} aria-hidden />
+                  </Link>
+                ) : (
+                  <span className="notifications-list__itemLink" data-disabled>
+                    Sem ligação directa
+                  </span>
+                )}
+              </footer>
+            </article>
+          ))}
+          {!items.length && !error ? (
+            <div className="notifications-list__empty" role="status">
+              <span className="neo-text--sm neo-text--muted">Sem notificações para este filtro.</span>
+            </div>
+          ) : null}
+        </div>
       )}
-    </Paper>
+
+      {totalPages > 1 ? (
+        <nav className="notifications-list__pagination" aria-label="Paginação de notificações">
+          <button
+            type="button"
+            className="neo-button neo-button--ghost neo-button--small"
+            onClick={() => setPage((prev) => Math.max(0, prev - 1))}
+            disabled={loading || page === 0}
+          >
+            Anterior
+          </button>
+          <span className="notifications-list__paginationStatus">
+            Página {page + 1} de {totalPages}
+          </span>
+          <button
+            type="button"
+            className="neo-button neo-button--ghost neo-button--small"
+            onClick={() => setPage((prev) => Math.min(totalPages - 1, prev + 1))}
+            disabled={loading || page >= totalPages - 1}
+          >
+            Seguinte
+          </button>
+        </nav>
+      ) : null}
+    </section>
   );
 }

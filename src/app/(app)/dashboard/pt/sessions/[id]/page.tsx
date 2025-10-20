@@ -2,185 +2,509 @@
 
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import {
-  Box, Button, Card, CardContent, Container, IconButton, List, ListItem, ListItemIcon, ListItemText,
-  Stack, TextField, Typography, Tooltip
-} from '@mui/material';
-import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
-import DeleteIcon from '@mui/icons-material/Delete';
-import { toast } from '@/components/ui/Toaster';
+import { CalendarClock, Clock4, GripVertical, Loader2, NotebookPen, Plus, Trash2 } from 'lucide-react';
 
-type Sess = {
+import Alert from '@/components/ui/Alert';
+import Button from '@/components/ui/Button';
+import DataSourceBadge from '@/components/ui/DataSourceBadge';
+import { toast } from '@/components/ui/Toaster';
+import { toDatetimeLocalInput } from '@/lib/datetime/datetimeLocal';
+import { formatRelativeTime } from '@/lib/datetime/relative';
+
+type SessionPayload = {
   id: string;
   title: string | null;
   kind: string | null;
-  start_at: string;
+  start_at: string | null;
   end_at: string | null;
+  duration_min: number | null;
   exercises: string[] | null;
+  client_id: string | null;
 };
 
-export default function EditSessionPage() {
-  const { id } = useParams<{ id: string }>();
-  const router = useRouter();
-  const [item, setItem] = React.useState<Sess | null>(null);
-  const [loading, setLoading] = React.useState(true);
+type SessionFormState = {
+  title: string;
+  kind: string;
+  start: string;
+  end: string;
+  duration: number;
+  exercises: string[];
+};
 
-  const [title, setTitle] = React.useState('');
-  const [kind, setKind] = React.useState('presencial');
-  const [startAt, setStartAt] = React.useState('');
-  const [endAt, setEndAt] = React.useState('');
-  const [exercises, setExercises] = React.useState<string[]>([]);
-  const [newEx, setNewEx] = React.useState('');
+type FormErrors = Partial<Record<keyof SessionFormState, string>>;
+
+const DEFAULT_STATE: SessionFormState = {
+  title: '',
+  kind: 'presencial',
+  start: '',
+  end: '',
+  duration: 60,
+  exercises: [],
+};
+
+function fromApi(data: SessionPayload): SessionFormState {
+  const durationFromApi =
+    typeof data.duration_min === 'number' && data.duration_min > 0
+      ? data.duration_min
+      : data.start_at && data.end_at
+        ? Math.max(15, Math.round((new Date(data.end_at).getTime() - new Date(data.start_at).getTime()) / 60000))
+        : 60;
+  return {
+    title: data.title ?? '',
+    kind: data.kind ?? 'presencial',
+    start: toDatetimeLocalInput(data.start_at),
+    end: toDatetimeLocalInput(data.end_at),
+    duration: durationFromApi,
+    exercises: Array.isArray(data.exercises) ? data.exercises.map((value) => String(value)) : [],
+  } satisfies SessionFormState;
+}
+
+function toIso(value: string): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
+}
+
+export default function EditSessionPage() {
+  const router = useRouter();
+  const params = useParams<{ id: string }>();
+  const id = React.useMemo(() => (Array.isArray(params?.id) ? params?.id[0] : params?.id) ?? '', [params]);
+
+  const [loading, setLoading] = React.useState(true);
+  const [sessionMeta, setSessionMeta] = React.useState<{ fetchedAt: string | null; source: 'supabase' | 'fallback' }>({
+    fetchedAt: null,
+    source: 'supabase',
+  });
+  const [form, setForm] = React.useState<SessionFormState>({ ...DEFAULT_STATE });
+  const [errors, setErrors] = React.useState<FormErrors>({});
+  const [feedback, setFeedback] = React.useState<{ tone: 'success' | 'danger'; message: string } | null>(null);
+  const [loadingError, setLoadingError] = React.useState<string | null>(null);
+  const [saving, setSaving] = React.useState(false);
+  const [removing, setRemoving] = React.useState(false);
+  const [newExercise, setNewExercise] = React.useState('');
+
+  const dragIndex = React.useRef<number | null>(null);
 
   React.useEffect(() => {
-    (async () => {
+    const abort = new AbortController();
+    async function load() {
+      setLoading(true);
+      setLoadingError(null);
       try {
-        const r = await fetch(`/api/pt/sessions/${id}`, { cache: 'no-store' });
-        const j = await r.json();
-        const s: Sess = j.item;
-        setItem(s);
-        setTitle(s.title ?? '');
-        setKind(s.kind ?? 'presencial');
-        setStartAt(s.start_at?.slice(0,16) ?? '');
-        setEndAt(s.end_at ? s.end_at.slice(0,16) : '');
-        setExercises(Array.isArray(s.exercises) ? s.exercises : []);
-      } catch {}
-      setLoading(false);
-    })();
+        const response = await fetch(`/api/pt/sessions/${id}`, { cache: 'no-store', signal: abort.signal });
+        if (!response.ok) {
+          throw new Error((await response.text()) || 'Não foi possível obter a sessão.');
+        }
+        const json = await response.json();
+        const payload = json.item as SessionPayload | undefined;
+        if (!payload) {
+          throw new Error('Sessão não encontrada.');
+        }
+        setForm(fromApi(payload));
+        setSessionMeta({ fetchedAt: new Date().toISOString(), source: 'supabase' });
+      } catch (error: any) {
+        if (abort.signal.aborted) return;
+        setLoadingError(error?.message ?? 'Não foi possível carregar a sessão.');
+      } finally {
+        if (!abort.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    if (id) {
+      load();
+    }
+
+    return () => abort.abort();
   }, [id]);
 
-  async function save() {
+  React.useEffect(() => {
+    if (!feedback) return;
+    const timeout = window.setTimeout(() => setFeedback(null), feedback.tone === 'success' ? 3200 : 5200);
+    return () => window.clearTimeout(timeout);
+  }, [feedback]);
+
+  function setField<K extends keyof SessionFormState>(field: K, value: SessionFormState[K]) {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    setErrors((prev) => ({ ...prev, [field]: undefined }));
+  }
+
+  function validate(values: SessionFormState): FormErrors {
+    const nextErrors: FormErrors = {};
+    if (!values.title.trim()) nextErrors.title = 'Indica um título para a sessão.';
+    if (!values.start) nextErrors.start = 'Define a data e hora de início.';
+    if (!Number.isFinite(values.duration) || values.duration <= 0) {
+      nextErrors.duration = 'A duração tem de ser positiva.';
+    }
+    return nextErrors;
+  }
+
+  async function handleSave() {
+    setFeedback(null);
+    const nextErrors = validate(form);
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      setFeedback({ tone: 'danger', message: 'Verifica os campos destacados antes de gravar.' });
+      return;
+    }
+
+    setSaving(true);
     try {
-      const payload = {
-        title, kind,
-        start_at: startAt ? new Date(startAt).toISOString() : null,
-        end_at: endAt ? new Date(endAt).toISOString() : null,
-        exercises
+      const payload: Record<string, unknown> = {
+        title: form.title.trim(),
+        kind: form.kind,
+        start_at: toIso(form.start),
+        end_at: toIso(form.end),
+        duration_min: Number(form.duration),
+        exercises: form.exercises,
       };
-      const r = await fetch(`/api/pt/sessions/${id}`, { method: 'PATCH', headers: { 'content-type':'application/json' }, body: JSON.stringify(payload) });
-      if (!r.ok) throw new Error(await r.text());
-      toast('Sessão guardada 💾', 1500, 'success');
+
+      const response = await fetch(`/api/pt/sessions/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        throw new Error((await response.text()) || 'Falha ao guardar a sessão.');
+      }
+      toast('Sessão actualizada 💾', 3000, 'success');
+      setFeedback({ tone: 'success', message: 'Sessão actualizada com sucesso.' });
       router.push('/dashboard/pt/sessions');
-    } catch { toast('Falha ao guardar', 1800, 'error'); }
+    } catch (error: any) {
+      setFeedback({ tone: 'danger', message: error?.message ?? 'Não foi possível guardar a sessão.' });
+    } finally {
+      setSaving(false);
+    }
   }
 
-  async function remove() {
-    if (!confirm('Apagar sessão?')) return;
+  async function handleDelete() {
+    if (!id || removing) return;
+    const confirmed = window.confirm('Eliminar sessão definitivamente?');
+    if (!confirmed) return;
+    setRemoving(true);
     try {
-      const r = await fetch(`/api/pt/sessions/${id}`, { method: 'DELETE' });
-      if (!r.ok) throw new Error(await r.text());
-      toast('Sessão apagada 🗑️', 1500, 'success');
+      const response = await fetch(`/api/pt/sessions/${id}`, { method: 'DELETE' });
+      if (!response.ok) {
+        throw new Error((await response.text()) || 'Falha ao eliminar a sessão.');
+      }
+      toast('Sessão eliminada 🗑️', 3200, 'success');
       router.push('/dashboard/pt/sessions');
-    } catch { toast('Falha ao apagar', 1800, 'error'); }
+    } catch (error: any) {
+      setFeedback({ tone: 'danger', message: error?.message ?? 'Não foi possível eliminar a sessão.' });
+      setRemoving(false);
+    }
   }
 
-  // ------ Drag & Drop exercícios (HTML5) ------
-  const dragIndex = React.useRef<number | null>(null);
-  function onDragStart(i: number) { return () => { dragIndex.current = i; }; }
-  function onDragOver(e: React.DragEvent) { e.preventDefault(); }
-  function onDrop(i: number) {
-    return (e: React.DragEvent) => {
-      e.preventDefault();
+  function handleAddExercise() {
+    const value = newExercise.trim();
+    if (!value) return;
+    setForm((prev) => ({ ...prev, exercises: [...prev.exercises, value] }));
+    setNewExercise('');
+  }
+
+  function handleRemoveExercise(index: number) {
+    setForm((prev) => ({ ...prev, exercises: prev.exercises.filter((_, position) => position !== index) }));
+  }
+
+  function handleDragStart(index: number) {
+    return () => {
+      dragIndex.current = index;
+    };
+  }
+
+  function handleDragOver(event: React.DragEvent<HTMLLIElement>) {
+    event.preventDefault();
+  }
+
+  function handleDrop(index: number) {
+    return (event: React.DragEvent<HTMLLIElement>) => {
+      event.preventDefault();
       const from = dragIndex.current;
-      if (from == null || from === i) return;
-      setExercises(arr => {
-        const next = arr.slice();
-        const [m] = next.splice(from, 1);
-        next.splice(i, 0, m);
-        return next;
+      if (from == null || from === index) return;
+      setForm((prev) => {
+        const nextExercises = [...prev.exercises];
+        const [moved] = nextExercises.splice(from, 1);
+        nextExercises.splice(index, 0, moved);
+        return { ...prev, exercises: nextExercises };
       });
       dragIndex.current = null;
     };
   }
 
-  function addExercise() {
-    const v = newEx.trim();
-    if (!v) return;
-    setExercises(e => [...e, v]);
-    setNewEx('');
-  }
-  function delExercise(i: number) {
-    setExercises(e => e.filter((_, idx) => idx !== i));
+  const metrics = React.useMemo(() => {
+    const start = toIso(form.start);
+    const end = toIso(form.end);
+    const duration = Number.isFinite(form.duration) ? form.duration : 0;
+    return {
+      startRelative: formatRelativeTime(start),
+      endRelative: formatRelativeTime(end),
+      duration,
+      exercises: form.exercises.length,
+    };
+  }, [form.start, form.end, form.duration, form.exercises]);
+
+  if (loading) {
+    return (
+      <div className="pt-session-editor">
+        <div className="neo-panel neo-panel--skeleton">
+          <div className="neo-panel__body neo-stack neo-stack--md">
+            <Loader2 className="neo-icon neo-icon--spin" aria-hidden />
+            <p className="neo-text--muted">A carregar sessão…</p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
-  if (loading || !item) return <Container maxWidth="md"><Typography>Carregando…</Typography></Container>;
+  if (loadingError) {
+    return (
+      <div className="pt-session-editor">
+        <Alert tone="danger" role="alert">
+          {loadingError}
+        </Alert>
+        <div className="pt-session-editor__errorActions">
+          <Button variant="ghost" onClick={() => router.back()}>
+            Voltar
+          </Button>
+          <Button variant="primary" onClick={() => router.refresh?.()}>
+            Tentar novamente
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <Container maxWidth="md" sx={{ display:'grid', gap:2 }}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between">
-        <Typography variant="h5" fontWeight={800}>✏️ Editar sessão</Typography>
-        <Stack direction="row" gap={1}>
-          <Button onClick={() => router.back()}>❌ Cancelar</Button>
-          <Button color="error" onClick={remove}>🗑️ Apagar</Button>
-          <Button variant="contained" onClick={save}>💾 Guardar</Button>
-        </Stack>
-      </Stack>
+    <div className="pt-session-editor" aria-live="polite">
+      <header className="pt-session-editor__header">
+        <div className="neo-stack neo-stack--xs">
+          <p className="neo-breadcrumb">Dashboard · PT · Sessões</p>
+          <h1 className="pt-session-editor__title">Editar sessão</h1>
+          <p className="pt-session-editor__subtitle">
+            Actualiza os detalhes operacionais, reorganiza os exercícios e mantém o histórico consistente.
+          </p>
+        </div>
+        <div className="pt-session-editor__headerActions">
+          <Button variant="ghost" size="sm" onClick={() => router.back()}>
+            Cancelar
+          </Button>
+          <Button variant="danger" size="sm" onClick={handleDelete} loading={removing} disabled={removing}>
+            <Trash2 className="neo-icon" aria-hidden /> Apagar
+          </Button>
+          <Button variant="primary" size="sm" onClick={handleSave} loading={saving} disabled={saving}>
+            <NotebookPen className="neo-icon" aria-hidden /> Guardar
+          </Button>
+        </div>
+      </header>
 
-      <Card variant="outlined">
-        <CardContent>
-          <Stack gap={2}>
-            <TextField label="Título" value={title} onChange={(e)=>setTitle(e.target.value)} />
-            <TextField label="Tipo" value={kind} onChange={(e)=>setKind(e.target.value)} />
-            <Stack direction="row" gap={2}>
-              <TextField
-                label="Início"
-                type="datetime-local"
-                value={startAt}
-                onChange={(e)=>setStartAt(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              />
-              <TextField
-                label="Fim"
-                type="datetime-local"
-                value={endAt}
-                onChange={(e)=>setEndAt(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Stack>
+      <section className="pt-session-editor__metaBar">
+        <DataSourceBadge source={sessionMeta.source} generatedAt={sessionMeta.fetchedAt} />
+      </section>
 
-            <Box>
-              <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>↕️ Exercícios (arrasta para ordenar)</Typography>
-              <Stack direction="row" gap={1} sx={{ mb: 1 }}>
-                <TextField
-                  label="Adicionar exercício"
-                  value={newEx}
-                  onChange={(e)=>setNewEx(e.target.value)}
-                  onKeyDown={(e)=>{ if (e.key==='Enter') { e.preventDefault(); addExercise(); } }}
-                  sx={{ minWidth: 320 }}
+      {feedback ? <Alert tone={feedback.tone}>{feedback.message}</Alert> : null}
+
+      <div className="pt-session-editor__grid">
+        <form className="neo-panel pt-session-editor__panel" onSubmit={(event) => event.preventDefault()} noValidate>
+          <header className="neo-panel__header">
+            <div>
+              <h2 className="neo-panel__title">Detalhes</h2>
+              <p className="neo-panel__subtitle">Altera a informação essencial desta sessão.</p>
+            </div>
+          </header>
+          <div className="neo-panel__body neo-stack neo-stack--lg">
+            <div className="neo-input-group" data-error={Boolean(errors.title)}>
+              <label htmlFor="title" className="neo-input-group__label">
+                Título da sessão
+              </label>
+              <input
+                id="title"
+                className="neo-input"
+                value={form.title}
+                placeholder="Treino de força nível 2"
+                onChange={(event) => setField('title', event.target.value)}
+                required
+              />
+              <p className="neo-input-hint">Visível no calendário do cliente e nos lembretes automáticos.</p>
+              {errors.title ? <p className="neo-input-error">{errors.title}</p> : null}
+            </div>
+
+            <div className="neo-grid neo-grid--cols2 neo-grid--stack-sm">
+              <div className="neo-input-group">
+                <label htmlFor="kind" className="neo-input-group__label">
+                  Tipo
+                </label>
+                <select
+                  id="kind"
+                  className="neo-input"
+                  value={form.kind}
+                  onChange={(event) => setField('kind', event.target.value)}
+                >
+                  <option value="presencial">Presencial</option>
+                  <option value="online">Online</option>
+                  <option value="outro">Outro</option>
+                </select>
+              </div>
+              <div className="neo-input-group" data-error={Boolean(errors.duration)}>
+                <label htmlFor="duration" className="neo-input-group__label">
+                  Duração (min)
+                </label>
+                <input
+                  id="duration"
+                  type="number"
+                  min={15}
+                  step={5}
+                  className="neo-input"
+                  value={form.duration}
+                  onChange={(event) => setField('duration', Number(event.target.value))}
+                  required
                 />
-                <Button onClick={addExercise}>➕ Adicionar</Button>
-              </Stack>
+                <p className="neo-input-hint">Utilizado para validar conflitos e gerar o resumo semanal.</p>
+                {errors.duration ? <p className="neo-input-error">{errors.duration}</p> : null}
+              </div>
+            </div>
 
-              <List dense sx={{ border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
-                {exercises.length === 0 ? (
-                  <Typography variant="caption" sx={{ p: 2, display:'block', opacity:.7 }}>
-                    Sem exercícios. Adiciona alguns para esta sessão.
-                  </Typography>
-                ) : exercises.map((name, i) => (
-                  <ListItem
-                    key={`${name}-${i}`}
-                    draggable
-                    onDragStart={onDragStart(i)}
-                    onDragOver={onDragOver}
-                    onDrop={onDrop(i)}
-                    sx={{ cursor:'grab' }}
-                    secondaryAction={
-                      <Tooltip title="Remover">
-                        <IconButton edge="end" onClick={() => delExercise(i)}>
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    }
-                  >
-                    <ListItemIcon sx={{ minWidth: 28 }}><DragIndicatorIcon fontSize="small" /></ListItemIcon>
-                    <ListItemText primary={name} />
-                  </ListItem>
-                ))}
-              </List>
-            </Box>
-          </Stack>
-        </CardContent>
-      </Card>
-    </Container>
+            <div className="neo-grid neo-grid--cols2 neo-grid--stack-sm">
+              <div className="neo-input-group" data-error={Boolean(errors.start)}>
+                <label htmlFor="start" className="neo-input-group__label">
+                  Início
+                </label>
+                <input
+                  id="start"
+                  type="datetime-local"
+                  className="neo-input"
+                  value={form.start}
+                  onChange={(event) => setField('start', event.target.value)}
+                  required
+                />
+                <p className="neo-input-hint">Ajusta automaticamente os lembretes do cliente.</p>
+                {errors.start ? <p className="neo-input-error">{errors.start}</p> : null}
+              </div>
+              <div className="neo-input-group">
+                <label htmlFor="end" className="neo-input-group__label">
+                  Fim (opcional)
+                </label>
+                <input
+                  id="end"
+                  type="datetime-local"
+                  className="neo-input"
+                  value={form.end}
+                  onChange={(event) => setField('end', event.target.value)}
+                />
+                <p className="neo-input-hint">Se omisso, o fim é calculado com base na duração.</p>
+              </div>
+            </div>
+
+            <section className="pt-session-editor__exercises">
+              <header className="pt-session-editor__exercisesHeader">
+                <div className="neo-stack neo-stack--xxs">
+                  <h3>Exercícios</h3>
+                  <p className="neo-text--muted">Arrasta para ordenar e adapta a sequência ao cliente.</p>
+                </div>
+                <div className="pt-session-editor__exerciseInput">
+                  <input
+                    className="neo-input"
+                    value={newExercise}
+                    placeholder="Ex.: Agachamento frontal · 4x8"
+                    onChange={(event) => setNewExercise(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        handleAddExercise();
+                      }
+                    }}
+                  />
+                  <Button type="button" size="sm" variant="ghost" onClick={handleAddExercise}>
+                    <Plus className="neo-icon" aria-hidden /> Adicionar
+                  </Button>
+                </div>
+              </header>
+              <ul className="pt-session-editor__exerciseList" role="list">
+                {form.exercises.length === 0 ? (
+                  <li className="pt-session-editor__exerciseEmpty">Nenhum exercício registado para esta sessão.</li>
+                ) : (
+                  form.exercises.map((exercise, index) => (
+                    <li
+                      key={`${exercise}-${index}`}
+                      className="pt-session-editor__exerciseItem"
+                      draggable
+                      onDragStart={handleDragStart(index)}
+                      onDragOver={handleDragOver}
+                      onDrop={handleDrop(index)}
+                      aria-grabbed="true"
+                    >
+                      <span className="pt-session-editor__exerciseDrag" aria-hidden>
+                        <GripVertical className="neo-icon" aria-hidden />
+                      </span>
+                      <span className="pt-session-editor__exerciseText">{exercise}</span>
+                      <button
+                        type="button"
+                        className="pt-session-editor__exerciseRemove"
+                        onClick={() => handleRemoveExercise(index)}
+                        aria-label={`Remover exercício ${exercise}`}
+                      >
+                        <Trash2 className="neo-icon" aria-hidden />
+                      </button>
+                    </li>
+                  ))
+                )}
+              </ul>
+            </section>
+          </div>
+          <footer className="neo-panel__footer pt-session-editor__footer">
+            <Button type="button" variant="ghost" onClick={() => router.back()}>
+              Cancelar
+            </Button>
+            <Button type="button" variant="primary" onClick={handleSave} loading={saving} disabled={saving}>
+              Guardar alterações
+            </Button>
+          </footer>
+        </form>
+
+        <aside className="neo-panel pt-session-editor__sidebar" aria-label="Métricas da sessão">
+          <header className="neo-panel__header">
+            <div>
+              <h2 className="neo-panel__title">Resumo da sessão</h2>
+              <p className="neo-panel__subtitle">Dados calculados em tempo real com base no formulário.</p>
+            </div>
+          </header>
+          <div className="neo-panel__body">
+            <ul className="pt-session-editor__metrics" role="list">
+              <li>
+                <CalendarClock className="neo-icon" aria-hidden />
+                <div>
+                  <p className="pt-session-editor__metricLabel">Inicia</p>
+                  <p className="pt-session-editor__metricValue">
+                    {form.start ? new Date(form.start).toLocaleString('pt-PT', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}
+                  </p>
+                  <p className="pt-session-editor__metricHint">{metrics.startRelative ?? 'Sem data definida'}</p>
+                </div>
+              </li>
+              <li>
+                <Clock4 className="neo-icon" aria-hidden />
+                <div>
+                  <p className="pt-session-editor__metricLabel">Duração planeada</p>
+                  <p className="pt-session-editor__metricValue">{metrics.duration} min</p>
+                  <p className="pt-session-editor__metricHint">
+                    {form.end
+                      ? `Termina ${metrics.endRelative ?? 'no horário definido'}`
+                      : 'Fim calculado automaticamente a partir da duração'}
+                  </p>
+                </div>
+              </li>
+              <li>
+                <NotebookPen className="neo-icon" aria-hidden />
+                <div>
+                  <p className="pt-session-editor__metricLabel">Blocos na sessão</p>
+                  <p className="pt-session-editor__metricValue">{metrics.exercises}</p>
+                  <p className="pt-session-editor__metricHint">Reordena arrastando os cartões acima.</p>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </aside>
+      </div>
+    </div>
   );
 }

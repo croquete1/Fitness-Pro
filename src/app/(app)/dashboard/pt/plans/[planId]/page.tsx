@@ -1,10 +1,8 @@
 // src/app/(app)/dashboard/pt/plans/[planId]/page.tsx
-import * as React from 'react';
-import { redirect } from 'next/navigation';
-import { Box, Container, Stack, Typography, Card, CardContent, Button, Chip } from '@mui/material';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
+
 import { createServerClient } from '@/lib/supabaseServer';
-import { withDashboardContentSx } from '@/styles/dashboardContentSx';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,57 +24,123 @@ export default async function PlanPage({ params }: { params: Promise<Params> }) 
 
   if (!plan) {
     return (
-      <Container sx={withDashboardContentSx({ display: 'grid', gap: 2 })}>
-        <Typography variant="h5" fontWeight={800}>🗂️ Plano</Typography>
-        <Typography color="text.secondary" sx={{ mt: 2 }}>Plano não encontrado.</Typography>
-      </Container>
+      <div className="trainer-plan-view">
+        <header className="neo-panel neo-panel--header trainer-plan-view__header">
+          <div>
+            <h1 className="trainer-plan-view__title">Plano</h1>
+            <p className="trainer-plan-view__subtitle">Plano não encontrado.</p>
+          </div>
+        </header>
+        <section className="neo-panel">
+          <div className="neo-empty">
+            <span className="neo-empty__icon" aria-hidden>
+              🗂️
+            </span>
+            <p className="neo-empty__title">Plano não encontrado</p>
+            <p className="neo-empty__description">Confirma se o identificador ainda está activo.</p>
+            <Link className="btn" data-variant="secondary" data-size="sm" href="/dashboard/pt/plans">
+              Voltar aos planos
+            </Link>
+          </div>
+        </section>
+      </div>
     );
   }
 
-  // Dias do plano
   const { data: days } = await sb
     .from('training_plan_days' as any)
-    .select('id, name, order_index, notes, updated_at')
+    .select('id, name, notes, order_index, updated_at')
     .eq('plan_id', planId)
     .order('order_index', { ascending: true });
 
+  const orderedDays = (days ?? []).map((day: any, index: number) => ({
+    ...day,
+    position: index + 1,
+  }));
+
   return (
-    <Container sx={withDashboardContentSx({ display: 'grid', gap: 2 })}>
-      <Stack direction="row" alignItems="center" spacing={1}>
-        <Typography variant="h5" fontWeight={800}>🗂️ {plan.title || 'Plano'}</Typography>
-        <Chip size="small" label="PT" color="primary" />
-      </Stack>
-      {plan.description && (
-        <Typography color="text.secondary" sx={{ mt: 0.5 }}>{plan.description}</Typography>
-      )}
+    <div className="trainer-plan-view">
+      <header className="neo-panel neo-panel--header trainer-plan-view__header">
+        <div>
+          <h1 className="trainer-plan-view__title">{plan.title || 'Plano sem nome'}</h1>
+          <p className="trainer-plan-view__subtitle">
+            {plan.description || 'Sequência estruturada de dias de treino.'}
+          </p>
+        </div>
+        <span className="neo-tag" data-tone="primary">Plano do PT</span>
+      </header>
 
-      <Stack direction="row" spacing={1.5} sx={{ mt: 2 }}>
-        <Button variant="contained" component={Link} href={`/dashboard/pt/plans/${planId}/days/${encodeURIComponent('new')}`}>
-          ➕ Criar dia
-        </Button>
-        <Button variant="outlined" component={Link} href="/dashboard/pt/plans">← Voltar</Button>
-      </Stack>
+      <section className="neo-panel trainer-plan-view__actions">
+        <div className="trainer-plan-view__buttons">
+          <Link
+            className="btn"
+            data-variant="primary"
+            data-size="sm"
+            href={`/dashboard/pt/plans/${planId}/days/${encodeURIComponent('new')}`}
+          >
+            ➕ Criar dia
+          </Link>
+          <Link className="btn" data-variant="ghost" data-size="sm" href="/dashboard/pt/plans">
+            ← Voltar aos planos
+          </Link>
+        </div>
+        <p className="neo-text--sm text-muted">
+          Última actualização: {plan.updated_at ? new Date(plan.updated_at).toLocaleString('pt-PT') : '—'}
+        </p>
+      </section>
 
-      <Stack spacing={1.5} sx={{ mt: 3 }}>
-        {(days ?? []).length === 0 && (
-          <Typography color="text.secondary">Ainda não há dias neste plano.</Typography>
+      <section className="trainer-plan-view__list">
+        {orderedDays.length === 0 ? (
+          <div className="neo-empty">
+            <span className="neo-empty__icon" aria-hidden>
+              📅
+            </span>
+            <p className="neo-empty__title">Ainda sem dias configurados</p>
+            <p className="neo-empty__description">
+              Cria o primeiro dia para começar a estruturar o plano de treino.
+            </p>
+          </div>
+        ) : (
+          <ul className="trainer-plan-view__grid">
+            {orderedDays.map((day) => (
+              <li key={day.id} className="neo-surface trainer-plan-view__item">
+                <header>
+                  <div>
+                    <h3>
+                      Dia {day.position}
+                      {day.name ? ` — ${day.name}` : ''}
+                    </h3>
+                    {day.notes && <p className="neo-text--sm text-muted">{day.notes}</p>}
+                  </div>
+                  <span className="neo-tag" data-tone="neutral">
+                    {day.updated_at
+                      ? `Actualizado ${new Date(day.updated_at).toLocaleDateString('pt-PT')}`
+                      : 'Sem data'}
+                  </span>
+                </header>
+                <div className="trainer-plan-view__links">
+                  <Link
+                    href={`/dashboard/pt/plans/${planId}/days/${day.id}/blocks`}
+                    className="btn"
+                    data-variant="secondary"
+                    data-size="sm"
+                  >
+                    🏋️ Exercícios e blocos
+                  </Link>
+                  <Link
+                    href={`/dashboard/pt/plans/${planId}/days/${day.id}/blocks/order`}
+                    className="btn"
+                    data-variant="ghost"
+                    data-size="sm"
+                  >
+                    ↕️ Ordenar blocos
+                  </Link>
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
-
-        {(days ?? []).map((d: any, idx: number) => (
-          <Card key={d.id} variant="outlined">
-            <CardContent sx={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: 1 }}>
-              <Box>
-                <Typography fontWeight={700}>📅 Dia {idx + 1}{d.name ? ` — ${d.name}` : ''}</Typography>
-                {d.notes && <Typography variant="body2" color="text.secondary">{d.notes}</Typography>}
-              </Box>
-              <Stack direction="row" spacing={1}>
-                <Button component={Link} href={`/dashboard/pt/plans/${planId}/days/${d.id}/blocks`} variant="text">🏋️ Exercícios/blocos</Button>
-                <Button component={Link} href={`/dashboard/pt/plans/${planId}/days/${d.id}/blocks/order`} variant="outlined">↕️ Ordenar blocos</Button>
-              </Stack>
-            </CardContent>
-          </Card>
-        ))}
-      </Stack>
-    </Container>
+      </section>
+    </div>
   );
 }

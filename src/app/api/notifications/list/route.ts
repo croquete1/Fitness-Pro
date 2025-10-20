@@ -20,15 +20,21 @@ export async function GET(req: Request) {
   const querySearch = searchParams.get('q');
 
   const sb = tryCreateServerClient();
-  if (!sb) {
-    const fallback = getNotificationsListFallback({
+  const buildFallback = () =>
+    getNotificationsListFallback({
       status,
       type: typeFilter,
       search: querySearch,
       page,
       pageSize,
     });
-    return NextResponse.json(fallback);
+
+  if (!sb) {
+    const fallback = buildFallback();
+    return NextResponse.json({
+      ...fallback,
+      source: 'fallback',
+    });
   }
 
   const escapedSearch = querySearch
@@ -37,34 +43,37 @@ export async function GET(req: Request) {
         .replace(/[%_]/g, (match) => `\\${match}`)
     : '';
 
-  let q = sb
-    .from('notifications')
-    .select('id,title,body,href,read,type,created_at', { count: 'exact' })
-    .eq('user_id', uid)
-    .order('created_at', { ascending: false })
-    .range(from, to);
+  const applyFilters = (query: any) => {
+    let next = query.eq('user_id', uid);
+    if (typeFilter && typeFilter !== 'all') {
+      next = next.eq('type', typeFilter);
+    }
+    if (escapedSearch) {
+      const like = `%${escapedSearch}%`;
+      next = next.or(`title.ilike.${like},body.ilike.${like}`);
+    }
+    return next;
+  };
+
+  let q = applyFilters(
+    sb
+      .from('notifications')
+      .select('id,title,body,href,read,type,created_at', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(from, to),
+  );
 
   if (status === 'unread') q = q.eq('read', false);
   if (status === 'read') q = q.eq('read', true);
-  if (typeFilter && typeFilter !== 'all') {
-    q = q.eq('type', typeFilter);
-  }
-  if (escapedSearch) {
-    const like = `%${escapedSearch}%`;
-    q = q.or(`title.ilike.${like},body.ilike.${like}`);
-  }
 
   const { data, count, error } = await q;
   if (error) {
     console.error('[notifications:list] erro a carregar notificações', error);
-    const fallback = getNotificationsListFallback({
-      status,
-      type: typeFilter,
-      search: querySearch,
-      page,
-      pageSize,
+    const fallback = buildFallback();
+    return NextResponse.json({
+      ...fallback,
+      source: 'fallback',
     });
-    return NextResponse.json(fallback);
   }
 
   const items: NotificationRow[] = (data ?? []).map((n: any) => ({
@@ -77,5 +86,28 @@ export async function GET(req: Request) {
     created_at: (n.created_at ?? null) as string | null,
   }));
 
-  return NextResponse.json({ items, total: count ?? 0 });
+  const baseCountQuery = () => applyFilters(
+    sb
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .order('created_at', { ascending: false }),
+  );
+
+  const [allCount, unreadCount, readCount] = await Promise.all([
+    baseCountQuery(),
+    baseCountQuery().eq('read', false),
+    baseCountQuery().eq('read', true),
+  ]);
+
+  return NextResponse.json({
+    items,
+    total: count ?? 0,
+    counts: {
+      all: allCount.count ?? items.length,
+      unread: unreadCount.count ?? 0,
+      read: readCount.count ?? 0,
+    },
+    source: 'supabase',
+    generatedAt: new Date().toISOString(),
+  });
 }

@@ -187,21 +187,29 @@ export function getNotificationsListFallback(params: ListFallbackParams) {
   const typeKey = params.type?.trim().toLowerCase();
   const search = params.search?.trim().toLowerCase();
 
-  let filtered = FALLBACK_ROWS.slice();
+  let dataset = FALLBACK_ROWS.slice();
+  if (typeKey && typeKey !== 'all') {
+    dataset = dataset.filter((row) => describeType(row.type).key === typeKey);
+  }
+  if (search) {
+    dataset = dataset.filter((row) => {
+      const haystack = `${row.title ?? ''} ${row.body ?? ''}`.toLowerCase();
+      return haystack.includes(search);
+    });
+  }
+
+  const counts = {
+    all: dataset.length,
+    unread: dataset.filter((row) => !row.read).length,
+    read: dataset.filter((row) => row.read).length,
+  };
+
+  let filtered = dataset;
   if (params.status === 'unread') {
     filtered = filtered.filter((row) => !row.read);
   }
   if (params.status === 'read') {
     filtered = filtered.filter((row) => row.read);
-  }
-  if (typeKey && typeKey !== 'all') {
-    filtered = filtered.filter((row) => describeType(row.type).key === typeKey);
-  }
-  if (search) {
-    filtered = filtered.filter((row) => {
-      const haystack = `${row.title ?? ''} ${row.body ?? ''}`.toLowerCase();
-      return haystack.includes(search);
-    });
   }
 
   const total = filtered.length;
@@ -214,5 +222,7 @@ export function getNotificationsListFallback(params: ListFallbackParams) {
       type: describeType(row.type).key,
     })),
     total,
+    counts,
+    generatedAt: FALLBACK_ROWS[0]?.created_at ?? new Date().toISOString(),
   };
 }
