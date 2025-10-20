@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import {
+  AlertTriangle,
   ArrowUpRight,
   CheckCircle2,
   Download,
@@ -11,10 +12,30 @@ import {
   Search,
   Trash2,
 } from 'lucide-react';
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import DataSourceBadge from '@/components/ui/DataSourceBadge';
 import PageHeader from '@/components/ui/PageHeader';
 import OpenInNewToggle from '@/components/ui/OpenInNewToggle';
 import { useToast } from '@/components/ui/ToastProvider';
 import { navigate } from '@/lib/nav';
+import type {
+  AdminApprovalBacklogRow,
+  AdminApprovalsDashboardData,
+  AdminApprovalHeroMetric,
+  AdminApprovalHighlight,
+  AdminApprovalReviewerStat,
+  AdminApprovalSlaOverview,
+  AdminApprovalStatusSegment,
+  AdminApprovalTimelinePoint,
+} from '@/lib/admin/approvals/types';
 
 type Status = 'pending' | 'approved' | 'rejected' | string;
 
@@ -101,6 +122,232 @@ function toneForBanner(severity: Banner['severity']) {
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
+const numberFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 });
+const hourFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 1 });
+const dayFormatter = new Intl.DateTimeFormat('pt-PT', { day: '2-digit', month: 'short' });
+
+type TimelineDatum = AdminApprovalTimelinePoint & { label: string };
+
+type TimelineTooltipProps = {
+  active?: boolean;
+  payload?: Array<{
+    value: number;
+    dataKey: keyof TimelineDatum;
+    color: string;
+    payload: TimelineDatum;
+  }>;
+};
+
+function TimelineTooltip({ active, payload }: TimelineTooltipProps) {
+  if (!active || !payload?.length) return null;
+  const datum = payload[0]?.payload;
+  if (!datum) return null;
+  return (
+    <div className="admin-approvals__tooltip" role="status">
+      <p className="admin-approvals__tooltipTitle">{datum.label}</p>
+      <dl className="admin-approvals__tooltipList">
+        <div>
+          <dt>Pedidos</dt>
+          <dd>{numberFormatter.format(datum.pending)}</dd>
+        </div>
+        <div>
+          <dt>Aprovações</dt>
+          <dd>{numberFormatter.format(datum.approved)}</dd>
+        </div>
+        <div>
+          <dt>Rejeições</dt>
+          <dd>{numberFormatter.format(datum.rejected)}</dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
+function HeroMetrics({ metrics }: { metrics: AdminApprovalHeroMetric[] }) {
+  if (!metrics.length) {
+    return (
+      <div className="neo-empty" role="status">
+        <p className="neo-text--muted">Sem indicadores calculados.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="admin-approvals__heroGrid">
+      {metrics.map((metric) => (
+        <article key={metric.id} className="admin-approvals__heroCard" data-tone={metric.tone}>
+          <span className="admin-approvals__heroLabel">{metric.label}</span>
+          <strong className="admin-approvals__heroValue">{metric.value}</strong>
+          {metric.helper ? <span className="admin-approvals__heroHelper">{metric.helper}</span> : null}
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function HighlightsList({ highlights }: { highlights: AdminApprovalHighlight[] }) {
+  if (!highlights.length) {
+    return (
+      <div className="neo-empty" role="status">
+        <p className="neo-text--muted">Sem destaques no momento.</p>
+      </div>
+    );
+  }
+  return (
+    <ul className="admin-approvals__highlights" role="list">
+      {highlights.map((highlight) => (
+        <li key={highlight.id} className="admin-approvals__highlight" data-tone={highlight.tone}>
+          <span className="admin-approvals__highlightIcon" aria-hidden="true">
+            {highlight.tone === 'positive' ? (
+              <CheckCircle2 className="neo-icon neo-icon--sm" />
+            ) : highlight.tone === 'info' ? (
+              <ArrowUpRight className="neo-icon neo-icon--sm" />
+            ) : (
+              <AlertTriangle className="neo-icon neo-icon--sm" />
+            )}
+          </span>
+          <div>
+            <p className="admin-approvals__highlightTitle">{highlight.title}</p>
+            <p className="admin-approvals__highlightDescription">{highlight.description}</p>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function TimelineChart({ data }: { data: TimelineDatum[] }) {
+  if (!data.length) {
+    return (
+      <div className="neo-empty" role="status">
+        <p className="neo-text--muted">Sem histórico nos últimos 14 dias.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="admin-approvals__chart">
+      <ResponsiveContainer width="100%" height={260}>
+        <AreaChart data={data} margin={{ top: 10, left: 0, right: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="4 4" stroke="var(--neo-chart-grid)" />
+          <XAxis dataKey="label" tickLine={false} stroke="var(--neo-chart-axis)" interval={data.length > 10 ? 1 : 0} />
+          <YAxis allowDecimals={false} tickLine={false} stroke="var(--neo-chart-axis)" width={34} />
+          <Tooltip content={<TimelineTooltip />} cursor={{ fill: 'var(--neo-chart-cursor)' }} />
+          <Area type="monotone" dataKey="pending" stroke="var(--neo-chart-warning)" fill="var(--neo-chart-warning-fill)" />
+          <Area type="monotone" dataKey="approved" stroke="var(--neo-chart-success)" fill="var(--neo-chart-success-fill)" />
+          <Area type="monotone" dataKey="rejected" stroke="var(--neo-chart-danger)" fill="var(--neo-chart-danger-fill)" />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function StatusDistribution({ segments }: { segments: AdminApprovalStatusSegment[] }) {
+  if (!segments.length) {
+    return (
+      <div className="neo-empty" role="status">
+        <p className="neo-text--muted">Sem distribuição disponível.</p>
+      </div>
+    );
+  }
+  const total = segments.reduce((acc, segment) => acc + segment.count, 0);
+  return (
+    <ul className="admin-approvals__distribution" role="list">
+      {segments.map((segment) => {
+        const percent = total ? Math.round((segment.count / total) * 100) : 0;
+        return (
+          <li key={segment.id} className="admin-approvals__distributionItem">
+            <div>
+              <span className="admin-approvals__distributionLabel">{segment.label}</span>
+              <span className="admin-approvals__distributionValue">{numberFormatter.format(segment.count)}</span>
+            </div>
+            <div className="admin-approvals__distributionBar" aria-hidden>
+              <span style={{ width: `${percent}%` }} data-tone={segment.tone} />
+            </div>
+            <span className="admin-approvals__distributionPercent">{percent}%</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function BacklogList({ rows }: { rows: AdminApprovalBacklogRow[] }) {
+  if (!rows.length) {
+    return (
+      <div className="neo-empty" role="status">
+        <p className="neo-text--muted">Sem pendentes críticos neste momento.</p>
+      </div>
+    );
+  }
+  return (
+    <ul className="admin-approvals__backlog" role="list">
+      {rows.map((row) => (
+        <li key={row.id} className="admin-approvals__backlogItem">
+          <div className="admin-approvals__backlogMeta">
+            <span className="admin-approvals__backlogName">{row.name ?? 'Utilizador sem nome'}</span>
+            <span className="admin-approvals__backlogId">ID: {row.userId ?? row.id}</span>
+            <span className="admin-approvals__backlogSince">Pedido em {formatDate(row.requestedAt)}</span>
+          </div>
+          <div className="admin-approvals__backlogWaiting">
+            <strong>{hourFormatter.format(row.waitingHours)}h</strong>
+            <span className="neo-text--xs neo-text--muted">em fila</span>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function ReviewersList({ reviewers }: { reviewers: AdminApprovalReviewerStat[] }) {
+  if (!reviewers.length) {
+    return (
+      <div className="neo-empty" role="status">
+        <p className="neo-text--muted">Sem revisores activos.</p>
+      </div>
+    );
+  }
+  return (
+    <ul className="admin-approvals__reviewers" role="list">
+      {reviewers.map((reviewer) => (
+        <li key={reviewer.id} className="admin-approvals__reviewer">
+          <div>
+            <span className="admin-approvals__reviewerName">{reviewer.name}</span>
+            <span className="admin-approvals__reviewerCount">
+              {numberFormatter.format(reviewer.approvals)} aprovações
+            </span>
+          </div>
+          <span className="admin-approvals__reviewerSla">
+            {reviewer.avgSlaHours != null ? `${hourFormatter.format(reviewer.avgSlaHours)}h SLA` : 'SLA n/d'}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function SlaCard({ sla }: { sla: AdminApprovalSlaOverview }) {
+  return (
+    <div className="admin-approvals__sla">
+      <div className="admin-approvals__slaPrimary">
+        <span className="admin-approvals__slaLabel">SLA médio</span>
+        <strong className="admin-approvals__slaValue">
+          {sla.averageHours != null ? `${hourFormatter.format(sla.averageHours)}h` : '—'}
+        </strong>
+        <span className="admin-approvals__slaDetail">
+          90º percentil: {sla.percentile90Hours != null ? `${hourFormatter.format(sla.percentile90Hours)}h` : '—'}
+        </span>
+      </div>
+      <div className="admin-approvals__slaSplit">
+        <span data-tone="positive">
+          {numberFormatter.format(sla.within24h)} dentro de 24h
+        </span>
+        <span data-tone="danger">
+          {numberFormatter.format(sla.breached)} &gt; 24h
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }) {
   const toast = useToast();
   const [q, setQ] = React.useState('');
@@ -114,6 +361,9 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
   const [openInNew, setOpenInNew] = React.useState(false);
   const undoRef = React.useRef<UndoState>(null);
   const [, forceUpdate] = React.useReducer((n) => n + 1, 0);
+  const [insights, setInsights] = React.useState<AdminApprovalsDashboardData | null>(null);
+  const [insightsLoading, setInsightsLoading] = React.useState(false);
+  const [insightsError, setInsightsError] = React.useState<string | null>(null);
 
   const totalPages = React.useMemo(() => {
     const size = pageSizeState > 0 ? pageSizeState : pageSize;
@@ -132,6 +382,57 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
       { id: 'total', label: 'Total página', value: rows.length, tone: 'info' as const },
     ];
   }, [rows]);
+
+  const loadInsights = React.useCallback(async ({ signal }: { signal?: AbortSignal } = {}) => {
+    setInsightsLoading(true);
+    setInsightsError(null);
+    try {
+      const response = await fetch('/api/admin/approvals/dashboard', {
+        cache: 'no-store',
+        credentials: 'same-origin',
+        signal,
+      });
+      if (!response.ok) {
+        const message = await response.text().catch(() => null);
+        throw new Error(message || 'Falha ao carregar as métricas.');
+      }
+      const payload = (await response.json()) as AdminApprovalsDashboardData | { ok?: boolean; message?: string };
+      if (!payload || typeof payload !== 'object' || (payload as any).ok !== true) {
+        throw new Error((payload as any)?.message ?? 'Falha ao carregar as métricas.');
+      }
+      setInsights(payload as AdminApprovalsDashboardData);
+    } catch (error: any) {
+      if (error?.name === 'AbortError') return;
+      setInsights(null);
+      setInsightsError(error?.message || 'Falha ao carregar as métricas.');
+    } finally {
+      setInsightsLoading(false);
+    }
+  }, []);
+
+  const timelineData = React.useMemo<TimelineDatum[]>(() => {
+    if (!insights?.timeline?.length) return [];
+    return insights.timeline.map((point) => {
+      const date = new Date(point.date);
+      return {
+        ...point,
+        label: Number.isNaN(date.getTime()) ? point.date : dayFormatter.format(date),
+      };
+    });
+  }, [insights]);
+
+  const supabaseOnline = insights?._supabaseConfigured !== false && insights?.source === 'supabase';
+  const statusSegments = insights?.statuses ?? [];
+  const highlightList = insights?.highlights ?? [];
+  const backlogRows = insights?.backlog ?? [];
+  const reviewerRows = insights?.reviewers ?? [];
+  const slaData = insights?.sla ?? {
+    averageHours: null,
+    percentile90Hours: null,
+    within24h: 0,
+    breached: 0,
+  };
+  const showInsightsSkeleton = insightsLoading && !insights;
 
   const fetchRows = React.useCallback(async () => {
     const search = q.trim();
@@ -221,6 +522,12 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
   React.useEffect(() => {
     void fetchRows();
   }, [fetchRows]);
+
+  React.useEffect(() => {
+    const controller = new AbortController();
+    void loadInsights({ signal: controller.signal });
+    return () => controller.abort();
+  }, [loadInsights]);
 
   React.useEffect(() => {
     const size = pageSizeState > 0 ? pageSizeState : pageSize;
@@ -329,10 +636,11 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
       if (!res.ok) throw new Error(await res.text());
       toast.success('Aprovação concluída.');
       void fetchRows();
+      void loadInsights();
     } catch (error: any) {
       toast.error(error?.message || 'Falha ao aprovar pedido.');
     }
-  }, [fetchRows, toast]);
+  }, [fetchRows, loadInsights, toast]);
 
   const deleteRow = React.useCallback(async (row: Row) => {
     if (!window.confirm(`Remover pedido de ${row.email || row.name || row.id}?`)) return;
@@ -348,13 +656,14 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
       const res = await fetch(`/api/admin/approvals/${row.id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error(await res.text());
       toast.info('Pedido removido.');
+      void loadInsights();
     } catch (error: any) {
       toast.error(error?.message || 'Falha ao remover pedido.');
       undoRef.current = null;
       forceUpdate();
       setRows((prev) => [row, ...prev]);
     }
-  }, [scheduleUndoClear, toast]);
+  }, [loadInsights, scheduleUndoClear, toast]);
 
   const undoDelete = React.useCallback(async () => {
     const state = undoRef.current;
@@ -378,10 +687,11 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
       if (!res.ok) throw new Error(await res.text());
       toast.success('Pedido restaurado.');
       void fetchRows();
+      void loadInsights();
     } catch (error: any) {
       toast.error(error?.message || 'Falha ao restaurar o pedido.');
     }
-  }, [fetchRows, toast]);
+  }, [fetchRows, loadInsights, toast]);
 
   const clearUndo = React.useCallback(() => {
     const state = undoRef.current;
@@ -402,7 +712,10 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
               type="button"
               className="btn"
               data-variant="ghost"
-              onClick={() => { void fetchRows(); }}
+              onClick={() => {
+                void fetchRows();
+                void loadInsights();
+              }}
               disabled={loading}
             >
               <span className="btn__icon">
@@ -447,6 +760,56 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
           <p className="neo-text--sm text-fg">{banner.message}</p>
         </div>
       )}
+
+      <section className="neo-panel neo-stack neo-stack--lg admin-approvals__dashboard" aria-label="Métricas de aprovações">
+        <div className="admin-approvals__dashboardHeader">
+          <div>
+            <h2 className="admin-approvals__dashboardTitle">Métricas operacionais</h2>
+            <p className="admin-approvals__dashboardSubtitle">Monitoriza o fluxo de pedidos, SLA e desempenho da equipa de revisão.</p>
+          </div>
+          <div className="admin-approvals__dashboardMeta">
+            <DataSourceBadge
+              source={insights?.source}
+              generatedAt={insights?.generatedAt ?? null}
+              className="neo-data-badge"
+            />
+            <span className="admin-approvals__dataset neo-text--xs neo-text--muted">
+              {showInsightsSkeleton
+                ? 'A sincronizar métricas…'
+                : `A mostrar ${numberFormatter.format(insights?.sampleSize ?? 0)} de ${numberFormatter.format(insights?.datasetSize ?? 0)} registos.`}
+              {supabaseOnline ? ' Supabase activo.' : ' Modo determinístico.'}
+            </span>
+          </div>
+        </div>
+
+        {insightsError && !showInsightsSkeleton ? (
+          <div className="neo-surface neo-surface--compact" data-variant="warning" role="status">
+            <p className="neo-text--sm text-fg">{insightsError}</p>
+          </div>
+        ) : null}
+
+        {showInsightsSkeleton ? (
+          <div className="neo-inline neo-inline--center neo-inline--sm neo-text--sm neo-text--muted" role="status">
+            <span className="neo-spinner" aria-hidden /> A calcular métricas…
+          </div>
+        ) : (
+          <>
+            <HeroMetrics metrics={insights?.hero ?? []} />
+            <div className="admin-approvals__dashboardGrid">
+              <TimelineChart data={timelineData} />
+              <HighlightsList highlights={highlightList} />
+            </div>
+            <div className="admin-approvals__dashboardGrid admin-approvals__dashboardGrid--secondary">
+              <StatusDistribution segments={statusSegments} />
+              <SlaCard sla={slaData} />
+            </div>
+            <div className="admin-approvals__dashboardGrid admin-approvals__dashboardGrid--tertiary">
+              <BacklogList rows={backlogRows} />
+              <ReviewersList reviewers={reviewerRows} />
+            </div>
+          </>
+        )}
+      </section>
 
       <section className="neo-panel neo-stack neo-stack--lg" aria-label="Filtros e indicadores">
         <div className="admin-approvals__metrics">

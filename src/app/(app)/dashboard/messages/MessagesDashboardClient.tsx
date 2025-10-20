@@ -13,10 +13,21 @@ import {
   Tooltip,
   Legend,
 } from 'recharts';
-import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import {
+  CalendarDays,
+  Clock3,
+  Filter,
+  MessageSquare,
+  RefreshCcw,
+  Search as SearchIcon,
+  Send,
+  Users,
+} from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
 import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
+import DataSourceBadge from '@/components/ui/DataSourceBadge';
 import type {
   MessageHeroMetric,
   MessageHighlight,
@@ -28,6 +39,7 @@ import type {
 } from '@/lib/messages/types';
 import type { MessagesDashboardResponse } from '@/lib/messages/server';
 import MessagesFeed from './_components/MessagesFeed';
+import MarkAllRead from './parts/MarkAllRead';
 
 const RANGE_OPTIONS = [
   { value: 7, label: '7 dias' },
@@ -40,6 +52,7 @@ const RANGE_OPTIONS = [
 const numberFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 });
 const percentFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 1, minimumFractionDigits: 0 });
 const durationFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 });
+const relativeFormatter = new Intl.RelativeTimeFormat('pt-PT', { numeric: 'auto' });
 
 function formatNumber(value: number): string {
   if (!Number.isFinite(value)) return '0';
@@ -62,6 +75,24 @@ function formatDuration(minutes: number | null): string {
   }
   if (mins > 0) return `${mins}m`;
   return `${durationFormatter.format(Math.round(abs * 60))}s`;
+}
+
+function formatRelativeTime(target: Date | null): string | null {
+  if (!target) return null;
+  const diffMs = target.getTime() - Date.now();
+  const absMs = Math.abs(diffMs);
+  const ranges: Array<{ limit: number; unit: Intl.RelativeTimeFormatUnit; size: number }> = [
+    { limit: 60_000, unit: 'second', size: 1_000 },
+    { limit: 3_600_000, unit: 'minute', size: 60_000 },
+    { limit: 86_400_000, unit: 'hour', size: 3_600_000 },
+    { limit: 604_800_000, unit: 'day', size: 86_400_000 },
+    { limit: 2_629_746_000, unit: 'week', size: 604_800_000 },
+    { limit: 31_556_952_000, unit: 'month', size: 2_629_746_000 },
+    { limit: Infinity, unit: 'year', size: 31_556_952_000 },
+  ];
+  const bucket = ranges.find((item) => absMs < item.limit) ?? ranges[ranges.length - 1]!;
+  const value = Math.round(diffMs / bucket.size);
+  return relativeFormatter.format(value, bucket.unit);
 }
 
 type ChartDatum = {
@@ -98,10 +129,28 @@ const fetcher = async ([, range]: FetchKey): Promise<MessagesDashboardResponse> 
 };
 
 function HeroMetrics({ metrics }: { metrics: MessageHeroMetric[] }) {
+  const iconForMetric = React.useCallback((metric: MessageHeroMetric) => {
+    switch (metric.key) {
+      case 'messages-total':
+        return <MessageSquare size={22} aria-hidden />;
+      case 'messages-outbound':
+        return <Send size={22} aria-hidden />;
+      case 'messages-response-time':
+        return <Clock3 size={22} aria-hidden />;
+      case 'messages-conversations':
+        return <Users size={22} aria-hidden />;
+      default:
+        return <MessageSquare size={22} aria-hidden />;
+    }
+  }, []);
+
   return (
     <div className="messages-dashboard__hero" role="list">
       {metrics.map((metric) => (
         <article key={metric.key} className="messages-dashboard__heroCard" data-tone={metric.tone ?? 'neutral'}>
+          <span className="messages-dashboard__heroIcon" aria-hidden>
+            {iconForMetric(metric)}
+          </span>
           <span className="messages-dashboard__heroLabel">{metric.label}</span>
           <strong className="messages-dashboard__heroValue">{metric.value}</strong>
           {metric.hint ? <span className="messages-dashboard__heroHint">{metric.hint}</span> : null}
@@ -275,6 +324,17 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
   );
 
   const dashboard = data ?? initialData;
+  const supabase = dashboard.source === 'supabase';
+  const totalMessages = React.useMemo(
+    () => dashboard.totals.inbound + dashboard.totals.outbound,
+    [dashboard.totals.inbound, dashboard.totals.outbound],
+  );
+  const generatedAt = React.useMemo(() => {
+    const date = dashboard.generatedAt ? new Date(dashboard.generatedAt) : null;
+    return date && Number.isNaN(date.getTime()) ? null : date;
+  }, [dashboard.generatedAt]);
+  const generatedRelative = React.useMemo(() => formatRelativeTime(generatedAt), [generatedAt]);
+  const pendingResponses = dashboard.totals.pendingResponses;
 
   const timelineData = React.useMemo<ChartDatum[]>(() => {
     return (dashboard.timeline ?? []).map((point: MessageTimelinePoint) => ({
@@ -341,18 +401,8 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
         title="Mensagens"
         subtitle="Analisa os canais mais activos, tempos de resposta e identifica conversas que precisam de acompanhamento."
         actions={
-          <div className="messages-dashboard__actions">
-            <select className="neo-field" value={range} onChange={onRangeChange}>
-              {RANGE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <Button onClick={onRefresh} variant="ghost" size="sm">
-              Actualizar
-            </Button>
-            <Button size="sm" onClick={goToComposer}>
+          <div className="messages-dashboard__headerActions">
+            <Button size="sm" onClick={goToComposer} leftIcon={<Send size={16} aria-hidden />}>
               Nova mensagem
             </Button>
           </div>
@@ -370,6 +420,76 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
           Não foi possível sincronizar com o Supabase. Estás a ver dados determinísticos para manter a experiência operacional.
         </Alert>
       ) : null}
+
+      <section className="messages-dashboard__status neo-panel neo-panel--subtle" aria-label="Estado dos dados">
+        <div className="messages-dashboard__statusRow">
+          <div className="messages-dashboard__statusMain">
+            <DataSourceBadge source={dashboard.source} generatedAt={dashboard.generatedAt} />
+            {generatedRelative ? (
+              <span className="messages-dashboard__statusChip">
+                <Clock3 size={14} aria-hidden />
+                Actualizado {generatedRelative}
+              </span>
+            ) : null}
+            <span className="messages-dashboard__statusChip">
+              <CalendarDays size={14} aria-hidden />
+              Intervalo {dashboard.range.label}
+            </span>
+          </div>
+          <div className="messages-dashboard__statusActions">
+            <label className="messages-dashboard__selectGroup">
+              <span>Intervalo</span>
+              <select value={range} onChange={onRangeChange}>
+                {RANGE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Button
+              onClick={onRefresh}
+              variant="ghost"
+              size="sm"
+              loading={isValidating}
+              leftIcon={<RefreshCcw size={16} aria-hidden />}
+            >
+              Actualizar
+            </Button>
+            <MarkAllRead size="sm" variant={supabase ? 'secondary' : 'warning'} />
+          </div>
+        </div>
+        <div className="messages-dashboard__statusRow messages-dashboard__statusRow--stats">
+          <span className="messages-dashboard__stat">
+            <MessageSquare size={16} aria-hidden />
+            <span>
+              <strong>{formatNumber(totalMessages)}</strong>
+              <small>Total de mensagens</small>
+            </span>
+          </span>
+          <span className="messages-dashboard__stat">
+            <Users size={16} aria-hidden />
+            <span>
+              <strong>{formatNumber(dashboard.totals.participants)}</strong>
+              <small>Participantes únicos</small>
+            </span>
+          </span>
+          <span className="messages-dashboard__stat">
+            <Filter size={16} aria-hidden />
+            <span>
+              <strong>{formatNumber(filteredConversations.length)}</strong>
+              <small>Conversas filtradas</small>
+            </span>
+          </span>
+          <span className="messages-dashboard__stat" data-warning={pendingResponses > 0 || undefined}>
+            <Clock3 size={16} aria-hidden />
+            <span>
+              <strong>{formatNumber(pendingResponses)}</strong>
+              <small>Respostas pendentes</small>
+            </span>
+          </span>
+        </div>
+      </section>
 
       <section className="neo-stack neo-stack--lg">
         <HeroMetrics metrics={dashboard.hero} />
@@ -457,6 +577,7 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
               </div>
               <label className="messages-dashboard__search">
                 <span className="sr-only">Pesquisar mensagens</span>
+                <SearchIcon aria-hidden size={16} />
                 <input
                   type="search"
                   value={search}

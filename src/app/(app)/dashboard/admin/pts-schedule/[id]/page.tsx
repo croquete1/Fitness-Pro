@@ -1,45 +1,71 @@
-import * as React from 'react';
 import { notFound } from 'next/navigation';
-import { createServerClient } from '@/lib/supabaseServer';
-import { Container } from '@mui/material';
+
+import PageHeader from '@/components/ui/PageHeader';
 import SessionFormClient from '../SessionFormClient';
+import { tryCreateServerClient } from '@/lib/supabaseServer';
+import { getAdminPtsScheduleFallback } from '@/lib/fallback/admin-pts-schedule';
 
 export const dynamic = 'force-dynamic';
 
-function mapRow(r: any) {
-  const start_time = r.start_time ?? r.start ?? r.starts_at ?? r.begin_at ?? r.begin ?? null;
-  const end_time = r.end_time ?? r.end ?? r.ends_at ?? r.finish_at ?? r.finish ?? null;
-  const trainer_id = r.trainer_id ?? r.pt_id ?? null;
-  const client_id = r.client_id ?? r.member_id ?? null;
+function mapRow(row: any) {
+  const start = row.start_time ?? row.start ?? row.starts_at ?? row.begin_at ?? row.begin ?? null;
+  const end = row.end_time ?? row.end ?? row.ends_at ?? row.finish_at ?? row.finish ?? null;
+  const trainer = row.trainer_id ?? row.pt_id ?? null;
+  const client = row.client_id ?? row.member_id ?? null;
 
   return {
-    id: String(r.id),
-    trainer_id: trainer_id ? String(trainer_id) : '',
-    client_id: client_id ? String(client_id) : '',
-    start_time: start_time ? String(start_time) : '',
-    end_time: end_time ? String(end_time) : '',
-    status: r.status ?? r.state ?? 'scheduled',
-    location: r.location ?? r.place ?? '',
-    notes: r.notes ?? r.note ?? '',
+    id: String(row.id),
+    trainer_id: trainer ? String(trainer) : '',
+    client_id: client ? String(client) : '',
+    start_time: start ? String(start) : '',
+    end_time: end ? String(end) : '',
+    status: row.status ?? row.state ?? 'scheduled',
+    location: row.location ?? row.place ?? '',
+    notes: row.notes ?? row.note ?? '',
   };
 }
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const sb = createServerClient();
+  const sb = tryCreateServerClient();
 
-  let row: any | null = null;
-  const a = await sb.from('pt_sessions').select('*').eq('id', id).maybeSingle();
-  if (a.data) row = a.data;
-  else {
-    const b = await sb.from('sessions').select('*').eq('id', id).maybeSingle();
-    if (b.data) row = b.data;
+  if (!sb) {
+    const fallback = getAdminPtsScheduleFallback();
+    const session = fallback.sessions.find((item) => item.id === id);
+    if (!session) return notFound();
+    return (
+      <div className="admin-pts-schedule__formPage">
+        <PageHeader title="Editar sessão" subtitle="Actualiza horários, notas e estado." sticky={false} />
+        <div className="admin-pts-schedule__formCard">
+          <SessionFormClient mode="edit" initial={{
+            id: session.id,
+            trainer_id: session.trainerId ?? '',
+            client_id: session.clientId ?? '',
+            start_time: session.start ?? '',
+            end_time: session.end ?? session.start ?? '',
+            status: session.status as any,
+            location: session.location ?? '',
+            notes: session.notes ?? '',
+          }} />
+        </div>
+      </div>
+    );
   }
-  if (!row) return notFound();
 
-  return (
-    <Container maxWidth="md" sx={{ display: 'grid', gap: 2 }}>
-      <SessionFormClient mode="edit" initial={mapRow(row)} />
-    </Container>
-  );
+  const tables = ['sessions', 'pt_sessions'] as const;
+  for (const table of tables) {
+    const { data: row } = await sb.from(table).select('*').eq('id', id).maybeSingle();
+    if (row) {
+      return (
+        <div className="admin-pts-schedule__formPage">
+          <PageHeader title="Editar sessão" subtitle="Actualiza horários, notas e estado." sticky={false} />
+          <div className="admin-pts-schedule__formCard">
+            <SessionFormClient mode="edit" initial={mapRow(row)} />
+          </div>
+        </div>
+      );
+    }
+  }
+
+  return notFound();
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Button from '@/components/ui/Button';
 
 export default function PTExerciseNote({ exerciseId }: { exerciseId: string }) {
   const [open, setOpen] = React.useState(false);
@@ -50,35 +51,41 @@ export default function PTExerciseNote({ exerciseId }: { exerciseId: string }) {
   }
 
   return (
-    <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
-      <button className="btn chip" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+    <div className="pt-exercise-note">
+      <Button
+        variant="ghost"
+        size="sm"
+        className="pt-exercise-note__trigger"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        aria-controls={`pt-exercise-note-${exerciseId}`}
+      >
         📝 Minha nota
-      </button>
+      </Button>
       {open && (
-        <div className="card" style={{ padding: 10, position: 'relative', minWidth: 320 }}>
+        <div className="pt-exercise-note__popover" id={`pt-exercise-note-${exerciseId}`} role="dialog" aria-modal="false">
           {loading ? (
-            <div className="small text-muted">A carregar…</div>
+            <p className="neo-text--muted">A carregar…</p>
           ) : (
             <>
-              <textarea
-                className="auth-input"
-                rows={4}
-                placeholder="Escreve a tua nota sobre este exercício…"
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-              />
-              {err && (
-                <div className="small" style={{ color: 'var(--danger)', marginTop: 6 }}>
-                  {err}
-                </div>
-              )}
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
-                <button className="btn" onClick={() => setOpen(false)} disabled={saving}>
+              <label className="neo-input-group pt-exercise-note__field">
+                <span className="neo-input-group__label">Notas pessoais</span>
+                <textarea
+                  className="neo-input"
+                  rows={4}
+                  placeholder="Escreve apontamentos técnicos ou adaptações preferidas."
+                  value={content}
+                  onChange={(event) => setContent(event.target.value)}
+                />
+              </label>
+              {err ? <p className="pt-exercise-note__error">{err}</p> : null}
+              <div className="pt-exercise-note__actions">
+                <Button variant="ghost" size="sm" onClick={() => setOpen(false)} disabled={saving}>
                   Fechar
-                </button>
-                <button className="btn primary" onClick={save} disabled={saving}>
+                </Button>
+                <Button size="sm" onClick={save} disabled={saving}>
                   {saving ? 'A guardar…' : 'Guardar'}
-                </button>
+                </Button>
               </div>
             </>
           )}
