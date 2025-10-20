@@ -1,10 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import { AppRouterCacheProvider } from '@mui/material-nextjs/v14-appRouter';
-import { CssBaseline } from '@mui/material';
-import { ThemeProvider } from '@mui/material/styles';
-import { createNeoTheme } from '@/theme';
 
 type Mode = 'light' | 'dark';
 
@@ -35,18 +31,18 @@ function persistCookie(mode: Mode) {
     const secure = typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : '';
     document.cookie = `fp-mode=${mode}; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax${secure}`;
   } catch {
-    // ignore cookie errors
+    // Falhas ao escrever cookies são silenciosas
   }
 }
 
 export default function ColorModeProvider({ children, initialMode = 'light' }: Props) {
   const [mode, setMode] = React.useState<Mode>(initialMode);
-  const [source, setSource] = React.useState<'system' | 'manual'>('system');
+  const [source, setSource] = React.useState<'system' | 'manual'>('manual');
   const sourceRef = React.useRef(source);
 
-  sourceRef.current = source;
-
-  const theme = React.useMemo(() => createNeoTheme(mode), [mode]);
+  React.useEffect(() => {
+    sourceRef.current = source;
+  }, [source]);
 
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -86,7 +82,7 @@ export default function ColorModeProvider({ children, initialMode = 'light' }: P
           window.localStorage.removeItem('fp-mode');
         }
       } catch {
-        // ignore storage errors
+        // Falhas em localStorage são silenciosas
       }
     }
   }, [mode, source]);
@@ -96,25 +92,20 @@ export default function ColorModeProvider({ children, initialMode = 'light' }: P
     setSource('manual');
   }, []);
 
+  const toggle = React.useCallback(() => {
+    setManualMode(mode === 'dark' ? 'light' : 'dark');
+  }, [mode, setManualMode]);
+
   const value = React.useMemo<Ctx>(
     () => ({
       mode,
-      toggle: () => setManualMode(mode === 'dark' ? 'light' : 'dark'),
+      toggle,
       set: setManualMode,
     }),
-    [mode, setManualMode],
+    [mode, setManualMode, toggle],
   );
 
-  return (
-    <AppRouterCacheProvider>
-      <ColorModeCtx.Provider value={value}>
-        <ThemeProvider theme={theme}>
-          <CssBaseline />
-          {children}
-        </ThemeProvider>
-      </ColorModeCtx.Provider>
-    </AppRouterCacheProvider>
-  );
+  return <ColorModeCtx.Provider value={value}>{children}</ColorModeCtx.Provider>;
 }
 
 export function useColorMode() {

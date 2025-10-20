@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import ThemeToggle from "@/components/layout/ThemeToggle";
+import ThemeToggle from "@/components/ThemeToggle";
 import SignOutButton from "@/components/auth/SignOutConfirmButton";
 import NotificationBell from "@/components/notifications/NotificationBell";
 

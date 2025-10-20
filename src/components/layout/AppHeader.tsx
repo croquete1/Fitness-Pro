@@ -18,7 +18,7 @@ import {
   CheckCheck,
   Loader2,
 } from 'lucide-react';
-import ThemeToggleButton from '@/components/theme/ThemeToggleButton';
+import ThemeToggle from '@/components/ThemeToggle';
 import { useSidebar } from '@/components/layout/SidebarProvider';
 import { useHeaderCounts } from '@/components/header/HeaderCountsContext';
 import DataSourceBadge from '@/components/ui/DataSourceBadge';
@@ -255,7 +255,7 @@ export default function AppHeader({
               <RefreshCw size={16} strokeWidth={1.8} />
             </button>
           )}
-          <ThemeToggleButton className="neo-header__action" aria-label="Alternar tema" />
+          <ThemeToggle className="neo-header__action" />
           <Link
             href="/dashboard/messages"
             prefetch={false}
