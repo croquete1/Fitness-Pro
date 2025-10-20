@@ -1,6 +1,8 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
+import clsx from 'clsx';
 import { RefreshCw } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import SidebarBase from '@/components/layout/SidebarBase';
@@ -69,6 +71,12 @@ export default function SidebarPT({ initialCounts, summary, loading, onRefreshNa
     () => (effectiveSummary?.navGroups ?? []).map(mapGroup),
     [effectiveSummary],
   );
+  const dataSource: 'supabase' | 'fallback' | undefined = summary
+    ? 'supabase'
+    : initialCounts
+    ? 'fallback'
+    : undefined;
+  const generatedAt = summary?.updatedAt ?? null;
 
   const quickMetrics = React.useMemo(() => effectiveSummary?.quickMetrics ?? [], [effectiveSummary]);
   const highlights = React.useMemo(() => effectiveSummary?.highlights ?? [], [effectiveSummary]);
