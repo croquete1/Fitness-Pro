@@ -88,6 +88,16 @@ export default function SidebarPT({ initialCounts, summary, loading, onRefreshNa
     : undefined;
   const generatedAt = effectiveSummary?.updatedAt ?? null;
 
+  const quickMetrics = React.useMemo(() => effectiveSummary?.quickMetrics ?? [], [effectiveSummary]);
+  const highlights = React.useMemo(() => effectiveSummary?.highlights ?? [], [effectiveSummary]);
+
+  const dataSource: 'supabase' | 'fallback' | undefined = summary
+    ? 'supabase'
+    : effectiveSummary
+    ? 'fallback'
+    : undefined;
+  const generatedAt = effectiveSummary?.updatedAt ?? null;
+
   const header = (
     <div className="neo-sidebar__headline">
       <div className="neo-sidebar__headline-meta">
