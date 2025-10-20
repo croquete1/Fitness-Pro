@@ -7,13 +7,13 @@ import { usePathname } from 'next/navigation';
 import { RefreshCw } from 'lucide-react';
 import SidebarBase from '@/components/layout/SidebarBase';
 import { useSidebar } from '@/components/layout/SidebarProvider';
-import { SidebarNavSection, type SidebarNavItem } from '@/components/layout/SidebarNav';
+import { SidebarNavSection } from '@/components/layout/SidebarNav';
 import SidebarHighlights from '@/components/layout/SidebarHighlights';
 import SidebarQuickMetrics from '@/components/layout/SidebarQuickMetrics';
 import DataSourceBadge from '@/components/ui/DataSourceBadge';
-import { getNavigationFallbackWithOverrides } from '@/lib/fallback/navigation';
+import { useSidebarNavigationSummary } from '@/components/layout/useSidebarNavigationSummary';
 import type { ClientCounts } from '@/lib/hooks/useCounts';
-import type { NavigationSummary, NavigationSummaryGroup, NavigationSummaryCounts } from '@/lib/navigation/types';
+import type { NavigationSummary, NavigationSummaryCounts } from '@/lib/navigation/types';
 
 type Props = {
   initialCounts?: ClientCounts;
@@ -21,24 +21,6 @@ type Props = {
   loading?: boolean;
   onRefreshNavigation?: () => Promise<unknown> | unknown;
 };
-
-function mapGroup(group: NavigationSummaryGroup): { title: string; items: SidebarNavItem[] } {
-  return {
-    title: group.title,
-    items: group.items.map((item) => ({
-      href: item.href,
-      label: item.label,
-      icon: item.icon,
-      badge: item.badge ?? null,
-      description: item.description ?? null,
-      kpiLabel: item.kpiLabel ?? null,
-      kpiValue: item.kpiValue ?? null,
-      tone: item.tone ?? undefined,
-      activePrefix: item.activePrefix ?? undefined,
-      exact: Boolean(item.exact),
-    })),
-  };
-}
 
 export default function SidebarClient({ initialCounts, summary, loading, onRefreshNavigation }: Props) {
   const path = usePathname();
@@ -60,35 +42,19 @@ export default function SidebarClient({ initialCounts, summary, loading, onRefre
     } satisfies Partial<NavigationSummaryCounts>;
   }, [messagesCount, notificationsCount]);
 
-  const fallbackSummary = React.useMemo(
-    () => (summary ? null : getNavigationFallbackWithOverrides('CLIENT', fallbackOverrides ?? {})),
-    [summary, fallbackOverrides],
-  );
-
-  const effectiveSummary = summary ?? fallbackSummary;
-
-  const groups = React.useMemo(
-    () => (effectiveSummary?.navGroups ?? []).map(mapGroup),
-    [effectiveSummary],
-  );
-
-  const quickMetrics = React.useMemo(() => effectiveSummary?.quickMetrics ?? [], [effectiveSummary]);
-  const highlights = React.useMemo(() => effectiveSummary?.highlights ?? [], [effectiveSummary]);
-
-  const dataSource: 'supabase' | 'fallback' | undefined = summary
-    ? 'supabase'
-    : effectiveSummary
-    ? 'fallback'
-    : undefined;
-  const generatedAt = effectiveSummary?.updatedAt ?? null;
+  const { groups, quickMetrics, highlights, source, generatedAt } = useSidebarNavigationSummary({
+    role: 'CLIENT',
+    summary,
+    fallbackOverrides,
+  });
 
   const header = (
     <div className="neo-sidebar__headline">
       <div className="neo-sidebar__headline-meta">
         <span className="neo-sidebar__headline-label">Acesso rápido</span>
-        {dataSource && (
+        {source && (
           <DataSourceBadge
-            source={dataSource}
+            source={source}
             generatedAt={generatedAt}
             className="neo-sidebar__headline-badge"
           />
