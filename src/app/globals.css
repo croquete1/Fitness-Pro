@@ -9461,6 +9461,7 @@ h1,.h1{
 .trainer-dashboard__clients-summary-item--rate{ background:color-mix(in srgb, var(--primary) 18%, transparent); color:var(--fg); }
 .trainer-dashboard__clients-summary-item--total{ background:color-mix(in srgb, var(--primary) 16%, transparent); color:var(--fg); }
 .trainer-dashboard__clients-summary-item--stalled{ background:color-mix(in srgb, var(--warning) 16%, transparent); color:var(--fg); }
+.trainer-dashboard__clients-summary-item--overdue{ background:color-mix(in srgb, var(--danger) 20%, transparent); color:var(--fg); }
 .trainer-dashboard__clients-summary-item--missing{ background:color-mix(in srgb, var(--info) 18%, transparent); color:var(--fg); }
 .trainer-dashboard__clients-summary-item--blocked{ background:color-mix(in srgb, var(--danger) 28%, transparent); color:var(--fg); }
 .trainer-dashboard__clients-contact{ display:flex; align-items:center; gap:8px; }
@@ -12926,6 +12927,7 @@ a.neo-sidebar__highlight {
 .trainer-dashboard__clients-summary-item--critical{background:color-mix(in srgb,var(--neo-chart-critical) 26%,transparent);color:var(--neo-text-primary)}
 .trainer-dashboard__clients-summary-item--warning{background:color-mix(in srgb,var(--neo-chart-warning) 26%,transparent);color:var(--neo-text-primary)}
 .trainer-dashboard__clients-summary-item--stalled{background:color-mix(in srgb,var(--neo-chart-warning) 20%,transparent);color:var(--neo-text-primary)}
+.trainer-dashboard__clients-summary-item--overdue{background:color-mix(in srgb,var(--neo-chart-critical) 24%,transparent);color:var(--neo-text-primary)}
 .trainer-dashboard__clients-summary-item--missing{background:color-mix(in srgb,var(--neo-chart-primary) 18%,transparent);color:var(--neo-text-primary)}
 .trainer-dashboard__clients-summary-item--blocked{background:color-mix(in srgb,var(--neo-chart-critical) 32%,transparent);color:var(--neo-text-primary)}
 .trainer-dashboard__clients-summary-item--rate{background:color-mix(in srgb,var(--neo-chart-primary) 22%,transparent);color:var(--neo-text-primary)}
