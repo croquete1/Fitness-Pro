@@ -111,6 +111,8 @@ export type TrainerClientSnapshot = {
   completed: number;
   lastSessionLabel: string;
   nextSessionLabel: string;
+  lastSessionAt: string | null;
+  nextSessionAt: string | null;
   tone: 'positive' | 'warning' | 'critical' | 'neutral';
 };
 
