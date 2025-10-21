@@ -911,6 +911,68 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
                 </Button>
               </div>
             </div>
+          )}
+          {stalledClients.length > 0 && (
+            <div className="trainer-dashboard__clients-stalled" aria-live="polite">
+              <h3 className="trainer-dashboard__clients-stalled-title">Sem próxima sessão</h3>
+              <ul className="trainer-dashboard__clients-stalled-list">
+                {stalledClients.map((client) => (
+                  <li key={client.id} className="trainer-dashboard__clients-stalled-item">
+                    <div className="trainer-dashboard__clients-stalled-header">
+                      <span className="trainer-dashboard__clients-stalled-name">{client.name}</span>
+                      <span className="trainer-dashboard__clients-stalled-badge">{client.inactivityLabel}</span>
+                    </div>
+                    <p className="trainer-dashboard__clients-stalled-meta">
+                      Última sessão: {client.lastSessionLabel}
+                    </p>
+                    {client.email && (
+                      <a className="trainer-dashboard__clients-stalled-link" href={`mailto:${client.email}`}>
+                        Contactar
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <div className="trainer-dashboard__clients-summary" aria-live="polite">
+            {showFilteredSummary && (
+              <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--total">
+                A mostrar {clientStats.totalLabel} de {totalClientsLabel} cliente(s)
+              </span>
+            )}
+            <span className="trainer-dashboard__clients-summary-item">
+              {totalClientsLabel} cliente(s) no total
+            </span>
+            <span className="trainer-dashboard__clients-summary-item">
+              {clientStats.upcomingLabel} sessão(ões) futuras
+            </span>
+            <span className="trainer-dashboard__clients-summary-item">
+              {clientStats.completedLabel} concluídas
+            </span>
+            {clientStats.tones.critical > 0 && (
+              <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--critical">
+                {clientStats.criticalLabel} em risco
+              </span>
+            )}
+            {clientStats.tones.warning > 0 && (
+              <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--warning">
+                {clientStats.warningLabel} a requer atenção
+              </span>
+            )}
+            {clientStats.stalled > 0 && (
+              <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--stalled">
+                {clientStats.stalledLabel} sem próxima sessão
+              </span>
+            )}
+            {clientStats.missingContact > 0 && (
+              <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--missing">
+                {clientStats.missingContactLabel} sem contacto directo
+              </span>
+            )}
+            <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--rate">
+              {clientStats.attentionRateLabel} da carteira em alerta
+            </span>
           </div>
           {priorityClients.length > 0 && (
             <div className="trainer-dashboard__clients-priority" aria-live="polite">
