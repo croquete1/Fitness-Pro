@@ -1103,6 +1103,50 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
                 </Button>
               </div>
             </div>
+          )}
+          <div className="trainer-dashboard__clients-summary" aria-live="polite">
+            {showFilteredSummary && (
+              <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--total">
+                A mostrar {clientStats.totalLabel} de {totalClientsLabel} cliente(s)
+              </span>
+            )}
+            <span className="trainer-dashboard__clients-summary-item">
+              {totalClientsLabel} cliente(s) no total
+            </span>
+            <span className="trainer-dashboard__clients-summary-item">
+              {clientStats.upcomingLabel} sessão(ões) futuras
+            </span>
+            <span className="trainer-dashboard__clients-summary-item">
+              {clientStats.completedLabel} concluídas
+            </span>
+            {clientStats.tones.critical > 0 && (
+              <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--critical">
+                {clientStats.criticalLabel} em risco
+              </span>
+            )}
+            {clientStats.tones.warning > 0 && (
+              <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--warning">
+                {clientStats.warningLabel} a requer atenção
+              </span>
+            )}
+            {clientStats.stalled > 0 && (
+              <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--stalled">
+                {clientStats.stalledLabel} sem próxima sessão
+              </span>
+            )}
+            {clientStats.missingContact > 0 && (
+              <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--missing">
+                {clientStats.missingContactLabel} sem contacto directo
+              </span>
+            )}
+            {clientStats.blocked > 0 && (
+              <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--blocked">
+                {clientStats.blockedLabel} sem contacto e sessão
+              </span>
+            )}
+            <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--rate">
+              {clientStats.attentionRateLabel} da carteira em alerta
+            </span>
           </div>
           {priorityClients.length > 0 && (
             <div className="trainer-dashboard__clients-priority" aria-live="polite">
