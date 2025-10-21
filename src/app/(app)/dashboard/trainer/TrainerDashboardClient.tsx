@@ -48,6 +48,78 @@ type Props = {
 };
 
 const numberFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 });
+const percentageFormatter = new Intl.NumberFormat('pt-PT', {
+  style: 'percent',
+  maximumFractionDigits: 0,
+  minimumFractionDigits: 0,
+});
+
+type ClientToneFilter = 'all' | TrainerClientSnapshot['tone'];
+
+type ClientSort = 'priority' | 'activity';
+
+const CLIENT_TONE_FILTERS: Array<{ id: ClientToneFilter; label: string; tone: TrainerClientSnapshot['tone'] | null }> = [
+  { id: 'all', label: 'Todos', tone: null },
+  { id: 'positive', label: 'Em progresso', tone: 'positive' },
+  { id: 'warning', label: 'Atenção', tone: 'warning' },
+  { id: 'critical', label: 'Risco', tone: 'critical' },
+  { id: 'neutral', label: 'Sem alerta', tone: 'neutral' },
+];
+
+const CLIENT_SORT_OPTIONS: Array<{ id: ClientSort; label: string; description: string }> = [
+  { id: 'priority', label: 'Prioridade', description: 'Crítico, atenção, progresso e neutros.' },
+  { id: 'activity', label: 'Maior actividade', description: 'Mais sessões futuras e concluídas.' },
+];
+
+const CLIENT_TONE_LABELS: Record<TrainerClientSnapshot['tone'], string> = {
+  positive: 'Em progresso',
+  warning: 'Atenção',
+  critical: 'Risco',
+  neutral: 'Sem alerta',
+};
+
+const HERO_TONE_CLASS: Record<TrainerHeroMetric['tone'], 'positive' | 'warning' | 'critical' | 'neutral'> = {
+  positive: 'positive',
+  warning: 'warning',
+  critical: 'critical',
+  neutral: 'neutral',
+};
+
+const HIGHLIGHT_TONE_CLASS: Record<TrainerHighlight['tone'], 'positive' | 'warning' | 'critical' | 'info'> = {
+  positive: 'positive',
+  warning: 'warning',
+  critical: 'critical',
+  info: 'info',
+};
+
+const SESSION_TONE_CLASS: Record<'positive' | 'warning' | 'critical', 'positive' | 'warning' | 'critical'> = {
+  positive: 'positive',
+  warning: 'warning',
+  critical: 'critical',
+};
+
+const CLIENT_TONE_CLASS: Record<TrainerClientSnapshot['tone'], 'positive' | 'warning' | 'critical' | 'neutral'> = {
+  positive: 'positive',
+  warning: 'warning',
+  critical: 'critical',
+  neutral: 'neutral',
+};
+
+const APPROVAL_TONE_CLASS: Record<TrainerApprovalItem['tone'], 'positive' | 'warning' | 'critical' | 'neutral'> = {
+  positive: 'positive',
+  warning: 'warning',
+  critical: 'critical',
+  neutral: 'neutral',
+};
+
+const CLIENT_FILTER_STORAGE_KEY = 'trainer-dashboard:client-preferences';
+
+const TONE_PRIORITY: Record<TrainerClientSnapshot['tone'], number> = {
+  critical: 0,
+  warning: 1,
+  positive: 2,
+  neutral: 3,
+};
 
 type ClientToneFilter = 'all' | TrainerClientSnapshot['tone'];
 
@@ -78,67 +150,26 @@ function firstName(fullName: string | null): string {
   return first || fullName;
 }
 
+const nameCollator = new Intl.Collator('pt-PT', { sensitivity: 'base' });
+
 function heroToneClass(metric: TrainerHeroMetric) {
-  switch (metric.tone) {
-    case 'positive':
-      return 'positive';
-    case 'warning':
-      return 'warning';
-    case 'critical':
-      return 'critical';
-    default:
-      return 'neutral';
-  }
+  return HERO_TONE_CLASS[metric.tone] ?? 'neutral';
 }
 
 function highlightToneClass(highlight: TrainerHighlight) {
-  switch (highlight.tone) {
-    case 'positive':
-      return 'positive';
-    case 'warning':
-      return 'warning';
-    case 'critical':
-      return 'critical';
-    default:
-      return 'info';
-  }
+  return HIGHLIGHT_TONE_CLASS[highlight.tone] ?? 'info';
 }
 
 function sessionToneClass(tone: TrainerUpcomingSession['tone'] | TrainerAgendaSession['tone']) {
-  switch (tone) {
-    case 'positive':
-      return 'positive';
-    case 'critical':
-      return 'critical';
-    default:
-      return 'warning';
-  }
+  return SESSION_TONE_CLASS[tone] ?? 'warning';
 }
 
 function clientToneClass(tone: TrainerClientSnapshot['tone']) {
-  switch (tone) {
-    case 'positive':
-      return 'positive';
-    case 'critical':
-      return 'critical';
-    case 'warning':
-      return 'warning';
-    default:
-      return 'neutral';
-  }
+  return CLIENT_TONE_CLASS[tone] ?? 'neutral';
 }
 
 function approvalToneClass(tone: TrainerApprovalItem['tone']) {
-  switch (tone) {
-    case 'positive':
-      return 'positive';
-    case 'critical':
-      return 'critical';
-    case 'warning':
-      return 'warning';
-    default:
-      return 'neutral';
-  }
+  return APPROVAL_TONE_CLASS[tone] ?? 'neutral';
 }
 
 function TimelineTooltip({ active, payload }: { active?: boolean; payload?: any[] }) {
@@ -176,33 +207,82 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
 
   const [clientQuery, setClientQuery] = React.useState('');
   const [clientToneFilter, setClientToneFilter] = React.useState<ClientToneFilter>('all');
+  const [clientSort, setClientSort] = React.useState<ClientSort>('priority');
+  const filtersHydratedRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const raw = window.localStorage.getItem(CLIENT_FILTER_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Partial<{ query: unknown; tone: unknown; sort: unknown }> | null;
+      if (parsed && typeof parsed === 'object') {
+        if (typeof parsed.query === 'string') {
+          setClientQuery(parsed.query);
+        }
+        if (
+          typeof parsed.tone === 'string' &&
+          CLIENT_TONE_FILTERS.some((filter) => filter.id === parsed.tone)
+        ) {
+          setClientToneFilter(parsed.tone as ClientToneFilter);
+        }
+        if (
+          typeof parsed.sort === 'string' &&
+          CLIENT_SORT_OPTIONS.some((option) => option.id === parsed.sort)
+        ) {
+          setClientSort(parsed.sort as ClientSort);
+        }
+      }
+    } catch (storageError) {
+      // Ignora estados inválidos armazenados.
+    } finally {
+      filtersHydratedRef.current = true;
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined' || !filtersHydratedRef.current) return;
+    const payload = JSON.stringify({ query: clientQuery, tone: clientToneFilter, sort: clientSort });
+    window.localStorage.setItem(CLIENT_FILTER_STORAGE_KEY, payload);
+  }, [clientQuery, clientToneFilter, clientSort]);
 
   const normalizedQuery = React.useMemo(() => clientQuery.trim().toLowerCase(), [clientQuery]);
-  const hasFilters = normalizedQuery.length > 0 || clientToneFilter !== 'all';
+  const hasFilters = normalizedQuery.length > 0 || clientToneFilter !== 'all' || clientSort !== 'priority';
 
   const clearFilters = React.useCallback(() => {
     setClientQuery('');
     setClientToneFilter('all');
+    setClientSort('priority');
   }, []);
 
   const filteredClients = React.useMemo(() => {
-    return dashboard.clients
+    const normalizedClients = dashboard.clients
       .filter((client) => {
         const matchesQuery = normalizedQuery.length === 0
-        ? true
-        : [client.name, client.email ?? '', client.lastSessionLabel, client.nextSessionLabel]
-            .join(' ')
-            .toLowerCase()
-            .includes(normalizedQuery);
+          ? true
+          : [client.name, client.email ?? '', client.lastSessionLabel, client.nextSessionLabel]
+              .join(' ')
+              .toLowerCase()
+              .includes(normalizedQuery);
         const matchesTone = clientToneFilter === 'all' ? true : client.tone === clientToneFilter;
         return matchesQuery && matchesTone;
-      })
-      .sort((a, b) => {
+      });
+
+    return normalizedClients.sort((a, b) => {
+      if (clientSort === 'activity') {
+        const upcomingDiff = b.upcoming - a.upcoming;
+        if (upcomingDiff !== 0) return upcomingDiff;
+        const completedDiff = b.completed - a.completed;
+        if (completedDiff !== 0) return completedDiff;
+      } else {
         const toneDiff = (TONE_PRIORITY[a.tone] ?? 99) - (TONE_PRIORITY[b.tone] ?? 99);
         if (toneDiff !== 0) return toneDiff;
-        return a.name.localeCompare(b.name, 'pt-PT', { sensitivity: 'base' });
-      });
-  }, [dashboard.clients, normalizedQuery, clientToneFilter]);
+      }
+
+      return nameCollator.compare(a.name, b.name);
+    });
+  }, [dashboard.clients, normalizedQuery, clientToneFilter, clientSort]);
 
   const clientStats = React.useMemo(() => {
     const totals = filteredClients.reduce(
@@ -217,12 +297,15 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
       { total: filteredClients.length, upcoming: 0, completed: 0, attention: 0 },
     );
 
+    const attentionRate = totals.total === 0 ? 0 : totals.attention / totals.total;
+
     return {
       ...totals,
       totalLabel: numberFormatter.format(totals.total),
       upcomingLabel: numberFormatter.format(totals.upcoming),
       completedLabel: numberFormatter.format(totals.completed),
       attentionLabel: numberFormatter.format(totals.attention),
+      attentionRateLabel: percentageFormatter.format(attentionRate),
     };
   }, [filteredClients]);
 
@@ -241,7 +324,7 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
       String(client.completed),
       client.lastSessionLabel,
       client.nextSessionLabel,
-      client.tone,
+      CLIENT_TONE_LABELS[client.tone] ?? client.tone,
     ]);
 
     const csv = [header, ...rows]
@@ -491,6 +574,27 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
                   aria-label="Filtrar clientes"
                 />
               </div>
+              <div className="trainer-dashboard__clients-sort">
+                <label htmlFor="trainer-dashboard-clients-sort" className="trainer-dashboard__clients-sort-label">
+                  Ordenar
+                </label>
+                <select
+                  id="trainer-dashboard-clients-sort"
+                  className="trainer-dashboard__clients-sort-select"
+                  value={clientSort}
+                  onChange={(event) => setClientSort(event.target.value as ClientSort)}
+                  aria-describedby="trainer-dashboard-clients-sort-description"
+                >
+                  {CLIENT_SORT_OPTIONS.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <p id="trainer-dashboard-clients-sort-description" className="trainer-dashboard__clients-sort-description">
+                  {CLIENT_SORT_OPTIONS.find((option) => option.id === clientSort)?.description}
+                </p>
+              </div>
               <div className="trainer-dashboard__tone-toggle" role="group" aria-label="Filtrar por prioridade">
                 {CLIENT_TONE_FILTERS.map((filter) => (
                   <button
@@ -506,15 +610,27 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
                   </button>
                 ))}
               </div>
-              <Button
-                onClick={exportClients}
-                variant="ghost"
-                size="sm"
-                leftIcon={<Download size={16} aria-hidden />}
-                disabled={filteredClients.length === 0}
-              >
-                Exportar CSV
-              </Button>
+              <div className="trainer-dashboard__clients-actions">
+                {hasFilters && (
+                  <Button
+                    onClick={clearFilters}
+                    variant="ghost"
+                    size="sm"
+                    className="trainer-dashboard__clients-clear"
+                  >
+                    Limpar filtros
+                  </Button>
+                )}
+                <Button
+                  onClick={exportClients}
+                  variant="ghost"
+                  size="sm"
+                  leftIcon={<Download size={16} aria-hidden />}
+                  disabled={filteredClients.length === 0}
+                >
+                  Exportar CSV
+                </Button>
+              </div>
             </div>
           </div>
           <div className="trainer-dashboard__clients-summary" aria-live="polite">
@@ -527,8 +643,11 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
             <span className="trainer-dashboard__clients-summary-item">
               {clientStats.completedLabel} concluídas
             </span>
-            <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--critical">
+            <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--attention">
               {clientStats.attentionLabel} a precisar de atenção
+            </span>
+            <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--rate">
+              {clientStats.attentionRateLabel} da carteira em alerta
             </span>
           </div>
           <div className="trainer-dashboard__clients-table" role="table">
