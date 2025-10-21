@@ -133,6 +133,9 @@ const CLIENT_FILTER_DEFAULTS: ClientFiltersState = {
   sort: 'priority',
 };
 
+const MS_IN_DAY = 1000 * 60 * 60 * 24;
+const STALLED_THRESHOLD_DAYS = 10;
+
 type ClientFiltersAction =
   | { type: 'hydrate'; value: Partial<ClientFiltersState> }
   | { type: 'setQuery'; value: string }
@@ -268,6 +271,21 @@ function approvalToneClass(tone: TrainerApprovalItem['tone']) {
   return APPROVAL_TONE_CLASS[tone] ?? 'neutral';
 }
 
+function matchesClientQuery(client: TrainerClientSnapshot, query: string) {
+  if (!query) return true;
+  const haystack = [client.name, client.email ?? '', client.lastSessionLabel, client.nextSessionLabel]
+    .join(' ')
+    .toLowerCase();
+  return haystack.includes(query);
+}
+
+function parseClientDate(value: string | null) {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
 function TimelineTooltip({ active, payload }: { active?: boolean; payload?: any[] }) {
   if (!active || !payload?.length) return null;
   const point = payload[0]?.payload as TrainerTimelinePoint | undefined;
@@ -304,8 +322,15 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
     useTrainerClientFilters();
 
   const toneCounts = React.useMemo(() => {
-    const counts: Record<ClientToneFilter, number> = {
+    const totals: Record<ClientToneFilter, number> = {
       all: dashboard.clients.length,
+      positive: 0,
+      warning: 0,
+      critical: 0,
+      neutral: 0,
+    };
+    const matches: Record<ClientToneFilter, number> = {
+      all: 0,
       positive: 0,
       warning: 0,
       critical: 0,
@@ -313,26 +338,44 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
     };
 
     for (const client of dashboard.clients) {
-      counts[client.tone] += 1;
+      totals[client.tone] += 1;
+      if (matchesClientQuery(client, deferredQuery)) {
+        matches.all += 1;
+        matches[client.tone] += 1;
+      }
     }
 
+    const keys = CLIENT_TONE_FILTERS.map((filter) => filter.id as ClientToneFilter);
+    const queryActive = deferredQuery.length > 0;
+    const totalLabels = Object.fromEntries(
+      keys.map((key) => [key, numberFormatter.format(totals[key])]),
+    ) as Record<ClientToneFilter, string>;
+    const matchLabels = Object.fromEntries(
+      keys.map((key) => [key, numberFormatter.format(matches[key])]),
+    ) as Record<ClientToneFilter, string>;
+
+    const displayLabels = Object.fromEntries(
+      keys.map((key) => [key, queryActive ? matchLabels[key] : totalLabels[key]]),
+    ) as Record<ClientToneFilter, string>;
+    const ariaLabels = Object.fromEntries(
+      keys.map((key) => [key, queryActive ? `${matchLabels[key]} de ${totalLabels[key]}` : totalLabels[key]]),
+    ) as Record<ClientToneFilter, string>;
+
     return {
-      counts,
-      labels: Object.fromEntries(
-        Object.entries(counts).map(([key, value]) => [key, numberFormatter.format(value)]),
-      ) as Record<ClientToneFilter, string>,
+      totals,
+      matches,
+      queryActive,
+      displayLabels,
+      totalLabels,
+      matchLabels,
+      ariaLabels,
     };
-  }, [dashboard.clients]);
+  }, [dashboard.clients, deferredQuery]);
 
   const filteredClients = React.useMemo(() => {
     const normalizedClients = dashboard.clients
       .filter((client) => {
-        const matchesQuery = deferredQuery.length === 0
-          ? true
-          : [client.name, client.email ?? '', client.lastSessionLabel, client.nextSessionLabel]
-              .join(' ')
-              .toLowerCase()
-              .includes(deferredQuery);
+        const matchesQuery = matchesClientQuery(client, deferredQuery);
         const matchesTone = filters.tone === 'all' ? true : client.tone === filters.tone;
         return matchesQuery && matchesTone;
       });
@@ -432,6 +475,55 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
       })
       .slice(0, 4);
   }, [dashboard.clients]);
+
+  const stalledClients = React.useMemo(() => {
+    const now = new Date(dashboard.updatedAt ?? Date.now());
+    const reference = Number.isNaN(now.getTime()) ? Date.now() : now.getTime();
+    const entries: Array<{
+      id: string;
+      name: string;
+      email: string | null;
+      lastSessionLabel: string;
+      inactivityDays: number | null;
+      priorityScore: number;
+    }> = [];
+
+    for (const client of dashboard.clients) {
+      const next = parseClientDate(client.nextSessionAt);
+      const hasUpcoming = Boolean(next);
+      if (hasUpcoming) continue;
+
+      const last = parseClientDate(client.lastSessionAt);
+      const inactivityDays = last ? Math.max(0, Math.floor((reference - last.getTime()) / MS_IN_DAY)) : null;
+      const priorityScore = inactivityDays ?? Number.POSITIVE_INFINITY;
+      if (inactivityDays !== null && inactivityDays < STALLED_THRESHOLD_DAYS) {
+        continue;
+      }
+
+      entries.push({
+        id: client.id,
+        name: client.name,
+        email: client.email,
+        lastSessionLabel: client.lastSessionLabel,
+        inactivityDays,
+        priorityScore,
+      });
+    }
+
+    return entries
+      .sort((a, b) => b.priorityScore - a.priorityScore)
+      .slice(0, 4)
+      .map((entry) => ({
+        id: entry.id,
+        name: entry.name,
+        email: entry.email,
+        lastSessionLabel: entry.lastSessionLabel,
+        inactivityLabel:
+          entry.inactivityDays === null
+            ? 'Sem histórico recente'
+            : `${numberFormatter.format(entry.inactivityDays)} dia(s) sem sessão`,
+      }));
+  }, [dashboard.clients, dashboard.updatedAt]);
 
   const handleRefresh = React.useCallback(() => {
     void mutate();
@@ -728,12 +820,19 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
                     data-active={filters.tone === filter.id}
                     data-tone={filter.tone ?? 'all'}
                     aria-pressed={filters.tone === filter.id}
-                    aria-label={`${filter.label} (${toneCounts.labels[filter.id]})`}
+                    aria-label={`${filter.label} (${toneCounts.ariaLabels[filter.id]})`}
                     onClick={() => setClientToneFilter(filter.id)}
                   >
-                    <span className="trainer-dashboard__tone-button-label">{filter.label}</span>
+                    <span className="trainer-dashboard__tone-button-label">
+                      {filter.label}
+                      {toneCounts.queryActive && (
+                        <span className="trainer-dashboard__tone-button-total" aria-hidden="true">
+                          de {toneCounts.totalLabels[filter.id]}
+                        </span>
+                      )}
+                    </span>
                     <span className="trainer-dashboard__tone-button-count" aria-hidden="true">
-                      {toneCounts.labels[filter.id]}
+                      {toneCounts.displayLabels[filter.id]}
                     </span>
                   </button>
                 ))}
@@ -782,6 +881,29 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
                     {client.email && (
                       <a className="trainer-dashboard__clients-priority-link" href={`mailto:${client.email}`}>
                         Enviar email
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {stalledClients.length > 0 && (
+            <div className="trainer-dashboard__clients-stalled" aria-live="polite">
+              <h3 className="trainer-dashboard__clients-stalled-title">Sem próxima sessão</h3>
+              <ul className="trainer-dashboard__clients-stalled-list">
+                {stalledClients.map((client) => (
+                  <li key={client.id} className="trainer-dashboard__clients-stalled-item">
+                    <div className="trainer-dashboard__clients-stalled-header">
+                      <span className="trainer-dashboard__clients-stalled-name">{client.name}</span>
+                      <span className="trainer-dashboard__clients-stalled-badge">{client.inactivityLabel}</span>
+                    </div>
+                    <p className="trainer-dashboard__clients-stalled-meta">
+                      Última sessão: {client.lastSessionLabel}
+                    </p>
+                    {client.email && (
+                      <a className="trainer-dashboard__clients-stalled-link" href={`mailto:${client.email}`}>
+                        Contactar
                       </a>
                     )}
                   </li>
