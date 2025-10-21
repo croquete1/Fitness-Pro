@@ -1,6 +1,8 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
+import clsx from 'clsx';
 import { usePathname } from 'next/navigation';
 import { RefreshCw } from 'lucide-react';
 import SidebarBase from '@/components/layout/SidebarBase';

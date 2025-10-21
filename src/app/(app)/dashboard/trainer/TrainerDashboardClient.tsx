@@ -121,6 +121,23 @@ const TONE_PRIORITY: Record<TrainerClientSnapshot['tone'], number> = {
   neutral: 3,
 };
 
+type ClientToneFilter = 'all' | TrainerClientSnapshot['tone'];
+
+const CLIENT_TONE_FILTERS: Array<{ id: ClientToneFilter; label: string; tone: TrainerClientSnapshot['tone'] | null }> = [
+  { id: 'all', label: 'Todos', tone: null },
+  { id: 'positive', label: 'Em progresso', tone: 'positive' },
+  { id: 'warning', label: 'Atenção', tone: 'warning' },
+  { id: 'critical', label: 'Risco', tone: 'critical' },
+  { id: 'neutral', label: 'Sem alerta', tone: 'neutral' },
+];
+
+const TONE_PRIORITY: Record<TrainerClientSnapshot['tone'], number> = {
+  critical: 0,
+  warning: 1,
+  positive: 2,
+  neutral: 3,
+};
+
 function formatUpdatedAt(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '—';
