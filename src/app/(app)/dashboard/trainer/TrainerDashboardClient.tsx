@@ -373,6 +373,11 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
     };
   }, [filteredClients]);
 
+  const totalClients = dashboard.clients.length;
+  const totalClientsLabel = React.useMemo(() => numberFormatter.format(totalClients), [totalClients]);
+  const showFilteredSummary = totalClients > 0 && (hasFilters || clientStats.total !== totalClients);
+  const noClients = totalClients === 0;
+
   const handleRefresh = React.useCallback(() => {
     void mutate();
   }, [mutate]);
@@ -698,8 +703,13 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
             </div>
           </div>
           <div className="trainer-dashboard__clients-summary" aria-live="polite">
+            {showFilteredSummary && (
+              <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--total">
+                A mostrar {clientStats.totalLabel} de {totalClientsLabel} cliente(s)
+              </span>
+            )}
             <span className="trainer-dashboard__clients-summary-item">
-              {clientStats.totalLabel} cliente(s)
+              {totalClientsLabel} cliente(s) no total
             </span>
             <span className="trainer-dashboard__clients-summary-item">
               {clientStats.upcomingLabel} sessão(ões) futuras
@@ -732,8 +742,12 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
             {filteredClients.length === 0 ? (
               <div className="trainer-dashboard__clients-empty" role="row">
                 <div role="cell">
-                  <p>Nenhum cliente corresponde ao filtro.</p>
-                  {hasFilters && (
+                  <p>
+                    {noClients
+                      ? 'Ainda não tens clientes atribuídos. Assim que um cliente for associado, ele aparecerá aqui.'
+                      : 'Nenhum cliente corresponde aos filtros aplicados.'}
+                  </p>
+                  {!noClients && hasFilters && (
                     <button type="button" className="trainer-dashboard__clients-reset" onClick={clearFilters}>
                       Limpar filtros
                     </button>
