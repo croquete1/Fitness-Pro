@@ -9388,6 +9388,8 @@ h1,.h1{
 .trainer-dashboard__clients-summary{ margin-top:20px; display:flex; flex-wrap:wrap; gap:12px; align-items:center; font-size:12px; color:var(--muted-fg); }
 .trainer-dashboard__clients-summary-item{ display:inline-flex; align-items:center; gap:8px; padding:6px 12px; border-radius:999px; background:color-mix(in srgb, var(--card-bg) 92%, transparent); font-weight:600; }
 .trainer-dashboard__clients-summary-item--attention{ background:color-mix(in srgb, var(--warning) 18%, transparent); color:var(--fg); }
+.trainer-dashboard__clients-summary-item--critical{ background:color-mix(in srgb, var(--danger) 24%, transparent); color:var(--fg); }
+.trainer-dashboard__clients-summary-item--warning{ background:color-mix(in srgb, var(--warning) 20%, transparent); color:var(--fg); }
 .trainer-dashboard__clients-summary-item--rate{ background:color-mix(in srgb, var(--primary) 18%, transparent); color:var(--fg); }
 .trainer-dashboard__clients-tools .trainer-dashboard__clients-search{ width:100%; }
 .trainer-dashboard__clients-input{ width:100%; }
@@ -12841,6 +12843,8 @@ a.neo-sidebar__highlight {
 .trainer-dashboard__clients-summary{margin-top:var(--neo-space-4);display:flex;flex-wrap:wrap;gap:var(--neo-space-2);align-items:center;font-size:var(--neo-font-size-xs);color:var(--neo-text-secondary)}
 .trainer-dashboard__clients-summary-item{display:inline-flex;align-items:center;gap:var(--neo-space-1);padding:var(--neo-space-1) var(--neo-space-3);border-radius:var(--neo-radius-pill);background:var(--neo-surface-muted);font-weight:600}
 .trainer-dashboard__clients-summary-item--attention{background:color-mix(in srgb,var(--neo-chart-warning) 24%,transparent);color:var(--neo-text-primary)}
+.trainer-dashboard__clients-summary-item--critical{background:color-mix(in srgb,var(--neo-chart-critical) 26%,transparent);color:var(--neo-text-primary)}
+.trainer-dashboard__clients-summary-item--warning{background:color-mix(in srgb,var(--neo-chart-warning) 26%,transparent);color:var(--neo-text-primary)}
 .trainer-dashboard__clients-summary-item--rate{background:color-mix(in srgb,var(--neo-chart-primary) 22%,transparent);color:var(--neo-text-primary)}
 .trainer-dashboard__clients-tools .trainer-dashboard__clients-search{width:100%}
 @media (min-width:960px){
