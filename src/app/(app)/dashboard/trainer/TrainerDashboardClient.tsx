@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import useSWR from 'swr';
+import { Download } from 'lucide-react';
 import {
   Area,
   AreaChart,
@@ -14,6 +15,7 @@ import {
 import PageHeader from '@/components/ui/PageHeader';
 import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
+import DataSourceBadge from '@/components/ui/DataSourceBadge';
 import type {
   TrainerDashboardResponse,
   TrainerHeroMetric,
@@ -46,6 +48,199 @@ type Props = {
 };
 
 const numberFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 });
+const percentageFormatter = new Intl.NumberFormat('pt-PT', {
+  style: 'percent',
+  maximumFractionDigits: 0,
+  minimumFractionDigits: 0,
+});
+
+type ClientToneFilter = 'all' | 'no-upcoming' | TrainerClientSnapshot['tone'];
+
+type ClientSort = 'priority' | 'activity';
+
+const CLIENT_TONE_FILTERS: Array<{
+  id: ClientToneFilter;
+  label: string;
+  tone: TrainerClientSnapshot['tone'] | null;
+}> = [
+  { id: 'all', label: 'Todos', tone: null },
+  { id: 'positive', label: 'Em progresso', tone: 'positive' },
+  { id: 'warning', label: 'Atenção', tone: 'warning' },
+  { id: 'critical', label: 'Risco', tone: 'critical' },
+  { id: 'no-upcoming', label: 'Sem próxima sessão', tone: 'warning' },
+  { id: 'neutral', label: 'Sem alerta', tone: 'neutral' },
+];
+
+const CLIENT_SORT_OPTIONS: Array<{ id: ClientSort; label: string; description: string }> = [
+  { id: 'priority', label: 'Prioridade', description: 'Crítico, atenção, progresso e neutros.' },
+  { id: 'activity', label: 'Maior actividade', description: 'Mais sessões futuras e concluídas.' },
+];
+
+const CLIENT_TONE_LABELS: Record<TrainerClientSnapshot['tone'], string> = {
+  positive: 'Em progresso',
+  warning: 'Atenção',
+  critical: 'Risco',
+  neutral: 'Sem alerta',
+};
+
+const HERO_TONE_CLASS: Record<TrainerHeroMetric['tone'], 'positive' | 'warning' | 'critical' | 'neutral'> = {
+  positive: 'positive',
+  warning: 'warning',
+  critical: 'critical',
+  neutral: 'neutral',
+};
+
+const HIGHLIGHT_TONE_CLASS: Record<TrainerHighlight['tone'], 'positive' | 'warning' | 'critical' | 'info'> = {
+  positive: 'positive',
+  warning: 'warning',
+  critical: 'critical',
+  info: 'info',
+};
+
+const SESSION_TONE_CLASS: Record<'positive' | 'warning' | 'critical', 'positive' | 'warning' | 'critical'> = {
+  positive: 'positive',
+  warning: 'warning',
+  critical: 'critical',
+};
+
+const CLIENT_TONE_CLASS: Record<TrainerClientSnapshot['tone'], 'positive' | 'warning' | 'critical' | 'neutral'> = {
+  positive: 'positive',
+  warning: 'warning',
+  critical: 'critical',
+  neutral: 'neutral',
+};
+
+const APPROVAL_TONE_CLASS: Record<TrainerApprovalItem['tone'], 'positive' | 'warning' | 'critical' | 'neutral'> = {
+  positive: 'positive',
+  warning: 'warning',
+  critical: 'critical',
+  neutral: 'neutral',
+};
+
+const CLIENT_FILTER_STORAGE_KEY = 'trainer-dashboard:client-preferences';
+
+const TONE_PRIORITY: Record<TrainerClientSnapshot['tone'], number> = {
+  critical: 0,
+  warning: 1,
+  positive: 2,
+  neutral: 3,
+};
+
+type ClientFiltersState = {
+  query: string;
+  tone: ClientToneFilter;
+  sort: ClientSort;
+};
+
+const CLIENT_FILTER_DEFAULTS: ClientFiltersState = {
+  query: '',
+  tone: 'all',
+  sort: 'priority',
+};
+
+const MS_IN_DAY = 1000 * 60 * 60 * 24;
+const STALLED_THRESHOLD_DAYS = 10;
+
+type ClientFiltersAction =
+  | { type: 'hydrate'; value: Partial<ClientFiltersState> }
+  | { type: 'setQuery'; value: string }
+  | { type: 'setTone'; value: ClientToneFilter }
+  | { type: 'setSort'; value: ClientSort }
+  | { type: 'reset' };
+
+function clientFiltersReducer(state: ClientFiltersState, action: ClientFiltersAction): ClientFiltersState {
+  switch (action.type) {
+    case 'hydrate': {
+      const next: ClientFiltersState = { ...state };
+      if (typeof action.value.query === 'string') {
+        next.query = action.value.query;
+      }
+      if (
+        typeof action.value.tone === 'string' &&
+        CLIENT_TONE_FILTERS.some((filter) => filter.id === action.value.tone)
+      ) {
+        next.tone = action.value.tone as ClientToneFilter;
+      }
+      if (
+        typeof action.value.sort === 'string' &&
+        CLIENT_SORT_OPTIONS.some((option) => option.id === action.value.sort)
+      ) {
+        next.sort = action.value.sort as ClientSort;
+      }
+      return next;
+    }
+    case 'setQuery':
+      return { ...state, query: action.value };
+    case 'setTone':
+      return { ...state, tone: action.value };
+    case 'setSort':
+      return { ...state, sort: action.value };
+    case 'reset':
+      return { ...CLIENT_FILTER_DEFAULTS };
+    default:
+      return state;
+  }
+}
+
+function useTrainerClientFilters() {
+  const [filters, dispatch] = React.useReducer(clientFiltersReducer, CLIENT_FILTER_DEFAULTS);
+  const hydratedRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const raw = window.localStorage.getItem(CLIENT_FILTER_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Partial<ClientFiltersState> | null;
+      if (parsed && typeof parsed === 'object') {
+        dispatch({ type: 'hydrate', value: parsed });
+      }
+    } catch (storageError) {
+      // Ignora estados inválidos armazenados.
+    } finally {
+      hydratedRef.current = true;
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined' || !hydratedRef.current) return;
+    const payload = JSON.stringify(filters);
+    window.localStorage.setItem(CLIENT_FILTER_STORAGE_KEY, payload);
+  }, [filters]);
+
+  const setClientQuery = React.useCallback((value: string) => {
+    dispatch({ type: 'setQuery', value });
+  }, []);
+
+  const setClientToneFilter = React.useCallback((value: ClientToneFilter) => {
+    dispatch({ type: 'setTone', value });
+  }, []);
+
+  const setClientSort = React.useCallback((value: ClientSort) => {
+    dispatch({ type: 'setSort', value });
+  }, []);
+
+  const clearFilters = React.useCallback(() => {
+    dispatch({ type: 'reset' });
+  }, []);
+
+  const normalizedQuery = React.useMemo(() => filters.query.trim().toLowerCase(), [filters.query]);
+  const deferredQuery = React.useDeferredValue(normalizedQuery);
+  const hasFilters =
+    normalizedQuery.length > 0 || filters.tone !== CLIENT_FILTER_DEFAULTS.tone || filters.sort !== CLIENT_FILTER_DEFAULTS.sort;
+
+  return {
+    filters,
+    normalizedQuery,
+    deferredQuery,
+    hasFilters,
+    setClientQuery,
+    setClientToneFilter,
+    setClientSort,
+    clearFilters,
+  };
+}
 
 function formatUpdatedAt(value: string) {
   const date = new Date(value);
@@ -59,67 +254,41 @@ function firstName(fullName: string | null): string {
   return first || fullName;
 }
 
+const nameCollator = new Intl.Collator('pt-PT', { sensitivity: 'base' });
+
 function heroToneClass(metric: TrainerHeroMetric) {
-  switch (metric.tone) {
-    case 'positive':
-      return 'positive';
-    case 'warning':
-      return 'warning';
-    case 'critical':
-      return 'critical';
-    default:
-      return 'neutral';
-  }
+  return HERO_TONE_CLASS[metric.tone] ?? 'neutral';
 }
 
 function highlightToneClass(highlight: TrainerHighlight) {
-  switch (highlight.tone) {
-    case 'positive':
-      return 'positive';
-    case 'warning':
-      return 'warning';
-    case 'critical':
-      return 'critical';
-    default:
-      return 'info';
-  }
+  return HIGHLIGHT_TONE_CLASS[highlight.tone] ?? 'info';
 }
 
 function sessionToneClass(tone: TrainerUpcomingSession['tone'] | TrainerAgendaSession['tone']) {
-  switch (tone) {
-    case 'positive':
-      return 'positive';
-    case 'critical':
-      return 'critical';
-    default:
-      return 'warning';
-  }
+  return SESSION_TONE_CLASS[tone] ?? 'warning';
 }
 
 function clientToneClass(tone: TrainerClientSnapshot['tone']) {
-  switch (tone) {
-    case 'positive':
-      return 'positive';
-    case 'critical':
-      return 'critical';
-    case 'warning':
-      return 'warning';
-    default:
-      return 'neutral';
-  }
+  return CLIENT_TONE_CLASS[tone] ?? 'neutral';
 }
 
 function approvalToneClass(tone: TrainerApprovalItem['tone']) {
-  switch (tone) {
-    case 'positive':
-      return 'positive';
-    case 'critical':
-      return 'critical';
-    case 'warning':
-      return 'warning';
-    default:
-      return 'neutral';
-  }
+  return APPROVAL_TONE_CLASS[tone] ?? 'neutral';
+}
+
+function matchesClientQuery(client: TrainerClientSnapshot, query: string) {
+  if (!query) return true;
+  const haystack = [client.name, client.email ?? '', client.lastSessionLabel, client.nextSessionLabel]
+    .join(' ')
+    .toLowerCase();
+  return haystack.includes(query);
+}
+
+function parseClientDate(value: string | null) {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
 }
 
 function TimelineTooltip({ active, payload }: { active?: boolean; payload?: any[] }) {
@@ -152,22 +321,294 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
   });
 
   const dashboard = data ?? initialData;
-  const supabaseState = dashboard.supabase ? 'ok' : 'warn';
-  const supabaseLabel = dashboard.supabase ? 'Dados em tempo real' : 'Modo offline';
 
   const greeting = React.useMemo(() => firstName(viewerName ?? dashboard.trainerName), [viewerName, dashboard.trainerName]);
+  const { filters, deferredQuery, hasFilters, setClientQuery, setClientToneFilter, setClientSort, clearFilters } =
+    useTrainerClientFilters();
 
-  const [clientQuery, setClientQuery] = React.useState('');
-  const filteredClients = React.useMemo(() => {
-    if (!clientQuery.trim()) return dashboard.clients;
-    const query = clientQuery.trim().toLowerCase();
-    return dashboard.clients.filter((client) =>
-      [client.name, client.email ?? '', client.lastSessionLabel, client.nextSessionLabel]
-        .join(' ')
-        .toLowerCase()
-        .includes(query),
+  const clientEntries = React.useMemo(
+    () =>
+      dashboard.clients.map((client) => {
+        const lastSessionDate = parseClientDate(client.lastSessionAt);
+        const nextSessionDate = parseClientDate(client.nextSessionAt);
+        return {
+          client,
+          lastSessionDate,
+          nextSessionDate,
+          hasUpcoming: Boolean(nextSessionDate),
+        };
+      }),
+    [dashboard.clients],
+  );
+
+  const toneCounts = React.useMemo(() => {
+    const totals: Record<ClientToneFilter, number> = {
+      all: clientEntries.length,
+      positive: 0,
+      warning: 0,
+      critical: 0,
+      neutral: 0,
+      'no-upcoming': 0,
+    };
+    const matches: Record<ClientToneFilter, number> = {
+      all: 0,
+      positive: 0,
+      warning: 0,
+      critical: 0,
+      neutral: 0,
+      'no-upcoming': 0,
+    };
+
+    for (const entry of clientEntries) {
+      const { client, hasUpcoming } = entry;
+      totals[client.tone] += 1;
+      if (!hasUpcoming) {
+        totals['no-upcoming'] += 1;
+      }
+      if (matchesClientQuery(client, deferredQuery)) {
+        matches.all += 1;
+        matches[client.tone] += 1;
+        if (!hasUpcoming) {
+          matches['no-upcoming'] += 1;
+        }
+      }
+    }
+
+    const keys = CLIENT_TONE_FILTERS.map((filter) => filter.id as ClientToneFilter);
+    const queryActive = deferredQuery.length > 0;
+    const totalLabels = Object.fromEntries(
+      keys.map((key) => [key, numberFormatter.format(totals[key])]),
+    ) as Record<ClientToneFilter, string>;
+    const matchLabels = Object.fromEntries(
+      keys.map((key) => [key, numberFormatter.format(matches[key])]),
+    ) as Record<ClientToneFilter, string>;
+
+    const displayLabels = Object.fromEntries(
+      keys.map((key) => [key, queryActive ? matchLabels[key] : totalLabels[key]]),
+    ) as Record<ClientToneFilter, string>;
+    const ariaLabels = Object.fromEntries(
+      keys.map((key) => [key, queryActive ? `${matchLabels[key]} de ${totalLabels[key]}` : totalLabels[key]]),
+    ) as Record<ClientToneFilter, string>;
+
+    return {
+      totals,
+      matches,
+      queryActive,
+      displayLabels,
+      totalLabels,
+      matchLabels,
+      ariaLabels,
+    };
+  }, [clientEntries, deferredQuery]);
+
+  const filteredEntries = React.useMemo(() => {
+    const normalizedEntries = clientEntries
+      .filter(({ client, hasUpcoming }) => {
+        const matchesQuery = matchesClientQuery(client, deferredQuery);
+        const matchesTone =
+          filters.tone === 'all'
+            ? true
+            : filters.tone === 'no-upcoming'
+            ? !hasUpcoming
+            : client.tone === filters.tone;
+        return matchesQuery && matchesTone;
+      })
+      .sort((a, b) => {
+        const clientA = a.client;
+        const clientB = b.client;
+
+        if (filters.sort === 'activity') {
+          const upcomingDiff = clientB.upcoming - clientA.upcoming;
+          if (upcomingDiff !== 0) return upcomingDiff;
+          const completedDiff = clientB.completed - clientA.completed;
+          if (completedDiff !== 0) return completedDiff;
+        } else {
+          const toneDiff = (TONE_PRIORITY[clientA.tone] ?? 99) - (TONE_PRIORITY[clientB.tone] ?? 99);
+          if (toneDiff !== 0) return toneDiff;
+        }
+
+        return nameCollator.compare(clientA.name, clientB.name);
+      });
+
+    return normalizedEntries;
+  }, [clientEntries, deferredQuery, filters.tone, filters.sort]);
+
+  const filteredClients = React.useMemo(() => filteredEntries.map((entry) => entry.client), [filteredEntries]);
+
+  const clientStats = React.useMemo(() => {
+    const totals = filteredEntries.reduce(
+      (acc, entry) => {
+        const { client, hasUpcoming } = entry;
+        acc.total += 1;
+        acc.upcoming += client.upcoming;
+        acc.completed += client.completed;
+        if (!client.email) {
+          acc.missingContact += 1;
+        }
+        if (!hasUpcoming) {
+          acc.stalled += 1;
+        }
+        if (client.tone === 'critical' || client.tone === 'warning') {
+          acc.attention += 1;
+        }
+        acc.tones[client.tone] += 1;
+        return acc;
+      },
+      {
+        total: 0,
+        upcoming: 0,
+        completed: 0,
+        attention: 0,
+        stalled: 0,
+        missingContact: 0,
+        tones: {
+          positive: 0,
+          warning: 0,
+          critical: 0,
+          neutral: 0,
+        } as Record<TrainerClientSnapshot['tone'], number>,
+      },
     );
-  }, [dashboard.clients, clientQuery]);
+
+    const attentionRate = totals.total === 0 ? 0 : totals.attention / totals.total;
+
+    const distribution = (Object.keys(totals.tones) as Array<TrainerClientSnapshot['tone']>).map((tone) => {
+      const count = totals.tones[tone];
+      const percent = totals.total === 0 ? 0 : count / totals.total;
+      return {
+        tone,
+        count,
+        percent,
+        label: CLIENT_TONE_LABELS[tone],
+        countLabel: numberFormatter.format(count),
+        percentLabel: percentageFormatter.format(percent),
+      };
+    });
+
+    const distributionLabel = distribution
+      .map((segment) => `${segment.label}: ${segment.countLabel}`)
+      .join('; ');
+
+    return {
+      ...totals,
+      totalLabel: numberFormatter.format(totals.total),
+      upcomingLabel: numberFormatter.format(totals.upcoming),
+      completedLabel: numberFormatter.format(totals.completed),
+      attentionLabel: numberFormatter.format(totals.attention),
+      attentionRateLabel: percentageFormatter.format(attentionRate),
+      stalledLabel: numberFormatter.format(totals.stalled),
+      missingContactLabel: numberFormatter.format(totals.missingContact),
+      criticalLabel: numberFormatter.format(totals.tones.critical),
+      warningLabel: numberFormatter.format(totals.tones.warning),
+      positiveLabel: numberFormatter.format(totals.tones.positive),
+      neutralLabel: numberFormatter.format(totals.tones.neutral),
+      distribution,
+      distributionLabel,
+    };
+  }, [filteredEntries]);
+
+  const totalClients = clientEntries.length;
+  const totalClientsLabel = React.useMemo(() => numberFormatter.format(totalClients), [totalClients]);
+  const showFilteredSummary = totalClients > 0 && (hasFilters || clientStats.total !== totalClients);
+  const noClients = totalClients === 0;
+
+  const priorityClients = React.useMemo(() => {
+    return clientEntries
+      .map((entry) => entry.client)
+      .filter((client) => client.tone === 'critical' || client.tone === 'warning')
+      .sort((a, b) => {
+        const toneDiff = (TONE_PRIORITY[a.tone] ?? 99) - (TONE_PRIORITY[b.tone] ?? 99);
+        if (toneDiff !== 0) return toneDiff;
+        const upcomingDiff = b.upcoming - a.upcoming;
+        if (upcomingDiff !== 0) return upcomingDiff;
+        const completedDiff = b.completed - a.completed;
+        if (completedDiff !== 0) return completedDiff;
+        return nameCollator.compare(a.name, b.name);
+      })
+      .slice(0, 4);
+  }, [clientEntries]);
+
+  const stalledClients = React.useMemo(() => {
+    const now = new Date(dashboard.updatedAt ?? Date.now());
+    const reference = Number.isNaN(now.getTime()) ? Date.now() : now.getTime();
+    const entries: Array<{
+      id: string;
+      name: string;
+      email: string | null;
+      lastSessionLabel: string;
+      inactivityDays: number | null;
+      priorityScore: number;
+    }> = [];
+
+    for (const entry of clientEntries) {
+      if (entry.hasUpcoming) continue;
+
+      const { client, lastSessionDate } = entry;
+      const inactivityDays = lastSessionDate
+        ? Math.max(0, Math.floor((reference - lastSessionDate.getTime()) / MS_IN_DAY))
+        : null;
+      const priorityScore = inactivityDays ?? Number.POSITIVE_INFINITY;
+      if (inactivityDays !== null && inactivityDays < STALLED_THRESHOLD_DAYS) {
+        continue;
+      }
+
+      entries.push({
+        id: client.id,
+        name: client.name,
+        email: client.email,
+        lastSessionLabel: client.lastSessionLabel,
+        inactivityDays,
+        priorityScore,
+      });
+    }
+
+    return entries
+      .sort((a, b) => b.priorityScore - a.priorityScore)
+      .slice(0, 4)
+      .map((entry) => ({
+        id: entry.id,
+        name: entry.name,
+        email: entry.email,
+        lastSessionLabel: entry.lastSessionLabel,
+        inactivityLabel:
+          entry.inactivityDays === null
+            ? 'Sem histórico recente'
+            : `${numberFormatter.format(entry.inactivityDays)} dia(s) sem sessão`,
+      }));
+  }, [clientEntries, dashboard.updatedAt]);
+
+  const handleRefresh = React.useCallback(() => {
+    void mutate();
+  }, [mutate]);
+
+  const exportClients = React.useCallback(() => {
+    if (filteredEntries.length === 0) return;
+
+    const header = ['Cliente', 'Email', 'Próximas', 'Concluídas', 'Última sessão', 'Próxima sessão', 'Prioridade'];
+    const rows = filteredEntries.map(({ client, hasUpcoming }) => [
+      client.name,
+      client.email ?? '',
+      String(client.upcoming),
+      String(client.completed),
+      client.lastSessionLabel,
+      hasUpcoming ? client.nextSessionLabel : 'Sem próxima sessão',
+      CLIENT_TONE_LABELS[client.tone] ?? client.tone,
+    ]);
+
+    const csv = [header, ...rows]
+      .map((row) => row.map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`).join(';'))
+      .join('\n');
+
+    const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `carteira-clientes-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [filteredEntries]);
 
   return (
     <div className="trainer-dashboard">
@@ -177,11 +618,19 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
         sticky={false}
         actions={
           <div className="trainer-dashboard__actions">
-            <span className="status-pill" data-state={supabaseState}>
-              {supabaseLabel}
-            </span>
-            <Button onClick={() => mutate()} variant="ghost" size="sm" disabled={isValidating}>
-              Actualizar
+            <DataSourceBadge
+              source={dashboard.source}
+              generatedAt={dashboard.updatedAt}
+              className="trainer-dashboard__data-source"
+            />
+            <Button
+              onClick={handleRefresh}
+              variant="ghost"
+              size="sm"
+              disabled={isValidating}
+              aria-busy={isValidating}
+            >
+              {isValidating ? 'A actualizar…' : 'Actualizar'}
             </Button>
           </div>
         }
@@ -382,17 +831,200 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
               </h2>
               <p className="neo-panel__subtitle">Resumo de acompanhamento por cliente.</p>
             </div>
-            <div className="trainer-dashboard__clients-search">
-              <input
-                type="search"
-                placeholder="Filtrar clientes"
-                value={clientQuery}
-                onChange={(event) => setClientQuery(event.target.value)}
-                className="trainer-dashboard__clients-input"
-                aria-label="Filtrar clientes"
-              />
+            <div className="trainer-dashboard__clients-tools">
+              <div className="trainer-dashboard__clients-search">
+                <input
+                  type="search"
+                  placeholder="Procurar por nome, email ou sessão"
+                  value={filters.query}
+                  onChange={(event) => setClientQuery(event.target.value)}
+                  className="trainer-dashboard__clients-input"
+                  aria-label="Filtrar clientes"
+                />
+              </div>
+              <div className="trainer-dashboard__clients-sort">
+                <label htmlFor="trainer-dashboard-clients-sort" className="trainer-dashboard__clients-sort-label">
+                  Ordenar
+                </label>
+                <select
+                  id="trainer-dashboard-clients-sort"
+                  className="trainer-dashboard__clients-sort-select"
+                  value={filters.sort}
+                  onChange={(event) => setClientSort(event.target.value as ClientSort)}
+                  aria-describedby="trainer-dashboard-clients-sort-description"
+                >
+                  {CLIENT_SORT_OPTIONS.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <p id="trainer-dashboard-clients-sort-description" className="trainer-dashboard__clients-sort-description">
+                  {CLIENT_SORT_OPTIONS.find((option) => option.id === filters.sort)?.description}
+                </p>
+              </div>
+              <div className="trainer-dashboard__tone-toggle" role="group" aria-label="Filtrar por prioridade">
+                {CLIENT_TONE_FILTERS.map((filter) => (
+                  <button
+                    key={filter.id}
+                    type="button"
+                    className="trainer-dashboard__tone-button"
+                    data-active={filters.tone === filter.id}
+                    data-tone={filter.tone ?? 'all'}
+                    aria-pressed={filters.tone === filter.id}
+                    aria-label={`${filter.label} (${toneCounts.ariaLabels[filter.id]})`}
+                    onClick={() => setClientToneFilter(filter.id)}
+                  >
+                    <span className="trainer-dashboard__tone-button-label">
+                      {filter.label}
+                      {toneCounts.queryActive && (
+                        <span className="trainer-dashboard__tone-button-total" aria-hidden="true">
+                          de {toneCounts.totalLabels[filter.id]}
+                        </span>
+                      )}
+                    </span>
+                    <span className="trainer-dashboard__tone-button-count" aria-hidden="true">
+                      {toneCounts.displayLabels[filter.id]}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <div className="trainer-dashboard__clients-actions">
+                {hasFilters && (
+                  <Button
+                    onClick={clearFilters}
+                    variant="ghost"
+                    size="sm"
+                    className="trainer-dashboard__clients-clear"
+                  >
+                    Limpar filtros
+                  </Button>
+                )}
+                <Button
+                  onClick={exportClients}
+                  variant="ghost"
+                  size="sm"
+                  leftIcon={<Download size={16} aria-hidden />}
+                  disabled={filteredClients.length === 0}
+                >
+                  Exportar CSV
+                </Button>
+              </div>
             </div>
           </div>
+          {priorityClients.length > 0 && (
+            <div className="trainer-dashboard__clients-priority" aria-live="polite">
+              <h3 className="trainer-dashboard__clients-priority-title">Prioridades imediatas</h3>
+              <ul className="trainer-dashboard__clients-priority-list">
+                {priorityClients.map((client) => (
+                  <li
+                    key={client.id}
+                    className={`trainer-dashboard__clients-priority-item trainer-dashboard__clients-priority-item--${clientToneClass(client.tone)}`}
+                  >
+                    <div className="trainer-dashboard__clients-priority-header">
+                      <span className="trainer-dashboard__clients-priority-name">{client.name}</span>
+                      <span className="trainer-dashboard__clients-priority-badge">
+                        {CLIENT_TONE_LABELS[client.tone]}
+                      </span>
+                    </div>
+                    <p className="trainer-dashboard__clients-priority-meta">
+                      {client.nextSessionAt
+                        ? `Próxima sessão: ${client.nextSessionLabel}`
+                        : 'Sem sessão agendada.'}
+                    </p>
+                    {client.email && (
+                      <a className="trainer-dashboard__clients-priority-link" href={`mailto:${client.email}`}>
+                        Enviar email
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {stalledClients.length > 0 && (
+            <div className="trainer-dashboard__clients-stalled" aria-live="polite">
+              <h3 className="trainer-dashboard__clients-stalled-title">Sem próxima sessão</h3>
+              <ul className="trainer-dashboard__clients-stalled-list">
+                {stalledClients.map((client) => (
+                  <li key={client.id} className="trainer-dashboard__clients-stalled-item">
+                    <div className="trainer-dashboard__clients-stalled-header">
+                      <span className="trainer-dashboard__clients-stalled-name">{client.name}</span>
+                      <span className="trainer-dashboard__clients-stalled-badge">{client.inactivityLabel}</span>
+                    </div>
+                    <p className="trainer-dashboard__clients-stalled-meta">
+                      Última sessão: {client.lastSessionLabel}
+                    </p>
+                    {client.email && (
+                      <a className="trainer-dashboard__clients-stalled-link" href={`mailto:${client.email}`}>
+                        Contactar
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <div className="trainer-dashboard__clients-summary" aria-live="polite">
+            {showFilteredSummary && (
+              <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--total">
+                A mostrar {clientStats.totalLabel} de {totalClientsLabel} cliente(s)
+              </span>
+            )}
+            <span className="trainer-dashboard__clients-summary-item">
+              {totalClientsLabel} cliente(s) no total
+            </span>
+            <span className="trainer-dashboard__clients-summary-item">
+              {clientStats.upcomingLabel} sessão(ões) futuras
+            </span>
+            <span className="trainer-dashboard__clients-summary-item">
+              {clientStats.completedLabel} concluídas
+            </span>
+            {clientStats.tones.critical > 0 && (
+              <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--critical">
+                {clientStats.criticalLabel} em risco
+              </span>
+            )}
+            {clientStats.tones.warning > 0 && (
+              <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--warning">
+                {clientStats.warningLabel} a requer atenção
+              </span>
+            )}
+            {clientStats.stalled > 0 && (
+              <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--stalled">
+                {clientStats.stalledLabel} sem próxima sessão
+              </span>
+            )}
+            {clientStats.missingContact > 0 && (
+              <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--missing">
+                {clientStats.missingContactLabel} sem contacto directo
+              </span>
+            )}
+            <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--rate">
+              {clientStats.attentionRateLabel} da carteira em alerta
+            </span>
+          </div>
+          {clientStats.distribution.filter((segment) => segment.count > 0).length > 0 && (
+            <div
+              className="trainer-dashboard__clients-distribution"
+              role="img"
+              aria-label={`Distribuição por prioridade: ${clientStats.distributionLabel}.`}
+            >
+              {clientStats.distribution
+                .filter((segment) => segment.count > 0)
+                .map((segment) => (
+                  <div
+                    key={segment.tone}
+                    className={`trainer-dashboard__clients-distribution-segment trainer-dashboard__clients-distribution-segment--${segment.tone}`}
+                    style={{ flexGrow: segment.count }}
+                  >
+                    <span className="trainer-dashboard__clients-distribution-count">{segment.countLabel}</span>
+                    <span className="trainer-dashboard__clients-distribution-percent">{segment.percentLabel}</span>
+                    <span className="trainer-dashboard__clients-distribution-label">{segment.label}</span>
+                  </div>
+                ))}
+            </div>
+          )}
           <div className="trainer-dashboard__clients-table" role="table">
             <div className="trainer-dashboard__clients-row trainer-dashboard__clients-row--head" role="row">
               <div role="columnheader">Cliente</div>
@@ -400,10 +1032,22 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
               <div role="columnheader">Concluídas</div>
               <div role="columnheader">Última sessão</div>
               <div role="columnheader">Próxima sessão</div>
+              <div role="columnheader">Contacto</div>
             </div>
             {filteredClients.length === 0 ? (
               <div className="trainer-dashboard__clients-empty" role="row">
-                <div role="cell">Nenhum cliente corresponde ao filtro.</div>
+                <div role="cell">
+                  <p>
+                    {noClients
+                      ? 'Ainda não tens clientes atribuídos. Assim que um cliente for associado, ele aparecerá aqui.'
+                      : 'Nenhum cliente corresponde aos filtros aplicados.'}
+                  </p>
+                  {!noClients && hasFilters && (
+                    <button type="button" className="trainer-dashboard__clients-reset" onClick={clearFilters}>
+                      Limpar filtros
+                    </button>
+                  )}
+                </div>
               </div>
             ) : (
               filteredClients.map((client) => (
@@ -419,7 +1063,21 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
                   <div role="cell">{numberFormatter.format(client.upcoming)}</div>
                   <div role="cell">{numberFormatter.format(client.completed)}</div>
                   <div role="cell">{client.lastSessionLabel}</div>
-                  <div role="cell">{client.nextSessionLabel}</div>
+                  <div role="cell">{client.nextSessionAt ? client.nextSessionLabel : 'Sem próxima sessão'}</div>
+                  <div role="cell" className="trainer-dashboard__clients-contact">
+                    {client.email ? (
+                      <a
+                        href={`mailto:${client.email}`}
+                        className="trainer-dashboard__clients-contact-link"
+                        aria-label={`Enviar email para ${client.name}`}
+                        title={`Enviar email para ${client.name}`}
+                      >
+                        Enviar email
+                      </a>
+                    ) : (
+                      <span className="trainer-dashboard__clients-contact-missing">Sem email</span>
+                    )}
+                  </div>
                 </div>
               ))
             )}
