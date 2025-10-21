@@ -54,7 +54,7 @@ const percentageFormatter = new Intl.NumberFormat('pt-PT', {
   minimumFractionDigits: 0,
 });
 
-type ClientToneFilter = 'all' | 'no-upcoming' | TrainerClientSnapshot['tone'];
+type ClientToneFilter = 'all' | 'no-upcoming' | 'no-contact' | TrainerClientSnapshot['tone'];
 
 type ClientSort = 'priority' | 'activity';
 
@@ -68,6 +68,7 @@ const CLIENT_TONE_FILTERS: Array<{
   { id: 'warning', label: 'Atenção', tone: 'warning' },
   { id: 'critical', label: 'Risco', tone: 'critical' },
   { id: 'no-upcoming', label: 'Sem próxima sessão', tone: 'warning' },
+  { id: 'no-contact', label: 'Sem contacto', tone: 'critical' },
   { id: 'neutral', label: 'Sem alerta', tone: 'neutral' },
 ];
 
@@ -331,11 +332,18 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
       dashboard.clients.map((client) => {
         const lastSessionDate = parseClientDate(client.lastSessionAt);
         const nextSessionDate = parseClientDate(client.nextSessionAt);
+        const sanitizedEmail =
+          typeof client.email === 'string' ? client.email.trim() : client.email;
+        const normalizedEmail = sanitizedEmail && sanitizedEmail.length > 0 ? sanitizedEmail : null;
+        const hasContact = Boolean(normalizedEmail);
+        const normalizedClient =
+          normalizedEmail === client.email ? client : { ...client, email: normalizedEmail };
         return {
-          client,
+          client: normalizedClient,
           lastSessionDate,
           nextSessionDate,
           hasUpcoming: Boolean(nextSessionDate),
+          hasContact,
         };
       }),
     [dashboard.clients],
@@ -349,6 +357,7 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
       critical: 0,
       neutral: 0,
       'no-upcoming': 0,
+      'no-contact': 0,
     };
     const matches: Record<ClientToneFilter, number> = {
       all: 0,
@@ -357,19 +366,26 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
       critical: 0,
       neutral: 0,
       'no-upcoming': 0,
+      'no-contact': 0,
     };
 
     for (const entry of clientEntries) {
-      const { client, hasUpcoming } = entry;
+      const { client, hasUpcoming, hasContact } = entry;
       totals[client.tone] += 1;
       if (!hasUpcoming) {
         totals['no-upcoming'] += 1;
+      }
+      if (!hasContact) {
+        totals['no-contact'] += 1;
       }
       if (matchesClientQuery(client, deferredQuery)) {
         matches.all += 1;
         matches[client.tone] += 1;
         if (!hasUpcoming) {
           matches['no-upcoming'] += 1;
+        }
+        if (!hasContact) {
+          matches['no-contact'] += 1;
         }
       }
     }
@@ -403,13 +419,15 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
 
   const filteredEntries = React.useMemo(() => {
     const normalizedEntries = clientEntries
-      .filter(({ client, hasUpcoming }) => {
+      .filter(({ client, hasUpcoming, hasContact }) => {
         const matchesQuery = matchesClientQuery(client, deferredQuery);
         const matchesTone =
           filters.tone === 'all'
             ? true
             : filters.tone === 'no-upcoming'
             ? !hasUpcoming
+            : filters.tone === 'no-contact'
+            ? !hasContact
             : client.tone === filters.tone;
         return matchesQuery && matchesTone;
       })
@@ -442,7 +460,7 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
         acc.total += 1;
         acc.upcoming += client.upcoming;
         acc.completed += client.completed;
-        if (!client.email) {
+        if (!entry.hasContact) {
           acc.missingContact += 1;
         }
         if (!hasUpcoming) {
@@ -577,6 +595,63 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
       }));
   }, [clientEntries, dashboard.updatedAt]);
 
+  const missingContactClients = React.useMemo(() => {
+    const entries = clientEntries
+      .filter((entry) => !entry.hasContact)
+      .map((entry) => {
+        const { client, hasUpcoming, nextSessionDate, lastSessionDate } = entry;
+        return {
+          id: client.id,
+          name: client.name,
+          tone: client.tone,
+          hasUpcoming,
+          nextSessionLabel: hasUpcoming ? client.nextSessionLabel : 'Sem próxima sessão',
+          nextSessionTime: hasUpcoming && nextSessionDate ? nextSessionDate.getTime() : null,
+          lastSessionLabel: client.lastSessionLabel,
+          lastSessionTime: lastSessionDate ? lastSessionDate.getTime() : null,
+        };
+      })
+      .sort((a, b) => {
+        const toneDiff = (TONE_PRIORITY[a.tone] ?? 99) - (TONE_PRIORITY[b.tone] ?? 99);
+        if (toneDiff !== 0) return toneDiff;
+        if (a.hasUpcoming !== b.hasUpcoming) {
+          return a.hasUpcoming ? -1 : 1;
+        }
+        if (a.hasUpcoming && b.hasUpcoming) {
+          if (a.nextSessionTime !== null && b.nextSessionTime !== null) {
+            return a.nextSessionTime - b.nextSessionTime;
+          }
+          if (a.nextSessionTime !== null) return -1;
+          if (b.nextSessionTime !== null) return 1;
+        }
+        if (!a.hasUpcoming && !b.hasUpcoming) {
+          if (a.lastSessionTime !== null && b.lastSessionTime !== null) {
+            return a.lastSessionTime - b.lastSessionTime;
+          }
+          if (a.lastSessionTime === null && b.lastSessionTime !== null) return -1;
+          if (a.lastSessionTime !== null && b.lastSessionTime === null) return 1;
+        }
+        return nameCollator.compare(a.name, b.name);
+      })
+      .slice(0, 4);
+
+    return entries;
+  }, [clientEntries]);
+
+  const showNoUpcomingClients = React.useCallback(() => {
+    if (filters.query) {
+      setClientQuery('');
+    }
+    setClientToneFilter('no-upcoming');
+  }, [filters.query, setClientQuery, setClientToneFilter]);
+
+  const showMissingContactClients = React.useCallback(() => {
+    if (filters.query) {
+      setClientQuery('');
+    }
+    setClientToneFilter('no-contact');
+  }, [filters.query, setClientQuery, setClientToneFilter]);
+
   const handleRefresh = React.useCallback(() => {
     void mutate();
   }, [mutate]);
@@ -585,9 +660,9 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
     if (filteredEntries.length === 0) return;
 
     const header = ['Cliente', 'Email', 'Próximas', 'Concluídas', 'Última sessão', 'Próxima sessão', 'Prioridade'];
-    const rows = filteredEntries.map(({ client, hasUpcoming }) => [
+    const rows = filteredEntries.map(({ client, hasUpcoming, hasContact }) => [
       client.name,
-      client.email ?? '',
+      hasContact ? client.email ?? '' : 'Sem email registado',
       String(client.upcoming),
       String(client.completed),
       client.lastSessionLabel,
@@ -911,68 +986,6 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
                 </Button>
               </div>
             </div>
-          )}
-          {stalledClients.length > 0 && (
-            <div className="trainer-dashboard__clients-stalled" aria-live="polite">
-              <h3 className="trainer-dashboard__clients-stalled-title">Sem próxima sessão</h3>
-              <ul className="trainer-dashboard__clients-stalled-list">
-                {stalledClients.map((client) => (
-                  <li key={client.id} className="trainer-dashboard__clients-stalled-item">
-                    <div className="trainer-dashboard__clients-stalled-header">
-                      <span className="trainer-dashboard__clients-stalled-name">{client.name}</span>
-                      <span className="trainer-dashboard__clients-stalled-badge">{client.inactivityLabel}</span>
-                    </div>
-                    <p className="trainer-dashboard__clients-stalled-meta">
-                      Última sessão: {client.lastSessionLabel}
-                    </p>
-                    {client.email && (
-                      <a className="trainer-dashboard__clients-stalled-link" href={`mailto:${client.email}`}>
-                        Contactar
-                      </a>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          <div className="trainer-dashboard__clients-summary" aria-live="polite">
-            {showFilteredSummary && (
-              <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--total">
-                A mostrar {clientStats.totalLabel} de {totalClientsLabel} cliente(s)
-              </span>
-            )}
-            <span className="trainer-dashboard__clients-summary-item">
-              {totalClientsLabel} cliente(s) no total
-            </span>
-            <span className="trainer-dashboard__clients-summary-item">
-              {clientStats.upcomingLabel} sessão(ões) futuras
-            </span>
-            <span className="trainer-dashboard__clients-summary-item">
-              {clientStats.completedLabel} concluídas
-            </span>
-            {clientStats.tones.critical > 0 && (
-              <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--critical">
-                {clientStats.criticalLabel} em risco
-              </span>
-            )}
-            {clientStats.tones.warning > 0 && (
-              <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--warning">
-                {clientStats.warningLabel} a requer atenção
-              </span>
-            )}
-            {clientStats.stalled > 0 && (
-              <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--stalled">
-                {clientStats.stalledLabel} sem próxima sessão
-              </span>
-            )}
-            {clientStats.missingContact > 0 && (
-              <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--missing">
-                {clientStats.missingContactLabel} sem contacto directo
-              </span>
-            )}
-            <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--rate">
-              {clientStats.attentionRateLabel} da carteira em alerta
-            </span>
           </div>
           {priorityClients.length > 0 && (
             <div className="trainer-dashboard__clients-priority" aria-live="polite">
@@ -1006,7 +1019,17 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
           )}
           {stalledClients.length > 0 && (
             <div className="trainer-dashboard__clients-stalled" aria-live="polite">
-              <h3 className="trainer-dashboard__clients-stalled-title">Sem próxima sessão</h3>
+              <div className="trainer-dashboard__clients-subheader">
+                <h3 className="trainer-dashboard__clients-stalled-title">Sem próxima sessão</h3>
+                <Button
+                  onClick={showNoUpcomingClients}
+                  variant="ghost"
+                  size="sm"
+                  className="trainer-dashboard__clients-subheader-action"
+                >
+                  Ver todos
+                </Button>
+              </div>
               <ul className="trainer-dashboard__clients-stalled-list">
                 {stalledClients.map((client) => (
                   <li key={client.id} className="trainer-dashboard__clients-stalled-item">
@@ -1022,6 +1045,42 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
                         Contactar
                       </a>
                     )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {missingContactClients.length > 0 && (
+            <div className="trainer-dashboard__clients-missing" aria-live="polite">
+              <div className="trainer-dashboard__clients-subheader">
+                <h3 className="trainer-dashboard__clients-missing-title">Sem contacto directo</h3>
+                <Button
+                  onClick={showMissingContactClients}
+                  variant="ghost"
+                  size="sm"
+                  className="trainer-dashboard__clients-subheader-action"
+                >
+                  Ver todos
+                </Button>
+              </div>
+              <ul className="trainer-dashboard__clients-missing-list">
+                {missingContactClients.map((client) => (
+                  <li
+                    key={client.id}
+                    className={`trainer-dashboard__clients-missing-item trainer-dashboard__clients-missing-item--${clientToneClass(client.tone)}`}
+                  >
+                    <div className="trainer-dashboard__clients-missing-header">
+                      <span className="trainer-dashboard__clients-missing-name">{client.name}</span>
+                      <span className="trainer-dashboard__clients-missing-badge">Sem email</span>
+                    </div>
+                    <p className="trainer-dashboard__clients-missing-meta">
+                      {client.hasUpcoming
+                        ? `Próxima sessão: ${client.nextSessionLabel}`
+                        : 'Sem próxima sessão agendada.'}
+                    </p>
+                    <p className="trainer-dashboard__clients-missing-meta">
+                      Última sessão: {client.lastSessionLabel}
+                    </p>
                   </li>
                 ))}
               </ul>

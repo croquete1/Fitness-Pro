@@ -80,6 +80,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Afinar os contadores por prioridade para reflectirem a pesquisa activa e destacar clientes sem próxima sessão na carteira do treinador. Fontes: `src/app/(app)/dashboard/trainer/TrainerDashboardClient.tsx`, `src/app/globals.css`.
 - [x] Adicionar coluna de contacto e badges dedicados para clientes sem próxima sessão ou email na carteira do treinador. Fontes: `src/app/(app)/dashboard/trainer/TrainerDashboardClient.tsx`, `src/app/globals.css`.
 - [x] Corrigir rótulos das próximas sessões e introduzir filtro "Sem próxima sessão" na carteira do treinador, incluindo exportação CSV consistente. Fontes: `src/app/(app)/dashboard/trainer/TrainerDashboardClient.tsx`.
+- [x] Destacar clientes sem contacto directo na carteira do treinador com filtro rápido, lista de prioridade e exportação CSV anotada. Fontes: `src/app/(app)/dashboard/trainer/TrainerDashboardClient.tsx`, `src/app/globals.css`.
 - [x] Reimaginar o cartão de tarefas pessoais no tema `.neo`, com persistência versionada, métricas de progresso e estilos dedicados. Fontes: `src/components/dashboard/TaskListCard.tsx`, `src/app/globals.css`.
 - [ ] Definir padrão consistente para uso de rotas Next.js vs. cliente Supabase (tempo real) e aplicá-lo aos módulos de mensagens/notificações.
 - [ ] Optimizar consultas com índices e vistas materializadas (existe esboço, mas falta adopção generalizada).
