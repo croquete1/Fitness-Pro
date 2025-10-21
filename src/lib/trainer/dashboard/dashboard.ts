@@ -250,10 +250,6 @@ function buildClientSnapshots(
   sessions: Array<{ id: string; date: Date | null; status: string; clientId: string | null }>,
   now: Date,
 ): TrainerClientSnapshot[] {
-  const lookup = new Map(
-    source.clients.map((client) => [client.id, client] as const),
-  );
-
   const grouped = new Map<string, { upcoming: Date[]; completed: Date[]; last?: Date; next?: Date }>();
 
   for (const session of sessions) {
@@ -279,8 +275,12 @@ function buildClientSnapshots(
   const snapshots: TrainerClientSnapshot[] = [];
   for (const client of source.clients) {
     const stats = grouped.get(client.id) ?? { upcoming: [], completed: [], last: null, next: null };
-    const nextLabel = stats.next ? relativeLabel(stats.next, 'Sem agendamento') : 'Sem agendamento';
-    const lastLabel = stats.last ? relativeLabel(stats.last, 'Sem histórico') : 'Sem histórico';
+    const fallbackLast = parseDate(client.lastSessionAt);
+    const fallbackNext = parseDate(client.nextSessionAt);
+    const lastDate = stats.last ?? fallbackLast ?? null;
+    const nextDate = stats.next ?? fallbackNext ?? null;
+    const nextLabel = nextDate ? relativeLabel(nextDate, 'Sem agendamento') : 'Sem agendamento';
+    const lastLabel = lastDate ? relativeLabel(lastDate, 'Sem histórico') : 'Sem histórico';
     const tone: TrainerClientSnapshot['tone'] = stats.upcoming.length
       ? 'positive'
       : stats.completed.length
@@ -295,6 +295,8 @@ function buildClientSnapshots(
       completed: stats.completed.length,
       lastSessionLabel: lastLabel,
       nextSessionLabel: nextLabel,
+      lastSessionAt: lastDate ? lastDate.toISOString() : null,
+      nextSessionAt: nextDate ? nextDate.toISOString() : null,
       tone,
     });
   }
