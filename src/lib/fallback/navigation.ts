@@ -35,7 +35,7 @@ function baseCounts(now: Date): NavigationSummaryCounts {
 
 export function computeNavigationFallbackCounts(
   role: NavigationRole,
-  counts: NavigationSummaryCounts,
+  counts: Partial<NavigationSummaryCounts>,
 ): NavigationSummaryCounts {
   if (role === 'TRAINER') {
     return {
@@ -66,18 +66,18 @@ export function computeNavigationFallbackCounts(
   if (role === 'CLIENT') {
     return {
       approvalsPending: 0,
-      notificationsUnread: 3,
-      messagesUnread: 1,
+      notificationsUnread: counts.notificationsUnread ?? 3,
+      messagesUnread: counts.messagesUnread ?? 1,
       onboardingPending: 0,
-      clientsActive: 1,
-      trainersActive: 1,
-      sessionsToday: 1,
-      sessionsUpcoming: 3,
-      plansActive: 2,
-      invoicesPending: 1,
-      revenueMonth: 0,
-      revenuePending: 45,
-      satisfactionScore: 4.9,
+      clientsActive: counts.clientsActive ?? 1,
+      trainersActive: counts.trainersActive ?? 1,
+      sessionsToday: counts.sessionsToday ?? 1,
+      sessionsUpcoming: counts.sessionsUpcoming ?? 3,
+      plansActive: counts.plansActive ?? 2,
+      invoicesPending: counts.invoicesPending ?? 1,
+      revenueMonth: counts.revenueMonth ?? 0,
+      revenuePending: counts.revenuePending ?? 45,
+      satisfactionScore: counts.satisfactionScore ?? 4.9,
       libraryPersonal: counts.libraryPersonal ?? 0,
       libraryCatalog: counts.libraryCatalog ?? 48,
       libraryUpdatedAt: counts.libraryUpdatedAt ?? new Date().toISOString(),
@@ -92,15 +92,22 @@ export function computeNavigationFallbackCounts(
   return counts;
 }
 
-export function getNavigationFallback(role: NavigationRole, now = new Date()): NavigationSummary {
-  const base = baseCounts(now);
-  const counts = computeNavigationFallbackCounts(role, base);
+export function getNavigationFallbackWithOverrides(
+  role: NavigationRole,
+  overrides: Partial<NavigationSummaryCounts> = {},
+  now = new Date(),
+): NavigationSummary {
+  const defaults = computeNavigationFallbackCounts(role, baseCounts(now));
+  const counts = computeNavigationFallbackCounts(role, { ...defaults, ...overrides });
   return buildNavigationSummary({ role, now, counts });
 }
 
+export function getNavigationFallback(role: NavigationRole, now = new Date()): NavigationSummary {
+  return getNavigationFallbackWithOverrides(role, {}, now);
+}
+
 export function getNavigationFallbackCounts(role: NavigationRole, now = new Date()): NavigationSummaryCounts {
-  const base = baseCounts(now);
-  return computeNavigationFallbackCounts(role, base);
+  return computeNavigationFallbackCounts(role, baseCounts(now));
 }
 
 export const fallbackNavigationAdmin = getNavigationFallback('ADMIN');

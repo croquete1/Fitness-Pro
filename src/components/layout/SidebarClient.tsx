@@ -2,11 +2,16 @@
 
 import * as React from 'react';
 import { usePathname } from 'next/navigation';
+import { RefreshCw } from 'lucide-react';
 import SidebarBase from '@/components/layout/SidebarBase';
 import { useSidebar } from '@/components/layout/SidebarProvider';
-import { SidebarNavSection, type SidebarNavItem } from '@/components/layout/SidebarNav';
+import { SidebarNavSection } from '@/components/layout/SidebarNav';
+import SidebarHighlights from '@/components/layout/SidebarHighlights';
+import SidebarQuickMetrics from '@/components/layout/SidebarQuickMetrics';
+import DataSourceBadge from '@/components/ui/DataSourceBadge';
+import { useSidebarNavigationSummary } from '@/components/layout/useSidebarNavigationSummary';
 import type { ClientCounts } from '@/lib/hooks/useCounts';
-import type { NavigationSummary, NavigationSummaryGroup } from '@/lib/navigation/types';
+import type { NavigationSummary, NavigationSummaryCounts } from '@/lib/navigation/types';
 
 type Props = {
   initialCounts?: ClientCounts;
@@ -14,107 +19,6 @@ type Props = {
   loading?: boolean;
   onRefreshNavigation?: () => Promise<unknown> | unknown;
 };
-
-const FALLBACK_GROUPS = (counts?: ClientCounts): { title: string; items: SidebarNavItem[] }[] => {
-  const messages = counts?.messagesCount ?? 0;
-  const notifications = counts?.notificationsCount ?? 0;
-  return [
-    {
-      title: 'Painel',
-      items: [
-        {
-          href: '/dashboard/clients',
-          label: 'Painel',
-          icon: 'dashboard',
-          exact: true,
-          activePrefix: '/dashboard/clients',
-          description: 'Resumo do progresso e objectivos activos.',
-        },
-        {
-          href: '/dashboard/my-plan',
-          label: 'Os meus planos',
-          icon: 'plans',
-          activePrefix: '/dashboard/my-plan',
-          description: 'Planos activos, tarefas e próximos marcos.',
-        },
-        {
-          href: '/dashboard/sessions',
-          label: 'Sessões',
-          icon: 'calendar',
-          activePrefix: '/dashboard/sessions',
-          description: 'Agenda de treinos e confirmações de presença.',
-        },
-      ],
-    },
-    {
-      title: 'Comunicação',
-      items: [
-        {
-          href: '/dashboard/messages',
-          label: 'Mensagens',
-          icon: 'messages',
-          activePrefix: '/dashboard/messages',
-          badge: messages,
-          tone: messages > 0 ? 'warning' : 'neutral',
-          description: 'Conversa directa com o treinador.',
-        },
-        {
-          href: '/dashboard/notifications',
-          label: 'Notificações',
-          icon: 'notifications',
-          activePrefix: '/dashboard/notifications',
-          badge: notifications,
-          tone: notifications > 0 ? 'warning' : 'neutral',
-          description: 'Alertas, lembretes e actualizações.',
-        },
-      ],
-    },
-    {
-      title: 'Conta',
-      items: [
-        {
-          href: '/dashboard/history',
-          label: 'Histórico',
-          icon: 'history',
-          activePrefix: '/dashboard/history',
-          description: 'Registos de sessões e estatísticas.',
-        },
-        {
-          href: '/dashboard/profile',
-          label: 'Perfil',
-          icon: 'profile',
-          activePrefix: '/dashboard/profile',
-          description: 'Dados pessoais e preferências.',
-        },
-        {
-          href: '/dashboard/settings',
-          label: 'Definições',
-          icon: 'settings',
-          activePrefix: '/dashboard/settings',
-          description: 'Notificações, privacidade e integrações.',
-        },
-      ],
-    },
-  ];
-};
-
-function mapGroup(group: NavigationSummaryGroup): { title: string; items: SidebarNavItem[] } {
-  return {
-    title: group.title,
-    items: group.items.map((item) => ({
-      href: item.href,
-      label: item.label,
-      icon: item.icon,
-      badge: item.badge ?? null,
-      description: item.description ?? null,
-      kpiLabel: item.kpiLabel ?? null,
-      kpiValue: item.kpiValue ?? null,
-      tone: item.tone ?? undefined,
-      activePrefix: item.activePrefix ?? undefined,
-      exact: Boolean(item.exact),
-    })),
-  };
-}
 
 export default function SidebarClient({ initialCounts, summary, loading, onRefreshNavigation }: Props) {
   const path = usePathname();
@@ -125,18 +29,45 @@ export default function SidebarClient({ initialCounts, summary, loading, onRefre
     if (isMobile) closeMobile();
   }, [closeMobile, isMobile]);
 
-  const groups = React.useMemo(() => {
-    if (summary?.navGroups?.length) {
-      return summary.navGroups.map(mapGroup);
-    }
-    return FALLBACK_GROUPS(initialCounts);
-  }, [summary, initialCounts]);
+  const messagesCount = initialCounts?.messagesCount ?? null;
+  const notificationsCount = initialCounts?.notificationsCount ?? null;
 
-  const quickMetrics = React.useMemo(() => summary?.quickMetrics?.slice(0, 2) ?? [], [summary]);
+  const fallbackOverrides = React.useMemo(() => {
+    if (messagesCount == null && notificationsCount == null) return undefined;
+    return {
+      messagesUnread: messagesCount ?? undefined,
+      notificationsUnread: notificationsCount ?? undefined,
+    } satisfies Partial<NavigationSummaryCounts>;
+  }, [messagesCount, notificationsCount]);
+
+  const { groups: navGroups, quickMetrics, highlights, source, generatedAt } = useSidebarNavigationSummary({
+    role: 'CLIENT',
+    summary,
+    fallbackOverrides,
+  });
 
   const header = (
     <div className="neo-sidebar__headline">
-      <span className="neo-sidebar__headline-label">Acesso rápido</span>
+      <div className="neo-sidebar__headline-meta">
+        <span className="neo-sidebar__headline-label">Acesso rápido</span>
+        {source && (
+          <DataSourceBadge
+            source={source}
+            generatedAt={generatedAt}
+            className="neo-sidebar__headline-badge"
+          />
+        )}
+      </div>
+      {onRefreshNavigation && (
+        <button
+          type="button"
+          className="neo-sidebar__headline-action"
+          onClick={() => onRefreshNavigation()}
+          aria-label="Actualizar recomendações"
+        >
+          <RefreshCw size={16} strokeWidth={1.8} aria-hidden />
+        </button>
+      )}
     </div>
   );
 
@@ -148,19 +79,9 @@ export default function SidebarClient({ initialCounts, summary, loading, onRefre
           <span className="neo-sidebar__skeleton-bar" />
         </div>
       )}
-      {quickMetrics.length > 0 && (
-        <div className="neo-sidebar__quick">
-          {quickMetrics.map((metric) => (
-            <div key={metric.id} className={`neo-sidebar__quick-card neo-sidebar__quick-card--${metric.tone}`}>
-              <span className="neo-sidebar__quick-label">{metric.label}</span>
-              <span className="neo-sidebar__quick-value">{metric.value}</span>
-              {metric.hint && <span className="neo-sidebar__quick-hint">{metric.hint}</span>}
-            </div>
-          ))}
-        </div>
-      )}
+      <SidebarQuickMetrics metrics={quickMetrics} maxVisible={2} onNavigate={handleNavigate} />
       <nav className="neo-sidebar__nav" aria-label="Menu do cliente">
-        {groups.map((group) => (
+        {navGroups.map((group) => (
           <SidebarNavSection
             key={group.title}
             title={group.title}
@@ -171,6 +92,9 @@ export default function SidebarClient({ initialCounts, summary, loading, onRefre
           />
         ))}
       </nav>
+      {highlights.length > 0 && (
+        <SidebarHighlights title="Prioridades" items={highlights} onNavigate={handleNavigate} />
+      )}
     </SidebarBase>
   );
 }
