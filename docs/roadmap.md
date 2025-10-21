@@ -76,6 +76,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Persistir preferências da carteira do treinador (filtros, ordenação) e expor métricas percentuais de atenção directamente no cockpit. Fontes: `src/app/(app)/dashboard/trainer/TrainerDashboardClient.tsx`, `src/app/globals.css`.
 - [x] Optimizar a carteira do treinador com filtros unificados em storage, pesquisa assíncrona e chips visuais para risco/atenção no resumo. Fontes: `src/app/(app)/dashboard/trainer/TrainerDashboardClient.tsx`, `src/app/globals.css`.
 - [x] Distinguir a carteira vazia de resultados filtrados, exibindo contagem "a mostrar" vs. total e melhor empty state. Fontes: `src/app/(app)/dashboard/trainer/TrainerDashboardClient.tsx`, `src/app/globals.css`.
+- [x] Expor contadores por prioridade, distribuição visual e lista de alertas imediatos na carteira do treinador. Fontes: `src/app/(app)/dashboard/trainer/TrainerDashboardClient.tsx`, `src/app/globals.css`.
 - [x] Reimaginar o cartão de tarefas pessoais no tema `.neo`, com persistência versionada, métricas de progresso e estilos dedicados. Fontes: `src/components/dashboard/TaskListCard.tsx`, `src/app/globals.css`.
 - [ ] Definir padrão consistente para uso de rotas Next.js vs. cliente Supabase (tempo real) e aplicá-lo aos módulos de mensagens/notificações.
 - [ ] Optimizar consultas com índices e vistas materializadas (existe esboço, mas falta adopção generalizada).

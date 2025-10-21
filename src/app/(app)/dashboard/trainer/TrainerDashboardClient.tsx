@@ -303,6 +303,27 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
   const { filters, deferredQuery, hasFilters, setClientQuery, setClientToneFilter, setClientSort, clearFilters } =
     useTrainerClientFilters();
 
+  const toneCounts = React.useMemo(() => {
+    const counts: Record<ClientToneFilter, number> = {
+      all: dashboard.clients.length,
+      positive: 0,
+      warning: 0,
+      critical: 0,
+      neutral: 0,
+    };
+
+    for (const client of dashboard.clients) {
+      counts[client.tone] += 1;
+    }
+
+    return {
+      counts,
+      labels: Object.fromEntries(
+        Object.entries(counts).map(([key, value]) => [key, numberFormatter.format(value)]),
+      ) as Record<ClientToneFilter, string>,
+    };
+  }, [dashboard.clients]);
+
   const filteredClients = React.useMemo(() => {
     const normalizedClients = dashboard.clients
       .filter((client) => {
@@ -359,6 +380,23 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
 
     const attentionRate = totals.total === 0 ? 0 : totals.attention / totals.total;
 
+    const distribution = (Object.keys(totals.tones) as Array<TrainerClientSnapshot['tone']>).map((tone) => {
+      const count = totals.tones[tone];
+      const percent = totals.total === 0 ? 0 : count / totals.total;
+      return {
+        tone,
+        count,
+        percent,
+        label: CLIENT_TONE_LABELS[tone],
+        countLabel: numberFormatter.format(count),
+        percentLabel: percentageFormatter.format(percent),
+      };
+    });
+
+    const distributionLabel = distribution
+      .map((segment) => `${segment.label}: ${segment.countLabel}`)
+      .join('; ');
+
     return {
       ...totals,
       totalLabel: numberFormatter.format(totals.total),
@@ -370,6 +408,8 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
       warningLabel: numberFormatter.format(totals.tones.warning),
       positiveLabel: numberFormatter.format(totals.tones.positive),
       neutralLabel: numberFormatter.format(totals.tones.neutral),
+      distribution,
+      distributionLabel,
     };
   }, [filteredClients]);
 
@@ -377,6 +417,21 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
   const totalClientsLabel = React.useMemo(() => numberFormatter.format(totalClients), [totalClients]);
   const showFilteredSummary = totalClients > 0 && (hasFilters || clientStats.total !== totalClients);
   const noClients = totalClients === 0;
+
+  const priorityClients = React.useMemo(() => {
+    return dashboard.clients
+      .filter((client) => client.tone === 'critical' || client.tone === 'warning')
+      .sort((a, b) => {
+        const toneDiff = (TONE_PRIORITY[a.tone] ?? 99) - (TONE_PRIORITY[b.tone] ?? 99);
+        if (toneDiff !== 0) return toneDiff;
+        const upcomingDiff = b.upcoming - a.upcoming;
+        if (upcomingDiff !== 0) return upcomingDiff;
+        const completedDiff = b.completed - a.completed;
+        if (completedDiff !== 0) return completedDiff;
+        return nameCollator.compare(a.name, b.name);
+      })
+      .slice(0, 4);
+  }, [dashboard.clients]);
 
   const handleRefresh = React.useCallback(() => {
     void mutate();
@@ -673,9 +728,13 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
                     data-active={filters.tone === filter.id}
                     data-tone={filter.tone ?? 'all'}
                     aria-pressed={filters.tone === filter.id}
+                    aria-label={`${filter.label} (${toneCounts.labels[filter.id]})`}
                     onClick={() => setClientToneFilter(filter.id)}
                   >
-                    {filter.label}
+                    <span className="trainer-dashboard__tone-button-label">{filter.label}</span>
+                    <span className="trainer-dashboard__tone-button-count" aria-hidden="true">
+                      {toneCounts.labels[filter.id]}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -702,6 +761,34 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
               </div>
             </div>
           </div>
+          {priorityClients.length > 0 && (
+            <div className="trainer-dashboard__clients-priority" aria-live="polite">
+              <h3 className="trainer-dashboard__clients-priority-title">Prioridades imediatas</h3>
+              <ul className="trainer-dashboard__clients-priority-list">
+                {priorityClients.map((client) => (
+                  <li
+                    key={client.id}
+                    className={`trainer-dashboard__clients-priority-item trainer-dashboard__clients-priority-item--${clientToneClass(client.tone)}`}
+                  >
+                    <div className="trainer-dashboard__clients-priority-header">
+                      <span className="trainer-dashboard__clients-priority-name">{client.name}</span>
+                      <span className="trainer-dashboard__clients-priority-badge">
+                        {CLIENT_TONE_LABELS[client.tone]}
+                      </span>
+                    </div>
+                    <p className="trainer-dashboard__clients-priority-meta">
+                      {client.nextSessionLabel ? `Próxima sessão: ${client.nextSessionLabel}` : 'Sem sessão agendada.'}
+                    </p>
+                    {client.email && (
+                      <a className="trainer-dashboard__clients-priority-link" href={`mailto:${client.email}`}>
+                        Enviar email
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div className="trainer-dashboard__clients-summary" aria-live="polite">
             {showFilteredSummary && (
               <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--total">
@@ -731,6 +818,27 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
               {clientStats.attentionRateLabel} da carteira em alerta
             </span>
           </div>
+          {clientStats.distribution.filter((segment) => segment.count > 0).length > 0 && (
+            <div
+              className="trainer-dashboard__clients-distribution"
+              role="img"
+              aria-label={`Distribuição por prioridade: ${clientStats.distributionLabel}.`}
+            >
+              {clientStats.distribution
+                .filter((segment) => segment.count > 0)
+                .map((segment) => (
+                  <div
+                    key={segment.tone}
+                    className={`trainer-dashboard__clients-distribution-segment trainer-dashboard__clients-distribution-segment--${segment.tone}`}
+                    style={{ flexGrow: segment.count }}
+                  >
+                    <span className="trainer-dashboard__clients-distribution-count">{segment.countLabel}</span>
+                    <span className="trainer-dashboard__clients-distribution-percent">{segment.percentLabel}</span>
+                    <span className="trainer-dashboard__clients-distribution-label">{segment.label}</span>
+                  </div>
+                ))}
+            </div>
+          )}
           <div className="trainer-dashboard__clients-table" role="table">
             <div className="trainer-dashboard__clients-row trainer-dashboard__clients-row--head" role="row">
               <div role="columnheader">Cliente</div>
