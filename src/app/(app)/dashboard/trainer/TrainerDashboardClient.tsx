@@ -54,7 +54,7 @@ const percentageFormatter = new Intl.NumberFormat('pt-PT', {
   minimumFractionDigits: 0,
 });
 
-type ClientToneFilter = 'all' | 'no-upcoming' | 'no-contact' | TrainerClientSnapshot['tone'];
+type ClientToneFilter = 'all' | 'no-upcoming' | 'no-contact' | 'blocked' | TrainerClientSnapshot['tone'];
 
 type ClientSort = 'priority' | 'activity';
 
@@ -69,6 +69,7 @@ const CLIENT_TONE_FILTERS: Array<{
   { id: 'critical', label: 'Risco', tone: 'critical' },
   { id: 'no-upcoming', label: 'Sem próxima sessão', tone: 'warning' },
   { id: 'no-contact', label: 'Sem contacto', tone: 'critical' },
+  { id: 'blocked', label: 'Sem contacto + sessão', tone: 'critical' },
   { id: 'neutral', label: 'Sem alerta', tone: 'neutral' },
 ];
 
@@ -336,14 +337,17 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
           typeof client.email === 'string' ? client.email.trim() : client.email;
         const normalizedEmail = sanitizedEmail && sanitizedEmail.length > 0 ? sanitizedEmail : null;
         const hasContact = Boolean(normalizedEmail);
+        const hasUpcoming = Boolean(nextSessionDate);
         const normalizedClient =
           normalizedEmail === client.email ? client : { ...client, email: normalizedEmail };
         return {
           client: normalizedClient,
           lastSessionDate,
           nextSessionDate,
-          hasUpcoming: Boolean(nextSessionDate),
+          hasUpcoming,
           hasContact,
+          isStalled: !hasUpcoming,
+          isMissingContact: !hasContact,
         };
       }),
     [dashboard.clients],
@@ -358,6 +362,7 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
       neutral: 0,
       'no-upcoming': 0,
       'no-contact': 0,
+      blocked: 0,
     };
     const matches: Record<ClientToneFilter, number> = {
       all: 0,
@@ -367,25 +372,32 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
       neutral: 0,
       'no-upcoming': 0,
       'no-contact': 0,
+      blocked: 0,
     };
 
     for (const entry of clientEntries) {
-      const { client, hasUpcoming, hasContact } = entry;
+      const { client, isStalled, isMissingContact } = entry;
       totals[client.tone] += 1;
-      if (!hasUpcoming) {
+      if (isStalled) {
         totals['no-upcoming'] += 1;
       }
-      if (!hasContact) {
+      if (isMissingContact) {
         totals['no-contact'] += 1;
+      }
+      if (isStalled && isMissingContact) {
+        totals.blocked += 1;
       }
       if (matchesClientQuery(client, deferredQuery)) {
         matches.all += 1;
         matches[client.tone] += 1;
-        if (!hasUpcoming) {
+        if (isStalled) {
           matches['no-upcoming'] += 1;
         }
-        if (!hasContact) {
+        if (isMissingContact) {
           matches['no-contact'] += 1;
+        }
+        if (isStalled && isMissingContact) {
+          matches.blocked += 1;
         }
       }
     }
@@ -419,15 +431,17 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
 
   const filteredEntries = React.useMemo(() => {
     const normalizedEntries = clientEntries
-      .filter(({ client, hasUpcoming, hasContact }) => {
+      .filter(({ client, isStalled, isMissingContact }) => {
         const matchesQuery = matchesClientQuery(client, deferredQuery);
         const matchesTone =
           filters.tone === 'all'
             ? true
             : filters.tone === 'no-upcoming'
-            ? !hasUpcoming
+            ? isStalled
             : filters.tone === 'no-contact'
-            ? !hasContact
+            ? isMissingContact
+            : filters.tone === 'blocked'
+            ? isMissingContact && isStalled
             : client.tone === filters.tone;
         return matchesQuery && matchesTone;
       })
@@ -456,15 +470,18 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
   const clientStats = React.useMemo(() => {
     const totals = filteredEntries.reduce(
       (acc, entry) => {
-        const { client, hasUpcoming } = entry;
+        const { client, isStalled, isMissingContact } = entry;
         acc.total += 1;
         acc.upcoming += client.upcoming;
         acc.completed += client.completed;
-        if (!entry.hasContact) {
+        if (isMissingContact) {
           acc.missingContact += 1;
         }
-        if (!hasUpcoming) {
+        if (isStalled) {
           acc.stalled += 1;
+        }
+        if (isMissingContact && isStalled) {
+          acc.blocked += 1;
         }
         if (client.tone === 'critical' || client.tone === 'warning') {
           acc.attention += 1;
@@ -479,6 +496,7 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
         attention: 0,
         stalled: 0,
         missingContact: 0,
+        blocked: 0,
         tones: {
           positive: 0,
           warning: 0,
@@ -516,6 +534,7 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
       attentionRateLabel: percentageFormatter.format(attentionRate),
       stalledLabel: numberFormatter.format(totals.stalled),
       missingContactLabel: numberFormatter.format(totals.missingContact),
+      blockedLabel: numberFormatter.format(totals.blocked),
       criticalLabel: numberFormatter.format(totals.tones.critical),
       warningLabel: numberFormatter.format(totals.tones.warning),
       positiveLabel: numberFormatter.format(totals.tones.positive),
@@ -597,14 +616,15 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
 
   const missingContactClients = React.useMemo(() => {
     const entries = clientEntries
-      .filter((entry) => !entry.hasContact)
+      .filter((entry) => entry.isMissingContact)
       .map((entry) => {
-        const { client, hasUpcoming, nextSessionDate, lastSessionDate } = entry;
+        const { client, hasUpcoming, nextSessionDate, lastSessionDate, isStalled } = entry;
         return {
           id: client.id,
           name: client.name,
           tone: client.tone,
           hasUpcoming,
+          isStalled,
           nextSessionLabel: hasUpcoming ? client.nextSessionLabel : 'Sem próxima sessão',
           nextSessionTime: hasUpcoming && nextSessionDate ? nextSessionDate.getTime() : null,
           lastSessionLabel: client.lastSessionLabel,
@@ -638,12 +658,64 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
     return entries;
   }, [clientEntries]);
 
+  const blockedClients = React.useMemo(() => {
+    const now = new Date(dashboard.updatedAt ?? Date.now());
+    const reference = Number.isNaN(now.getTime()) ? Date.now() : now.getTime();
+
+    return clientEntries
+      .filter((entry) => entry.isMissingContact && entry.isStalled)
+      .map((entry) => {
+        const { client, lastSessionDate } = entry;
+        const inactivityDays = lastSessionDate
+          ? Math.max(0, Math.floor((reference - lastSessionDate.getTime()) / MS_IN_DAY))
+          : null;
+        const inactivityScore = inactivityDays ?? Number.POSITIVE_INFINITY;
+        return {
+          id: client.id,
+          name: client.name,
+          tone: client.tone,
+          inactivityDays,
+          inactivityScore,
+          lastSessionLabel: client.lastSessionLabel,
+        };
+      })
+      .sort((a, b) => {
+        const toneDiff = (TONE_PRIORITY[a.tone] ?? 99) - (TONE_PRIORITY[b.tone] ?? 99);
+        if (toneDiff !== 0) return toneDiff;
+        if (a.inactivityScore !== b.inactivityScore) {
+          return b.inactivityScore - a.inactivityScore;
+        }
+        return nameCollator.compare(a.name, b.name);
+      })
+      .slice(0, 4)
+      .map((entry) => ({
+        id: entry.id,
+        name: entry.name,
+        tone: entry.tone,
+        lastSessionLabel: entry.lastSessionLabel,
+        inactivityLabel:
+          entry.inactivityDays === null
+            ? 'Sem histórico recente'
+            : `${numberFormatter.format(entry.inactivityDays)} dia(s) sem sessão`,
+      }));
+  }, [clientEntries, dashboard.updatedAt]);
+
   const showNoUpcomingClients = React.useCallback(() => {
     if (filters.query) {
       setClientQuery('');
     }
     setClientToneFilter('no-upcoming');
   }, [filters.query, setClientQuery, setClientToneFilter]);
+
+  const showBlockedClients = React.useCallback(() => {
+    if (filters.query) {
+      setClientQuery('');
+    }
+    if (filters.sort !== 'priority') {
+      setClientSort('priority');
+    }
+    setClientToneFilter('blocked');
+  }, [filters.query, filters.sort, setClientQuery, setClientSort, setClientToneFilter]);
 
   const showMissingContactClients = React.useCallback(() => {
     if (filters.query) {
@@ -1050,6 +1122,38 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
               </ul>
             </div>
           )}
+          {blockedClients.length > 0 && (
+            <div className="trainer-dashboard__clients-blocked" aria-live="polite">
+              <div className="trainer-dashboard__clients-subheader">
+                <h3 className="trainer-dashboard__clients-blocked-title">Sem contacto + sessão</h3>
+                <Button
+                  onClick={showBlockedClients}
+                  variant="ghost"
+                  size="sm"
+                  className="trainer-dashboard__clients-subheader-action"
+                >
+                  Ver todos
+                </Button>
+              </div>
+              <ul className="trainer-dashboard__clients-blocked-list">
+                {blockedClients.map((client) => (
+                  <li
+                    key={client.id}
+                    className={`trainer-dashboard__clients-blocked-item trainer-dashboard__clients-blocked-item--${clientToneClass(client.tone)}`}
+                  >
+                    <div className="trainer-dashboard__clients-blocked-header">
+                      <span className="trainer-dashboard__clients-blocked-name">{client.name}</span>
+                      <span className="trainer-dashboard__clients-blocked-badge">Sem contacto</span>
+                    </div>
+                    <p className="trainer-dashboard__clients-blocked-meta">{client.inactivityLabel}</p>
+                    <p className="trainer-dashboard__clients-blocked-meta">
+                      Última sessão: {client.lastSessionLabel}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {missingContactClients.length > 0 && (
             <div className="trainer-dashboard__clients-missing" aria-live="polite">
               <div className="trainer-dashboard__clients-subheader">
@@ -1071,7 +1175,14 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
                   >
                     <div className="trainer-dashboard__clients-missing-header">
                       <span className="trainer-dashboard__clients-missing-name">{client.name}</span>
-                      <span className="trainer-dashboard__clients-missing-badge">Sem email</span>
+                      <div className="trainer-dashboard__clients-missing-tags">
+                        <span className="trainer-dashboard__clients-missing-badge">Sem email</span>
+                        {client.isStalled && (
+                          <span className="trainer-dashboard__clients-missing-extra" aria-hidden="true">
+                            Sem sessão
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <p className="trainer-dashboard__clients-missing-meta">
                       {client.hasUpcoming
@@ -1119,6 +1230,11 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
             {clientStats.missingContact > 0 && (
               <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--missing">
                 {clientStats.missingContactLabel} sem contacto directo
+              </span>
+            )}
+            {clientStats.blocked > 0 && (
+              <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--blocked">
+                {clientStats.blockedLabel} sem contacto e sessão
               </span>
             )}
             <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--rate">
