@@ -11,18 +11,28 @@ type Props = {
   onChange?: (next: boolean) => void;
 };
 
+type PublishResponse = {
+  is_published?: boolean;
+};
+
 export default function PublishToggle({ id, published, onChange }: Props) {
   const [busy, setBusy] = React.useState(false);
-  const [current, setCurrent] = React.useState(!!published);
+  const [current, setCurrent] = React.useState(() => Boolean(published));
+  const mountedRef = React.useRef(true);
 
   React.useEffect(() => {
-    if (!busy) {
-      setCurrent(!!published);
-    }
-  }, [busy, published]);
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  React.useEffect(() => {
+    setCurrent(Boolean(published));
+  }, [published]);
 
   const toggle = React.useCallback(async () => {
-    if (busy) return;
+    if (busy || !mountedRef.current) return;
 
     const previous = current;
     const next = !previous;
@@ -43,16 +53,25 @@ export default function PublishToggle({ id, published, onChange }: Props) {
         throw new Error(message || 'Falha ao sincronizar a publicação.');
       }
 
-      onChange?.(next);
+      const payload = (await response.json().catch(() => null)) as PublishResponse | null;
+      const confirmed = typeof payload?.is_published === 'boolean' ? payload.is_published : next;
+
+      if (mountedRef.current) {
+        setCurrent(confirmed);
+      }
+
+      onChange?.(confirmed);
       showToast({
         type: 'success',
-        title: next ? 'Exercício publicado' : 'Exercício marcado como rascunho',
-        description: next
+        title: confirmed ? 'Exercício publicado' : 'Exercício marcado como rascunho',
+        description: confirmed
           ? 'O exercício fica visível no catálogo global.'
           : 'O exercício foi removido do catálogo público.',
       });
     } catch (error) {
-      setCurrent(previous);
+      if (mountedRef.current) {
+        setCurrent(previous);
+      }
 
       const description =
         error instanceof Error && error.message
@@ -65,7 +84,9 @@ export default function PublishToggle({ id, published, onChange }: Props) {
         description,
       });
     } finally {
-      setBusy(false);
+      if (mountedRef.current) {
+        setBusy(false);
+      }
     }
   }, [busy, current, id, onChange]);
 
@@ -83,6 +104,8 @@ export default function PublishToggle({ id, published, onChange }: Props) {
       role="switch"
       aria-checked={current}
       aria-label={actionLabel}
+      aria-busy={busy}
+      aria-disabled={busy}
     >
       <span className="publish-toggle__content">
         {busy ? <Loader2 aria-hidden className="publish-toggle__spinner neo-spin" /> : null}
