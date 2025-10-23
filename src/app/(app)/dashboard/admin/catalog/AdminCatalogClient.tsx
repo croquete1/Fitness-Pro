@@ -28,7 +28,8 @@ import {
 import PageHeader from '@/components/ui/PageHeader';
 import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
-import PublishToggle from '@/components/exercise/PublishToggle';
+import PublishToggle, { type PublishResult } from '@/components/exercise/PublishToggle';
+import { usePublicationPatches } from '@/components/exercise/usePublicationPatches';
 import { supabaseBrowser } from '@/lib/supabaseBrowser';
 import {
   type AdminExerciseRow,
@@ -268,6 +269,7 @@ export default function AdminCatalogClient({ initialData, initialParams }: Props
   });
 
   const dashboard = data?.ok ? data.data : initialData;
+  const { resolve: resolvePublication, record: recordPublication } = usePublicationPatches(dashboard.table.rows);
 
   React.useEffect(() => {
     const params = new URLSearchParams();
@@ -326,11 +328,19 @@ export default function AdminCatalogClient({ initialData, initialParams }: Props
     setMessage({ tone: 'info', text: 'Filtros repostos.' });
   }
 
-  function refresh() {
+  const refresh = React.useCallback(() => {
     startRefreshTransition(() => {
       void mutate();
     });
-  }
+  }, [mutate, startRefreshTransition]);
+
+  const handlePublishChange = React.useCallback(
+    (result: PublishResult) => {
+      recordPublication(result);
+      refresh();
+    },
+    [recordPublication, refresh],
+  );
 
   const paginatedRows = dashboard.table.rows;
   const totalPages = Math.max(Math.ceil((dashboard.table.total || 0) / filters.pageSize), 1);
@@ -362,26 +372,27 @@ export default function AdminCatalogClient({ initialData, initialParams }: Props
 
     const lines = [
       header.join(','),
-      ...paginatedRows.map((row) =>
-        [
+      ...paginatedRows.map((row) => {
+        const publication = resolvePublication(row);
+        return [
           row.id,
           row.name,
           row.muscleGroup ?? '',
           row.equipment ?? '',
           row.difficulty ?? '',
           row.audienceLabel,
-          row.isPublished ? 'sim' : 'nao',
+          publication.isPublished ? 'sim' : 'nao',
           row.isGlobal ? 'global' : 'privado',
           row.creatorLabel,
           row.creatorEmail ?? '',
           row.createdAt ?? '',
-          row.publishedAt ?? '',
+          publication.publishedAt ?? '',
           (row.description ?? '').replace(/\r?\n/g, ' '),
           row.videoUrl ?? '',
         ]
           .map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`)
-          .join(','),
-      ),
+          .join(',');
+      }),
     ].join('\n');
 
     const blob = new Blob([lines], { type: 'text/csv;charset=utf-8;' });
@@ -685,58 +696,65 @@ export default function AdminCatalogClient({ initialData, initialParams }: Props
                   </td>
                 </tr>
               ) : (
-                paginatedRows.map((row) => (
-                  <tr key={row.id}>
-                    <td>
-                      <span className="admin-catalog__tableName">{row.name}</span>
-                      <span className="admin-catalog__tableCreator">{row.creatorLabel}</span>
-                    </td>
-                    <td>
-                      <ul className="admin-catalog__tags">
-                        {row.muscleTags.map((tag) => (
-                          <li key={`muscle-${row.id}-${tag}`}>{tag}</li>
-                        ))}
-                        {row.equipmentTags.map((tag) => (
-                          <li key={`equipment-${row.id}-${tag}`}>{tag}</li>
-                        ))}
-                      </ul>
-                    </td>
-                    <td>
-                      <span className={clsx('admin-catalog__badge', row.difficulty?.toLowerCase())}>
-                        {row.difficulty ?? '—'}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={clsx('admin-catalog__badge', row.isGlobal ? 'global' : 'private')}>
-                        {row.isGlobal ? 'Global' : 'Privado'}
-                      </span>
-                      <span className={clsx('admin-catalog__badge', row.isPublished ? 'published' : 'draft')}>
-                        {row.isPublished ? 'Publicado' : 'Rascunho'}
-                      </span>
-                    </td>
-                    <td>
-                      <span className="admin-catalog__tableMeta">
-                        Criado {formatRelative(row.createdAt ?? null)}
-                      </span>
-                      <span className="admin-catalog__tableMeta">
-                        Actualizado {formatRelative(row.updatedAt ?? null)}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="admin-catalog__tableActions">
-                        <PublishToggle id={row.id} published={!!row.isPublished} onChange={refresh} />
-                        <Link
-                          className="btn"
-                          data-variant="ghost"
-                          data-size="sm"
-                          href={`/dashboard/admin/exercises/${row.id}`}
-                        >
-                          Abrir
-                        </Link>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                paginatedRows.map((row) => {
+                  const publication = resolvePublication(row);
+                  return (
+                    <tr key={row.id}>
+                      <td>
+                        <span className="admin-catalog__tableName">{row.name}</span>
+                        <span className="admin-catalog__tableCreator">{row.creatorLabel}</span>
+                      </td>
+                      <td>
+                        <ul className="admin-catalog__tags">
+                          {row.muscleTags.map((tag) => (
+                            <li key={`muscle-${row.id}-${tag}`}>{tag}</li>
+                          ))}
+                          {row.equipmentTags.map((tag) => (
+                            <li key={`equipment-${row.id}-${tag}`}>{tag}</li>
+                          ))}
+                        </ul>
+                      </td>
+                      <td>
+                        <span className={clsx('admin-catalog__badge', row.difficulty?.toLowerCase())}>
+                          {row.difficulty ?? '—'}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={clsx('admin-catalog__badge', row.isGlobal ? 'global' : 'private')}>
+                          {row.isGlobal ? 'Global' : 'Privado'}
+                        </span>
+                        <span className={clsx('admin-catalog__badge', publication.isPublished ? 'published' : 'draft')}>
+                          {publication.isPublished ? 'Publicado' : 'Rascunho'}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="admin-catalog__tableMeta">
+                          Criado {formatRelative(row.createdAt ?? null)}
+                        </span>
+                        <span className="admin-catalog__tableMeta">
+                          Actualizado {formatRelative(publication.updatedAt)}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="admin-catalog__tableActions">
+                          <PublishToggle
+                            id={row.id}
+                            published={publication.isPublished}
+                            onChange={handlePublishChange}
+                          />
+                          <Link
+                            className="btn"
+                            data-variant="ghost"
+                            data-size="sm"
+                            href={`/dashboard/admin/exercises/${row.id}`}
+                          >
+                            Abrir
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

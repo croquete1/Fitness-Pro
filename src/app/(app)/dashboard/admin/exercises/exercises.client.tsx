@@ -33,7 +33,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import PageHeader from '@/components/ui/PageHeader';
 import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
-import PublishToggle from '@/components/exercise/PublishToggle';
+import PublishToggle, { type PublishResult } from '@/components/exercise/PublishToggle';
+import { usePublicationPatches } from '@/components/exercise/usePublicationPatches';
 import { ExerciseFormValues } from '@/lib/exercises/schema';
 import { supabaseBrowser } from '@/lib/supabaseBrowser';
 import AdminExerciseFormClient from './AdminExerciseFormClient';
@@ -262,6 +263,7 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
   });
 
   const dashboard = data?.ok ? data.data : initialData;
+  const { resolve: resolvePublication, record: recordPublication } = usePublicationPatches(dashboard.table.rows);
 
   React.useEffect(() => {
     const params = new URLSearchParams();
@@ -319,11 +321,19 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
     });
   }
 
-  async function refresh() {
+  const refresh = React.useCallback(() => {
     startRefreshTransition(() => {
       void mutate();
     });
-  }
+  }, [mutate, startRefreshTransition]);
+
+  const handlePublishChange = React.useCallback(
+    (result: PublishResult) => {
+      recordPublication(result);
+      refresh();
+    },
+    [recordPublication, refresh],
+  );
 
   async function handleDelete(row: AdminExerciseRow) {
     if (!window.confirm(`Remover "${row.name}"?`)) return;
@@ -368,26 +378,27 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
     ];
     const lines = [
       header.join(','),
-      ...paginatedRows.map((row) =>
-        [
+      ...paginatedRows.map((row) => {
+        const publication = resolvePublication(row);
+        return [
           row.id,
           row.name,
           row.muscleGroup ?? '',
           row.equipment ?? '',
           row.difficulty ?? '',
           row.audienceLabel,
-          row.isPublished ? 'sim' : 'nao',
+          publication.isPublished ? 'sim' : 'nao',
           row.isGlobal ? 'global' : 'privado',
           row.creatorLabel,
           row.creatorEmail ?? '',
           row.createdAt ?? '',
-          row.publishedAt ?? '',
+          publication.publishedAt ?? '',
           (row.description ?? '').replace(/\r?\n/g, ' '),
           row.videoUrl ?? '',
         ]
           .map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`)
-          .join(','),
-      ),
+          .join(',');
+      }),
     ].join('\n');
 
     const blob = new Blob([lines], { type: 'text/csv;charset=utf-8;' });
@@ -408,18 +419,19 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
     if (!popup) return;
     const rows = paginatedRows
       .map((row) => {
+        const publication = resolvePublication(row);
         const cells = [
           row.name,
           row.muscleGroup ?? '',
           row.equipment ?? '',
           row.difficulty ?? '',
           row.audienceLabel,
-          row.isPublished ? 'Publicado' : 'Rascunho',
+          publication.isPublished ? 'Publicado' : 'Rascunho',
           row.creatorLabel,
           row.createdAt ?? '',
-          row.publishedAt ?? '',
+          publication.publishedAt ?? '',
         ]
-          .map((cell) => `<td>${String(cell ?? '')}</td>`) 
+          .map((cell) => `<td>${String(cell ?? '')}</td>`)
           .join('');
         return `<tr>${cells}</tr>`;
       })
@@ -726,11 +738,13 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedRows.map((row) => (
-                    <tr key={row.id}>
-                      <td>
-                        <span className="admin-exercises__tableName">{row.name}</span>
-                        {row.description ? (
+                  {paginatedRows.map((row) => {
+                    const publication = resolvePublication(row);
+                    return (
+                      <tr key={row.id}>
+                        <td>
+                          <span className="admin-exercises__tableName">{row.name}</span>
+                          {row.description ? (
                           <span className="admin-exercises__tableDescription">{row.description}</span>
                         ) : null}
                         <span className="admin-exercises__tableMeta">Criado por {row.creatorLabel}</span>
@@ -769,18 +783,14 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
                         {row.isGlobal ? (
                           <PublishToggle
                             id={row.id}
-                            published={!!row.isPublished}
-                            onChange={() => {
-                              startRefreshTransition(() => {
-                                void mutate();
-                              });
-                            }}
+                            published={publication.isPublished}
+                            onChange={handlePublishChange}
                           />
                         ) : (
                           <span className="admin-exercises__badge neutral">Privado</span>
                         )}
                       </td>
-                      <td>{formatRelative(row.updatedAt)}</td>
+                      <td>{formatRelative(publication.updatedAt)}</td>
                       <td>
                         <div className="admin-exercises__tableActions">
                           <Button
@@ -814,7 +824,8 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             ) : (
