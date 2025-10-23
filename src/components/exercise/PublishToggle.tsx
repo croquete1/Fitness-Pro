@@ -25,10 +25,6 @@ type PublishResponse = {
   updated_at?: string | null;
 };
 
-type PublishResponse = {
-  is_published?: boolean;
-};
-
 export default function PublishToggle({ id, published, onChange }: Props) {
   const [busy, setBusy] = React.useState(false);
   const [current, setCurrent] = React.useState(() => Boolean(published));

@@ -17,6 +17,33 @@ type RowWithPublication = {
   updatedAt?: string | null;
 };
 
+type PatchRecord = Record<string, PublicationSnapshot>;
+
+let patchStore: PatchRecord = {};
+const listeners = new Set<() => void>();
+
+function notifyListeners() {
+  for (const listener of listeners) {
+    listener();
+  }
+}
+
+function getSnapshot(): PatchRecord {
+  return patchStore;
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+function updateStore(updater: (prev: PatchRecord) => PatchRecord) {
+  const next = updater(patchStore);
+  if (next === patchStore) return;
+  patchStore = next;
+  notifyListeners();
+}
+
 function toSnapshot(row: RowWithPublication): PublicationSnapshot {
   return {
     isPublished: Boolean(row.isPublished),
@@ -25,40 +52,39 @@ function toSnapshot(row: RowWithPublication): PublicationSnapshot {
   };
 }
 
+function pruneWithRows(rows: RowWithPublication[]) {
+  if (!rows.length) return;
+
+  const rowMap = new Map<string, PublicationSnapshot>(rows.map((row) => [row.id, toSnapshot(row)]));
+
+  updateStore((prev) => {
+    let next: PatchRecord | null = null;
+
+    for (const [id, patch] of Object.entries(prev)) {
+      const server = rowMap.get(id);
+      if (!server) {
+        continue;
+      }
+
+      if (
+        server.isPublished === patch.isPublished &&
+        server.publishedAt === patch.publishedAt &&
+        server.updatedAt === patch.updatedAt
+      ) {
+        if (!next) next = { ...prev };
+        delete next[id];
+      }
+    }
+
+    return next ?? prev;
+  });
+}
+
 export function usePublicationPatches(rows: RowWithPublication[]) {
-  const [patches, setPatches] = React.useState<Record<string, PublicationSnapshot>>({});
+  const patches = React.useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
   React.useEffect(() => {
-    setPatches((prev) => {
-      if (!rows.length) {
-        return Object.keys(prev).length ? {} : prev;
-      }
-
-      const rowMap = new Map<string, PublicationSnapshot>(rows.map((row) => [row.id, toSnapshot(row)]));
-      let mutated = false;
-      const next: Record<string, PublicationSnapshot> = {};
-
-      for (const [id, patch] of Object.entries(prev)) {
-        const server = rowMap.get(id);
-        if (!server) {
-          mutated = true;
-          continue;
-        }
-
-        if (
-          server.isPublished === patch.isPublished &&
-          server.publishedAt === patch.publishedAt &&
-          server.updatedAt === patch.updatedAt
-        ) {
-          mutated = true;
-          continue;
-        }
-
-        next[id] = patch;
-      }
-
-      return mutated ? next : prev;
-    });
+    pruneWithRows(rows);
   }, [rows]);
 
   const resolve = React.useCallback(
@@ -85,7 +111,7 @@ export function usePublicationPatches(rows: RowWithPublication[]) {
       updatedAt: result.updatedAt,
     };
 
-    setPatches((prev) => {
+    updateStore((prev) => {
       const current = prev[result.id];
       if (
         current &&
