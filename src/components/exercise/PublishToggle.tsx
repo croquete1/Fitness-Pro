@@ -5,6 +5,13 @@ import { Loader2 } from 'lucide-react';
 
 import { showToast } from '@/components/ui/Toasts';
 
+function normalizeTimestamp(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const time = Date.parse(value);
+  if (!Number.isFinite(time)) return null;
+  return new Date(time).toISOString();
+}
+
 export type PublishResult = {
   id: string;
   isPublished: boolean;
@@ -65,14 +72,17 @@ export default function PublishToggle({ id, published, onChange }: Props) {
 
       const payload = (await response.json().catch(() => null)) as PublishResponse | null;
       const confirmed = typeof payload?.is_published === 'boolean' ? payload.is_published : next;
-      const publishedAt =
+      const now = new Date().toISOString();
+      const publishedAt = normalizeTimestamp(
         typeof payload?.published_at === 'string'
           ? payload.published_at
           : confirmed
-            ? new Date().toISOString()
-            : null;
-      const updatedAt =
-        typeof payload?.updated_at === 'string' ? payload.updated_at : new Date().toISOString();
+            ? now
+            : null,
+      );
+      const updatedAt = normalizeTimestamp(
+        typeof payload?.updated_at === 'string' ? payload.updated_at : now,
+      );
 
       if (mountedRef.current) {
         setCurrent(confirmed);

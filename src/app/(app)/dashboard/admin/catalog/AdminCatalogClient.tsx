@@ -343,9 +343,27 @@ export default function AdminCatalogClient({ initialData, initialParams }: Props
   );
 
   const paginatedRows = dashboard.table.rows;
-  const totalPages = Math.max(Math.ceil((dashboard.table.total || 0) / filters.pageSize), 1);
-  const showingStart = filters.page * filters.pageSize + 1;
-  const showingEnd = Math.min(dashboard.table.total, showingStart + paginatedRows.length - 1);
+  const totalCount = dashboard.table.total || 0;
+  const totalPages = Math.max(Math.ceil(totalCount / filters.pageSize), 1);
+  const hasRows = paginatedRows.length > 0;
+  const adjustingPagination = totalCount > 0 && !hasRows;
+  const showingStart = hasRows ? filters.page * filters.pageSize + 1 : 0;
+  const showingEnd = hasRows ? showingStart + paginatedRows.length - 1 : 0;
+
+  React.useEffect(() => {
+    const lastPageIndex = Math.max(Math.ceil(totalCount / filters.pageSize) - 1, 0);
+    if (filters.page <= lastPageIndex) {
+      return;
+    }
+
+    setFilters((prev) => {
+      if (prev.page <= lastPageIndex) {
+        return prev;
+      }
+
+      return { ...prev, page: lastPageIndex };
+    });
+  }, [filters.page, filters.pageSize, setFilters, totalCount]);
 
   function exportCSV() {
     if (!paginatedRows.length) {
@@ -405,7 +423,7 @@ export default function AdminCatalogClient({ initialData, initialParams }: Props
     setMessage({ tone: 'success', text: 'Exportação CSV iniciada.' });
   }
 
-  const emptyState = !paginatedRows.length;
+  const emptyState = totalCount === 0;
 
   React.useEffect(() => {
     if (error) {
@@ -632,9 +650,11 @@ export default function AdminCatalogClient({ initialData, initialParams }: Props
           <div>
             <h2>Exercícios</h2>
             <p>
-              {dashboard.table.total
-                ? `A mostrar ${showingStart}–${showingEnd} de ${formatNumber(dashboard.table.total)} exercício(s).`
-                : 'Sem exercícios para apresentar.'}
+              {emptyState
+                ? 'Sem exercícios para apresentar.'
+                : adjustingPagination
+                  ? 'A ajustar paginação aos novos filtros…'
+                  : `A mostrar ${formatNumber(showingStart)}–${formatNumber(showingEnd)} de ${formatNumber(totalCount)} exercício(s).`}
             </p>
           </div>
           <div className="admin-catalog__paginationControls">
@@ -693,6 +713,12 @@ export default function AdminCatalogClient({ initialData, initialParams }: Props
                 <tr>
                   <td colSpan={6} className="admin-catalog__tableEmpty">
                     Não existem exercícios com os filtros actuais.
+                  </td>
+                </tr>
+              ) : adjustingPagination ? (
+                <tr>
+                  <td colSpan={6} className="admin-catalog__tableEmpty">
+                    A sincronizar a paginação com os novos filtros…
                   </td>
                 </tr>
               ) : (

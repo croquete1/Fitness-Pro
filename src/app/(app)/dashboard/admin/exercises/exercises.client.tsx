@@ -351,9 +351,28 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
   }
 
   const paginatedRows = dashboard.table.rows;
-  const totalPages = Math.max(Math.ceil((dashboard.table.total || 0) / filters.pageSize), 1);
-  const showingStart = filters.page * filters.pageSize + 1;
-  const showingEnd = Math.min(dashboard.table.total, showingStart + paginatedRows.length - 1);
+  const totalCount = dashboard.table.total || 0;
+  const totalPages = Math.max(Math.ceil(totalCount / filters.pageSize), 1);
+  const hasRows = paginatedRows.length > 0;
+  const adjustingPagination = totalCount > 0 && !hasRows;
+  const emptyState = totalCount === 0;
+  const showingStart = hasRows ? filters.page * filters.pageSize + 1 : 0;
+  const showingEnd = hasRows ? showingStart + paginatedRows.length - 1 : 0;
+
+  React.useEffect(() => {
+    const lastPageIndex = Math.max(Math.ceil(totalCount / filters.pageSize) - 1, 0);
+    if (filters.page <= lastPageIndex) {
+      return;
+    }
+
+    setFilters((prev) => {
+      if (prev.page <= lastPageIndex) {
+        return prev;
+      }
+
+      return { ...prev, page: lastPageIndex };
+    });
+  }, [filters.page, filters.pageSize, setFilters, totalCount]);
 
   function exportCSV() {
     if (!paginatedRows.length) {
@@ -714,16 +733,18 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
             <div>
               <h3 className="neo-panel__title">Exercícios disponíveis</h3>
               <p className="neo-panel__subtitle">
-                {dashboard.table.total === 0
+                {emptyState
                   ? 'Sem resultados para os filtros seleccionados.'
-                  : `A mostrar ${showingStart}-${showingEnd} de ${dashboard.table.total}`}
+                  : adjustingPagination
+                    ? 'A ajustar paginação aos novos filtros…'
+                    : `A mostrar ${formatNumber(showingStart)}–${formatNumber(showingEnd)} de ${formatNumber(totalCount)}`}
               </p>
             </div>
             <CalendarClock aria-hidden />
           </header>
 
           <div className="admin-exercises__tableWrapper">
-            {paginatedRows.length ? (
+            {hasRows ? (
               <table>
                 <thead>
                   <tr>
@@ -828,13 +849,21 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
                   })}
                 </tbody>
               </table>
-            ) : (
+            ) : emptyState ? (
               <div className="neo-empty">
                 <span className="neo-empty__icon" aria-hidden>
                   📦
                 </span>
                 <p className="neo-empty__title">Sem resultados</p>
                 <p className="neo-empty__description">Ajusta os filtros ou cria um novo exercício.</p>
+              </div>
+            ) : (
+              <div className="neo-empty">
+                <span className="neo-empty__icon" aria-hidden>
+                  ⏳
+                </span>
+                <p className="neo-empty__title">A ajustar paginação…</p>
+                <p className="neo-empty__description">Estamos a sincronizar a página com os novos filtros.</p>
               </div>
             )}
           </div>
