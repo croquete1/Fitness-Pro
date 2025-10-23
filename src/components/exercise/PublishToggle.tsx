@@ -1,78 +1,149 @@
 'use client';
 
 import * as React from 'react';
+import { Loader2 } from 'lucide-react';
+
+import { showToast } from '@/components/ui/Toasts';
+
+function normalizeTimestamp(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const time = Date.parse(value);
+  if (!Number.isFinite(time)) return null;
+  return new Date(time).toISOString();
+}
+
+export type PublishResult = {
+  id: string;
+  isPublished: boolean;
+  publishedAt: string | null;
+  updatedAt: string | null;
+};
 
 type Props = {
   id: string;
   published: boolean;
-  onChange?: (next: boolean) => void;
+  onChange?: (result: PublishResult) => void;
+};
+
+type PublishResponse = {
+  id?: string;
+  is_published?: boolean;
+  published_at?: string | null;
+  updated_at?: string | null;
 };
 
 export default function PublishToggle({ id, published, onChange }: Props) {
   const [busy, setBusy] = React.useState(false);
-  const [isOn, setIsOn] = React.useState(!!published);
+  const [current, setCurrent] = React.useState(() => Boolean(published));
+  const mountedRef = React.useRef(true);
 
   React.useEffect(() => {
-    setIsOn(!!published);
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  React.useEffect(() => {
+    setCurrent(Boolean(published));
   }, [published]);
 
-  async function toggle() {
+  const toggle = React.useCallback(async () => {
+    if (busy || !mountedRef.current) return;
+
+    const previous = current;
+    const next = !previous;
+
+    setCurrent(next);
+    setBusy(true);
+
     try {
-      setBusy(true);
-      const res = await fetch(`/api/admin/exercises/${id}/publish`, {
+      const response = await fetch(`/api/admin/exercises/${id}/publish`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ publish: !isOn }),
+        credentials: 'same-origin',
+        body: JSON.stringify({ publish: next }),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setIsOn(!isOn);
-      onChange?.(!isOn);
-    } catch (e) {
-      console.error('publish toggle', e);
-      alert('Falha ao alterar publicação.');
+
+      if (!response.ok) {
+        const message = await response.text().catch(() => '');
+        throw new Error(message || 'Falha ao sincronizar a publicação.');
+      }
+
+      const payload = (await response.json().catch(() => null)) as PublishResponse | null;
+      const confirmed = typeof payload?.is_published === 'boolean' ? payload.is_published : next;
+      const now = new Date().toISOString();
+      const publishedAt = normalizeTimestamp(
+        typeof payload?.published_at === 'string'
+          ? payload.published_at
+          : confirmed
+            ? now
+            : null,
+      );
+      const updatedAt = normalizeTimestamp(
+        typeof payload?.updated_at === 'string' ? payload.updated_at : now,
+      );
+
+      if (mountedRef.current) {
+        setCurrent(confirmed);
+      }
+
+      onChange?.({
+        id: payload?.id ?? id,
+        isPublished: confirmed,
+        publishedAt,
+        updatedAt,
+      });
+      showToast({
+        type: 'success',
+        title: confirmed ? 'Exercício publicado' : 'Exercício marcado como rascunho',
+        description: confirmed
+          ? 'O exercício fica visível no catálogo global.'
+          : 'O exercício foi removido do catálogo público.',
+      });
+    } catch (error) {
+      if (mountedRef.current) {
+        setCurrent(previous);
+      }
+
+      const description =
+        error instanceof Error && error.message
+          ? error.message
+          : 'Ocorreu um erro inesperado.';
+
+      showToast({
+        type: 'error',
+        title: 'Não foi possível actualizar a publicação',
+        description,
+      });
     } finally {
-      setBusy(false);
+      if (mountedRef.current) {
+        setBusy(false);
+      }
     }
-  }
+  }, [busy, current, id, onChange]);
+
+  const label = current ? 'Publicado' : 'Rascunho';
+  const actionLabel = current ? 'Remover exercício do catálogo global' : 'Publicar exercício no catálogo global';
 
   return (
     <button
+      type="button"
+      className="neo-toggle-chip publish-toggle"
+      data-state={current ? 'on' : 'off'}
+      data-loading={busy ? 'true' : 'false'}
       onClick={toggle}
       disabled={busy}
-      className="btn chip"
-      aria-pressed={isOn}
-      title={isOn ? 'Remover do catálogo' : 'Publicar no catálogo'}
-      style={{
-        display: 'inline-flex',
-        gap: 8,
-        alignItems: 'center',
-        opacity: busy ? 0.6 : 1,
-        background: isOn
-          ? 'var(--badge-status-active-bg, rgba(16,185,129,0.12))'
-          : 'var(--badge-status-draft-bg, rgba(156,163,175,0.12))',
-        color: isOn
-          ? 'var(--badge-status-active-fg, #166534)'
-          : 'var(--badge-status-draft-fg, #374151)',
-        borderColor: isOn
-          ? 'var(--badge-status-active-border, rgba(16,185,129,0.2))'
-          : 'var(--badge-status-draft-border, rgba(156,163,175,0.2))',
-      }}
+      role="switch"
+      aria-checked={current}
+      aria-label={actionLabel}
+      aria-busy={busy}
+      aria-disabled={busy}
     >
-      <span
-        style={{
-          width: 10,
-          height: 10,
-          borderRadius: 999,
-          background: isOn
-            ? 'var(--badge-status-active-border, rgba(16,185,129,0.2))'
-            : 'var(--badge-status-draft-border, rgba(156,163,175,0.2))',
-          boxShadow: isOn
-            ? '0 0 0 3px var(--badge-status-active-border, rgba(16,185,129,0.2))'
-            : '0 0 0 3px var(--badge-status-draft-border, rgba(156,163,175,0.2))',
-        }}
-        aria-hidden
-      />
-      {isOn ? 'Publicado' : 'Não publicado'}
+      <span className="publish-toggle__content">
+        {busy ? <Loader2 aria-hidden className="publish-toggle__spinner neo-spin" /> : null}
+        <span>{busy ? 'A guardar…' : label}</span>
+      </span>
     </button>
   );
 }

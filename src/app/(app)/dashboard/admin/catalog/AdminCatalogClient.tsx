@@ -28,7 +28,9 @@ import {
 import PageHeader from '@/components/ui/PageHeader';
 import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
-import PublishToggle from '@/components/exercise/PublishToggle';
+import PublishToggle, { type PublishResult } from '@/components/exercise/PublishToggle';
+import { usePublicationPatches } from '@/components/exercise/usePublicationPatches';
+import { formatRelativeTime } from '@/lib/datetime/relative';
 import { supabaseBrowser } from '@/lib/supabaseBrowser';
 import {
   type AdminExerciseRow,
@@ -59,6 +61,14 @@ const SCOPE_OPTIONS: Array<{ value: Filters['scope']; label: string; helper: str
   { value: 'all', label: 'Todos os exercícios', helper: 'Inclui itens privados' },
   { value: 'personal', label: 'Bibliotecas privadas', helper: 'Exercícios criados pelos treinadores' },
 ];
+
+const integerFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 });
+
+const shareFormatter = new Intl.NumberFormat('pt-PT', {
+  style: 'percent',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 1,
+});
 
 type Filters = {
   q: string;
@@ -98,34 +108,30 @@ const fetcher = async (url: string): Promise<AdminExercisesDashboardResult> => {
 };
 
 function formatNumber(value: number): string {
-  return new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 }).format(value);
+  return integerFormatter.format(value);
 }
 
 function formatShare(value: number): string {
-  return new Intl.NumberFormat('pt-PT', {
-    style: 'percent',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 1,
-  }).format(value);
+  return shareFormatter.format(value);
 }
 
 function formatRelative(value: string | null): string {
-  if (!value) return '—';
-  try {
-    const formatter = new Intl.RelativeTimeFormat('pt-PT', { numeric: 'auto' });
-    const date = new Date(value);
-    if (!Number.isFinite(date.getTime())) return '—';
-    const diff = date.getTime() - Date.now();
-    const minute = 60_000;
-    const hour = 3_600_000;
-    const day = 86_400_000;
-    if (Math.abs(diff) < hour) return formatter.format(Math.round(diff / minute), 'minute');
-    if (Math.abs(diff) < day) return formatter.format(Math.round(diff / hour), 'hour');
-    if (Math.abs(diff) < 30 * day) return formatter.format(Math.round(diff / day), 'day');
-    return formatter.format(Math.round(diff / (30 * day)), 'month');
-  } catch {
-    return '—';
-  }
+  return formatRelativeTime(value) ?? '—';
+}
+
+function filtersEqual(a: Filters, b: Filters): boolean {
+  return (
+    a.q === b.q &&
+    a.scope === b.scope &&
+    a.published === b.published &&
+    a.difficulty === b.difficulty &&
+    a.equipment === b.equipment &&
+    a.muscle === b.muscle &&
+    a.range === b.range &&
+    a.sort === b.sort &&
+    a.page === b.page &&
+    a.pageSize === b.pageSize
+  );
 }
 
 function CatalogTooltip({ active, payload }: any) {
@@ -246,6 +252,20 @@ export default function AdminCatalogClient({ initialData, initialParams }: Props
   const [message, setMessage] = React.useState<MessageState | null>(null);
   const [isRefreshing, startRefreshTransition] = React.useTransition();
 
+  const applyFilters = React.useCallback((updater: (prev: Filters) => Filters) => {
+    let changed = false;
+    setFilters((prev) => {
+      const next = updater(prev);
+      if (filtersEqual(prev, next)) {
+        return prev;
+      }
+
+      changed = true;
+      return next;
+    });
+    return changed;
+  }, []);
+
   const queryKey = React.useMemo(() => {
     const params = new URLSearchParams();
     if (filters.q) params.set('q', filters.q);
@@ -268,6 +288,7 @@ export default function AdminCatalogClient({ initialData, initialParams }: Props
   });
 
   const dashboard = data?.ok ? data.data : initialData;
+  const { resolve: resolvePublication, record: recordPublication } = usePublicationPatches(dashboard.table.rows);
 
   React.useEffect(() => {
     const params = new URLSearchParams();
@@ -302,16 +323,19 @@ export default function AdminCatalogClient({ initialData, initialParams }: Props
 
   const loading = isValidating || isRefreshing;
 
-  function updateFilters(partial: Partial<Filters>, options?: { keepPage?: boolean }) {
-    setFilters((prev) => ({
-      ...prev,
-      ...partial,
-      page: options?.keepPage ? partial.page ?? prev.page : partial.page ?? 0,
-    }));
-  }
+  const updateFilters = React.useCallback(
+    (partial: Partial<Filters>, options?: { keepPage?: boolean }) => {
+      applyFilters((prev) => ({
+        ...prev,
+        ...partial,
+        page: options?.keepPage ? partial.page ?? prev.page : partial.page ?? 0,
+      }));
+    },
+    [applyFilters],
+  );
 
-  function resetFilters() {
-    setFilters({
+  const resetFilters = React.useCallback(() => {
+    const changed = applyFilters(() => ({
       q: '',
       scope: 'global',
       published: 'published',
@@ -322,20 +346,48 @@ export default function AdminCatalogClient({ initialData, initialParams }: Props
       sort: 'updated_desc',
       page: 0,
       pageSize: 25,
-    });
-    setMessage({ tone: 'info', text: 'Filtros repostos.' });
-  }
+    }));
+    if (changed) {
+      setMessage({ tone: 'info', text: 'Filtros repostos.' });
+    }
+  }, [applyFilters]);
 
-  function refresh() {
+  const refresh = React.useCallback(() => {
     startRefreshTransition(() => {
       void mutate();
     });
-  }
+  }, [mutate, startRefreshTransition]);
+
+  const handlePublishChange = React.useCallback(
+    (result: PublishResult) => {
+      recordPublication(result);
+      refresh();
+    },
+    [recordPublication, refresh],
+  );
 
   const paginatedRows = dashboard.table.rows;
-  const totalPages = Math.max(Math.ceil((dashboard.table.total || 0) / filters.pageSize), 1);
-  const showingStart = filters.page * filters.pageSize + 1;
-  const showingEnd = Math.min(dashboard.table.total, showingStart + paginatedRows.length - 1);
+  const totalCount = dashboard.table.total || 0;
+  const totalPages = Math.max(Math.ceil(totalCount / filters.pageSize), 1);
+  const hasRows = paginatedRows.length > 0;
+  const adjustingPagination = totalCount > 0 && !hasRows;
+  const showingStart = hasRows ? filters.page * filters.pageSize + 1 : 0;
+  const showingEnd = hasRows ? showingStart + paginatedRows.length - 1 : 0;
+
+  React.useEffect(() => {
+    const lastPageIndex = Math.max(Math.ceil(totalCount / filters.pageSize) - 1, 0);
+    if (filters.page <= lastPageIndex) {
+      return;
+    }
+
+    applyFilters((prev) => {
+      if (prev.page <= lastPageIndex) {
+        return prev;
+      }
+
+      return { ...prev, page: lastPageIndex };
+    });
+  }, [applyFilters, filters.page, filters.pageSize, totalCount]);
 
   function exportCSV() {
     if (!paginatedRows.length) {
@@ -362,26 +414,27 @@ export default function AdminCatalogClient({ initialData, initialParams }: Props
 
     const lines = [
       header.join(','),
-      ...paginatedRows.map((row) =>
-        [
+      ...paginatedRows.map((row) => {
+        const publication = resolvePublication(row);
+        return [
           row.id,
           row.name,
           row.muscleGroup ?? '',
           row.equipment ?? '',
           row.difficulty ?? '',
           row.audienceLabel,
-          row.isPublished ? 'sim' : 'nao',
+          publication.isPublished ? 'sim' : 'nao',
           row.isGlobal ? 'global' : 'privado',
           row.creatorLabel,
           row.creatorEmail ?? '',
           row.createdAt ?? '',
-          row.publishedAt ?? '',
+          publication.publishedAt ?? '',
           (row.description ?? '').replace(/\r?\n/g, ' '),
           row.videoUrl ?? '',
         ]
           .map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`)
-          .join(','),
-      ),
+          .join(',');
+      }),
     ].join('\n');
 
     const blob = new Blob([lines], { type: 'text/csv;charset=utf-8;' });
@@ -394,7 +447,12 @@ export default function AdminCatalogClient({ initialData, initialParams }: Props
     setMessage({ tone: 'success', text: 'Exportação CSV iniciada.' });
   }
 
-  const emptyState = !paginatedRows.length;
+  const emptyState = totalCount === 0;
+  const statusLabel = emptyState
+    ? 'Sem exercícios para apresentar.'
+    : adjustingPagination
+      ? 'A ajustar paginação aos novos filtros…'
+      : `A mostrar ${formatNumber(showingStart)}–${formatNumber(showingEnd)} de ${formatNumber(totalCount)} exercício(s).`;
 
   React.useEffect(() => {
     if (error) {
@@ -620,10 +678,8 @@ export default function AdminCatalogClient({ initialData, initialParams }: Props
         <header className="admin-catalog__tableHeader">
           <div>
             <h2>Exercícios</h2>
-            <p>
-              {dashboard.table.total
-                ? `A mostrar ${showingStart}–${showingEnd} de ${formatNumber(dashboard.table.total)} exercício(s).`
-                : 'Sem exercícios para apresentar.'}
+            <p aria-live="polite" aria-atomic="true">
+              {statusLabel}
             </p>
           </div>
           <div className="admin-catalog__paginationControls">
@@ -665,7 +721,11 @@ export default function AdminCatalogClient({ initialData, initialParams }: Props
           </div>
         </header>
 
-        <div className="admin-catalog__tableWrapper">
+        <div
+          className="admin-catalog__tableWrapper"
+          aria-busy={loading || adjustingPagination}
+          data-adjusting={adjustingPagination ? 'true' : undefined}
+        >
           <table>
             <thead>
               <tr>
@@ -684,59 +744,72 @@ export default function AdminCatalogClient({ initialData, initialParams }: Props
                     Não existem exercícios com os filtros actuais.
                   </td>
                 </tr>
+              ) : adjustingPagination ? (
+                <tr>
+                  <td colSpan={6} className="admin-catalog__tableEmpty">
+                    {statusLabel}
+                  </td>
+                </tr>
               ) : (
-                paginatedRows.map((row) => (
-                  <tr key={row.id}>
-                    <td>
-                      <span className="admin-catalog__tableName">{row.name}</span>
-                      <span className="admin-catalog__tableCreator">{row.creatorLabel}</span>
-                    </td>
-                    <td>
-                      <ul className="admin-catalog__tags">
-                        {row.muscleTags.map((tag) => (
-                          <li key={`muscle-${row.id}-${tag}`}>{tag}</li>
-                        ))}
-                        {row.equipmentTags.map((tag) => (
-                          <li key={`equipment-${row.id}-${tag}`}>{tag}</li>
-                        ))}
-                      </ul>
-                    </td>
-                    <td>
-                      <span className={clsx('admin-catalog__badge', row.difficulty?.toLowerCase())}>
-                        {row.difficulty ?? '—'}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={clsx('admin-catalog__badge', row.isGlobal ? 'global' : 'private')}>
-                        {row.isGlobal ? 'Global' : 'Privado'}
-                      </span>
-                      <span className={clsx('admin-catalog__badge', row.isPublished ? 'published' : 'draft')}>
-                        {row.isPublished ? 'Publicado' : 'Rascunho'}
-                      </span>
-                    </td>
-                    <td>
-                      <span className="admin-catalog__tableMeta">
-                        Criado {formatRelative(row.createdAt ?? null)}
-                      </span>
-                      <span className="admin-catalog__tableMeta">
-                        Actualizado {formatRelative(row.updatedAt ?? null)}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="admin-catalog__tableActions">
-                        <PublishToggle id={row.id} published={!!row.isPublished} onChange={refresh} />
-                        <Link
-                          className="btn"
-                          data-variant="ghost"
-                          data-size="sm"
-                          href={`/dashboard/admin/exercises/${row.id}`}
-                        >
-                          Abrir
-                        </Link>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                paginatedRows.map((row) => {
+                  const publication = resolvePublication(row);
+                  return (
+                    <tr key={row.id}>
+                      <td>
+                        <span className="admin-catalog__tableName">{row.name}</span>
+                        <span className="admin-catalog__tableCreator">{row.creatorLabel}</span>
+                      </td>
+                      <td>
+                        <ul className="admin-catalog__tags">
+                          {row.muscleTags.map((tag) => (
+                            <li key={`muscle-${row.id}-${tag}`}>{tag}</li>
+                          ))}
+                          {row.equipmentTags.map((tag) => (
+                            <li key={`equipment-${row.id}-${tag}`}>{tag}</li>
+                          ))}
+                        </ul>
+                      </td>
+                      <td>
+                        <span className={clsx('admin-catalog__badge', row.difficulty?.toLowerCase())}>
+                          {row.difficulty ?? '—'}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={clsx('admin-catalog__badge', row.isGlobal ? 'global' : 'private')}>
+                          {row.isGlobal ? 'Global' : 'Privado'}
+                        </span>
+                        <span className={clsx('admin-catalog__badge', publication.isPublished ? 'published' : 'draft')}>
+                          {publication.isPublished ? 'Publicado' : 'Rascunho'}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="admin-catalog__tableMeta">
+                          Criado {formatRelative(row.createdAt ?? null)}
+                        </span>
+                        <span className="admin-catalog__tableMeta">
+                          Actualizado {formatRelative(publication.updatedAt)}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="admin-catalog__tableActions">
+                          <PublishToggle
+                            id={row.id}
+                            published={publication.isPublished}
+                            onChange={handlePublishChange}
+                          />
+                          <Link
+                            className="btn"
+                            data-variant="ghost"
+                            data-size="sm"
+                            href={`/dashboard/admin/exercises/${row.id}`}
+                          >
+                            Abrir
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
