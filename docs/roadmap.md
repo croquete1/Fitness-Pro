@@ -84,6 +84,8 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Realçar clientes bloqueados (sem contacto e sem próxima sessão) na carteira do treinador com filtro dedicado, sumário e cartões prioritários. Fontes: `src/app/(app)/dashboard/trainer/TrainerDashboardClient.tsx`, `src/app/globals.css`.
 - [x] Normalizar sessões expiradas na carteira do treinador para surgirem como "Sem próxima sessão" nos filtros, na pesquisa, no CSV e nas prioridades. Fontes: `src/app/(app)/dashboard/trainer/TrainerDashboardClient.tsx`.
 - [x] Distinguir clientes sem próxima sessão de casos críticos sem sessão há 10+ dias, expondo contadores dedicados e destaques no cockpit do treinador. Fontes: `src/app/(app)/dashboard/trainer/TrainerDashboardClient.tsx`, `src/app/globals.css`.
+- [x] Identificar clientes sem histórico de sessões no cockpit do treinador, com filtro dedicado, spotlight independente e métricas ajustadas. Fontes: `src/app/(app)/dashboard/trainer/TrainerDashboardClient.tsx`, `src/app/globals.css`.
+- [x] Destacar clientes sem sessão há 10+ dias com filtro rápido, lista dedicada e badges consistentes no cockpit do treinador. Fontes: `src/app/(app)/dashboard/trainer/TrainerDashboardClient.tsx`, `src/app/globals.css`.
 - [x] Reimaginar o cartão de tarefas pessoais no tema `.neo`, com persistência versionada, métricas de progresso e estilos dedicados. Fontes: `src/components/dashboard/TaskListCard.tsx`, `src/app/globals.css`.
 - [ ] Definir padrão consistente para uso de rotas Next.js vs. cliente Supabase (tempo real) e aplicá-lo aos módulos de mensagens/notificações.
 - [ ] Optimizar consultas com índices e vistas materializadas (existe esboço, mas falta adopção generalizada).

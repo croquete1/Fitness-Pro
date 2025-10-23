@@ -9416,6 +9416,20 @@ h1,.h1{
 .trainer-dashboard__clients-stalled-meta{ margin:0; font-size:13px; color:color-mix(in srgb, var(--muted-fg) 70%, transparent); }
 .trainer-dashboard__clients-stalled-link{ font-size:13px; font-weight:600; color:var(--fg); text-decoration:none; }
 .trainer-dashboard__clients-stalled-link:hover,.trainer-dashboard__clients-stalled-link:focus-visible{ text-decoration:underline; }
+.trainer-dashboard__clients-overdue{ margin-top:12px; display:flex; flex-direction:column; gap:12px; }
+.trainer-dashboard__clients-overdue-title{ margin:0; font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:color-mix(in srgb, var(--danger) 56%, var(--fg) 44%); }
+.trainer-dashboard__clients-overdue-list{ list-style:none; margin:0; padding:0; display:grid; gap:12px; }
+.trainer-dashboard__clients-overdue-item{ padding:12px 14px; border-radius:16px; border:1px solid color-mix(in srgb, var(--danger) 42%, transparent); background:color-mix(in srgb, var(--card-bg) 92%, transparent); display:flex; flex-direction:column; gap:8px; box-shadow:0 0 0 1px color-mix(in srgb, var(--danger) 18%, transparent); }
+.trainer-dashboard__clients-overdue-item--critical{ border-color:color-mix(in srgb, var(--danger) 50%, transparent); }
+.trainer-dashboard__clients-overdue-item--warning{ border-color:color-mix(in srgb, var(--warning) 36%, transparent); }
+.trainer-dashboard__clients-overdue-item--positive{ border-color:color-mix(in srgb, var(--success) 34%, transparent); }
+.trainer-dashboard__clients-overdue-item--neutral{ border-color:color-mix(in srgb, var(--primary) 30%, transparent); }
+.trainer-dashboard__clients-overdue-header{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.trainer-dashboard__clients-overdue-name{ font-weight:700; color:var(--fg); font-size:14px; }
+.trainer-dashboard__clients-overdue-badge{ display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:999px; background:color-mix(in srgb, var(--danger) 26%, transparent); font-size:11px; font-weight:600; color:color-mix(in srgb, var(--danger) 58%, var(--fg) 42%); text-transform:uppercase; letter-spacing:.08em; }
+.trainer-dashboard__clients-overdue-meta{ margin:0; font-size:13px; color:color-mix(in srgb, var(--muted-fg) 70%, transparent); }
+.trainer-dashboard__clients-overdue-link{ font-size:13px; font-weight:600; color:var(--fg); text-decoration:none; }
+.trainer-dashboard__clients-overdue-link:hover,.trainer-dashboard__clients-overdue-link:focus-visible{ text-decoration:underline; }
 .trainer-dashboard__clients-subheader{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; row-gap:8px; }
 .trainer-dashboard__clients-subheader-action{ margin-left:auto; }
 .trainer-dashboard__clients-missing{ margin-top:12px; display:flex; flex-direction:column; gap:12px; }
@@ -9461,6 +9475,7 @@ h1,.h1{
 .trainer-dashboard__clients-summary-item--rate{ background:color-mix(in srgb, var(--primary) 18%, transparent); color:var(--fg); }
 .trainer-dashboard__clients-summary-item--total{ background:color-mix(in srgb, var(--primary) 16%, transparent); color:var(--fg); }
 .trainer-dashboard__clients-summary-item--stalled{ background:color-mix(in srgb, var(--warning) 16%, transparent); color:var(--fg); }
+.trainer-dashboard__clients-summary-item--no-history{ background:color-mix(in srgb, var(--info) 14%, transparent); color:var(--fg); }
 .trainer-dashboard__clients-summary-item--overdue{ background:color-mix(in srgb, var(--danger) 20%, transparent); color:var(--fg); }
 .trainer-dashboard__clients-summary-item--missing{ background:color-mix(in srgb, var(--info) 18%, transparent); color:var(--fg); }
 .trainer-dashboard__clients-summary-item--blocked{ background:color-mix(in srgb, var(--danger) 28%, transparent); color:var(--fg); }
@@ -12927,6 +12942,7 @@ a.neo-sidebar__highlight {
 .trainer-dashboard__clients-summary-item--critical{background:color-mix(in srgb,var(--neo-chart-critical) 26%,transparent);color:var(--neo-text-primary)}
 .trainer-dashboard__clients-summary-item--warning{background:color-mix(in srgb,var(--neo-chart-warning) 26%,transparent);color:var(--neo-text-primary)}
 .trainer-dashboard__clients-summary-item--stalled{background:color-mix(in srgb,var(--neo-chart-warning) 20%,transparent);color:var(--neo-text-primary)}
+.trainer-dashboard__clients-summary-item--no-history{background:color-mix(in srgb,var(--neo-chart-primary) 20%,transparent);color:var(--neo-text-primary)}
 .trainer-dashboard__clients-summary-item--overdue{background:color-mix(in srgb,var(--neo-chart-critical) 24%,transparent);color:var(--neo-text-primary)}
 .trainer-dashboard__clients-summary-item--missing{background:color-mix(in srgb,var(--neo-chart-primary) 18%,transparent);color:var(--neo-text-primary)}
 .trainer-dashboard__clients-summary-item--blocked{background:color-mix(in srgb,var(--neo-chart-critical) 32%,transparent);color:var(--neo-text-primary)}
@@ -12967,6 +12983,20 @@ a.neo-sidebar__highlight {
 .trainer-dashboard__clients-stalled-meta{margin:0;font-size:var(--neo-font-size-xs);color:var(--neo-text-secondary)}
 .trainer-dashboard__clients-stalled-link{font-size:var(--neo-font-size-xs);font-weight:600;color:var(--neo-text-primary);text-decoration:none}
 .trainer-dashboard__clients-stalled-link:hover,.trainer-dashboard__clients-stalled-link:focus-visible{text-decoration:underline}
+.trainer-dashboard__clients-overdue{margin-top:var(--neo-space-3);display:flex;flex-direction:column;gap:var(--neo-space-3)}
+.trainer-dashboard__clients-overdue-title{margin:0;font-size:var(--neo-font-size-2xs);font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:color-mix(in srgb,var(--neo-chart-critical) 60%,var(--neo-text-primary) 40%)}
+.trainer-dashboard__clients-overdue-list{list-style:none;margin:0;padding:0;display:grid;gap:var(--neo-space-3)}
+.trainer-dashboard__clients-overdue-item{padding:var(--neo-space-3);border-radius:var(--neo-radius-lg);border:1px solid color-mix(in srgb,var(--neo-chart-critical) 42%,transparent);background:var(--neo-surface-muted);display:flex;flex-direction:column;gap:var(--neo-space-2);box-shadow:0 0 0 1px color-mix(in srgb,var(--neo-chart-critical) 20%,transparent)}
+.trainer-dashboard__clients-overdue-item--critical{border-color:color-mix(in srgb,var(--neo-chart-critical) 56%,transparent)}
+.trainer-dashboard__clients-overdue-item--warning{border-color:color-mix(in srgb,var(--neo-chart-warning) 42%,transparent)}
+.trainer-dashboard__clients-overdue-item--positive{border-color:color-mix(in srgb,var(--neo-chart-success) 40%,transparent)}
+.trainer-dashboard__clients-overdue-item--neutral{border-color:color-mix(in srgb,var(--neo-chart-primary) 34%,transparent)}
+.trainer-dashboard__clients-overdue-header{display:flex;align-items:center;justify-content:space-between;gap:var(--neo-space-2)}
+.trainer-dashboard__clients-overdue-name{font-weight:700;color:var(--neo-text-primary);font-size:var(--neo-font-size-sm)}
+.trainer-dashboard__clients-overdue-badge{display:inline-flex;align-items:center;gap:var(--neo-space-1);padding:var(--neo-space-1) var(--neo-space-2);border-radius:var(--neo-radius-pill);background:color-mix(in srgb,var(--neo-chart-critical) 30%,transparent);font-size:var(--neo-font-size-2xs);font-weight:600;color:var(--neo-text-primary);text-transform:uppercase;letter-spacing:.04em}
+.trainer-dashboard__clients-overdue-meta{margin:0;font-size:var(--neo-font-size-xs);color:var(--neo-text-secondary)}
+.trainer-dashboard__clients-overdue-link{font-size:var(--neo-font-size-xs);font-weight:600;color:var(--neo-text-primary);text-decoration:none}
+.trainer-dashboard__clients-overdue-link:hover,.trainer-dashboard__clients-overdue-link:focus-visible{text-decoration:underline}
 .trainer-dashboard__clients-subheader{display:flex;align-items:center;justify-content:space-between;gap:var(--neo-space-2);flex-wrap:wrap;row-gap:var(--neo-space-2)}
 .trainer-dashboard__clients-subheader-action{margin-left:auto}
 .trainer-dashboard__clients-missing{margin-top:var(--neo-space-3);display:flex;flex-direction:column;gap:var(--neo-space-3)}
