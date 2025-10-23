@@ -35,6 +35,7 @@ import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
 import PublishToggle, { type PublishResult } from '@/components/exercise/PublishToggle';
 import { usePublicationPatches } from '@/components/exercise/usePublicationPatches';
+import { formatRelativeTime } from '@/lib/datetime/relative';
 import { ExerciseFormValues } from '@/lib/exercises/schema';
 import { supabaseBrowser } from '@/lib/supabaseBrowser';
 import AdminExerciseFormClient from './AdminExerciseFormClient';
@@ -83,6 +84,14 @@ const RANGE_LABEL: Record<Filters['range'], string> = {
   '365d': 'Últimos 12 meses',
 };
 
+const integerFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 });
+
+const shareFormatter = new Intl.NumberFormat('pt-PT', {
+  style: 'percent',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 1,
+});
+
 const fetcher = async (url: string): Promise<AdminExercisesDashboardResult> => {
   const response = await fetch(url, { cache: 'no-store' });
   if (!response.ok) {
@@ -93,35 +102,30 @@ const fetcher = async (url: string): Promise<AdminExercisesDashboardResult> => {
 };
 
 function formatNumber(value: number): string {
-  return new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 }).format(value);
+  return integerFormatter.format(value);
 }
 
 function formatShare(value: number): string {
-  return new Intl.NumberFormat('pt-PT', {
-    style: 'percent',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 1,
-  }).format(value);
+  return shareFormatter.format(value);
 }
 
 function formatRelative(iso: string | null): string {
-  if (!iso) return '—';
-  try {
-    const date = new Date(iso);
-    if (!Number.isFinite(date.getTime())) return '—';
-    const diff = date.getTime() - Date.now();
-    const abs = Math.abs(diff);
-    const minute = 60_000;
-    const hour = 3_600_000;
-    const day = 86_400_000;
-    const formatter = new Intl.RelativeTimeFormat('pt-PT', { numeric: 'auto' });
-    if (abs < hour) return formatter.format(Math.round(diff / minute), 'minute');
-    if (abs < day) return formatter.format(Math.round(diff / hour), 'hour');
-    if (abs < 30 * day) return formatter.format(Math.round(diff / day), 'day');
-    return formatter.format(Math.round(diff / (30 * day)), 'month');
-  } catch {
-    return '—';
-  }
+  return formatRelativeTime(iso) ?? '—';
+}
+
+function filtersEqual(a: Filters, b: Filters): boolean {
+  return (
+    a.q === b.q &&
+    a.scope === b.scope &&
+    a.published === b.published &&
+    a.difficulty === b.difficulty &&
+    a.equipment === b.equipment &&
+    a.muscle === b.muscle &&
+    a.range === b.range &&
+    a.sort === b.sort &&
+    a.page === b.page &&
+    a.pageSize === b.pageSize
+  );
 }
 
 function ExerciseTooltip({ active, payload }: any) {
@@ -241,6 +245,20 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
   const [cloneRow, setCloneRow] = React.useState<AdminExerciseRow | null>(null);
   const [isRefreshing, startRefreshTransition] = React.useTransition();
 
+  const applyFilters = React.useCallback((updater: (prev: Filters) => Filters) => {
+    let changed = false;
+    setFilters((prev) => {
+      const next = updater(prev);
+      if (filtersEqual(prev, next)) {
+        return prev;
+      }
+
+      changed = true;
+      return next;
+    });
+    return changed;
+  }, []);
+
   const queryKey = React.useMemo(() => {
     const params = new URLSearchParams();
     if (filters.q) params.set('q', filters.q);
@@ -298,16 +316,19 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
 
   const loading = isValidating || isRefreshing;
 
-  function updateFilters(partial: Partial<Filters>, options?: { keepPage?: boolean }) {
-    setFilters((prev) => ({
-      ...prev,
-      ...partial,
-      page: options?.keepPage ? partial.page ?? prev.page : partial.page ?? 0,
-    }));
-  }
+  const updateFilters = React.useCallback(
+    (partial: Partial<Filters>, options?: { keepPage?: boolean }) => {
+      applyFilters((prev) => ({
+        ...prev,
+        ...partial,
+        page: options?.keepPage ? partial.page ?? prev.page : partial.page ?? 0,
+      }));
+    },
+    [applyFilters],
+  );
 
-  function resetFilters() {
-    setFilters({
+  const resetFilters = React.useCallback(() => {
+    const changed = applyFilters(() => ({
       q: '',
       scope: 'all',
       published: 'all',
@@ -318,8 +339,11 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
       sort: 'created_desc',
       page: 0,
       pageSize: 20,
-    });
-  }
+    }));
+    if (changed) {
+      setMessage({ tone: 'info', text: 'Filtros repostos.' });
+    }
+  }, [applyFilters]);
 
   const refresh = React.useCallback(() => {
     startRefreshTransition(() => {
@@ -358,6 +382,11 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
   const emptyState = totalCount === 0;
   const showingStart = hasRows ? filters.page * filters.pageSize + 1 : 0;
   const showingEnd = hasRows ? showingStart + paginatedRows.length - 1 : 0;
+  const statusLabel = emptyState
+    ? 'Sem resultados para os filtros seleccionados.'
+    : adjustingPagination
+      ? 'A ajustar paginação aos novos filtros…'
+      : `A mostrar ${formatNumber(showingStart)}–${formatNumber(showingEnd)} de ${formatNumber(totalCount)}`;
 
   React.useEffect(() => {
     const lastPageIndex = Math.max(Math.ceil(totalCount / filters.pageSize) - 1, 0);
@@ -365,14 +394,14 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
       return;
     }
 
-    setFilters((prev) => {
+    applyFilters((prev) => {
       if (prev.page <= lastPageIndex) {
         return prev;
       }
 
       return { ...prev, page: lastPageIndex };
     });
-  }, [filters.page, filters.pageSize, setFilters, totalCount]);
+  }, [applyFilters, filters.page, filters.pageSize, totalCount]);
 
   function exportCSV() {
     if (!paginatedRows.length) {
@@ -427,6 +456,7 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
     a.download = 'exercicios.csv';
     a.click();
     URL.revokeObjectURL(url);
+    setMessage({ tone: 'success', text: 'Exportação CSV iniciada.' });
   }
 
   function printList() {
@@ -435,7 +465,13 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
       return;
     }
     const popup = window.open('', '_blank', 'noopener,noreferrer,width=900,height=700');
-    if (!popup) return;
+    if (!popup) {
+      setMessage({
+        tone: 'danger',
+        text: 'Não foi possível abrir a janela de impressão. Verifica bloqueadores de pop-up.',
+      });
+      return;
+    }
     const rows = paginatedRows
       .map((row) => {
         const publication = resolvePublication(row);
@@ -493,6 +529,7 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
       </html>
     `);
     popup.document.close();
+    setMessage({ tone: 'success', text: 'Janela de impressão aberta.' });
   }
 
   function mapCloneInitial(row: AdminExerciseRow) {
@@ -732,18 +769,18 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
           <header className="neo-panel__header">
             <div>
               <h3 className="neo-panel__title">Exercícios disponíveis</h3>
-              <p className="neo-panel__subtitle">
-                {emptyState
-                  ? 'Sem resultados para os filtros seleccionados.'
-                  : adjustingPagination
-                    ? 'A ajustar paginação aos novos filtros…'
-                    : `A mostrar ${formatNumber(showingStart)}–${formatNumber(showingEnd)} de ${formatNumber(totalCount)}`}
+              <p className="neo-panel__subtitle" aria-live="polite" aria-atomic="true">
+                {statusLabel}
               </p>
             </div>
             <CalendarClock aria-hidden />
           </header>
 
-          <div className="admin-exercises__tableWrapper">
+          <div
+            className="admin-exercises__tableWrapper"
+            aria-busy={loading || adjustingPagination}
+            data-adjusting={adjustingPagination ? 'true' : undefined}
+          >
             {hasRows ? (
               <table>
                 <thead>
@@ -858,12 +895,12 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
                 <p className="neo-empty__description">Ajusta os filtros ou cria um novo exercício.</p>
               </div>
             ) : (
-              <div className="neo-empty">
+              <div className="neo-empty" role="status" aria-live="polite">
                 <span className="neo-empty__icon" aria-hidden>
                   ⏳
                 </span>
                 <p className="neo-empty__title">A ajustar paginação…</p>
-                <p className="neo-empty__description">Estamos a sincronizar a página com os novos filtros.</p>
+                <p className="neo-empty__description">{statusLabel}</p>
               </div>
             )}
           </div>
