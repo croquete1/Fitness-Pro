@@ -343,9 +343,26 @@ export default function AdminCatalogClient({ initialData, initialParams }: Props
   );
 
   const paginatedRows = dashboard.table.rows;
-  const totalPages = Math.max(Math.ceil((dashboard.table.total || 0) / filters.pageSize), 1);
-  const showingStart = filters.page * filters.pageSize + 1;
-  const showingEnd = Math.min(dashboard.table.total, showingStart + paginatedRows.length - 1);
+  const totalCount = dashboard.table.total || 0;
+  const totalPages = Math.max(Math.ceil(totalCount / filters.pageSize), 1);
+  const hasRows = paginatedRows.length > 0;
+  const showingStart = hasRows ? filters.page * filters.pageSize + 1 : 0;
+  const showingEnd = hasRows ? showingStart + paginatedRows.length - 1 : 0;
+
+  React.useEffect(() => {
+    const lastPageIndex = Math.max(Math.ceil(totalCount / filters.pageSize) - 1, 0);
+    if (filters.page <= lastPageIndex) {
+      return;
+    }
+
+    setFilters((prev) => {
+      if (prev.page <= lastPageIndex) {
+        return prev;
+      }
+
+      return { ...prev, page: lastPageIndex };
+    });
+  }, [filters.page, filters.pageSize, setFilters, totalCount]);
 
   function exportCSV() {
     if (!paginatedRows.length) {
@@ -632,9 +649,11 @@ export default function AdminCatalogClient({ initialData, initialParams }: Props
           <div>
             <h2>Exercícios</h2>
             <p>
-              {dashboard.table.total
-                ? `A mostrar ${showingStart}–${showingEnd} de ${formatNumber(dashboard.table.total)} exercício(s).`
-                : 'Sem exercícios para apresentar.'}
+              {totalCount === 0
+                ? 'Sem exercícios para apresentar.'
+                : hasRows
+                  ? `A mostrar ${formatNumber(showingStart)}–${formatNumber(showingEnd)} de ${formatNumber(totalCount)} exercício(s).`
+                  : 'A ajustar paginação aos novos filtros…'}
             </p>
           </div>
           <div className="admin-catalog__paginationControls">

@@ -351,9 +351,26 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
   }
 
   const paginatedRows = dashboard.table.rows;
-  const totalPages = Math.max(Math.ceil((dashboard.table.total || 0) / filters.pageSize), 1);
-  const showingStart = filters.page * filters.pageSize + 1;
-  const showingEnd = Math.min(dashboard.table.total, showingStart + paginatedRows.length - 1);
+  const totalCount = dashboard.table.total || 0;
+  const totalPages = Math.max(Math.ceil(totalCount / filters.pageSize), 1);
+  const hasRows = paginatedRows.length > 0;
+  const showingStart = hasRows ? filters.page * filters.pageSize + 1 : 0;
+  const showingEnd = hasRows ? showingStart + paginatedRows.length - 1 : 0;
+
+  React.useEffect(() => {
+    const lastPageIndex = Math.max(Math.ceil(totalCount / filters.pageSize) - 1, 0);
+    if (filters.page <= lastPageIndex) {
+      return;
+    }
+
+    setFilters((prev) => {
+      if (prev.page <= lastPageIndex) {
+        return prev;
+      }
+
+      return { ...prev, page: lastPageIndex };
+    });
+  }, [filters.page, filters.pageSize, setFilters, totalCount]);
 
   function exportCSV() {
     if (!paginatedRows.length) {
@@ -714,9 +731,11 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
             <div>
               <h3 className="neo-panel__title">Exercícios disponíveis</h3>
               <p className="neo-panel__subtitle">
-                {dashboard.table.total === 0
+                {totalCount === 0
                   ? 'Sem resultados para os filtros seleccionados.'
-                  : `A mostrar ${showingStart}-${showingEnd} de ${dashboard.table.total}`}
+                  : hasRows
+                    ? `A mostrar ${formatNumber(showingStart)}–${formatNumber(showingEnd)} de ${formatNumber(totalCount)}`
+                    : 'A ajustar paginação aos novos filtros…'}
               </p>
             </div>
             <CalendarClock aria-hidden />
