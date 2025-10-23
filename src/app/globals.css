@@ -9479,6 +9479,9 @@ h1,.h1{
 .trainer-dashboard__clients-summary-item--overdue{ background:color-mix(in srgb, var(--danger) 20%, transparent); color:var(--fg); }
 .trainer-dashboard__clients-summary-item--missing{ background:color-mix(in srgb, var(--info) 18%, transparent); color:var(--fg); }
 .trainer-dashboard__clients-summary-item--blocked{ background:color-mix(in srgb, var(--danger) 28%, transparent); color:var(--fg); }
+.trainer-dashboard__clients-summary-item--recent{ background:color-mix(in srgb, var(--success) 22%, transparent); color:var(--fg); }
+.trainer-dashboard__clients-summary-item--average{ background:color-mix(in srgb, var(--info) 20%, transparent); color:var(--fg); }
+.trainer-dashboard__clients-summary-item--max{ background:color-mix(in srgb, var(--danger) 18%, transparent); color:var(--fg); }
 .trainer-dashboard__clients-contact{ display:flex; align-items:center; gap:8px; }
 .trainer-dashboard__clients-contact-link{ font-size:13px; font-weight:600; color:var(--fg); text-decoration:none; }
 .trainer-dashboard__clients-contact-link:hover,.trainer-dashboard__clients-contact-link:focus-visible{ text-decoration:underline; }
@@ -12946,6 +12949,9 @@ a.neo-sidebar__highlight {
 .trainer-dashboard__clients-summary-item--overdue{background:color-mix(in srgb,var(--neo-chart-critical) 24%,transparent);color:var(--neo-text-primary)}
 .trainer-dashboard__clients-summary-item--missing{background:color-mix(in srgb,var(--neo-chart-primary) 18%,transparent);color:var(--neo-text-primary)}
 .trainer-dashboard__clients-summary-item--blocked{background:color-mix(in srgb,var(--neo-chart-critical) 32%,transparent);color:var(--neo-text-primary)}
+.trainer-dashboard__clients-summary-item--recent{background:color-mix(in srgb,var(--neo-chart-success) 26%,transparent);color:var(--neo-text-primary)}
+.trainer-dashboard__clients-summary-item--average{background:color-mix(in srgb,var(--neo-chart-primary) 24%,transparent);color:var(--neo-text-primary)}
+.trainer-dashboard__clients-summary-item--max{background:color-mix(in srgb,var(--neo-chart-critical) 20%,transparent);color:var(--neo-text-primary)}
 .trainer-dashboard__clients-summary-item--rate{background:color-mix(in srgb,var(--neo-chart-primary) 22%,transparent);color:var(--neo-text-primary)}
 .trainer-dashboard__clients-summary-item--total{background:color-mix(in srgb,var(--neo-chart-primary) 16%,transparent);color:var(--neo-text-primary)}
 .trainer-dashboard__clients-tools .trainer-dashboard__clients-search{width:100%}

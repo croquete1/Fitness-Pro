@@ -53,10 +53,15 @@ const percentageFormatter = new Intl.NumberFormat('pt-PT', {
   maximumFractionDigits: 0,
   minimumFractionDigits: 0,
 });
+const inactivityAverageFormatter = new Intl.NumberFormat('pt-PT', {
+  maximumFractionDigits: 1,
+  minimumFractionDigits: 0,
+});
 
 const NO_UPCOMING_LABEL = 'Sem próxima sessão';
 const NO_HISTORY_LABEL = 'Sem histórico';
 const OVERDUE_LABEL = 'Sem sessão há 10+ dias';
+const RECENT_ACTIVITY_DAYS = 7;
 
 type ClientToneFilter =
   | 'all'
@@ -169,6 +174,7 @@ type ClientEntry = {
   isStalled: boolean;
   isOverdue: boolean;
   isNoHistory: boolean;
+  isRecentlyActive: boolean;
   inactivityDays: number | null;
   isMissingContact: boolean;
   searchHaystack: string;
@@ -382,6 +388,7 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
       const isOverdue = lacksUpcoming && inactivityDays !== null && inactivityDays >= STALLED_THRESHOLD_DAYS;
       const isBlocked = isMissingContact && lacksUpcoming;
       const isNoHistory = !hasHistory;
+      const isRecentlyActive = inactivityDays !== null && inactivityDays <= RECENT_ACTIVITY_DAYS;
       const needsEmailNormalization = normalizedEmail !== client.email;
       const needsNextNormalization =
         lacksUpcoming && (client.nextSessionAt !== null || client.nextSessionLabel !== NO_UPCOMING_LABEL);
@@ -418,6 +425,7 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
         isStalled,
         isOverdue,
         isNoHistory,
+        isRecentlyActive,
         inactivityDays,
         searchHaystack,
       } satisfies ClientEntry;
@@ -549,6 +557,13 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
         } else {
           const toneDiff = (TONE_PRIORITY[clientA.tone] ?? 99) - (TONE_PRIORITY[clientB.tone] ?? 99);
           if (toneDiff !== 0) return toneDiff;
+          const overdueDiff = Number(b.isOverdue) - Number(a.isOverdue);
+          if (overdueDiff !== 0) return overdueDiff;
+          const inactivityA = a.inactivityDays ?? -1;
+          const inactivityB = b.inactivityDays ?? -1;
+          if (inactivityA !== inactivityB) return inactivityB - inactivityA;
+          const lacksUpcomingDiff = Number(b.lacksUpcoming) - Number(a.lacksUpcoming);
+          if (lacksUpcomingDiff !== 0) return lacksUpcomingDiff;
         }
 
         return nameCollator.compare(clientA.name, clientB.name);
@@ -560,7 +575,16 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
   const clientStats = React.useMemo(() => {
     const totals = filteredEntries.reduce(
       (acc, entry) => {
-        const { client, lacksUpcoming, isBlocked, isMissingContact, isOverdue, isNoHistory } = entry;
+        const {
+          client,
+          lacksUpcoming,
+          isBlocked,
+          isMissingContact,
+          isOverdue,
+          isNoHistory,
+          isRecentlyActive,
+          inactivityDays,
+        } = entry;
         acc.total += 1;
         acc.upcoming += client.upcoming;
         acc.completed += client.completed;
@@ -579,6 +603,16 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
         if (isBlocked) {
           acc.blocked += 1;
         }
+        if (isRecentlyActive) {
+          acc.recentlyActive += 1;
+        }
+        if (inactivityDays !== null) {
+          acc.inactivitySamples += 1;
+          acc.inactivitySum += inactivityDays;
+          if (acc.maxInactivity === null || inactivityDays > acc.maxInactivity) {
+            acc.maxInactivity = inactivityDays;
+          }
+        }
         if (client.tone === 'critical' || client.tone === 'warning') {
           acc.attention += 1;
         }
@@ -595,6 +629,10 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
         noHistory: 0,
         missingContact: 0,
         blocked: 0,
+        recentlyActive: 0,
+        inactivitySamples: 0,
+        inactivitySum: 0,
+        maxInactivity: null as number | null,
         tones: {
           positive: 0,
           warning: 0,
@@ -605,6 +643,7 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
     );
 
     const attentionRate = totals.total === 0 ? 0 : totals.attention / totals.total;
+    const averageInactivity = totals.inactivitySamples === 0 ? null : totals.inactivitySum / totals.inactivitySamples;
 
     const distribution = (Object.keys(totals.tones) as Array<TrainerClientSnapshot['tone']>).map((tone) => {
       const count = totals.tones[tone];
@@ -635,6 +674,15 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
       noHistoryLabel: numberFormatter.format(totals.noHistory),
       missingContactLabel: numberFormatter.format(totals.missingContact),
       blockedLabel: numberFormatter.format(totals.blocked),
+      recentlyActive: totals.recentlyActive,
+      recentlyActiveLabel: numberFormatter.format(totals.recentlyActive),
+      hasInactivitySamples: totals.inactivitySamples > 0,
+      averageInactivity,
+      averageInactivityLabel:
+        averageInactivity === null ? null : inactivityAverageFormatter.format(Math.max(0, averageInactivity)),
+      maxInactivity: totals.maxInactivity,
+      maxInactivityLabel:
+        totals.maxInactivity === null ? null : numberFormatter.format(Math.max(0, totals.maxInactivity)),
       criticalLabel: numberFormatter.format(totals.tones.critical),
       warningLabel: numberFormatter.format(totals.tones.warning),
       positiveLabel: numberFormatter.format(totals.tones.positive),
@@ -1487,6 +1535,21 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
             {clientStats.blocked > 0 && (
               <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--blocked">
                 {clientStats.blockedLabel} sem contacto e sessão
+              </span>
+            )}
+            {clientStats.recentlyActive > 0 && (
+              <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--recent">
+                {clientStats.recentlyActiveLabel} com sessão ≤ {RECENT_ACTIVITY_DAYS} dia(s)
+              </span>
+            )}
+            {clientStats.hasInactivitySamples && clientStats.averageInactivityLabel && (
+              <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--average">
+                Média sem sessão: {clientStats.averageInactivityLabel} dia(s)
+              </span>
+            )}
+            {clientStats.maxInactivity !== null && clientStats.maxInactivity > 0 && clientStats.maxInactivityLabel && (
+              <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--max">
+                Maior hiato: {clientStats.maxInactivityLabel} dia(s)
               </span>
             )}
             <span className="trainer-dashboard__clients-summary-item trainer-dashboard__clients-summary-item--rate">
