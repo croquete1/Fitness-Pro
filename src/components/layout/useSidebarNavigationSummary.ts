@@ -71,21 +71,35 @@ export function useSidebarNavigationSummary({ role, summary, fallbackOverrides }
   );
 
   const effectiveSummary = summary ?? fallbackSummary;
+  const usingFallback = !summary && Boolean(fallbackSummary);
 
   const navGroups = React.useMemo(() => {
     if (!effectiveSummary) return [];
-    return effectiveSummary.navGroups.map(mapGroup).filter((group) => group.items.length > 0);
-  }, [effectiveSummary]);
+    const groups = effectiveSummary.navGroups
+      .map(mapGroup)
+      .map((group) => ({
+        title: group.title,
+        items: group.items.map((item) => ({
+          ...item,
+          badge: usingFallback ? null : item.badge,
+          kpiLabel: usingFallback ? null : item.kpiLabel,
+          kpiValue: usingFallback ? null : item.kpiValue,
+        })),
+      }))
+      .filter((group) => group.items.length > 0);
 
-  const metricList = React.useMemo(
-    () => dedupeById<NavigationQuickMetric>(effectiveSummary?.quickMetrics),
-    [effectiveSummary],
-  );
+    return groups;
+  }, [effectiveSummary, usingFallback]);
 
-  const highlightList = React.useMemo(
-    () => dedupeById<NavigationHighlight>(effectiveSummary?.highlights),
-    [effectiveSummary],
-  );
+  const metricList = React.useMemo(() => {
+    if (!effectiveSummary || usingFallback) return [];
+    return dedupeById<NavigationQuickMetric>(effectiveSummary.quickMetrics);
+  }, [effectiveSummary, usingFallback]);
+
+  const highlightList = React.useMemo(() => {
+    if (!effectiveSummary || usingFallback) return [];
+    return dedupeById<NavigationHighlight>(effectiveSummary.highlights);
+  }, [effectiveSummary, usingFallback]);
 
   const dataSource = React.useMemo<'supabase' | 'fallback' | undefined>(() => {
     if (summary) return 'supabase';

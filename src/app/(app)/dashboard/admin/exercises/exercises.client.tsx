@@ -33,7 +33,9 @@ import { usePathname, useRouter } from 'next/navigation';
 import PageHeader from '@/components/ui/PageHeader';
 import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
-import PublishToggle from '@/components/exercise/PublishToggle';
+import PublishToggle, { type PublishResult } from '@/components/exercise/PublishToggle';
+import { usePublicationPatches } from '@/components/exercise/usePublicationPatches';
+import { formatRelativeTime } from '@/lib/datetime/relative';
 import { ExerciseFormValues } from '@/lib/exercises/schema';
 import { supabaseBrowser } from '@/lib/supabaseBrowser';
 import AdminExerciseFormClient from './AdminExerciseFormClient';
@@ -82,6 +84,14 @@ const RANGE_LABEL: Record<Filters['range'], string> = {
   '365d': 'Últimos 12 meses',
 };
 
+const integerFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 });
+
+const shareFormatter = new Intl.NumberFormat('pt-PT', {
+  style: 'percent',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 1,
+});
+
 const fetcher = async (url: string): Promise<AdminExercisesDashboardResult> => {
   const response = await fetch(url, { cache: 'no-store' });
   if (!response.ok) {
@@ -92,35 +102,30 @@ const fetcher = async (url: string): Promise<AdminExercisesDashboardResult> => {
 };
 
 function formatNumber(value: number): string {
-  return new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 }).format(value);
+  return integerFormatter.format(value);
 }
 
 function formatShare(value: number): string {
-  return new Intl.NumberFormat('pt-PT', {
-    style: 'percent',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 1,
-  }).format(value);
+  return shareFormatter.format(value);
 }
 
 function formatRelative(iso: string | null): string {
-  if (!iso) return '—';
-  try {
-    const date = new Date(iso);
-    if (!Number.isFinite(date.getTime())) return '—';
-    const diff = date.getTime() - Date.now();
-    const abs = Math.abs(diff);
-    const minute = 60_000;
-    const hour = 3_600_000;
-    const day = 86_400_000;
-    const formatter = new Intl.RelativeTimeFormat('pt-PT', { numeric: 'auto' });
-    if (abs < hour) return formatter.format(Math.round(diff / minute), 'minute');
-    if (abs < day) return formatter.format(Math.round(diff / hour), 'hour');
-    if (abs < 30 * day) return formatter.format(Math.round(diff / day), 'day');
-    return formatter.format(Math.round(diff / (30 * day)), 'month');
-  } catch {
-    return '—';
-  }
+  return formatRelativeTime(iso) ?? '—';
+}
+
+function filtersEqual(a: Filters, b: Filters): boolean {
+  return (
+    a.q === b.q &&
+    a.scope === b.scope &&
+    a.published === b.published &&
+    a.difficulty === b.difficulty &&
+    a.equipment === b.equipment &&
+    a.muscle === b.muscle &&
+    a.range === b.range &&
+    a.sort === b.sort &&
+    a.page === b.page &&
+    a.pageSize === b.pageSize
+  );
 }
 
 function ExerciseTooltip({ active, payload }: any) {
@@ -240,6 +245,20 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
   const [cloneRow, setCloneRow] = React.useState<AdminExerciseRow | null>(null);
   const [isRefreshing, startRefreshTransition] = React.useTransition();
 
+  const applyFilters = React.useCallback((updater: (prev: Filters) => Filters) => {
+    let changed = false;
+    setFilters((prev) => {
+      const next = updater(prev);
+      if (filtersEqual(prev, next)) {
+        return prev;
+      }
+
+      changed = true;
+      return next;
+    });
+    return changed;
+  }, []);
+
   const queryKey = React.useMemo(() => {
     const params = new URLSearchParams();
     if (filters.q) params.set('q', filters.q);
@@ -262,6 +281,7 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
   });
 
   const dashboard = data?.ok ? data.data : initialData;
+  const { resolve: resolvePublication, record: recordPublication } = usePublicationPatches(dashboard.table.rows);
 
   React.useEffect(() => {
     const params = new URLSearchParams();
@@ -296,16 +316,19 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
 
   const loading = isValidating || isRefreshing;
 
-  function updateFilters(partial: Partial<Filters>, options?: { keepPage?: boolean }) {
-    setFilters((prev) => ({
-      ...prev,
-      ...partial,
-      page: options?.keepPage ? partial.page ?? prev.page : partial.page ?? 0,
-    }));
-  }
+  const updateFilters = React.useCallback(
+    (partial: Partial<Filters>, options?: { keepPage?: boolean }) => {
+      applyFilters((prev) => ({
+        ...prev,
+        ...partial,
+        page: options?.keepPage ? partial.page ?? prev.page : partial.page ?? 0,
+      }));
+    },
+    [applyFilters],
+  );
 
-  function resetFilters() {
-    setFilters({
+  const resetFilters = React.useCallback(() => {
+    const changed = applyFilters(() => ({
       q: '',
       scope: 'all',
       published: 'all',
@@ -316,14 +339,25 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
       sort: 'created_desc',
       page: 0,
       pageSize: 20,
-    });
-  }
+    }));
+    if (changed) {
+      setMessage({ tone: 'info', text: 'Filtros repostos.' });
+    }
+  }, [applyFilters]);
 
-  async function refresh() {
+  const refresh = React.useCallback(() => {
     startRefreshTransition(() => {
       void mutate();
     });
-  }
+  }, [mutate, startRefreshTransition]);
+
+  const handlePublishChange = React.useCallback(
+    (result: PublishResult) => {
+      recordPublication(result);
+      refresh();
+    },
+    [recordPublication, refresh],
+  );
 
   async function handleDelete(row: AdminExerciseRow) {
     if (!window.confirm(`Remover "${row.name}"?`)) return;
@@ -341,9 +375,33 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
   }
 
   const paginatedRows = dashboard.table.rows;
-  const totalPages = Math.max(Math.ceil((dashboard.table.total || 0) / filters.pageSize), 1);
-  const showingStart = filters.page * filters.pageSize + 1;
-  const showingEnd = Math.min(dashboard.table.total, showingStart + paginatedRows.length - 1);
+  const totalCount = dashboard.table.total || 0;
+  const totalPages = Math.max(Math.ceil(totalCount / filters.pageSize), 1);
+  const hasRows = paginatedRows.length > 0;
+  const adjustingPagination = totalCount > 0 && !hasRows;
+  const emptyState = totalCount === 0;
+  const showingStart = hasRows ? filters.page * filters.pageSize + 1 : 0;
+  const showingEnd = hasRows ? showingStart + paginatedRows.length - 1 : 0;
+  const statusLabel = emptyState
+    ? 'Sem resultados para os filtros seleccionados.'
+    : adjustingPagination
+      ? 'A ajustar paginação aos novos filtros…'
+      : `A mostrar ${formatNumber(showingStart)}–${formatNumber(showingEnd)} de ${formatNumber(totalCount)}`;
+
+  React.useEffect(() => {
+    const lastPageIndex = Math.max(Math.ceil(totalCount / filters.pageSize) - 1, 0);
+    if (filters.page <= lastPageIndex) {
+      return;
+    }
+
+    applyFilters((prev) => {
+      if (prev.page <= lastPageIndex) {
+        return prev;
+      }
+
+      return { ...prev, page: lastPageIndex };
+    });
+  }, [applyFilters, filters.page, filters.pageSize, totalCount]);
 
   function exportCSV() {
     if (!paginatedRows.length) {
@@ -368,26 +426,27 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
     ];
     const lines = [
       header.join(','),
-      ...paginatedRows.map((row) =>
-        [
+      ...paginatedRows.map((row) => {
+        const publication = resolvePublication(row);
+        return [
           row.id,
           row.name,
           row.muscleGroup ?? '',
           row.equipment ?? '',
           row.difficulty ?? '',
           row.audienceLabel,
-          row.isPublished ? 'sim' : 'nao',
+          publication.isPublished ? 'sim' : 'nao',
           row.isGlobal ? 'global' : 'privado',
           row.creatorLabel,
           row.creatorEmail ?? '',
           row.createdAt ?? '',
-          row.publishedAt ?? '',
+          publication.publishedAt ?? '',
           (row.description ?? '').replace(/\r?\n/g, ' '),
           row.videoUrl ?? '',
         ]
           .map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`)
-          .join(','),
-      ),
+          .join(',');
+      }),
     ].join('\n');
 
     const blob = new Blob([lines], { type: 'text/csv;charset=utf-8;' });
@@ -397,6 +456,7 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
     a.download = 'exercicios.csv';
     a.click();
     URL.revokeObjectURL(url);
+    setMessage({ tone: 'success', text: 'Exportação CSV iniciada.' });
   }
 
   function printList() {
@@ -405,21 +465,28 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
       return;
     }
     const popup = window.open('', '_blank', 'noopener,noreferrer,width=900,height=700');
-    if (!popup) return;
+    if (!popup) {
+      setMessage({
+        tone: 'danger',
+        text: 'Não foi possível abrir a janela de impressão. Verifica bloqueadores de pop-up.',
+      });
+      return;
+    }
     const rows = paginatedRows
       .map((row) => {
+        const publication = resolvePublication(row);
         const cells = [
           row.name,
           row.muscleGroup ?? '',
           row.equipment ?? '',
           row.difficulty ?? '',
           row.audienceLabel,
-          row.isPublished ? 'Publicado' : 'Rascunho',
+          publication.isPublished ? 'Publicado' : 'Rascunho',
           row.creatorLabel,
           row.createdAt ?? '',
-          row.publishedAt ?? '',
+          publication.publishedAt ?? '',
         ]
-          .map((cell) => `<td>${String(cell ?? '')}</td>`) 
+          .map((cell) => `<td>${String(cell ?? '')}</td>`)
           .join('');
         return `<tr>${cells}</tr>`;
       })
@@ -462,6 +529,7 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
       </html>
     `);
     popup.document.close();
+    setMessage({ tone: 'success', text: 'Janela de impressão aberta.' });
   }
 
   function mapCloneInitial(row: AdminExerciseRow) {
@@ -701,17 +769,19 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
           <header className="neo-panel__header">
             <div>
               <h3 className="neo-panel__title">Exercícios disponíveis</h3>
-              <p className="neo-panel__subtitle">
-                {dashboard.table.total === 0
-                  ? 'Sem resultados para os filtros seleccionados.'
-                  : `A mostrar ${showingStart}-${showingEnd} de ${dashboard.table.total}`}
+              <p className="neo-panel__subtitle" aria-live="polite" aria-atomic="true">
+                {statusLabel}
               </p>
             </div>
             <CalendarClock aria-hidden />
           </header>
 
-          <div className="admin-exercises__tableWrapper">
-            {paginatedRows.length ? (
+          <div
+            className="admin-exercises__tableWrapper"
+            aria-busy={loading || adjustingPagination}
+            data-adjusting={adjustingPagination ? 'true' : undefined}
+          >
+            {hasRows ? (
               <table>
                 <thead>
                   <tr>
@@ -726,11 +796,13 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedRows.map((row) => (
-                    <tr key={row.id}>
-                      <td>
-                        <span className="admin-exercises__tableName">{row.name}</span>
-                        {row.description ? (
+                  {paginatedRows.map((row) => {
+                    const publication = resolvePublication(row);
+                    return (
+                      <tr key={row.id}>
+                        <td>
+                          <span className="admin-exercises__tableName">{row.name}</span>
+                          {row.description ? (
                           <span className="admin-exercises__tableDescription">{row.description}</span>
                         ) : null}
                         <span className="admin-exercises__tableMeta">Criado por {row.creatorLabel}</span>
@@ -769,18 +841,14 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
                         {row.isGlobal ? (
                           <PublishToggle
                             id={row.id}
-                            published={!!row.isPublished}
-                            onChange={() => {
-                              startRefreshTransition(() => {
-                                void mutate();
-                              });
-                            }}
+                            published={publication.isPublished}
+                            onChange={handlePublishChange}
                           />
                         ) : (
                           <span className="admin-exercises__badge neutral">Privado</span>
                         )}
                       </td>
-                      <td>{formatRelative(row.updatedAt)}</td>
+                      <td>{formatRelative(publication.updatedAt)}</td>
                       <td>
                         <div className="admin-exercises__tableActions">
                           <Button
@@ -814,16 +882,25 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
-            ) : (
+            ) : emptyState ? (
               <div className="neo-empty">
                 <span className="neo-empty__icon" aria-hidden>
                   📦
                 </span>
                 <p className="neo-empty__title">Sem resultados</p>
                 <p className="neo-empty__description">Ajusta os filtros ou cria um novo exercício.</p>
+              </div>
+            ) : (
+              <div className="neo-empty" role="status" aria-live="polite">
+                <span className="neo-empty__icon" aria-hidden>
+                  ⏳
+                </span>
+                <p className="neo-empty__title">A ajustar paginação…</p>
+                <p className="neo-empty__description">{statusLabel}</p>
               </div>
             )}
           </div>
