@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 import ThemeToggle from "@/components/ThemeToggle";
 import SignOutButton from "@/components/auth/SignOutConfirmButton";
 import NotificationBell from "@/components/notifications/NotificationBell";
+import BrandMark from "@/components/layout/BrandMark";
 
 export default function Header() {
   const { data } = useSession();
@@ -27,8 +28,10 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-30 border-b bg-white/60 dark:bg-black/30 backdrop-blur">
       <div className="mx-auto max-w-screen-2xl flex items-center justify-between gap-4 px-4 py-3">
-        <div className="flex items-center gap-2">
-          <div className="font-semibold">HMS</div>
+        <div className="flex items-center gap-2" aria-label="Painel principal">
+          <span className="inline-flex" aria-hidden="true">
+            <BrandMark size={32} priority />
+          </span>
         </div>
         <div className="flex items-center gap-3">
           <NotificationBell />
