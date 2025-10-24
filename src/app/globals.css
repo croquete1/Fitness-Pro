@@ -11957,6 +11957,45 @@ h1,.h1{
   height: 32px;
 }
 
+.neo-sidebar[data-state='rail']:not(.neo-sidebar--peek) .neo-sidebar__header {
+  padding: 12px 8px 8px;
+  justify-content: center;
+}
+
+.neo-sidebar[data-state='rail']:not(.neo-sidebar--peek) .neo-sidebar__title,
+.neo-sidebar[data-state='rail']:not(.neo-sidebar--peek) .neo-sidebar__headline,
+.neo-sidebar[data-state='rail']:not(.neo-sidebar--peek) .neo-sidebar__quick,
+.neo-sidebar[data-state='rail']:not(.neo-sidebar--peek) .neo-sidebar__highlights,
+.neo-sidebar[data-state='rail']:not(.neo-sidebar--peek) .neo-sidebar__section-header,
+.neo-sidebar[data-state='rail']:not(.neo-sidebar--peek) .neo-sidebar__item-body,
+.neo-sidebar[data-state='rail']:not(.neo-sidebar--peek) .neo-sidebar__item-meta {
+  display: none;
+}
+
+.neo-sidebar[data-state='rail']:not(.neo-sidebar--peek) .neo-sidebar__content {
+  padding: 0 8px 16px;
+  gap: 10px;
+}
+
+.neo-sidebar[data-state='rail']:not(.neo-sidebar--peek) .neo-sidebar__nav {
+  gap: 10px;
+}
+
+.neo-sidebar[data-state='rail']:not(.neo-sidebar--peek) .neo-sidebar__list {
+  gap: 4px;
+}
+
+.neo-sidebar[data-state='rail']:not(.neo-sidebar--peek) .neo-sidebar__item {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  padding: 10px;
+}
+
+.neo-sidebar[data-state='rail']:not(.neo-sidebar--peek) .neo-sidebar__item-icon {
+  width: 32px;
+  height: 32px;
+}
+
 .neo-sidebar__headline {
   display: flex;
   align-items: center;
