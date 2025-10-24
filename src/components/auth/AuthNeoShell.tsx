@@ -44,7 +44,7 @@ export function AuthNeoShell({
             <span className="neo-auth__brandMark">
               <BrandLogo size={48} />
             </span>
-            <span className="neo-auth__brandText">{brand.name}</span>
+            <span className="sr-only">{brand.name}</span>
           </div>
           <ThemeToggle variant="subtle" />
         </header>

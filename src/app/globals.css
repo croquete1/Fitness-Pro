@@ -11907,11 +11907,54 @@ h1,.h1{
 }
 
 .neo-sidebar__content {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
   padding: 0 16px 24px;
   overflow-y: auto;
   max-height: calc(100vh - var(--neo-header-height));
+  align-items: stretch;
+  justify-content: flex-start;
+  min-height: 0;
+}
+
+.neo-sidebar[data-state='rail']:not(.neo-sidebar--peek) .neo-sidebar__header {
+  padding: 12px 8px 8px;
+  justify-content: center;
+}
+
+.neo-sidebar[data-state='rail']:not(.neo-sidebar--peek) .neo-sidebar__title,
+.neo-sidebar[data-state='rail']:not(.neo-sidebar--peek) .neo-sidebar__headline,
+.neo-sidebar[data-state='rail']:not(.neo-sidebar--peek) .neo-sidebar__quick,
+.neo-sidebar[data-state='rail']:not(.neo-sidebar--peek) .neo-sidebar__highlights,
+.neo-sidebar[data-state='rail']:not(.neo-sidebar--peek) .neo-sidebar__section-header,
+.neo-sidebar[data-state='rail']:not(.neo-sidebar--peek) .neo-sidebar__item-body,
+.neo-sidebar[data-state='rail']:not(.neo-sidebar--peek) .neo-sidebar__item-meta {
+  display: none;
+}
+
+.neo-sidebar[data-state='rail']:not(.neo-sidebar--peek) .neo-sidebar__content {
+  padding: 0 8px 16px;
+  gap: 10px;
+}
+
+.neo-sidebar[data-state='rail']:not(.neo-sidebar--peek) .neo-sidebar__nav {
+  gap: 10px;
+}
+
+.neo-sidebar[data-state='rail']:not(.neo-sidebar--peek) .neo-sidebar__list {
+  gap: 4px;
+}
+
+.neo-sidebar[data-state='rail']:not(.neo-sidebar--peek) .neo-sidebar__item {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  padding: 10px;
+}
+
+.neo-sidebar[data-state='rail']:not(.neo-sidebar--peek) .neo-sidebar__item-icon {
+  width: 32px;
+  height: 32px;
 }
 
 .neo-sidebar[data-state='rail']:not(.neo-sidebar--peek) .neo-sidebar__header {
@@ -12099,7 +12142,8 @@ h1,.h1{
 }
 
 .neo-sidebar__nav {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 18px;
 }
 
@@ -13356,12 +13400,6 @@ a.neo-sidebar__highlight {
   padding: 0.35rem;
   border-radius: 16px;
   background: color-mix(in srgb, var(--neo-chart-primary, #4f46e5) 16%, transparent);
-}
-
-.neo-auth__brandText {
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--neo-auth-muted);
 }
 
 .neo-auth__intro {

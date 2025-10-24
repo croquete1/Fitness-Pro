@@ -5,6 +5,7 @@ import React from 'react';
 import ThemeToggle from '@/components/ThemeToggle';
 import SignOutButton from '@/components/auth/SignOutConfirmButton';
 import BrandMark from '@/components/layout/BrandMark';
+import { brand } from '@/lib/brand';
 import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 
@@ -41,10 +42,11 @@ export default async function AdminHeader() {
   return (
     <header className="sticky top-0 z-30 border-b bg-white/60 dark:bg-black/30 backdrop-blur">
       <div className="mx-auto max-w-screen-2xl flex items-center justify-between gap-4 px-4 py-3">
-        <div className="flex items-center gap-2" aria-label="Área administrativa">
+        <div className="flex items-center gap-2" aria-label={`Área administrativa · ${brand.name}`}>
           <span className="inline-flex" aria-hidden="true">
             <BrandMark size={32} priority />
           </span>
+          <span className="sr-only">{brand.name}</span>
         </div>
 
         <div className="flex items-center gap-3">
