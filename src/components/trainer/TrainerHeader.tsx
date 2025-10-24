@@ -34,9 +34,10 @@ export default async function TrainerHeader() {
   return (
     <header className="neo-app-header">
       <div className="neo-app-header__inner">
-        <div className="neo-app-header__brand" aria-label="Personal Trainer">
-          <BrandMark size={32} priority />
-          <span className="sr-only">Área do personal trainer</span>
+        <div className="neo-app-header__brand" aria-label="Área do personal trainer">
+          <span className="inline-flex" aria-hidden="true">
+            <BrandMark size={32} priority />
+          </span>
         </div>
         <div className="neo-app-header__actions">
           <div className="neo-avatar" title={display}>

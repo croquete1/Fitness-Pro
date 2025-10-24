@@ -34,9 +34,10 @@ export default async function ClientHeader() {
   return (
     <header className="sticky top-0 z-30 border-b bg-white/60 dark:bg-black/30 backdrop-blur">
       <div className="mx-auto max-w-screen-2xl flex items-center justify-between gap-4 px-4 py-3">
-        <div className="flex items-center gap-2" aria-label="Área do cliente">
-          <BrandMark size={32} priority />
-          <span className="sr-only">Painel do cliente</span>
+        <div className="flex items-center gap-2" aria-label="Painel do cliente">
+          <span className="inline-flex" aria-hidden="true">
+            <BrandMark size={32} priority />
+          </span>
         </div>
         <div className="flex items-center gap-3">
           <div
