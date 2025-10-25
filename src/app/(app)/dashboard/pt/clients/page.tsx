@@ -128,6 +128,50 @@ function relativeLabel(value: string | null, empty: string): string {
   return empty;
 }
 
+function includesQueryValue(
+  value: string | null | undefined,
+  queryLower: string,
+  queryCompact: string,
+): boolean {
+  if (!value || !queryLower) return false;
+  const normalized = value.toString().toLocaleLowerCase('pt-PT');
+  if (normalized.includes(queryLower)) return true;
+  if (!queryCompact) return false;
+  const compactValue = normalized.replace(/\s+/g, '');
+  return compactValue.includes(queryCompact);
+}
+
+function rowMatchesQuery(
+  row: Awaited<ReturnType<typeof loadTrainerClientOverview>>['rows'][number],
+  queryLower: string,
+  queryCompact: string,
+): boolean {
+  if (!queryLower) return true;
+
+  const candidates: Array<string | null | undefined> = [
+    row.name,
+    row.email,
+    row.phone,
+    row.planTitle,
+    row.id,
+    clientStatusLabel(row.clientStatus),
+    planStatusLabel(row.planStatus),
+  ];
+
+  if (row.phone) {
+    candidates.push(normalizePhone(row.phone));
+    candidates.push(row.phone.replace(/\s+/g, ''));
+  }
+
+  for (const candidate of candidates) {
+    if (includesQueryValue(candidate, queryLower, queryCompact)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 type ClientRowAnalysis = {
   row: Awaited<ReturnType<typeof loadTrainerClientOverview>>['rows'][number];
   alerts: ClientAlert[];
@@ -271,6 +315,7 @@ function summarizeAlerts(entries: ClientRowAnalysis[]) {
 type PageSearchParams = {
   scope?: string | string[];
   alert?: string | string[];
+  q?: string | string[];
 };
 
 function firstParam(value: string | string[] | undefined): string | null {
@@ -289,9 +334,11 @@ function parseAlertParam(value: string | null): ClientAlertKey | null {
 function buildFilterHref({
   scope,
   alert,
+  query,
 }: {
   scope: 'all' | 'alerts';
   alert?: ClientAlertKey | null;
+  query?: string | null;
 }) {
   const params = new URLSearchParams();
   if (scope === 'alerts' || alert) {
@@ -300,8 +347,11 @@ function buildFilterHref({
   if (alert) {
     params.set('alert', alert);
   }
-  const query = params.toString();
-  return query ? `${BASE_PATH}?${query}` : BASE_PATH;
+  if (query) {
+    params.set('q', query);
+  }
+  const search = params.toString();
+  return search ? `${BASE_PATH}?${search}` : BASE_PATH;
 }
 
 export default async function PtClientsPage({
@@ -320,16 +370,27 @@ export default async function PtClientsPage({
   const analysedRows = sortAnalysedRows(buildRowAnalysis(overview.rows, nowMs));
   const rows = analysedRows.map((entry) => entry.row);
   const lastUpdatedLabel = relativeLabel(overview.updatedAt, 'actualizado agora mesmo');
-  const attention = analysedRows.filter((entry) => entry.alerts.length > 0);
-  const urgentRows = attention.slice(0, 6);
-  const overflowCount = attention.length - urgentRows.length;
-  const alertSummary = summarizeAlerts(attention);
-
   const rawScope = firstParam(searchParams?.scope) ?? null;
   const requestedScope = rawScope?.toLowerCase() === 'alerts' ? 'alerts' : 'all';
   const alertFilter = parseAlertParam(firstParam(searchParams?.alert));
   const scope: 'all' | 'alerts' = alertFilter ? 'alerts' : requestedScope;
-  const filteredAnalysedRows = analysedRows.filter((entry) => {
+  const rawQuery = firstParam(searchParams?.q);
+  const query = rawQuery ? rawQuery.toString().trim() : '';
+  const queryLower = query ? query.toLocaleLowerCase('pt-PT') : '';
+  const queryCompact = queryLower ? queryLower.replace(/\s+/g, '') : '';
+  const hasQuery = Boolean(query);
+  const activeQuery = hasQuery ? query : null;
+
+  const queryMatches = hasQuery
+    ? analysedRows.filter((entry) => rowMatchesQuery(entry.row, queryLower, queryCompact))
+    : analysedRows;
+  const attentionAll = analysedRows.filter((entry) => entry.alerts.length > 0);
+  const attentionMatches = queryMatches.filter((entry) => entry.alerts.length > 0);
+  const urgentRows = attentionMatches.slice(0, 6);
+  const overflowCount = Math.max(attentionMatches.length - urgentRows.length, 0);
+  const alertSummary = summarizeAlerts(attentionMatches);
+
+  const filteredAnalysedRows = queryMatches.filter((entry) => {
     if (scope === 'alerts' && entry.alerts.length === 0) {
       return false;
     }
@@ -338,8 +399,21 @@ export default async function PtClientsPage({
     }
     return true;
   });
-  const hasFilters = scope === 'alerts' || Boolean(alertFilter);
+  const hasFilters = scope === 'alerts' || Boolean(alertFilter) || hasQuery;
   const activeAlertLabel = alertFilter ? ALERT_SUMMARY_META[alertFilter]?.label ?? null : null;
+  const queryMatchedCount = queryMatches.length;
+  const attentionDisplayCount = hasQuery ? attentionMatches.length : attentionAll.length;
+  const hasHiddenAlerts = hasQuery && attentionDisplayCount === 0 && attentionAll.length > 0;
+  const attentionBadgeTone: 'warning' | 'success' | 'info' = hasHiddenAlerts
+    ? 'info'
+    : attentionDisplayCount > 0
+    ? 'warning'
+    : 'success';
+  const attentionBadgeLabel = hasHiddenAlerts
+    ? 'Sem alertas na pesquisa'
+    : attentionDisplayCount > 0
+    ? `${attentionDisplayCount} cliente(s) a requerer atenção`
+    : 'Carteira em dia';
 
   const metrics: Metric[] = [
     {
@@ -450,10 +524,8 @@ export default async function PtClientsPage({
               Prioriza clientes com bloqueios imediatos no plano, contacto ou sessões.
             </p>
           </div>
-          <span className="neo-badge neo-badge--muted" data-tone={attention.length > 0 ? 'warning' : 'success'}>
-            {attention.length > 0
-              ? `${attention.length} cliente(s) a requerer atenção`
-              : 'Carteira em dia'}
+          <span className="neo-badge neo-badge--muted" data-tone={attentionBadgeTone}>
+            {attentionBadgeLabel}
           </span>
         </div>
 
@@ -462,7 +534,7 @@ export default async function PtClientsPage({
             {alertSummary.map((item) => (
               <Link
                 key={item.key}
-                href={buildFilterHref({ scope: 'alerts', alert: item.key })}
+                href={buildFilterHref({ scope: 'alerts', alert: item.key, query: activeQuery })}
                 className="neo-badge"
                 data-tone={item.tone}
                 role="listitem"
@@ -477,6 +549,13 @@ export default async function PtClientsPage({
               </Link>
             ))}
           </div>
+        )}
+
+        {alertSummary.length === 0 && hasHiddenAlerts && (
+          <p className="text-xs text-muted">
+            Não existem alertas a corresponder à pesquisa actual. Limpa a pesquisa para voltares a ver a lista completa de
+            alertas.
+          </p>
         )}
 
         {urgentRows.length > 0 ? (
@@ -556,6 +635,10 @@ export default async function PtClientsPage({
               );
             })}
           </div>
+        ) : hasHiddenAlerts ? (
+          <p className="rounded-xl border border-dashed border-white/40 bg-white/30 p-4 text-sm text-muted dark:border-slate-700/60 dark:bg-slate-900/20">
+            Nenhum cliente com alertas corresponde à pesquisa. Ajusta ou limpa a pesquisa para retomar o destaque automático.
+          </p>
         ) : (
           <p className="rounded-xl border border-dashed border-white/40 bg-white/30 p-4 text-sm text-muted dark:border-slate-700/60 dark:bg-slate-900/20">
             Todos os clientes têm plano activo, contacto directo e sessões em curso.
@@ -564,7 +647,9 @@ export default async function PtClientsPage({
 
         {overflowCount > 0 && (
           <p className="text-xs text-muted">
-            Outros {overflowCount} cliente(s) com alertas estão detalhados na tabela abaixo.
+            {hasQuery
+              ? `Outros ${overflowCount} cliente(s) com alertas que correspondem à pesquisa estão detalhados na tabela abaixo.`
+              : `Outros ${overflowCount} cliente(s) com alertas estão detalhados na tabela abaixo.`}
           </p>
         )}
       </section>
@@ -582,39 +667,78 @@ export default async function PtClientsPage({
           </Link>
         </div>
 
-        <nav className="neo-inline neo-inline--sm flex-wrap text-xs" aria-label="Filtros da tabela">
-          <Link
-            href={buildFilterHref({ scope: 'all' })}
-            className="neo-badge neo-badge--muted"
-            data-selected={scope === 'all' ? 'true' : 'false'}
-            aria-current={scope === 'all' ? 'true' : undefined}
-          >
-            Todos os clientes ({rows.length})
-          </Link>
-          <Link
-            href={buildFilterHref({ scope: 'alerts', alert: alertFilter })}
-            className="neo-badge neo-badge--muted"
-            data-selected={scope === 'alerts' ? 'true' : 'false'}
-            aria-current={scope === 'alerts' ? 'true' : undefined}
-          >
-            Clientes com alertas ({attention.length})
-          </Link>
-          {alertFilter && (
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <nav className="neo-inline neo-inline--sm flex-wrap text-xs" aria-label="Filtros da tabela">
             <Link
-              href={buildFilterHref({ scope: 'alerts' })}
-              className="neo-badge"
-              data-tone="info"
+              href={buildFilterHref({ scope: 'all', query: activeQuery })}
+              className="neo-badge neo-badge--muted"
+              data-selected={scope === 'all' ? 'true' : 'false'}
+              aria-current={scope === 'all' ? 'true' : undefined}
             >
-              Remover filtro específico
+              Todos os clientes ({rows.length})
             </Link>
-          )}
-        </nav>
+            <Link
+              href={buildFilterHref({ scope: 'alerts', alert: alertFilter, query: activeQuery })}
+              className="neo-badge neo-badge--muted"
+              data-selected={scope === 'alerts' ? 'true' : 'false'}
+              aria-current={scope === 'alerts' ? 'true' : undefined}
+            >
+              Clientes com alertas ({hasQuery ? attentionMatches.length : attentionAll.length})
+            </Link>
+            {alertFilter && (
+              <Link
+                href={buildFilterHref({ scope: 'alerts', query: activeQuery })}
+                className="neo-badge"
+                data-tone="info"
+              >
+                Remover filtro específico
+              </Link>
+            )}
+          </nav>
+
+          <form
+            method="get"
+            className="neo-inline neo-inline--sm flex-wrap items-center gap-2"
+            aria-label="Pesquisar clientes"
+          >
+            {scope === 'alerts' && <input type="hidden" name="scope" value="alerts" />}
+            {alertFilter && <input type="hidden" name="alert" value={alertFilter} />}
+            <label htmlFor="pt-clients-search" className="sr-only">
+              Pesquisa por nome, contacto ou plano
+            </label>
+            <input
+              id="pt-clients-search"
+              name="q"
+              type="search"
+              inputMode="search"
+              placeholder="Procurar clientes"
+              defaultValue={query}
+              className="neo-input neo-input--compact min-w-[220px]"
+            />
+            <button type="submit" className="btn ghost text-xs">
+              Procurar
+            </button>
+            {hasQuery && (
+              <Link
+                href={buildFilterHref({ scope, alert: alertFilter, query: null })}
+                className="btn ghost text-xs"
+              >
+                Limpar
+              </Link>
+            )}
+          </form>
+        </div>
 
         {hasFilters && (
           <div className="neo-inline neo-inline--sm flex-wrap text-xs text-muted" role="status" aria-live="polite">
             <span>
               A mostrar {filteredAnalysedRows.length} de {rows.length} cliente(s).
             </span>
+            {hasQuery && (
+              <span>
+                Pesquisa activa: “{query}” ({queryMatchedCount} cliente(s) encontrado(s))
+              </span>
+            )}
             {activeAlertLabel && <span>Filtro activo: {activeAlertLabel}</span>}
           </div>
         )}
@@ -761,7 +885,9 @@ export default async function PtClientsPage({
                   <td colSpan={6}>
                     <div className="rounded-2xl border border-dashed border-white/40 bg-white/40 p-6 text-center text-sm text-muted dark:border-slate-700/60 dark:bg-slate-900/30">
                       {hasFilters
-                        ? 'Nenhum cliente corresponde aos filtros seleccionados. Remove os filtros para voltar a ver toda a carteira.'
+                        ? hasQuery
+                          ? 'Nenhum cliente corresponde à pesquisa ou filtros seleccionados. Ajusta ou limpa a pesquisa para voltar a ver a carteira completa.'
+                          : 'Nenhum cliente corresponde aos filtros seleccionados. Remove os filtros para voltar a ver toda a carteira.'
                         : 'Ainda não tens clientes atribuídos. Usa as acções acima para convidar o primeiro atleta.'}
                     </div>
                   </td>
