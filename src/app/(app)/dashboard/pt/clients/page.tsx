@@ -137,8 +137,8 @@ function formatTimestamp(value: string | null): string | null {
   return date.toLocaleString('pt-PT');
 }
 
-function relativeLabel(value: string | null, empty: string): string {
-  const relative = formatRelativeTime(value);
+function relativeLabel(value: string | null, empty: string, now: Date = new Date()): string {
+  const relative = formatRelativeTime(value, now);
   if (relative) return relative;
   if (value) {
     const formatted = formatTimestamp(value);
@@ -193,20 +193,63 @@ function rowMatchesQuery(
   return false;
 }
 
+type ClientRowDerived = {
+  nextRelative: string;
+  nextAbsolute: string | null;
+  lastRelative: string;
+  lastAbsolute: string | null;
+  linkedRelative: string;
+  planUpdatedRelative: string | null;
+  telHref: string | null;
+  hasContact: boolean;
+};
+
 type ClientRowAnalysis = {
   row: Awaited<ReturnType<typeof loadTrainerClientOverview>>['rows'][number];
   alerts: ClientAlert[];
   urgency: number;
+  derived: ClientRowDerived;
 };
+
+function decorateRow(
+  row: Awaited<ReturnType<typeof loadTrainerClientOverview>>['rows'][number],
+  now: Date,
+): ClientRowDerived {
+  const nextRelative = relativeLabel(row.nextSessionAt, 'Sem agendamento', now);
+  const nextAbsolute = formatTimestamp(row.nextSessionAt);
+  const lastRelative = relativeLabel(row.lastSessionAt, 'Sem histórico', now);
+  const lastAbsolute = formatTimestamp(row.lastSessionAt);
+  const linkedRelative = row.linkedAt
+    ? relativeLabel(row.linkedAt, 'há algum tempo', now) ?? 'há algum tempo'
+    : 'Ligação pendente';
+  const planUpdatedRelative = row.planUpdatedAt
+    ? relativeLabel(row.planUpdatedAt, 'há algum tempo', now)
+    : null;
+  const telHref = buildTelHref(row.phone);
+  const hasContact = Boolean(row.email || row.phone);
+
+  return {
+    nextRelative,
+    nextAbsolute,
+    lastRelative,
+    lastAbsolute,
+    linkedRelative,
+    planUpdatedRelative,
+    telHref,
+    hasContact,
+  } satisfies ClientRowDerived;
+}
 
 function buildRowAnalysis(
   rows: Awaited<ReturnType<typeof loadTrainerClientOverview>>['rows'],
   nowMs = Date.now(),
 ): ClientRowAnalysis[] {
+  const now = new Date(nowMs);
   return rows.map((row) => ({
     row,
-    alerts: buildRowAlerts(row, nowMs),
+    alerts: buildRowAlerts(row, nowMs, now),
     urgency: clientUrgencyScore(row, nowMs),
+    derived: decorateRow(row, now),
   }));
 }
 
@@ -262,8 +305,10 @@ function buildTelHref(value: string | null | undefined) {
 function buildRowAlerts(
   row: Awaited<ReturnType<typeof loadTrainerClientOverview>>['rows'][number],
   nowMs = Date.now(),
+  nowDate?: Date,
 ): ClientAlert[] {
   const alerts: ClientAlert[] = [];
+  const now = nowDate ?? new Date(nowMs);
   if (!row.upcomingCount) {
     alerts.push({ key: 'NO_UPCOMING', label: 'Sem próxima sessão agendada', tone: 'warning' });
   }
@@ -298,7 +343,7 @@ function buildRowAlerts(
   } else if (!Number.isNaN(lastAt) && nowMs - lastAt > STALE_SESSION_THRESHOLD_MS) {
     alerts.push({
       key: 'LAST_SESSION_STALE',
-      label: `Última sessão ${relativeLabel(row.lastSessionAt, 'há mais de 14 dias')}`,
+      label: `Última sessão ${relativeLabel(row.lastSessionAt, 'há mais de 14 dias', now)}`,
       tone: 'warning',
     });
   }
@@ -580,13 +625,7 @@ export default async function PtClientsPage({
 
         {urgentRows.length > 0 ? (
           <div className="neo-stack space-y-3">
-            {urgentRows.map(({ row, alerts }) => {
-              const nextRelative = relativeLabel(row.nextSessionAt, 'Sem agendamento');
-              const lastRelative = relativeLabel(row.lastSessionAt, 'Sem histórico');
-              const linkedRelative = row.linkedAt
-                ? relativeLabel(row.linkedAt, 'há algum tempo')
-                : 'Ligação pendente';
-              const telHref = buildTelHref(row.phone);
+            {urgentRows.map(({ row, alerts, derived }) => {
               const variant: AlertTone = alerts.some((alert) => alert.tone === 'warning')
                 ? 'warning'
                 : alerts.some((alert) => alert.tone === 'violet')
@@ -598,7 +637,7 @@ export default async function PtClientsPage({
                   <header className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="font-semibold text-fg">{row.name}</p>
-                      <p className="text-xs text-muted">Ligado {linkedRelative}</p>
+                      <p className="text-xs text-muted">Ligado {derived.linkedRelative}</p>
                     </div>
                     <span className="status-pill" data-state={clientStatusTone(row.clientStatus)}>
                       {clientStatusLabel(row.clientStatus)}
@@ -618,13 +657,27 @@ export default async function PtClientsPage({
                     ))}
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-4 text-xs text-muted">
-                    <span>Próxima sessão: {nextRelative}</span>
-                    <span>Última sessão: {lastRelative}</span>
-                    {row.planTitle && <span>Plano: {row.planTitle}</span>}
-                  </div>
+                  <dl className="grid grid-cols-1 gap-3 text-xs text-muted sm:grid-cols-3">
+                    <div>
+                      <dt className="font-semibold text-fg">Próxima sessão</dt>
+                      <dd className="text-sm">{derived.nextRelative}</dd>
+                    </div>
+                    <div>
+                      <dt className="font-semibold text-fg">Última sessão</dt>
+                      <dd className="text-sm">{derived.lastRelative}</dd>
+                    </div>
+                    <div>
+                      <dt className="font-semibold text-fg">Plano</dt>
+                      <dd className="flex flex-wrap items-center gap-2 text-sm text-muted">
+                        <span className="neo-badge" data-tone={planBadgeTone(row.planStatus)}>
+                          {planStatusLabel(row.planStatus)}
+                        </span>
+                        {row.planTitle && <span className="truncate" title={row.planTitle}>{row.planTitle}</span>}
+                      </dd>
+                    </div>
+                  </dl>
 
-                  <div className="neo-inline neo-inline--sm">
+                  <div className="neo-inline neo-inline--sm flex-wrap text-xs">
                     {row.email && (
                       <a
                         href={`mailto:${row.email}`}
@@ -634,9 +687,9 @@ export default async function PtClientsPage({
                         Enviar email
                       </a>
                     )}
-                    {telHref && (
+                    {derived.telHref && (
                       <a
-                        href={telHref}
+                        href={derived.telHref}
                         className="link-arrow text-sm"
                         aria-label={`Ligar para ${row.name}`}
                       >
@@ -646,9 +699,9 @@ export default async function PtClientsPage({
                     <Link
                       href={`/dashboard/users/${row.id}`}
                       prefetch={false}
-                      className="link-arrow inline-flex items-center gap-1 text-sm"
+                      className="link-arrow text-sm"
                     >
-                      Ver perfil completo
+                      Ver perfil
                     </Link>
                   </div>
                 </article>
@@ -778,16 +831,7 @@ export default async function PtClientsPage({
               </tr>
             </thead>
             <tbody>
-              {filteredAnalysedRows.map(({ row, alerts }) => {
-                const nextRelative = relativeLabel(row.nextSessionAt, 'Sem agendamento');
-                const lastRelative = relativeLabel(row.lastSessionAt, 'Sem histórico');
-                const nextAbsolute = formatTimestamp(row.nextSessionAt);
-                const lastAbsolute = formatTimestamp(row.lastSessionAt);
-                const linkedRelative = row.linkedAt
-                  ? relativeLabel(row.linkedAt, 'há algum tempo')
-                  : 'Ligação pendente';
-                const hasContact = Boolean(row.email || row.phone);
-                const telHref = buildTelHref(row.phone);
+              {filteredAnalysedRows.map(({ row, alerts, derived }) => {
                 const matchesActiveAlert = alertFilter
                   ? alerts.some((alert) => alert.key === alertFilter)
                   : false;
@@ -801,7 +845,7 @@ export default async function PtClientsPage({
                     <td>
                       <div className="space-y-1">
                         <span className="font-semibold text-fg">{row.name}</span>
-                        <p className="text-xs text-muted">Ligado {linkedRelative}</p>
+                        <p className="text-xs text-muted">Ligado {derived.linkedRelative}</p>
                         <div className="flex flex-wrap gap-2 text-xs text-muted">
                           {row.email && <span>{row.email}</span>}
                           {row.phone && <span>{row.phone}</span>}
@@ -811,7 +855,7 @@ export default async function PtClientsPage({
                               {row.upcomingCount} sessão(ões) futura(s)
                             </span>
                           )}
-                          {!hasContact && (
+                          {!derived.hasContact && (
                             <span className="neo-badge neo-badge--muted" data-tone="warning">
                               Sem contacto directo
                             </span>
@@ -845,22 +889,26 @@ export default async function PtClientsPage({
                           )}
                         </div>
                         <p className="text-xs text-muted">
-                          {row.planUpdatedAt
-                            ? `Actualizado ${relativeLabel(row.planUpdatedAt, 'há algum tempo')}`
+                          {derived.planUpdatedRelative
+                            ? `Actualizado ${derived.planUpdatedRelative}`
                             : 'Sem histórico de actualização'}
                         </p>
                       </div>
                     </td>
                     <td>
                       <div className="space-y-1">
-                        <span className="font-medium text-fg">{nextRelative}</span>
-                        {nextAbsolute && <span className="text-xs text-muted">{nextAbsolute}</span>}
+                        <span className="font-medium text-fg">{derived.nextRelative}</span>
+                        {derived.nextAbsolute && (
+                          <span className="text-xs text-muted">{derived.nextAbsolute}</span>
+                        )}
                       </div>
                     </td>
                     <td>
                       <div className="space-y-1">
-                        <span className="text-sm text-fg">{lastRelative}</span>
-                        {lastAbsolute && <span className="text-xs text-muted">{lastAbsolute}</span>}
+                        <span className="text-sm text-fg">{derived.lastRelative}</span>
+                        {derived.lastAbsolute && (
+                          <span className="text-xs text-muted">{derived.lastAbsolute}</span>
+                        )}
                       </div>
                     </td>
                     <td>
@@ -879,9 +927,9 @@ export default async function PtClientsPage({
                             Enviar email
                           </a>
                         )}
-                        {telHref && (
+                        {derived.telHref && (
                           <a
-                            href={telHref}
+                            href={derived.telHref}
                             className="link-arrow text-sm"
                             aria-label={`Ligar para ${row.name}`}
                           >
