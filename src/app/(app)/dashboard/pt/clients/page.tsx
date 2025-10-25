@@ -164,11 +164,44 @@ function buildRowAlerts(
   if (!row.email && !row.phone) {
     alerts.push({ label: 'Sem contacto directo', tone: 'warning' });
   }
+  return empty;
+}
+
+function sortRows(
+  rows: Awaited<ReturnType<typeof loadTrainerClientOverview>>['rows'],
+): typeof rows {
+  return [...rows].sort((a, b) => {
+    const aUrgency = clientUrgencyScore(a);
+    const bUrgency = clientUrgencyScore(b);
+    if (aUrgency !== bUrgency) return bUrgency - aUrgency;
+    const aNext = a.nextSessionAt ? new Date(a.nextSessionAt).getTime() : Infinity;
+    const bNext = b.nextSessionAt ? new Date(b.nextSessionAt).getTime() : Infinity;
+    if (aNext !== bNext) return aNext - bNext;
+    if (b.upcomingCount !== a.upcomingCount) return b.upcomingCount - a.upcomingCount;
+    return a.name.localeCompare(b.name, 'pt-PT');
+  });
+}
 
   const status = normalize(row.clientStatus);
   if (status && status !== 'ACTIVE') {
     alerts.push({ label: `Estado ${clientStatusLabel(row.clientStatus)}`, tone: 'violet' });
   }
+  if (!planStatus || planStatus !== 'ACTIVE') {
+    score += 2;
+  }
+  if (!row.email && !row.phone) {
+    score += 1;
+  }
+  return score;
+}
+
+function buildTelHref(value: string | null | undefined) {
+  if (!value) return null;
+  const normalized = normalizePhone(value);
+  if (!normalized) return null;
+  const compact = normalized.replace(/\s+/g, '');
+  return `tel:${compact}`;
+}
 
   const lastAt = row.lastSessionAt ? new Date(row.lastSessionAt).getTime() : Number.NaN;
   if (!row.lastSessionAt) {
