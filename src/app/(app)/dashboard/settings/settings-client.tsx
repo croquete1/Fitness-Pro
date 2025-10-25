@@ -332,6 +332,10 @@ function isValidEmail(value: string) {
   return EMAIL_PATTERN.test(value);
 }
 
+function collapseWhitespaceOnly(value: string) {
+  return value.trim().length ? value : '';
+}
+
 function resolveAccountUpdateError(code?: string) {
   switch (code) {
     case 'INVALID_DATE':
@@ -823,11 +827,12 @@ function CredentialsCard({
   const invalidEmail = emailChanged && !isValidEmail(trimmedEmail);
   const passwordMismatch = form.newPassword !== form.confirmPassword;
   const weakPassword = wantsPasswordChange && form.newPassword.length > 0 && form.newPassword.length < 8;
-  const confirmDirty = confirmTouched || form.confirmPassword.length > 0;
+  const confirmDirty = confirmTouched || form.confirmPassword.trim().length > 0;
   const confirmPending = wantsPasswordChange && !weakPassword && !form.confirmPassword.length;
   const showPasswordMismatch = confirmDirty && !confirmPending && passwordMismatch;
-  const missingCurrentPassword = wantsPasswordChange && !form.currentPassword;
-  const hasAnyPasswordInput = Boolean(form.currentPassword || form.newPassword || form.confirmPassword);
+  const missingCurrentPassword = wantsPasswordChange && !form.currentPassword.trim().length;
+  const hasAnyPasswordInput =
+    form.currentPassword.trim().length > 0 || wantsPasswordChange || form.confirmPassword.trim().length > 0;
   const dirty = emailChanged || hasAnyPasswordInput;
 
   let confirmHintTone: FieldTone = 'muted';
@@ -945,7 +950,8 @@ function CredentialsCard({
             value={form.currentPassword}
             onChange={(value) => {
               resetStatus();
-              setForm((prev) => ({ ...prev, currentPassword: value }));
+              const nextValue = collapseWhitespaceOnly(value);
+              setForm((prev) => ({ ...prev, currentPassword: nextValue }));
             }}
             disabled={!wantsPasswordChange}
             autoComplete="current-password"
@@ -971,9 +977,10 @@ function CredentialsCard({
             onChange={(value) => {
               resetStatus();
               const trimmed = value.trim();
+              const nextValue = trimmed.length ? value : '';
               setForm((prev) => ({
                 ...prev,
-                newPassword: value,
+                newPassword: nextValue,
                 confirmPassword: trimmed.length ? prev.confirmPassword : '',
               }));
               if (!trimmed.length) {
@@ -992,12 +999,13 @@ function CredentialsCard({
             onChange={(value) => {
               resetStatus();
               const trimmed = value.trim();
-              if (trimmed.length) {
+              const nextValue = trimmed.length ? value : '';
+              if (trimmed.length || wantsPasswordChange) {
                 setConfirmTouched(true);
-              } else if (!wantsPasswordChange) {
+              } else {
                 setConfirmTouched(false);
               }
-              setForm((prev) => ({ ...prev, confirmPassword: value }));
+              setForm((prev) => ({ ...prev, confirmPassword: nextValue }));
             }}
             placeholder="********"
             autoComplete="new-password"
