@@ -338,7 +338,6 @@ export default async function PtClientsPage({
     }
     return true;
   });
-  const filteredRows = filteredAnalysedRows.map((entry) => entry.row);
   const hasFilters = scope === 'alerts' || Boolean(alertFilter);
   const activeAlertLabel = alertFilter ? ALERT_SUMMARY_META[alertFilter]?.label ?? null : null;
 
@@ -590,7 +589,7 @@ export default async function PtClientsPage({
             data-selected={scope === 'all' ? 'true' : 'false'}
             aria-current={scope === 'all' ? 'true' : undefined}
           >
-            Todos os clientes
+            Todos os clientes ({rows.length})
           </Link>
           <Link
             href={buildFilterHref({ scope: 'alerts', alert: alertFilter })}
@@ -598,7 +597,7 @@ export default async function PtClientsPage({
             data-selected={scope === 'alerts' ? 'true' : 'false'}
             aria-current={scope === 'alerts' ? 'true' : undefined}
           >
-            Apenas com alertas
+            Clientes com alertas ({attention.length})
           </Link>
           {alertFilter && (
             <Link
@@ -614,7 +613,7 @@ export default async function PtClientsPage({
         {hasFilters && (
           <div className="neo-inline neo-inline--sm flex-wrap text-xs text-muted" role="status" aria-live="polite">
             <span>
-              A mostrar {filteredRows.length} de {rows.length} cliente(s).
+              A mostrar {filteredAnalysedRows.length} de {rows.length} cliente(s).
             </span>
             {activeAlertLabel && <span>Filtro activo: {activeAlertLabel}</span>}
           </div>
@@ -635,7 +634,7 @@ export default async function PtClientsPage({
               </tr>
             </thead>
             <tbody>
-              {filteredRows.map((row) => {
+              {filteredAnalysedRows.map(({ row, alerts }) => {
                 const nextRelative = relativeLabel(row.nextSessionAt, 'Sem agendamento');
                 const lastRelative = relativeLabel(row.lastSessionAt, 'Sem histórico');
                 const nextAbsolute = formatTimestamp(row.nextSessionAt);
@@ -645,9 +644,16 @@ export default async function PtClientsPage({
                   : 'Ligação pendente';
                 const hasContact = Boolean(row.email || row.phone);
                 const telHref = buildTelHref(row.phone);
+                const matchesActiveAlert = alertFilter
+                  ? alerts.some((alert) => alert.key === alertFilter)
+                  : false;
 
                 return (
-                  <tr key={row.id}>
+                  <tr
+                    key={row.id}
+                    data-alerts={alerts.length > 0 ? 'true' : 'false'}
+                    data-alert-match={matchesActiveAlert ? 'true' : 'false'}
+                  >
                     <td>
                       <div className="space-y-1">
                         <span className="font-semibold text-fg">{row.name}</span>
@@ -667,6 +673,19 @@ export default async function PtClientsPage({
                             </span>
                           )}
                         </div>
+                        {alerts.length > 0 && (
+                          <div className="neo-inline neo-inline--xs flex-wrap text-[11px] text-muted">
+                            {alerts.map((alert) => (
+                              <span
+                                key={`${row.id}-${alert.key}`}
+                                className="neo-badge"
+                                data-tone={alert.tone}
+                              >
+                                {alert.label}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td>
@@ -737,7 +756,7 @@ export default async function PtClientsPage({
                   </tr>
                 );
               })}
-              {filteredRows.length === 0 && (
+              {filteredAnalysedRows.length === 0 && (
                 <tr>
                   <td colSpan={6}>
                     <div className="rounded-2xl border border-dashed border-white/40 bg-white/40 p-6 text-center text-sm text-muted dark:border-slate-700/60 dark:bg-slate-900/30">

@@ -5581,9 +5581,21 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
 .neo-table tbody tr{
   transition:background .2s ease;
 }
+.neo-table tbody tr[data-alerts="true"]:not(:hover){
+  background:color-mix(in srgb, var(--neo-chart-warning) 16%, transparent);
+}
+.neo-table tbody tr[data-alert-match="true"]:not(:hover){
+  background:color-mix(in srgb, var(--neo-chart-warning) 24%, transparent);
+}
 .neo-table tbody tr:hover{
   background:var(--hover);
   background:color-mix(in srgb, var(--hover) 40%, transparent);
+}
+.neo-table tbody tr[data-alerts="true"]:hover{
+  background:color-mix(in srgb, var(--neo-chart-warning) 26%, transparent);
+}
+.neo-table tbody tr[data-alert-match="true"]:hover{
+  background:color-mix(in srgb, var(--neo-chart-warning) 32%, transparent);
 }
 .neo-table__cell--right{ text-align:right; }
 .neo-table tbody td{
@@ -5599,6 +5611,13 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
 .neo-table tbody td:first-child{
   border-top-left-radius:12px;
   border-bottom-left-radius:12px;
+}
+.neo-table tbody tr[data-alerts="true"] td:first-child{
+  border-left:3px solid color-mix(in srgb, var(--neo-chart-warning) 42%, transparent);
+  padding-left:16px;
+}
+.neo-table tbody tr[data-alert-match="true"] td:first-child{
+  border-left-color:color-mix(in srgb, var(--neo-chart-warning) 58%, transparent);
 }
 .neo-table tbody td:last-child{
   border-top-right-radius:12px;
