@@ -30,6 +30,13 @@ type PlanStatusTone = 'primary' | 'success' | 'warning' | 'violet' | 'info';
 
 type AlertTone = 'warning' | 'info' | 'violet';
 
+type PreparedQuery = {
+  raw: string;
+  compact: string;
+  ascii: string;
+  asciiCompact: string;
+};
+
 type ClientAlertKey =
   | 'NO_UPCOMING'
   | 'NO_PLAN'
@@ -84,6 +91,18 @@ function normalize(value: string | null | undefined): string {
   return value ? value.toString().trim().toUpperCase() : '';
 }
 
+function stripDiacritics(value: string): string {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function prepareQuery(value: string | null | undefined): PreparedQuery {
+  const raw = value ? value.toString().toLocaleLowerCase('pt-PT') : '';
+  const ascii = raw ? stripDiacritics(raw) : '';
+  const compact = raw ? raw.replace(/\s+/g, '') : '';
+  const asciiCompact = ascii ? ascii.replace(/\s+/g, '') : '';
+  return { raw, compact, ascii, asciiCompact };
+}
+
 function clientStatusTone(value: string | null | undefined): StatusTone {
   const normalized = normalize(value);
   if (normalized === 'ACTIVE') return 'ok';
@@ -128,25 +147,27 @@ function relativeLabel(value: string | null, empty: string): string {
   return empty;
 }
 
-function includesQueryValue(
-  value: string | null | undefined,
-  queryLower: string,
-  queryCompact: string,
-): boolean {
-  if (!value || !queryLower) return false;
+function includesQueryValue(value: string | null | undefined, query: PreparedQuery): boolean {
+  if (!value || !query.raw) return false;
   const normalized = value.toString().toLocaleLowerCase('pt-PT');
-  if (normalized.includes(queryLower)) return true;
-  if (!queryCompact) return false;
-  const compactValue = normalized.replace(/\s+/g, '');
-  return compactValue.includes(queryCompact);
+  if (normalized.includes(query.raw)) return true;
+
+  const asciiNormalized = query.ascii ? stripDiacritics(normalized) : '';
+  if (query.ascii && asciiNormalized.includes(query.ascii)) return true;
+
+  const compactNormalized = query.compact ? normalized.replace(/\s+/g, '') : '';
+  if (query.compact && compactNormalized.includes(query.compact)) return true;
+
+  if (!query.asciiCompact) return false;
+  const asciiCompactNormalized = asciiNormalized ? asciiNormalized.replace(/\s+/g, '') : '';
+  return asciiCompactNormalized.includes(query.asciiCompact);
 }
 
 function rowMatchesQuery(
   row: Awaited<ReturnType<typeof loadTrainerClientOverview>>['rows'][number],
-  queryLower: string,
-  queryCompact: string,
+  query: PreparedQuery,
 ): boolean {
-  if (!queryLower) return true;
+  if (!query.raw) return true;
 
   const candidates: Array<string | null | undefined> = [
     row.name,
@@ -164,7 +185,7 @@ function rowMatchesQuery(
   }
 
   for (const candidate of candidates) {
-    if (includesQueryValue(candidate, queryLower, queryCompact)) {
+    if (includesQueryValue(candidate, query)) {
       return true;
     }
   }
@@ -376,13 +397,12 @@ export default async function PtClientsPage({
   const scope: 'all' | 'alerts' = alertFilter ? 'alerts' : requestedScope;
   const rawQuery = firstParam(searchParams?.q);
   const query = rawQuery ? rawQuery.toString().trim() : '';
-  const queryLower = query ? query.toLocaleLowerCase('pt-PT') : '';
-  const queryCompact = queryLower ? queryLower.replace(/\s+/g, '') : '';
+  const preparedQuery = prepareQuery(query);
   const hasQuery = Boolean(query);
   const activeQuery = hasQuery ? query : null;
 
   const queryMatches = hasQuery
-    ? analysedRows.filter((entry) => rowMatchesQuery(entry.row, queryLower, queryCompact))
+    ? analysedRows.filter((entry) => rowMatchesQuery(entry.row, preparedQuery))
     : analysedRows;
   const attentionAll = analysedRows.filter((entry) => entry.alerts.length > 0);
   const attentionMatches = queryMatches.filter((entry) => entry.alerts.length > 0);
