@@ -221,6 +221,16 @@ function buildRowAlerts(
       tone: 'warning',
     });
   }
+  return score;
+}
+
+function buildTelHref(value: string | null | undefined) {
+  if (!value) return null;
+  const normalized = normalizePhone(value);
+  if (!normalized) return null;
+  const compact = normalized.replace(/\s+/g, '');
+  return `tel:${compact}`;
+}
 
   return alerts;
 }
