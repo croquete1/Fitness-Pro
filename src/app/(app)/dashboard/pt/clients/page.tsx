@@ -35,6 +35,12 @@ type PreparedQuery = {
   compact: string;
   ascii: string;
   asciiCompact: string;
+  rawTokens: string[];
+  asciiTokens: string[];
+  orthographyAscii: string | null;
+  orthographyAsciiCompact: string | null;
+  orthographyAsciiTokens: string[];
+  digits: string | null;
 };
 
 type ClientAlertKey =
@@ -95,12 +101,63 @@ function stripDiacritics(value: string): string {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
+function splitTokens(value: string): string[] {
+  return Array.from(new Set(value.split(/\s+/g).map((token) => token.trim()).filter(Boolean)));
+}
+
+const PORTUGUESE_ORTHOGRAPHY_REPLACEMENTS: Array<[RegExp, string]> = [
+  [/([aeiou])c(?=[pt][aeiou])/g, '$1'],
+  [/([aeiou])c(?=c[aeiou])/g, '$1'],
+  [/([aeiou])p(?=[tc][aeiou])/g, '$1'],
+];
+
+function applyPortugueseOrthographyReform(value: string): string | null {
+  if (!value) return null;
+  let transformed = value;
+  for (const [pattern, replacement] of PORTUGUESE_ORTHOGRAPHY_REPLACEMENTS) {
+    transformed = transformed.replace(pattern, replacement);
+  }
+  return transformed !== value ? transformed : null;
+}
+
 function prepareQuery(value: string | null | undefined): PreparedQuery {
-  const raw = value ? value.toString().toLocaleLowerCase('pt-PT') : '';
-  const ascii = raw ? stripDiacritics(raw) : '';
-  const compact = raw ? raw.replace(/\s+/g, '') : '';
-  const asciiCompact = ascii ? ascii.replace(/\s+/g, '') : '';
-  return { raw, compact, ascii, asciiCompact };
+  const raw = value ? value.toString().trim().toLocaleLowerCase('pt-PT') : '';
+  if (!raw) {
+    return {
+      raw: '',
+      compact: '',
+      ascii: '',
+      asciiCompact: '',
+      rawTokens: [],
+      asciiTokens: [],
+      orthographyAscii: null,
+      orthographyAsciiCompact: null,
+      orthographyAsciiTokens: [],
+      digits: null,
+    } satisfies PreparedQuery;
+  }
+
+  const ascii = stripDiacritics(raw);
+  const compact = raw.replace(/\s+/g, '');
+  const asciiCompact = ascii.replace(/\s+/g, '');
+  const orthographyAscii = applyPortugueseOrthographyReform(ascii);
+  const orthographyAsciiCompact = asciiCompact
+    ? applyPortugueseOrthographyReform(asciiCompact)
+    : null;
+  const digits = raw.replace(/\D+/g, '');
+
+  return {
+    raw,
+    compact,
+    ascii,
+    asciiCompact,
+    rawTokens: splitTokens(raw),
+    asciiTokens: splitTokens(ascii),
+    orthographyAscii,
+    orthographyAsciiCompact,
+    orthographyAsciiTokens: orthographyAscii ? splitTokens(orthographyAscii) : [],
+    digits: digits ? digits : null,
+  } satisfies PreparedQuery;
 }
 
 function clientStatusTone(value: string | null | undefined): StatusTone {
@@ -137,8 +194,8 @@ function formatTimestamp(value: string | null): string | null {
   return date.toLocaleString('pt-PT');
 }
 
-function relativeLabel(value: string | null, empty: string): string {
-  const relative = formatRelativeTime(value);
+function relativeLabel(value: string | null, empty: string, now: Date = new Date()): string {
+  const relative = formatRelativeTime(value, now);
   if (relative) return relative;
   if (value) {
     const formatted = formatTimestamp(value);
@@ -147,67 +204,237 @@ function relativeLabel(value: string | null, empty: string): string {
   return empty;
 }
 
-function includesQueryValue(value: string | null | undefined, query: PreparedQuery): boolean {
-  if (!value || !query.raw) return false;
-  const normalized = value.toString().toLocaleLowerCase('pt-PT');
-  if (normalized.includes(query.raw)) return true;
+type MutableClientRowSearchIndex = {
+  raw: Set<string>;
+  ascii: Set<string>;
+  compact: Set<string>;
+  asciiCompact: Set<string>;
+  digits: Set<string>;
+};
 
-  const asciiNormalized = query.ascii ? stripDiacritics(normalized) : '';
-  if (query.ascii && asciiNormalized.includes(query.ascii)) return true;
-
-  const compactNormalized = query.compact ? normalized.replace(/\s+/g, '') : '';
-  if (query.compact && compactNormalized.includes(query.compact)) return true;
-
-  if (!query.asciiCompact) return false;
-  const asciiCompactNormalized = asciiNormalized ? asciiNormalized.replace(/\s+/g, '') : '';
-  return asciiCompactNormalized.includes(query.asciiCompact);
+function createMutableSearchIndex(): MutableClientRowSearchIndex {
+  return {
+    raw: new Set<string>(),
+    ascii: new Set<string>(),
+    compact: new Set<string>(),
+    asciiCompact: new Set<string>(),
+    digits: new Set<string>(),
+  } satisfies MutableClientRowSearchIndex;
 }
 
-function rowMatchesQuery(
-  row: Awaited<ReturnType<typeof loadTrainerClientOverview>>['rows'][number],
-  query: PreparedQuery,
-): boolean {
-  if (!query.raw) return true;
+function pushSearchCandidate(index: MutableClientRowSearchIndex, value: string | null | undefined) {
+  const prepared = prepareQuery(value);
+  if (!prepared.raw) return;
 
-  const candidates: Array<string | null | undefined> = [
-    row.name,
-    row.email,
-    row.phone,
-    row.planTitle,
-    row.id,
-    clientStatusLabel(row.clientStatus),
-    planStatusLabel(row.planStatus),
-  ];
+  index.raw.add(prepared.raw);
 
-  if (row.phone) {
-    candidates.push(normalizePhone(row.phone));
-    candidates.push(row.phone.replace(/\s+/g, ''));
+  if (prepared.ascii) {
+    index.ascii.add(prepared.ascii);
+    if (prepared.orthographyAscii) {
+      index.ascii.add(prepared.orthographyAscii);
+    }
   }
 
-  for (const candidate of candidates) {
-    if (includesQueryValue(candidate, query)) {
-      return true;
+  if (prepared.compact) {
+    index.compact.add(prepared.compact);
+  }
+
+  if (prepared.asciiCompact) {
+    index.asciiCompact.add(prepared.asciiCompact);
+    if (prepared.orthographyAsciiCompact) {
+      index.asciiCompact.add(prepared.orthographyAsciiCompact);
     }
+  }
+
+  if (prepared.digits) {
+    index.digits.add(prepared.digits);
+  }
+}
+
+function buildRowSearchIndex(
+  row: Awaited<ReturnType<typeof loadTrainerClientOverview>>['rows'][number],
+  derived: {
+    nextRelative: string;
+    lastRelative: string;
+    linkedRelative: string;
+    planUpdatedRelative: string | null;
+    hasContact: boolean;
+  },
+  alerts: ClientAlert[],
+): ClientRowSearchIndex {
+  const index = createMutableSearchIndex();
+
+  pushSearchCandidate(index, row.name);
+  pushSearchCandidate(index, row.email);
+  pushSearchCandidate(index, row.planTitle);
+  pushSearchCandidate(index, row.planStatus);
+  pushSearchCandidate(index, planStatusLabel(row.planStatus));
+  pushSearchCandidate(index, clientStatusLabel(row.clientStatus));
+  pushSearchCandidate(index, row.id);
+
+  if (row.phone) {
+    pushSearchCandidate(index, row.phone);
+    pushSearchCandidate(index, normalizePhone(row.phone));
+    const digitsOnly = row.phone.replace(/\D+/g, '');
+    if (digitsOnly) {
+      pushSearchCandidate(index, digitsOnly);
+    }
+  }
+
+  pushSearchCandidate(index, derived.nextRelative);
+  pushSearchCandidate(index, derived.lastRelative);
+  pushSearchCandidate(index, derived.linkedRelative);
+  if (derived.planUpdatedRelative) {
+    pushSearchCandidate(index, derived.planUpdatedRelative);
+  }
+
+  if (!derived.hasContact) {
+    pushSearchCandidate(index, 'Sem contacto directo');
+    pushSearchCandidate(index, 'Sem contacto');
+  }
+
+  for (const alert of alerts) {
+    pushSearchCandidate(index, alert.label);
+  }
+
+  return {
+    raw: Array.from(index.raw),
+    ascii: Array.from(index.ascii),
+    compact: Array.from(index.compact),
+    asciiCompact: Array.from(index.asciiCompact),
+    digits: Array.from(index.digits),
+  } satisfies ClientRowSearchIndex;
+}
+
+function matchesAllTokens(tokens: string[], candidates: string[]): boolean {
+  if (!tokens.length) return false;
+  return tokens.every((token) => candidates.some((candidate) => candidate.includes(token)));
+}
+
+function rowMatchesQuery(entry: ClientRowAnalysis, query: PreparedQuery): boolean {
+  if (!query.raw) return true;
+  const { searchIndex } = entry.derived;
+
+  if (matchesAllTokens(query.rawTokens, searchIndex.raw)) {
+    return true;
+  }
+
+  if (query.ascii && matchesAllTokens(query.asciiTokens, searchIndex.ascii)) {
+    return true;
+  }
+
+  if (
+    query.orthographyAscii &&
+    matchesAllTokens(query.orthographyAsciiTokens, searchIndex.ascii)
+  ) {
+    return true;
+  }
+
+  if (query.compact && searchIndex.compact.some((candidate) => candidate.includes(query.compact))) {
+    return true;
+  }
+
+  if (query.asciiCompact && searchIndex.asciiCompact.some((candidate) => candidate.includes(query.asciiCompact))) {
+    return true;
+  }
+
+  if (
+    query.orthographyAsciiCompact &&
+    searchIndex.asciiCompact.some((candidate) => candidate.includes(query.orthographyAsciiCompact))
+  ) {
+    return true;
+  }
+
+  if (query.digits && searchIndex.digits.some((candidate) => candidate.includes(query.digits))) {
+    return true;
   }
 
   return false;
 }
 
+type ClientRowSearchIndex = {
+  raw: string[];
+  ascii: string[];
+  compact: string[];
+  asciiCompact: string[];
+  digits: string[];
+};
+
+type ClientRowDerived = {
+  nextRelative: string;
+  nextAbsolute: string | null;
+  lastRelative: string;
+  lastAbsolute: string | null;
+  linkedRelative: string;
+  planUpdatedRelative: string | null;
+  telHref: string | null;
+  hasContact: boolean;
+  searchIndex: ClientRowSearchIndex;
+};
+
 type ClientRowAnalysis = {
   row: Awaited<ReturnType<typeof loadTrainerClientOverview>>['rows'][number];
   alerts: ClientAlert[];
   urgency: number;
+  derived: ClientRowDerived;
 };
+
+function decorateRow(
+  row: Awaited<ReturnType<typeof loadTrainerClientOverview>>['rows'][number],
+  now: Date,
+  alerts: ClientAlert[],
+): ClientRowDerived {
+  const nextRelative = relativeLabel(row.nextSessionAt, 'Sem agendamento', now);
+  const nextAbsolute = formatTimestamp(row.nextSessionAt);
+  const lastRelative = relativeLabel(row.lastSessionAt, 'Sem histórico', now);
+  const lastAbsolute = formatTimestamp(row.lastSessionAt);
+  const linkedRelative = row.linkedAt
+    ? relativeLabel(row.linkedAt, 'há algum tempo', now) ?? 'há algum tempo'
+    : 'Ligação pendente';
+  const planUpdatedRelative = row.planUpdatedAt
+    ? relativeLabel(row.planUpdatedAt, 'há algum tempo', now)
+    : null;
+  const telHref = buildTelHref(row.phone);
+  const hasContact = Boolean(row.email || row.phone);
+  const searchIndex = buildRowSearchIndex(
+    row,
+    {
+      nextRelative,
+      lastRelative,
+      linkedRelative,
+      planUpdatedRelative,
+      hasContact,
+    },
+    alerts,
+  );
+
+  return {
+    nextRelative,
+    nextAbsolute,
+    lastRelative,
+    lastAbsolute,
+    linkedRelative,
+    planUpdatedRelative,
+    telHref,
+    hasContact,
+    searchIndex,
+  } satisfies ClientRowDerived;
+}
 
 function buildRowAnalysis(
   rows: Awaited<ReturnType<typeof loadTrainerClientOverview>>['rows'],
   nowMs = Date.now(),
 ): ClientRowAnalysis[] {
-  return rows.map((row) => ({
-    row,
-    alerts: buildRowAlerts(row, nowMs),
-    urgency: clientUrgencyScore(row, nowMs),
-  }));
+  const now = new Date(nowMs);
+  return rows.map((row) => {
+    const alerts = buildRowAlerts(row, nowMs, now);
+    return {
+      row,
+      alerts,
+      urgency: clientUrgencyScore(row, nowMs),
+      derived: decorateRow(row, now, alerts),
+    } satisfies ClientRowAnalysis;
+  });
 }
 
 function sortAnalysedRows(entries: ClientRowAnalysis[]): ClientRowAnalysis[] {
@@ -262,8 +489,10 @@ function buildTelHref(value: string | null | undefined) {
 function buildRowAlerts(
   row: Awaited<ReturnType<typeof loadTrainerClientOverview>>['rows'][number],
   nowMs = Date.now(),
+  nowDate?: Date,
 ): ClientAlert[] {
   const alerts: ClientAlert[] = [];
+  const now = nowDate ?? new Date(nowMs);
   if (!row.upcomingCount) {
     alerts.push({ key: 'NO_UPCOMING', label: 'Sem próxima sessão agendada', tone: 'warning' });
   }
@@ -298,7 +527,7 @@ function buildRowAlerts(
   } else if (!Number.isNaN(lastAt) && nowMs - lastAt > STALE_SESSION_THRESHOLD_MS) {
     alerts.push({
       key: 'LAST_SESSION_STALE',
-      label: `Última sessão ${relativeLabel(row.lastSessionAt, 'há mais de 14 dias')}`,
+      label: `Última sessão ${relativeLabel(row.lastSessionAt, 'há mais de 14 dias', now)}`,
       tone: 'warning',
     });
   }
@@ -402,7 +631,7 @@ export default async function PtClientsPage({
   const activeQuery = hasQuery ? query : null;
 
   const queryMatches = hasQuery
-    ? analysedRows.filter((entry) => rowMatchesQuery(entry.row, preparedQuery))
+    ? analysedRows.filter((entry) => rowMatchesQuery(entry, preparedQuery))
     : analysedRows;
   const attentionAll = analysedRows.filter((entry) => entry.alerts.length > 0);
   const attentionMatches = queryMatches.filter((entry) => entry.alerts.length > 0);
@@ -580,13 +809,7 @@ export default async function PtClientsPage({
 
         {urgentRows.length > 0 ? (
           <div className="neo-stack space-y-3">
-            {urgentRows.map(({ row, alerts }) => {
-              const nextRelative = relativeLabel(row.nextSessionAt, 'Sem agendamento');
-              const lastRelative = relativeLabel(row.lastSessionAt, 'Sem histórico');
-              const linkedRelative = row.linkedAt
-                ? relativeLabel(row.linkedAt, 'há algum tempo')
-                : 'Ligação pendente';
-              const telHref = buildTelHref(row.phone);
+            {urgentRows.map(({ row, alerts, derived }) => {
               const variant: AlertTone = alerts.some((alert) => alert.tone === 'warning')
                 ? 'warning'
                 : alerts.some((alert) => alert.tone === 'violet')
@@ -598,7 +821,7 @@ export default async function PtClientsPage({
                   <header className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="font-semibold text-fg">{row.name}</p>
-                      <p className="text-xs text-muted">Ligado {linkedRelative}</p>
+                      <p className="text-xs text-muted">Ligado {derived.linkedRelative}</p>
                     </div>
                     <span className="status-pill" data-state={clientStatusTone(row.clientStatus)}>
                       {clientStatusLabel(row.clientStatus)}
@@ -618,13 +841,27 @@ export default async function PtClientsPage({
                     ))}
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-4 text-xs text-muted">
-                    <span>Próxima sessão: {nextRelative}</span>
-                    <span>Última sessão: {lastRelative}</span>
-                    {row.planTitle && <span>Plano: {row.planTitle}</span>}
-                  </div>
+                  <dl className="grid grid-cols-1 gap-3 text-xs text-muted sm:grid-cols-3">
+                    <div>
+                      <dt className="font-semibold text-fg">Próxima sessão</dt>
+                      <dd className="text-sm">{derived.nextRelative}</dd>
+                    </div>
+                    <div>
+                      <dt className="font-semibold text-fg">Última sessão</dt>
+                      <dd className="text-sm">{derived.lastRelative}</dd>
+                    </div>
+                    <div>
+                      <dt className="font-semibold text-fg">Plano</dt>
+                      <dd className="flex flex-wrap items-center gap-2 text-sm text-muted">
+                        <span className="neo-badge" data-tone={planBadgeTone(row.planStatus)}>
+                          {planStatusLabel(row.planStatus)}
+                        </span>
+                        {row.planTitle && <span className="truncate" title={row.planTitle}>{row.planTitle}</span>}
+                      </dd>
+                    </div>
+                  </dl>
 
-                  <div className="neo-inline neo-inline--sm">
+                  <div className="neo-inline neo-inline--sm flex-wrap text-xs">
                     {row.email && (
                       <a
                         href={`mailto:${row.email}`}
@@ -634,9 +871,9 @@ export default async function PtClientsPage({
                         Enviar email
                       </a>
                     )}
-                    {telHref && (
+                    {derived.telHref && (
                       <a
-                        href={telHref}
+                        href={derived.telHref}
                         className="link-arrow text-sm"
                         aria-label={`Ligar para ${row.name}`}
                       >
@@ -646,9 +883,9 @@ export default async function PtClientsPage({
                     <Link
                       href={`/dashboard/users/${row.id}`}
                       prefetch={false}
-                      className="link-arrow inline-flex items-center gap-1 text-sm"
+                      className="link-arrow text-sm"
                     >
-                      Ver perfil completo
+                      Ver perfil
                     </Link>
                   </div>
                 </article>
@@ -695,7 +932,7 @@ export default async function PtClientsPage({
               data-selected={scope === 'all' ? 'true' : 'false'}
               aria-current={scope === 'all' ? 'true' : undefined}
             >
-              Todos os clientes ({rows.length})
+              Todos os clientes ({queryMatchedCount})
             </Link>
             <Link
               href={buildFilterHref({ scope: 'alerts', alert: alertFilter, query: activeQuery })}
@@ -778,16 +1015,7 @@ export default async function PtClientsPage({
               </tr>
             </thead>
             <tbody>
-              {filteredAnalysedRows.map(({ row, alerts }) => {
-                const nextRelative = relativeLabel(row.nextSessionAt, 'Sem agendamento');
-                const lastRelative = relativeLabel(row.lastSessionAt, 'Sem histórico');
-                const nextAbsolute = formatTimestamp(row.nextSessionAt);
-                const lastAbsolute = formatTimestamp(row.lastSessionAt);
-                const linkedRelative = row.linkedAt
-                  ? relativeLabel(row.linkedAt, 'há algum tempo')
-                  : 'Ligação pendente';
-                const hasContact = Boolean(row.email || row.phone);
-                const telHref = buildTelHref(row.phone);
+              {filteredAnalysedRows.map(({ row, alerts, derived }) => {
                 const matchesActiveAlert = alertFilter
                   ? alerts.some((alert) => alert.key === alertFilter)
                   : false;
@@ -801,7 +1029,7 @@ export default async function PtClientsPage({
                     <td>
                       <div className="space-y-1">
                         <span className="font-semibold text-fg">{row.name}</span>
-                        <p className="text-xs text-muted">Ligado {linkedRelative}</p>
+                        <p className="text-xs text-muted">Ligado {derived.linkedRelative}</p>
                         <div className="flex flex-wrap gap-2 text-xs text-muted">
                           {row.email && <span>{row.email}</span>}
                           {row.phone && <span>{row.phone}</span>}
@@ -811,7 +1039,7 @@ export default async function PtClientsPage({
                               {row.upcomingCount} sessão(ões) futura(s)
                             </span>
                           )}
-                          {!hasContact && (
+                          {!derived.hasContact && (
                             <span className="neo-badge neo-badge--muted" data-tone="warning">
                               Sem contacto directo
                             </span>
@@ -845,22 +1073,26 @@ export default async function PtClientsPage({
                           )}
                         </div>
                         <p className="text-xs text-muted">
-                          {row.planUpdatedAt
-                            ? `Actualizado ${relativeLabel(row.planUpdatedAt, 'há algum tempo')}`
+                          {derived.planUpdatedRelative
+                            ? `Actualizado ${derived.planUpdatedRelative}`
                             : 'Sem histórico de actualização'}
                         </p>
                       </div>
                     </td>
                     <td>
                       <div className="space-y-1">
-                        <span className="font-medium text-fg">{nextRelative}</span>
-                        {nextAbsolute && <span className="text-xs text-muted">{nextAbsolute}</span>}
+                        <span className="font-medium text-fg">{derived.nextRelative}</span>
+                        {derived.nextAbsolute && (
+                          <span className="text-xs text-muted">{derived.nextAbsolute}</span>
+                        )}
                       </div>
                     </td>
                     <td>
                       <div className="space-y-1">
-                        <span className="text-sm text-fg">{lastRelative}</span>
-                        {lastAbsolute && <span className="text-xs text-muted">{lastAbsolute}</span>}
+                        <span className="text-sm text-fg">{derived.lastRelative}</span>
+                        {derived.lastAbsolute && (
+                          <span className="text-xs text-muted">{derived.lastAbsolute}</span>
+                        )}
                       </div>
                     </td>
                     <td>
@@ -879,9 +1111,9 @@ export default async function PtClientsPage({
                             Enviar email
                           </a>
                         )}
-                        {telHref && (
+                        {derived.telHref && (
                           <a
-                            href={telHref}
+                            href={derived.telHref}
                             className="link-arrow text-sm"
                             aria-label={`Ligar para ${row.name}`}
                           >

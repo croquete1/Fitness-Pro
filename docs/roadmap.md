@@ -140,6 +140,15 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Destacar visualmente os clientes com alertas na tabela do PT, adicionando badges inline por alerta e realces consistentes com o filtro activo. Fontes: `src/app/(app)/dashboard/pt/clients/page.tsx`, `src/app/globals.css`.
 - [x] Permitir pesquisar clientes na carteira do PT mantendo filtros e alertas sincronizados com os resultados. Fonte: `src/app/(app)/dashboard/pt/clients/page.tsx`.
 - [x] Tornar a pesquisa da carteira do PT insensível a acentuação e espaços, abrangendo nomes, contactos e planos normalizados. Fonte: `src/app/(app)/dashboard/pt/clients/page.tsx`.
+- [x] Potenciar os alertas operacionais da carteira do PT com acções rápidas e dados pré-calculados para contacto imediato. Fontes: `src/app/(app)/dashboard/pt/clients/page.tsx`.
+- [x] Optimizar a pesquisa da carteira do PT com índice pré-calculado para contactos, estado e planos, evitando recomputações por linha. Fontes: `src/app/(app)/dashboard/pt/clients/page.tsx`.
+- [x] Afinar a pesquisa da carteira do PT para aceitar múltiplos termos e normalização consistente entre consulta e índice, suportando combinações de alerta/contacto/estado. Fontes: `src/app/(app)/dashboard/pt/clients/page.tsx`.
+- [x] Harmonizar a pesquisa da carteira do PT com variantes do acordo ortográfico (Activo/Ativo, contacto/contato, directo/direto) sem perder compatibilidade retroactiva. Fonte: `src/app/(app)/dashboard/pt/clients/page.tsx`.
+- [x] Alargar a normalização ortográfica da carteira do PT para cobrir grafias com "cc"/"pc" (acção/ação, recepção/receção), garantindo pesquisa consistente entre variantes. Fonte: `src/app/(app)/dashboard/pt/clients/page.tsx`.
+- [x] Corrigir a pesquisa da carteira do PT para aceitar consultas em grafia pré-acordo quando os dados estão em novo acordo, normalizando a query com as mesmas regras do índice. Fonte: `src/app/(app)/dashboard/pt/clients/page.tsx`.
+- [x] Reaproveitar variantes ortográficas já calculadas ao gerar o índice de pesquisa da carteira do PT, evitando recomputações por candidato. Fonte: `src/app/(app)/dashboard/pt/clients/page.tsx`.
+- [x] Permitir pesquisa por números de contacto com hífens ou indicativos distintos na carteira do PT, normalizando as consultas para comparar apenas os dígitos. Fonte: `src/app/(app)/dashboard/pt/clients/page.tsx`.
+- [x] Permitir pesquisa por rótulos visíveis na carteira do PT (sem agendamento, sem histórico, ligação pendente ou sem contacto), indexando também os textos dos alertas operacionais. Fonte: `src/app/(app)/dashboard/pt/clients/page.tsx`.
 - [ ] Documentar configuração e variáveis de ambiente actualizadas após migração para Supabase.
 - [ ] Remover dependências/artefactos não utilizados (ex.: pacotes Prisma, scripts legados) após consolidação da camada de dados.
 - [ ] Adicionar protecções de rate limiting e validações adicionais nas rotas sensíveis.
