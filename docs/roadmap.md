@@ -107,6 +107,18 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [ ] Definir padrão consistente para uso de rotas Next.js vs. cliente Supabase (tempo real) e aplicá-lo aos módulos de mensagens/notificações.
 - [ ] Optimizar consultas com índices e vistas materializadas (existe esboço, mas falta adopção generalizada).
 - [x] Polir UX/UI das páginas em construção (Relatórios, Definições e Biblioteca adoptaram o tema `.neo` com métricas reais e responsividade reforçada).
+- [x] Reforçar o formulário de definições com validação de nome/telefone e mensagens de erro descritivas nas actualizações de credenciais.
+- [x] Validar credenciais nas definições com pré-validação de email, reforço de requisitos de palavra-passe e normalização do contacto telefónico.
+- [x] Refinar os formulários de definições limpando estados após alterações, normalizando contactos e expondo conflitos de email/telefone do Supabase com mensagens dedicadas.
+- [x] Validar o contacto telefónico no backend das definições reutilizando a normalização partilhada e alinhando as mensagens no cliente. Fontes: `src/app/api/me/profile/route.ts`, `src/lib/phone.ts`, `src/app/(app)/dashboard/settings/settings-client.tsx`.
+- [x] Permitir actualizar o nome mantendo contactos herdados abaixo do limite mínimo, exigindo correcção do telefone apenas quando editado no formulário de definições.
+- [x] Revalidar automaticamente as métricas de segurança após alterações nas definições para manter o painel sincronizado. Fontes: `src/app/(app)/dashboard/settings/settings-client.tsx`.
+- [x] Destacar a última actualização das métricas e forçar revalidação imediata no painel de definições para garantir dados frescos. Fontes: `src/app/(app)/dashboard/settings/settings-client.tsx`, `src/app/globals.css`.
+- [x] Corrigir a opção de tema automático nas definições para voltar a seguir o esquema de cores do sistema após guardar. Fontes: `src/components/layout/ColorModeProvider.tsx`, `src/app/(app)/dashboard/settings/settings-client.tsx`.
+- [x] Adicionar acções de "Repor alterações" nos formulários de dados da conta, credenciais e preferências para facilitar o cancelamento de edições. Fontes: `src/app/(app)/dashboard/settings/settings-client.tsx`, `src/app/globals.css`.
+- [x] Mostrar feedback dinâmico do telefone nas definições com contagem de dígitos e aviso ao remover o contacto. Fonte: `src/app/(app)/dashboard/settings/settings-client.tsx`.
+- [x] Distinguir contas sem telefone de remoções explícitas nas mensagens de ajuda, evitando avisos enganadores no formulário. Fonte: `src/app/(app)/dashboard/settings/settings-client.tsx`.
+- [x] Limitar contactos telefónicos a 15 dígitos nas definições, com mensagens específicas para números curtos ou longos e validação no backend partilhado. Fontes: `src/app/(app)/dashboard/settings/settings-client.tsx`, `src/lib/phone.ts`.
 - [ ] Harmonizar o design dos dashboards (admin, PT e cliente) com a linguagem visual HMS, validando breakpoints mobile/desktop.
 - [ ] Completar o fluxo operacional do PT (clientes, planos, agenda e biblioteca) com dados reais e interacções consistentes.
 - [ ] Documentar configuração e variáveis de ambiente actualizadas após migração para Supabase.
