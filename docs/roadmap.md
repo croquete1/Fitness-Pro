@@ -131,7 +131,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Unificar mensagens de erro de rede/abortadas nas definições para evitar textos inconsistentes entre navegadores. Fonte: `src/app/(app)/dashboard/settings/settings-client.tsx`.
 - [x] Clarificar os erros do painel de métricas nas definições, destacando sessões expiradas, limites de pedidos e indisponibilidades do serviço com mensagens guiadas. Fonte: `src/app/(app)/dashboard/settings/settings-client.tsx`.
 - [ ] Harmonizar o design dos dashboards (admin, PT e cliente) com a linguagem visual HMS, validando breakpoints mobile/desktop.
-- [ ] Completar o fluxo operacional do PT (clientes, planos, agenda e biblioteca) com dados reais e interacções consistentes.
+- [x] Completar o fluxo operacional do PT (clientes, planos, agenda e biblioteca) com dados reais e interacções consistentes (carteira de clientes alimentada por `trainer_clients`, planos e sessões reais expostos no cockpit).
 - [ ] Documentar configuração e variáveis de ambiente actualizadas após migração para Supabase.
 - [ ] Remover dependências/artefactos não utilizados (ex.: pacotes Prisma, scripts legados) após consolidação da camada de dados.
 - [ ] Adicionar protecções de rate limiting e validações adicionais nas rotas sensíveis.
