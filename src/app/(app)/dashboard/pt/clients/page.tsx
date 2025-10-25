@@ -319,13 +319,7 @@ function pushSearchCandidate(index: MutableClientRowSearchIndex, value: string |
 
 function buildRowSearchIndex(
   row: Awaited<ReturnType<typeof loadTrainerClientOverview>>['rows'][number],
-  derived: {
-    nextRelative: string;
-    lastRelative: string;
-    linkedRelative: string;
-    planUpdatedRelative: string | null;
-    hasContact: boolean;
-  },
+  derived: ClientRowDerivedBase,
   alerts: ClientAlert[],
 ): ClientRowSearchIndex {
   const index = createMutableSearchIndex();
@@ -337,6 +331,7 @@ function buildRowSearchIndex(
   pushSearchCandidate(index, planStatusLabel(row.planStatus));
   pushSearchCandidate(index, clientStatusLabel(row.clientStatus));
   pushSearchCandidate(index, row.id);
+  pushSearchCandidate(index, `ID #${row.id}`);
 
   if (row.phone) {
     pushSearchCandidate(index, row.phone);
@@ -348,10 +343,28 @@ function buildRowSearchIndex(
   }
 
   pushSearchCandidate(index, derived.nextRelative);
+  pushSearchCandidate(index, `Próxima sessão ${derived.nextRelative}`);
+  if (derived.nextAbsolute) {
+    pushSearchCandidate(index, derived.nextAbsolute);
+    pushSearchCandidate(index, `Próxima sessão ${derived.nextAbsolute}`);
+  }
   pushSearchCandidate(index, derived.lastRelative);
+  pushSearchCandidate(index, `Última sessão ${derived.lastRelative}`);
+  if (derived.lastAbsolute) {
+    pushSearchCandidate(index, derived.lastAbsolute);
+    pushSearchCandidate(index, `Última sessão ${derived.lastAbsolute}`);
+  }
   pushSearchCandidate(index, derived.linkedRelative);
+  pushSearchCandidate(index, `Ligado ${derived.linkedRelative}`);
   if (derived.planUpdatedRelative) {
     pushSearchCandidate(index, derived.planUpdatedRelative);
+    pushSearchCandidate(index, `Actualizado ${derived.planUpdatedRelative}`);
+    if (derived.planUpdatedAbsolute) {
+      pushSearchCandidate(index, derived.planUpdatedAbsolute);
+      pushSearchCandidate(index, `Actualizado ${derived.planUpdatedAbsolute}`);
+    }
+  } else {
+    pushSearchCandidate(index, 'Sem histórico de actualização');
   }
 
   if (!derived.hasContact) {
@@ -433,10 +446,13 @@ type ClientRowDerived = {
   lastAbsolute: string | null;
   linkedRelative: string;
   planUpdatedRelative: string | null;
+  planUpdatedAbsolute: string | null;
   telHref: string | null;
   hasContact: boolean;
   searchIndex: ClientRowSearchIndex;
 };
+
+type ClientRowDerivedBase = Omit<ClientRowDerived, 'searchIndex'>;
 
 type ClientRowAnalysis = {
   row: Awaited<ReturnType<typeof loadTrainerClientOverview>>['rows'][number];
@@ -460,31 +476,23 @@ function decorateRow(
   const planUpdatedRelative = row.planUpdatedAt
     ? relativeLabel(row.planUpdatedAt, 'há algum tempo', now)
     : null;
+  const planUpdatedAbsolute = formatTimestamp(row.planUpdatedAt);
   const telHref = buildTelHref(row.phone);
   const hasContact = Boolean(row.email || row.phone);
-  const searchIndex = buildRowSearchIndex(
-    row,
-    {
-      nextRelative,
-      lastRelative,
-      linkedRelative,
-      planUpdatedRelative,
-      hasContact,
-    },
-    alerts,
-  );
-
-  return {
+  const baseDerived: ClientRowDerivedBase = {
     nextRelative,
     nextAbsolute,
     lastRelative,
     lastAbsolute,
     linkedRelative,
     planUpdatedRelative,
+    planUpdatedAbsolute,
     telHref,
     hasContact,
-    searchIndex,
-  } satisfies ClientRowDerived;
+  } satisfies ClientRowDerivedBase;
+  const searchIndex = buildRowSearchIndex(row, baseDerived, alerts);
+
+  return { ...baseDerived, searchIndex } satisfies ClientRowDerived;
 }
 
 function buildRowAnalysis(
