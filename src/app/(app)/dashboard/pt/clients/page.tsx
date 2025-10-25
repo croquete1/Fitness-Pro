@@ -147,51 +147,104 @@ function relativeLabel(value: string | null, empty: string, now: Date = new Date
   return empty;
 }
 
-function includesQueryValue(value: string | null | undefined, query: PreparedQuery): boolean {
-  if (!value || !query.raw) return false;
-  const normalized = value.toString().toLocaleLowerCase('pt-PT');
-  if (normalized.includes(query.raw)) return true;
+type MutableClientRowSearchIndex = {
+  raw: Set<string>;
+  ascii: Set<string>;
+  compact: Set<string>;
+  asciiCompact: Set<string>;
+};
 
-  const asciiNormalized = query.ascii ? stripDiacritics(normalized) : '';
-  if (query.ascii && asciiNormalized.includes(query.ascii)) return true;
-
-  const compactNormalized = query.compact ? normalized.replace(/\s+/g, '') : '';
-  if (query.compact && compactNormalized.includes(query.compact)) return true;
-
-  if (!query.asciiCompact) return false;
-  const asciiCompactNormalized = asciiNormalized ? asciiNormalized.replace(/\s+/g, '') : '';
-  return asciiCompactNormalized.includes(query.asciiCompact);
+function createMutableSearchIndex(): MutableClientRowSearchIndex {
+  return {
+    raw: new Set<string>(),
+    ascii: new Set<string>(),
+    compact: new Set<string>(),
+    asciiCompact: new Set<string>(),
+  } satisfies MutableClientRowSearchIndex;
 }
 
-function rowMatchesQuery(
-  row: Awaited<ReturnType<typeof loadTrainerClientOverview>>['rows'][number],
-  query: PreparedQuery,
-): boolean {
-  if (!query.raw) return true;
+function pushSearchCandidate(index: MutableClientRowSearchIndex, value: string | null | undefined) {
+  if (!value) return;
+  const normalized = value.toString().trim().toLocaleLowerCase('pt-PT');
+  if (!normalized) return;
 
-  const candidates: Array<string | null | undefined> = [
-    row.name,
-    row.email,
-    row.phone,
-    row.planTitle,
-    row.id,
-    clientStatusLabel(row.clientStatus),
-    planStatusLabel(row.planStatus),
-  ];
+  index.raw.add(normalized);
 
-  if (row.phone) {
-    candidates.push(normalizePhone(row.phone));
-    candidates.push(row.phone.replace(/\s+/g, ''));
+  const ascii = stripDiacritics(normalized);
+  if (ascii) {
+    index.ascii.add(ascii);
   }
 
-  for (const candidate of candidates) {
-    if (includesQueryValue(candidate, query)) {
-      return true;
+  const compact = normalized.replace(/\s+/g, '');
+  if (compact) {
+    index.compact.add(compact);
+  }
+
+  const asciiCompact = ascii.replace(/\s+/g, '');
+  if (asciiCompact) {
+    index.asciiCompact.add(asciiCompact);
+  }
+}
+
+function buildRowSearchIndex(
+  row: Awaited<ReturnType<typeof loadTrainerClientOverview>>['rows'][number],
+): ClientRowSearchIndex {
+  const index = createMutableSearchIndex();
+
+  pushSearchCandidate(index, row.name);
+  pushSearchCandidate(index, row.email);
+  pushSearchCandidate(index, row.planTitle);
+  pushSearchCandidate(index, row.planStatus);
+  pushSearchCandidate(index, planStatusLabel(row.planStatus));
+  pushSearchCandidate(index, clientStatusLabel(row.clientStatus));
+  pushSearchCandidate(index, row.id);
+
+  if (row.phone) {
+    pushSearchCandidate(index, row.phone);
+    pushSearchCandidate(index, normalizePhone(row.phone));
+    const digitsOnly = row.phone.replace(/\D+/g, '');
+    if (digitsOnly) {
+      pushSearchCandidate(index, digitsOnly);
     }
+  }
+
+  return {
+    raw: Array.from(index.raw),
+    ascii: Array.from(index.ascii),
+    compact: Array.from(index.compact),
+    asciiCompact: Array.from(index.asciiCompact),
+  } satisfies ClientRowSearchIndex;
+}
+
+function rowMatchesQuery(entry: ClientRowAnalysis, query: PreparedQuery): boolean {
+  if (!query.raw) return true;
+  const { searchIndex } = entry.derived;
+
+  if (searchIndex.raw.some((candidate) => candidate.includes(query.raw))) {
+    return true;
+  }
+
+  if (query.ascii && searchIndex.ascii.some((candidate) => candidate.includes(query.ascii))) {
+    return true;
+  }
+
+  if (query.compact && searchIndex.compact.some((candidate) => candidate.includes(query.compact))) {
+    return true;
+  }
+
+  if (query.asciiCompact && searchIndex.asciiCompact.some((candidate) => candidate.includes(query.asciiCompact))) {
+    return true;
   }
 
   return false;
 }
+
+type ClientRowSearchIndex = {
+  raw: string[];
+  ascii: string[];
+  compact: string[];
+  asciiCompact: string[];
+};
 
 type ClientRowDerived = {
   nextRelative: string;
@@ -202,6 +255,7 @@ type ClientRowDerived = {
   planUpdatedRelative: string | null;
   telHref: string | null;
   hasContact: boolean;
+  searchIndex: ClientRowSearchIndex;
 };
 
 type ClientRowAnalysis = {
@@ -227,6 +281,7 @@ function decorateRow(
     : null;
   const telHref = buildTelHref(row.phone);
   const hasContact = Boolean(row.email || row.phone);
+  const searchIndex = buildRowSearchIndex(row);
 
   return {
     nextRelative,
@@ -237,6 +292,7 @@ function decorateRow(
     planUpdatedRelative,
     telHref,
     hasContact,
+    searchIndex,
   } satisfies ClientRowDerived;
 }
 
@@ -447,7 +503,7 @@ export default async function PtClientsPage({
   const activeQuery = hasQuery ? query : null;
 
   const queryMatches = hasQuery
-    ? analysedRows.filter((entry) => rowMatchesQuery(entry.row, preparedQuery))
+    ? analysedRows.filter((entry) => rowMatchesQuery(entry, preparedQuery))
     : analysedRows;
   const attentionAll = analysedRows.filter((entry) => entry.alerts.length > 0);
   const attentionMatches = queryMatches.filter((entry) => entry.alerts.length > 0);
