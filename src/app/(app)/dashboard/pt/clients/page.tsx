@@ -101,6 +101,20 @@ function splitTokens(value: string): string[] {
   return Array.from(new Set(value.split(/\s+/g).map((token) => token.trim()).filter(Boolean)));
 }
 
+const PORTUGUESE_ORTHOGRAPHY_PATTERNS = [
+  /([aeiou])c(?=[pt][aeiou])/g,
+  /([aeiou])p(?=t[aeiou])/g,
+];
+
+function applyPortugueseOrthographyReform(value: string): string | null {
+  if (!value) return null;
+  let transformed = value;
+  for (const pattern of PORTUGUESE_ORTHOGRAPHY_PATTERNS) {
+    transformed = transformed.replace(pattern, '$1');
+  }
+  return transformed !== value ? transformed : null;
+}
+
 function prepareQuery(value: string | null | undefined): PreparedQuery {
   const raw = value ? value.toString().trim().toLocaleLowerCase('pt-PT') : '';
   if (!raw) {
@@ -196,6 +210,10 @@ function pushSearchCandidate(index: MutableClientRowSearchIndex, value: string |
 
   if (prepared.ascii) {
     index.ascii.add(prepared.ascii);
+    const simplifiedAscii = applyPortugueseOrthographyReform(prepared.ascii);
+    if (simplifiedAscii) {
+      index.ascii.add(simplifiedAscii);
+    }
   }
 
   if (prepared.compact) {
@@ -204,6 +222,10 @@ function pushSearchCandidate(index: MutableClientRowSearchIndex, value: string |
 
   if (prepared.asciiCompact) {
     index.asciiCompact.add(prepared.asciiCompact);
+    const simplifiedAsciiCompact = applyPortugueseOrthographyReform(prepared.asciiCompact);
+    if (simplifiedAsciiCompact) {
+      index.asciiCompact.add(simplifiedAsciiCompact);
+    }
   }
 }
 
