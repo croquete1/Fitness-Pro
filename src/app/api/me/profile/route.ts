@@ -194,7 +194,11 @@ async function handleUpdate(req: Request) {
       .from('profile_private')
       .upsert({ user_id: userId, ...privatePatch }, { onConflict: 'user_id' });
     if (error) {
-      return NextResponse.json({ ok: false, error: error.message ?? 'UPDATE_FAILED' }, { status: 400 });
+      const message = error.message ?? '';
+      if (error.code === '23505' || /profile_private.*phone/i.test(message) || /phone_?key/i.test(message)) {
+        return NextResponse.json({ ok: false, error: 'PHONE_TAKEN' }, { status: 409 });
+      }
+      return NextResponse.json({ ok: false, error: 'UPDATE_FAILED' }, { status: 400 });
     }
   }
 

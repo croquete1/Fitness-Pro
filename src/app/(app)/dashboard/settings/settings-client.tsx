@@ -213,6 +213,10 @@ function formatRelativeLabel(value: string | null | undefined) {
   }
 }
 
+function isValidEmail(value: string) {
+  return EMAIL_PATTERN.test(value);
+}
+
 function resolveAccountUpdateError(code?: string) {
   switch (code) {
     case 'INVALID_DATE':
@@ -222,6 +226,8 @@ function resolveAccountUpdateError(code?: string) {
       return 'Não foi possível actualizar o nome de utilizador.';
     case 'INVALID_JSON':
       return 'Pedido inválido ao actualizar o perfil.';
+    case 'PHONE_TAKEN':
+      return 'Este número de telefone já está associado a outra conta.';
     default:
       return 'Não foi possível guardar as alterações.';
   }
@@ -239,17 +245,33 @@ function resolveCredentialsUpdateError(code?: string) {
       return 'A palavra-passe actual está incorrecta.';
     case 'INVALID_JSON':
       return 'Pedido inválido ao actualizar as credenciais.';
+    case 'EMAIL_TAKEN':
+      return 'Este email já está associado a outra conta.';
     default:
       return 'Não foi possível actualizar as credenciais.';
   }
 }
 
-function isValidEmail(value: string) {
-  return EMAIL_PATTERN.test(value);
-}
-
 function normalizePhoneInput(value: string) {
-  return value.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+  const sanitized = value
+    .replace(/\u00a0/g, ' ')
+    .replace(/[()\[\]\.\-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!sanitized) return '';
+
+  const hasPlus = sanitized.startsWith('+');
+  const body = (hasPlus ? sanitized.slice(1) : sanitized)
+    .replace(/\+/g, '')
+    .replace(/[^\d ]+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!body.length) {
+    return '';
+  }
+
+  return hasPlus ? `+${body}` : body;
 }
 
 function resolveUnexpectedError(error: unknown, fallback: string) {
@@ -482,8 +504,16 @@ function AccountSettingsCard({
   const [saving, setSaving] = React.useState(false);
 
   React.useEffect(() => {
-    setForm(account);
+    setForm({
+      name: account.name,
+      phone: account.phone ? normalizePhoneInput(account.phone) : null,
+      email: account.email,
+    });
   }, [account.name, account.phone, account.email]);
+
+  const resetStatus = React.useCallback(() => {
+    setStatus((prev) => (prev.type === 'idle' ? prev : { type: 'idle' }));
+  }, []);
 
   const trimmedName = form.name.trim();
   const initialName = account.name.trim();
@@ -520,7 +550,7 @@ function AccountSettingsCard({
       const nextPhone = normalizedPhone.length ? normalizedPhone : null;
       setStatus({ type: 'success', message: 'Alterações guardadas.' });
       onSaved({ ...account, name: trimmedName, phone: nextPhone });
-      setForm((prev) => ({ ...prev, name: trimmedName, phone: nextPhone ?? null }));
+      setForm((prev) => ({ ...prev, name: trimmedName, phone: nextPhone }));
     } catch (error) {
       setStatus({
         type: 'error',
@@ -551,7 +581,10 @@ function AccountSettingsCard({
         >
           <TextInput
             value={form.name}
-            onChange={(value) => setForm((prev) => ({ ...prev, name: value }))}
+            onChange={(value) => {
+              resetStatus();
+              setForm((prev) => ({ ...prev, name: value }));
+            }}
             autoComplete="name"
             maxLength={120}
             invalid={invalidName}
@@ -569,6 +602,7 @@ function AccountSettingsCard({
             value={form.phone ?? ''}
             onChange={(value) => {
               const normalized = normalizePhoneInput(value);
+              resetStatus();
               setForm((prev) => ({ ...prev, phone: normalized.length ? normalized : null }));
             }}
             placeholder="(+351) 910 000 000"
@@ -609,6 +643,10 @@ function CredentialsCard({
   React.useEffect(() => {
     setForm((prev) => ({ ...prev, email }));
   }, [email]);
+
+  const resetStatus = React.useCallback(() => {
+    setStatus((prev) => (prev.type === 'idle' ? prev : { type: 'idle' }));
+  }, []);
 
   const wantsPasswordChange = Boolean(form.newPassword.trim().length);
   const trimmedEmail = form.email.trim();
@@ -677,7 +715,10 @@ function CredentialsCard({
           <TextInput
             type="email"
             value={form.email}
-            onChange={(value) => setForm((prev) => ({ ...prev, email: value }))}
+            onChange={(value) => {
+              resetStatus();
+              setForm((prev) => ({ ...prev, email: value }));
+            }}
             autoComplete="email"
             autoCapitalize="none"
             spellCheck={false}
@@ -697,7 +738,10 @@ function CredentialsCard({
           <TextInput
             type="password"
             value={form.currentPassword}
-            onChange={(value) => setForm((prev) => ({ ...prev, currentPassword: value }))}
+            onChange={(value) => {
+              resetStatus();
+              setForm((prev) => ({ ...prev, currentPassword: value }));
+            }}
             disabled={!wantsPasswordChange}
             autoComplete="current-password"
             invalid={missingCurrentPassword}
@@ -719,7 +763,10 @@ function CredentialsCard({
           <TextInput
             type="password"
             value={form.newPassword}
-            onChange={(value) => setForm((prev) => ({ ...prev, newPassword: value }))}
+            onChange={(value) => {
+              resetStatus();
+              setForm((prev) => ({ ...prev, newPassword: value }));
+            }}
             placeholder="********"
             autoComplete="new-password"
             invalid={weakPassword}
@@ -729,7 +776,10 @@ function CredentialsCard({
           <TextInput
             type="password"
             value={form.confirmPassword}
-            onChange={(value) => setForm((prev) => ({ ...prev, confirmPassword: value }))}
+            onChange={(value) => {
+              resetStatus();
+              setForm((prev) => ({ ...prev, confirmPassword: value }));
+            }}
             placeholder="********"
             autoComplete="new-password"
             invalid={passwordMismatch}
@@ -899,6 +949,10 @@ function PreferencesCard({
     setRoleForm(rolePrefs);
   }, [rolePrefs]);
 
+  const resetStatus = React.useCallback(() => {
+    setStatus((prev) => (prev.type === 'idle' ? prev : { type: 'idle' }));
+  }, []);
+
   const notificationsDirty = !isEqualNotifications(form.notifications, initialPrefs.notifications);
   const dirty =
     notificationsDirty ||
@@ -922,7 +976,10 @@ function PreferencesCard({
           roleSettings: roleForm,
         }),
       });
-      if (!res.ok) throw new Error('ERR');
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(data?.error ?? 'Não foi possível guardar as preferências.');
+      }
       onSaved(form, roleForm);
       const resolvedMode =
         form.theme === 'system'
@@ -930,8 +987,11 @@ function PreferencesCard({
           : (form.theme as Exclude<ThemePreference, 'system'>);
       setColorMode(resolvedMode);
       setStatus({ type: 'success', message: 'Preferências actualizadas.' });
-    } catch {
-      setStatus({ type: 'error', message: 'Não foi possível guardar as preferências.' });
+    } catch (error) {
+      setStatus({
+        type: 'error',
+        message: resolveUnexpectedError(error, 'Não foi possível guardar as preferências.'),
+      });
     } finally {
       setSaving(false);
     }
@@ -950,7 +1010,10 @@ function PreferencesCard({
         <Field label="Idioma">
           <Select
             value={form.language}
-            onChange={(value) => setForm((prev) => ({ ...prev, language: value }))}
+            onChange={(value) => {
+              resetStatus();
+              setForm((prev) => ({ ...prev, language: value }));
+            }}
             options={[
               { value: 'pt-PT', label: 'Português (Portugal)' },
               { value: 'en-US', label: 'Inglês' },
@@ -960,7 +1023,10 @@ function PreferencesCard({
         <Field label="Tema">
           <Select
             value={form.theme}
-            onChange={(value) => setForm((prev) => ({ ...prev, theme: value as ThemePreference }))}
+            onChange={(value) => {
+              resetStatus();
+              setForm((prev) => ({ ...prev, theme: value as ThemePreference }));
+            }}
             options={[
               { value: 'system', label: 'Automático' },
               { value: 'light', label: 'Claro' },
@@ -974,21 +1040,30 @@ function PreferencesCard({
         <Checkbox
           checked={form.notifications.email}
           onChange={(val) =>
-            setForm((prev) => ({ ...prev, notifications: { ...prev.notifications, email: val } }))
+            {
+              resetStatus();
+              setForm((prev) => ({ ...prev, notifications: { ...prev.notifications, email: val } }));
+            }
           }
           label="Receber alertas por email"
         />
         <Checkbox
           checked={form.notifications.push}
           onChange={(val) =>
-            setForm((prev) => ({ ...prev, notifications: { ...prev.notifications, push: val } }))
+            {
+              resetStatus();
+              setForm((prev) => ({ ...prev, notifications: { ...prev.notifications, push: val } }));
+            }
           }
           label="Notificações push"
         />
         <Checkbox
           checked={form.notifications.sms}
           onChange={(val) =>
-            setForm((prev) => ({ ...prev, notifications: { ...prev.notifications, sms: val } }))
+            {
+              resetStatus();
+              setForm((prev) => ({ ...prev, notifications: { ...prev.notifications, sms: val } }));
+            }
           }
           label="Alertas via SMS"
         />
@@ -996,7 +1071,13 @@ function PreferencesCard({
           <Select
             value={form.notifications.summary}
             onChange={(val) =>
-              setForm((prev) => ({ ...prev, notifications: { ...prev.notifications, summary: val as NotificationPreferences['summary'] } }))
+              {
+                resetStatus();
+                setForm((prev) => ({
+                  ...prev,
+                  notifications: { ...prev.notifications, summary: val as NotificationPreferences['summary'] },
+                }));
+              }
             }
             options={[
               { value: 'daily', label: 'Diário' },
@@ -1008,7 +1089,14 @@ function PreferencesCard({
         </Field>
       </div>
 
-      <RolePreferencesSection role={role} value={roleForm} onChange={setRoleForm} />
+      <RolePreferencesSection
+        role={role}
+        value={roleForm}
+        onChange={(next) => {
+          resetStatus();
+          setRoleForm(next);
+        }}
+      />
 
       <div className="settings-actions">
         <StatusMessage status={status} />
@@ -1034,7 +1122,7 @@ export default function SettingsClient({
 }) {
   const [account, setAccount] = React.useState<AccountState>({
     name: model.name,
-    phone: model.phone,
+    phone: model.phone ? normalizePhoneInput(model.phone) : null,
     email: model.email,
   });
   const [preferences, setPreferences] = React.useState<PreferencesState>({
@@ -1053,7 +1141,11 @@ export default function SettingsClient({
   const [range, setRange] = React.useState<RangeValue>('30');
 
   React.useEffect(() => {
-    setAccount({ name: model.name, phone: model.phone, email: model.email });
+    setAccount({
+      name: model.name,
+      phone: model.phone ? normalizePhoneInput(model.phone) : null,
+      email: model.email,
+    });
     setPreferences({ language: model.language, theme: model.theme, notifications: model.notifications });
     setRolePrefs(initialRolePrefs);
   }, [
