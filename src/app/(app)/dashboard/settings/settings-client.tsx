@@ -72,6 +72,8 @@ type DashboardResult = SettingsDashboardResponse & { ok: true };
 
 type DashboardFetcherError = Error & { status?: number };
 
+type DashboardErrorMessage = { title: string; description?: string };
+
 function toAccountFormState(account: AccountState): AccountState {
   const normalized = account.phone ? normalizePhone(account.phone) : '';
   return {
@@ -407,6 +409,46 @@ function resolveUnexpectedError(error: unknown, fallback: string) {
   }
 
   return fallback;
+}
+
+function isDashboardError(error: unknown): error is DashboardFetcherError {
+  return Boolean(
+    error &&
+      typeof error === 'object' &&
+      'status' in error &&
+      typeof (error as DashboardFetcherError).status === 'number',
+  );
+}
+
+function resolveDashboardError(error: unknown): DashboardErrorMessage {
+  const fallback: DashboardErrorMessage = { title: 'Não foi possível sincronizar as métricas.' };
+
+  if (!error) {
+    return fallback;
+  }
+
+  if (isDashboardError(error) && typeof error.status === 'number') {
+    if (error.status === 401 || error.status === 403) {
+      return {
+        title: 'Sessão expirada.',
+        description: 'Inicia sessão novamente para continuares a gerir as definições.',
+      };
+    }
+    if (error.status === 429) {
+      return {
+        title: 'Demasiados pedidos em simultâneo.',
+        description: 'Aguarda alguns segundos antes de tentar actualizar novamente.',
+      };
+    }
+    if (error.status >= 500) {
+      return {
+        title: 'Serviço de métricas indisponível.',
+        description: 'Tenta novamente mais tarde. Se o problema persistir contacta o suporte.',
+      };
+    }
+  }
+
+  return { title: resolveUnexpectedError(error, fallback.title) };
 }
 
 const dashboardFetcher = async (url: string): Promise<DashboardResult> => {
@@ -1460,6 +1502,7 @@ export default function SettingsClient({
   const refreshDashboard = React.useCallback(() => {
     void mutate(undefined, { revalidate: true });
   }, [mutate]);
+  const dashboardError = error ? resolveDashboardError(error) : null;
   const lastUpdatedLabel = React.useMemo(
     () => formatUpdatedAt(analyticsData.generatedAt),
     [analyticsData.generatedAt],
@@ -1492,9 +1535,11 @@ export default function SettingsClient({
         }
       />
 
-      {error ? (
+      {dashboardError ? (
         <div className="settings-error-banner">
-          <Alert tone="danger" title={error.message} />
+          <Alert tone="danger" title={dashboardError.title}>
+            {dashboardError.description}
+          </Alert>
         </div>
       ) : null}
       {fallbackActive ? (
