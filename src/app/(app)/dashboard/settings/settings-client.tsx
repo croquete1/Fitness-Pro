@@ -34,6 +34,7 @@ import {
   type ThemePreference,
   type TrainerSettings,
 } from '@/lib/settings/defaults';
+import { normalizeEmail, isValidEmail } from '@/lib/email';
 import { normalizePhone, phoneDigitCount, PHONE_MIN_DIGITS, PHONE_MAX_DIGITS } from '@/lib/phone';
 import type {
   SettingsActivity,
@@ -54,8 +55,6 @@ type RangeValue = (typeof RANGE_OPTIONS)[number]['value'];
 type Status = { type: 'idle' | 'success' | 'error'; message?: string };
 
 const MIN_NAME_LENGTH = 3;
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 type AccountState = { name: string; phone: string | null; email: string };
 
 type PreferencesState = {
@@ -328,16 +327,8 @@ function formatUpdatedAt(value: string | null | undefined) {
   }
 }
 
-function isValidEmail(value: string) {
-  return EMAIL_PATTERN.test(value);
-}
-
 function collapseWhitespaceOnly(value: string) {
   return value.trim().length ? value : '';
-}
-
-function normalizeEmailInput(value: string) {
-  return value.replace(/\s+/g, '').toLowerCase();
 }
 
 function resolveAccountUpdateError(code?: string) {
@@ -806,7 +797,7 @@ function CredentialsCard({
   onEmailChange: (email: string) => void;
   onUpdated?: () => void;
 }) {
-  const latestEmail = React.useMemo(() => normalizeEmailInput(email), [email]);
+  const latestEmail = React.useMemo(() => normalizeEmail(email), [email]);
   const [form, setForm] = React.useState({
     email: latestEmail,
     currentPassword: '',
@@ -831,12 +822,8 @@ function CredentialsCard({
     setStatus((prev) => (prev.type === 'idle' ? prev : { type: 'idle' }));
   }, []);
 
-  const resetStatus = React.useCallback(() => {
-    setStatus((prev) => (prev.type === 'idle' ? prev : { type: 'idle' }));
-  }, []);
-
   const wantsPasswordChange = Boolean(form.newPassword.trim().length);
-  const normalizedEmail = normalizeEmailInput(form.email);
+  const normalizedEmail = normalizeEmail(form.email);
   const emailChanged = normalizedEmail !== latestEmail;
   const invalidEmail = emailChanged && !isValidEmail(normalizedEmail);
   const passwordMismatch = form.newPassword !== form.confirmPassword;
@@ -941,7 +928,7 @@ function CredentialsCard({
             value={form.email}
             onChange={(value) => {
               resetStatus();
-              const nextEmail = normalizeEmailInput(value);
+              const nextEmail = normalizeEmail(value);
               setForm((prev) => (prev.email === nextEmail ? prev : { ...prev, email: nextEmail }));
             }}
             autoComplete="email"

@@ -1,6 +1,7 @@
 // src/app/api/me/settings/credentials/route.ts
 import { NextResponse } from 'next/server';
 import { isGuardErr, requireUserGuard } from '@/lib/api-guards';
+import { normalizeEmail, isValidEmail } from '@/lib/email';
 import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 
@@ -9,10 +10,6 @@ type Body = {
   newPassword?: unknown;
   currentPassword?: unknown;
 };
-
-function isValidEmail(value: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-}
 
 export async function PATCH(req: Request) {
   const guard = await requireUserGuard();
@@ -28,7 +25,7 @@ export async function PATCH(req: Request) {
   const updates: { email?: string; password?: string } = {};
 
   if (body.email !== undefined) {
-    const email = String(body.email).trim();
+    const email = normalizeEmail(String(body.email));
     if (!isValidEmail(email)) {
       return NextResponse.json({ ok: false, error: 'INVALID_EMAIL' }, { status: 400 });
     }

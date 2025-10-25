@@ -127,6 +127,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Limpar o aviso da confirmação quando o campo é apagado sem iniciar uma alteração de palavra-passe, evitando alertas persistentes. Fonte: `src/app/(app)/dashboard/settings/settings-client.tsx`.
 - [x] Ignorar entradas apenas com espaços nos campos de palavra-passe para evitar estados sujos e avisos incoerentes nas definições. Fonte: `src/app/(app)/dashboard/settings/settings-client.tsx`.
 - [x] Normalizar o email nas credenciais removendo espaços, forçando minúsculas e reaproveitando o valor limpo ao validar e guardar. Fonte: `src/app/(app)/dashboard/settings/settings-client.tsx`.
+- [x] Ajustar a normalização do email para evitar remoção de caracteres válidos e alinhar a API de credenciais com o helper partilhado. Fontes: `src/app/(app)/dashboard/settings/settings-client.tsx`, `src/app/api/me/settings/credentials/route.ts`, `src/lib/email.ts`.
 - [ ] Harmonizar o design dos dashboards (admin, PT e cliente) com a linguagem visual HMS, validando breakpoints mobile/desktop.
 - [ ] Completar o fluxo operacional do PT (clientes, planos, agenda e biblioteca) com dados reais e interacções consistentes.
 - [ ] Documentar configuração e variáveis de ambiente actualizadas após migração para Supabase.
