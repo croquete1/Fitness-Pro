@@ -476,9 +476,11 @@ function ActivityCard({ activity }: { activity: SettingsActivity[] }) {
 function AccountSettingsCard({
   account,
   onSaved,
+  onUpdated,
 }: {
   account: AccountState;
   onSaved: (next: AccountState) => void;
+  onUpdated?: () => void;
 }) {
   const [form, setForm] = React.useState<AccountState>(account);
   const [status, setStatus] = React.useState<Status>({ type: 'idle' });
@@ -533,6 +535,7 @@ function AccountSettingsCard({
       setStatus({ type: 'success', message: 'Alterações guardadas.' });
       onSaved({ ...account, name: trimmedName, phone: nextPhone });
       setForm((prev) => ({ ...prev, name: trimmedName, phone: nextPhone }));
+      onUpdated?.();
     } catch (error) {
       setStatus({
         type: 'error',
@@ -609,9 +612,11 @@ function AccountSettingsCard({
 function CredentialsCard({
   email,
   onEmailChange,
+  onUpdated,
 }: {
   email: string;
   onEmailChange: (email: string) => void;
+  onUpdated?: () => void;
 }) {
   const [form, setForm] = React.useState({
     email,
@@ -670,6 +675,7 @@ function CredentialsCard({
       }
       setForm({ email: trimmedEmail, currentPassword: '', newPassword: '', confirmPassword: '' });
       setStatus({ type: 'success', message: 'Credenciais actualizadas com sucesso.' });
+      onUpdated?.();
     } catch (error) {
       setStatus({
         type: 'error',
@@ -904,11 +910,13 @@ function PreferencesCard({
   initialPrefs,
   rolePrefs,
   onSaved,
+  onUpdated,
 }: {
   role: AppRole;
   initialPrefs: PreferencesState;
   rolePrefs: RolePreferences['value'];
   onSaved: (prefs: PreferencesState, rolePrefs: RolePreferences['value']) => void;
+  onUpdated?: () => void;
 }) {
   const { set: setColorMode } = useColorMode();
   const [form, setForm] = React.useState<PreferencesState>(initialPrefs);
@@ -969,6 +977,7 @@ function PreferencesCard({
           : (form.theme as Exclude<ThemePreference, 'system'>);
       setColorMode(resolvedMode);
       setStatus({ type: 'success', message: 'Preferências actualizadas.' });
+      onUpdated?.();
     } catch (error) {
       setStatus({
         type: 'error',
@@ -1159,6 +1168,9 @@ export default function SettingsClient({
   const analyticsData: SettingsDashboardData = analytics;
 
   const fallbackActive = analytics.source === 'fallback';
+  const refreshDashboard = React.useCallback(() => {
+    void mutate();
+  }, [mutate]);
 
   return (
     <div className="settings-dashboard neo-dashboard">
@@ -1171,7 +1183,7 @@ export default function SettingsClient({
             <Button
               type="button"
               variant="ghost"
-              onClick={() => mutate()}
+              onClick={refreshDashboard}
               loading={isValidating}
               leftIcon={<RefreshCw size={16} />}
               title="Actualizar métricas"
@@ -1213,6 +1225,7 @@ export default function SettingsClient({
             <AccountSettingsCard
               account={account}
               onSaved={(next) => setAccount(next)}
+              onUpdated={refreshDashboard}
             />
           </SectionCard>
 
@@ -1220,6 +1233,7 @@ export default function SettingsClient({
             <CredentialsCard
               email={account.email}
               onEmailChange={(value) => setAccount((prev) => ({ ...prev, email: value }))}
+              onUpdated={refreshDashboard}
             />
           </SectionCard>
 
@@ -1232,6 +1246,7 @@ export default function SettingsClient({
                 setPreferences(prefs);
                 setRolePrefs(roleSpecific);
               }}
+              onUpdated={refreshDashboard}
             />
           </SectionCard>
         </aside>
