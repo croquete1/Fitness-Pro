@@ -8245,6 +8245,11 @@ h1,.h1{
   gap:12px;
   align-items:center;
 }
+.settings-header-updated{
+  font-size:13px;
+  color:var(--neo-text-muted);
+  white-space:nowrap;
+}
 .settings-error-banner,
 .settings-fallback-banner{
   display:grid;
@@ -8608,7 +8613,12 @@ h1,.h1{
   flex-wrap:wrap;
   gap:12px;
   align-items:center;
-  justify-content:space-between;
+}
+.settings-actions__group{
+  display:flex;
+  gap:12px;
+  margin-left:auto;
+  flex-wrap:wrap;
 }
 .settings-subpanel{
   display:grid;
