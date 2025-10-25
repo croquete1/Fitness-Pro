@@ -35,6 +35,8 @@ type PreparedQuery = {
   compact: string;
   ascii: string;
   asciiCompact: string;
+  rawTokens: string[];
+  asciiTokens: string[];
 };
 
 type ClientAlertKey =
@@ -95,12 +97,35 @@ function stripDiacritics(value: string): string {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
+function splitTokens(value: string): string[] {
+  return Array.from(new Set(value.split(/\s+/g).map((token) => token.trim()).filter(Boolean)));
+}
+
 function prepareQuery(value: string | null | undefined): PreparedQuery {
-  const raw = value ? value.toString().toLocaleLowerCase('pt-PT') : '';
-  const ascii = raw ? stripDiacritics(raw) : '';
-  const compact = raw ? raw.replace(/\s+/g, '') : '';
-  const asciiCompact = ascii ? ascii.replace(/\s+/g, '') : '';
-  return { raw, compact, ascii, asciiCompact };
+  const raw = value ? value.toString().trim().toLocaleLowerCase('pt-PT') : '';
+  if (!raw) {
+    return {
+      raw: '',
+      compact: '',
+      ascii: '',
+      asciiCompact: '',
+      rawTokens: [],
+      asciiTokens: [],
+    } satisfies PreparedQuery;
+  }
+
+  const ascii = stripDiacritics(raw);
+  const compact = raw.replace(/\s+/g, '');
+  const asciiCompact = ascii.replace(/\s+/g, '');
+
+  return {
+    raw,
+    compact,
+    ascii,
+    asciiCompact,
+    rawTokens: splitTokens(raw),
+    asciiTokens: splitTokens(ascii),
+  } satisfies PreparedQuery;
 }
 
 function clientStatusTone(value: string | null | undefined): StatusTone {
@@ -164,25 +189,21 @@ function createMutableSearchIndex(): MutableClientRowSearchIndex {
 }
 
 function pushSearchCandidate(index: MutableClientRowSearchIndex, value: string | null | undefined) {
-  if (!value) return;
-  const normalized = value.toString().trim().toLocaleLowerCase('pt-PT');
-  if (!normalized) return;
+  const prepared = prepareQuery(value);
+  if (!prepared.raw) return;
 
-  index.raw.add(normalized);
+  index.raw.add(prepared.raw);
 
-  const ascii = stripDiacritics(normalized);
-  if (ascii) {
-    index.ascii.add(ascii);
+  if (prepared.ascii) {
+    index.ascii.add(prepared.ascii);
   }
 
-  const compact = normalized.replace(/\s+/g, '');
-  if (compact) {
-    index.compact.add(compact);
+  if (prepared.compact) {
+    index.compact.add(prepared.compact);
   }
 
-  const asciiCompact = ascii.replace(/\s+/g, '');
-  if (asciiCompact) {
-    index.asciiCompact.add(asciiCompact);
+  if (prepared.asciiCompact) {
+    index.asciiCompact.add(prepared.asciiCompact);
   }
 }
 
@@ -216,15 +237,20 @@ function buildRowSearchIndex(
   } satisfies ClientRowSearchIndex;
 }
 
+function matchesAllTokens(tokens: string[], candidates: string[]): boolean {
+  if (!tokens.length) return false;
+  return tokens.every((token) => candidates.some((candidate) => candidate.includes(token)));
+}
+
 function rowMatchesQuery(entry: ClientRowAnalysis, query: PreparedQuery): boolean {
   if (!query.raw) return true;
   const { searchIndex } = entry.derived;
 
-  if (searchIndex.raw.some((candidate) => candidate.includes(query.raw))) {
+  if (matchesAllTokens(query.rawTokens, searchIndex.raw)) {
     return true;
   }
 
-  if (query.ascii && searchIndex.ascii.some((candidate) => candidate.includes(query.ascii))) {
+  if (query.ascii && matchesAllTokens(query.asciiTokens, searchIndex.ascii)) {
     return true;
   }
 
