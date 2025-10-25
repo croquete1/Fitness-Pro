@@ -134,20 +134,25 @@ function SectionCard({ children }: { children: React.ReactNode }) {
   return <section className="neo-panel settings-section">{children}</section>;
 }
 
+type FieldTone = 'muted' | 'warning' | 'error';
+
 function Field({
   label,
   description,
   children,
+  tone = 'muted',
 }: {
   label: string;
   description?: React.ReactNode;
   children: React.ReactNode;
+  tone?: FieldTone;
 }) {
+  const hintClassName = `settings-field__hint${tone !== 'muted' ? ` settings-field__hint--${tone}` : ''}`;
   return (
     <label className="settings-field">
       <span className="settings-field__label">{label}</span>
       {children}
-      {description ? <span className="settings-field__hint">{description}</span> : null}
+      {description ? <span className={hintClassName}>{description}</span> : null}
     </label>
   );
 }
@@ -164,6 +169,8 @@ function TextInput({
   invalid,
   autoCapitalize,
   spellCheck,
+  onBlur,
+  onFocus,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -176,6 +183,8 @@ function TextInput({
   invalid?: boolean;
   autoCapitalize?: React.InputHTMLAttributes<HTMLInputElement>['autoCapitalize'];
   spellCheck?: boolean;
+  onBlur?: React.FocusEventHandler<HTMLInputElement>;
+  onFocus?: React.FocusEventHandler<HTMLInputElement>;
 }) {
   return (
     <input
@@ -190,6 +199,8 @@ function TextInput({
       autoCapitalize={autoCapitalize}
       spellCheck={spellCheck}
       aria-invalid={invalid ? 'true' : undefined}
+      onBlur={onBlur}
+      onFocus={onFocus}
       className="neo-field"
     />
   );
@@ -811,12 +822,28 @@ function CredentialsCard({
   const emailChanged = trimmedEmail !== email.trim();
   const invalidEmail = emailChanged && !isValidEmail(trimmedEmail);
   const passwordMismatch = form.newPassword !== form.confirmPassword;
-  const confirmDirty = confirmTouched || form.confirmPassword.length > 0;
-  const showPasswordMismatch = confirmDirty && passwordMismatch;
   const weakPassword = wantsPasswordChange && form.newPassword.length > 0 && form.newPassword.length < 8;
+  const confirmDirty = confirmTouched || form.confirmPassword.length > 0;
+  const confirmPending = wantsPasswordChange && !weakPassword && !form.confirmPassword.length;
+  const showPasswordMismatch = confirmDirty && !confirmPending && passwordMismatch;
   const missingCurrentPassword = wantsPasswordChange && !form.currentPassword;
   const hasAnyPasswordInput = Boolean(form.currentPassword || form.newPassword || form.confirmPassword);
   const dirty = emailChanged || hasAnyPasswordInput;
+
+  let confirmHintTone: FieldTone = 'muted';
+  let confirmHint: React.ReactNode = wantsPasswordChange
+    ? 'Repete a nova palavra-passe para garantir que está correcta.'
+    : 'Obrigatória apenas ao alterar a palavra-passe.';
+
+  if (wantsPasswordChange) {
+    if (showPasswordMismatch) {
+      confirmHintTone = 'error';
+      confirmHint = 'As palavras-passe não coincidem.';
+    } else if (confirmPending) {
+      confirmHintTone = 'warning';
+      confirmHint = 'Confirma a nova palavra-passe para concluíres a alteração.';
+    }
+  }
 
   const disabled =
     saving ||
@@ -956,7 +983,7 @@ function CredentialsCard({
             invalid={weakPassword}
           />
         </Field>
-        <Field label="Confirmar palavra-passe">
+        <Field label="Confirmar palavra-passe" description={confirmHint} tone={confirmHintTone}>
           <TextInput
             type="password"
             value={form.confirmPassword}
@@ -968,13 +995,14 @@ function CredentialsCard({
             placeholder="********"
             autoComplete="new-password"
             invalid={showPasswordMismatch}
+            onBlur={() => {
+              if (wantsPasswordChange) {
+                setConfirmTouched(true);
+              }
+            }}
           />
         </Field>
       </div>
-
-      {showPasswordMismatch ? (
-        <p className="settings-warning">As palavras-passe não coincidem.</p>
-      ) : null}
 
       <div className="settings-actions">
         <StatusMessage status={status} />

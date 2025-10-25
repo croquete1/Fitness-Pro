@@ -8591,6 +8591,12 @@ h1,.h1{
   font-size:12px;
   color:var(--neo-text-muted);
 }
+.settings-field__hint--warning{
+  color:var(--warning);
+}
+.settings-field__hint--error{
+  color:var(--danger);
+}
 .settings-checkbox{
   display:flex;
   align-items:center;

@@ -122,6 +122,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Assinalar contactos telefónicos fora do intervalo permitido nas definições, encorajando a actualização sem bloquear alterações noutras informações. Fonte: `src/app/(app)/dashboard/settings/settings-client.tsx`.
 - [x] Manter o aviso de contactos legacy ao editar sem alterações e destacar os limites mínimo/máximo na contagem de dígitos. Fonte: `src/app/(app)/dashboard/settings/settings-client.tsx`.
 - [x] Evitar avisos prematuros na confirmação da palavra-passe e limpar confirmações obsoletas ao remover a nova palavra-passe nas definições. Fonte: `src/app/(app)/dashboard/settings/settings-client.tsx`.
+- [x] Orientar a confirmação da nova palavra-passe com mensagens dinâmicas e avisos contextuais quando a confirmação está em falta ou não coincide. Fonte: `src/app/(app)/dashboard/settings/settings-client.tsx`, `src/app/globals.css`.
 - [ ] Harmonizar o design dos dashboards (admin, PT e cliente) com a linguagem visual HMS, validando breakpoints mobile/desktop.
 - [ ] Completar o fluxo operacional do PT (clientes, planos, agenda e biblioteca) com dados reais e interacções consistentes.
 - [ ] Documentar configuração e variáveis de ambiente actualizadas após migração para Supabase.
