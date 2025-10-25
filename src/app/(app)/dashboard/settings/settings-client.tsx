@@ -622,6 +622,9 @@ function AccountSettingsCard({
   const phoneChanged = normalizedPhone !== initialPhone;
   const dirty = nameChanged || phoneChanged;
   const invalidName = nameChanged && trimmedName.length < MIN_NAME_LENGTH;
+  const initialPhoneDigits = initialHasPhone ? phoneDigitCount(initialPhone) : 0;
+  const initialPhoneTooShort = initialHasPhone && initialPhoneDigits < PHONE_MIN_DIGITS;
+  const initialPhoneTooLong = initialHasPhone && initialPhoneDigits > PHONE_MAX_DIGITS;
   const phoneDigits = normalizedPhone.length ? phoneDigitCount(normalizedPhone) : 0;
   const phoneTooShort = phoneChanged && normalizedPhone.length > 0 && phoneDigits < PHONE_MIN_DIGITS;
   const phoneTooLong = phoneChanged && normalizedPhone.length > 0 && phoneDigits > PHONE_MAX_DIGITS;
@@ -630,6 +633,16 @@ function AccountSettingsCard({
   const basePhoneHelper = initialHasPhone
     ? 'Utilizado para alertas críticos e suporte.'
     : 'Adiciona um número para receber alertas críticos e suporte.';
+  const legacyPhoneNotice = (() => {
+    if (!initialHasPhone) return null;
+    if (initialPhoneTooShort) {
+      return ` Atenção: o número guardado tem ${initialPhoneDigits} dígitos (mínimo ${PHONE_MIN_DIGITS}). Actualiza-o assim que possível.`;
+    }
+    if (initialPhoneTooLong) {
+      return ` Atenção: o número guardado tem ${initialPhoneDigits} dígitos (máximo ${PHONE_MAX_DIGITS}). Actualiza-o assim que possível.`;
+    }
+    return null;
+  })();
   const phoneHelper = (() => {
     if (invalidPhone) {
       if (phoneTooShort) {
@@ -640,7 +653,7 @@ function AccountSettingsCard({
       }
     }
     if (!phoneTouched) {
-      return basePhoneHelper;
+      return legacyPhoneNotice ? `${basePhoneHelper}${legacyPhoneNotice}` : basePhoneHelper;
     }
     if (!normalizedPhone.length) {
       return initialHasPhone ? 'O número actual será removido ao guardar.' : 'Nenhum número guardado nesta conta.';
