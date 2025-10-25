@@ -964,7 +964,7 @@ function PreferencesCard({
   onSaved: (prefs: PreferencesState, rolePrefs: RolePreferences['value']) => void;
   onUpdated?: () => void;
 }) {
-  const { set: setColorMode } = useColorMode();
+  const { set: setColorMode, setSystem: setSystemMode } = useColorMode();
   const [form, setForm] = React.useState<PreferencesState>(initialPrefs);
   const [roleForm, setRoleForm] = React.useState<RolePreferences['value']>(rolePrefs);
   const [status, setStatus] = React.useState<Status>({ type: 'idle' });
@@ -1017,11 +1017,11 @@ function PreferencesCard({
         throw new Error(data?.error ?? 'Não foi possível guardar as preferências.');
       }
       onSaved(form, roleForm);
-      const resolvedMode =
-        form.theme === 'system'
-          ? defaultThemeFromSystem()
-          : (form.theme as Exclude<ThemePreference, 'system'>);
-      setColorMode(resolvedMode);
+      if (form.theme === 'system') {
+        setSystemMode();
+      } else {
+        setColorMode(form.theme as Exclude<ThemePreference, 'system'>);
+      }
       setStatus({ type: 'success', message: 'Preferências actualizadas.' });
       onUpdated?.();
     } catch (error) {
@@ -1143,11 +1143,6 @@ function PreferencesCard({
       </div>
     </form>
   );
-}
-
-function defaultThemeFromSystem(): Exclude<ThemePreference, 'system'> {
-  if (typeof window === 'undefined') return 'light';
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
 export default function SettingsClient({
