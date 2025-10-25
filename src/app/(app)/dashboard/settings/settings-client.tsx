@@ -795,9 +795,11 @@ function CredentialsCard({
   });
   const [status, setStatus] = React.useState<Status>({ type: 'idle' });
   const [saving, setSaving] = React.useState(false);
+  const [confirmTouched, setConfirmTouched] = React.useState(false);
 
   React.useEffect(() => {
     setForm((prev) => ({ ...prev, email }));
+    setConfirmTouched(false);
   }, [email]);
 
   const resetStatus = React.useCallback(() => {
@@ -809,6 +811,8 @@ function CredentialsCard({
   const emailChanged = trimmedEmail !== email.trim();
   const invalidEmail = emailChanged && !isValidEmail(trimmedEmail);
   const passwordMismatch = form.newPassword !== form.confirmPassword;
+  const confirmDirty = confirmTouched || form.confirmPassword.length > 0;
+  const showPasswordMismatch = confirmDirty && passwordMismatch;
   const weakPassword = wantsPasswordChange && form.newPassword.length > 0 && form.newPassword.length < 8;
   const missingCurrentPassword = wantsPasswordChange && !form.currentPassword;
   const hasAnyPasswordInput = Boolean(form.currentPassword || form.newPassword || form.confirmPassword);
@@ -823,7 +827,14 @@ function CredentialsCard({
   const handleReset = React.useCallback(() => {
     resetStatus();
     setForm({ email, currentPassword: '', newPassword: '', confirmPassword: '' });
+    setConfirmTouched(false);
   }, [email, resetStatus]);
+
+  React.useEffect(() => {
+    if (!form.newPassword.trim().length) {
+      setConfirmTouched(false);
+    }
+  }, [form.newPassword]);
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -850,6 +861,7 @@ function CredentialsCard({
         onEmailChange(trimmedEmail);
       }
       setForm({ email: trimmedEmail, currentPassword: '', newPassword: '', confirmPassword: '' });
+      setConfirmTouched(false);
       setStatus({ type: 'success', message: 'Credenciais actualizadas com sucesso.' });
       onUpdated?.();
     } catch (error) {
@@ -929,7 +941,15 @@ function CredentialsCard({
             value={form.newPassword}
             onChange={(value) => {
               resetStatus();
-              setForm((prev) => ({ ...prev, newPassword: value }));
+              const trimmed = value.trim();
+              setForm((prev) => ({
+                ...prev,
+                newPassword: value,
+                confirmPassword: trimmed.length ? prev.confirmPassword : '',
+              }));
+              if (!trimmed.length) {
+                setConfirmTouched(false);
+              }
             }}
             placeholder="********"
             autoComplete="new-password"
@@ -942,16 +962,17 @@ function CredentialsCard({
             value={form.confirmPassword}
             onChange={(value) => {
               resetStatus();
+              setConfirmTouched(true);
               setForm((prev) => ({ ...prev, confirmPassword: value }));
             }}
             placeholder="********"
             autoComplete="new-password"
-            invalid={passwordMismatch}
+            invalid={showPasswordMismatch}
           />
         </Field>
       </div>
 
-      {passwordMismatch ? (
+      {showPasswordMismatch ? (
         <p className="settings-warning">As palavras-passe não coincidem.</p>
       ) : null}
 
