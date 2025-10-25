@@ -652,17 +652,30 @@ function AccountSettingsCard({
         return `Introduz um número de telefone válido (máximo ${PHONE_MAX_DIGITS} dígitos — actualmente ${phoneDigits}).`;
       }
     }
+    const helperPrefix = legacyPhoneNotice && (!phoneTouched || !phoneChanged)
+      ? `${basePhoneHelper}${legacyPhoneNotice}`
+      : basePhoneHelper;
     if (!phoneTouched) {
-      return legacyPhoneNotice ? `${basePhoneHelper}${legacyPhoneNotice}` : basePhoneHelper;
+      return helperPrefix;
     }
     if (!normalizedPhone.length) {
       return initialHasPhone ? 'O número actual será removido ao guardar.' : 'Nenhum número guardado nesta conta.';
     }
-    const digitsLabel =
-      phoneDigits >= PHONE_MAX_DIGITS
-        ? `${phoneDigits} dígitos (limite ${PHONE_MAX_DIGITS}).`
-        : `${phoneDigits} dígitos.`;
-    return `${basePhoneHelper} Actualmente ${digitsLabel}`;
+    const limitHint = (() => {
+      if (!phoneChanged) {
+        if (initialPhoneTooShort) {
+          return ` (mínimo ${PHONE_MIN_DIGITS}).`;
+        }
+        if (initialPhoneTooLong) {
+          return ` (limite ${PHONE_MAX_DIGITS}).`;
+        }
+      }
+      if (phoneDigits >= PHONE_MAX_DIGITS) {
+        return ` (limite ${PHONE_MAX_DIGITS}).`;
+      }
+      return '.';
+    })();
+    return `${helperPrefix} Actualmente ${phoneDigits} dígitos${limitHint}`;
   })();
 
   async function onSubmit(event: React.FormEvent) {
