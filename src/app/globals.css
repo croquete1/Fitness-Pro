@@ -8613,7 +8613,12 @@ h1,.h1{
   flex-wrap:wrap;
   gap:12px;
   align-items:center;
-  justify-content:space-between;
+}
+.settings-actions__group{
+  display:flex;
+  gap:12px;
+  margin-left:auto;
+  flex-wrap:wrap;
 }
 .settings-subpanel{
   display:grid;

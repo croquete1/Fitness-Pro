@@ -73,6 +73,63 @@ type DashboardResult = SettingsDashboardResponse & { ok: true };
 
 type DashboardFetcherError = Error & { status?: number };
 
+function toAccountFormState(account: AccountState): AccountState {
+  const normalized = account.phone ? normalizePhone(account.phone) : '';
+  return {
+    name: account.name,
+    email: account.email,
+    phone: normalized.length ? normalized : null,
+  };
+}
+
+function toPreferencesFormState(prefs: PreferencesState): PreferencesState {
+  return {
+    language: prefs.language,
+    theme: prefs.theme,
+    notifications: { ...prefs.notifications },
+  };
+}
+
+function cloneRolePreferences(role: AppRole, value: RolePreferences['value']): RolePreferences['value'] {
+  if (role === 'ADMIN') {
+    return { ...(value as AdminSettings) };
+  }
+  if (role === 'PT') {
+    return { ...(value as TrainerSettings) };
+  }
+  return { ...(value as ClientSettings) };
+}
+
+function isEqualRolePreferences(role: AppRole, a: RolePreferences['value'], b: RolePreferences['value']) {
+  if (role === 'ADMIN') {
+    const prefA = a as AdminSettings;
+    const prefB = b as AdminSettings;
+    return (
+      prefA.digestFrequency === prefB.digestFrequency &&
+      prefA.autoAssignTrainers === prefB.autoAssignTrainers &&
+      prefA.shareInsights === prefB.shareInsights
+    );
+  }
+  if (role === 'PT') {
+    const prefA = a as TrainerSettings;
+    const prefB = b as TrainerSettings;
+    return (
+      prefA.sessionReminders === prefB.sessionReminders &&
+      prefA.newClientAlerts === prefB.newClientAlerts &&
+      prefA.calendarVisibility === prefB.calendarVisibility &&
+      prefA.allowClientReschedule === prefB.allowClientReschedule
+    );
+  }
+  const prefA = a as ClientSettings;
+  const prefB = b as ClientSettings;
+  return (
+    prefA.planReminders === prefB.planReminders &&
+    prefA.trainerMessages === prefB.trainerMessages &&
+    prefA.shareProgress === prefB.shareProgress &&
+    prefA.smsReminders === prefB.smsReminders
+  );
+}
+
 function SectionCard({ children }: { children: React.ReactNode }) {
   return <section className="neo-panel settings-section">{children}</section>;
 }
@@ -528,28 +585,32 @@ function AccountSettingsCard({
   onSaved: (next: AccountState) => void;
   onUpdated?: () => void;
 }) {
-  const [form, setForm] = React.useState<AccountState>(account);
+  const latestAccount = React.useMemo(
+    () => toAccountFormState(account),
+    [account.email, account.name, account.phone],
+  );
+  const [form, setForm] = React.useState<AccountState>(() => latestAccount);
   const [status, setStatus] = React.useState<Status>({ type: 'idle' });
   const [saving, setSaving] = React.useState(false);
 
   React.useEffect(() => {
-    const normalized = account.phone ? normalizePhone(account.phone) : '';
-    setForm({
-      name: account.name,
-      phone: normalized.length ? normalized : null,
-      email: account.email,
-    });
-  }, [account.name, account.phone, account.email]);
+    setForm(latestAccount);
+  }, [latestAccount]);
 
   const resetStatus = React.useCallback(() => {
     setStatus((prev) => (prev.type === 'idle' ? prev : { type: 'idle' }));
   }, []);
 
+  const handleReset = React.useCallback(() => {
+    resetStatus();
+    setForm(latestAccount);
+  }, [latestAccount, resetStatus]);
+
   const trimmedName = form.name.trim();
   const initialName = account.name.trim();
   const nameChanged = trimmedName !== initialName;
   const normalizedPhone = form.phone ?? '';
-  const initialPhone = account.phone ? normalizePhone(account.phone) : '';
+  const initialPhone = latestAccount.phone ?? '';
   const phoneChanged = normalizedPhone !== initialPhone;
   const dirty = nameChanged || phoneChanged;
   const invalidName = nameChanged && trimmedName.length < MIN_NAME_LENGTH;
@@ -647,9 +708,14 @@ function AccountSettingsCard({
 
       <div className="settings-actions">
         <StatusMessage status={status} />
-        <Button type="submit" variant="primary" disabled={disabled} loading={saving} loadingText="A guardar…">
-          Guardar alterações
-        </Button>
+        <div className="settings-actions__group">
+          <Button onClick={handleReset} variant="ghost" disabled={!dirty || saving}>
+            Repor alterações
+          </Button>
+          <Button type="submit" variant="primary" disabled={disabled} loading={saving} loadingText="A guardar…">
+            Guardar alterações
+          </Button>
+        </div>
       </div>
     </form>
   );
@@ -688,12 +754,19 @@ function CredentialsCard({
   const passwordMismatch = form.newPassword !== form.confirmPassword;
   const weakPassword = wantsPasswordChange && form.newPassword.length > 0 && form.newPassword.length < 8;
   const missingCurrentPassword = wantsPasswordChange && !form.currentPassword;
+  const hasAnyPasswordInput = Boolean(form.currentPassword || form.newPassword || form.confirmPassword);
+  const dirty = emailChanged || hasAnyPasswordInput;
 
   const disabled =
     saving ||
     invalidEmail ||
     (!emailChanged && !wantsPasswordChange) ||
     (wantsPasswordChange && (passwordMismatch || weakPassword || !form.currentPassword));
+
+  const handleReset = React.useCallback(() => {
+    resetStatus();
+    setForm({ email, currentPassword: '', newPassword: '', confirmPassword: '' });
+  }, [email, resetStatus]);
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -827,9 +900,14 @@ function CredentialsCard({
 
       <div className="settings-actions">
         <StatusMessage status={status} />
-        <Button type="submit" variant="primary" disabled={disabled} loading={saving} loadingText="A guardar…">
-          Actualizar credenciais
-        </Button>
+        <div className="settings-actions__group">
+          <Button onClick={handleReset} variant="ghost" disabled={!dirty || saving}>
+            Repor alterações
+          </Button>
+          <Button type="submit" variant="primary" disabled={disabled} loading={saving} loadingText="A guardar…">
+            Actualizar credenciais
+          </Button>
+        </div>
       </div>
     </form>
   );
@@ -965,36 +1043,50 @@ function PreferencesCard({
   onUpdated?: () => void;
 }) {
   const { set: setColorMode, setSystem: setSystemMode } = useColorMode();
-  const [form, setForm] = React.useState<PreferencesState>(initialPrefs);
-  const [roleForm, setRoleForm] = React.useState<RolePreferences['value']>(rolePrefs);
+  const latestPrefs = React.useMemo(
+    () => toPreferencesFormState(initialPrefs),
+    [
+      initialPrefs.language,
+      initialPrefs.theme,
+      initialPrefs.notifications.email,
+      initialPrefs.notifications.push,
+      initialPrefs.notifications.sms,
+      initialPrefs.notifications.summary,
+    ],
+  );
+  const latestRolePrefs = React.useMemo(
+    () => cloneRolePreferences(role, rolePrefs),
+    [role, rolePrefs],
+  );
+  const [form, setForm] = React.useState<PreferencesState>(() => latestPrefs);
+  const [roleForm, setRoleForm] = React.useState<RolePreferences['value']>(() => latestRolePrefs);
   const [status, setStatus] = React.useState<Status>({ type: 'idle' });
   const [saving, setSaving] = React.useState(false);
 
   React.useEffect(() => {
-    setForm(initialPrefs);
-  }, [
-    initialPrefs.language,
-    initialPrefs.theme,
-    initialPrefs.notifications.email,
-    initialPrefs.notifications.push,
-    initialPrefs.notifications.sms,
-    initialPrefs.notifications.summary,
-  ]);
+    setForm(latestPrefs);
+  }, [latestPrefs]);
 
   React.useEffect(() => {
-    setRoleForm(rolePrefs);
-  }, [rolePrefs]);
+    setRoleForm(latestRolePrefs);
+  }, [latestRolePrefs]);
 
   const resetStatus = React.useCallback(() => {
     setStatus((prev) => (prev.type === 'idle' ? prev : { type: 'idle' }));
   }, []);
 
-  const notificationsDirty = !isEqualNotifications(form.notifications, initialPrefs.notifications);
+  const handleReset = React.useCallback(() => {
+    resetStatus();
+    setForm(latestPrefs);
+    setRoleForm(latestRolePrefs);
+  }, [latestPrefs, latestRolePrefs, resetStatus]);
+
+  const notificationsDirty = !isEqualNotifications(form.notifications, latestPrefs.notifications);
   const dirty =
     notificationsDirty ||
-    form.language !== initialPrefs.language ||
-    form.theme !== initialPrefs.theme ||
-    JSON.stringify(roleForm) !== JSON.stringify(rolePrefs);
+    form.language !== latestPrefs.language ||
+    form.theme !== latestPrefs.theme ||
+    !isEqualRolePreferences(role, roleForm, latestRolePrefs);
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -1137,9 +1229,14 @@ function PreferencesCard({
 
       <div className="settings-actions">
         <StatusMessage status={status} />
-        <Button type="submit" variant="primary" disabled={!dirty} loading={saving} loadingText="A guardar…">
-          Guardar preferências
-        </Button>
+        <div className="settings-actions__group">
+          <Button onClick={handleReset} variant="ghost" disabled={!dirty || saving}>
+            Repor alterações
+          </Button>
+          <Button type="submit" variant="primary" disabled={!dirty} loading={saving} loadingText="A guardar…">
+            Guardar preferências
+          </Button>
+        </div>
       </div>
     </form>
   );
