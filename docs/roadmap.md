@@ -133,6 +133,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [ ] Harmonizar o design dos dashboards (admin, PT e cliente) com a linguagem visual HMS, validando breakpoints mobile/desktop.
 - [x] Completar o fluxo operacional do PT (clientes, planos, agenda e biblioteca) com dados reais e interacções consistentes (carteira de clientes alimentada por `trainer_clients`, planos e sessões reais expostos no cockpit).
 - [x] Enriquecer a carteira de clientes do PT com títulos de plano, contactos directos e contagem real de sessões futuras usando `pt_sessions`/`sessions`. Fontes: `src/lib/trainer/clients/server.ts`, `src/app/(app)/dashboard/pt/clients/page.tsx`.
+- [x] Reforçar a carteira do PT com métricas de higiene (contactos/plano) e acções rápidas para contactar clientes directamente. Fontes: `src/lib/trainer/clients/server.ts`, `src/app/(app)/dashboard/pt/clients/page.tsx`.
 - [ ] Documentar configuração e variáveis de ambiente actualizadas após migração para Supabase.
 - [ ] Remover dependências/artefactos não utilizados (ex.: pacotes Prisma, scripts legados) após consolidação da camada de dados.
 - [ ] Adicionar protecções de rate limiting e validações adicionais nas rotas sensíveis.

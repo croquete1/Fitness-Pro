@@ -2,6 +2,7 @@ import { addDays, subDays } from 'date-fns';
 
 import { tryCreateServerClient } from '@/lib/supabaseServer';
 import { getTrainerDashboardFallback } from '@/lib/fallback/trainer-dashboard';
+import { normalizePhone } from '@/lib/phone';
 
 export type TrainerClientOverviewRow = {
   id: string;
@@ -30,6 +31,8 @@ export type TrainerClientOverview = {
     onboarding: number;
     withoutUpcoming: number;
     upcomingSessions: number;
+    withoutPlan: number;
+    missingContacts: number;
   };
 };
 
@@ -155,6 +158,8 @@ function buildMetrics(rows: TrainerClientOverviewRow[]): TrainerClientOverview['
   let onboarding = 0;
   let withoutUpcoming = 0;
   let upcomingSessions = 0;
+  let withoutPlan = 0;
+  let missingContacts = 0;
 
   for (const row of rows) {
     const planStatus = row.planStatus ? row.planStatus.toString().toUpperCase() : '';
@@ -164,14 +169,30 @@ function buildMetrics(rows: TrainerClientOverviewRow[]): TrainerClientOverview['
       onboarding += 1;
     }
 
+    if (!planStatus || planStatus === 'DELETED' || planStatus === 'ARCHIVED') {
+      withoutPlan += 1;
+    }
+
     if (!row.upcomingCount) {
       withoutUpcoming += 1;
     }
 
     upcomingSessions += row.upcomingCount ?? 0;
+
+    if (!row.email && !row.phone) {
+      missingContacts += 1;
+    }
   }
 
-  return { total, activePlans, onboarding, withoutUpcoming, upcomingSessions };
+  return {
+    total,
+    activePlans,
+    onboarding,
+    withoutUpcoming,
+    upcomingSessions,
+    withoutPlan,
+    missingContacts,
+  };
 }
 
 function mapFallbackRows(trainerId: string) {
@@ -234,7 +255,15 @@ export async function loadTrainerClientOverview(trainerId: string): Promise<Trai
         supabase: true,
         updatedAt: new Date().toISOString(),
         rows: [],
-        metrics: { total: 0, activePlans: 0, onboarding: 0, withoutUpcoming: 0, upcomingSessions: 0 },
+        metrics: {
+          total: 0,
+          activePlans: 0,
+          onboarding: 0,
+          withoutUpcoming: 0,
+          upcomingSessions: 0,
+          withoutPlan: 0,
+          missingContacts: 0,
+        },
       } satisfies TrainerClientOverview;
     }
 
@@ -297,12 +326,19 @@ export async function loadTrainerClientOverview(trainerId: string): Promise<Trai
     ];
     const sessionMap = computeSessionStats(sessionRows, now);
 
-    const rows: TrainerClientOverviewRow[] = linkRows.map((link) => {
-      const id = link.client_id ? String(link.client_id) : crypto.randomUUID();
+    const validLinks = linkRows.filter(
+      (link): link is TrainerClientLink & { client_id: string } => Boolean(link.client_id),
+    );
+
+    const rows: TrainerClientOverviewRow[] = validLinks.map((link) => {
+      const id = String(link.client_id);
       const profile = profileMap.get(id);
       const user = userMap.get(id);
       const plan = planMap.get(id);
       const stats = sessionMap.get(id) ?? { upcoming: 0, nextAt: null, lastAt: null };
+      const rawPhone = user?.phone ?? null;
+      const normalizedPhone = rawPhone ? normalizePhone(rawPhone) : '';
+      const phone = normalizedPhone || (rawPhone?.toString().trim() || null);
 
       return {
         id,
@@ -310,7 +346,7 @@ export async function loadTrainerClientOverview(trainerId: string): Promise<Trai
           firstString(profile?.full_name, profile?.name, user?.name, user?.email, id) ??
           `Cliente ${id.slice(0, 6)}`,
         email: user?.email ?? null,
-        phone: user?.phone ?? null,
+        phone,
         clientStatus: user?.status ?? null,
         linkedAt: link.created_at ?? null,
         planStatus: plan?.status ?? null,
