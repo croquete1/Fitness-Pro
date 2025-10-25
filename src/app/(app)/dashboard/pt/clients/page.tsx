@@ -329,6 +329,7 @@ function buildRowSearchIndex(
   pushSearchCandidate(index, row.planTitle);
   pushSearchCandidate(index, row.planStatus);
   pushSearchCandidate(index, planStatusLabel(row.planStatus));
+  pushSearchCandidate(index, row.clientStatus);
   pushSearchCandidate(index, clientStatusLabel(row.clientStatus));
   pushSearchCandidate(index, row.id);
   pushSearchCandidate(index, `ID #${row.id}`);
@@ -355,7 +356,9 @@ function buildRowSearchIndex(
     pushSearchCandidate(index, `Última sessão ${derived.lastAbsolute}`);
   }
   pushSearchCandidate(index, derived.linkedRelative);
-  pushSearchCandidate(index, `Ligado ${derived.linkedRelative}`);
+  if (derived.linkedDisplay !== derived.linkedRelative) {
+    pushSearchCandidate(index, derived.linkedDisplay);
+  }
   if (derived.planUpdatedRelative) {
     pushSearchCandidate(index, derived.planUpdatedRelative);
     pushSearchCandidate(index, `Actualizado ${derived.planUpdatedRelative}`);
@@ -445,6 +448,7 @@ type ClientRowDerived = {
   lastRelative: string;
   lastAbsolute: string | null;
   linkedRelative: string;
+  linkedDisplay: string;
   planUpdatedRelative: string | null;
   planUpdatedAbsolute: string | null;
   telHref: string | null;
@@ -473,6 +477,7 @@ function decorateRow(
   const linkedRelative = row.linkedAt
     ? relativeLabel(row.linkedAt, 'há algum tempo', now) ?? 'há algum tempo'
     : 'Ligação pendente';
+  const linkedDisplay = row.linkedAt ? `Ligado ${linkedRelative}` : 'Ligação pendente';
   const planUpdatedRelative = row.planUpdatedAt
     ? relativeLabel(row.planUpdatedAt, 'há algum tempo', now)
     : null;
@@ -485,6 +490,7 @@ function decorateRow(
     lastRelative,
     lastAbsolute,
     linkedRelative,
+    linkedDisplay,
     planUpdatedRelative,
     planUpdatedAbsolute,
     telHref,
@@ -895,7 +901,7 @@ export default async function PtClientsPage({
                   <header className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="font-semibold text-fg">{row.name}</p>
-                      <p className="text-xs text-muted">Ligado {derived.linkedRelative}</p>
+                      <p className="text-xs text-muted">{derived.linkedDisplay}</p>
                     </div>
                     <span className="status-pill" data-state={clientStatusTone(row.clientStatus)}>
                       {clientStatusLabel(row.clientStatus)}
@@ -1103,7 +1109,7 @@ export default async function PtClientsPage({
                     <td>
                       <div className="space-y-1">
                         <span className="font-semibold text-fg">{row.name}</span>
-                        <p className="text-xs text-muted">Ligado {derived.linkedRelative}</p>
+                        <p className="text-xs text-muted">{derived.linkedDisplay}</p>
                         <div className="flex flex-wrap gap-2 text-xs text-muted">
                           {row.email && <span>{row.email}</span>}
                           {row.phone && <span>{row.phone}</span>}

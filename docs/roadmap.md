@@ -151,6 +151,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Permitir pesquisa por rótulos visíveis na carteira do PT (sem agendamento, sem histórico, ligação pendente ou sem contacto), indexando também os textos dos alertas operacionais. Fonte: `src/app/(app)/dashboard/pt/clients/page.tsx`.
 - [x] Ignorar stopwords frequentes e reutilizar queries cacheadas na pesquisa da carteira do PT, acelerando resultados e aceitando expressões naturais. Fonte: `src/app/(app)/dashboard/pt/clients/page.tsx`.
 - [x] Permitir pesquisa pelas etiquetas completas apresentadas na carteira do PT ("Ligado …", "Próxima sessão …", datas formatadas e "ID #…"), adicionando estas variantes e o fallback "Sem histórico de actualização" ao índice de pesquisa. Fonte: `src/app/(app)/dashboard/pt/clients/page.tsx`.
+- [x] Corrigir o estado "Ligação pendente" na carteira do PT para remover o prefixo duplicado e indexar a variante correcta para pesquisa, incluindo o estado cru do cliente. Fonte: `src/app/(app)/dashboard/pt/clients/page.tsx`.
 - [ ] Documentar configuração e variáveis de ambiente actualizadas após migração para Supabase.
 - [ ] Remover dependências/artefactos não utilizados (ex.: pacotes Prisma, scripts legados) após consolidação da camada de dados.
 - [ ] Adicionar protecções de rate limiting e validações adicionais nas rotas sensíveis.
