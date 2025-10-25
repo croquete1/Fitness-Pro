@@ -30,7 +30,26 @@ type PlanStatusTone = 'primary' | 'success' | 'warning' | 'violet' | 'info';
 
 type AlertTone = 'warning' | 'info' | 'violet';
 
-type ClientAlert = { label: string; tone: AlertTone };
+type ClientAlertKey =
+  | 'NO_UPCOMING'
+  | 'NO_PLAN'
+  | 'PLAN_NOT_ACTIVE'
+  | 'NO_CONTACT'
+  | 'CLIENT_STATUS'
+  | 'NO_HISTORY'
+  | 'LAST_SESSION_STALE';
+
+type ClientAlert = { key: ClientAlertKey; label: string; tone: AlertTone };
+
+const ALERT_SUMMARY_META: Record<ClientAlertKey, { label: string; tone: AlertTone }> = {
+  NO_UPCOMING: { label: 'Sem próxima sessão agendada', tone: 'warning' },
+  NO_PLAN: { label: 'Sem plano activo', tone: 'info' },
+  PLAN_NOT_ACTIVE: { label: 'Planos por activar', tone: 'info' },
+  NO_CONTACT: { label: 'Sem contacto directo', tone: 'warning' },
+  CLIENT_STATUS: { label: 'Estado do cliente a rever', tone: 'violet' },
+  NO_HISTORY: { label: 'Sem histórico de sessões', tone: 'violet' },
+  LAST_SESSION_STALE: { label: 'Sessão recente em atraso', tone: 'warning' },
+};
 
 const DAY_IN_MS = 86_400_000;
 const STALE_SESSION_THRESHOLD_DAYS = 14;
@@ -97,19 +116,33 @@ function relativeLabel(value: string | null, empty: string): string {
   return empty;
 }
 
-function sortRows(
+type ClientRowAnalysis = {
+  row: Awaited<ReturnType<typeof loadTrainerClientOverview>>['rows'][number];
+  alerts: ClientAlert[];
+  urgency: number;
+};
+
+function buildRowAnalysis(
   rows: Awaited<ReturnType<typeof loadTrainerClientOverview>>['rows'],
   nowMs = Date.now(),
-): typeof rows {
-  return [...rows].sort((a, b) => {
-    const aUrgency = clientUrgencyScore(a, nowMs);
-    const bUrgency = clientUrgencyScore(b, nowMs);
-    if (aUrgency !== bUrgency) return bUrgency - aUrgency;
-    const aNext = a.nextSessionAt ? new Date(a.nextSessionAt).getTime() : Infinity;
-    const bNext = b.nextSessionAt ? new Date(b.nextSessionAt).getTime() : Infinity;
+): ClientRowAnalysis[] {
+  return rows.map((row) => ({
+    row,
+    alerts: buildRowAlerts(row, nowMs),
+    urgency: clientUrgencyScore(row, nowMs),
+  }));
+}
+
+function sortAnalysedRows(entries: ClientRowAnalysis[]): ClientRowAnalysis[] {
+  return [...entries].sort((a, b) => {
+    if (a.urgency !== b.urgency) return b.urgency - a.urgency;
+    const aNext = a.row.nextSessionAt ? new Date(a.row.nextSessionAt).getTime() : Infinity;
+    const bNext = b.row.nextSessionAt ? new Date(b.row.nextSessionAt).getTime() : Infinity;
     if (aNext !== bNext) return aNext - bNext;
-    if (b.upcomingCount !== a.upcomingCount) return b.upcomingCount - a.upcomingCount;
-    return a.name.localeCompare(b.name, 'pt-PT');
+    if (b.row.upcomingCount !== a.row.upcomingCount) {
+      return b.row.upcomingCount - a.row.upcomingCount;
+    }
+    return a.row.name.localeCompare(b.row.name, 'pt-PT');
   });
 }
 
@@ -151,46 +184,42 @@ function buildRowAlerts(
 ): ClientAlert[] {
   const alerts: ClientAlert[] = [];
   if (!row.upcomingCount) {
-    alerts.push({ label: 'Sem próxima sessão agendada', tone: 'warning' });
+    alerts.push({ key: 'NO_UPCOMING', label: 'Sem próxima sessão agendada', tone: 'warning' });
   }
 
   const planStatus = normalize(row.planStatus);
   if (!planStatus) {
-    alerts.push({ label: 'Sem plano activo', tone: 'info' });
+    alerts.push({ key: 'NO_PLAN', label: 'Sem plano activo', tone: 'info' });
   } else if (planStatus !== 'ACTIVE') {
-    alerts.push({ label: `Plano ${planStatusLabel(row.planStatus)}`, tone: 'info' });
+    alerts.push({
+      key: 'PLAN_NOT_ACTIVE',
+      label: `Plano ${planStatusLabel(row.planStatus)}`,
+      tone: 'info',
+    });
   }
 
   if (!row.email && !row.phone) {
-    alerts.push({ label: 'Sem contacto directo', tone: 'warning' });
+    alerts.push({ key: 'NO_CONTACT', label: 'Sem contacto directo', tone: 'warning' });
   }
-  return empty;
-}
-
-function sortRows(
-  rows: Awaited<ReturnType<typeof loadTrainerClientOverview>>['rows'],
-): typeof rows {
-  return [...rows].sort((a, b) => {
-    const aUrgency = clientUrgencyScore(a);
-    const bUrgency = clientUrgencyScore(b);
-    if (aUrgency !== bUrgency) return bUrgency - aUrgency;
-    const aNext = a.nextSessionAt ? new Date(a.nextSessionAt).getTime() : Infinity;
-    const bNext = b.nextSessionAt ? new Date(b.nextSessionAt).getTime() : Infinity;
-    if (aNext !== bNext) return aNext - bNext;
-    if (b.upcomingCount !== a.upcomingCount) return b.upcomingCount - a.upcomingCount;
-    return a.name.localeCompare(b.name, 'pt-PT');
-  });
-}
 
   const status = normalize(row.clientStatus);
   if (status && status !== 'ACTIVE') {
-    alerts.push({ label: `Estado ${clientStatusLabel(row.clientStatus)}`, tone: 'violet' });
+    alerts.push({
+      key: 'CLIENT_STATUS',
+      label: `Estado ${clientStatusLabel(row.clientStatus)}`,
+      tone: 'violet',
+    });
   }
-  if (!planStatus || planStatus !== 'ACTIVE') {
-    score += 2;
-  }
-  if (!row.email && !row.phone) {
-    score += 1;
+
+  const lastAt = row.lastSessionAt ? new Date(row.lastSessionAt).getTime() : Number.NaN;
+  if (!row.lastSessionAt) {
+    alerts.push({ key: 'NO_HISTORY', label: 'Sem sessões registadas', tone: 'violet' });
+  } else if (!Number.isNaN(lastAt) && nowMs - lastAt > STALE_SESSION_THRESHOLD_MS) {
+    alerts.push({
+      key: 'LAST_SESSION_STALE',
+      label: `Última sessão ${relativeLabel(row.lastSessionAt, 'há mais de 14 dias')}`,
+      tone: 'warning',
+    });
   }
   return score;
 }
@@ -203,17 +232,34 @@ function buildTelHref(value: string | null | undefined) {
   return `tel:${compact}`;
 }
 
-  const lastAt = row.lastSessionAt ? new Date(row.lastSessionAt).getTime() : Number.NaN;
-  if (!row.lastSessionAt) {
-    alerts.push({ label: 'Sem sessões registadas', tone: 'violet' });
-  } else if (!Number.isNaN(lastAt) && nowMs - lastAt > STALE_SESSION_THRESHOLD_MS) {
-    alerts.push({
-      label: `Última sessão ${relativeLabel(row.lastSessionAt, 'há mais de 14 dias')}`,
-      tone: 'warning',
-    });
+  return alerts;
+}
+
+function summarizeAlerts(entries: ClientRowAnalysis[]) {
+  const summary = new Map<
+    ClientAlertKey,
+    { key: ClientAlertKey; label: string; tone: AlertTone; count: number }
+  >();
+
+  for (const entry of entries) {
+    for (const alert of entry.alerts) {
+      const meta = ALERT_SUMMARY_META[alert.key];
+      if (!meta) continue;
+      const current = summary.get(alert.key) ?? {
+        key: alert.key,
+        label: meta.label,
+        tone: meta.tone,
+        count: 0,
+      };
+      current.count += 1;
+      summary.set(alert.key, current);
+    }
   }
 
-  return alerts;
+  return Array.from(summary.values()).sort((a, b) => {
+    if (a.count !== b.count) return b.count - a.count;
+    return a.label.localeCompare(b.label, 'pt-PT');
+  });
 }
 
 export default async function PtClientsPage() {
@@ -225,12 +271,13 @@ export default async function PtClientsPage() {
 
   const overview = await loadTrainerClientOverview(me.id);
   const nowMs = Date.now();
-  const rows = sortRows(overview.rows, nowMs);
+  const analysedRows = sortAnalysedRows(buildRowAnalysis(overview.rows, nowMs));
+  const rows = analysedRows.map((entry) => entry.row);
   const lastUpdatedLabel = relativeLabel(overview.updatedAt, 'actualizado agora mesmo');
-  const attention = rows
-    .map((row) => ({ row, alerts: buildRowAlerts(row, nowMs) }))
-    .filter((entry) => entry.alerts.length > 0);
+  const attention = analysedRows.filter((entry) => entry.alerts.length > 0);
   const urgentRows = attention.slice(0, 6);
+  const overflowCount = attention.length - urgentRows.length;
+  const alertSummary = summarizeAlerts(attention);
 
   const metrics: Metric[] = [
     {
@@ -348,6 +395,24 @@ export default async function PtClientsPage() {
           </span>
         </div>
 
+        {alertSummary.length > 0 && (
+          <div className="neo-inline neo-inline--sm flex-wrap" role="list">
+            {alertSummary.map((item) => (
+              <span
+                key={item.key}
+                className="neo-badge"
+                data-tone={item.tone}
+                role="listitem"
+                aria-label={`${item.count} clientes com alerta: ${item.label}`}
+              >
+                <span className="font-semibold">{item.count}</span>
+                <span aria-hidden="true"> · </span>
+                {item.label}
+              </span>
+            ))}
+          </div>
+        )}
+
         {urgentRows.length > 0 ? (
           <div className="neo-stack space-y-3">
             {urgentRows.map(({ row, alerts }) => {
@@ -377,7 +442,12 @@ export default async function PtClientsPage() {
 
                   <div className="neo-inline neo-inline--sm" role="list">
                     {alerts.map((alert) => (
-                      <span key={alert.label} className="neo-badge" data-tone={alert.tone} role="listitem">
+                      <span
+                        key={`${alert.key}-${alert.label}`}
+                        className="neo-badge"
+                        data-tone={alert.tone}
+                        role="listitem"
+                      >
                         {alert.label}
                       </span>
                     ))}
@@ -423,6 +493,12 @@ export default async function PtClientsPage() {
         ) : (
           <p className="rounded-xl border border-dashed border-white/40 bg-white/30 p-4 text-sm text-muted dark:border-slate-700/60 dark:bg-slate-900/20">
             Todos os clientes têm plano activo, contacto directo e sessões em curso.
+          </p>
+        )}
+
+        {overflowCount > 0 && (
+          <p className="text-xs text-muted">
+            Outros {overflowCount} cliente(s) com alertas estão detalhados na tabela abaixo.
           </p>
         )}
       </section>
