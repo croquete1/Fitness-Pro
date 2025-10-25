@@ -124,6 +124,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Evitar avisos prematuros na confirmação da palavra-passe e limpar confirmações obsoletas ao remover a nova palavra-passe nas definições. Fonte: `src/app/(app)/dashboard/settings/settings-client.tsx`.
 - [x] Orientar a confirmação da nova palavra-passe com mensagens dinâmicas e avisos contextuais quando a confirmação está em falta ou não coincide. Fonte: `src/app/(app)/dashboard/settings/settings-client.tsx`, `src/app/globals.css`.
 - [x] Avisar quando a confirmação da palavra-passe é preenchida antes de definir a nova palavra-passe, guiando a sequência correcta no formulário. Fonte: `src/app/(app)/dashboard/settings/settings-client.tsx`.
+- [x] Limpar o aviso da confirmação quando o campo é apagado sem iniciar uma alteração de palavra-passe, evitando alertas persistentes. Fonte: `src/app/(app)/dashboard/settings/settings-client.tsx`.
 - [ ] Harmonizar o design dos dashboards (admin, PT e cliente) com a linguagem visual HMS, validando breakpoints mobile/desktop.
 - [ ] Completar o fluxo operacional do PT (clientes, planos, agenda e biblioteca) com dados reais e interacções consistentes.
 - [ ] Documentar configuração e variáveis de ambiente actualizadas após migração para Supabase.

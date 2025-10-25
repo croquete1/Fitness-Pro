@@ -991,7 +991,12 @@ function CredentialsCard({
             value={form.confirmPassword}
             onChange={(value) => {
               resetStatus();
-              setConfirmTouched(true);
+              const trimmed = value.trim();
+              if (trimmed.length) {
+                setConfirmTouched(true);
+              } else if (!wantsPasswordChange) {
+                setConfirmTouched(false);
+              }
               setForm((prev) => ({ ...prev, confirmPassword: value }));
             }}
             placeholder="********"
