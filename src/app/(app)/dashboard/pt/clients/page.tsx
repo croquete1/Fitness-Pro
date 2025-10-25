@@ -253,6 +253,14 @@ function pushSearchCandidate(index: MutableClientRowSearchIndex, value: string |
 
 function buildRowSearchIndex(
   row: Awaited<ReturnType<typeof loadTrainerClientOverview>>['rows'][number],
+  derived: {
+    nextRelative: string;
+    lastRelative: string;
+    linkedRelative: string;
+    planUpdatedRelative: string | null;
+    hasContact: boolean;
+  },
+  alerts: ClientAlert[],
 ): ClientRowSearchIndex {
   const index = createMutableSearchIndex();
 
@@ -271,6 +279,22 @@ function buildRowSearchIndex(
     if (digitsOnly) {
       pushSearchCandidate(index, digitsOnly);
     }
+  }
+
+  pushSearchCandidate(index, derived.nextRelative);
+  pushSearchCandidate(index, derived.lastRelative);
+  pushSearchCandidate(index, derived.linkedRelative);
+  if (derived.planUpdatedRelative) {
+    pushSearchCandidate(index, derived.planUpdatedRelative);
+  }
+
+  if (!derived.hasContact) {
+    pushSearchCandidate(index, 'Sem contacto directo');
+    pushSearchCandidate(index, 'Sem contacto');
+  }
+
+  for (const alert of alerts) {
+    pushSearchCandidate(index, alert.label);
   }
 
   return {
@@ -358,6 +382,7 @@ type ClientRowAnalysis = {
 function decorateRow(
   row: Awaited<ReturnType<typeof loadTrainerClientOverview>>['rows'][number],
   now: Date,
+  alerts: ClientAlert[],
 ): ClientRowDerived {
   const nextRelative = relativeLabel(row.nextSessionAt, 'Sem agendamento', now);
   const nextAbsolute = formatTimestamp(row.nextSessionAt);
@@ -371,7 +396,17 @@ function decorateRow(
     : null;
   const telHref = buildTelHref(row.phone);
   const hasContact = Boolean(row.email || row.phone);
-  const searchIndex = buildRowSearchIndex(row);
+  const searchIndex = buildRowSearchIndex(
+    row,
+    {
+      nextRelative,
+      lastRelative,
+      linkedRelative,
+      planUpdatedRelative,
+      hasContact,
+    },
+    alerts,
+  );
 
   return {
     nextRelative,
@@ -391,12 +426,15 @@ function buildRowAnalysis(
   nowMs = Date.now(),
 ): ClientRowAnalysis[] {
   const now = new Date(nowMs);
-  return rows.map((row) => ({
-    row,
-    alerts: buildRowAlerts(row, nowMs, now),
-    urgency: clientUrgencyScore(row, nowMs),
-    derived: decorateRow(row, now),
-  }));
+  return rows.map((row) => {
+    const alerts = buildRowAlerts(row, nowMs, now);
+    return {
+      row,
+      alerts,
+      urgency: clientUrgencyScore(row, nowMs),
+      derived: decorateRow(row, now, alerts),
+    } satisfies ClientRowAnalysis;
+  });
 }
 
 function sortAnalysedRows(entries: ClientRowAnalysis[]): ClientRowAnalysis[] {
