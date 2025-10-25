@@ -34,6 +34,7 @@ import {
   type ThemePreference,
   type TrainerSettings,
 } from '@/lib/settings/defaults';
+import { normalizePhone, phoneDigitCount, PHONE_MIN_DIGITS } from '@/lib/phone';
 import type {
   SettingsActivity,
   SettingsDashboardData,
@@ -51,6 +52,9 @@ const RANGE_OPTIONS = [
 type RangeValue = (typeof RANGE_OPTIONS)[number]['value'];
 
 type Status = { type: 'idle' | 'success' | 'error'; message?: string };
+
+const MIN_NAME_LENGTH = 3;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type AccountState = { name: string; phone: string | null; email: string };
 
@@ -79,7 +83,7 @@ function Field({
   children,
 }: {
   label: string;
-  description?: string;
+  description?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -97,12 +101,24 @@ function TextInput({
   type = 'text',
   placeholder,
   disabled,
+  autoComplete,
+  inputMode,
+  maxLength,
+  invalid,
+  autoCapitalize,
+  spellCheck,
 }: {
   value: string;
   onChange: (value: string) => void;
   type?: string;
   placeholder?: string;
   disabled?: boolean;
+  autoComplete?: string;
+  inputMode?: React.InputHTMLAttributes<HTMLInputElement>['inputMode'];
+  maxLength?: number;
+  invalid?: boolean;
+  autoCapitalize?: React.InputHTMLAttributes<HTMLInputElement>['autoCapitalize'];
+  spellCheck?: boolean;
 }) {
   return (
     <input
@@ -111,6 +127,12 @@ function TextInput({
       type={type}
       disabled={disabled}
       placeholder={placeholder}
+      autoComplete={autoComplete}
+      inputMode={inputMode}
+      maxLength={maxLength}
+      autoCapitalize={autoCapitalize}
+      spellCheck={spellCheck}
+      aria-invalid={invalid ? 'true' : undefined}
       className="neo-field"
     />
   );
@@ -168,8 +190,9 @@ function Select({
 function StatusMessage({ status }: { status: Status }) {
   if (status.type === 'idle') return null;
   const tone = status.type === 'success' ? 'var(--success)' : 'var(--danger)';
+  const ariaLive = status.type === 'error' ? 'assertive' : 'polite';
   return (
-    <p className="settings-status" style={{ color: tone }}>
+    <p className="settings-status" style={{ color: tone }} role="status" aria-live={ariaLive} aria-atomic="true">
       {status.message}
     </p>
   );
@@ -189,6 +212,57 @@ function formatRelativeLabel(value: string | null | undefined) {
   } catch {
     return '—';
   }
+}
+
+function isValidEmail(value: string) {
+  return EMAIL_PATTERN.test(value);
+}
+
+function resolveAccountUpdateError(code?: string) {
+  switch (code) {
+    case 'INVALID_DATE':
+      return 'A data fornecida é inválida.';
+    case 'INVALID_USERNAME':
+    case 'USERNAME_TAKEN':
+      return 'Não foi possível actualizar o nome de utilizador.';
+    case 'INVALID_JSON':
+      return 'Pedido inválido ao actualizar o perfil.';
+    case 'PHONE_TAKEN':
+      return 'Este número de telefone já está associado a outra conta.';
+    case 'INVALID_PHONE':
+      return `Introduz um número de telefone válido (mínimo ${PHONE_MIN_DIGITS} dígitos).`;
+    default:
+      return 'Não foi possível guardar as alterações.';
+  }
+}
+
+function resolveCredentialsUpdateError(code?: string) {
+  switch (code) {
+    case 'INVALID_EMAIL':
+      return 'O email indicado não é válido.';
+    case 'WEAK_PASSWORD':
+      return 'A nova palavra-passe deve ter pelo menos 8 caracteres.';
+    case 'MISSING_CURRENT_PASSWORD':
+      return 'Indica a palavra-passe actual para definires uma nova.';
+    case 'INVALID_CURRENT_PASSWORD':
+      return 'A palavra-passe actual está incorrecta.';
+    case 'INVALID_JSON':
+      return 'Pedido inválido ao actualizar as credenciais.';
+    case 'EMAIL_TAKEN':
+      return 'Este email já está associado a outra conta.';
+    default:
+      return 'Não foi possível actualizar as credenciais.';
+  }
+}
+
+function resolveUnexpectedError(error: unknown, fallback: string) {
+  if (error instanceof Error) {
+    if (error.message === 'Failed to fetch') {
+      return 'Não foi possível ligar ao servidor. Verifica a tua ligação e tenta novamente.';
+    }
+    return error.message;
+  }
+  return fallback;
 }
 
 const dashboardFetcher = async (url: string): Promise<DashboardResult> => {
@@ -402,43 +476,71 @@ function ActivityCard({ activity }: { activity: SettingsActivity[] }) {
 function AccountSettingsCard({
   account,
   onSaved,
+  onUpdated,
 }: {
   account: AccountState;
   onSaved: (next: AccountState) => void;
+  onUpdated?: () => void;
 }) {
   const [form, setForm] = React.useState<AccountState>(account);
   const [status, setStatus] = React.useState<Status>({ type: 'idle' });
   const [saving, setSaving] = React.useState(false);
 
   React.useEffect(() => {
-    setForm(account);
+    const normalized = account.phone ? normalizePhone(account.phone) : '';
+    setForm({
+      name: account.name,
+      phone: normalized.length ? normalized : null,
+      email: account.email,
+    });
   }, [account.name, account.phone, account.email]);
 
-  const dirty =
-    form.name.trim() !== (account.name ?? '').trim() || (form.phone ?? '') !== (account.phone ?? '');
+  const resetStatus = React.useCallback(() => {
+    setStatus((prev) => (prev.type === 'idle' ? prev : { type: 'idle' }));
+  }, []);
+
+  const trimmedName = form.name.trim();
+  const initialName = account.name.trim();
+  const nameChanged = trimmedName !== initialName;
+  const normalizedPhone = form.phone ?? '';
+  const initialPhone = account.phone ? normalizePhone(account.phone) : '';
+  const phoneChanged = normalizedPhone !== initialPhone;
+  const dirty = nameChanged || phoneChanged;
+  const invalidName = nameChanged && trimmedName.length < MIN_NAME_LENGTH;
+  const phoneDigits = normalizedPhone.length ? phoneDigitCount(normalizedPhone) : 0;
+  const invalidPhone = phoneChanged && normalizedPhone.length > 0 && phoneDigits < PHONE_MIN_DIGITS;
+  const disabled = saving || !dirty || invalidName || invalidPhone;
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (!dirty || saving) return;
+    if (!dirty || saving || invalidName || invalidPhone) return;
     setSaving(true);
     setStatus({ type: 'idle' });
     try {
       const updates: Record<string, unknown> = {};
-      const nextName = form.name.trim();
-      if (nextName !== (account.name ?? '').trim()) updates.name = nextName;
-      if ((form.phone ?? null) !== (account.phone ?? null)) updates.phone = form.phone;
+      if (nameChanged) updates.name = trimmedName;
+      if (phoneChanged) updates.phone = normalizedPhone.length ? normalizedPhone : null;
 
       const res = await fetch('/api/me/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
       });
-      if (!res.ok) throw new Error('ERR');
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+        const errorMessage = resolveAccountUpdateError(data?.error);
+        throw new Error(errorMessage);
+      }
+      const nextPhone = normalizedPhone.length ? normalizedPhone : null;
       setStatus({ type: 'success', message: 'Alterações guardadas.' });
-      onSaved({ ...account, name: nextName, phone: form.phone ?? null });
-      setForm((prev) => ({ ...prev, name: nextName }));
-    } catch {
-      setStatus({ type: 'error', message: 'Não foi possível guardar as alterações.' });
+      onSaved({ ...account, name: trimmedName, phone: nextPhone });
+      setForm((prev) => ({ ...prev, name: trimmedName, phone: nextPhone }));
+      onUpdated?.();
+    } catch (error) {
+      setStatus({
+        type: 'error',
+        message: resolveUnexpectedError(error, 'Não foi possível guardar as alterações.'),
+      });
     } finally {
       setSaving(false);
     }
@@ -454,21 +556,52 @@ function AccountSettingsCard({
       </header>
 
       <div className="settings-fields" data-columns="2">
-        <Field label="Nome completo">
-          <TextInput value={form.name} onChange={(value) => setForm((prev) => ({ ...prev, name: value }))} />
+        <Field
+          label="Nome completo"
+          description={
+            invalidName
+              ? `O nome deve ter pelo menos ${MIN_NAME_LENGTH} caracteres.`
+              : undefined
+          }
+        >
+          <TextInput
+            value={form.name}
+            onChange={(value) => {
+              resetStatus();
+              setForm((prev) => ({ ...prev, name: value }));
+            }}
+            autoComplete="name"
+            maxLength={120}
+            invalid={invalidName}
+          />
         </Field>
-        <Field label="Telefone" description="Utilizado para alertas críticos e suporte.">
+        <Field
+          label="Telefone"
+          description={
+            invalidPhone
+              ? `Introduz um número de telefone válido (mínimo ${PHONE_MIN_DIGITS} dígitos — actualmente ${phoneDigits}).`
+              : 'Utilizado para alertas críticos e suporte.'
+          }
+        >
           <TextInput
             value={form.phone ?? ''}
-            onChange={(value) => setForm((prev) => ({ ...prev, phone: value.trim().length ? value : null }))}
+            onChange={(value) => {
+              const normalized = normalizePhone(value);
+              resetStatus();
+              setForm((prev) => ({ ...prev, phone: normalized.length ? normalized : null }));
+            }}
             placeholder="(+351) 910 000 000"
+            autoComplete="tel"
+            inputMode="tel"
+            maxLength={32}
+            invalid={invalidPhone}
           />
         </Field>
       </div>
 
       <div className="settings-actions">
         <StatusMessage status={status} />
-        <Button type="submit" variant="primary" disabled={!dirty} loading={saving} loadingText="A guardar…">
+        <Button type="submit" variant="primary" disabled={disabled} loading={saving} loadingText="A guardar…">
           Guardar alterações
         </Button>
       </div>
@@ -479,9 +612,11 @@ function AccountSettingsCard({
 function CredentialsCard({
   email,
   onEmailChange,
+  onUpdated,
 }: {
   email: string;
   onEmailChange: (email: string) => void;
+  onUpdated?: () => void;
 }) {
   const [form, setForm] = React.useState({
     email,
@@ -496,14 +631,23 @@ function CredentialsCard({
     setForm((prev) => ({ ...prev, email }));
   }, [email]);
 
+  const resetStatus = React.useCallback(() => {
+    setStatus((prev) => (prev.type === 'idle' ? prev : { type: 'idle' }));
+  }, []);
+
   const wantsPasswordChange = Boolean(form.newPassword.trim().length);
-  const emailChanged = form.email.trim() !== email.trim();
+  const trimmedEmail = form.email.trim();
+  const emailChanged = trimmedEmail !== email.trim();
+  const invalidEmail = emailChanged && !isValidEmail(trimmedEmail);
   const passwordMismatch = form.newPassword !== form.confirmPassword;
+  const weakPassword = wantsPasswordChange && form.newPassword.length > 0 && form.newPassword.length < 8;
+  const missingCurrentPassword = wantsPasswordChange && !form.currentPassword;
 
   const disabled =
     saving ||
+    invalidEmail ||
     (!emailChanged && !wantsPasswordChange) ||
-    (wantsPasswordChange && (passwordMismatch || form.newPassword.length < 8 || !form.currentPassword));
+    (wantsPasswordChange && (passwordMismatch || weakPassword || !form.currentPassword));
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -512,7 +656,7 @@ function CredentialsCard({
     setStatus({ type: 'idle' });
     try {
       const payload: Record<string, unknown> = {};
-      if (emailChanged) payload.email = form.email.trim();
+      if (emailChanged) payload.email = trimmedEmail;
       if (wantsPasswordChange) {
         payload.newPassword = form.newPassword;
         payload.currentPassword = form.currentPassword;
@@ -523,21 +667,19 @@ function CredentialsCard({
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        const reason = data?.error === 'INVALID_CURRENT_PASSWORD'
-          ? 'A palavra-passe actual está incorrecta.'
-          : 'Não foi possível actualizar as credenciais.';
-        throw new Error(reason);
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(resolveCredentialsUpdateError(data?.error));
       }
       if (emailChanged) {
-        onEmailChange(form.email.trim());
+        onEmailChange(trimmedEmail);
       }
-      setForm({ email: form.email.trim(), currentPassword: '', newPassword: '', confirmPassword: '' });
+      setForm({ email: trimmedEmail, currentPassword: '', newPassword: '', confirmPassword: '' });
       setStatus({ type: 'success', message: 'Credenciais actualizadas com sucesso.' });
+      onUpdated?.();
     } catch (error) {
       setStatus({
         type: 'error',
-        message: error instanceof Error ? error.message : 'Ocorreu um erro inesperado.',
+        message: resolveUnexpectedError(error, 'Ocorreu um erro inesperado.'),
       });
     } finally {
       setSaving(false);
@@ -554,41 +696,85 @@ function CredentialsCard({
       </header>
 
       <div className="settings-fields" data-columns="2">
-        <Field label="Email de acesso">
-          <TextInput type="email" value={form.email} onChange={(value) => setForm((prev) => ({ ...prev, email: value }))} />
+        <Field
+          label="Email de acesso"
+          description={invalidEmail ? 'Indica um email válido antes de guardar.' : undefined}
+        >
+          <TextInput
+            type="email"
+            value={form.email}
+            onChange={(value) => {
+              resetStatus();
+              setForm((prev) => ({ ...prev, email: value }));
+            }}
+            autoComplete="email"
+            autoCapitalize="none"
+            spellCheck={false}
+            invalid={invalidEmail}
+          />
         </Field>
-        <Field label="Palavra-passe actual" description="Necessária para definir uma nova palavra-passe.">
+        <Field
+          label="Palavra-passe actual"
+          description={
+            wantsPasswordChange
+              ? missingCurrentPassword
+                ? 'Indica a palavra-passe actual para confirmares a alteração.'
+                : 'Necessária para definir uma nova palavra-passe.'
+              : 'Necessária apenas ao alterar a palavra-passe.'
+          }
+        >
           <TextInput
             type="password"
             value={form.currentPassword}
-            onChange={(value) => setForm((prev) => ({ ...prev, currentPassword: value }))}
+            onChange={(value) => {
+              resetStatus();
+              setForm((prev) => ({ ...prev, currentPassword: value }));
+            }}
             disabled={!wantsPasswordChange}
+            autoComplete="current-password"
+            invalid={missingCurrentPassword}
           />
         </Field>
       </div>
 
       <div className="settings-fields" data-columns="2">
-        <Field label="Nova palavra-passe" description="Mínimo 8 caracteres.">
+        <Field
+          label="Nova palavra-passe"
+          description={
+            wantsPasswordChange
+              ? weakPassword
+                ? 'A nova palavra-passe deve ter pelo menos 8 caracteres.'
+                : 'Recomenda-se uma combinação de letras, números e símbolos.'
+              : 'Mínimo 8 caracteres.'
+          }
+        >
           <TextInput
             type="password"
             value={form.newPassword}
-            onChange={(value) => setForm((prev) => ({ ...prev, newPassword: value }))}
+            onChange={(value) => {
+              resetStatus();
+              setForm((prev) => ({ ...prev, newPassword: value }));
+            }}
             placeholder="********"
+            autoComplete="new-password"
+            invalid={weakPassword}
           />
         </Field>
         <Field label="Confirmar palavra-passe">
           <TextInput
             type="password"
             value={form.confirmPassword}
-            onChange={(value) => setForm((prev) => ({ ...prev, confirmPassword: value }))}
+            onChange={(value) => {
+              resetStatus();
+              setForm((prev) => ({ ...prev, confirmPassword: value }));
+            }}
             placeholder="********"
+            autoComplete="new-password"
+            invalid={passwordMismatch}
           />
         </Field>
       </div>
 
-      {wantsPasswordChange && form.newPassword.length > 0 && form.newPassword.length < 8 ? (
-        <p className="settings-warning">A nova palavra-passe deve ter pelo menos 8 caracteres.</p>
-      ) : null}
       {passwordMismatch ? (
         <p className="settings-warning">As palavras-passe não coincidem.</p>
       ) : null}
@@ -596,7 +782,7 @@ function CredentialsCard({
       <div className="settings-actions">
         <StatusMessage status={status} />
         <Button type="submit" variant="primary" disabled={disabled} loading={saving} loadingText="A guardar…">
-          {saving ? 'A guardar…' : 'Actualizar credenciais'}
+          Actualizar credenciais
         </Button>
       </div>
     </form>
@@ -724,11 +910,13 @@ function PreferencesCard({
   initialPrefs,
   rolePrefs,
   onSaved,
+  onUpdated,
 }: {
   role: AppRole;
   initialPrefs: PreferencesState;
   rolePrefs: RolePreferences['value'];
   onSaved: (prefs: PreferencesState, rolePrefs: RolePreferences['value']) => void;
+  onUpdated?: () => void;
 }) {
   const { set: setColorMode } = useColorMode();
   const [form, setForm] = React.useState<PreferencesState>(initialPrefs);
@@ -750,6 +938,10 @@ function PreferencesCard({
   React.useEffect(() => {
     setRoleForm(rolePrefs);
   }, [rolePrefs]);
+
+  const resetStatus = React.useCallback(() => {
+    setStatus((prev) => (prev.type === 'idle' ? prev : { type: 'idle' }));
+  }, []);
 
   const notificationsDirty = !isEqualNotifications(form.notifications, initialPrefs.notifications);
   const dirty =
@@ -774,7 +966,10 @@ function PreferencesCard({
           roleSettings: roleForm,
         }),
       });
-      if (!res.ok) throw new Error('ERR');
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(data?.error ?? 'Não foi possível guardar as preferências.');
+      }
       onSaved(form, roleForm);
       const resolvedMode =
         form.theme === 'system'
@@ -782,8 +977,12 @@ function PreferencesCard({
           : (form.theme as Exclude<ThemePreference, 'system'>);
       setColorMode(resolvedMode);
       setStatus({ type: 'success', message: 'Preferências actualizadas.' });
-    } catch {
-      setStatus({ type: 'error', message: 'Não foi possível guardar as preferências.' });
+      onUpdated?.();
+    } catch (error) {
+      setStatus({
+        type: 'error',
+        message: resolveUnexpectedError(error, 'Não foi possível guardar as preferências.'),
+      });
     } finally {
       setSaving(false);
     }
@@ -802,7 +1001,10 @@ function PreferencesCard({
         <Field label="Idioma">
           <Select
             value={form.language}
-            onChange={(value) => setForm((prev) => ({ ...prev, language: value }))}
+            onChange={(value) => {
+              resetStatus();
+              setForm((prev) => ({ ...prev, language: value }));
+            }}
             options={[
               { value: 'pt-PT', label: 'Português (Portugal)' },
               { value: 'en-US', label: 'Inglês' },
@@ -812,7 +1014,10 @@ function PreferencesCard({
         <Field label="Tema">
           <Select
             value={form.theme}
-            onChange={(value) => setForm((prev) => ({ ...prev, theme: value as ThemePreference }))}
+            onChange={(value) => {
+              resetStatus();
+              setForm((prev) => ({ ...prev, theme: value as ThemePreference }));
+            }}
             options={[
               { value: 'system', label: 'Automático' },
               { value: 'light', label: 'Claro' },
@@ -826,21 +1031,30 @@ function PreferencesCard({
         <Checkbox
           checked={form.notifications.email}
           onChange={(val) =>
-            setForm((prev) => ({ ...prev, notifications: { ...prev.notifications, email: val } }))
+            {
+              resetStatus();
+              setForm((prev) => ({ ...prev, notifications: { ...prev.notifications, email: val } }));
+            }
           }
           label="Receber alertas por email"
         />
         <Checkbox
           checked={form.notifications.push}
           onChange={(val) =>
-            setForm((prev) => ({ ...prev, notifications: { ...prev.notifications, push: val } }))
+            {
+              resetStatus();
+              setForm((prev) => ({ ...prev, notifications: { ...prev.notifications, push: val } }));
+            }
           }
           label="Notificações push"
         />
         <Checkbox
           checked={form.notifications.sms}
           onChange={(val) =>
-            setForm((prev) => ({ ...prev, notifications: { ...prev.notifications, sms: val } }))
+            {
+              resetStatus();
+              setForm((prev) => ({ ...prev, notifications: { ...prev.notifications, sms: val } }));
+            }
           }
           label="Alertas via SMS"
         />
@@ -848,7 +1062,13 @@ function PreferencesCard({
           <Select
             value={form.notifications.summary}
             onChange={(val) =>
-              setForm((prev) => ({ ...prev, notifications: { ...prev.notifications, summary: val as NotificationPreferences['summary'] } }))
+              {
+                resetStatus();
+                setForm((prev) => ({
+                  ...prev,
+                  notifications: { ...prev.notifications, summary: val as NotificationPreferences['summary'] },
+                }));
+              }
             }
             options={[
               { value: 'daily', label: 'Diário' },
@@ -860,7 +1080,14 @@ function PreferencesCard({
         </Field>
       </div>
 
-      <RolePreferencesSection role={role} value={roleForm} onChange={setRoleForm} />
+      <RolePreferencesSection
+        role={role}
+        value={roleForm}
+        onChange={(next) => {
+          resetStatus();
+          setRoleForm(next);
+        }}
+      />
 
       <div className="settings-actions">
         <StatusMessage status={status} />
@@ -886,7 +1113,7 @@ export default function SettingsClient({
 }) {
   const [account, setAccount] = React.useState<AccountState>({
     name: model.name,
-    phone: model.phone,
+    phone: model.phone ? normalizePhone(model.phone) : null,
     email: model.email,
   });
   const [preferences, setPreferences] = React.useState<PreferencesState>({
@@ -905,7 +1132,11 @@ export default function SettingsClient({
   const [range, setRange] = React.useState<RangeValue>('30');
 
   React.useEffect(() => {
-    setAccount({ name: model.name, phone: model.phone, email: model.email });
+    setAccount({
+      name: model.name,
+      phone: model.phone ? normalizePhone(model.phone) : null,
+      email: model.email,
+    });
     setPreferences({ language: model.language, theme: model.theme, notifications: model.notifications });
     setRolePrefs(initialRolePrefs);
   }, [
@@ -937,6 +1168,9 @@ export default function SettingsClient({
   const analyticsData: SettingsDashboardData = analytics;
 
   const fallbackActive = analytics.source === 'fallback';
+  const refreshDashboard = React.useCallback(() => {
+    void mutate();
+  }, [mutate]);
 
   return (
     <div className="settings-dashboard neo-dashboard">
@@ -949,7 +1183,7 @@ export default function SettingsClient({
             <Button
               type="button"
               variant="ghost"
-              onClick={() => mutate()}
+              onClick={refreshDashboard}
               loading={isValidating}
               leftIcon={<RefreshCw size={16} />}
               title="Actualizar métricas"
@@ -991,6 +1225,7 @@ export default function SettingsClient({
             <AccountSettingsCard
               account={account}
               onSaved={(next) => setAccount(next)}
+              onUpdated={refreshDashboard}
             />
           </SectionCard>
 
@@ -998,6 +1233,7 @@ export default function SettingsClient({
             <CredentialsCard
               email={account.email}
               onEmailChange={(value) => setAccount((prev) => ({ ...prev, email: value }))}
+              onUpdated={refreshDashboard}
             />
           </SectionCard>
 
@@ -1010,6 +1246,7 @@ export default function SettingsClient({
                 setPreferences(prefs);
                 setRolePrefs(roleSpecific);
               }}
+              onUpdated={refreshDashboard}
             />
           </SectionCard>
         </aside>

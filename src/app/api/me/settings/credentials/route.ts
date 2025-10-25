@@ -81,11 +81,22 @@ export async function PATCH(req: Request) {
 
   const { error } = await sb.auth.admin.updateUserById(guard.me.id, updates);
   if (error) {
-    return NextResponse.json({ ok: false, error: error.message ?? 'UPDATE_FAILED' }, { status: 400 });
+    const message = error.message ?? '';
+    if (/already\s+registered/i.test(message) || /email(.+)?exists/i.test(message)) {
+      return NextResponse.json({ ok: false, error: 'EMAIL_TAKEN' }, { status: 409 });
+    }
+    return NextResponse.json({ ok: false, error: 'UPDATE_FAILED' }, { status: error.status ?? 400 });
   }
 
   if (updates.email) {
-    await sb.from('users').update({ email: updates.email }).eq('id', guard.me.id);
+    const { error: userUpdateError } = await sb.from('users').update({ email: updates.email }).eq('id', guard.me.id);
+    if (userUpdateError) {
+      const message = userUpdateError.message ?? '';
+      if (userUpdateError.code === '23505' || /users?_email/i.test(message) || /email_?key/i.test(message)) {
+        return NextResponse.json({ ok: false, error: 'EMAIL_TAKEN' }, { status: 409 });
+      }
+      return NextResponse.json({ ok: false, error: 'UPDATE_FAILED' }, { status: 400 });
+    }
   }
 
   return NextResponse.json({ ok: true });
