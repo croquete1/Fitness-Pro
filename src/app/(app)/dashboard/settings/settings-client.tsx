@@ -831,11 +831,10 @@ function CredentialsCard({
   const dirty = emailChanged || hasAnyPasswordInput;
 
   let confirmHintTone: FieldTone = 'muted';
-  let confirmHint: React.ReactNode = wantsPasswordChange
-    ? 'Repete a nova palavra-passe para garantir que está correcta.'
-    : 'Obrigatória apenas ao alterar a palavra-passe.';
+  let confirmHint: React.ReactNode = 'Obrigatória apenas ao alterar a palavra-passe.';
 
   if (wantsPasswordChange) {
+    confirmHint = 'Repete a nova palavra-passe para garantir que está correcta.';
     if (showPasswordMismatch) {
       confirmHintTone = 'error';
       confirmHint = 'As palavras-passe não coincidem.';
@@ -843,6 +842,9 @@ function CredentialsCard({
       confirmHintTone = 'warning';
       confirmHint = 'Confirma a nova palavra-passe para concluíres a alteração.';
     }
+  } else if (confirmDirty) {
+    confirmHintTone = 'warning';
+    confirmHint = 'Introduz a nova palavra-passe antes de confirmar.';
   }
 
   const disabled =
