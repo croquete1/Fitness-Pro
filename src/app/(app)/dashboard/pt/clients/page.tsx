@@ -40,6 +40,7 @@ type PreparedQuery = {
   orthographyAscii: string | null;
   orthographyAsciiCompact: string | null;
   orthographyAsciiTokens: string[];
+  digits: string | null;
 };
 
 type ClientAlertKey =
@@ -132,6 +133,7 @@ function prepareQuery(value: string | null | undefined): PreparedQuery {
       orthographyAscii: null,
       orthographyAsciiCompact: null,
       orthographyAsciiTokens: [],
+      digits: null,
     } satisfies PreparedQuery;
   }
 
@@ -142,6 +144,7 @@ function prepareQuery(value: string | null | undefined): PreparedQuery {
   const orthographyAsciiCompact = asciiCompact
     ? applyPortugueseOrthographyReform(asciiCompact)
     : null;
+  const digits = raw.replace(/\D+/g, '');
 
   return {
     raw,
@@ -153,6 +156,7 @@ function prepareQuery(value: string | null | undefined): PreparedQuery {
     orthographyAscii,
     orthographyAsciiCompact,
     orthographyAsciiTokens: orthographyAscii ? splitTokens(orthographyAscii) : [],
+    digits: digits ? digits : null,
   } satisfies PreparedQuery;
 }
 
@@ -205,6 +209,7 @@ type MutableClientRowSearchIndex = {
   ascii: Set<string>;
   compact: Set<string>;
   asciiCompact: Set<string>;
+  digits: Set<string>;
 };
 
 function createMutableSearchIndex(): MutableClientRowSearchIndex {
@@ -213,6 +218,7 @@ function createMutableSearchIndex(): MutableClientRowSearchIndex {
     ascii: new Set<string>(),
     compact: new Set<string>(),
     asciiCompact: new Set<string>(),
+    digits: new Set<string>(),
   } satisfies MutableClientRowSearchIndex;
 }
 
@@ -224,9 +230,8 @@ function pushSearchCandidate(index: MutableClientRowSearchIndex, value: string |
 
   if (prepared.ascii) {
     index.ascii.add(prepared.ascii);
-    const simplifiedAscii = applyPortugueseOrthographyReform(prepared.ascii);
-    if (simplifiedAscii) {
-      index.ascii.add(simplifiedAscii);
+    if (prepared.orthographyAscii) {
+      index.ascii.add(prepared.orthographyAscii);
     }
   }
 
@@ -236,10 +241,13 @@ function pushSearchCandidate(index: MutableClientRowSearchIndex, value: string |
 
   if (prepared.asciiCompact) {
     index.asciiCompact.add(prepared.asciiCompact);
-    const simplifiedAsciiCompact = applyPortugueseOrthographyReform(prepared.asciiCompact);
-    if (simplifiedAsciiCompact) {
-      index.asciiCompact.add(simplifiedAsciiCompact);
+    if (prepared.orthographyAsciiCompact) {
+      index.asciiCompact.add(prepared.orthographyAsciiCompact);
     }
+  }
+
+  if (prepared.digits) {
+    index.digits.add(prepared.digits);
   }
 }
 
@@ -270,6 +278,7 @@ function buildRowSearchIndex(
     ascii: Array.from(index.ascii),
     compact: Array.from(index.compact),
     asciiCompact: Array.from(index.asciiCompact),
+    digits: Array.from(index.digits),
   } satisfies ClientRowSearchIndex;
 }
 
@@ -312,6 +321,10 @@ function rowMatchesQuery(entry: ClientRowAnalysis, query: PreparedQuery): boolea
     return true;
   }
 
+  if (query.digits && searchIndex.digits.some((candidate) => candidate.includes(query.digits))) {
+    return true;
+  }
+
   return false;
 }
 
@@ -320,6 +333,7 @@ type ClientRowSearchIndex = {
   ascii: string[];
   compact: string[];
   asciiCompact: string[];
+  digits: string[];
 };
 
 type ClientRowDerived = {
@@ -880,7 +894,7 @@ export default async function PtClientsPage({
               data-selected={scope === 'all' ? 'true' : 'false'}
               aria-current={scope === 'all' ? 'true' : undefined}
             >
-              Todos os clientes ({rows.length})
+              Todos os clientes ({queryMatchedCount})
             </Link>
             <Link
               href={buildFilterHref({ scope: 'alerts', alert: alertFilter, query: activeQuery })}
