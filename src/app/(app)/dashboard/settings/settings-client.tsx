@@ -592,9 +592,11 @@ function AccountSettingsCard({
   const [form, setForm] = React.useState<AccountState>(() => latestAccount);
   const [status, setStatus] = React.useState<Status>({ type: 'idle' });
   const [saving, setSaving] = React.useState(false);
+  const [phoneTouched, setPhoneTouched] = React.useState(false);
 
   React.useEffect(() => {
     setForm(latestAccount);
+    setPhoneTouched(false);
   }, [latestAccount]);
 
   const resetStatus = React.useCallback(() => {
@@ -604,6 +606,7 @@ function AccountSettingsCard({
   const handleReset = React.useCallback(() => {
     resetStatus();
     setForm(latestAccount);
+    setPhoneTouched(false);
   }, [latestAccount, resetStatus]);
 
   const trimmedName = form.name.trim();
@@ -617,6 +620,14 @@ function AccountSettingsCard({
   const phoneDigits = normalizedPhone.length ? phoneDigitCount(normalizedPhone) : 0;
   const invalidPhone = phoneChanged && normalizedPhone.length > 0 && phoneDigits < PHONE_MIN_DIGITS;
   const disabled = saving || !dirty || invalidName || invalidPhone;
+  const basePhoneHelper = 'Utilizado para alertas críticos e suporte.';
+  const phoneHelper = invalidPhone
+    ? `Introduz um número de telefone válido (mínimo ${PHONE_MIN_DIGITS} dígitos — actualmente ${phoneDigits}).`
+    : phoneTouched
+    ? normalizedPhone.length
+      ? `${basePhoneHelper} Actualmente ${phoneDigits} dígitos.`
+      : 'Sem número associado — será removido ao guardar.'
+    : basePhoneHelper;
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -684,17 +695,14 @@ function AccountSettingsCard({
         </Field>
         <Field
           label="Telefone"
-          description={
-            invalidPhone
-              ? `Introduz um número de telefone válido (mínimo ${PHONE_MIN_DIGITS} dígitos — actualmente ${phoneDigits}).`
-              : 'Utilizado para alertas críticos e suporte.'
-          }
+          description={phoneHelper}
         >
           <TextInput
             value={form.phone ?? ''}
             onChange={(value) => {
               const normalized = normalizePhone(value);
               resetStatus();
+              setPhoneTouched(true);
               setForm((prev) => ({ ...prev, phone: normalized.length ? normalized : null }));
             }}
             placeholder="(+351) 910 000 000"
