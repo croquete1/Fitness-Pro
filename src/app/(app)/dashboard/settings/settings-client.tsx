@@ -336,6 +336,10 @@ function collapseWhitespaceOnly(value: string) {
   return value.trim().length ? value : '';
 }
 
+function normalizeEmailInput(value: string) {
+  return value.replace(/\s+/g, '').toLowerCase();
+}
+
 function resolveAccountUpdateError(code?: string) {
   switch (code) {
     case 'INVALID_DATE':
@@ -802,8 +806,9 @@ function CredentialsCard({
   onEmailChange: (email: string) => void;
   onUpdated?: () => void;
 }) {
+  const latestEmail = React.useMemo(() => normalizeEmailInput(email), [email]);
   const [form, setForm] = React.useState({
-    email,
+    email: latestEmail,
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
@@ -813,18 +818,27 @@ function CredentialsCard({
   const [confirmTouched, setConfirmTouched] = React.useState(false);
 
   React.useEffect(() => {
-    setForm((prev) => ({ ...prev, email }));
+    setForm((prev) => {
+      if (prev.email === latestEmail) {
+        return prev;
+      }
+      return { ...prev, email: latestEmail };
+    });
     setConfirmTouched(false);
-  }, [email]);
+  }, [latestEmail]);
+
+  const resetStatus = React.useCallback(() => {
+    setStatus((prev) => (prev.type === 'idle' ? prev : { type: 'idle' }));
+  }, []);
 
   const resetStatus = React.useCallback(() => {
     setStatus((prev) => (prev.type === 'idle' ? prev : { type: 'idle' }));
   }, []);
 
   const wantsPasswordChange = Boolean(form.newPassword.trim().length);
-  const trimmedEmail = form.email.trim();
-  const emailChanged = trimmedEmail !== email.trim();
-  const invalidEmail = emailChanged && !isValidEmail(trimmedEmail);
+  const normalizedEmail = normalizeEmailInput(form.email);
+  const emailChanged = normalizedEmail !== latestEmail;
+  const invalidEmail = emailChanged && !isValidEmail(normalizedEmail);
   const passwordMismatch = form.newPassword !== form.confirmPassword;
   const weakPassword = wantsPasswordChange && form.newPassword.length > 0 && form.newPassword.length < 8;
   const confirmDirty = confirmTouched || form.confirmPassword.trim().length > 0;
@@ -860,9 +874,9 @@ function CredentialsCard({
 
   const handleReset = React.useCallback(() => {
     resetStatus();
-    setForm({ email, currentPassword: '', newPassword: '', confirmPassword: '' });
+    setForm({ email: latestEmail, currentPassword: '', newPassword: '', confirmPassword: '' });
     setConfirmTouched(false);
-  }, [email, resetStatus]);
+  }, [latestEmail, resetStatus]);
 
   React.useEffect(() => {
     if (!form.newPassword.trim().length) {
@@ -877,7 +891,7 @@ function CredentialsCard({
     setStatus({ type: 'idle' });
     try {
       const payload: Record<string, unknown> = {};
-      if (emailChanged) payload.email = trimmedEmail;
+      if (emailChanged) payload.email = normalizedEmail;
       if (wantsPasswordChange) {
         payload.newPassword = form.newPassword;
         payload.currentPassword = form.currentPassword;
@@ -892,9 +906,9 @@ function CredentialsCard({
         throw new Error(resolveCredentialsUpdateError(data?.error));
       }
       if (emailChanged) {
-        onEmailChange(trimmedEmail);
+        onEmailChange(normalizedEmail);
       }
-      setForm({ email: trimmedEmail, currentPassword: '', newPassword: '', confirmPassword: '' });
+      setForm({ email: normalizedEmail, currentPassword: '', newPassword: '', confirmPassword: '' });
       setConfirmTouched(false);
       setStatus({ type: 'success', message: 'Credenciais actualizadas com sucesso.' });
       onUpdated?.();
@@ -927,7 +941,8 @@ function CredentialsCard({
             value={form.email}
             onChange={(value) => {
               resetStatus();
-              setForm((prev) => ({ ...prev, email: value }));
+              const nextEmail = normalizeEmailInput(value);
+              setForm((prev) => (prev.email === nextEmail ? prev : { ...prev, email: nextEmail }));
             }}
             autoComplete="email"
             autoCapitalize="none"
