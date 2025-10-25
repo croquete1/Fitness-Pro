@@ -614,19 +614,24 @@ function AccountSettingsCard({
   const nameChanged = trimmedName !== initialName;
   const normalizedPhone = form.phone ?? '';
   const initialPhone = latestAccount.phone ?? '';
+  const initialHasPhone = initialPhone.length > 0;
   const phoneChanged = normalizedPhone !== initialPhone;
   const dirty = nameChanged || phoneChanged;
   const invalidName = nameChanged && trimmedName.length < MIN_NAME_LENGTH;
   const phoneDigits = normalizedPhone.length ? phoneDigitCount(normalizedPhone) : 0;
   const invalidPhone = phoneChanged && normalizedPhone.length > 0 && phoneDigits < PHONE_MIN_DIGITS;
   const disabled = saving || !dirty || invalidName || invalidPhone;
-  const basePhoneHelper = 'Utilizado para alertas críticos e suporte.';
+  const basePhoneHelper = initialHasPhone
+    ? 'Utilizado para alertas críticos e suporte.'
+    : 'Adiciona um número para receber alertas críticos e suporte.';
   const phoneHelper = invalidPhone
     ? `Introduz um número de telefone válido (mínimo ${PHONE_MIN_DIGITS} dígitos — actualmente ${phoneDigits}).`
     : phoneTouched
     ? normalizedPhone.length
       ? `${basePhoneHelper} Actualmente ${phoneDigits} dígitos.`
-      : 'Sem número associado — será removido ao guardar.'
+      : initialHasPhone
+      ? 'O número actual será removido ao guardar.'
+      : 'Nenhum número guardado nesta conta.'
     : basePhoneHelper;
 
   async function onSubmit(event: React.FormEvent) {
