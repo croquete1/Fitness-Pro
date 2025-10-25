@@ -2,18 +2,22 @@
 'use client';
 import * as React from 'react';
 import Image from 'next/image';
-import { brand, brandFallbackLogos, resolveBrandLogos } from '@/lib/brand';
+import { brandFallbackLogos, resolveBrandLogos } from '@/lib/brand';
 
 type Props = {
   size?: number;
   className?: string;
   priority?: boolean;
+  alt?: string | null;
 };
 
-export default function BrandLogo({ size = 56, className, priority = false }: Props) {
+export default function BrandLogo({ size = 56, className, priority = false, alt }: Props) {
   const candidates = React.useMemo(() => resolveBrandLogos('any'), []);
   const [index, setIndex] = React.useState(0);
   const src = candidates[index] ?? brandFallbackLogos.light;
+
+  const altText = alt ?? '';
+  const isDecorative = altText.trim().length === 0;
 
   const handleLogoError = React.useCallback(() => {
     setIndex((prev) => {
@@ -28,7 +32,8 @@ export default function BrandLogo({ size = 56, className, priority = false }: Pr
     <Image
       key={src}
       src={src}
-      alt={brand.name}
+      alt={altText}
+      aria-hidden={isDecorative ? true : undefined}
       width={size}
       height={size}
       priority={priority}
@@ -36,6 +41,7 @@ export default function BrandLogo({ size = 56, className, priority = false }: Pr
       className={className}
       style={{ display: 'block', width: size, height: 'auto' }}
       onError={handleLogoError}
+      draggable={false}
     />
   );
 }

@@ -225,9 +225,16 @@ export default function AppHeader({
         >
           <Menu size={18} strokeWidth={1.8} />
         </button>
-        <Link href="/dashboard" className="neo-header__brand" prefetch={false}>
-          <BrandLogo size={32} priority />
-          <span>{brand.name}</span>
+        <Link
+          href="/dashboard"
+          className="neo-header__brand"
+          prefetch={false}
+          aria-label={`Ir para o painel principal · ${brand.name}`}
+        >
+          <span className="neo-header__brandMark" aria-hidden="true">
+            <BrandLogo size={32} priority />
+          </span>
+          <span className="sr-only">{brand.name}</span>
         </Link>
         <div className="neo-header__search">
           <Search size={16} strokeWidth={1.6} className="neo-header__search-icon" aria-hidden />
