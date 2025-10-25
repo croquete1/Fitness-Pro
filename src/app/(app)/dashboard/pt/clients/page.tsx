@@ -109,6 +109,7 @@ export default async function PtClientsPage() {
 
   const overview = await loadTrainerClientOverview(me.id);
   const rows = sortRows(overview.rows);
+  const lastUpdatedLabel = relativeLabel(overview.updatedAt, 'actualizado agora mesmo');
 
   const metrics: Metric[] = [
     {
@@ -122,6 +123,12 @@ export default async function PtClientsPage() {
       value: overview.metrics.activePlans,
       hint: 'Com plano marcado como ACTIVO',
       tone: 'success',
+    },
+    {
+      label: 'Sessões agendadas',
+      value: overview.metrics.upcomingSessions,
+      hint: 'Nos próximos 120 dias de agenda',
+      tone: 'info',
     },
     {
       label: 'Sem próxima sessão',
@@ -150,6 +157,9 @@ export default async function PtClientsPage() {
           <div className="neo-inline neo-inline--wrap neo-inline--sm">
             <span className="status-pill" data-state={supabaseTone}>
               {supabaseLabel}
+            </span>
+            <span className="text-xs text-muted" aria-live="polite">
+              Actualizado {lastUpdatedLabel}
             </span>
             <Link href="/register" prefetch={false} className="btn primary">
               Adicionar novo cliente
@@ -223,18 +233,29 @@ export default async function PtClientsPage() {
                 const lastRelative = relativeLabel(row.lastSessionAt, 'Sem histórico');
                 const nextAbsolute = formatTimestamp(row.nextSessionAt);
                 const lastAbsolute = formatTimestamp(row.lastSessionAt);
+                const linkedRelative = row.linkedAt
+                  ? relativeLabel(row.linkedAt, 'há algum tempo')
+                  : 'Ligação pendente';
+                const hasContact = Boolean(row.email || row.phone);
 
                 return (
                   <tr key={row.id}>
                     <td>
                       <div className="space-y-1">
                         <span className="font-semibold text-fg">{row.name}</span>
+                        <p className="text-xs text-muted">Ligado {linkedRelative}</p>
                         <div className="flex flex-wrap gap-2 text-xs text-muted">
                           {row.email && <span>{row.email}</span>}
+                          {row.phone && <span>{row.phone}</span>}
                           <span className="opacity-70">ID #{row.id}</span>
                           {row.upcomingCount > 0 && (
                             <span className="neo-badge neo-badge--muted">
                               {row.upcomingCount} sessão(ões) futura(s)
+                            </span>
+                          )}
+                          {!hasContact && (
+                            <span className="neo-badge neo-badge--muted" data-tone="warning">
+                              Sem contacto directo
                             </span>
                           )}
                         </div>
@@ -242,9 +263,16 @@ export default async function PtClientsPage() {
                     </td>
                     <td>
                       <div className="space-y-1">
-                        <span className="neo-badge" data-tone={planBadgeTone(row.planStatus)}>
-                          {planStatusLabel(row.planStatus)}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="neo-badge" data-tone={planBadgeTone(row.planStatus)}>
+                            {planStatusLabel(row.planStatus)}
+                          </span>
+                          {row.planTitle && (
+                            <span className="text-xs text-muted" title={row.planTitle}>
+                              {row.planTitle}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-muted">
                           {row.planUpdatedAt
                             ? `Actualizado ${relativeLabel(row.planUpdatedAt, 'há algum tempo')}`

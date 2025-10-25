@@ -7,9 +7,11 @@ export type TrainerClientOverviewRow = {
   id: string;
   name: string;
   email: string | null;
+  phone: string | null;
   clientStatus: string | null;
   linkedAt: string | null;
   planStatus: string | null;
+  planTitle: string | null;
   planUpdatedAt: string | null;
   upcomingCount: number;
   nextSessionAt: string | null;
@@ -27,6 +29,7 @@ export type TrainerClientOverview = {
     activePlans: number;
     onboarding: number;
     withoutUpcoming: number;
+    upcomingSessions: number;
   };
 };
 
@@ -34,6 +37,7 @@ type TrainerClientLink = { client_id: string | null; created_at: string | null }
 type TrainerPlanRow = {
   client_id: string | null;
   status: string | null;
+  title: string | null;
   updated_at: string | null;
   start_date: string | null;
   end_date: string | null;
@@ -41,7 +45,8 @@ type TrainerPlanRow = {
 
 type TrainerSessionRow = {
   client_id: string | null;
-  status: string | null;
+  status?: string | null;
+  client_attendance_status?: string | null;
   start_time?: string | null;
   start_at?: string | null;
   scheduled_at?: string | null;
@@ -49,7 +54,13 @@ type TrainerSessionRow = {
 };
 
 type ProfileRow = { id: string; full_name?: string | null; name?: string | null };
-type UserRow = { id: string; name?: string | null; email?: string | null; status?: string | null };
+type UserRow = {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  status?: string | null;
+};
 
 type SessionStats = {
   upcoming: number;
@@ -72,29 +83,50 @@ function parseDate(value: string | null | undefined): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function mergePlanRows(rows: TrainerPlanRow[]): Map<string, { status: string | null; updatedAt: string | null }> {
-  const map = new Map<string, { status: string | null; updatedAt: string | null }>();
+function mergePlanRows(
+  rows: TrainerPlanRow[],
+): Map<string, { status: string | null; title: string | null; updatedAt: string | null }> {
+  const map = new Map<string, { status: string | null; title: string | null; updatedAt: string | null }>();
   for (const row of rows) {
     const clientId = row.client_id ? String(row.client_id) : null;
     if (!clientId) continue;
     if (map.has(clientId)) continue;
     const updatedAt = firstString(row.updated_at, row.end_date, row.start_date);
-    map.set(clientId, { status: row.status ?? null, updatedAt });
+    map.set(clientId, { status: row.status ?? null, title: row.title ?? null, updatedAt });
   }
   return map;
+}
+
+function isCancelledStatus(row: TrainerSessionRow): boolean {
+  const candidates = [row.status, row.client_attendance_status];
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    const normalized = candidate.toString().trim().toUpperCase();
+    if (normalized === 'CANCELLED' || normalized === 'CANCELED') {
+      return true;
+    }
+  }
+  return false;
 }
 
 function computeSessionStats(rows: TrainerSessionRow[], now: Date): Map<string, SessionStats> {
   const map = new Map<string, SessionStats>();
   const nowTs = now.getTime();
+  const seenByClient = new Map<string, Set<string>>();
 
   for (const row of rows) {
     const clientId = row.client_id ? String(row.client_id) : null;
     if (!clientId) continue;
+    if (isCancelledStatus(row)) continue;
 
     const startIso = firstString(row.start_time, row.start_at, row.scheduled_at, row.starts_at);
     const start = parseDate(startIso);
     if (!start) continue;
+    const normalizedIso = start.toISOString();
+    const seenSet = seenByClient.get(clientId) ?? new Set<string>();
+    if (seenSet.has(normalizedIso)) continue;
+    seenSet.add(normalizedIso);
+    seenByClient.set(clientId, seenSet);
 
     const entry = map.get(clientId) ?? { upcoming: 0, nextAt: null, lastAt: null };
 
@@ -122,6 +154,7 @@ function buildMetrics(rows: TrainerClientOverviewRow[]): TrainerClientOverview['
   let activePlans = 0;
   let onboarding = 0;
   let withoutUpcoming = 0;
+  let upcomingSessions = 0;
 
   for (const row of rows) {
     const planStatus = row.planStatus ? row.planStatus.toString().toUpperCase() : '';
@@ -134,9 +167,11 @@ function buildMetrics(rows: TrainerClientOverviewRow[]): TrainerClientOverview['
     if (!row.upcomingCount) {
       withoutUpcoming += 1;
     }
+
+    upcomingSessions += row.upcomingCount ?? 0;
   }
 
-  return { total, activePlans, onboarding, withoutUpcoming };
+  return { total, activePlans, onboarding, withoutUpcoming, upcomingSessions };
 }
 
 function mapFallbackRows(trainerId: string) {
@@ -146,9 +181,11 @@ function mapFallbackRows(trainerId: string) {
     id: client.id,
     name: client.name,
     email: client.email,
+    phone: null,
     clientStatus: null,
     linkedAt: null,
     planStatus: null,
+    planTitle: null,
     planUpdatedAt: null,
     upcomingCount: client.upcoming,
     nextSessionAt: client.nextSessionAt,
@@ -197,7 +234,7 @@ export async function loadTrainerClientOverview(trainerId: string): Promise<Trai
         supabase: true,
         updatedAt: new Date().toISOString(),
         rows: [],
-        metrics: { total: 0, activePlans: 0, onboarding: 0, withoutUpcoming: 0 },
+        metrics: { total: 0, activePlans: 0, onboarding: 0, withoutUpcoming: 0, upcomingSessions: 0 },
       } satisfies TrainerClientOverview;
     }
 
@@ -205,7 +242,7 @@ export async function loadTrainerClientOverview(trainerId: string): Promise<Trai
     const rangeStart = subDays(now, 120).toISOString();
     const rangeEnd = addDays(now, 120).toISOString();
 
-    const [profilesRes, usersRes, plansRes, sessionsRes] = await Promise.all([
+    const [profilesRes, usersRes, plansRes, sessionsRes, ptSessionsRes] = await Promise.all([
       sb
         .from('profiles')
         .select('id,full_name,name')
@@ -213,25 +250,39 @@ export async function loadTrainerClientOverview(trainerId: string): Promise<Trai
         .limit(480),
       sb
         .from('users')
-        .select('id,name,email,status')
+        .select('id,name,email,phone,status')
         .in('id', clientIds)
         .limit(480),
       sb
         .from('training_plans')
-        .select('client_id,status,updated_at,start_date,end_date')
+        .select('client_id,status,title,updated_at,start_date,end_date')
         .eq('trainer_id', trainerId)
         .in('client_id', clientIds)
         .order('updated_at', { ascending: false, nullsFirst: false })
         .limit(720),
       sb
         .from('sessions')
-        .select('client_id,status,start_time,start_at,scheduled_at,starts_at')
+        .select('client_id,client_attendance_status,scheduled_at')
         .eq('trainer_id', trainerId)
-        .gte('start_time', rangeStart)
-        .lte('start_time', rangeEnd)
-        .order('start_time', { ascending: true })
+        .gte('scheduled_at', rangeStart)
+        .lte('scheduled_at', rangeEnd)
+        .order('scheduled_at', { ascending: true })
+        .limit(720),
+      sb
+        .from('pt_sessions')
+        .select('client_id,status,starts_at')
+        .eq('trainer_id', trainerId)
+        .gte('starts_at', rangeStart)
+        .lte('starts_at', rangeEnd)
+        .order('starts_at', { ascending: true })
         .limit(720),
     ]);
+
+    if (profilesRes.error) throw profilesRes.error;
+    if (usersRes.error) throw usersRes.error;
+    if (plansRes.error) throw plansRes.error;
+    if (sessionsRes.error) throw sessionsRes.error;
+    if (ptSessionsRes.error) throw ptSessionsRes.error;
 
     const profileMap = new Map(
       (profilesRes.data ?? []).map((profile) => [String(profile.id), profile as ProfileRow]),
@@ -240,7 +291,11 @@ export async function loadTrainerClientOverview(trainerId: string): Promise<Trai
     const userMap = new Map((usersRes.data ?? []).map((user) => [String(user.id), user as UserRow]));
 
     const planMap = mergePlanRows((plansRes.data ?? []) as TrainerPlanRow[]);
-    const sessionMap = computeSessionStats((sessionsRes.data ?? []) as TrainerSessionRow[], now);
+    const sessionRows: TrainerSessionRow[] = [
+      ...(((sessionsRes.data ?? []) as TrainerSessionRow[]) ?? []),
+      ...(((ptSessionsRes.data ?? []) as TrainerSessionRow[]) ?? []),
+    ];
+    const sessionMap = computeSessionStats(sessionRows, now);
 
     const rows: TrainerClientOverviewRow[] = linkRows.map((link) => {
       const id = link.client_id ? String(link.client_id) : crypto.randomUUID();
@@ -255,9 +310,11 @@ export async function loadTrainerClientOverview(trainerId: string): Promise<Trai
           firstString(profile?.full_name, profile?.name, user?.name, user?.email, id) ??
           `Cliente ${id.slice(0, 6)}`,
         email: user?.email ?? null,
+        phone: user?.phone ?? null,
         clientStatus: user?.status ?? null,
         linkedAt: link.created_at ?? null,
         planStatus: plan?.status ?? null,
+        planTitle: plan?.title ?? null,
         planUpdatedAt: plan?.updatedAt ?? null,
         upcomingCount: stats.upcoming,
         nextSessionAt: stats.nextAt,
