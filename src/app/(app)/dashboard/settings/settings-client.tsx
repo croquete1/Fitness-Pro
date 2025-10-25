@@ -53,6 +53,7 @@ type RangeValue = (typeof RANGE_OPTIONS)[number]['value'];
 type Status = { type: 'idle' | 'success' | 'error'; message?: string };
 
 const MIN_NAME_LENGTH = 3;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type AccountState = { name: string; phone: string | null; email: string };
 
@@ -103,6 +104,8 @@ function TextInput({
   inputMode,
   maxLength,
   invalid,
+  autoCapitalize,
+  spellCheck,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -113,6 +116,8 @@ function TextInput({
   inputMode?: React.InputHTMLAttributes<HTMLInputElement>['inputMode'];
   maxLength?: number;
   invalid?: boolean;
+  autoCapitalize?: React.InputHTMLAttributes<HTMLInputElement>['autoCapitalize'];
+  spellCheck?: boolean;
 }) {
   return (
     <input
@@ -124,6 +129,8 @@ function TextInput({
       autoComplete={autoComplete}
       inputMode={inputMode}
       maxLength={maxLength}
+      autoCapitalize={autoCapitalize}
+      spellCheck={spellCheck}
       aria-invalid={invalid ? 'true' : undefined}
       className="neo-field"
     />
@@ -235,6 +242,24 @@ function resolveCredentialsUpdateError(code?: string) {
     default:
       return 'Não foi possível actualizar as credenciais.';
   }
+}
+
+function isValidEmail(value: string) {
+  return EMAIL_PATTERN.test(value);
+}
+
+function normalizePhoneInput(value: string) {
+  return value.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function resolveUnexpectedError(error: unknown, fallback: string) {
+  if (error instanceof Error) {
+    if (error.message === 'Failed to fetch') {
+      return 'Não foi possível ligar ao servidor. Verifica a tua ligação e tenta novamente.';
+    }
+    return error.message;
+  }
+  return fallback;
 }
 
 const dashboardFetcher = async (url: string): Promise<DashboardResult> => {
@@ -463,8 +488,8 @@ function AccountSettingsCard({
   const trimmedName = form.name.trim();
   const initialName = account.name.trim();
   const nameChanged = trimmedName !== initialName;
-  const normalizedPhone = form.phone ? form.phone.replace(/\s+/g, ' ').trim() : '';
-  const initialPhone = account.phone ? account.phone.replace(/\s+/g, ' ').trim() : '';
+  const normalizedPhone = form.phone ? normalizePhoneInput(form.phone) : '';
+  const initialPhone = account.phone ? normalizePhoneInput(account.phone) : '';
   const phoneChanged = normalizedPhone !== initialPhone;
   const dirty = nameChanged || phoneChanged;
   const invalidName = nameChanged && trimmedName.length < MIN_NAME_LENGTH;
@@ -495,12 +520,11 @@ function AccountSettingsCard({
       const nextPhone = normalizedPhone.length ? normalizedPhone : null;
       setStatus({ type: 'success', message: 'Alterações guardadas.' });
       onSaved({ ...account, name: trimmedName, phone: nextPhone });
-      setForm((prev) => ({ ...prev, name: trimmedName, phone: nextPhone }));
+      setForm((prev) => ({ ...prev, name: trimmedName, phone: nextPhone ?? null }));
     } catch (error) {
       setStatus({
         type: 'error',
-        message:
-          error instanceof Error ? error.message : 'Não foi possível guardar as alterações.',
+        message: resolveUnexpectedError(error, 'Não foi possível guardar as alterações.'),
       });
     } finally {
       setSaving(false);
@@ -543,7 +567,10 @@ function AccountSettingsCard({
         >
           <TextInput
             value={form.phone ?? ''}
-            onChange={(value) => setForm((prev) => ({ ...prev, phone: value.trim().length ? value : null }))}
+            onChange={(value) => {
+              const normalized = normalizePhoneInput(value);
+              setForm((prev) => ({ ...prev, phone: normalized.length ? normalized : null }));
+            }}
             placeholder="(+351) 910 000 000"
             autoComplete="tel"
             inputMode="tel"
@@ -584,13 +611,18 @@ function CredentialsCard({
   }, [email]);
 
   const wantsPasswordChange = Boolean(form.newPassword.trim().length);
-  const emailChanged = form.email.trim() !== email.trim();
+  const trimmedEmail = form.email.trim();
+  const emailChanged = trimmedEmail !== email.trim();
+  const invalidEmail = emailChanged && !isValidEmail(trimmedEmail);
   const passwordMismatch = form.newPassword !== form.confirmPassword;
+  const weakPassword = wantsPasswordChange && form.newPassword.length > 0 && form.newPassword.length < 8;
+  const missingCurrentPassword = wantsPasswordChange && !form.currentPassword;
 
   const disabled =
     saving ||
+    invalidEmail ||
     (!emailChanged && !wantsPasswordChange) ||
-    (wantsPasswordChange && (passwordMismatch || form.newPassword.length < 8 || !form.currentPassword));
+    (wantsPasswordChange && (passwordMismatch || weakPassword || !form.currentPassword));
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -599,7 +631,7 @@ function CredentialsCard({
     setStatus({ type: 'idle' });
     try {
       const payload: Record<string, unknown> = {};
-      if (emailChanged) payload.email = form.email.trim();
+      if (emailChanged) payload.email = trimmedEmail;
       if (wantsPasswordChange) {
         payload.newPassword = form.newPassword;
         payload.currentPassword = form.currentPassword;
@@ -614,14 +646,14 @@ function CredentialsCard({
         throw new Error(resolveCredentialsUpdateError(data?.error));
       }
       if (emailChanged) {
-        onEmailChange(form.email.trim());
+        onEmailChange(trimmedEmail);
       }
-      setForm({ email: form.email.trim(), currentPassword: '', newPassword: '', confirmPassword: '' });
+      setForm({ email: trimmedEmail, currentPassword: '', newPassword: '', confirmPassword: '' });
       setStatus({ type: 'success', message: 'Credenciais actualizadas com sucesso.' });
     } catch (error) {
       setStatus({
         type: 'error',
-        message: error instanceof Error ? error.message : 'Ocorreu um erro inesperado.',
+        message: resolveUnexpectedError(error, 'Ocorreu um erro inesperado.'),
       });
     } finally {
       setSaving(false);
@@ -638,26 +670,59 @@ function CredentialsCard({
       </header>
 
       <div className="settings-fields" data-columns="2">
-        <Field label="Email de acesso">
-          <TextInput type="email" value={form.email} onChange={(value) => setForm((prev) => ({ ...prev, email: value }))} />
+        <Field
+          label="Email de acesso"
+          description={invalidEmail ? 'Indica um email válido antes de guardar.' : undefined}
+        >
+          <TextInput
+            type="email"
+            value={form.email}
+            onChange={(value) => setForm((prev) => ({ ...prev, email: value }))}
+            autoComplete="email"
+            autoCapitalize="none"
+            spellCheck={false}
+            invalid={invalidEmail}
+          />
         </Field>
-        <Field label="Palavra-passe actual" description="Necessária para definir uma nova palavra-passe.">
+        <Field
+          label="Palavra-passe actual"
+          description={
+            wantsPasswordChange
+              ? missingCurrentPassword
+                ? 'Indica a palavra-passe actual para confirmares a alteração.'
+                : 'Necessária para definir uma nova palavra-passe.'
+              : 'Necessária apenas ao alterar a palavra-passe.'
+          }
+        >
           <TextInput
             type="password"
             value={form.currentPassword}
             onChange={(value) => setForm((prev) => ({ ...prev, currentPassword: value }))}
             disabled={!wantsPasswordChange}
+            autoComplete="current-password"
+            invalid={missingCurrentPassword}
           />
         </Field>
       </div>
 
       <div className="settings-fields" data-columns="2">
-        <Field label="Nova palavra-passe" description="Mínimo 8 caracteres.">
+        <Field
+          label="Nova palavra-passe"
+          description={
+            wantsPasswordChange
+              ? weakPassword
+                ? 'A nova palavra-passe deve ter pelo menos 8 caracteres.'
+                : 'Recomenda-se uma combinação de letras, números e símbolos.'
+              : 'Mínimo 8 caracteres.'
+          }
+        >
           <TextInput
             type="password"
             value={form.newPassword}
             onChange={(value) => setForm((prev) => ({ ...prev, newPassword: value }))}
             placeholder="********"
+            autoComplete="new-password"
+            invalid={weakPassword}
           />
         </Field>
         <Field label="Confirmar palavra-passe">
@@ -666,13 +731,12 @@ function CredentialsCard({
             value={form.confirmPassword}
             onChange={(value) => setForm((prev) => ({ ...prev, confirmPassword: value }))}
             placeholder="********"
+            autoComplete="new-password"
+            invalid={passwordMismatch}
           />
         </Field>
       </div>
 
-      {wantsPasswordChange && form.newPassword.length > 0 && form.newPassword.length < 8 ? (
-        <p className="settings-warning">A nova palavra-passe deve ter pelo menos 8 caracteres.</p>
-      ) : null}
       {passwordMismatch ? (
         <p className="settings-warning">As palavras-passe não coincidem.</p>
       ) : null}
