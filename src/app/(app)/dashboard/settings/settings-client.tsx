@@ -34,6 +34,7 @@ import {
   type ThemePreference,
   type TrainerSettings,
 } from '@/lib/settings/defaults';
+import { normalizePhone, phoneDigitCount, PHONE_MIN_DIGITS } from '@/lib/phone';
 import type {
   SettingsActivity,
   SettingsDashboardData,
@@ -228,6 +229,8 @@ function resolveAccountUpdateError(code?: string) {
       return 'Pedido inválido ao actualizar o perfil.';
     case 'PHONE_TAKEN':
       return 'Este número de telefone já está associado a outra conta.';
+    case 'INVALID_PHONE':
+      return `Introduz um número de telefone válido (mínimo ${PHONE_MIN_DIGITS} dígitos).`;
     default:
       return 'Não foi possível guardar as alterações.';
   }
@@ -250,28 +253,6 @@ function resolveCredentialsUpdateError(code?: string) {
     default:
       return 'Não foi possível actualizar as credenciais.';
   }
-}
-
-function normalizePhoneInput(value: string) {
-  const sanitized = value
-    .replace(/\u00a0/g, ' ')
-    .replace(/[()\[\]\.\-]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  if (!sanitized) return '';
-
-  const hasPlus = sanitized.startsWith('+');
-  const body = (hasPlus ? sanitized.slice(1) : sanitized)
-    .replace(/\+/g, '')
-    .replace(/[^\d ]+/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  if (!body.length) {
-    return '';
-  }
-
-  return hasPlus ? `+${body}` : body;
 }
 
 function resolveUnexpectedError(error: unknown, fallback: string) {
@@ -504,9 +485,10 @@ function AccountSettingsCard({
   const [saving, setSaving] = React.useState(false);
 
   React.useEffect(() => {
+    const normalized = account.phone ? normalizePhone(account.phone) : '';
     setForm({
       name: account.name,
-      phone: account.phone ? normalizePhoneInput(account.phone) : null,
+      phone: normalized.length ? normalized : null,
       email: account.email,
     });
   }, [account.name, account.phone, account.email]);
@@ -518,13 +500,13 @@ function AccountSettingsCard({
   const trimmedName = form.name.trim();
   const initialName = account.name.trim();
   const nameChanged = trimmedName !== initialName;
-  const normalizedPhone = form.phone ? normalizePhoneInput(form.phone) : '';
-  const initialPhone = account.phone ? normalizePhoneInput(account.phone) : '';
+  const normalizedPhone = form.phone ?? '';
+  const initialPhone = account.phone ? normalizePhone(account.phone) : '';
   const phoneChanged = normalizedPhone !== initialPhone;
   const dirty = nameChanged || phoneChanged;
   const invalidName = nameChanged && trimmedName.length < MIN_NAME_LENGTH;
-  const phoneDigits = normalizedPhone.replace(/\D+/g, '');
-  const invalidPhone = normalizedPhone.length > 0 && phoneDigits.length < 9;
+  const digits = phoneDigitCount(normalizedPhone);
+  const invalidPhone = normalizedPhone.length > 0 && digits < PHONE_MIN_DIGITS;
   const disabled = saving || !dirty || invalidName || invalidPhone;
 
   async function onSubmit(event: React.FormEvent) {
@@ -594,14 +576,14 @@ function AccountSettingsCard({
           label="Telefone"
           description={
             invalidPhone
-              ? 'Introduz um número de telefone válido (mínimo 9 dígitos).'
+              ? `Introduz um número de telefone válido (mínimo ${PHONE_MIN_DIGITS} dígitos).`
               : 'Utilizado para alertas críticos e suporte.'
           }
         >
           <TextInput
             value={form.phone ?? ''}
             onChange={(value) => {
-              const normalized = normalizePhoneInput(value);
+              const normalized = normalizePhone(value);
               resetStatus();
               setForm((prev) => ({ ...prev, phone: normalized.length ? normalized : null }));
             }}
@@ -1122,7 +1104,7 @@ export default function SettingsClient({
 }) {
   const [account, setAccount] = React.useState<AccountState>({
     name: model.name,
-    phone: model.phone ? normalizePhoneInput(model.phone) : null,
+    phone: model.phone ? normalizePhone(model.phone) : null,
     email: model.email,
   });
   const [preferences, setPreferences] = React.useState<PreferencesState>({
@@ -1143,7 +1125,7 @@ export default function SettingsClient({
   React.useEffect(() => {
     setAccount({
       name: model.name,
-      phone: model.phone ? normalizePhoneInput(model.phone) : null,
+      phone: model.phone ? normalizePhone(model.phone) : null,
       email: model.email,
     });
     setPreferences({ language: model.language, theme: model.theme, notifications: model.notifications });

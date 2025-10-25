@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { syncUserProfile } from '@/lib/profileSync';
 import { checkUsernameAvailability, validateUsernameCandidate } from '@/lib/username';
+import { validatePhone } from '@/lib/phone';
 
 type SessionUser = { id?: string; email?: string | null; role?: string | null };
 type SessionLike =
@@ -143,10 +144,12 @@ async function handleUpdate(req: Request) {
   }
 
   if (body.phone !== undefined) {
-    const raw = body.phone == null ? null : String(body.phone).trim();
-    const value = raw && raw.length ? raw : null;
-    privatePatch.phone = value;
-    responsePatch.phone = value;
+    const result = validatePhone(body.phone);
+    if (!result.ok) {
+      return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
+    }
+    privatePatch.phone = result.value;
+    responsePatch.phone = result.value ?? null;
   }
 
   if (body.username !== undefined) {
