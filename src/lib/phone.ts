@@ -1,4 +1,5 @@
 export const PHONE_MIN_DIGITS = 9;
+export const PHONE_MAX_DIGITS = 15;
 
 function sanitizeWhitespace(value: string) {
   return value.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
@@ -25,7 +26,10 @@ export function phoneDigitCount(value: string) {
   return value.replace(/\D+/g, '').length;
 }
 
-export function validatePhone(value: unknown, { minDigits = PHONE_MIN_DIGITS } = {}) {
+export function validatePhone(
+  value: unknown,
+  { minDigits = PHONE_MIN_DIGITS, maxDigits = PHONE_MAX_DIGITS } = {},
+) {
   if (value == null) {
     return { ok: true as const, value: null as null };
   }
@@ -35,7 +39,13 @@ export function validatePhone(value: unknown, { minDigits = PHONE_MIN_DIGITS } =
     return { ok: true as const, value: null as null };
   }
 
-  return phoneDigitCount(normalized) >= minDigits
-    ? { ok: true as const, value: normalized }
-    : { ok: false as const, error: 'INVALID_PHONE' as const };
+  const digits = phoneDigitCount(normalized);
+  if (digits < minDigits) {
+    return { ok: false as const, error: 'PHONE_TOO_SHORT' as const };
+  }
+  if (digits > maxDigits) {
+    return { ok: false as const, error: 'PHONE_TOO_LONG' as const };
+  }
+
+  return { ok: true as const, value: normalized };
 }

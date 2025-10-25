@@ -34,7 +34,7 @@ import {
   type ThemePreference,
   type TrainerSettings,
 } from '@/lib/settings/defaults';
-import { normalizePhone, phoneDigitCount, PHONE_MIN_DIGITS } from '@/lib/phone';
+import { normalizePhone, phoneDigitCount, PHONE_MIN_DIGITS, PHONE_MAX_DIGITS } from '@/lib/phone';
 import type {
   SettingsActivity,
   SettingsDashboardData,
@@ -332,8 +332,12 @@ function resolveAccountUpdateError(code?: string) {
       return 'Pedido inválido ao actualizar o perfil.';
     case 'PHONE_TAKEN':
       return 'Este número de telefone já está associado a outra conta.';
-    case 'INVALID_PHONE':
+    case 'PHONE_TOO_SHORT':
       return `Introduz um número de telefone válido (mínimo ${PHONE_MIN_DIGITS} dígitos).`;
+    case 'PHONE_TOO_LONG':
+      return `Introduz um número de telefone válido (máximo ${PHONE_MAX_DIGITS} dígitos).`;
+    case 'INVALID_PHONE':
+      return `Introduz um número de telefone válido (${PHONE_MIN_DIGITS}-${PHONE_MAX_DIGITS} dígitos).`;
     default:
       return 'Não foi possível guardar as alterações.';
   }
@@ -619,20 +623,34 @@ function AccountSettingsCard({
   const dirty = nameChanged || phoneChanged;
   const invalidName = nameChanged && trimmedName.length < MIN_NAME_LENGTH;
   const phoneDigits = normalizedPhone.length ? phoneDigitCount(normalizedPhone) : 0;
-  const invalidPhone = phoneChanged && normalizedPhone.length > 0 && phoneDigits < PHONE_MIN_DIGITS;
+  const phoneTooShort = phoneChanged && normalizedPhone.length > 0 && phoneDigits < PHONE_MIN_DIGITS;
+  const phoneTooLong = phoneChanged && normalizedPhone.length > 0 && phoneDigits > PHONE_MAX_DIGITS;
+  const invalidPhone = phoneTooShort || phoneTooLong;
   const disabled = saving || !dirty || invalidName || invalidPhone;
   const basePhoneHelper = initialHasPhone
     ? 'Utilizado para alertas críticos e suporte.'
     : 'Adiciona um número para receber alertas críticos e suporte.';
-  const phoneHelper = invalidPhone
-    ? `Introduz um número de telefone válido (mínimo ${PHONE_MIN_DIGITS} dígitos — actualmente ${phoneDigits}).`
-    : phoneTouched
-    ? normalizedPhone.length
-      ? `${basePhoneHelper} Actualmente ${phoneDigits} dígitos.`
-      : initialHasPhone
-      ? 'O número actual será removido ao guardar.'
-      : 'Nenhum número guardado nesta conta.'
-    : basePhoneHelper;
+  const phoneHelper = (() => {
+    if (invalidPhone) {
+      if (phoneTooShort) {
+        return `Introduz um número de telefone válido (mínimo ${PHONE_MIN_DIGITS} dígitos — actualmente ${phoneDigits}).`;
+      }
+      if (phoneTooLong) {
+        return `Introduz um número de telefone válido (máximo ${PHONE_MAX_DIGITS} dígitos — actualmente ${phoneDigits}).`;
+      }
+    }
+    if (!phoneTouched) {
+      return basePhoneHelper;
+    }
+    if (!normalizedPhone.length) {
+      return initialHasPhone ? 'O número actual será removido ao guardar.' : 'Nenhum número guardado nesta conta.';
+    }
+    const digitsLabel =
+      phoneDigits >= PHONE_MAX_DIGITS
+        ? `${phoneDigits} dígitos (limite ${PHONE_MAX_DIGITS}).`
+        : `${phoneDigits} dígitos.`;
+    return `${basePhoneHelper} Actualmente ${digitsLabel}`;
+  })();
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
