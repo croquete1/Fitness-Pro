@@ -214,6 +214,52 @@ function formatRelativeLabel(value: string | null | undefined) {
   }
 }
 
+function formatRelativeMoment(value: string | null | undefined) {
+  if (!value) return null;
+  try {
+    const timestamp = new Date(value).getTime();
+    if (Number.isNaN(timestamp)) return null;
+    const diffMs = timestamp - Date.now();
+    const absMs = Math.abs(diffMs);
+    const minute = 60_000;
+    const hour = 60 * minute;
+    const day = 24 * hour;
+    const formatter = new Intl.RelativeTimeFormat('pt-PT', { numeric: 'auto' });
+    if (absMs < minute) {
+      return formatter.format(Math.round(diffMs / 1_000), 'second');
+    }
+    if (absMs < hour) {
+      return formatter.format(Math.round(diffMs / minute), 'minute');
+    }
+    if (absMs < day) {
+      return formatter.format(Math.round(diffMs / hour), 'hour');
+    }
+    return formatter.format(Math.round(diffMs / day), 'day');
+  } catch {
+    return null;
+  }
+}
+
+function formatUpdatedAt(value: string | null | undefined) {
+  const relative = formatRelativeMoment(value);
+  if (!value && !relative) return null;
+  try {
+    const timestamp = value ? new Date(value).getTime() : Number.NaN;
+    const absolute = Number.isNaN(timestamp)
+      ? null
+      : new Intl.DateTimeFormat('pt-PT', {
+          dateStyle: 'short',
+          timeStyle: 'short',
+        }).format(new Date(timestamp));
+    if (relative && absolute) {
+      return `${relative} · ${absolute}`;
+    }
+    return relative ?? absolute;
+  } catch {
+    return relative ?? null;
+  }
+}
+
 function isValidEmail(value: string) {
   return EMAIL_PATTERN.test(value);
 }
@@ -1162,6 +1208,7 @@ export default function SettingsClient({
     fallbackData: initialDashboard,
     revalidateOnFocus: false,
     keepPreviousData: true,
+    dedupingInterval: 0,
   });
 
   const analytics = dashboard ?? initialDashboard;
@@ -1169,8 +1216,12 @@ export default function SettingsClient({
 
   const fallbackActive = analytics.source === 'fallback';
   const refreshDashboard = React.useCallback(() => {
-    void mutate();
+    void mutate(undefined, { revalidate: true });
   }, [mutate]);
+  const lastUpdatedLabel = React.useMemo(
+    () => formatUpdatedAt(analyticsData.generatedAt),
+    [analyticsData.generatedAt],
+  );
 
   return (
     <div className="settings-dashboard neo-dashboard">
@@ -1179,6 +1230,11 @@ export default function SettingsClient({
         subtitle="Controla preferências da conta, métricas de segurança e canais de comunicação."
         actions={
           <div className="settings-header-actions">
+            {lastUpdatedLabel ? (
+              <span className="settings-header-updated" aria-live="polite">
+                Actualizado {lastUpdatedLabel}
+              </span>
+            ) : null}
             <Select value={range} onChange={(value) => setRange(value as RangeValue)} options={RANGE_OPTIONS} />
             <Button
               type="button"

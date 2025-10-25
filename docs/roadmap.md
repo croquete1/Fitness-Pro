@@ -113,6 +113,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Validar o contacto telefónico no backend das definições reutilizando a normalização partilhada e alinhando as mensagens no cliente. Fontes: `src/app/api/me/profile/route.ts`, `src/lib/phone.ts`, `src/app/(app)/dashboard/settings/settings-client.tsx`.
 - [x] Permitir actualizar o nome mantendo contactos herdados abaixo do limite mínimo, exigindo correcção do telefone apenas quando editado no formulário de definições.
 - [x] Revalidar automaticamente as métricas de segurança após alterações nas definições para manter o painel sincronizado. Fontes: `src/app/(app)/dashboard/settings/settings-client.tsx`.
+- [x] Destacar a última actualização das métricas e forçar revalidação imediata no painel de definições para garantir dados frescos. Fontes: `src/app/(app)/dashboard/settings/settings-client.tsx`, `src/app/globals.css`.
 - [ ] Harmonizar o design dos dashboards (admin, PT e cliente) com a linguagem visual HMS, validando breakpoints mobile/desktop.
 - [ ] Completar o fluxo operacional do PT (clientes, planos, agenda e biblioteca) com dados reais e interacções consistentes.
 - [ ] Documentar configuração e variáveis de ambiente actualizadas após migração para Supabase.
