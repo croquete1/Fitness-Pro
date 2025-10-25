@@ -5,21 +5,16 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import PageHeader from '@/components/ui/PageHeader';
-import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole } from '@/lib/roles';
 import { brand } from '@/lib/brand';
+import { loadTrainerClientOverview } from '@/lib/trainer/clients/server';
+import { normalizePhone } from '@/lib/phone';
+import { formatRelativeTime } from '@/lib/datetime/relative';
 
 export const metadata: Metadata = {
   title: `Clientes do Personal Trainer · ${brand.name}`,
   description: 'Consulta os clientes associados aos teus planos e sessões.',
-};
-
-type ClientRow = {
-  id: string;
-  name: string;
-  email: string | null;
-  status?: string | null;
 };
 
 type Metric = {
@@ -29,39 +24,109 @@ type Metric = {
   tone?: 'primary' | 'info' | 'success' | 'warning' | 'violet';
 };
 
-const STATUS_LABELS: Record<string, string> = {
+type StatusTone = 'ok' | 'warn' | 'down';
+
+type PlanStatusTone = 'primary' | 'success' | 'warning' | 'violet' | 'info';
+
+const CLIENT_STATUS_LABELS: Record<string, string> = {
   ACTIVE: 'Activo',
-  INACTIVE: 'Inactivo',
-  PAUSED: 'Em pausa',
+  SUSPENDED: 'Suspenso',
   PENDING: 'Pendente',
 };
 
-const STATUS_TONE: Record<string, 'ok' | 'warn' | 'down'> = {
-  ACTIVE: 'ok',
-  PENDING: 'warn',
-  PAUSED: 'warn',
-  INACTIVE: 'down',
+const PLAN_STATUS_LABELS: Record<string, string> = {
+  ACTIVE: 'Activo',
+  DRAFT: 'Em construção',
+  ARCHIVED: 'Arquivado',
+  DELETED: 'Removido',
 };
 
-function toClientRow(row: any): ClientRow {
-  return {
-    id: String(row?.id ?? ''),
-    name: row?.name ?? row?.email ?? String(row?.id ?? ''),
-    email: row?.email ?? null,
-    status: row?.status ?? row?.role ?? null,
-  } satisfies ClientRow;
+function normalize(value: string | null | undefined): string {
+  return value ? value.toString().trim().toUpperCase() : '';
 }
 
-function formatStatus(value: string | null | undefined) {
-  if (!value) return '—';
-  const normalized = value.toString().trim().toUpperCase();
-  return STATUS_LABELS[normalized] ?? value;
+function clientStatusTone(value: string | null | undefined): StatusTone {
+  const normalized = normalize(value);
+  if (normalized === 'ACTIVE') return 'ok';
+  if (normalized === 'SUSPENDED') return 'down';
+  if (!normalized || normalized === 'PENDING') return 'warn';
+  return 'warn';
 }
 
-function statusTone(value: string | null | undefined): 'ok' | 'warn' | 'down' {
-  if (!value) return 'warn';
-  const normalized = value.toString().trim().toUpperCase();
-  return STATUS_TONE[normalized] ?? 'warn';
+function clientStatusLabel(value: string | null | undefined): string {
+  const normalized = normalize(value);
+  return CLIENT_STATUS_LABELS[normalized] ?? (value || '—');
+}
+
+function planBadgeTone(value: string | null | undefined): PlanStatusTone {
+  const normalized = normalize(value);
+  if (normalized === 'ACTIVE') return 'success';
+  if (normalized === 'ARCHIVED') return 'info';
+  if (normalized === 'DELETED') return 'violet';
+  return 'warning';
+}
+
+function planStatusLabel(value: string | null | undefined): string {
+  const normalized = normalize(value);
+  if (!normalized) return 'Sem plano activo';
+  return PLAN_STATUS_LABELS[normalized] ?? value ?? 'Sem plano activo';
+}
+
+function formatTimestamp(value: string | null): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleString('pt-PT');
+}
+
+function relativeLabel(value: string | null, empty: string): string {
+  const relative = formatRelativeTime(value);
+  if (relative) return relative;
+  if (value) {
+    const formatted = formatTimestamp(value);
+    if (formatted) return formatted;
+  }
+  return empty;
+}
+
+function sortRows(
+  rows: Awaited<ReturnType<typeof loadTrainerClientOverview>>['rows'],
+): typeof rows {
+  return [...rows].sort((a, b) => {
+    const aUrgency = clientUrgencyScore(a);
+    const bUrgency = clientUrgencyScore(b);
+    if (aUrgency !== bUrgency) return bUrgency - aUrgency;
+    const aNext = a.nextSessionAt ? new Date(a.nextSessionAt).getTime() : Infinity;
+    const bNext = b.nextSessionAt ? new Date(b.nextSessionAt).getTime() : Infinity;
+    if (aNext !== bNext) return aNext - bNext;
+    if (b.upcomingCount !== a.upcomingCount) return b.upcomingCount - a.upcomingCount;
+    return a.name.localeCompare(b.name, 'pt-PT');
+  });
+}
+
+function clientUrgencyScore(
+  row: Awaited<ReturnType<typeof loadTrainerClientOverview>>['rows'][number],
+) {
+  let score = 0;
+  const planStatus = row.planStatus ? row.planStatus.toString().trim().toUpperCase() : '';
+  if (!row.upcomingCount) {
+    score += 4;
+  }
+  if (!planStatus || planStatus !== 'ACTIVE') {
+    score += 2;
+  }
+  if (!row.email && !row.phone) {
+    score += 1;
+  }
+  return score;
+}
+
+function buildTelHref(value: string | null | undefined) {
+  if (!value) return null;
+  const normalized = normalizePhone(value);
+  if (!normalized) return null;
+  const compact = normalized.replace(/\s+/g, '');
+  return `tel:${compact}`;
 }
 
 export default async function PtClientsPage() {
@@ -71,57 +136,58 @@ export default async function PtClientsPage() {
   const role = toAppRole(me.role) ?? 'CLIENT';
   if (role !== 'PT' && role !== 'ADMIN') redirect('/dashboard');
 
-  const sb = createServerClient();
-
-  const ids = new Set<string>();
-  try {
-    const { data: plans } = await sb.from('training_plans').select('client_id,status').eq('trainer_id', me.id);
-    (plans ?? []).forEach((row: any) => {
-      if (row?.client_id) ids.add(row.client_id);
-    });
-  } catch (error) {
-    console.warn('[pt clients] falha ao carregar planos', error);
-  }
-  try {
-    const { data: sessions } = await sb.from('sessions').select('client_id').eq('trainer_id', me.id);
-    (sessions ?? []).forEach((row: any) => {
-      if (row?.client_id) ids.add(row.client_id);
-    });
-  } catch (error) {
-    console.warn('[pt clients] falha ao carregar sessões', error);
-  }
-
-  let rows: ClientRow[] = [];
-  if (ids.size) {
-    try {
-      const { data } = await sb
-        .from('users')
-        .select('id,name,email,status,role')
-        .in('id', Array.from(ids));
-      rows = Array.isArray(data) ? data.map(toClientRow) : [];
-    } catch (error) {
-      console.warn('[pt clients] falha ao carregar perfis', error);
-      rows = [];
-    }
-  }
-
-  const statusCount = rows.reduce<Record<string, number>>((acc, row) => {
-    const key = (row.status ?? 'UNKNOWN').toString().toUpperCase();
-    acc[key] = (acc[key] ?? 0) + 1;
-    return acc;
-  }, {});
-
-  const total = rows.length;
-  const active = statusCount.ACTIVE ?? 0;
-  const pending = (statusCount.PENDING ?? 0) + (statusCount.UNKNOWN ?? 0);
-  const inactive = (statusCount.INACTIVE ?? 0) + (statusCount.PAUSED ?? 0);
+  const overview = await loadTrainerClientOverview(me.id);
+  const rows = sortRows(overview.rows);
+  const lastUpdatedLabel = relativeLabel(overview.updatedAt, 'actualizado agora mesmo');
 
   const metrics: Metric[] = [
-    { label: 'Total na carteira', value: total, hint: 'Clientes associados ao teu perfil', tone: 'primary' },
-    { label: 'Activos', value: active, hint: 'Com plano ou sessões em curso', tone: 'success' },
-    { label: 'A acompanhar', value: pending, hint: 'A aguardar plano ou activação', tone: 'warning' },
-    { label: 'Em pausa', value: inactive, hint: 'Sem actividade recente', tone: 'violet' },
+    {
+      label: 'Total na carteira',
+      value: overview.metrics.total,
+      hint: 'Clientes com vínculo activo ao teu perfil',
+      tone: 'primary',
+    },
+    {
+      label: 'Planos activos',
+      value: overview.metrics.activePlans,
+      hint: 'Com plano marcado como ACTIVO',
+      tone: 'success',
+    },
+    {
+      label: 'Sessões agendadas',
+      value: overview.metrics.upcomingSessions,
+      hint: 'Nos próximos 120 dias de agenda',
+      tone: 'info',
+    },
+    {
+      label: 'Sem próxima sessão',
+      value: overview.metrics.withoutUpcoming,
+      hint: 'Clientes sem agendamentos futuros',
+      tone: 'warning',
+    },
+    {
+      label: 'Em onboarding',
+      value: overview.metrics.onboarding,
+      hint: 'A iniciar acompanhamento ou a aguardar activação',
+      tone: 'violet',
+    },
+    {
+      label: 'Sem contacto directo',
+      value: overview.metrics.missingContacts,
+      hint: 'Clientes sem email ou telefone registado',
+      tone: 'warning',
+    },
+    {
+      label: 'Sem plano activo',
+      value: overview.metrics.withoutPlan,
+      hint: 'Clientes ligados mas sem plano identificado',
+      tone: 'info',
+    },
   ];
+
+  const realtime = overview.source === 'supabase' && overview.supabase;
+  const supabaseTone: StatusTone = realtime ? 'ok' : 'warn';
+  const supabaseLabel = realtime ? 'Dados em tempo real' : 'Modo offline';
 
   return (
     <div className="space-y-6 px-4 py-6 md:px-8">
@@ -129,7 +195,13 @@ export default async function PtClientsPage() {
         title="Carteira de clientes"
         subtitle="Uma visão consolidada dos clientes que confiam no teu acompanhamento."
         actions={
-          <div className="neo-quick-actions">
+          <div className="neo-inline neo-inline--wrap neo-inline--sm">
+            <span className="status-pill" data-state={supabaseTone}>
+              {supabaseLabel}
+            </span>
+            <span className="text-xs text-muted" aria-live="polite">
+              Actualizado {lastUpdatedLabel}
+            </span>
             <Link href="/register" prefetch={false} className="btn primary">
               Adicionar novo cliente
             </Link>
@@ -146,13 +218,19 @@ export default async function PtClientsPage() {
             <h2 className="neo-panel__title">Panorama rápido</h2>
             <p className="neo-panel__subtitle">Indicadores para priorizares onboarding e acompanhamento.</p>
           </div>
-          <span className="status-pill" data-state={total > 0 ? 'ok' : 'warn'}>
-            {total > 0 ? `${total} cliente(s)` : 'Sem clientes ainda'}
+          <span className="status-pill" data-state={overview.metrics.total > 0 ? 'ok' : 'warn'}>
+            {overview.metrics.total > 0
+              ? `${overview.metrics.total} cliente(s)`
+              : 'Sem clientes ainda'}
           </span>
         </div>
         <div className="neo-grid auto-fit min-[320px]:grid-cols-2 xl:grid-cols-4">
           {metrics.map((metric) => (
-            <article key={metric.label} className="neo-surface neo-surface--interactive space-y-3 p-4" data-variant={metric.tone}>
+            <article
+              key={metric.label}
+              className="neo-surface neo-surface--interactive space-y-3 p-4"
+              data-variant={metric.tone}
+            >
               <div className="space-y-1">
                 <span className="neo-surface__hint uppercase tracking-wide">{metric.label}</span>
                 <span className="neo-surface__value text-2xl font-semibold text-fg">{metric.value}</span>
@@ -167,7 +245,9 @@ export default async function PtClientsPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="neo-panel__title">Clientes associados</h2>
-            <p className="neo-panel__subtitle">Contactos e estados actualizados em tempo real.</p>
+            <p className="neo-panel__subtitle">
+              Contactos, planos e agenda sincronizados com a tua operação diária.
+            </p>
           </div>
           <Link href="/dashboard/pt/messages" prefetch={false} className="btn ghost">
             Enviar mensagem
@@ -179,36 +259,121 @@ export default async function PtClientsPage() {
             <thead>
               <tr>
                 <th scope="col">Cliente</th>
-                <th scope="col">Email</th>
+                <th scope="col">Plano</th>
+                <th scope="col">Próxima sessão</th>
+                <th scope="col">Última sessão</th>
                 <th scope="col">Estado</th>
-                <th scope="col" className="text-right">Acções</th>
+                <th scope="col" className="text-right">
+                  Acções
+                </th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
-                <tr key={row.id}>
-                  <td>
-                    <div className="space-y-1">
-                      <span className="font-semibold text-fg">{row.name}</span>
-                      {row.email && <span className="text-xs text-muted">ID #{row.id}</span>}
-                    </div>
-                  </td>
-                  <td>{row.email ?? '—'}</td>
-                  <td>
-                    <span className="status-pill" data-state={statusTone(row.status)}>
-                      {formatStatus(row.status ?? null)}
-                    </span>
-                  </td>
-                  <td className="text-right">
-                    <Link href={`/dashboard/users/${row.id}`} prefetch={false} className="link-arrow inline-flex items-center gap-1 text-sm">
-                      Ver perfil
-                    </Link>
-                  </td>
-                </tr>
-              ))}
+              {rows.map((row) => {
+                const nextRelative = relativeLabel(row.nextSessionAt, 'Sem agendamento');
+                const lastRelative = relativeLabel(row.lastSessionAt, 'Sem histórico');
+                const nextAbsolute = formatTimestamp(row.nextSessionAt);
+                const lastAbsolute = formatTimestamp(row.lastSessionAt);
+                const linkedRelative = row.linkedAt
+                  ? relativeLabel(row.linkedAt, 'há algum tempo')
+                  : 'Ligação pendente';
+                const hasContact = Boolean(row.email || row.phone);
+                const telHref = buildTelHref(row.phone);
+
+                return (
+                  <tr key={row.id}>
+                    <td>
+                      <div className="space-y-1">
+                        <span className="font-semibold text-fg">{row.name}</span>
+                        <p className="text-xs text-muted">Ligado {linkedRelative}</p>
+                        <div className="flex flex-wrap gap-2 text-xs text-muted">
+                          {row.email && <span>{row.email}</span>}
+                          {row.phone && <span>{row.phone}</span>}
+                          <span className="opacity-70">ID #{row.id}</span>
+                          {row.upcomingCount > 0 && (
+                            <span className="neo-badge neo-badge--muted">
+                              {row.upcomingCount} sessão(ões) futura(s)
+                            </span>
+                          )}
+                          {!hasContact && (
+                            <span className="neo-badge neo-badge--muted" data-tone="warning">
+                              Sem contacto directo
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="neo-badge" data-tone={planBadgeTone(row.planStatus)}>
+                            {planStatusLabel(row.planStatus)}
+                          </span>
+                          {row.planTitle && (
+                            <span className="text-xs text-muted" title={row.planTitle}>
+                              {row.planTitle}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted">
+                          {row.planUpdatedAt
+                            ? `Actualizado ${relativeLabel(row.planUpdatedAt, 'há algum tempo')}`
+                            : 'Sem histórico de actualização'}
+                        </p>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="space-y-1">
+                        <span className="font-medium text-fg">{nextRelative}</span>
+                        {nextAbsolute && <span className="text-xs text-muted">{nextAbsolute}</span>}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="space-y-1">
+                        <span className="text-sm text-fg">{lastRelative}</span>
+                        {lastAbsolute && <span className="text-xs text-muted">{lastAbsolute}</span>}
+                      </div>
+                    </td>
+                    <td>
+                      <span className="status-pill" data-state={clientStatusTone(row.clientStatus)}>
+                        {clientStatusLabel(row.clientStatus)}
+                      </span>
+                    </td>
+                    <td className="text-right">
+                      <div className="neo-inline neo-inline--sm justify-end">
+                        {row.email && (
+                          <a
+                            href={`mailto:${row.email}`}
+                            className="link-arrow text-sm"
+                            aria-label={`Enviar email para ${row.name}`}
+                          >
+                            Enviar email
+                          </a>
+                        )}
+                        {telHref && (
+                          <a
+                            href={telHref}
+                            className="link-arrow text-sm"
+                            aria-label={`Ligar para ${row.name}`}
+                          >
+                            Ligar agora
+                          </a>
+                        )}
+                        <Link
+                          href={`/dashboard/users/${row.id}`}
+                          prefetch={false}
+                          className="link-arrow inline-flex items-center gap-1 text-sm"
+                        >
+                          Ver perfil
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={4}>
+                  <td colSpan={6}>
                     <div className="rounded-2xl border border-dashed border-white/40 bg-white/40 p-6 text-center text-sm text-muted dark:border-slate-700/60 dark:bg-slate-900/30">
                       Ainda não tens clientes atribuídos. Usa as acções acima para convidar o primeiro atleta.
                     </div>
