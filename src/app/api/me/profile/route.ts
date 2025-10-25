@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { syncUserProfile } from '@/lib/profileSync';
 import { checkUsernameAvailability, validateUsernameCandidate } from '@/lib/username';
+import { validatePhone } from '@/lib/phone';
 
 type SessionUser = { id?: string; email?: string | null; role?: string | null };
 type SessionLike =
@@ -143,10 +144,12 @@ async function handleUpdate(req: Request) {
   }
 
   if (body.phone !== undefined) {
-    const raw = body.phone == null ? null : String(body.phone).trim();
-    const value = raw && raw.length ? raw : null;
-    privatePatch.phone = value;
-    responsePatch.phone = value;
+    const result = validatePhone(body.phone);
+    if (!result.ok) {
+      return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
+    }
+    privatePatch.phone = result.value;
+    responsePatch.phone = result.value ?? null;
   }
 
   if (body.username !== undefined) {
@@ -194,7 +197,11 @@ async function handleUpdate(req: Request) {
       .from('profile_private')
       .upsert({ user_id: userId, ...privatePatch }, { onConflict: 'user_id' });
     if (error) {
-      return NextResponse.json({ ok: false, error: error.message ?? 'UPDATE_FAILED' }, { status: 400 });
+      const message = error.message ?? '';
+      if (error.code === '23505' || /profile_private.*phone/i.test(message) || /phone_?key/i.test(message)) {
+        return NextResponse.json({ ok: false, error: 'PHONE_TAKEN' }, { status: 409 });
+      }
+      return NextResponse.json({ ok: false, error: 'UPDATE_FAILED' }, { status: 400 });
     }
   }
 

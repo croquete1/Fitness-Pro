@@ -4,7 +4,13 @@ import * as React from 'react';
 
 type Mode = 'light' | 'dark';
 
-type Ctx = { mode: Mode; toggle: () => void; set: (m: Mode) => void };
+type Ctx = {
+  mode: Mode;
+  source: 'manual' | 'system';
+  toggle: () => void;
+  set: (m: Mode) => void;
+  setSystem: () => void;
+};
 
 const ColorModeCtx = React.createContext<Ctx | null>(null);
 
@@ -92,6 +98,12 @@ export default function ColorModeProvider({ children, initialMode = 'light' }: P
     setSource('manual');
   }, []);
 
+  const setSystemMode = React.useCallback(() => {
+    const system = getSystemMode();
+    setMode(system);
+    setSource('system');
+  }, []);
+
   const toggle = React.useCallback(() => {
     setManualMode(mode === 'dark' ? 'light' : 'dark');
   }, [mode, setManualMode]);
@@ -99,10 +111,12 @@ export default function ColorModeProvider({ children, initialMode = 'light' }: P
   const value = React.useMemo<Ctx>(
     () => ({
       mode,
+      source,
       toggle,
       set: setManualMode,
+      setSystem: setSystemMode,
     }),
-    [mode, setManualMode, toggle],
+    [mode, setManualMode, setSystemMode, source, toggle],
   );
 
   return <ColorModeCtx.Provider value={value}>{children}</ColorModeCtx.Provider>;
