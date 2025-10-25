@@ -37,6 +37,9 @@ type PreparedQuery = {
   asciiCompact: string;
   rawTokens: string[];
   asciiTokens: string[];
+  orthographyAscii: string | null;
+  orthographyAsciiCompact: string | null;
+  orthographyAsciiTokens: string[];
 };
 
 type ClientAlertKey =
@@ -126,12 +129,19 @@ function prepareQuery(value: string | null | undefined): PreparedQuery {
       asciiCompact: '',
       rawTokens: [],
       asciiTokens: [],
+      orthographyAscii: null,
+      orthographyAsciiCompact: null,
+      orthographyAsciiTokens: [],
     } satisfies PreparedQuery;
   }
 
   const ascii = stripDiacritics(raw);
   const compact = raw.replace(/\s+/g, '');
   const asciiCompact = ascii.replace(/\s+/g, '');
+  const orthographyAscii = applyPortugueseOrthographyReform(ascii);
+  const orthographyAsciiCompact = asciiCompact
+    ? applyPortugueseOrthographyReform(asciiCompact)
+    : null;
 
   return {
     raw,
@@ -140,6 +150,9 @@ function prepareQuery(value: string | null | undefined): PreparedQuery {
     asciiCompact,
     rawTokens: splitTokens(raw),
     asciiTokens: splitTokens(ascii),
+    orthographyAscii,
+    orthographyAsciiCompact,
+    orthographyAsciiTokens: orthographyAscii ? splitTokens(orthographyAscii) : [],
   } satisfies PreparedQuery;
 }
 
@@ -277,11 +290,25 @@ function rowMatchesQuery(entry: ClientRowAnalysis, query: PreparedQuery): boolea
     return true;
   }
 
+  if (
+    query.orthographyAscii &&
+    matchesAllTokens(query.orthographyAsciiTokens, searchIndex.ascii)
+  ) {
+    return true;
+  }
+
   if (query.compact && searchIndex.compact.some((candidate) => candidate.includes(query.compact))) {
     return true;
   }
 
   if (query.asciiCompact && searchIndex.asciiCompact.some((candidate) => candidate.includes(query.asciiCompact))) {
+    return true;
+  }
+
+  if (
+    query.orthographyAsciiCompact &&
+    searchIndex.asciiCompact.some((candidate) => candidate.includes(query.orthographyAsciiCompact))
+  ) {
     return true;
   }
 
