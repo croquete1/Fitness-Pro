@@ -372,13 +372,40 @@ function resolveCredentialsUpdateError(code?: string) {
   }
 }
 
+type ErrorWithCause = Error & { cause?: unknown };
+
+function extractErrorChain(error: unknown) {
+  const chain: Error[] = [];
+  let current: unknown = error;
+  const visited = new Set<Error>();
+
+  while (current instanceof Error && !visited.has(current)) {
+    chain.push(current);
+    visited.add(current);
+    current = (current as ErrorWithCause).cause;
+  }
+
+  return chain;
+}
+
+const NETWORK_ERROR_PATTERNS = [/failed to fetch/i, /networkerror/i, /network request failed/i, /load failed/i, /fetch failed/i];
+
 function resolveUnexpectedError(error: unknown, fallback: string) {
-  if (error instanceof Error) {
-    if (error.message === 'Failed to fetch') {
+  const chain = extractErrorChain(error);
+  if (chain.length) {
+    const abortError = chain.find((err) => err.name === 'AbortError');
+    if (abortError) {
+      return 'Pedido cancelado.';
+    }
+
+    const networkError = chain.find((err) => NETWORK_ERROR_PATTERNS.some((pattern) => pattern.test(err.message)));
+    if (networkError) {
       return 'Não foi possível ligar ao servidor. Verifica a tua ligação e tenta novamente.';
     }
-    return error.message;
+
+    return chain[0].message;
   }
+
   return fallback;
 }
 
