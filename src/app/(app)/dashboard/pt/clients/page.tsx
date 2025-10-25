@@ -28,6 +28,14 @@ type StatusTone = 'ok' | 'warn' | 'down';
 
 type PlanStatusTone = 'primary' | 'success' | 'warning' | 'violet' | 'info';
 
+type AlertTone = 'warning' | 'info' | 'violet';
+
+type ClientAlert = { label: string; tone: AlertTone };
+
+const DAY_IN_MS = 86_400_000;
+const STALE_SESSION_THRESHOLD_DAYS = 14;
+const STALE_SESSION_THRESHOLD_MS = STALE_SESSION_THRESHOLD_DAYS * DAY_IN_MS;
+
 const CLIENT_STATUS_LABELS: Record<string, string> = {
   ACTIVE: 'Activo',
   SUSPENDED: 'Suspenso',
@@ -91,6 +99,76 @@ function relativeLabel(value: string | null, empty: string): string {
 
 function sortRows(
   rows: Awaited<ReturnType<typeof loadTrainerClientOverview>>['rows'],
+  nowMs = Date.now(),
+): typeof rows {
+  return [...rows].sort((a, b) => {
+    const aUrgency = clientUrgencyScore(a, nowMs);
+    const bUrgency = clientUrgencyScore(b, nowMs);
+    if (aUrgency !== bUrgency) return bUrgency - aUrgency;
+    const aNext = a.nextSessionAt ? new Date(a.nextSessionAt).getTime() : Infinity;
+    const bNext = b.nextSessionAt ? new Date(b.nextSessionAt).getTime() : Infinity;
+    if (aNext !== bNext) return aNext - bNext;
+    if (b.upcomingCount !== a.upcomingCount) return b.upcomingCount - a.upcomingCount;
+    return a.name.localeCompare(b.name, 'pt-PT');
+  });
+}
+
+function clientUrgencyScore(
+  row: Awaited<ReturnType<typeof loadTrainerClientOverview>>['rows'][number],
+  nowMs = Date.now(),
+) {
+  let score = 0;
+  const planStatus = row.planStatus ? row.planStatus.toString().trim().toUpperCase() : '';
+  if (!row.upcomingCount) {
+    score += 4;
+  }
+  if (!planStatus || planStatus !== 'ACTIVE') {
+    score += 2;
+  }
+  if (!row.email && !row.phone) {
+    score += 1;
+  }
+  const lastAt = row.lastSessionAt ? new Date(row.lastSessionAt).getTime() : Number.NaN;
+  if (!row.lastSessionAt) {
+    score += 1;
+  } else if (!Number.isNaN(lastAt) && nowMs - lastAt > STALE_SESSION_THRESHOLD_MS) {
+    score += 2;
+  }
+  return score;
+}
+
+function buildTelHref(value: string | null | undefined) {
+  if (!value) return null;
+  const normalized = normalizePhone(value);
+  if (!normalized) return null;
+  const compact = normalized.replace(/\s+/g, '');
+  return `tel:${compact}`;
+}
+
+function buildRowAlerts(
+  row: Awaited<ReturnType<typeof loadTrainerClientOverview>>['rows'][number],
+  nowMs = Date.now(),
+): ClientAlert[] {
+  const alerts: ClientAlert[] = [];
+  if (!row.upcomingCount) {
+    alerts.push({ label: 'Sem próxima sessão agendada', tone: 'warning' });
+  }
+
+  const planStatus = normalize(row.planStatus);
+  if (!planStatus) {
+    alerts.push({ label: 'Sem plano activo', tone: 'info' });
+  } else if (planStatus !== 'ACTIVE') {
+    alerts.push({ label: `Plano ${planStatusLabel(row.planStatus)}`, tone: 'info' });
+  }
+
+  if (!row.email && !row.phone) {
+    alerts.push({ label: 'Sem contacto directo', tone: 'warning' });
+  }
+  return empty;
+}
+
+function sortRows(
+  rows: Awaited<ReturnType<typeof loadTrainerClientOverview>>['rows'],
 ): typeof rows {
   return [...rows].sort((a, b) => {
     const aUrgency = clientUrgencyScore(a);
@@ -104,13 +182,9 @@ function sortRows(
   });
 }
 
-function clientUrgencyScore(
-  row: Awaited<ReturnType<typeof loadTrainerClientOverview>>['rows'][number],
-) {
-  let score = 0;
-  const planStatus = row.planStatus ? row.planStatus.toString().trim().toUpperCase() : '';
-  if (!row.upcomingCount) {
-    score += 4;
+  const status = normalize(row.clientStatus);
+  if (status && status !== 'ACTIVE') {
+    alerts.push({ label: `Estado ${clientStatusLabel(row.clientStatus)}`, tone: 'violet' });
   }
   if (!planStatus || planStatus !== 'ACTIVE') {
     score += 2;
@@ -129,6 +203,19 @@ function buildTelHref(value: string | null | undefined) {
   return `tel:${compact}`;
 }
 
+  const lastAt = row.lastSessionAt ? new Date(row.lastSessionAt).getTime() : Number.NaN;
+  if (!row.lastSessionAt) {
+    alerts.push({ label: 'Sem sessões registadas', tone: 'violet' });
+  } else if (!Number.isNaN(lastAt) && nowMs - lastAt > STALE_SESSION_THRESHOLD_MS) {
+    alerts.push({
+      label: `Última sessão ${relativeLabel(row.lastSessionAt, 'há mais de 14 dias')}`,
+      tone: 'warning',
+    });
+  }
+
+  return alerts;
+}
+
 export default async function PtClientsPage() {
   const session = await getSessionUserSafe();
   const me = session?.user;
@@ -137,8 +224,13 @@ export default async function PtClientsPage() {
   if (role !== 'PT' && role !== 'ADMIN') redirect('/dashboard');
 
   const overview = await loadTrainerClientOverview(me.id);
-  const rows = sortRows(overview.rows);
+  const nowMs = Date.now();
+  const rows = sortRows(overview.rows, nowMs);
   const lastUpdatedLabel = relativeLabel(overview.updatedAt, 'actualizado agora mesmo');
+  const attention = rows
+    .map((row) => ({ row, alerts: buildRowAlerts(row, nowMs) }))
+    .filter((entry) => entry.alerts.length > 0);
+  const urgentRows = attention.slice(0, 6);
 
   const metrics: Metric[] = [
     {
@@ -239,6 +331,100 @@ export default async function PtClientsPage() {
             </article>
           ))}
         </div>
+      </section>
+
+      <section className="neo-panel space-y-4" aria-label="Alertas operacionais">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="neo-panel__title">Alertas operacionais</h2>
+            <p className="neo-panel__subtitle">
+              Prioriza clientes com bloqueios imediatos no plano, contacto ou sessões.
+            </p>
+          </div>
+          <span className="neo-badge neo-badge--muted" data-tone={attention.length > 0 ? 'warning' : 'success'}>
+            {attention.length > 0
+              ? `${attention.length} cliente(s) a requerer atenção`
+              : 'Carteira em dia'}
+          </span>
+        </div>
+
+        {urgentRows.length > 0 ? (
+          <div className="neo-stack space-y-3">
+            {urgentRows.map(({ row, alerts }) => {
+              const nextRelative = relativeLabel(row.nextSessionAt, 'Sem agendamento');
+              const lastRelative = relativeLabel(row.lastSessionAt, 'Sem histórico');
+              const linkedRelative = row.linkedAt
+                ? relativeLabel(row.linkedAt, 'há algum tempo')
+                : 'Ligação pendente';
+              const telHref = buildTelHref(row.phone);
+              const variant: AlertTone = alerts.some((alert) => alert.tone === 'warning')
+                ? 'warning'
+                : alerts.some((alert) => alert.tone === 'violet')
+                ? 'violet'
+                : 'info';
+
+              return (
+                <article key={row.id} className="neo-surface space-y-3 p-4" data-variant={variant}>
+                  <header className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-fg">{row.name}</p>
+                      <p className="text-xs text-muted">Ligado {linkedRelative}</p>
+                    </div>
+                    <span className="status-pill" data-state={clientStatusTone(row.clientStatus)}>
+                      {clientStatusLabel(row.clientStatus)}
+                    </span>
+                  </header>
+
+                  <div className="neo-inline neo-inline--sm" role="list">
+                    {alerts.map((alert) => (
+                      <span key={alert.label} className="neo-badge" data-tone={alert.tone} role="listitem">
+                        {alert.label}
+                      </span>
+                    ))}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-4 text-xs text-muted">
+                    <span>Próxima sessão: {nextRelative}</span>
+                    <span>Última sessão: {lastRelative}</span>
+                    {row.planTitle && <span>Plano: {row.planTitle}</span>}
+                  </div>
+
+                  <div className="neo-inline neo-inline--sm">
+                    {row.email && (
+                      <a
+                        href={`mailto:${row.email}`}
+                        className="link-arrow text-sm"
+                        aria-label={`Enviar email para ${row.name}`}
+                      >
+                        Enviar email
+                      </a>
+                    )}
+                    {telHref && (
+                      <a
+                        href={telHref}
+                        className="link-arrow text-sm"
+                        aria-label={`Ligar para ${row.name}`}
+                      >
+                        Ligar agora
+                      </a>
+                    )}
+                    <Link
+                      href={`/dashboard/users/${row.id}`}
+                      prefetch={false}
+                      className="link-arrow inline-flex items-center gap-1 text-sm"
+                    >
+                      Ver perfil completo
+                    </Link>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="rounded-xl border border-dashed border-white/40 bg-white/30 p-4 text-sm text-muted dark:border-slate-700/60 dark:bg-slate-900/20">
+            Todos os clientes têm plano activo, contacto directo e sessões em curso.
+          </p>
+        )}
       </section>
 
       <section className="neo-panel space-y-4" aria-label="Lista de clientes">
