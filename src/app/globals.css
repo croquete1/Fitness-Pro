@@ -577,6 +577,21 @@ input:focus,select:focus,textarea:focus{ box-shadow:var(--ring); border-color:va
 .neo-inline--md{ --neo-inline-gap:12px; }
 .neo-inline--lg{ --neo-inline-gap:16px; }
 .neo-inline--xl{ --neo-inline-gap:20px; }
+
+.neo-badge[href]{
+  cursor:pointer;
+  text-decoration:none;
+}
+
+.neo-badge[data-selected='true']{
+  box-shadow:0 0 0 2px color-mix(in srgb, currentColor 36%, transparent);
+}
+
+.neo-badge[href]:focus-visible{
+  outline:2px solid color-mix(in srgb, currentColor 54%, transparent);
+  outline-offset:2px;
+}
+
 .neo-grid{
   display:grid;
   gap:var(--neo-grid-gap, 16px);
@@ -8245,6 +8260,11 @@ h1,.h1{
   gap:12px;
   align-items:center;
 }
+.settings-header-updated{
+  font-size:13px;
+  color:var(--neo-text-muted);
+  white-space:nowrap;
+}
 .settings-error-banner,
 .settings-fallback-banner{
   display:grid;
@@ -8586,6 +8606,12 @@ h1,.h1{
   font-size:12px;
   color:var(--neo-text-muted);
 }
+.settings-field__hint--warning{
+  color:var(--warning);
+}
+.settings-field__hint--error{
+  color:var(--danger);
+}
 .settings-checkbox{
   display:flex;
   align-items:center;
@@ -8608,7 +8634,12 @@ h1,.h1{
   flex-wrap:wrap;
   gap:12px;
   align-items:center;
-  justify-content:space-between;
+}
+.settings-actions__group{
+  display:flex;
+  gap:12px;
+  margin-left:auto;
+  flex-wrap:wrap;
 }
 .settings-subpanel{
   display:grid;
