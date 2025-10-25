@@ -43,6 +43,8 @@ type PreparedQuery = {
   digits: string | null;
 };
 
+const PREPARED_CANDIDATE_CACHE = new Map<string, PreparedQuery>();
+
 type ClientAlertKey =
   | 'NO_UPCOMING'
   | 'NO_PLAN'
@@ -101,8 +103,59 @@ function stripDiacritics(value: string): string {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
+const PORTUGUESE_STOP_WORDS = new Set([
+  'a',
+  'o',
+  'os',
+  'as',
+  'um',
+  'uma',
+  'uns',
+  'umas',
+  'de',
+  'da',
+  'do',
+  'das',
+  'dos',
+  'e',
+  'em',
+  'no',
+  'na',
+  'nos',
+  'nas',
+  'ao',
+  'aos',
+  'à',
+  'às',
+  'com',
+  'para',
+  'pra',
+  'por',
+  'pelo',
+  'pela',
+  'pelos',
+  'pelas',
+  'dum',
+  'duma',
+  'duns',
+  'dumas',
+  'num',
+  'numa',
+  'nuns',
+  'numas',
+  'que',
+]);
+
 function splitTokens(value: string): string[] {
-  return Array.from(new Set(value.split(/\s+/g).map((token) => token.trim()).filter(Boolean)));
+  return Array.from(
+    new Set(
+      value
+        .split(/\s+/g)
+        .map((token) => token.trim())
+        .filter(Boolean)
+        .filter((token) => token.length > 1 && !PORTUGUESE_STOP_WORDS.has(token)),
+    ),
+  );
 }
 
 const PORTUGUESE_ORTHOGRAPHY_REPLACEMENTS: Array<[RegExp, string]> = [
@@ -158,6 +211,19 @@ function prepareQuery(value: string | null | undefined): PreparedQuery {
     orthographyAsciiTokens: orthographyAscii ? splitTokens(orthographyAscii) : [],
     digits: digits ? digits : null,
   } satisfies PreparedQuery;
+}
+
+function prepareCandidateQuery(value: string | null | undefined): PreparedQuery | null {
+  if (!value) return null;
+  const trimmed = value.toString().trim();
+  if (!trimmed) return null;
+  const cacheKey = trimmed.toLocaleLowerCase('pt-PT');
+  const cached = PREPARED_CANDIDATE_CACHE.get(cacheKey);
+  if (cached) return cached;
+  const prepared = prepareQuery(trimmed);
+  if (!prepared.raw) return null;
+  PREPARED_CANDIDATE_CACHE.set(cacheKey, prepared);
+  return prepared;
 }
 
 function clientStatusTone(value: string | null | undefined): StatusTone {
@@ -223,8 +289,8 @@ function createMutableSearchIndex(): MutableClientRowSearchIndex {
 }
 
 function pushSearchCandidate(index: MutableClientRowSearchIndex, value: string | null | undefined) {
-  const prepared = prepareQuery(value);
-  if (!prepared.raw) return;
+  const prepared = prepareCandidateQuery(value);
+  if (!prepared || !prepared.raw) return;
 
   index.raw.add(prepared.raw);
 
