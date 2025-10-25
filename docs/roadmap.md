@@ -144,6 +144,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Optimizar a pesquisa da carteira do PT com índice pré-calculado para contactos, estado e planos, evitando recomputações por linha. Fontes: `src/app/(app)/dashboard/pt/clients/page.tsx`.
 - [x] Afinar a pesquisa da carteira do PT para aceitar múltiplos termos e normalização consistente entre consulta e índice, suportando combinações de alerta/contacto/estado. Fontes: `src/app/(app)/dashboard/pt/clients/page.tsx`.
 - [x] Harmonizar a pesquisa da carteira do PT com variantes do acordo ortográfico (Activo/Ativo, contacto/contato, directo/direto) sem perder compatibilidade retroactiva. Fonte: `src/app/(app)/dashboard/pt/clients/page.tsx`.
+- [x] Alargar a normalização ortográfica da carteira do PT para cobrir grafias com "cc"/"pc" (acção/ação, recepção/receção), garantindo pesquisa consistente entre variantes. Fonte: `src/app/(app)/dashboard/pt/clients/page.tsx`.
 - [ ] Documentar configuração e variáveis de ambiente actualizadas após migração para Supabase.
 - [ ] Remover dependências/artefactos não utilizados (ex.: pacotes Prisma, scripts legados) após consolidação da camada de dados.
 - [ ] Adicionar protecções de rate limiting e validações adicionais nas rotas sensíveis.

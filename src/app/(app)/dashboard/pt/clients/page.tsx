@@ -101,16 +101,17 @@ function splitTokens(value: string): string[] {
   return Array.from(new Set(value.split(/\s+/g).map((token) => token.trim()).filter(Boolean)));
 }
 
-const PORTUGUESE_ORTHOGRAPHY_PATTERNS = [
-  /([aeiou])c(?=[pt][aeiou])/g,
-  /([aeiou])p(?=t[aeiou])/g,
+const PORTUGUESE_ORTHOGRAPHY_REPLACEMENTS: Array<[RegExp, string]> = [
+  [/([aeiou])c(?=[pt][aeiou])/g, '$1'],
+  [/([aeiou])c(?=c[aeiou])/g, '$1'],
+  [/([aeiou])p(?=[tc][aeiou])/g, '$1'],
 ];
 
 function applyPortugueseOrthographyReform(value: string): string | null {
   if (!value) return null;
   let transformed = value;
-  for (const pattern of PORTUGUESE_ORTHOGRAPHY_PATTERNS) {
-    transformed = transformed.replace(pattern, '$1');
+  for (const [pattern, replacement] of PORTUGUESE_ORTHOGRAPHY_REPLACEMENTS) {
+    transformed = transformed.replace(pattern, replacement);
   }
   return transformed !== value ? transformed : null;
 }
