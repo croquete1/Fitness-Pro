@@ -4,7 +4,9 @@ test.describe('Login flow smoke', () => {
   test('login page renders HMS branding and validation', async ({ page }) => {
     await page.goto('/login');
 
-    await expect(page.locator('img[alt="HMS"]')).toBeVisible();
+    const brand = page.getByLabel(/plataforma hms/i);
+    await expect(brand).toBeVisible();
+    await expect(brand.locator('img')).toBeVisible();
     await expect(
       page.getByRole('heading', { level: 1, name: /acede ao ecossistema hms/i })
     ).toBeVisible();

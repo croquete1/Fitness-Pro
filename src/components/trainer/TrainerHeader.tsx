@@ -4,6 +4,8 @@ export const dynamic = 'force-dynamic';
 import React from 'react';
 import ThemeToggle from '@/components/ThemeToggle';
 import SignOutButton from '@/components/auth/SignOutConfirmButton';
+import BrandMark from '@/components/layout/BrandMark';
+import { brand } from '@/lib/brand';
 import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 
@@ -33,7 +35,12 @@ export default async function TrainerHeader() {
   return (
     <header className="neo-app-header">
       <div className="neo-app-header__inner">
-        <div className="neo-app-header__brand">HMS · Personal Trainer</div>
+        <div className="neo-app-header__brand" aria-label={`Área do personal trainer · ${brand.name}`}>
+          <span className="inline-flex" aria-hidden="true">
+            <BrandMark size={32} priority />
+          </span>
+          <span className="sr-only">{brand.name}</span>
+        </div>
         <div className="neo-app-header__actions">
           <div className="neo-avatar" title={display}>
             {avatarUrl ? (
