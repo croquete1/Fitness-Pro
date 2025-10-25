@@ -136,6 +136,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Reforçar a carteira do PT com métricas de higiene (contactos/plano) e acções rápidas para contactar clientes directamente. Fontes: `src/lib/trainer/clients/server.ts`, `src/app/(app)/dashboard/pt/clients/page.tsx`.
 - [x] Destacar alertas operacionais na carteira do PT, priorizando clientes sem sessões recentes, contacto directo ou plano activo. Fontes: `src/app/(app)/dashboard/pt/clients/page.tsx`.
 - [x] Sintetizar alertas operacionais na carteira do PT com contagens por tipo e indicação de clientes adicionais fora do destaque. Fonte: `src/app/(app)/dashboard/pt/clients/page.tsx`.
+- [x] Permitir filtrar a carteira do PT por alertas operacionais específicos, destacando contagens filtradas e ligações directas a partir do painel. Fontes: `src/app/(app)/dashboard/pt/clients/page.tsx`, `src/app/globals.css`.
 - [ ] Documentar configuração e variáveis de ambiente actualizadas após migração para Supabase.
 - [ ] Remover dependências/artefactos não utilizados (ex.: pacotes Prisma, scripts legados) após consolidação da camada de dados.
 - [ ] Adicionar protecções de rate limiting e validações adicionais nas rotas sensíveis.

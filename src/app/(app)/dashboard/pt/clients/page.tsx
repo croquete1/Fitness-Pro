@@ -41,6 +41,18 @@ type ClientAlertKey =
 
 type ClientAlert = { key: ClientAlertKey; label: string; tone: AlertTone };
 
+const ALERT_KEYS: ClientAlertKey[] = [
+  'NO_UPCOMING',
+  'NO_PLAN',
+  'PLAN_NOT_ACTIVE',
+  'NO_CONTACT',
+  'CLIENT_STATUS',
+  'NO_HISTORY',
+  'LAST_SESSION_STALE',
+];
+
+const BASE_PATH = '/dashboard/pt/clients';
+
 const ALERT_SUMMARY_META: Record<ClientAlertKey, { label: string; tone: AlertTone }> = {
   NO_UPCOMING: { label: 'Sem próxima sessão agendada', tone: 'warning' },
   NO_PLAN: { label: 'Sem plano activo', tone: 'info' },
@@ -161,6 +173,10 @@ function clientUrgencyScore(
   if (!row.email && !row.phone) {
     score += 1;
   }
+  const clientStatus = row.clientStatus ? row.clientStatus.toString().trim().toUpperCase() : '';
+  if (clientStatus && clientStatus !== 'ACTIVE') {
+    score += 3;
+  }
   const lastAt = row.lastSessionAt ? new Date(row.lastSessionAt).getTime() : Number.NaN;
   if (!row.lastSessionAt) {
     score += 1;
@@ -221,16 +237,6 @@ function buildRowAlerts(
       tone: 'warning',
     });
   }
-  return score;
-}
-
-function buildTelHref(value: string | null | undefined) {
-  if (!value) return null;
-  const normalized = normalizePhone(value);
-  if (!normalized) return null;
-  const compact = normalized.replace(/\s+/g, '');
-  return `tel:${compact}`;
-}
 
   return alerts;
 }
@@ -262,7 +268,47 @@ function summarizeAlerts(entries: ClientRowAnalysis[]) {
   });
 }
 
-export default async function PtClientsPage() {
+type PageSearchParams = {
+  scope?: string | string[];
+  alert?: string | string[];
+};
+
+function firstParam(value: string | string[] | undefined): string | null {
+  if (!value) return null;
+  return Array.isArray(value) ? value[0] ?? null : value;
+}
+
+function parseAlertParam(value: string | null): ClientAlertKey | null {
+  if (!value) return null;
+  const normalized = value.toString().trim().toUpperCase();
+  return ALERT_KEYS.includes(normalized as ClientAlertKey)
+    ? (normalized as ClientAlertKey)
+    : null;
+}
+
+function buildFilterHref({
+  scope,
+  alert,
+}: {
+  scope: 'all' | 'alerts';
+  alert?: ClientAlertKey | null;
+}) {
+  const params = new URLSearchParams();
+  if (scope === 'alerts' || alert) {
+    params.set('scope', 'alerts');
+  }
+  if (alert) {
+    params.set('alert', alert);
+  }
+  const query = params.toString();
+  return query ? `${BASE_PATH}?${query}` : BASE_PATH;
+}
+
+export default async function PtClientsPage({
+  searchParams,
+}: {
+  searchParams?: PageSearchParams;
+}) {
   const session = await getSessionUserSafe();
   const me = session?.user;
   if (!me?.id) redirect('/login');
@@ -278,6 +324,23 @@ export default async function PtClientsPage() {
   const urgentRows = attention.slice(0, 6);
   const overflowCount = attention.length - urgentRows.length;
   const alertSummary = summarizeAlerts(attention);
+
+  const rawScope = firstParam(searchParams?.scope) ?? null;
+  const requestedScope = rawScope?.toLowerCase() === 'alerts' ? 'alerts' : 'all';
+  const alertFilter = parseAlertParam(firstParam(searchParams?.alert));
+  const scope: 'all' | 'alerts' = alertFilter ? 'alerts' : requestedScope;
+  const filteredAnalysedRows = analysedRows.filter((entry) => {
+    if (scope === 'alerts' && entry.alerts.length === 0) {
+      return false;
+    }
+    if (alertFilter && !entry.alerts.some((alert) => alert.key === alertFilter)) {
+      return false;
+    }
+    return true;
+  });
+  const filteredRows = filteredAnalysedRows.map((entry) => entry.row);
+  const hasFilters = scope === 'alerts' || Boolean(alertFilter);
+  const activeAlertLabel = alertFilter ? ALERT_SUMMARY_META[alertFilter]?.label ?? null : null;
 
   const metrics: Metric[] = [
     {
@@ -398,17 +461,21 @@ export default async function PtClientsPage() {
         {alertSummary.length > 0 && (
           <div className="neo-inline neo-inline--sm flex-wrap" role="list">
             {alertSummary.map((item) => (
-              <span
+              <Link
                 key={item.key}
+                href={buildFilterHref({ scope: 'alerts', alert: item.key })}
                 className="neo-badge"
                 data-tone={item.tone}
                 role="listitem"
                 aria-label={`${item.count} clientes com alerta: ${item.label}`}
+                aria-current={alertFilter === item.key ? 'true' : undefined}
+                data-selected={alertFilter === item.key ? 'true' : 'false'}
               >
                 <span className="font-semibold">{item.count}</span>
                 <span aria-hidden="true"> · </span>
                 {item.label}
-              </span>
+                {alertFilter === item.key && <span className="sr-only"> (filtro activo)</span>}
+              </Link>
             ))}
           </div>
         )}
@@ -516,6 +583,43 @@ export default async function PtClientsPage() {
           </Link>
         </div>
 
+        <nav className="neo-inline neo-inline--sm flex-wrap text-xs" aria-label="Filtros da tabela">
+          <Link
+            href={buildFilterHref({ scope: 'all' })}
+            className="neo-badge neo-badge--muted"
+            data-selected={scope === 'all' ? 'true' : 'false'}
+            aria-current={scope === 'all' ? 'true' : undefined}
+          >
+            Todos os clientes
+          </Link>
+          <Link
+            href={buildFilterHref({ scope: 'alerts', alert: alertFilter })}
+            className="neo-badge neo-badge--muted"
+            data-selected={scope === 'alerts' ? 'true' : 'false'}
+            aria-current={scope === 'alerts' ? 'true' : undefined}
+          >
+            Apenas com alertas
+          </Link>
+          {alertFilter && (
+            <Link
+              href={buildFilterHref({ scope: 'alerts' })}
+              className="neo-badge"
+              data-tone="info"
+            >
+              Remover filtro específico
+            </Link>
+          )}
+        </nav>
+
+        {hasFilters && (
+          <div className="neo-inline neo-inline--sm flex-wrap text-xs text-muted" role="status" aria-live="polite">
+            <span>
+              A mostrar {filteredRows.length} de {rows.length} cliente(s).
+            </span>
+            {activeAlertLabel && <span>Filtro activo: {activeAlertLabel}</span>}
+          </div>
+        )}
+
         <div className="neo-table-wrapper" role="region" aria-live="polite">
           <table className="neo-table">
             <thead>
@@ -531,7 +635,7 @@ export default async function PtClientsPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => {
+              {filteredRows.map((row) => {
                 const nextRelative = relativeLabel(row.nextSessionAt, 'Sem agendamento');
                 const lastRelative = relativeLabel(row.lastSessionAt, 'Sem histórico');
                 const nextAbsolute = formatTimestamp(row.nextSessionAt);
@@ -633,11 +737,13 @@ export default async function PtClientsPage() {
                   </tr>
                 );
               })}
-              {rows.length === 0 && (
+              {filteredRows.length === 0 && (
                 <tr>
                   <td colSpan={6}>
                     <div className="rounded-2xl border border-dashed border-white/40 bg-white/40 p-6 text-center text-sm text-muted dark:border-slate-700/60 dark:bg-slate-900/30">
-                      Ainda não tens clientes atribuídos. Usa as acções acima para convidar o primeiro atleta.
+                      {hasFilters
+                        ? 'Nenhum cliente corresponde aos filtros seleccionados. Remove os filtros para voltar a ver toda a carteira.'
+                        : 'Ainda não tens clientes atribuídos. Usa as acções acima para convidar o primeiro atleta.'}
                     </div>
                   </td>
                 </tr>
