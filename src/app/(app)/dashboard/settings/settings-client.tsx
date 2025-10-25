@@ -831,6 +831,10 @@ function CredentialsCard({
     setStatus((prev) => (prev.type === 'idle' ? prev : { type: 'idle' }));
   }, []);
 
+  const resetStatus = React.useCallback(() => {
+    setStatus((prev) => (prev.type === 'idle' ? prev : { type: 'idle' }));
+  }, []);
+
   const wantsPasswordChange = Boolean(form.newPassword.trim().length);
   const normalizedEmail = normalizeEmailInput(form.email);
   const emailChanged = normalizedEmail !== latestEmail;
