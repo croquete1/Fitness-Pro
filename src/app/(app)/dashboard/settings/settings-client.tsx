@@ -505,8 +505,8 @@ function AccountSettingsCard({
   const phoneChanged = normalizedPhone !== initialPhone;
   const dirty = nameChanged || phoneChanged;
   const invalidName = nameChanged && trimmedName.length < MIN_NAME_LENGTH;
-  const digits = phoneDigitCount(normalizedPhone);
-  const invalidPhone = normalizedPhone.length > 0 && digits < PHONE_MIN_DIGITS;
+  const phoneDigits = normalizedPhone.length ? phoneDigitCount(normalizedPhone) : 0;
+  const invalidPhone = phoneChanged && normalizedPhone.length > 0 && phoneDigits < PHONE_MIN_DIGITS;
   const disabled = saving || !dirty || invalidName || invalidPhone;
 
   async function onSubmit(event: React.FormEvent) {
@@ -576,7 +576,7 @@ function AccountSettingsCard({
           label="Telefone"
           description={
             invalidPhone
-              ? `Introduz um número de telefone válido (mínimo ${PHONE_MIN_DIGITS} dígitos).`
+              ? `Introduz um número de telefone válido (mínimo ${PHONE_MIN_DIGITS} dígitos — actualmente ${phoneDigits}).`
               : 'Utilizado para alertas críticos e suporte.'
           }
         >
