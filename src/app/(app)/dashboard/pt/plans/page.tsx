@@ -22,6 +22,8 @@ const OFFLINE_MESSAGE = 'Sem ligação à internet. A agenda mantém os últimos
 
 type SessionMap = Record<string, Sess[]>;
 
+type SessionMap = Record<string, Sess[]>;
+
 function formatKey(date: Date) {
   return date.toISOString().slice(0, 10);
 }
