@@ -2309,6 +2309,9 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
 .admin-users__refreshMeta[data-state="warning"]{
   color:color-mix(in srgb, var(--warning) 75%, var(--fg) 25%);
 }
+.admin-users__refreshMeta[data-state="offline"]{
+  color:color-mix(in srgb, var(--danger) 70%, var(--fg) 30%);
+}
 .admin-users__layout{
   display:grid;
   gap:24px;

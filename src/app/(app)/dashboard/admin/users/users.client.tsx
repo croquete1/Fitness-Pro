@@ -530,9 +530,37 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
   const autoRefreshTimestampRef = React.useRef<number>(0);
   const [lastSyncedAt, setLastSyncedAt] = React.useState<number | null>(null);
   const [nowTick, setNowTick] = React.useState(0);
+  const [isOffline, setIsOffline] = React.useState(() =>
+    typeof navigator !== 'undefined' ? navigator.onLine === false : false,
+  );
   const previousValidatingRef = React.useRef<{ list: boolean; dash: boolean } | null>(null);
   const listValidatingRef = React.useRef(false);
   const dashboardValidatingRef = React.useRef(false);
+
+  const lastSyncRelative = React.useMemo(() => {
+    if (!lastSyncedAt) {
+      return null;
+    }
+    const iso = new Date(lastSyncedAt).toISOString();
+    return formatRelative(iso);
+  }, [lastSyncedAt, nowTick]);
+
+  const offlineAlertMessage = React.useMemo(() => {
+    if (!isOffline) {
+      return null;
+    }
+    if (!lastSyncedAt) {
+      return 'Sem ligação à internet. Ainda não foi possível sincronizar dados nesta sessão.';
+    }
+    const relative = lastSyncRelative ?? '—';
+    if (relative === '—') {
+      return 'Sem ligação à internet. Última sincronização recente.';
+    }
+    if (relative === 'agora') {
+      return 'Sem ligação à internet. Última sincronização agora mesmo.';
+    }
+    return `Sem ligação à internet. Última sincronização ${relative}.`;
+  }, [isOffline, lastSyncedAt, lastSyncRelative]);
 
   React.useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -665,6 +693,29 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
     listValidatingRef.current = listValidating;
     dashboardValidatingRef.current = dashboardValidating;
   }, [dashboardValidating, listValidating]);
+
+  const runAutoRefresh = React.useCallback(
+    (reason: 'interval' | 'focus' | 'visibility' | 'reconnect' = 'interval') => {
+      const now = Date.now();
+      const enforceGap = reason !== 'reconnect';
+      if (enforceGap && now - autoRefreshTimestampRef.current < AUTO_REFRESH_MIN_GAP_MS) {
+        return;
+      }
+      if (isOffline || (typeof navigator !== 'undefined' && navigator.onLine === false)) {
+        return;
+      }
+      if (listValidatingRef.current || dashboardValidatingRef.current) {
+        return;
+      }
+      autoRefreshTimestampRef.current = now;
+      void mutateList();
+      void mutateDashboard();
+      if (reason === 'reconnect') {
+        setFeedback({ tone: 'info', message: 'Ligação restaurada. A sincronizar dados…' });
+      }
+    },
+    [isOffline, mutateDashboard, mutateList, setFeedback],
+  );
 
   React.useEffect(() => {
     const previous = previousValidatingRef.current;
@@ -864,10 +915,11 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
   };
 
   const handleRefresh = () => {
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    if (isOffline || (typeof navigator !== 'undefined' && navigator.onLine === false)) {
+      setIsOffline(true);
       setFeedback({
         tone: 'warning',
-        message: 'Sem ligação à internet. Verifica a ligação e tenta novamente.',
+        message: 'Sem ligação à internet. Aguarda a reconexão para atualizar.',
       });
       return;
     }
@@ -882,37 +934,21 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
       return undefined;
     }
 
-    const runAutoRefresh = () => {
-      const now = Date.now();
-      if (now - autoRefreshTimestampRef.current < AUTO_REFRESH_MIN_GAP_MS) {
-        return;
-      }
-      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-        return;
-      }
-      if (listValidatingRef.current || dashboardValidatingRef.current) {
-        return;
-      }
-      autoRefreshTimestampRef.current = now;
-      void mutateList();
-      void mutateDashboard();
-    };
-
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
-        runAutoRefresh();
+        runAutoRefresh('visibility');
       }
     };
 
     const handleFocus = () => {
-      runAutoRefresh();
+      runAutoRefresh('focus');
     };
 
     document.addEventListener('visibilitychange', handleVisibility);
     window.addEventListener('focus', handleFocus);
     const interval = window.setInterval(() => {
       if (document.visibilityState === 'visible') {
-        runAutoRefresh();
+        runAutoRefresh('interval');
       }
     }, AUTO_REFRESH_INTERVAL_MS);
 
@@ -921,16 +957,45 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
       document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('focus', handleFocus);
     };
-  }, [mutateDashboard, mutateList]);
+  }, [runAutoRefresh]);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    setIsOffline(window.navigator.onLine === false);
+
+    const handleOffline = () => {
+      autoRefreshTimestampRef.current = 0;
+      setIsOffline(true);
+    };
+
+    const handleOnline = () => {
+      autoRefreshTimestampRef.current = 0;
+      setIsOffline(false);
+      runAutoRefresh('reconnect');
+    };
+
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [runAutoRefresh, setIsOffline]);
 
   const listInitialising = listLoading && !listData;
   const dashboardInitialising = dashboardLoading && !dashboard;
   const tableBusy = listInitialising || (listValidating && Boolean(listData));
   const metricsBusy = dashboardInitialising || (dashboardValidating && Boolean(dashboard));
   const refreshing = (listValidating && !listInitialising) || (dashboardValidating && !dashboardInitialising);
-  const refreshDisabled = refreshing || listInitialising || dashboardInitialising;
+  const refreshDisabled = refreshing || listInitialising || dashboardInitialising || isOffline;
   const syncState = refreshing
     ? 'refreshing'
+    : isOffline
+    ? 'offline'
     : listError || dashboardError
     ? 'warning'
     : lastSyncedAt
@@ -941,12 +1006,35 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
     if (refreshing) {
       return 'A sincronizar dados…';
     }
+    if (isOffline) {
+      if (!lastSyncedAt) {
+        return listError || dashboardError
+          ? 'Sem ligação. Aguardando sincronização inicial (existem erros activos).'
+          : 'Sem ligação. Aguardando sincronização inicial.';
+      }
+      const relative = lastSyncRelative ?? '—';
+      if (relative === '—') {
+        return listError || dashboardError
+          ? 'Sem ligação. Última sincronização recente com alertas.'
+          : 'Sem ligação. Última sincronização recente.';
+      }
+      if (relative === 'agora') {
+        const base = 'Sem ligação. Última sincronização agora mesmo.';
+        return listError || dashboardError
+          ? `${base} Alguns painéis falharam antes da perda de ligação.`
+          : base;
+      }
+      const base = `Sem ligação. Última sincronização ${relative}.`;
+      return listError || dashboardError
+        ? `${base} Alguns painéis falharam antes da perda de ligação.`
+        : base;
+    }
     if (!lastSyncedAt) {
       return listError || dashboardError
         ? 'Sincronização pendente. Existem erros activos.'
         : 'Sincronização pendente.';
     }
-    const relative = formatRelative(new Date(lastSyncedAt).toISOString());
+    const relative = lastSyncRelative ?? '—';
     if (relative === '—') {
       return 'Sincronizado recentemente.';
     }
@@ -960,7 +1048,7 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
       return `${base} Alguns painéis falharam; tenta novamente.`;
     }
     return base;
-  }, [dashboardError, lastSyncedAt, listError, refreshing, nowTick]);
+  }, [dashboardError, isOffline, lastSyncedAt, lastSyncRelative, listError, refreshing]);
 
   return (
     <div className="admin-users">
@@ -990,6 +1078,7 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
               size="sm"
               onClick={handleRefresh}
               disabled={refreshDisabled}
+              title={isOffline ? 'Sem ligação à internet' : undefined}
               leftIcon={
                 refreshing ? (
                   <Loader2 className="neo-icon neo-icon--sm neo-spin" aria-hidden />
@@ -1377,6 +1466,11 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
 
       <div className="admin-users__alerts" aria-live="polite" aria-atomic="true">
         {feedback && <Alert tone={feedback.tone} title="Aviso">{feedback.message}</Alert>}
+        {offlineAlertMessage && (
+          <Alert tone="warning" title="Sem ligação">
+            {offlineAlertMessage}
+          </Alert>
+        )}
         {listData?._supabaseConfigured === false && (
           <Alert tone="warning" title="Dados de exemplo">
             Servidor não está configurado. A lista apresenta dados fictícios para ilustração.
