@@ -46,6 +46,13 @@ type StatusMeta = { value: Status; label: string; tone: StatusTone };
 
 const CANONICAL_STATUS_ORDER: Status[] = ['pending', 'approved', 'rejected'];
 
+function canonicaliseStatusFilter(value?: string | null): Status | '' {
+  if (!value) return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  return statusLabel(trimmed).value;
+}
+
 type Row = {
   id: string;
   user_id: string;
@@ -470,8 +477,8 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
   const initialPageParam = Number.parseInt(searchParams.get('page') ?? '', 10);
   const initialPageSizeParam = Number.parseInt(searchParams.get('pageSize') ?? '', 10);
   const [q, setQ] = React.useState(initialQuery);
-  const [status, setStatus] = React.useState(
-    initialStatus ? statusLabel(initialStatus).value : '',
+  const [status, setStatus] = React.useState<Status | ''>(() =>
+    canonicaliseStatusFilter(initialStatus),
   );
   const [debouncedQ, setDebouncedQ] = React.useState(initialQuery.trim());
   const [rows, setRows] = React.useState<Row[]>([]);
@@ -617,7 +624,7 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
       }
       return a.label.localeCompare(b.label, 'pt-PT');
     });
-  }, [rows, statusSegments]);
+  }, [rows, status, statusSegments]);
 
   React.useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -639,7 +646,7 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
       setDebouncedQ(trimmed);
     }
     const statusParam = searchParams.get('status');
-    const canonicalStatus = statusParam ? statusLabel(statusParam).value : '';
+    const canonicalStatus = canonicaliseStatusFilter(statusParam);
     if (canonicalStatus !== status) {
       setStatus(canonicalStatus);
     }
@@ -668,7 +675,7 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
     } else {
       params.delete('q');
     }
-    const canonicalStatus = status ? statusLabel(status).value : '';
+    const canonicalStatus = canonicaliseStatusFilter(status);
     if (canonicalStatus) {
       params.set('status', canonicalStatus);
     } else {
@@ -744,7 +751,7 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
       params.set('pageSize', String(size));
       if (search) params.set('q', search);
       if (status) {
-        const normalizedStatus = statusLabel(status).value;
+        const normalizedStatus = canonicaliseStatusFilter(status);
         if (normalizedStatus) {
           params.set('status', normalizedStatus);
         }
@@ -1231,7 +1238,7 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
               className="neo-field"
               value={status}
               onChange={(event) => {
-                const next = statusLabel(event.target.value).value;
+                const next = canonicaliseStatusFilter(event.target.value);
                 setStatus(next);
                 setPage(0);
               }}
