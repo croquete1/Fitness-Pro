@@ -398,6 +398,8 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
   const [debouncedQ, setDebouncedQ] = React.useState('');
   const [rows, setRows] = React.useState<Row[]>([]);
   const [count, setCount] = React.useState(0);
+  const [countReliable, setCountReliable] = React.useState(true);
+  const [searchSampleSize, setSearchSampleSize] = React.useState<number | null>(null);
   const [page, setPage] = React.useState(0);
   const [pageSizeState, setPageSizeState] = React.useState(pageSize);
   const [loading, setLoading] = React.useState(false);
@@ -417,9 +419,10 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
   );
 
   const totalPages = React.useMemo(() => {
-    const pages = Math.ceil((count || 0) / pageSizeValue);
+    const baseTotal = countReliable ? count : Math.max(count, rows.length);
+    const pages = Math.ceil((baseTotal || rows.length || 0) / pageSizeValue);
     return pages > 0 ? pages : 1;
-  }, [count, pageSizeValue]);
+  }, [count, countReliable, pageSizeValue, rows.length]);
 
   const metrics = React.useMemo(() => {
     const counts = rows.reduce(
@@ -511,15 +514,21 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
     }
     const start = page * pageSizeValue + 1;
     const end = start + rows.length - 1;
-    const hasValidTotal = Number.isFinite(count) && count > 0;
+    const hasValidTotal = countReliable && Number.isFinite(count) && count > 0;
     const total = hasValidTotal ? count : end;
     const safeStart = hasValidTotal ? Math.min(start, Math.max(1, total - rows.length + 1)) : start;
     const safeEnd = hasValidTotal ? Math.min(total, Math.max(safeStart, end)) : end;
-    const label = `A mostrar ${numberFormatter.format(safeStart)} – ${numberFormatter.format(safeEnd)} de ${numberFormatter.format(
+    const baseLabel = `A mostrar ${numberFormatter.format(safeStart)} – ${numberFormatter.format(safeEnd)} de ${numberFormatter.format(
       Math.max(total, rows.length),
     )} pedidos.`;
+    const limitedSuffix = countReliable
+      ? ''
+      : ` Resultados limitados${
+          searchSampleSize != null ? ` a ${numberFormatter.format(searchSampleSize)} registos avaliados` : ''
+        }.`;
+    const label = `${baseLabel}${limitedSuffix}`;
     return loading ? `${label} (a actualizar…)` : label;
-  }, [count, loading, page, pageSizeValue, rows.length]);
+  }, [count, countReliable, loading, page, pageSizeValue, rows.length, searchSampleSize]);
 
   const undoLabel = React.useMemo(() => {
     if (!undoState?.row) return '';
@@ -560,6 +569,8 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
       if (response.status === 401 || response.status === 403) {
         setRows([]);
         setCount(0);
+        setCountReliable(true);
+        setSearchSampleSize(null);
         setBanner({
           severity: 'warning',
           message: 'Sessão expirada — autentica-te novamente para gerir os pedidos reais.',
@@ -579,6 +590,8 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
       if (payload._supabaseConfigured === false) {
         setRows([]);
         setCount(0);
+        setCountReliable(true);
+        setSearchSampleSize(null);
         setBanner({
           severity: 'info',
           message: 'Supabase não está configurado — assim que ligares a base de dados, os pedidos reais vão aparecer aqui.',
@@ -623,12 +636,17 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
           typeof payload.searchSampleSize === 'number' && Number.isFinite(payload.searchSampleSize)
             ? payload.searchSampleSize
             : mapped.length;
+        setCountReliable(false);
+        setSearchSampleSize(sample);
         setBanner({
           severity: 'info',
           message: `Pesquisa compatível aplicada localmente — analisados ${numberFormatter.format(
             sample,
           )} registos. Resultados podem estar limitados até ${numberFormatter.format(safeCount)} entradas.`,
         });
+      } else {
+        setCountReliable(true);
+        setSearchSampleSize(null);
       }
       if (payload.error) {
         setBanner({ severity: 'warning', message: 'Alguns pedidos podem não estar disponíveis neste momento.' });
@@ -639,6 +657,8 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
       }
       setRows([]);
       setCount(0);
+      setCountReliable(true);
+      setSearchSampleSize(null);
       const message = error?.name === 'AbortError' ? null : error?.message;
       setBanner({
         severity: 'error',
@@ -668,11 +688,12 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
   }, [loadInsights]);
 
   React.useEffect(() => {
-    const pages = Math.ceil((count || 0) / pageSizeValue);
+    const baseTotal = countReliable ? count : Math.max(count, rows.length);
+    const pages = Math.ceil((baseTotal || rows.length || 0) / pageSizeValue);
     if (page >= pages && pages > 0) {
       setPage(Math.max(0, pages - 1));
     }
-  }, [count, page, pageSizeValue]);
+  }, [count, countReliable, page, pageSizeValue, rows.length]);
 
   React.useEffect(
     () => () => {
@@ -1059,7 +1080,13 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
             <p className="neo-panel__subtitle">Actualiza em tempo real quando alteras filtros ou navegas pelas páginas.</p>
           </div>
           <span className="neo-tag" data-tone="primary" aria-live="polite">
-            {formatCount(count)} {count === 1 ? 'pedido' : 'pedidos'}
+            {(() => {
+              const totalValue = countReliable ? count : Math.max(count, rows.length);
+              const formatted = countReliable ? formatCount(totalValue) : `≥ ${formatCount(totalValue)}`;
+              const suffix = totalValue === 1 ? 'pedido' : 'pedidos';
+              const qualifier = countReliable ? '' : ' (estimativa)';
+              return `${formatted} ${suffix}${qualifier}`;
+            })()}
           </span>
         </header>
 

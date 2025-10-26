@@ -35,10 +35,62 @@ function createTokens(search: string): string[] {
 function normaliseStatus(value: unknown): string {
   if (!value) return 'pending';
   const raw = String(value).toLowerCase();
-  if (raw.includes('reject') || raw.includes('deny') || raw.includes('suspend')) return 'rejected';
-  if (raw.includes('approve') || raw === 'ok' || raw === 'accepted') return 'approved';
-  if (raw.includes('pend')) return 'pending';
+  if (
+    raw.includes('reject') ||
+    raw.includes('deny') ||
+    raw.includes('suspend') ||
+    raw.includes('rejeit') ||
+    raw.includes('recus') ||
+    raw.includes('negad')
+  ) {
+    return 'rejected';
+  }
+  if (
+    raw.includes('approve') ||
+    raw === 'ok' ||
+    raw === 'accepted' ||
+    raw.includes('aprov') ||
+    raw.includes('aceit') ||
+    raw.includes('confirm')
+  ) {
+    return 'approved';
+  }
+  if (raw.includes('pend') || raw.includes('aguard') || raw.includes('analis')) {
+    return 'pending';
+  }
   return raw;
+}
+
+function buildStatusFilterValues(value: string): string[] {
+  const canonical = normaliseStatus(value);
+  const variants = new Set<string>();
+
+  function register(raw: string) {
+    if (!raw) return;
+    const trimmed = raw.trim();
+    if (!trimmed) return;
+    variants.add(trimmed);
+    variants.add(trimmed.toLowerCase());
+    variants.add(trimmed.toUpperCase());
+    variants.add(trimmed.replace(/^./, (char) => char.toUpperCase()));
+  }
+
+  register(value);
+  register(canonical);
+
+  const synonyms: Record<string, string[]> = {
+    pending: ['pending', 'pendente', 'pendentes', 'aguardar', 'aguardando', 'em análise'],
+    approved: ['approved', 'aprovado', 'aprovada', 'aceite', 'aceito', 'confirmado'],
+    rejected: ['rejected', 'rejeitado', 'rejeitada', 'recusado', 'recusada', 'negado', 'negada'],
+  };
+
+  if (synonyms[canonical]) {
+    for (const synonym of synonyms[canonical]) {
+      register(synonym);
+    }
+  }
+
+  return Array.from(variants.values());
 }
 
 const SEARCHABLE_FIELDS = [
@@ -136,7 +188,10 @@ export async function GET(req: Request) {
       );
     }
     if (!options.skipStatus && status) {
-      sel = sel.eq('status', status);
+      const candidates = buildStatusFilterValues(status);
+      if (candidates.length) {
+        sel = sel.in('status', candidates);
+      }
     }
     sel = sel
       .order('requested_at', { ascending: false, nullsFirst: false })
