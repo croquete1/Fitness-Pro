@@ -103,6 +103,113 @@ const CLIENT_TONE_LABELS: Record<TrainerClientSnapshot['tone'], string> = {
   neutral: 'Sem alerta',
 };
 
+const CLIENT_TONE_KEYWORDS: Record<TrainerClientSnapshot['tone'], string[]> = {
+  positive: ['Em progresso', 'Positivo', 'Estável', 'Estavel', 'Progresso'],
+  warning: ['Atenção', 'Atencao', 'Alerta', 'Warning', 'Precaução', 'Precaucao'],
+  critical: ['Crítico', 'Critico', 'Risco', 'Urgente', 'Perigo'],
+  neutral: ['Sem alerta', 'Normal', 'Neutro', 'Estável', 'Estavel'],
+};
+
+const NO_UPCOMING_KEYWORDS = [
+  'Sem próxima sessão',
+  'Sem proxima sessao',
+  'Sem agendamento',
+  'Sem agendamentos',
+  'Sem marcação',
+  'Sem marcacao',
+  'Sem próxima marcação',
+  'Sem proxima marcacao',
+  'Sem sessão agendada',
+  'Sem sessao agendada',
+  'Sem próxima visita',
+  'No upcoming session',
+];
+
+const OVERDUE_KEYWORDS = [
+  'Sem sessão há 10 dias',
+  'Sem sessao ha 10 dias',
+  'Sem sessão há mais de 10 dias',
+  'Sem sessao ha mais de 10 dias',
+  'Mais de 10 dias sem sessão',
+  'Mais de 10 dias sem sessao',
+  'Atraso',
+  'Atrasada',
+  'Atrasado',
+  'Em atraso',
+  'Overdue',
+];
+
+const NO_HISTORY_KEYWORDS = [
+  'Sem histórico',
+  'Sem historico',
+  'Sem historial',
+  'Sem historial de sessão',
+  'Sem historial de sessao',
+  'Sem registo de sessão',
+  'Sem registo de sessao',
+  'Sem última sessão',
+  'Sem ultima sessao',
+  'Sem histórico registado',
+  'No history',
+];
+
+const MISSING_CONTACT_KEYWORDS = [
+  'Sem contacto',
+  'Sem contato',
+  'Sem contacto directo',
+  'Sem contato directo',
+  'Sem contato direto',
+  'Sem contacto direto',
+  'Sem email',
+  'Sem e-mail',
+  'Sem email registado',
+  'Sem email registrado',
+  'Sem contacto directo disponível',
+  'Sem contato direto disponivel',
+];
+
+const BLOCKED_KEYWORDS = [
+  'Sem contacto + sessão',
+  'Sem contato + sessao',
+  'Sem contacto e sessão',
+  'Sem contato e sessao',
+  'Sem contacto e sessao',
+  'Sem contato e sessão',
+  'Bloqueado',
+  'Bloqueada',
+  'Bloqueio',
+];
+
+const HAS_UPCOMING_KEYWORDS = [
+  'Com próxima sessão',
+  'Com proxima sessao',
+  'Sessão agendada',
+  'Sessao agendada',
+  'Agendada',
+  'Agendado',
+  'Marcações futuras',
+  'Marcacoes futuras',
+  'Com agendamento',
+];
+
+const RECENTLY_ACTIVE_KEYWORDS = [
+  'Sessão recente',
+  'Sessao recente',
+  'Recentemente activo',
+  'Recentemente ativo',
+  'Activo',
+  'Ativo',
+  'Acompanhamento em dia',
+];
+
+const CONTACT_AVAILABLE_KEYWORDS = [
+  'Contacto directo disponível',
+  'Contato direto disponivel',
+  'Contacto directo disponivel',
+  'Email disponível',
+  'Email disponivel',
+];
+
 const HERO_TONE_CLASS: Record<TrainerHeroMetric['tone'], 'positive' | 'warning' | 'critical' | 'neutral'> = {
   positive: 'positive',
   warning: 'warning',
@@ -139,6 +246,43 @@ const APPROVAL_TONE_CLASS: Record<TrainerApprovalItem['tone'], 'positive' | 'war
 
 const CLIENT_FILTER_STORAGE_KEY = 'trainer-dashboard:client-preferences';
 const DIACRITICS_REGEX = /[\u0300-\u036f]/g;
+const WORD_SEPARATORS_REGEX = /[\u2010-\u2015\-_/+(){}\[\],;:.]+/g;
+
+const PT_STOPWORDS = new Set([
+  'de',
+  'do',
+  'da',
+  'dos',
+  'das',
+  'e',
+  'o',
+  'a',
+  'os',
+  'as',
+  'um',
+  'uma',
+  'uns',
+  'umas',
+  'ao',
+  'aos',
+  'à',
+  'às',
+  'no',
+  'nos',
+  'na',
+  'nas',
+  'num',
+  'numa',
+  'nuns',
+  'numas',
+  'por',
+  'para',
+  'com',
+  'se',
+  'que',
+  'dois',
+  'duas',
+]);
 
 const TONE_PRIORITY: Record<TrainerClientSnapshot['tone'], number> = {
   critical: 0,
@@ -189,29 +333,47 @@ function normalizeSearchValue(value: string | null | undefined): string {
     .toLocaleLowerCase('pt-PT')
     .normalize('NFD')
     .replace(DIACRITICS_REGEX, '')
+    .replace(WORD_SEPARATORS_REGEX, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
 function buildSearchIndex(...values: Array<string | null | undefined>): string {
   if (values.length === 0) return '';
-  const combined = values
-    .map((value) => {
-      if (value === null || value === undefined) return '';
-      const text = value.toString().trim();
-      return text.length > 0 ? text : '';
-    })
-    .filter(Boolean)
-    .join(' ');
-  return normalizeSearchValue(combined);
+  const seen = new Set<string>();
+  const segments: string[] = [];
+  for (const value of values) {
+    if (value === null || value === undefined) continue;
+    const text = value.toString().trim();
+    if (!text) continue;
+    const normalized = normalizeSearchValue(text);
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    segments.push(normalized);
+  }
+  return segments.join(' ');
 }
 
 function createQueryTokens(value: string): string[] {
   if (!value) return [];
-  return value
-    .split(' ')
-    .map((token) => token.trim())
-    .filter(Boolean);
+  const unique = new Set<string>();
+  for (const token of value.split(' ')) {
+    const trimmed = token.trim();
+    if (!trimmed) continue;
+    if (trimmed.length < 2 && !/\d/.test(trimmed)) continue;
+    if (PT_STOPWORDS.has(trimmed)) continue;
+    unique.add(trimmed);
+  }
+  return Array.from(unique);
+}
+
+function addKeywords(target: string[], ...values: Array<string | null | undefined>) {
+  for (const value of values) {
+    if (value === null || value === undefined) continue;
+    const text = value.toString().trim();
+    if (text.length === 0) continue;
+    target.push(text);
+  }
 }
 
 type ClientFiltersAction =
@@ -443,7 +605,9 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
               nextSessionLabel: hasUpcoming ? client.nextSessionLabel : NO_UPCOMING_LABEL,
             }
           : client;
-      const searchHaystack = buildSearchIndex(
+      const searchKeywords: string[] = [];
+      addKeywords(
+        searchKeywords,
         normalizedClient.name,
         normalizedClient.email,
         normalizedClient.lastSessionLabel,
@@ -451,8 +615,58 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
         normalizedClient.id,
         normalizedClient.id ? `id ${normalizedClient.id}` : null,
         normalizedClient.id ? `#${normalizedClient.id}` : null,
-        isNoHistory ? 'sem historico sem histórico sem ultima sessao' : '',
+        normalizedClient.tone,
+        CLIENT_TONE_LABELS[normalizedClient.tone],
       );
+
+      addKeywords(searchKeywords, ...CLIENT_TONE_KEYWORDS[normalizedClient.tone]);
+
+      if (normalizedClient.upcoming > 0) {
+        addKeywords(
+          searchKeywords,
+          `${normalizedClient.upcoming} sessão futura`,
+          `${normalizedClient.upcoming} sessao futura`,
+          `${normalizedClient.upcoming} sessões futuras`,
+          `${normalizedClient.upcoming} sessoes futuras`,
+        );
+        addKeywords(searchKeywords, ...HAS_UPCOMING_KEYWORDS);
+      } else {
+        addKeywords(searchKeywords, ...NO_UPCOMING_KEYWORDS);
+      }
+
+      if (normalizedClient.completed > 0) {
+        addKeywords(
+          searchKeywords,
+          `${normalizedClient.completed} sessão concluída`,
+          `${normalizedClient.completed} sessao concluida`,
+          `${normalizedClient.completed} sessões concluídas`,
+          `${normalizedClient.completed} sessoes concluidas`,
+        );
+      }
+
+      if (isNoHistory) {
+        addKeywords(searchKeywords, ...NO_HISTORY_KEYWORDS);
+      }
+
+      if (isMissingContact) {
+        addKeywords(searchKeywords, ...MISSING_CONTACT_KEYWORDS);
+      } else {
+        addKeywords(searchKeywords, ...CONTACT_AVAILABLE_KEYWORDS);
+      }
+
+      if (isBlocked) {
+        addKeywords(searchKeywords, ...BLOCKED_KEYWORDS);
+      }
+
+      if (isOverdue) {
+        addKeywords(searchKeywords, ...OVERDUE_KEYWORDS);
+      }
+
+      if (isRecentlyActive) {
+        addKeywords(searchKeywords, ...RECENTLY_ACTIVE_KEYWORDS);
+      }
+
+      const searchHaystack = buildSearchIndex(...searchKeywords);
 
       return {
         client: normalizedClient,
