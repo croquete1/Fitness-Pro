@@ -39,6 +39,8 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Validar carregamento real da lista de utilizadores/aprovações no Supabase (remoção dos fallbacks quando a API estiver estável e seeds completos).
 - [x] Harmonizar o toggle de tema (cookies + localStorage) para eliminar flashes e estados mistos no login. Fontes: `src/components/layout/ColorModeProvider.tsx`, `src/components/AppProviders.tsx`, `src/components/ThemeToggle.tsx`, `src/components/layout/AppHeader.tsx`, `src/components/Header.tsx`, `src/components/admin/AdminHeader.tsx`, `src/components/trainer/TrainerHeader.tsx`, `src/components/client/ClientHeader.tsx`.
 - [ ] Migrar toda a consola administrativa para o design system `.neo`, consolidando tabelas, filtros e quick actions (aprovações, centro de notificações do utilizador, onboarding, histórico, roster e agora a gestão de utilizadores em `/dashboard/users` já convertidos).
+- [x] Afinar a consola de utilizadores do admin com gráfico temporal escalado dinamicamente e percentagens precisas nas distribuições.
+- [x] Corrigir a timeline do roster administrativo garantindo marcação válida e carregamento sem erros.
 - [x] Recriar o painel de métricas do cliente no tema `.neo`, com integração Supabase, filtros temporais e gráficos interactivos (src/app/(app)/dashboard/clients/metrics/**/*).
 - [x] Reimaginar o módulo de sessões do cliente no tema `.neo`, com métricas, timeline, ranking de PT e gestão de pedidos ligada ao Supabase (src/app/(app)/dashboard/sessions/**/*).
 - [x] Reestruturar o painel de planos do cliente no tema `.neo`, com métricas reais, gráfico temporal, insights automáticos e fallback sincronizado com o Supabase (src/app/(app)/dashboard/plans/**/*, src/app/api/client/plans/dashboard/route.ts).
