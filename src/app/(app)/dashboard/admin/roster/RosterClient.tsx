@@ -137,10 +137,10 @@ function getTimelineTimestamp(iso: string | null | undefined): number | null {
 
 function deriveTimelineTone(iso: string | null | undefined): 'info' | 'warning' | 'danger' {
   if (!iso) return 'warning';
-  const timestamp = getTimelineTimestamp(iso);
-  if (timestamp === null) return 'info';
-  const diff = timestamp - Date.now();
-  if (diff < 0) return 'danger';
+const timestamp = getTimelineTimestamp(iso);  
+if (timestamp === null) return 'info';
+const diff = timestamp - Date.now();
+if (diff < 0) return 'danger';
   if (diff <= 60 * 60_000) return 'warning';
   return 'info';
 }
