@@ -352,6 +352,7 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
   const toast = useToast();
   const [q, setQ] = React.useState('');
   const [status, setStatus] = React.useState('');
+  const [debouncedQ, setDebouncedQ] = React.useState('');
   const [rows, setRows] = React.useState<Row[]>([]);
   const [count, setCount] = React.useState(0);
   const [page, setPage] = React.useState(0);
@@ -360,6 +361,8 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
   const [banner, setBanner] = React.useState<Banner | null>(null);
   const [openInNew, setOpenInNew] = React.useState(false);
   const undoRef = React.useRef<UndoState>(null);
+  const activeFetchRef = React.useRef<AbortController | null>(null);
+  const lastFetchIdRef = React.useRef(0);
   const [, forceUpdate] = React.useReducer((n) => n + 1, 0);
   const [insights, setInsights] = React.useState<AdminApprovalsDashboardData | null>(null);
   const [insightsLoading, setInsightsLoading] = React.useState(false);
@@ -434,8 +437,26 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
   };
   const showInsightsSkeleton = insightsLoading && !insights;
 
+  React.useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setDebouncedQ((prev) => {
+        const trimmed = q.trim();
+        return prev === trimmed ? prev : trimmed;
+      });
+    }, 250);
+    return () => window.clearTimeout(handle);
+  }, [q]);
+
   const fetchRows = React.useCallback(async () => {
-    const search = q.trim();
+    const controller = new AbortController();
+    const fetchId = lastFetchIdRef.current + 1;
+    lastFetchIdRef.current = fetchId;
+    if (activeFetchRef.current) {
+      activeFetchRef.current.abort();
+    }
+    activeFetchRef.current = controller;
+
+    const search = debouncedQ.trim();
     setLoading(true);
     setBanner(null);
     try {
@@ -448,7 +469,12 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
       const response = await fetch(`/api/admin/approvals?${params.toString()}`, {
         cache: 'no-store',
         credentials: 'same-origin',
+        signal: controller.signal,
       });
+
+      if (controller.signal.aborted || fetchId !== lastFetchIdRef.current) {
+        return;
+      }
 
       if (response.status === 401 || response.status === 403) {
         setRows([]);
@@ -465,6 +491,10 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
       }
 
       const payload = (await response.json()) as ApprovalsApiResponse;
+      if (controller.signal.aborted || fetchId !== lastFetchIdRef.current) {
+        return;
+      }
+
       if (payload._supabaseConfigured === false) {
         setRows([]);
         setCount(0);
@@ -486,7 +516,7 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
         const rawId = row?.id ?? row?.approval_id ?? row?.user_id ?? row?.uid ?? row?.user ?? row?.member_id ?? '';
         const userIdSource = row?.user_id ?? row?.uid ?? row?.user ?? row?.member_id ?? rawId;
         const trainerIdSource = row?.trainer_id ?? row?.coach_id ?? null;
-        
+
         return {
           id: String(rawId || `pending-${index}`),
           user_id: String(userIdSource ?? ''),
@@ -508,19 +538,31 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
         setBanner({ severity: 'warning', message: 'Alguns pedidos podem não estar disponíveis neste momento.' });
       }
     } catch (error: any) {
+      if (controller.signal.aborted || fetchId !== lastFetchIdRef.current) {
+        return;
+      }
       setRows([]);
       setCount(0);
+      const message = error?.name === 'AbortError' ? null : error?.message;
       setBanner({
         severity: 'error',
-        message: error?.message || 'Falha ao carregar pedidos de aprovação. Tenta novamente em instantes.',
+        message: message || 'Falha ao carregar pedidos de aprovação. Tenta novamente em instantes.',
       });
     } finally {
-      setLoading(false);
+      if (activeFetchRef.current === controller) {
+        activeFetchRef.current = null;
+      }
+      if (!controller.signal.aborted && fetchId === lastFetchIdRef.current) {
+        setLoading(false);
+      }
     }
-  }, [page, pageSizeState, q, status]);
+  }, [debouncedQ, page, pageSizeState, status]);
 
   React.useEffect(() => {
     void fetchRows();
+    return () => {
+      activeFetchRef.current?.abort();
+    };
   }, [fetchRows]);
 
   React.useEffect(() => {
@@ -537,11 +579,15 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
     }
   }, [count, page, pageSizeState, pageSize]);
 
-  React.useEffect(() => () => {
-    if (undoRef.current?.timer) {
-      window.clearTimeout(undoRef.current.timer);
-    }
-  }, []);
+  React.useEffect(
+    () => () => {
+      activeFetchRef.current?.abort();
+      if (undoRef.current?.timer) {
+        window.clearTimeout(undoRef.current.timer);
+      }
+    },
+    [],
+  );
 
   const scheduleUndoClear = React.useCallback(() => {
     if (undoRef.current?.timer) {
@@ -577,11 +623,12 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `approvals${status ? `-${status}` : ''}${q ? `-q-${q}` : ''}.csv`;
+    const searchSuffix = debouncedQ ? `-q-${debouncedQ}` : '';
+    a.download = `approvals${status ? `-${status}` : ''}${searchSuffix}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success('Exportação iniciada.');
-  }, [rows, status, q, toast]);
+  }, [rows, status, debouncedQ, toast]);
 
   const printList = React.useCallback(() => {
     if (!rows.length) {
