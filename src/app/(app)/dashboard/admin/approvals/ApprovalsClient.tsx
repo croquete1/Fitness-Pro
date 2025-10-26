@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -461,15 +462,31 @@ function SlaCard({ sla }: { sla: AdminApprovalSlaOverview }) {
 
 export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }) {
   const toast = useToast();
-  const [q, setQ] = React.useState('');
-  const [status, setStatus] = React.useState('');
-  const [debouncedQ, setDebouncedQ] = React.useState('');
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const initialQuery = searchParams.get('q') ?? '';
+  const initialStatus = searchParams.get('status');
+  const initialPageParam = Number.parseInt(searchParams.get('page') ?? '', 10);
+  const initialPageSizeParam = Number.parseInt(searchParams.get('pageSize') ?? '', 10);
+  const [q, setQ] = React.useState(initialQuery);
+  const [status, setStatus] = React.useState(
+    initialStatus ? statusLabel(initialStatus).value : '',
+  );
+  const [debouncedQ, setDebouncedQ] = React.useState(initialQuery.trim());
   const [rows, setRows] = React.useState<Row[]>([]);
   const [count, setCount] = React.useState(0);
   const [countReliable, setCountReliable] = React.useState(true);
   const [searchSampleSize, setSearchSampleSize] = React.useState<number | null>(null);
-  const [page, setPage] = React.useState(0);
-  const [pageSizeState, setPageSizeState] = React.useState(pageSize);
+  const [page, setPage] = React.useState(
+    Number.isFinite(initialPageParam) && initialPageParam > 0 ? initialPageParam - 1 : 0,
+  );
+  const [pageSizeState, setPageSizeState] = React.useState(() => {
+    if (Number.isFinite(initialPageSizeParam) && PAGE_SIZE_OPTIONS.includes(initialPageSizeParam)) {
+      return initialPageSizeParam;
+    }
+    return pageSize;
+  });
   const [loading, setLoading] = React.useState(false);
   const [banner, setBanner] = React.useState<Banner | null>(null);
   const [openInNew, setOpenInNew] = React.useState(false);
@@ -579,6 +596,10 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
       const meta = statusLabel(status);
       registry.set(meta.value, meta);
     });
+    if (status) {
+      const meta = statusLabel(status);
+      registry.set(meta.value, meta);
+    }
     rows.forEach((row) => {
       const meta = statusLabel(row.status);
       registry.set(meta.value, meta);
@@ -607,6 +628,74 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
     }, 250);
     return () => window.clearTimeout(handle);
   }, [q]);
+
+  React.useEffect(() => {
+    const nextQuery = searchParams.get('q') ?? '';
+    if (nextQuery !== q) {
+      setQ(nextQuery);
+    }
+    const trimmed = nextQuery.trim();
+    if (trimmed !== debouncedQ) {
+      setDebouncedQ(trimmed);
+    }
+    const statusParam = searchParams.get('status');
+    const canonicalStatus = statusParam ? statusLabel(statusParam).value : '';
+    if (canonicalStatus !== status) {
+      setStatus(canonicalStatus);
+    }
+    const pageParam = Number.parseInt(searchParams.get('page') ?? '', 10);
+    const nextPage = Number.isFinite(pageParam) && pageParam > 0 ? pageParam - 1 : 0;
+    if (nextPage !== page) {
+      setPage(nextPage);
+    }
+    const pageSizeParam = Number.parseInt(searchParams.get('pageSize') ?? '', 10);
+    const nextSize =
+      Number.isFinite(pageSizeParam) && PAGE_SIZE_OPTIONS.includes(pageSizeParam)
+        ? pageSizeParam
+        : pageSize;
+    if (nextSize !== pageSizeState) {
+      setPageSizeState(nextSize);
+    }
+  }, [pageSize, searchParams]);
+
+  const lastSyncedQueryRef = React.useRef<string>('');
+
+  React.useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    const queryValue = debouncedQ.trim();
+    if (queryValue) {
+      params.set('q', queryValue);
+    } else {
+      params.delete('q');
+    }
+    const canonicalStatus = status ? statusLabel(status).value : '';
+    if (canonicalStatus) {
+      params.set('status', canonicalStatus);
+    } else {
+      params.delete('status');
+    }
+    const pageParam = page + 1;
+    if (pageParam > 1) {
+      params.set('page', String(pageParam));
+    } else {
+      params.delete('page');
+    }
+    if (pageSizeState !== pageSize) {
+      params.set('pageSize', String(pageSizeState));
+    } else {
+      params.delete('pageSize');
+    }
+    const nextString = params.toString();
+    if (nextString === searchParams.toString()) {
+      lastSyncedQueryRef.current = nextString;
+      return;
+    }
+    if (lastSyncedQueryRef.current === nextString) {
+      return;
+    }
+    lastSyncedQueryRef.current = nextString;
+    router.replace(`${pathname}${nextString ? `?${nextString}` : ''}`, { scroll: false });
+  }, [debouncedQ, page, pageSize, pageSizeState, pathname, router, searchParams, status]);
 
   const pageSummary = React.useMemo(() => {
     if (!rows.length) {
@@ -1142,7 +1231,8 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
               className="neo-field"
               value={status}
               onChange={(event) => {
-                setStatus(event.target.value);
+                const next = statusLabel(event.target.value).value;
+                setStatus(next);
                 setPage(0);
               }}
             >
@@ -1162,7 +1252,8 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
               className="neo-field"
               value={pageSizeState}
               onChange={(event) => {
-                const next = Number(event.target.value) || pageSize;
+                const parsed = Number(event.target.value) || pageSize;
+                const next = PAGE_SIZE_OPTIONS.includes(parsed) ? parsed : pageSize;
                 setPageSizeState(next);
                 setPage(0);
               }}
