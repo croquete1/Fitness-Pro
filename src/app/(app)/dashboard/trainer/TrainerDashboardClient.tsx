@@ -103,6 +103,113 @@ const CLIENT_TONE_LABELS: Record<TrainerClientSnapshot['tone'], string> = {
   neutral: 'Sem alerta',
 };
 
+const CLIENT_TONE_KEYWORDS: Record<TrainerClientSnapshot['tone'], string[]> = {
+  positive: normalizeKeywordList(['Em progresso', 'Positivo', 'Estável', 'Estavel', 'Progresso']),
+  warning: normalizeKeywordList(['Atenção', 'Atencao', 'Alerta', 'Warning', 'Precaução', 'Precaucao']),
+  critical: normalizeKeywordList(['Crítico', 'Critico', 'Risco', 'Urgente', 'Perigo']),
+  neutral: normalizeKeywordList(['Sem alerta', 'Normal', 'Neutro', 'Estável', 'Estavel']),
+};
+
+const NO_UPCOMING_KEYWORDS = normalizeKeywordList([
+  'Sem próxima sessão',
+  'Sem proxima sessao',
+  'Sem agendamento',
+  'Sem agendamentos',
+  'Sem marcação',
+  'Sem marcacao',
+  'Sem próxima marcação',
+  'Sem proxima marcacao',
+  'Sem sessão agendada',
+  'Sem sessao agendada',
+  'Sem próxima visita',
+  'No upcoming session',
+]);
+
+const OVERDUE_KEYWORDS = normalizeKeywordList([
+  'Sem sessão há 10 dias',
+  'Sem sessao ha 10 dias',
+  'Sem sessão há mais de 10 dias',
+  'Sem sessao ha mais de 10 dias',
+  'Mais de 10 dias sem sessão',
+  'Mais de 10 dias sem sessao',
+  'Atraso',
+  'Atrasada',
+  'Atrasado',
+  'Em atraso',
+  'Overdue',
+]);
+
+const NO_HISTORY_KEYWORDS = normalizeKeywordList([
+  'Sem histórico',
+  'Sem historico',
+  'Sem historial',
+  'Sem historial de sessão',
+  'Sem historial de sessao',
+  'Sem registo de sessão',
+  'Sem registo de sessao',
+  'Sem última sessão',
+  'Sem ultima sessao',
+  'Sem histórico registado',
+  'No history',
+]);
+
+const MISSING_CONTACT_KEYWORDS = normalizeKeywordList([
+  'Sem contacto',
+  'Sem contato',
+  'Sem contacto directo',
+  'Sem contato directo',
+  'Sem contato direto',
+  'Sem contacto direto',
+  'Sem email',
+  'Sem e-mail',
+  'Sem email registado',
+  'Sem email registrado',
+  'Sem contacto directo disponível',
+  'Sem contato direto disponivel',
+]);
+
+const BLOCKED_KEYWORDS = normalizeKeywordList([
+  'Sem contacto + sessão',
+  'Sem contato + sessao',
+  'Sem contacto e sessão',
+  'Sem contato e sessao',
+  'Sem contacto e sessao',
+  'Sem contato e sessão',
+  'Bloqueado',
+  'Bloqueada',
+  'Bloqueio',
+]);
+
+const HAS_UPCOMING_KEYWORDS = normalizeKeywordList([
+  'Com próxima sessão',
+  'Com proxima sessao',
+  'Sessão agendada',
+  'Sessao agendada',
+  'Agendada',
+  'Agendado',
+  'Marcações futuras',
+  'Marcacoes futuras',
+  'Com agendamento',
+]);
+
+const RECENTLY_ACTIVE_KEYWORDS = normalizeKeywordList([
+  'Sessão recente',
+  'Sessao recente',
+  'Recentemente activo',
+  'Recentemente ativo',
+  'Activo',
+  'Ativo',
+  'Acompanhamento em dia',
+]);
+
+const CONTACT_AVAILABLE_KEYWORDS = normalizeKeywordList([
+  'Contacto directo disponível',
+  'Contato direto disponivel',
+  'Contacto directo disponivel',
+  'Email disponível',
+  'Email disponivel',
+]);
+
 const HERO_TONE_CLASS: Record<TrainerHeroMetric['tone'], 'positive' | 'warning' | 'critical' | 'neutral'> = {
   positive: 'positive',
   warning: 'warning',
@@ -138,6 +245,44 @@ const APPROVAL_TONE_CLASS: Record<TrainerApprovalItem['tone'], 'positive' | 'war
 };
 
 const CLIENT_FILTER_STORAGE_KEY = 'trainer-dashboard:client-preferences';
+const DIACRITICS_REGEX = /[\u0300-\u036f]/g;
+const WORD_SEPARATORS_REGEX = /[\u2010-\u2015\-_/+(){}\[\],;:.]+/g;
+
+const PT_STOPWORDS = new Set([
+  'de',
+  'do',
+  'da',
+  'dos',
+  'das',
+  'e',
+  'o',
+  'a',
+  'os',
+  'as',
+  'um',
+  'uma',
+  'uns',
+  'umas',
+  'ao',
+  'aos',
+  'à',
+  'às',
+  'no',
+  'nos',
+  'na',
+  'nas',
+  'num',
+  'numa',
+  'nuns',
+  'numas',
+  'por',
+  'para',
+  'com',
+  'se',
+  'que',
+  'dois',
+  'duas',
+]);
 
 const TONE_PRIORITY: Record<TrainerClientSnapshot['tone'], number> = {
   critical: 0,
@@ -179,6 +324,92 @@ type ClientEntry = {
   isMissingContact: boolean;
   searchHaystack: string;
 };
+
+function normalizeSearchValue(value: string | null | undefined): string {
+  if (value === null || value === undefined) return '';
+  const trimmed = value.toString().trim();
+  if (!trimmed) return '';
+  return trimmed
+    .toLocaleLowerCase('pt-PT')
+    .normalize('NFD')
+    .replace(DIACRITICS_REGEX, '')
+    .replace(WORD_SEPARATORS_REGEX, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeKeywordList(values: readonly string[]): string[] {
+  if (values.length === 0) return [];
+  const normalized: string[] = [];
+  const seen = new Set<string>();
+  for (const value of values) {
+    const entry = normalizeSearchValue(value);
+    if (!entry || seen.has(entry)) continue;
+    seen.add(entry);
+    normalized.push(entry);
+  }
+  return normalized;
+}
+
+function buildSearchIndex(values: Iterable<string | null | undefined>): string {
+  const seen = new Set<string>();
+  const segments: string[] = [];
+  for (const value of values) {
+    if (value === null || value === undefined) continue;
+    const text = value.toString().trim();
+    if (!text) continue;
+    const normalized = normalizeSearchValue(text);
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    segments.push(normalized);
+  }
+  return segments.join(' ');
+}
+
+function createQueryTokens(value: string): string[] {
+  if (!value) return [];
+  const unique = new Set<string>();
+  for (const token of value.split(' ')) {
+    const trimmed = token.trim();
+    if (!trimmed) continue;
+    if (trimmed.length < 2 && !/\d/.test(trimmed)) continue;
+    if (PT_STOPWORDS.has(trimmed)) continue;
+    unique.add(trimmed);
+  }
+  return Array.from(unique);
+}
+
+function addKeywords(target: Set<string>, ...values: Array<string | null | undefined>) {
+  for (const value of values) {
+    if (value === null || value === undefined) continue;
+    const text = value.toString().trim();
+    if (text.length === 0) continue;
+    target.add(text);
+  }
+}
+
+function addCountKeywordVariants(
+  target: Set<string>,
+  count: number,
+  singular: string,
+  plural: string,
+  singularAlt?: string,
+  pluralAlt?: string,
+) {
+  if (count <= 0) return;
+  if (count === 1) {
+    addKeywords(target, `${count} ${singular}`);
+    if (singularAlt) {
+      addKeywords(target, `${count} ${singularAlt}`);
+    }
+    return;
+  }
+
+  addKeywords(target, `${count} ${plural}`);
+  if (pluralAlt) {
+    addKeywords(target, `${count} ${pluralAlt}`);
+  }
+}
 
 type ClientFiltersAction =
   | { type: 'hydrate'; value: Partial<ClientFiltersState> }
@@ -264,15 +495,16 @@ function useTrainerClientFilters() {
     dispatch({ type: 'reset' });
   }, []);
 
-  const normalizedQuery = React.useMemo(() => filters.query.trim().toLowerCase(), [filters.query]);
+  const normalizedQuery = React.useMemo(() => normalizeSearchValue(filters.query), [filters.query]);
   const deferredQuery = React.useDeferredValue(normalizedQuery);
+  const queryTokens = React.useMemo(() => createQueryTokens(deferredQuery), [deferredQuery]);
   const hasFilters =
     normalizedQuery.length > 0 || filters.tone !== CLIENT_FILTER_DEFAULTS.tone || filters.sort !== CLIENT_FILTER_DEFAULTS.sort;
 
   return {
     filters,
     normalizedQuery,
-    deferredQuery,
+    queryTokens,
     hasFilters,
     setClientQuery,
     setClientToneFilter,
@@ -315,9 +547,9 @@ function approvalToneClass(tone: TrainerApprovalItem['tone']) {
   return APPROVAL_TONE_CLASS[tone] ?? 'neutral';
 }
 
-function matchesClientQuery(entry: ClientEntry, query: string) {
-  if (!query) return true;
-  return entry.searchHaystack.includes(query);
+function matchesClientQuery(entry: ClientEntry, tokens: string[]) {
+  if (tokens.length === 0) return true;
+  return tokens.every((token) => entry.searchHaystack.includes(token));
 }
 
 function parseClientDate(value: string | null) {
@@ -359,8 +591,15 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
   const dashboard = data ?? initialData;
 
   const greeting = React.useMemo(() => firstName(viewerName ?? dashboard.trainerName), [viewerName, dashboard.trainerName]);
-  const { filters, deferredQuery, hasFilters, setClientQuery, setClientToneFilter, setClientSort, clearFilters } =
-    useTrainerClientFilters();
+  const {
+    filters,
+    queryTokens,
+    hasFilters,
+    setClientQuery,
+    setClientToneFilter,
+    setClientSort,
+    clearFilters,
+  } = useTrainerClientFilters();
 
   const referenceTime = React.useMemo(() => {
     const reference = new Date(dashboard.updatedAt ?? Date.now());
@@ -401,15 +640,70 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
               nextSessionLabel: hasUpcoming ? client.nextSessionLabel : NO_UPCOMING_LABEL,
             }
           : client;
-      const searchHaystack = [
+      const searchKeywords = new Set<string>();
+      addKeywords(
+        searchKeywords,
         normalizedClient.name,
-        normalizedClient.email ?? '',
+        normalizedClient.email,
         normalizedClient.lastSessionLabel,
         normalizedClient.nextSessionLabel,
-        isNoHistory ? 'sem historico sem histórico sem ultima sessao' : '',
-      ]
-        .join(' ')
-        .toLowerCase();
+        normalizedClient.id,
+        normalizedClient.id ? `id ${normalizedClient.id}` : null,
+        normalizedClient.id ? `#${normalizedClient.id}` : null,
+        normalizedClient.tone,
+        CLIENT_TONE_LABELS[normalizedClient.tone],
+      );
+
+      addKeywords(searchKeywords, ...CLIENT_TONE_KEYWORDS[normalizedClient.tone]);
+
+      if (normalizedClient.upcoming > 0) {
+        addCountKeywordVariants(
+          searchKeywords,
+          normalizedClient.upcoming,
+          'sessão futura',
+          'sessões futuras',
+          'sessao futura',
+          'sessoes futuras',
+        );
+        addKeywords(searchKeywords, ...HAS_UPCOMING_KEYWORDS);
+      } else {
+        addKeywords(searchKeywords, ...NO_UPCOMING_KEYWORDS);
+      }
+
+      if (normalizedClient.completed > 0) {
+        addCountKeywordVariants(
+          searchKeywords,
+          normalizedClient.completed,
+          'sessão concluída',
+          'sessões concluídas',
+          'sessao concluida',
+          'sessoes concluidas',
+        );
+      }
+
+      if (isNoHistory) {
+        addKeywords(searchKeywords, ...NO_HISTORY_KEYWORDS);
+      }
+
+      if (isMissingContact) {
+        addKeywords(searchKeywords, ...MISSING_CONTACT_KEYWORDS);
+      } else {
+        addKeywords(searchKeywords, ...CONTACT_AVAILABLE_KEYWORDS);
+      }
+
+      if (isBlocked) {
+        addKeywords(searchKeywords, ...BLOCKED_KEYWORDS);
+      }
+
+      if (isOverdue) {
+        addKeywords(searchKeywords, ...OVERDUE_KEYWORDS);
+      }
+
+      if (isRecentlyActive) {
+        addKeywords(searchKeywords, ...RECENTLY_ACTIVE_KEYWORDS);
+      }
+
+      const searchHaystack = buildSearchIndex(searchKeywords);
 
       return {
         client: normalizedClient,
@@ -476,7 +770,7 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
       if (isBlocked) {
         totals.blocked += 1;
       }
-      if (matchesClientQuery(entry, deferredQuery)) {
+      if (matchesClientQuery(entry, queryTokens)) {
         matches.all += 1;
         matches[client.tone] += 1;
         if (lacksUpcoming) {
@@ -498,7 +792,7 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
     }
 
     const keys = CLIENT_TONE_FILTERS.map((filter) => filter.id as ClientToneFilter);
-    const queryActive = deferredQuery.length > 0;
+    const queryActive = queryTokens.length > 0;
     const totalLabels = Object.fromEntries(
       keys.map((key) => [key, numberFormatter.format(totals[key])]),
     ) as Record<ClientToneFilter, string>;
@@ -522,13 +816,13 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
       matchLabels,
       ariaLabels,
     };
-  }, [clientEntries, deferredQuery]);
+  }, [clientEntries, queryTokens]);
 
   const filteredEntries = React.useMemo(() => {
     const normalizedEntries = clientEntries
       .filter((entry) => {
         const { client, lacksUpcoming, isBlocked, isMissingContact, isNoHistory, isOverdue } = entry;
-        const matchesQuery = matchesClientQuery(entry, deferredQuery);
+        const matchesQuery = matchesClientQuery(entry, queryTokens);
         const matchesTone =
           filters.tone === 'all'
             ? true
@@ -570,7 +864,7 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
       });
 
     return normalizedEntries;
-  }, [clientEntries, deferredQuery, filters.tone, filters.sort]);
+  }, [clientEntries, queryTokens, filters.tone, filters.sort]);
 
   const clientStats = React.useMemo(() => {
     const totals = filteredEntries.reduce(
