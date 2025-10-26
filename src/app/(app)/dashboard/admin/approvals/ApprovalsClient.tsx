@@ -46,6 +46,7 @@ type StatusTone = 'warning' | 'success' | 'danger' | 'info';
 type StatusMeta = { value: Status; label: string; tone: StatusTone };
 
 const CANONICAL_STATUS_ORDER: Status[] = ['pending', 'approved', 'rejected'];
+const OPEN_IN_NEW_STORAGE_KEY = 'admin-approvals-open-in-new';
 
 function canonicaliseStatusFilter(value?: string | null): Status | '' {
   if (!value) return '';
@@ -497,7 +498,7 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
   });
   const [loading, setLoading] = React.useState(false);
   const [banner, setBanner] = React.useState<Banner | null>(null);
-  const [openInNew, setOpenInNew] = React.useState(false);
+  const [openInNew, setOpenInNewState] = React.useState(false);
   const [undoState, setUndoState] = React.useState<{ row: Row; index: number } | null>(null);
   const activeFetchRef = React.useRef<AbortController | null>(null);
   const lastFetchIdRef = React.useRef(0);
@@ -505,6 +506,42 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
   const [insights, setInsights] = React.useState<AdminApprovalsDashboardData | null>(null);
   const [insightsLoading, setInsightsLoading] = React.useState(false);
   const [insightsError, setInsightsError] = React.useState<string | null>(null);
+
+  const persistOpenInNew = React.useCallback((next: boolean) => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(OPEN_IN_NEW_STORAGE_KEY, next ? '1' : '0');
+    } catch {
+      // Silencia erros de storage (modo privado / quotas)
+    }
+  }, []);
+
+  const setOpenInNew = React.useCallback(
+    (next: boolean) => {
+      setOpenInNewState((prev) => {
+        if (prev === next) {
+          return prev;
+        }
+        persistOpenInNew(next);
+        return next;
+      });
+    },
+    [persistOpenInNew],
+  );
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const stored = window.localStorage.getItem(OPEN_IN_NEW_STORAGE_KEY);
+      if (stored === '1') {
+        setOpenInNewState(true);
+      } else if (stored === '0') {
+        setOpenInNewState(false);
+      }
+    } catch {
+      // Ignora falhas ao ler preferências persistidas
+    }
+  }, []);
 
   const pageSizeValue = React.useMemo(
     () => (pageSizeState > 0 ? pageSizeState : pageSize),
@@ -1337,7 +1374,9 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
         </header>
 
         <div className="neo-inline neo-inline--wrap neo-inline--between neo-inline--sm" role="status" aria-live="polite">
-          <span className="neo-text--sm neo-text--muted">{pageSummary}</span>
+          <span className="neo-text--sm neo-text--muted" aria-live="polite" aria-atomic="true">
+            {pageSummary}
+          </span>
           <span className="neo-text--xs neo-text--muted">Página {page + 1} de {totalPages}</span>
         </div>
 
