@@ -121,6 +121,7 @@ function formatCheckIn(iso: string | null | undefined): string {
 }
 
 export default function RosterClient() {
+  const [searchInput, setSearchInput] = React.useState('');
   const [search, setSearch] = React.useState('');
   const [status, setStatus] = React.useState<StatusFilter>('');
   const [shift, setShift] = React.useState<ShiftFilter>('');
@@ -129,6 +130,26 @@ export default function RosterClient() {
   const [count, setCount] = React.useState(0);
   const [loading, setLoading] = React.useState(false);
   const [banner, setBanner] = React.useState<Banner | null>(null);
+  const inFlightRef = React.useRef<AbortController | null>(null);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const handle = window.setTimeout(() => {
+      setSearch((previous) => {
+        if (previous === searchInput) {
+          return previous;
+        }
+        return searchInput;
+      });
+    }, 300);
+
+    return () => {
+      window.clearTimeout(handle);
+    };
+  }, [searchInput]);
 
   const fetchRoster = React.useCallback(async () => {
     const params = new URLSearchParams();
@@ -137,6 +158,10 @@ export default function RosterClient() {
     if (status) params.set('status', status);
     if (shift) params.set('shift', shift);
 
+    inFlightRef.current?.abort();
+    const controller = new AbortController();
+    inFlightRef.current = controller;
+
     setLoading(true);
     setBanner(null);
 
@@ -144,6 +169,7 @@ export default function RosterClient() {
       const response = await fetch(`/api/admin/roster?${params.toString()}`, {
         cache: 'no-store',
         credentials: 'same-origin',
+        signal: controller.signal,
       });
 
       if (response.status === 401 || response.status === 403) {
@@ -170,18 +196,28 @@ export default function RosterClient() {
         setBanner({ tone: 'warning', message: 'Algumas entradas podem estar temporariamente indisponíveis.' });
       }
     } catch (error: any) {
+      if (controller.signal.aborted) {
+        return;
+      }
+
       setAssignments([]);
       setTimeline([]);
       setCount(0);
       setBanner({ tone: 'danger', message: error?.message || 'Não foi possível sincronizar a escala.' });
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) {
+        setLoading(false);
+      }
     }
   }, [search, status, shift]);
 
   React.useEffect(() => {
     void fetchRoster();
   }, [fetchRoster]);
+
+  React.useEffect(() => () => {
+    inFlightRef.current?.abort();
+  }, []);
 
   const metrics = React.useMemo(() => {
     const trainers = new Set<string>();
@@ -201,20 +237,32 @@ export default function RosterClient() {
       if (statusValue === 'paused') paused += 1;
     });
 
-    return [
-      { id: 'trainers', label: 'Treinadores listados', value: trainers.size, tone: 'primary' as MetricTone },
-      { id: 'clients', label: 'Clientes sob gestão', value: totalClients, tone: 'info' as MetricTone },
-      { id: 'active', label: 'Escalas activas', value: active, tone: 'success' as MetricTone },
-      { id: 'onboarding', label: 'Onboarding', value: onboarding, tone: 'warning' as MetricTone },
-      { id: 'paused', label: 'Em pausa', value: paused, tone: 'neutral' as MetricTone },
-    ];
+    return {
+      trainers: trainers.size,
+      clients: totalClients,
+      active,
+      onboarding,
+      paused,
+    };
   }, [assignments]);
 
+  const handleStatusShortcut = React.useCallback(
+    (nextStatus: StatusFilter) => {
+      setStatus((current) => (current === nextStatus ? '' : nextStatus));
+    },
+    [],
+  );
+
   const resetFilters = React.useCallback(() => {
+    setSearchInput('');
     setSearch('');
     setStatus('');
     setShift('');
   }, []);
+
+  const handleRefresh = React.useCallback(() => {
+    void fetchRoster();
+  }, [fetchRoster]);
 
   return (
     <div className="admin-page neo-stack neo-stack--xl">
@@ -235,7 +283,7 @@ export default function RosterClient() {
               </span>
               <span className="btn__label">Ver aprovações</span>
             </Link>
-            <button type="button" className="btn" data-variant="ghost" onClick={() => void fetchRoster()} disabled={loading}>
+            <button type="button" className="btn" data-variant="ghost" onClick={handleRefresh} disabled={loading}>
               <span className="btn__icon">
                 <RefreshCcw className="neo-icon neo-icon--sm" aria-hidden="true" />
               </span>
@@ -263,12 +311,47 @@ export default function RosterClient() {
         </header>
 
         <div className="admin-roster__metrics">
-          {metrics.map((metric) => (
-            <article key={metric.id} className="admin-roster__metric" data-tone={metric.tone}>
-              <span className="admin-roster__metricLabel">{metric.label}</span>
-              <span className="admin-roster__metricValue">{metric.value}</span>
-            </article>
-          ))}
+          <article className="admin-roster__metric" data-tone="primary">
+            <span className="admin-roster__metricLabel">Treinadores listados</span>
+            <span className="admin-roster__metricValue">{metrics.trainers}</span>
+          </article>
+          <article className="admin-roster__metric" data-tone="info">
+            <span className="admin-roster__metricLabel">Clientes sob gestão</span>
+            <span className="admin-roster__metricValue">{metrics.clients}</span>
+          </article>
+          <button
+            type="button"
+            className="admin-roster__metric admin-roster__metric--shortcut"
+            data-tone="success"
+            data-active={status === 'active'}
+            onClick={() => handleStatusShortcut('active')}
+            aria-pressed={status === 'active'}
+          >
+            <span className="admin-roster__metricLabel">Escalas activas</span>
+            <span className="admin-roster__metricValue">{metrics.active}</span>
+          </button>
+          <button
+            type="button"
+            className="admin-roster__metric admin-roster__metric--shortcut"
+            data-tone="warning"
+            data-active={status === 'onboarding'}
+            onClick={() => handleStatusShortcut('onboarding')}
+            aria-pressed={status === 'onboarding'}
+          >
+            <span className="admin-roster__metricLabel">Onboarding</span>
+            <span className="admin-roster__metricValue">{metrics.onboarding}</span>
+          </button>
+          <button
+            type="button"
+            className="admin-roster__metric admin-roster__metric--shortcut"
+            data-tone="neutral"
+            data-active={status === 'paused'}
+            onClick={() => handleStatusShortcut('paused')}
+            aria-pressed={status === 'paused'}
+          >
+            <span className="admin-roster__metricLabel">Em pausa</span>
+            <span className="admin-roster__metricValue">{metrics.paused}</span>
+          </button>
         </div>
 
         <div className="admin-roster__filters" role="group" aria-label="Filtros da escala">
@@ -279,8 +362,14 @@ export default function RosterClient() {
               type="search"
               className="neo-field"
               placeholder="Treinador, cliente, tag…"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  setSearch(event.currentTarget.value);
+                }
+              }}
               autoComplete="off"
             />
           </label>
@@ -342,7 +431,7 @@ export default function RosterClient() {
           </div>
         </header>
 
-        <div className="neo-table-wrapper" role="region" aria-live="polite">
+        <div className="neo-table-wrapper" role="region" aria-live="polite" aria-busy={loading} data-loading={loading}>
           <table className="neo-table">
             <thead>
               <tr>
@@ -385,6 +474,16 @@ export default function RosterClient() {
                 const focus = assignment.trainer_focus ?? '—';
                 const tags = assignment.tags ?? [];
                 const load = assignment.load_level ?? '—';
+                const tone = toneForStatus(assignment.status);
+                const highlightedClientName = assignment.highlighted_client_name ?? assignment.highlighted_client_id;
+                const highlightedClientLink = assignment.highlighted_client_id
+                  ? `/dashboard/users/${assignment.highlighted_client_id}`
+                  : null;
+
+                let statusLabel = assignment.status ?? '—';
+                if (tone === 'success') statusLabel = 'Operacional';
+                if (tone === 'warning') statusLabel = 'Onboarding';
+                if (tone === 'neutral') statusLabel = 'Em pausa';
 
                 return (
                   <tr key={assignment.id}>
@@ -399,13 +498,25 @@ export default function RosterClient() {
                         <Users2 className="neo-icon neo-icon--sm neo-text--muted" aria-hidden />
                         {assignment.clients_count ?? 0}
                       </div>
+                      {highlightedClientName && (
+                        highlightedClientLink ? (
+                          <Link
+                            href={highlightedClientLink}
+                            className="neo-text--xs neo-text--muted admin-roster__highlight"
+                            prefetch={false}
+                          >
+                            Destaque · {highlightedClientName}
+                          </Link>
+                        ) : (
+                          <span className="neo-text--xs neo-text--muted admin-roster__highlight">
+                            Destaque · {highlightedClientName}
+                          </span>
+                        )
+                      )}
                     </td>
                     <td data-title="Estado">
-                      <span className="neo-table__status" data-state={toneForStatus(assignment.status)}>
-                        {toneForStatus(assignment.status) === 'success' && 'Operacional'}
-                        {toneForStatus(assignment.status) === 'warning' && 'Onboarding'}
-                        {toneForStatus(assignment.status) === 'neutral' && 'Em pausa'}
-                        {toneForStatus(assignment.status) === 'info' && (assignment.status ?? '—')}
+                      <span className="neo-table__status" data-state={tone}>
+                        {statusLabel}
                       </span>
                     </td>
                     <td data-title="Próximo check-in">
@@ -458,7 +569,7 @@ export default function RosterClient() {
           <p className="neo-panel__subtitle">Agenda condensada para garantir acompanhamento em tempo quase-real.</p>
         </header>
 
-        <ol className="admin-roster__timeline neo-stack neo-stack--md">
+        <ol className="admin-roster__timeline neo-stack neo-stack--md" aria-live="polite" aria-busy={loading}>
           {timeline.length === 0 && !loading && (
             <li className="neo-panel neo-panel--compact admin-roster__empty">Sem marcos agendados para as atribuições filtradas.</li>
           )}
