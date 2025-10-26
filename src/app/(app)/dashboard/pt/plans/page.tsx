@@ -19,6 +19,8 @@ type Sess = {
 
 const API = '/api/pt/plans';
 
+type SessionMap = Record<string, Sess[]>;
+
 function formatKey(date: Date) {
   return date.toISOString().slice(0, 10);
 }
@@ -79,12 +81,22 @@ function coerceSessions(value: unknown): Sess[] {
   });
 }
 
+function cloneSessionMap(source: SessionMap): SessionMap {
+  return Object.fromEntries(
+    Object.entries(source).map(([key, sessions]) => [
+      key,
+      sessions.map((session) => ({ ...session })),
+    ]),
+  );
+}
+
 export default function PlansBoardPage() {
   const [start, setStart] = React.useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [weeks, setWeeks] = React.useState(2);
-  const [map, setMap] = React.useState<Record<string, Sess[]>>({});
+  const [map, setMap] = React.useState<SessionMap>({});
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [lastSyncAt, setLastSyncAt] = React.useState<Date | null>(null);
   const abortRef = React.useRef<AbortController | null>(null);
   const mountedRef = React.useRef(true);
 
@@ -105,7 +117,7 @@ export default function PlansBoardPage() {
     };
   }, []);
 
-  const load = React.useCallback(async () => {
+  const load = React.useCallback(async (options?: { preserveError?: boolean; preserveLastSync?: boolean }) => {
     if (!days.length) return;
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -115,7 +127,12 @@ export default function PlansBoardPage() {
     }
     abortRef.current = controller;
     setLoading(true);
-    setError(null);
+    if (!options?.preserveError) {
+      setError(null);
+    }
+    if (!options?.preserveLastSync) {
+      setLastSyncAt(null);
+    }
     try {
       const from = `${formatKey(days[0])}T00:00:00.000Z`;
       const to = `${formatKey(days[days.length - 1])}T23:59:59.999Z`;
@@ -175,6 +192,10 @@ export default function PlansBoardPage() {
 
       if (!controller.signal.aborted && mountedRef.current) {
         setMap(grouped);
+        setLastSyncAt(new Date());
+        if (options?.preserveError) {
+          setError(null);
+        }
       }
     } catch (err: unknown) {
       if (controller.signal.aborted || !mountedRef.current || isAbortError(err)) {
@@ -182,7 +203,6 @@ export default function PlansBoardPage() {
       }
       const message = err instanceof Error && err.message ? err.message : 'Falha ao carregar sessões.';
       setError(message);
-      setMap({});
     } finally {
       if (mountedRef.current && abortRef.current === controller) {
         setLoading(false);
@@ -207,29 +227,63 @@ export default function PlansBoardPage() {
 
   const reorderSameDay = async (list: Sess[]) => {
     const ids = list.map((session) => session.id);
-    const response = await fetch(API, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ ids }),
-    });
-    if (response.ok) {
+    try {
+      const response = await fetch(API, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      });
+      if (!response.ok) {
+        const message =
+          (await readErrorMessage(response)) ?? 'Falha ao guardar ordenação. A agenda foi restaurada.';
+        toast(message, 2500, 'error');
+        setError(message);
+        return false;
+      }
       toast('Ordem actualizada ↕️', 1500, 'success');
-    } else {
-      toast('Falha ao guardar ordenação', 2000, 'error');
+      return true;
+    } catch (err: unknown) {
+      if (isAbortError(err)) {
+        return false;
+      }
+      const message =
+        err instanceof Error && err.message
+          ? err.message
+          : 'Falha ao guardar ordenação. A agenda foi restaurada.';
+      toast(message, 2500, 'error');
+      setError(message);
+      return false;
     }
   };
 
   const moveToDay = async (targetDay: string, list: Sess[]) => {
     const moves = list.map((session, index) => ({ id: session.id, date: targetDay, order_index: index }));
-    const response = await fetch(API, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ moves }),
-    });
-    if (response.ok) {
+    try {
+      const response = await fetch(API, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ moves }),
+      });
+      if (!response.ok) {
+        const message =
+          (await readErrorMessage(response)) ?? 'Falha ao mover sessão. A agenda foi restaurada.';
+        toast(message, 2500, 'error');
+        setError(message);
+        return false;
+      }
       toast('Sessão movida ⇄', 1500, 'success');
-    } else {
-      toast('Falha ao mover sessão', 2000, 'error');
+      return true;
+    } catch (err: unknown) {
+      if (isAbortError(err)) {
+        return false;
+      }
+      const message =
+        err instanceof Error && err.message
+          ? err.message
+          : 'Falha ao mover sessão. A agenda foi restaurada.';
+      toast(message, 2500, 'error');
+      setError(message);
+      return false;
     }
   };
 
@@ -240,36 +294,91 @@ export default function PlansBoardPage() {
     if (!source) return;
 
     setMap((previous) => {
-      const clone: Record<string, Sess[]> = Object.fromEntries(
-        Object.entries(previous).map(([key, list]) => [key, list.slice()]),
-      );
+      const snapshot = cloneSessionMap(previous);
+      const next = cloneSessionMap(previous);
 
-      const [moved] = clone[source.day]?.splice(source.index, 1) ?? [];
-      if (!moved) return previous;
-
-      const destination = clone[targetDay] ?? [];
-      destination.splice(targetIndex, 0, moved);
-      clone[targetDay] = destination.map((session, index) => ({ ...session, order_index: index }));
-
-      if (source.day === targetDay) {
-        void reorderSameDay(clone[targetDay]);
-        return clone;
+      const sourceList = next[source.day]?.slice() ?? [];
+      const [moved] = sourceList.splice(source.index, 1);
+      if (!moved) {
+        return previous;
       }
 
-      void moveToDay(targetDay, clone[targetDay]);
-      return clone;
+      const isSameDay = source.day === targetDay;
+
+      if (isSameDay) {
+        sourceList.splice(targetIndex, 0, moved);
+        const normalized = sourceList.map((session, index) => ({ ...session, order_index: index }));
+        next[source.day] = normalized;
+
+        void (async () => {
+          const ok = await reorderSameDay(normalized);
+          if (!ok && mountedRef.current) {
+            setMap(() => snapshot);
+            void load({ preserveError: true, preserveLastSync: true });
+          }
+        })();
+
+        return next;
+      }
+
+      const targetList = next[targetDay]?.slice() ?? [];
+      targetList.splice(targetIndex, 0, moved);
+      const normalizedTarget = targetList.map((session, index) => ({ ...session, order_index: index }));
+      const normalizedSource = sourceList.map((session, index) => ({ ...session, order_index: index }));
+
+      next[targetDay] = normalizedTarget;
+      next[source.day] = normalizedSource;
+
+      void (async () => {
+        const ok = await moveToDay(targetDay, normalizedTarget);
+        if (!ok && mountedRef.current) {
+          setMap(() => snapshot);
+          void load({ preserveError: true, preserveLastSync: true });
+        }
+      })();
+
+      return next;
     });
   };
 
+  const refresh = React.useCallback(() => {
+    void load({ preserveError: true, preserveLastSync: true });
+  }, [load]);
+
   const statusTone = loading ? 'warn' : error ? 'danger' : 'ok';
-  const statusLabel = loading ? 'A sincronizar…' : error ? 'Modo offline' : 'Sincronizado';
+  const lastSyncLabel = React.useMemo(() => {
+    if (!lastSyncAt) return null;
+    const formattedTime = lastSyncAt.toLocaleTimeString('pt-PT', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    const formattedDate = lastSyncAt.toLocaleDateString('pt-PT', {
+      day: '2-digit',
+      month: 'long',
+    });
+    return `${formattedDate} às ${formattedTime}`;
+  }, [lastSyncAt]);
+
+  const statusLabel = React.useMemo(() => {
+    if (loading) {
+      return 'A sincronizar…';
+    }
+    if (error) {
+      return lastSyncLabel ? `Modo offline · ${lastSyncLabel}` : 'Modo offline';
+    }
+    return lastSyncLabel ? `Sincronizado · ${lastSyncLabel}` : 'Sincronizado';
+  }, [error, lastSyncLabel, loading]);
 
   return (
     <div className="trainer-plan-board">
       <PageHeader
         title="Planeador semanal"
         subtitle="Arrasta e organiza as sessões entre os dias de trabalho do PT."
-        actions={<span className="status-pill" data-state={statusTone}>{statusLabel}</span>}
+        actions={
+          <span className="status-pill" data-state={statusTone} aria-live="polite">
+            {statusLabel}
+          </span>
+        }
         sticky={false}
       />
 
@@ -291,6 +400,9 @@ export default function PlansBoardPage() {
             <Button size="sm" variant="ghost" onClick={() => setStart(addDays(start, 7))}>
               Semana seguinte ▶
             </Button>
+            <Button size="sm" variant="ghost" onClick={refresh} disabled={loading}>
+              Recarregar ↻
+            </Button>
             <Button
               size="sm"
               variant="secondary"
@@ -305,6 +417,11 @@ export default function PlansBoardPage() {
           <div className="neo-alert" data-tone="danger" role="alert">
             <div className="neo-alert__content">
               <p className="neo-alert__message">{error}</p>
+              <div className="neo-alert__actions">
+                <Button size="sm" variant="ghost" onClick={refresh}>
+                  Tentar novamente
+                </Button>
+              </div>
             </div>
           </div>
         )}
