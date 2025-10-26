@@ -33,6 +33,7 @@ import type {
   MessageHighlight,
   MessageListRow,
   MessageConversationRow,
+  MessageDirection,
   MessageDistributionSegment,
   MessageTimelinePoint,
   MessagesDashboardData,
@@ -53,6 +54,52 @@ const numberFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 
 const percentFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 1, minimumFractionDigits: 0 });
 const durationFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 });
 const relativeFormatter = new Intl.RelativeTimeFormat('pt-PT', { numeric: 'auto' });
+
+function normalizeSearchTerm(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function tokenizeSearchTerm(value: string): string[] {
+  if (!value) return [];
+  return value
+    .split(' ')
+    .map((token) => token.trim())
+    .filter(Boolean);
+}
+
+function matchesSearchTokens(haystack: string, tokens: string[]): boolean {
+  if (!tokens.length) return true;
+  if (!haystack) return false;
+  return tokens.every((token) => haystack.includes(token));
+}
+
+function directionTokens(direction: MessageDirection): string {
+  switch (direction) {
+    case 'inbound':
+      return 'recebida recebidas inbound entrante entrada';
+    case 'outbound':
+      return 'enviada enviadas outbound enviada';
+    case 'internal':
+      return 'interna internas interno equipa';
+    default:
+      return '';
+  }
+}
+
+type ConversationIndexEntry = {
+  conversation: MessageConversationRow;
+  searchIndex: string;
+};
+
+type MessageIndexEntry = {
+  message: MessageListRow;
+  searchIndex: string;
+};
 
 function formatNumber(value: number): string {
   if (!Number.isFinite(value)) return '0';
@@ -306,12 +353,75 @@ function ConversationsTable({
 }
 
 export default function MessagesDashboardClient({ viewerId, initialRange, initialData }: DashboardProps) {
-  const [range, setRange] = React.useState(initialRange);
-  const [directionFilter, setDirectionFilter] = React.useState<DirectionFilter>('all');
-  const [search, setSearch] = React.useState('');
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [range, setRange] = React.useState(() => {
+    const raw = searchParams?.get('range');
+    if (raw) {
+      const value = Number(raw);
+      if (Number.isFinite(value) && RANGE_OPTIONS.some((option) => option.value === value)) {
+        return value;
+      }
+    }
+    return initialRange;
+  });
+  const [directionFilter, setDirectionFilter] = React.useState<DirectionFilter>(() => {
+    const raw = searchParams?.get('direction');
+    return raw === 'inbound' || raw === 'outbound' ? raw : 'all';
+  });
+  const [search, setSearch] = React.useState(() => searchParams?.get('q') ?? '');
+  const updateQueryParams = React.useCallback(
+    (next: { range?: number; direction?: DirectionFilter; search?: string }) => {
+      const params = new URLSearchParams(searchParams?.toString() ?? '');
+      let changed = false;
+
+      if (typeof next.range === 'number') {
+        if (next.range === initialRange) {
+          if (params.has('range')) {
+            params.delete('range');
+            changed = true;
+          }
+        } else if (params.get('range') !== String(next.range)) {
+          params.set('range', String(next.range));
+          changed = true;
+        }
+      }
+
+      if (next.direction) {
+        if (next.direction === 'all') {
+          if (params.has('direction')) {
+            params.delete('direction');
+            changed = true;
+          }
+        } else if (params.get('direction') !== next.direction) {
+          params.set('direction', next.direction);
+          changed = true;
+        }
+      }
+
+      if (typeof next.search === 'string') {
+        const trimmed = next.search.trim();
+        if (!trimmed) {
+          if (params.has('q')) {
+            params.delete('q');
+            changed = true;
+          }
+        } else if (params.get('q') !== trimmed) {
+          params.set('q', trimmed);
+          changed = true;
+        }
+      }
+
+      if (!changed) {
+        return;
+      }
+
+      const query = params.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    },
+    [initialRange, pathname, router, searchParams],
+  );
 
   const { data, error, isValidating, mutate } = useSWR<MessagesDashboardResponse, Error, FetchKey>(
     ['messages-dashboard', range],
@@ -325,6 +435,9 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
 
   const dashboard = data ?? initialData;
   const supabase = dashboard.source === 'supabase';
+  const deferredSearch = React.useDeferredValue(search);
+  const normalizedSearch = React.useMemo(() => normalizeSearchTerm(deferredSearch), [deferredSearch]);
+  const searchTokens = React.useMemo(() => tokenizeSearchTerm(normalizedSearch), [normalizedSearch]);
   const totalMessages = React.useMemo(
     () => dashboard.totals.inbound + dashboard.totals.outbound,
     [dashboard.totals.inbound, dashboard.totals.outbound],
@@ -335,6 +448,36 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
   }, [dashboard.generatedAt]);
   const generatedRelative = React.useMemo(() => formatRelativeTime(generatedAt), [generatedAt]);
   const pendingResponses = dashboard.totals.pendingResponses;
+  const hasPendingResponses = pendingResponses > 0;
+
+  React.useEffect(() => {
+    const rawRange = searchParams?.get('range');
+    const parsedRange = rawRange ? Number(rawRange) : NaN;
+    if (
+      rawRange &&
+      Number.isFinite(parsedRange) &&
+      RANGE_OPTIONS.some((option) => option.value === parsedRange)
+    ) {
+      setRange((current) => (current === parsedRange ? current : parsedRange));
+    } else {
+      setRange((current) => (current === initialRange ? current : initialRange));
+    }
+
+    const rawDirection = searchParams?.get('direction');
+    const nextDirection: DirectionFilter =
+      rawDirection === 'inbound' || rawDirection === 'outbound' ? rawDirection : 'all';
+    setDirectionFilter((current) => (current === nextDirection ? current : nextDirection));
+
+    const rawSearch = searchParams?.get('q') ?? '';
+    setSearch((current) => (current === rawSearch ? current : rawSearch));
+  }, [initialRange, searchParams]);
+
+  React.useEffect(() => {
+    const handle = window.setTimeout(() => {
+      updateQueryParams({ search });
+    }, 300);
+    return () => window.clearTimeout(handle);
+  }, [search, updateQueryParams]);
 
   const timelineData = React.useMemo<ChartDatum[]>(() => {
     return (dashboard.timeline ?? []).map((point: MessageTimelinePoint) => ({
@@ -346,44 +489,93 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
     }));
   }, [dashboard.timeline]);
 
+  const conversationIndex = React.useMemo<ConversationIndexEntry[]>(() => {
+    return (dashboard.conversations ?? []).map((conversation) => {
+      const pendingTokens =
+        conversation.pendingResponses > 0
+          ? 'pendente pendentes follow-up por responder'
+          : 'sem-pendentes';
+      const searchIndex = normalizeSearchTerm(
+        [
+          conversation.counterpartName,
+          conversation.counterpartId ?? '',
+          conversation.mainChannelLabel,
+          conversation.mainChannel,
+          conversation.lastMessageAt ?? '',
+          directionTokens(conversation.lastDirection),
+          pendingTokens,
+          conversation.id,
+        ].join(' '),
+      );
+      return { conversation, searchIndex } satisfies ConversationIndexEntry;
+    });
+  }, [dashboard.conversations]);
+
+  const messageIndex = React.useMemo<MessageIndexEntry[]>(() => {
+    return (dashboard.messages ?? []).map((message) => {
+      const hasResponseMinutes =
+        typeof message.responseMinutes === 'number' && Number.isFinite(message.responseMinutes);
+      const responseToken = hasResponseMinutes
+        ? `tempo-resposta ${message.responseMinutes}`
+        : 'sem-tempo-resposta';
+      const searchIndex = normalizeSearchTerm(
+        [
+          message.body ?? '',
+          message.fromName ?? '',
+          message.toName ?? '',
+          message.fromId ?? '',
+          message.toId ?? '',
+          message.channelLabel ?? '',
+          message.channel,
+          message.relative ?? '',
+          directionTokens(message.direction),
+          responseToken,
+          message.sentAt ?? '',
+          message.id,
+        ].join(' '),
+      );
+      return { message, searchIndex } satisfies MessageIndexEntry;
+    });
+  }, [dashboard.messages]);
+
   const filteredConversations = React.useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return (dashboard.conversations ?? [])
-      .filter((conversation) => {
-        if (query && !conversation.counterpartName.toLowerCase().includes(query)) return false;
-        if (directionFilter === 'inbound') return conversation.inbound > 0;
-        if (directionFilter === 'outbound') return conversation.outbound > 0;
+    return conversationIndex
+      .filter(({ conversation, searchIndex }) => {
+        if (directionFilter === 'inbound' && conversation.inbound <= 0) return false;
+        if (directionFilter === 'outbound' && conversation.outbound <= 0) return false;
+        if (searchTokens.length && !matchesSearchTokens(searchIndex, searchTokens)) return false;
         return true;
       })
-      .slice(0, 40);
-  }, [dashboard.conversations, search, directionFilter]);
+      .slice(0, 40)
+      .map(({ conversation }) => conversation);
+  }, [conversationIndex, directionFilter, searchTokens]);
 
   const filteredMessages = React.useMemo<MessageListRow[]>(() => {
-    const query = search.trim().toLowerCase();
-    return (dashboard.messages ?? []).filter((message) => {
-      if (directionFilter !== 'all' && message.direction !== directionFilter) return false;
-      if (query) {
-        const content = `${message.body ?? ''} ${message.fromName ?? ''} ${message.toName ?? ''}`.toLowerCase();
-        if (!content.includes(query)) return false;
-      }
-      return true;
-    });
-  }, [dashboard.messages, directionFilter, search]);
+    return messageIndex
+      .filter(({ message, searchIndex }) => {
+        if (directionFilter !== 'all' && message.direction !== directionFilter) return false;
+        if (searchTokens.length && !matchesSearchTokens(searchIndex, searchTokens)) return false;
+        return true;
+      })
+      .map(({ message }) => message);
+  }, [messageIndex, directionFilter, searchTokens]);
 
   const onRangeChange = React.useCallback(
     (event: React.ChangeEvent<HTMLSelectElement>) => {
       const value = Number(event.target.value);
       setRange(value);
-      const params = new URLSearchParams(searchParams?.toString() ?? '');
-      params.set('range', String(value));
-      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+      updateQueryParams({ range: value });
     },
-    [pathname, router, searchParams],
+    [updateQueryParams],
   );
 
-  const onDirectionChange = (value: DirectionFilter) => {
-    setDirectionFilter(value);
-  };
+  const onDirectionChange = React.useCallback(
+    (value: DirectionFilter) => {
+      setDirectionFilter(value);
+      updateQueryParams({ direction: value });
+    },
+    [updateQueryParams],
+  );
 
   const onRefresh = () => {
     void mutate();
@@ -456,7 +648,11 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
             >
               Actualizar
             </Button>
-            <MarkAllRead size="sm" variant={supabase ? 'secondary' : 'warning'} />
+            <MarkAllRead
+              size="sm"
+              variant={supabase ? 'secondary' : 'warning'}
+              disabled={!hasPendingResponses}
+            />
           </div>
         </div>
         <div className="messages-dashboard__statusRow messages-dashboard__statusRow--stats">
@@ -481,7 +677,11 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
               <small>Conversas filtradas</small>
             </span>
           </span>
-          <span className="messages-dashboard__stat" data-warning={pendingResponses > 0 || undefined}>
+          <span
+            className="messages-dashboard__stat"
+            data-warning={hasPendingResponses || undefined}
+            aria-live="polite"
+          >
             <Clock3 size={16} aria-hidden />
             <span>
               <strong>{formatNumber(pendingResponses)}</strong>
