@@ -8,6 +8,7 @@ import {
   ArrowUpRight,
   CheckCircle2,
   Download,
+  Eraser,
   Printer,
   RefreshCcw,
   Search,
@@ -626,6 +627,12 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
     });
   }, [rows, status, statusSegments]);
 
+  const filtersActive = React.useMemo(() => {
+    if (page > 0) return true;
+    if (status) return true;
+    return Boolean(q.trim());
+  }, [page, q, status]);
+
   React.useEffect(() => {
     const handle = window.setTimeout(() => {
       setDebouncedQ((prev) => {
@@ -731,6 +738,13 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
     const label = undoState.row.name ?? undoState.row.email ?? undoState.row.user_id ?? '';
     return typeof label === 'string' ? label : String(label);
   }, [undoState]);
+
+  const clearFilters = React.useCallback(() => {
+    setQ('');
+    setDebouncedQ('');
+    setStatus('');
+    setPage(0);
+  }, []);
 
   const fetchRows = React.useCallback(async () => {
     const controller = new AbortController();
@@ -1272,13 +1286,27 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
           </label>
 
           <div className="admin-approvals__field admin-approvals__field--shortcut">
-            <span className="admin-approvals__label">Ajuda rápida</span>
-            <Link href="/dashboard/admin/users" className="btn" data-variant="ghost" prefetch={false}>
-              <span className="btn__icon">
-                <ArrowUpRight className="neo-icon neo-icon--sm" aria-hidden="true" />
-              </span>
-              <span className="btn__label">Ver utilizadores</span>
-            </Link>
+            <span className="admin-approvals__label">Atalhos</span>
+            <div className="neo-inline neo-inline--sm neo-inline--start">
+              <Link href="/dashboard/admin/users" className="btn" data-variant="ghost" prefetch={false}>
+                <span className="btn__icon">
+                  <ArrowUpRight className="neo-icon neo-icon--sm" aria-hidden="true" />
+                </span>
+                <span className="btn__label">Ver utilizadores</span>
+              </Link>
+              <button
+                type="button"
+                className="btn"
+                data-variant="ghost"
+                onClick={clearFilters}
+                disabled={!filtersActive}
+              >
+                <span className="btn__icon">
+                  <Eraser className="neo-icon neo-icon--sm" aria-hidden="true" />
+                </span>
+                <span className="btn__label">Limpar filtros</span>
+              </button>
+            </div>
           </div>
         </div>
       </section>

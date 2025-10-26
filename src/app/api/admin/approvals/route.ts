@@ -7,6 +7,7 @@ import { tryCreateServerClient } from '@/lib/supabaseServer';
 
 const MAX_FALLBACK_LIMIT = 1000;
 const FALLBACK_PAD = 2;
+const DEFAULT_PAGE_SIZE = 20;
 
 function escapeSearchValue(value: string): string {
   return value
@@ -158,8 +159,11 @@ export async function GET(req: Request) {
   const guard = await requireAdminGuard();
   if (isGuardErr(guard)) return guard.response;
   const url = new URL(req.url);
-  const page = Number(url.searchParams.get('page') ?? '0');
-  const pageSize = Math.min(Number(url.searchParams.get('pageSize') ?? '20'), 100);
+  const rawPageParam = Number.parseInt(url.searchParams.get('page') ?? '', 10);
+  const page = Number.isFinite(rawPageParam) && rawPageParam >= 0 ? rawPageParam : 0;
+  const rawPageSizeParam = Number.parseInt(url.searchParams.get('pageSize') ?? '', 10);
+  const parsedPageSize = Number.isFinite(rawPageSizeParam) ? rawPageSizeParam : DEFAULT_PAGE_SIZE;
+  const pageSize = Math.min(Math.max(parsedPageSize, 1), 100);
   const q = (url.searchParams.get('q') || '').trim();
   const status = (url.searchParams.get('status') || '').trim().toLowerCase();
 
