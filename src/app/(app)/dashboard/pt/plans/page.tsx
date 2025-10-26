@@ -18,6 +18,9 @@ type Sess = {
 };
 
 const API = '/api/pt/plans';
+const OFFLINE_MESSAGE = 'Sem ligação à internet. A agenda mantém os últimos dados disponíveis.';
+
+type SessionMap = Record<string, Sess[]>;
 
 type SessionMap = Record<string, Sess[]>;
 
@@ -97,8 +100,13 @@ export default function PlansBoardPage() {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [lastSyncAt, setLastSyncAt] = React.useState<Date | null>(null);
+  const [isOffline, setIsOffline] = React.useState(() =>
+    typeof navigator !== 'undefined' ? !navigator.onLine : false,
+  );
   const abortRef = React.useRef<AbortController | null>(null);
   const mountedRef = React.useRef(true);
+  const loadingRef = React.useRef(false);
+  const offlineRef = React.useRef(isOffline);
 
   const days = React.useMemo(() => {
     const result: Date[] = [];
@@ -117,7 +125,15 @@ export default function PlansBoardPage() {
     };
   }, []);
 
-  const load = React.useCallback(async (options?: { preserveError?: boolean; preserveLastSync?: boolean }) => {
+  React.useEffect(() => {
+    loadingRef.current = loading;
+  }, [loading]);
+
+  React.useEffect(() => {
+    offlineRef.current = isOffline;
+  }, [isOffline]);
+
+  const load = React.useCallback(async (options?: { preserveError?: boolean }) => {
     if (!days.length) return;
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -125,13 +141,18 @@ export default function PlansBoardPage() {
       controller.abort();
       return;
     }
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      controller.abort();
+      abortRef.current = null;
+      setIsOffline(true);
+      setLoading(false);
+      setError(OFFLINE_MESSAGE);
+      return;
+    }
     abortRef.current = controller;
     setLoading(true);
     if (!options?.preserveError) {
       setError(null);
-    }
-    if (!options?.preserveLastSync) {
-      setLastSyncAt(null);
     }
     try {
       const from = `${formatKey(days[0])}T00:00:00.000Z`;
@@ -193,6 +214,7 @@ export default function PlansBoardPage() {
       if (!controller.signal.aborted && mountedRef.current) {
         setMap(grouped);
         setLastSyncAt(new Date());
+        setIsOffline(false);
         if (options?.preserveError) {
           setError(null);
         }
@@ -314,7 +336,7 @@ export default function PlansBoardPage() {
           const ok = await reorderSameDay(normalized);
           if (!ok && mountedRef.current) {
             setMap(() => snapshot);
-            void load({ preserveError: true, preserveLastSync: true });
+            void load({ preserveError: true });
           }
         })();
 
@@ -333,7 +355,7 @@ export default function PlansBoardPage() {
         const ok = await moveToDay(targetDay, normalizedTarget);
         if (!ok && mountedRef.current) {
           setMap(() => snapshot);
-          void load({ preserveError: true, preserveLastSync: true });
+          void load({ preserveError: true });
         }
       })();
 
@@ -342,10 +364,68 @@ export default function PlansBoardPage() {
   };
 
   const refresh = React.useCallback(() => {
-    void load({ preserveError: true, preserveLastSync: true });
+    void load({ preserveError: true });
   }, [load]);
 
-  const statusTone = loading ? 'warn' : error ? 'danger' : 'ok';
+  React.useEffect(() => {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+      return undefined;
+    }
+
+    const handleOnline = () => {
+      setIsOffline(false);
+      setError((previous) => (previous === OFFLINE_MESSAGE ? null : previous));
+      refresh();
+    };
+
+    const handleOffline = () => {
+      setIsOffline(true);
+      setError(OFFLINE_MESSAGE);
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    if (!navigator.onLine) {
+      handleOffline();
+    }
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [refresh]);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return undefined;
+    }
+
+    const shouldRefresh = () => !loadingRef.current && !offlineRef.current;
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && shouldRefresh()) {
+        refresh();
+      }
+    };
+
+    window.addEventListener('focus', handleVisibility);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible' && shouldRefresh()) {
+        refresh();
+      }
+    }, 120000);
+
+    return () => {
+      window.removeEventListener('focus', handleVisibility);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.clearInterval(interval);
+    };
+  }, [refresh]);
+
+  const statusTone = loading ? 'warn' : isOffline || error ? 'danger' : 'ok';
   const lastSyncLabel = React.useMemo(() => {
     if (!lastSyncAt) return null;
     const formattedTime = lastSyncAt.toLocaleTimeString('pt-PT', {
@@ -363,11 +443,14 @@ export default function PlansBoardPage() {
     if (loading) {
       return 'A sincronizar…';
     }
-    if (error) {
+    if (isOffline) {
       return lastSyncLabel ? `Modo offline · ${lastSyncLabel}` : 'Modo offline';
     }
+    if (error) {
+      return lastSyncLabel ? `Erro · ${lastSyncLabel}` : 'Erro ao sincronizar';
+    }
     return lastSyncLabel ? `Sincronizado · ${lastSyncLabel}` : 'Sincronizado';
-  }, [error, lastSyncLabel, loading]);
+  }, [error, isOffline, lastSyncLabel, loading]);
 
   return (
     <div className="trainer-plan-board">
