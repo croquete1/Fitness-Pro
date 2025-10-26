@@ -237,14 +237,21 @@ export default function RosterClient() {
       if (statusValue === 'paused') paused += 1;
     });
 
-    return [
-      { id: 'trainers', label: 'Treinadores listados', value: trainers.size, tone: 'primary' as MetricTone },
-      { id: 'clients', label: 'Clientes sob gestão', value: totalClients, tone: 'info' as MetricTone },
-      { id: 'active', label: 'Escalas activas', value: active, tone: 'success' as MetricTone },
-      { id: 'onboarding', label: 'Onboarding', value: onboarding, tone: 'warning' as MetricTone },
-      { id: 'paused', label: 'Em pausa', value: paused, tone: 'neutral' as MetricTone },
-    ];
+    return {
+      trainers: trainers.size,
+      clients: totalClients,
+      active,
+      onboarding,
+      paused,
+    };
   }, [assignments]);
+
+  const handleStatusShortcut = React.useCallback(
+    (nextStatus: StatusFilter) => {
+      setStatus((current) => (current === nextStatus ? '' : nextStatus));
+    },
+    [],
+  );
 
   const resetFilters = React.useCallback(() => {
     setSearchInput('');
@@ -304,12 +311,47 @@ export default function RosterClient() {
         </header>
 
         <div className="admin-roster__metrics">
-          {metrics.map((metric) => (
-            <article key={metric.id} className="admin-roster__metric" data-tone={metric.tone}>
-              <span className="admin-roster__metricLabel">{metric.label}</span>
-              <span className="admin-roster__metricValue">{metric.value}</span>
-            </article>
-          ))}
+          <article className="admin-roster__metric" data-tone="primary">
+            <span className="admin-roster__metricLabel">Treinadores listados</span>
+            <span className="admin-roster__metricValue">{metrics.trainers}</span>
+          </article>
+          <article className="admin-roster__metric" data-tone="info">
+            <span className="admin-roster__metricLabel">Clientes sob gestão</span>
+            <span className="admin-roster__metricValue">{metrics.clients}</span>
+          </article>
+          <button
+            type="button"
+            className="admin-roster__metric admin-roster__metric--shortcut"
+            data-tone="success"
+            data-active={status === 'active'}
+            onClick={() => handleStatusShortcut('active')}
+            aria-pressed={status === 'active'}
+          >
+            <span className="admin-roster__metricLabel">Escalas activas</span>
+            <span className="admin-roster__metricValue">{metrics.active}</span>
+          </button>
+          <button
+            type="button"
+            className="admin-roster__metric admin-roster__metric--shortcut"
+            data-tone="warning"
+            data-active={status === 'onboarding'}
+            onClick={() => handleStatusShortcut('onboarding')}
+            aria-pressed={status === 'onboarding'}
+          >
+            <span className="admin-roster__metricLabel">Onboarding</span>
+            <span className="admin-roster__metricValue">{metrics.onboarding}</span>
+          </button>
+          <button
+            type="button"
+            className="admin-roster__metric admin-roster__metric--shortcut"
+            data-tone="neutral"
+            data-active={status === 'paused'}
+            onClick={() => handleStatusShortcut('paused')}
+            aria-pressed={status === 'paused'}
+          >
+            <span className="admin-roster__metricLabel">Em pausa</span>
+            <span className="admin-roster__metricValue">{metrics.paused}</span>
+          </button>
         </div>
 
         <div className="admin-roster__filters" role="group" aria-label="Filtros da escala">
@@ -389,7 +431,7 @@ export default function RosterClient() {
           </div>
         </header>
 
-        <div className="neo-table-wrapper" role="region" aria-live="polite">
+        <div className="neo-table-wrapper" role="region" aria-live="polite" aria-busy={loading} data-loading={loading}>
           <table className="neo-table">
             <thead>
               <tr>
@@ -527,7 +569,7 @@ export default function RosterClient() {
           <p className="neo-panel__subtitle">Agenda condensada para garantir acompanhamento em tempo quase-real.</p>
         </header>
 
-        <ol className="admin-roster__timeline neo-stack neo-stack--md">
+        <ol className="admin-roster__timeline neo-stack neo-stack--md" aria-live="polite" aria-busy={loading}>
           {timeline.length === 0 && !loading && (
             <li className="neo-panel neo-panel--compact admin-roster__empty">Sem marcos agendados para as atribuições filtradas.</li>
           )}

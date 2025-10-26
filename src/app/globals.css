@@ -2962,6 +2962,31 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
   gap:8px;
   min-height:120px;
 }
+.admin-roster__metric--shortcut{
+  all:unset;
+  border-radius:22px;
+  padding:20px 22px;
+  border:1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background:color-mix(in srgb, var(--card-bg) 92%, transparent 8%);
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  min-height:120px;
+  cursor:pointer;
+  transition:transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+.admin-roster__metric--shortcut:focus-visible{
+  outline:2px solid color-mix(in srgb, var(--primary) 55%, transparent);
+  outline-offset:3px;
+}
+.admin-roster__metric--shortcut:hover{
+  transform:translateY(-2px);
+  box-shadow:0 12px 32px color-mix(in srgb, var(--shadow) 8%, transparent);
+}
+.admin-roster__metric--shortcut[data-active="true"]{
+  border-color:color-mix(in srgb, var(--primary) 40%, transparent);
+  box-shadow:0 16px 40px color-mix(in srgb, var(--primary) 18%, transparent);
+}
 .admin-roster__metric[data-tone="success"]{
   border-color:color-mix(in srgb, var(--success) 42%, transparent);
   background:color-mix(in srgb, var(--success) 12%, var(--card-bg) 88%);
