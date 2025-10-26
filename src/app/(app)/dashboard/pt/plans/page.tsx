@@ -96,6 +96,7 @@ export default function PlansBoardPage() {
   const [map, setMap] = React.useState<SessionMap>({});
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [lastSyncAt, setLastSyncAt] = React.useState<Date | null>(null);
   const abortRef = React.useRef<AbortController | null>(null);
   const mountedRef = React.useRef(true);
 
@@ -116,7 +117,7 @@ export default function PlansBoardPage() {
     };
   }, []);
 
-  const load = React.useCallback(async (options?: { preserveError?: boolean }) => {
+  const load = React.useCallback(async (options?: { preserveError?: boolean; preserveLastSync?: boolean }) => {
     if (!days.length) return;
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -128,6 +129,9 @@ export default function PlansBoardPage() {
     setLoading(true);
     if (!options?.preserveError) {
       setError(null);
+    }
+    if (!options?.preserveLastSync) {
+      setLastSyncAt(null);
     }
     try {
       const from = `${formatKey(days[0])}T00:00:00.000Z`;
@@ -188,6 +192,7 @@ export default function PlansBoardPage() {
 
       if (!controller.signal.aborted && mountedRef.current) {
         setMap(grouped);
+        setLastSyncAt(new Date());
         if (options?.preserveError) {
           setError(null);
         }
@@ -198,7 +203,6 @@ export default function PlansBoardPage() {
       }
       const message = err instanceof Error && err.message ? err.message : 'Falha ao carregar sessões.';
       setError(message);
-      setMap({});
     } finally {
       if (mountedRef.current && abortRef.current === controller) {
         setLoading(false);
@@ -310,7 +314,7 @@ export default function PlansBoardPage() {
           const ok = await reorderSameDay(normalized);
           if (!ok && mountedRef.current) {
             setMap(() => snapshot);
-            void load({ preserveError: true });
+            void load({ preserveError: true, preserveLastSync: true });
           }
         })();
 
@@ -329,7 +333,7 @@ export default function PlansBoardPage() {
         const ok = await moveToDay(targetDay, normalizedTarget);
         if (!ok && mountedRef.current) {
           setMap(() => snapshot);
-          void load({ preserveError: true });
+          void load({ preserveError: true, preserveLastSync: true });
         }
       })();
 
@@ -337,15 +341,44 @@ export default function PlansBoardPage() {
     });
   };
 
+  const refresh = React.useCallback(() => {
+    void load({ preserveError: true, preserveLastSync: true });
+  }, [load]);
+
   const statusTone = loading ? 'warn' : error ? 'danger' : 'ok';
-  const statusLabel = loading ? 'A sincronizar…' : error ? 'Modo offline' : 'Sincronizado';
+  const lastSyncLabel = React.useMemo(() => {
+    if (!lastSyncAt) return null;
+    const formattedTime = lastSyncAt.toLocaleTimeString('pt-PT', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    const formattedDate = lastSyncAt.toLocaleDateString('pt-PT', {
+      day: '2-digit',
+      month: 'long',
+    });
+    return `${formattedDate} às ${formattedTime}`;
+  }, [lastSyncAt]);
+
+  const statusLabel = React.useMemo(() => {
+    if (loading) {
+      return 'A sincronizar…';
+    }
+    if (error) {
+      return lastSyncLabel ? `Modo offline · ${lastSyncLabel}` : 'Modo offline';
+    }
+    return lastSyncLabel ? `Sincronizado · ${lastSyncLabel}` : 'Sincronizado';
+  }, [error, lastSyncLabel, loading]);
 
   return (
     <div className="trainer-plan-board">
       <PageHeader
         title="Planeador semanal"
         subtitle="Arrasta e organiza as sessões entre os dias de trabalho do PT."
-        actions={<span className="status-pill" data-state={statusTone}>{statusLabel}</span>}
+        actions={
+          <span className="status-pill" data-state={statusTone} aria-live="polite">
+            {statusLabel}
+          </span>
+        }
         sticky={false}
       />
 
@@ -367,6 +400,9 @@ export default function PlansBoardPage() {
             <Button size="sm" variant="ghost" onClick={() => setStart(addDays(start, 7))}>
               Semana seguinte ▶
             </Button>
+            <Button size="sm" variant="ghost" onClick={refresh} disabled={loading}>
+              Recarregar ↻
+            </Button>
             <Button
               size="sm"
               variant="secondary"
@@ -381,6 +417,11 @@ export default function PlansBoardPage() {
           <div className="neo-alert" data-tone="danger" role="alert">
             <div className="neo-alert__content">
               <p className="neo-alert__message">{error}</p>
+              <div className="neo-alert__actions">
+                <Button size="sm" variant="ghost" onClick={refresh}>
+                  Tentar novamente
+                </Button>
+              </div>
             </div>
           </div>
         )}
