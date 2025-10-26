@@ -32,6 +32,11 @@ import type {
 import { toAppRole } from '@/lib/roles';
 
 const numberFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 });
+const percentageFormatter = new Intl.NumberFormat('pt-PT', {
+  style: 'percent',
+  maximumFractionDigits: 1,
+  minimumFractionDigits: 0,
+});
 const shortDateFormatter = new Intl.DateTimeFormat('pt-PT', {
   day: '2-digit',
   month: 'short',
@@ -112,6 +117,19 @@ const ROLE_META: Record<Row['roleKey'], { label: string; tone: StatusTone }> = {
   PT: { label: 'Personal Trainer', tone: 'info' },
   CLIENT: { label: 'Cliente', tone: 'positive' },
 };
+
+function clamp01(value: number | null | undefined) {
+  if (typeof value !== 'number' || Number.isNaN(value)) return 0;
+  if (!Number.isFinite(value)) return 1;
+  if (value <= 0) return 0;
+  if (value >= 1) return 1;
+  return value;
+}
+
+function formatPercentage(value: number | null | undefined) {
+  const safe = clamp01(value);
+  return percentageFormatter.format(safe);
+}
 
 function normaliseStatus(
   status: string | null | undefined,
@@ -283,14 +301,49 @@ function TimelineChart({ data, loading }: { data: AdminUsersTimelinePoint[]; loa
     );
   }
 
+  const { hasPositiveValues, safeMaxValue } = React.useMemo(() => {
+    const maxValue = data.reduce((acc, point) => {
+      const signups = typeof point.signups === 'number' ? point.signups : 0;
+      const active = typeof point.active === 'number' ? point.active : 0;
+      return Math.max(acc, signups, active);
+    }, 0);
+    return {
+      hasPositiveValues: maxValue > 0,
+      safeMaxValue: maxValue > 0 ? maxValue : 1,
+    };
+  }, [data]);
+
+  const computeHeight = React.useCallback(
+    (value: number) => {
+      if (!hasPositiveValues || typeof value !== 'number' || value <= 0) return 0;
+      const ratio = (value / safeMaxValue) * 100;
+      const bounded = Math.min(Math.max(ratio, 0), 100);
+      if (bounded === 0) return 0;
+      return Math.max(bounded, 6);
+    },
+    [hasPositiveValues, safeMaxValue],
+  );
+
   return (
     <div className="admin-users__chart" role="img" aria-label="Inscrições e atividade semanal">
       {data.map((point) => (
-        <div key={point.week} className="admin-users__chartWeek">
-          <div className="admin-users__chartWeekBar" data-type="signups" style={{ height: `${Math.min(point.signups, 40)}%` }}>
+        <div
+          key={point.week}
+          className="admin-users__chartWeek"
+          title={`Semana ${point.label}: ${point.signups} inscrições, ${point.active} ativos`}
+        >
+          <div
+            className="admin-users__chartWeekBar"
+            data-type="signups"
+            style={{ height: `${computeHeight(point.signups)}%` }}
+          >
             <span className="sr-only">{point.signups} inscrições</span>
           </div>
-          <div className="admin-users__chartWeekBar" data-type="active" style={{ height: `${Math.min(point.active, 40)}%` }}>
+          <div
+            className="admin-users__chartWeekBar"
+            data-type="active"
+            style={{ height: `${computeHeight(point.active)}%` }}
+          >
             <span className="sr-only">{point.active} ativos</span>
           </div>
           <div className="admin-users__chartWeekLabel">{point.label}</div>
@@ -323,19 +376,23 @@ function DistributionList({ title, icon, items }: { title: string; icon: React.R
           </div>
         ) : (
           <ul className="admin-users__distributionList" role="list">
-            {items.map((item) => (
-              <li key={item.key} className="admin-users__distributionItem">
-                <div>
-                  <p className="admin-users__distributionLabel">{item.label}</p>
-                  <p className="admin-users__distributionMeta">
-                    {numberFormatter.format(item.total)} · {Math.round(item.percentage * 100)}%
-                  </p>
-                </div>
-                <div className="admin-users__distributionBar" aria-hidden>
-                  <span style={{ width: `${Math.min(item.percentage * 100, 100)}%` }} data-tone={item.tone ?? 'neutral'} />
-                </div>
-              </li>
-            ))}
+            {items.map((item) => {
+              const percentage = clamp01(item.percentage);
+              const width = percentage === 0 ? 0 : Math.min(Math.max(percentage * 100, 6), 100);
+              return (
+                <li key={item.key} className="admin-users__distributionItem">
+                  <div>
+                    <p className="admin-users__distributionLabel">{item.label}</p>
+                    <p className="admin-users__distributionMeta">
+                      {numberFormatter.format(item.total)} · {formatPercentage(percentage)}
+                    </p>
+                  </div>
+                  <div className="admin-users__distributionBar" aria-hidden>
+                    <span style={{ width: `${width}%` }} data-tone={item.tone ?? 'neutral'} />
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
