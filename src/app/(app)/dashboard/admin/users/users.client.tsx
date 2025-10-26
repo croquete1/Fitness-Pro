@@ -370,7 +370,7 @@ function TimelineChart({ data, loading }: { data: AdminUsersTimelinePoint[]; loa
     };
   }, [timelineData]);
 
-  const computeHeight = React.useCallback(
+  const computeTimelineBarHeight = React.useCallback(
     (rawValue: number | null | undefined) => {
       if (!timelineHasPositiveValues) return 0;
 
@@ -445,14 +445,14 @@ function TimelineChart({ data, loading }: { data: AdminUsersTimelinePoint[]; loa
             <div
               className="admin-users__chartWeekBar"
               data-type="signups"
-              style={{ height: `${computeHeight(signups)}%` }}
+              style={{ height: `${computeTimelineBarHeight(signups)}%` }}
             >
               <span className="sr-only">{signups} inscrições</span>
             </div>
             <div
               className="admin-users__chartWeekBar"
               data-type="active"
-              style={{ height: `${computeHeight(active)}%` }}
+              style={{ height: `${computeTimelineBarHeight(active)}%` }}
             >
               <span className="sr-only">{active} ativos</span>
             </div>
