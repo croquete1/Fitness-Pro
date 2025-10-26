@@ -75,6 +75,8 @@ type ApprovalsApiResponse = {
   count?: number;
   _supabaseConfigured?: boolean;
   error?: string;
+  _searchFallback?: boolean;
+  searchSampleSize?: number;
 };
 
 type Banner = { message: string; severity: 'info' | 'success' | 'warning' | 'error' };
@@ -594,7 +596,20 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
       setRows(mapped);
       const totalCountRaw =
         typeof payload.count === 'number' ? payload.count : Number(payload.count ?? Number.NaN);
-      setCount(Number.isFinite(totalCountRaw) ? totalCountRaw : mapped.length);
+      const safeCount = Number.isFinite(totalCountRaw) ? totalCountRaw : mapped.length;
+      setCount(safeCount);
+      if (payload._searchFallback) {
+        const sample =
+          typeof payload.searchSampleSize === 'number' && Number.isFinite(payload.searchSampleSize)
+            ? payload.searchSampleSize
+            : mapped.length;
+        setBanner({
+          severity: 'info',
+          message: `Pesquisa compatível aplicada localmente — analisados ${numberFormatter.format(
+            sample,
+          )} registos. Resultados podem estar limitados até ${numberFormatter.format(safeCount)} entradas.`,
+        });
+      }
       if (payload.error) {
         setBanner({ severity: 'warning', message: 'Alguns pedidos podem não estar disponíveis neste momento.' });
       }
