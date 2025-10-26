@@ -18,6 +18,7 @@ import {
   UserCog,
   UserPlus,
   Users,
+  XCircle,
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -514,6 +515,27 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
     [page, pageSizeState, role, status, debouncedSearch],
   );
 
+  const hasActiveFilters =
+    role !== 'all' ||
+    status !== 'all' ||
+    pageSizeState !== pageSize ||
+    Boolean(searchInput.trim());
+
+  const handleResetFilters = React.useCallback(() => {
+    setRole('all');
+    setStatus('all');
+    setPageSizeState(pageSize);
+    setSearchInput('');
+    setDebouncedSearch('');
+    setPage(0);
+    filtersSnapshotRef.current = {
+      search: '',
+      role: 'all',
+      status: 'all',
+      pageSize,
+    };
+  }, [pageSize]);
+
   const listKey = React.useMemo(() => buildListKey(queryState), [queryState]);
   const { data: listData, error: listError, isLoading: listLoading, mutate: mutateList } = useSWR(listKey, fetcher, {
     keepPreviousData: true,
@@ -581,8 +603,14 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
   }, [pathname, router, queryState, pageSize, searchParamsText]);
 
   const rows = React.useMemo(() => (listData?.rows ?? []).map(mapRow), [listData]);
-  const totalRows = listData?.count ?? rows.length;
+  const resolvedCountRaw = listData?.count;
+  const resolvedCount =
+    resolvedCountRaw === null || resolvedCountRaw === undefined ? Number.NaN : Number(resolvedCountRaw);
+  const totalRows = Number.isFinite(resolvedCount) ? Math.max(0, resolvedCount) : rows.length;
   const maxPageIndex = Math.max(0, Math.ceil(Math.max(totalRows, 1) / queryState.pageSize) - 1);
+  const pageRangeStart = totalRows === 0 ? 0 : page * queryState.pageSize + 1;
+  const pageRangeEnd =
+    totalRows === 0 ? 0 : Math.min(totalRows, pageRangeStart - 1 + rows.length);
 
   React.useEffect(() => {
     if (page > maxPageIndex) {
@@ -898,6 +926,16 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
                 </select>
               </label>
             </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleResetFilters}
+              disabled={!hasActiveFilters}
+              leftIcon={<XCircle className="neo-icon neo-icon--xs" aria-hidden />}
+            >
+              Limpar filtros
+            </Button>
           </div>
 
           <div className={clsx('neo-table-wrapper', { 'is-loading': loading })}>
@@ -1007,8 +1045,19 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
         </div>
 
         <footer className="neo-pagination" aria-label="Paginação">
-          <div className="neo-pagination__summary">
-            Página {page + 1} de {maxPageIndex + 1} · {numberFormatter.format(totalRows)} registos
+          <div className="neo-pagination__summary" aria-live="polite" role="status">
+            {loading ? (
+              'A carregar registos…'
+            ) : totalRows === 0 ? (
+              'Sem registos para apresentar.'
+            ) : (
+              <>
+                {pageRangeStart === pageRangeEnd
+                  ? `Registo ${pageRangeStart}`
+                  : `Registos ${pageRangeStart}–${pageRangeEnd}`}{' '}
+                de {numberFormatter.format(totalRows)} · Página {page + 1} de {maxPageIndex + 1}
+              </>
+            )}
           </div>
           <div className="neo-pagination__controls">
             <Button
