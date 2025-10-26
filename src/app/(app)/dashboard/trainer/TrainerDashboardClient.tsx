@@ -138,6 +138,7 @@ const APPROVAL_TONE_CLASS: Record<TrainerApprovalItem['tone'], 'positive' | 'war
 };
 
 const CLIENT_FILTER_STORAGE_KEY = 'trainer-dashboard:client-preferences';
+const DIACRITICS_REGEX = /[\u0300-\u036f]/g;
 
 const TONE_PRIORITY: Record<TrainerClientSnapshot['tone'], number> = {
   critical: 0,
@@ -179,6 +180,39 @@ type ClientEntry = {
   isMissingContact: boolean;
   searchHaystack: string;
 };
+
+function normalizeSearchValue(value: string | null | undefined): string {
+  if (value === null || value === undefined) return '';
+  const trimmed = value.toString().trim();
+  if (!trimmed) return '';
+  return trimmed
+    .toLocaleLowerCase('pt-PT')
+    .normalize('NFD')
+    .replace(DIACRITICS_REGEX, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function buildSearchIndex(...values: Array<string | null | undefined>): string {
+  if (values.length === 0) return '';
+  const combined = values
+    .map((value) => {
+      if (value === null || value === undefined) return '';
+      const text = value.toString().trim();
+      return text.length > 0 ? text : '';
+    })
+    .filter(Boolean)
+    .join(' ');
+  return normalizeSearchValue(combined);
+}
+
+function createQueryTokens(value: string): string[] {
+  if (!value) return [];
+  return value
+    .split(' ')
+    .map((token) => token.trim())
+    .filter(Boolean);
+}
 
 type ClientFiltersAction =
   | { type: 'hydrate'; value: Partial<ClientFiltersState> }
@@ -264,15 +298,16 @@ function useTrainerClientFilters() {
     dispatch({ type: 'reset' });
   }, []);
 
-  const normalizedQuery = React.useMemo(() => filters.query.trim().toLowerCase(), [filters.query]);
+  const normalizedQuery = React.useMemo(() => normalizeSearchValue(filters.query), [filters.query]);
   const deferredQuery = React.useDeferredValue(normalizedQuery);
+  const queryTokens = React.useMemo(() => createQueryTokens(deferredQuery), [deferredQuery]);
   const hasFilters =
     normalizedQuery.length > 0 || filters.tone !== CLIENT_FILTER_DEFAULTS.tone || filters.sort !== CLIENT_FILTER_DEFAULTS.sort;
 
   return {
     filters,
     normalizedQuery,
-    deferredQuery,
+    queryTokens,
     hasFilters,
     setClientQuery,
     setClientToneFilter,
@@ -315,9 +350,9 @@ function approvalToneClass(tone: TrainerApprovalItem['tone']) {
   return APPROVAL_TONE_CLASS[tone] ?? 'neutral';
 }
 
-function matchesClientQuery(entry: ClientEntry, query: string) {
-  if (!query) return true;
-  return entry.searchHaystack.includes(query);
+function matchesClientQuery(entry: ClientEntry, tokens: string[]) {
+  if (tokens.length === 0) return true;
+  return tokens.every((token) => entry.searchHaystack.includes(token));
 }
 
 function parseClientDate(value: string | null) {
@@ -359,8 +394,15 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
   const dashboard = data ?? initialData;
 
   const greeting = React.useMemo(() => firstName(viewerName ?? dashboard.trainerName), [viewerName, dashboard.trainerName]);
-  const { filters, deferredQuery, hasFilters, setClientQuery, setClientToneFilter, setClientSort, clearFilters } =
-    useTrainerClientFilters();
+  const {
+    filters,
+    queryTokens,
+    hasFilters,
+    setClientQuery,
+    setClientToneFilter,
+    setClientSort,
+    clearFilters,
+  } = useTrainerClientFilters();
 
   const referenceTime = React.useMemo(() => {
     const reference = new Date(dashboard.updatedAt ?? Date.now());
@@ -401,15 +443,16 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
               nextSessionLabel: hasUpcoming ? client.nextSessionLabel : NO_UPCOMING_LABEL,
             }
           : client;
-      const searchHaystack = [
+      const searchHaystack = buildSearchIndex(
         normalizedClient.name,
-        normalizedClient.email ?? '',
+        normalizedClient.email,
         normalizedClient.lastSessionLabel,
         normalizedClient.nextSessionLabel,
+        normalizedClient.id,
+        normalizedClient.id ? `id ${normalizedClient.id}` : null,
+        normalizedClient.id ? `#${normalizedClient.id}` : null,
         isNoHistory ? 'sem historico sem histórico sem ultima sessao' : '',
-      ]
-        .join(' ')
-        .toLowerCase();
+      );
 
       return {
         client: normalizedClient,
@@ -476,7 +519,7 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
       if (isBlocked) {
         totals.blocked += 1;
       }
-      if (matchesClientQuery(entry, deferredQuery)) {
+      if (matchesClientQuery(entry, queryTokens)) {
         matches.all += 1;
         matches[client.tone] += 1;
         if (lacksUpcoming) {
@@ -498,7 +541,7 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
     }
 
     const keys = CLIENT_TONE_FILTERS.map((filter) => filter.id as ClientToneFilter);
-    const queryActive = deferredQuery.length > 0;
+    const queryActive = queryTokens.length > 0;
     const totalLabels = Object.fromEntries(
       keys.map((key) => [key, numberFormatter.format(totals[key])]),
     ) as Record<ClientToneFilter, string>;
@@ -522,13 +565,13 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
       matchLabels,
       ariaLabels,
     };
-  }, [clientEntries, deferredQuery]);
+  }, [clientEntries, queryTokens]);
 
   const filteredEntries = React.useMemo(() => {
     const normalizedEntries = clientEntries
       .filter((entry) => {
         const { client, lacksUpcoming, isBlocked, isMissingContact, isNoHistory, isOverdue } = entry;
-        const matchesQuery = matchesClientQuery(entry, deferredQuery);
+        const matchesQuery = matchesClientQuery(entry, queryTokens);
         const matchesTone =
           filters.tone === 'all'
             ? true
@@ -570,7 +613,7 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
       });
 
     return normalizedEntries;
-  }, [clientEntries, deferredQuery, filters.tone, filters.sort]);
+  }, [clientEntries, queryTokens, filters.tone, filters.sort]);
 
   const clientStats = React.useMemo(() => {
     const totals = filteredEntries.reduce(
