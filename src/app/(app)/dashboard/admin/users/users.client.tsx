@@ -407,6 +407,29 @@ function TimelineChart({ data, loading }: { data: AdminUsersTimelinePoint[]; loa
     );
   }
 
+  const { hasPositiveValues, safeMaxValue } = React.useMemo(() => {
+    const maxValue = data.reduce((acc, point) => {
+      const signups = typeof point.signups === 'number' ? point.signups : 0;
+      const active = typeof point.active === 'number' ? point.active : 0;
+      return Math.max(acc, signups, active);
+    }, 0);
+    return {
+      hasPositiveValues: maxValue > 0,
+      safeMaxValue: maxValue > 0 ? maxValue : 1,
+    };
+  }, [data]);
+
+  const computeHeight = React.useCallback(
+    (value: number) => {
+      if (!hasPositiveValues || typeof value !== 'number' || value <= 0) return 0;
+      const ratio = (value / safeMaxValue) * 100;
+      const bounded = Math.min(Math.max(ratio, 0), 100);
+      if (bounded === 0) return 0;
+      return Math.max(bounded, 6);
+    },
+    [hasPositiveValues, safeMaxValue],
+  );
+
   return (
     <div className="admin-users__chart" role="img" aria-label="Inscrições e atividade semanal">
       {timelineData.map((point) => {
