@@ -129,6 +129,7 @@ export default function RosterClient() {
   const [count, setCount] = React.useState(0);
   const [loading, setLoading] = React.useState(false);
   const [banner, setBanner] = React.useState<Banner | null>(null);
+  const inFlightRef = React.useRef<AbortController | null>(null);
 
   const fetchRoster = React.useCallback(async () => {
     const params = new URLSearchParams();
@@ -137,6 +138,10 @@ export default function RosterClient() {
     if (status) params.set('status', status);
     if (shift) params.set('shift', shift);
 
+    inFlightRef.current?.abort();
+    const controller = new AbortController();
+    inFlightRef.current = controller;
+
     setLoading(true);
     setBanner(null);
 
@@ -144,6 +149,7 @@ export default function RosterClient() {
       const response = await fetch(`/api/admin/roster?${params.toString()}`, {
         cache: 'no-store',
         credentials: 'same-origin',
+        signal: controller.signal,
       });
 
       if (response.status === 401 || response.status === 403) {
@@ -170,18 +176,28 @@ export default function RosterClient() {
         setBanner({ tone: 'warning', message: 'Algumas entradas podem estar temporariamente indisponíveis.' });
       }
     } catch (error: any) {
+      if (controller.signal.aborted) {
+        return;
+      }
+
       setAssignments([]);
       setTimeline([]);
       setCount(0);
       setBanner({ tone: 'danger', message: error?.message || 'Não foi possível sincronizar a escala.' });
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) {
+        setLoading(false);
+      }
     }
   }, [search, status, shift]);
 
   React.useEffect(() => {
     void fetchRoster();
   }, [fetchRoster]);
+
+  React.useEffect(() => () => {
+    inFlightRef.current?.abort();
+  }, []);
 
   const metrics = React.useMemo(() => {
     const trainers = new Set<string>();
@@ -385,6 +401,12 @@ export default function RosterClient() {
                 const focus = assignment.trainer_focus ?? '—';
                 const tags = assignment.tags ?? [];
                 const load = assignment.load_level ?? '—';
+                const tone = toneForStatus(assignment.status);
+
+                let statusLabel = assignment.status ?? '—';
+                if (tone === 'success') statusLabel = 'Operacional';
+                if (tone === 'warning') statusLabel = 'Onboarding';
+                if (tone === 'neutral') statusLabel = 'Em pausa';
 
                 return (
                   <tr key={assignment.id}>
@@ -401,11 +423,8 @@ export default function RosterClient() {
                       </div>
                     </td>
                     <td data-title="Estado">
-                      <span className="neo-table__status" data-state={toneForStatus(assignment.status)}>
-                        {toneForStatus(assignment.status) === 'success' && 'Operacional'}
-                        {toneForStatus(assignment.status) === 'warning' && 'Onboarding'}
-                        {toneForStatus(assignment.status) === 'neutral' && 'Em pausa'}
-                        {toneForStatus(assignment.status) === 'info' && (assignment.status ?? '—')}
+                      <span className="neo-table__status" data-state={tone}>
+                        {statusLabel}
                       </span>
                     </td>
                     <td data-title="Próximo check-in">
