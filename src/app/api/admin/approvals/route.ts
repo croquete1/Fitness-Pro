@@ -9,6 +9,14 @@ const MAX_FALLBACK_LIMIT = 1000;
 const FALLBACK_PAD = 2;
 const DEFAULT_PAGE_SIZE = 20;
 
+const STATUS_FIELDS = ['status', 'state', 'decision', 'outcome'] as const;
+
+type FallbackReason = 'search' | 'status' | 'mixed';
+
+function computeFallbackLimit(page: number, pageSize: number) {
+  return Math.min(MAX_FALLBACK_LIMIT, Math.max(pageSize * (page + FALLBACK_PAD), pageSize));
+}
+
 function escapeSearchValue(value: string): string {
   return value
     .replace(/[%_]/g, '\\$&')
@@ -107,8 +115,6 @@ const SEARCHABLE_FIELDS = [
   'metadata',
 ];
 
-const STATUS_FIELDS = ['status', 'state', 'decision', 'outcome'];
-
 function extractStatus(row: Record<string, any>): string {
   for (const field of STATUS_FIELDS) {
     if (row[field] != null) {
@@ -165,7 +171,8 @@ export async function GET(req: Request) {
   const parsedPageSize = Number.isFinite(rawPageSizeParam) ? rawPageSizeParam : DEFAULT_PAGE_SIZE;
   const pageSize = Math.min(Math.max(parsedPageSize, 1), 100);
   const q = (url.searchParams.get('q') || '').trim();
-  const status = (url.searchParams.get('status') || '').trim().toLowerCase();
+  const statusParam = (url.searchParams.get('status') || '').trim();
+  const status = statusParam ? normaliseStatus(statusParam) : '';
 
   const sb = tryCreateServerClient();
   if (!sb) {
@@ -225,10 +232,7 @@ export async function GET(req: Request) {
         if (code === 'PGRST205' || code === 'PGRST301') continue;
 
         if ((code === '42703' || code === 'PGRST204') && (q || status)) {
-          const fallbackLimit = Math.min(
-            MAX_FALLBACK_LIMIT,
-            Math.max(pageSize * (page + FALLBACK_PAD), pageSize),
-          );
+          const fallbackLimit = computeFallbackLimit(page, pageSize);
           const fallback = await base(table, {
             skipSearch: true,
             skipStatus: true,
@@ -241,11 +245,13 @@ export async function GET(req: Request) {
             const { filtered, sampleSize } = filterRows(raw, tokens, status);
             const start = page * pageSize;
             const slice = filtered.slice(start, start + pageSize);
+            const reason: FallbackReason = q && status ? 'mixed' : q ? 'search' : 'status';
             return NextResponse.json(
               {
                 rows: slice,
                 count: filtered.length,
                 _searchFallback: true,
+                fallbackReason: reason,
                 searchSampleSize: sampleSize,
               },
               { headers },
@@ -260,6 +266,29 @@ export async function GET(req: Request) {
       tableFound = true;
       const rows = r.data ?? [];
       const count = typeof r.count === 'number' ? r.count : rows.length;
+
+      if (status && rows.length === 0) {
+        const fallbackLimit = computeFallbackLimit(page, pageSize);
+        const fallback = await base(table, { skipStatus: true, limit: fallbackLimit });
+        if (!fallback.error) {
+          const raw = fallback.data ?? [];
+          const tokens = createTokens(q);
+          const { filtered, sampleSize } = filterRows(raw, tokens, status);
+          const start = page * pageSize;
+          const slice = filtered.slice(start, start + pageSize);
+          const reason: FallbackReason = q ? 'mixed' : 'status';
+          return NextResponse.json(
+            {
+              rows: slice,
+              count: filtered.length,
+              _searchFallback: true,
+              fallbackReason: reason,
+              searchSampleSize: sampleSize,
+            },
+            { headers },
+          );
+        }
+      }
 
       if (rows.length > 0 || count > 0) {
         return NextResponse.json({ rows, count }, { headers });

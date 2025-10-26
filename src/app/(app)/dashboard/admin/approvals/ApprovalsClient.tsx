@@ -95,6 +95,7 @@ type ApprovalsApiResponse = {
   _supabaseConfigured?: boolean;
   error?: string;
   _searchFallback?: boolean;
+  fallbackReason?: 'search' | 'status' | 'mixed';
   searchSampleSize?: number;
 };
 
@@ -889,11 +890,17 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
             : mapped.length;
         setCountReliable(false);
         setSearchSampleSize(sample);
+        const reason = payload.fallbackReason ?? (debouncedQ ? (status ? 'mixed' : 'search') : status ? 'status' : 'search');
+        const limitedLabel = numberFormatter.format(sample);
+        const totalLabel = numberFormatter.format(safeCount);
+        const messageByReason: Record<'search' | 'status' | 'mixed', string> = {
+          search: `Pesquisa compatível aplicada localmente — analisados ${limitedLabel} registos. Resultados podem estar limitados até ${totalLabel} entradas.`,
+          status: `Filtro de estado aplicado localmente — analisados ${limitedLabel} registos. Resultados podem estar limitados até ${totalLabel} entradas.`,
+          mixed: `Pesquisa e filtro de estado aplicados localmente — analisados ${limitedLabel} registos. Resultados podem estar limitados até ${totalLabel} entradas.`,
+        };
         setBanner({
           severity: 'info',
-          message: `Pesquisa compatível aplicada localmente — analisados ${numberFormatter.format(
-            sample,
-          )} registos. Resultados podem estar limitados até ${numberFormatter.format(safeCount)} entradas.`,
+          message: messageByReason[reason],
         });
       } else {
         setCountReliable(true);
