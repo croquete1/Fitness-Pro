@@ -35,6 +35,17 @@ type TimelineItem = {
   scheduled_at: string | null;
 };
 
+type TimelineEntry = {
+  item: TimelineItem;
+  tone: 'info' | 'warning' | 'danger';
+  urgency: string | null;
+  ownerLabel: string;
+  ownerMissing: boolean;
+  assignmentLabel: string | null;
+  timestamp: number | null;
+  when: string;
+};
+
 type ApiResponse = {
   assignments?: Assignment[];
   timeline?: TimelineItem[];
@@ -46,6 +57,8 @@ type ApiResponse = {
 type MetricTone = 'primary' | 'success' | 'warning' | 'neutral' | 'info';
 
 type Banner = { message: string; tone: 'info' | 'warning' | 'danger' };
+
+type TimelineScope = 'all' | 'overdue' | 'next24h' | 'unassigned';
 
 const shiftOptions: Array<{ value: ShiftFilter; label: string }> = [
   { value: '', label: 'Todos os turnos' },
@@ -137,10 +150,10 @@ function getTimelineTimestamp(iso: string | null | undefined): number | null {
 
 function deriveTimelineTone(iso: string | null | undefined): 'info' | 'warning' | 'danger' {
   if (!iso) return 'warning';
-const timestamp = getTimelineTimestamp(iso);  
-if (timestamp === null) return 'info';
-const diff = timestamp - Date.now();
-if (diff < 0) return 'danger';
+  const timestamp = getTimelineTimestamp(iso);
+  if (timestamp === null) return 'info';
+  const diff = timestamp - Date.now();
+  if (diff < 0) return 'danger';
   if (diff <= 60 * 60_000) return 'warning';
   return 'info';
 }
@@ -186,6 +199,7 @@ export default function RosterClient() {
   const [refreshing, setRefreshing] = React.useState(false);
   const [lastFetchedAt, setLastFetchedAt] = React.useState<number | null>(null);
   const [banner, setBanner] = React.useState<Banner | null>(null);
+  const [timelineFilter, setTimelineFilter] = React.useState<TimelineScope>('all');
   const inFlightRef = React.useRef<AbortController | null>(null);
   const searchParamsSnapshotRef = React.useRef<string | null>(null);
 
@@ -413,12 +427,130 @@ export default function RosterClient() {
     });
   }, [timeline]);
 
+  const timelineEntries = React.useMemo((): TimelineEntry[] => {
+    return sortedTimeline.map((item) => {
+      const tone = deriveTimelineTone(item.scheduled_at);
+      const urgency = describeTimelineUrgency(item.scheduled_at);
+      const timestamp = getTimelineTimestamp(item.scheduled_at);
+      const relatedAssignment = item.assignment_id ? assignmentsById.get(item.assignment_id) : undefined;
+      const assignmentTrainer = relatedAssignment?.trainer_name ?? relatedAssignment?.trainer_id ?? null;
+      const ownerMissing = !item.owner_name;
+      const ownerLabel = ownerMissing ? 'Responsável por atribuir' : `Responsável · ${item.owner_name}`;
+      const showAssignment = Boolean(assignmentTrainer && (ownerMissing || assignmentTrainer !== item.owner_name));
+      const assignmentLabel = showAssignment ? `Atribuição · ${assignmentTrainer}` : null;
+
+      return {
+        item,
+        tone,
+        urgency,
+        ownerLabel,
+        ownerMissing,
+        assignmentLabel,
+        timestamp,
+        when: formatCheckIn(item.scheduled_at),
+      } satisfies TimelineEntry;
+    });
+  }, [sortedTimeline, assignmentsById]);
+
+  const timelineCounts = React.useMemo(() => {
+    const now = Date.now();
+    const next24h = now + 24 * 60 * 60_000;
+    let overdue = 0;
+    let upcoming24h = 0;
+    let unassigned = 0;
+
+    timelineEntries.forEach((entry) => {
+      if (entry.timestamp !== null) {
+        if (entry.timestamp < now) {
+          overdue += 1;
+        } else if (entry.timestamp <= next24h) {
+          upcoming24h += 1;
+        }
+      }
+
+      if (entry.ownerMissing) {
+        unassigned += 1;
+      }
+    });
+
+    return {
+      total: timelineEntries.length,
+      overdue,
+      next24h: upcoming24h,
+      unassigned,
+    };
+  }, [timelineEntries]);
+
+  const timelineFilterOptions = React.useMemo(
+    () => [
+      {
+        value: 'all' as const,
+        label: 'Todos',
+        description: 'Mostrar todos os marcos programados.',
+        count: timelineCounts.total,
+      },
+      {
+        value: 'overdue' as const,
+        label: 'Atrasados',
+        description: 'Focar marcos que já passaram da hora agendada.',
+        count: timelineCounts.overdue,
+      },
+      {
+        value: 'next24h' as const,
+        label: 'Próx. 24h',
+        description: 'Priorizar marcos previstos para o próximo dia.',
+        count: timelineCounts.next24h,
+      },
+      {
+        value: 'unassigned' as const,
+        label: 'Sem responsável',
+        description: 'Destacar marcos que ainda não têm responsável.',
+        count: timelineCounts.unassigned,
+      },
+    ],
+    [timelineCounts],
+  );
+
+  const filteredTimeline = React.useMemo(() => {
+    if (timelineFilter === 'all') {
+      return timelineEntries;
+    }
+
+    const now = Date.now();
+    const next24h = now + 24 * 60 * 60_000;
+
+    return timelineEntries.filter((entry) => {
+      if (timelineFilter === 'overdue') {
+        return entry.timestamp !== null && entry.timestamp < now;
+      }
+
+      if (timelineFilter === 'next24h') {
+        return entry.timestamp !== null && entry.timestamp >= now && entry.timestamp <= next24h;
+      }
+
+      if (timelineFilter === 'unassigned') {
+        return entry.ownerMissing;
+      }
+
+      return true;
+    });
+  }, [timelineEntries, timelineFilter]);
+
   const handleStatusShortcut = React.useCallback(
     (nextStatus: StatusFilter) => {
       setStatus((current) => (current === nextStatus ? '' : nextStatus));
     },
     [],
   );
+
+  const handleTimelineFilter = React.useCallback((scope: TimelineScope) => {
+    setTimelineFilter((current) => {
+      if (scope === 'all') {
+        return 'all';
+      }
+      return current === scope ? 'all' : scope;
+    });
+  }, []);
 
   const resetFilters = React.useCallback(() => {
     setSearchInput('');
@@ -439,6 +571,32 @@ export default function RosterClient() {
     if (isRefreshing) return 'A actualizar dados…';
     return describeLastSync(lastFetchedAt);
   }, [loading, isRefreshing, lastFetchedAt]);
+
+  const timelineEmptyMessage = React.useMemo(() => {
+    if (timelineFilter === 'all') {
+      return 'Sem marcos agendados para as atribuições filtradas.';
+    }
+
+    const activeScope = timelineFilterOptions.find((option) => option.value === timelineFilter);
+    if (activeScope?.value === 'overdue') {
+      return 'Sem marcos atrasados neste momento — excelente sinal!';
+    }
+    if (activeScope?.value === 'next24h') {
+      return 'Nenhum marco previsto para as próximas 24 horas.';
+    }
+    if (activeScope?.value === 'unassigned') {
+      return 'Todos os marcos têm responsável atribuído.';
+    }
+
+    return 'Nenhum marco corresponde ao filtro seleccionado.';
+  }, [timelineFilter, timelineFilterOptions]);
+
+  const timelineTotalLabel = React.useMemo(() => {
+    if (timelineCounts.total === 0) {
+      return 'Sem marcos para monitorizar';
+    }
+    return timelineCounts.total === 1 ? '1 marco monitorizado' : `${timelineCounts.total} marcos monitorizados`;
+  }, [timelineCounts.total]);
 
   const badgeState = React.useMemo<'loading' | 'idle' | 'fresh' | 'stale' | 'warning' | 'danger'>(() => {
     if (loading || isRefreshing) return 'loading';
@@ -775,8 +933,32 @@ export default function RosterClient() {
           <p className="neo-panel__subtitle">Agenda condensada para garantir acompanhamento em tempo quase-real.</p>
         </header>
 
+        <div className="admin-roster__timelineToolbar" aria-live="polite">
+          <div className="admin-roster__timelineFilters" role="group" aria-label="Filtrar marcos da timeline">
+            {timelineFilterOptions.map((option) => {
+              const isActive = timelineFilter === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  className="admin-roster__timelineFilter"
+                  data-active={isActive}
+                  onClick={() => handleTimelineFilter(option.value)}
+                  aria-pressed={isActive}
+                  aria-label={`${option.label} — ${option.description}`}
+                  title={`${option.label} · ${option.description}`}
+                >
+                  <span className="admin-roster__timelineFilterLabel">{option.label}</span>
+                  <span className="admin-roster__timelineFilterCount">{option.count}</span>
+                </button>
+              );
+            })}
+          </div>
+          <span className="admin-roster__timelineTotal" role="status">{timelineTotalLabel}</span>
+        </div>
+
         <ol className="admin-roster__timeline neo-stack neo-stack--md" aria-live="polite" aria-busy={loading}>
-          {loading && sortedTimeline.length === 0 && (
+          {loading && timelineEntries.length === 0 && (
             <li className="neo-panel neo-panel--compact admin-roster__empty admin-roster__timelineLoader">
               <div className="neo-inline neo-inline--center neo-inline--sm neo-text--sm neo-text--muted">
                 <span className="neo-spinner" aria-hidden /> A sincronizar marcos…
@@ -784,39 +966,28 @@ export default function RosterClient() {
             </li>
           )}
 
-          {!loading && sortedTimeline.length === 0 && (
-            <li className="neo-panel neo-panel--compact admin-roster__empty">Sem marcos agendados para as atribuições filtradas.</li>
+          {!loading && filteredTimeline.length === 0 && (
+            <li className="neo-panel neo-panel--compact admin-roster__empty">{timelineEmptyMessage}</li>
           )}
 
-          {sortedTimeline.map((item) => {
-            const tone = deriveTimelineTone(item.scheduled_at);
-            const urgency = describeTimelineUrgency(item.scheduled_at);
-            const relatedAssignment = item.assignment_id ? assignmentsById.get(item.assignment_id) : undefined;
-            const assignmentTrainer = relatedAssignment?.trainer_name ?? relatedAssignment?.trainer_id ?? null;
-            const ownerMissing = !item.owner_name;
-            const ownerLabel = ownerMissing ? 'Responsável por atribuir' : `Responsável · ${item.owner_name}`;
-            const showAssignment = Boolean(assignmentTrainer && (ownerMissing || assignmentTrainer !== item.owner_name));
-            const assignmentLabel = showAssignment ? `Atribuição · ${assignmentTrainer}` : null;
-
-            return (
-              <li key={item.id} className="admin-roster__timelineItem" data-tone={tone}>
-                <div className="admin-roster__timelineContent">
-                  <div className="neo-stack neo-stack--xs">
-                    <span className="admin-roster__timelineTitle">{item.title ?? 'Marcar acompanhamento'}</span>
-                    <span className="admin-roster__timelineDetail">{item.detail ?? 'Detalhes em actualização.'}</span>
-                  </div>
-                  <div className="admin-roster__timelineMeta">
-                    <span className="admin-roster__timelineWhen">{formatCheckIn(item.scheduled_at)}</span>
-                    {urgency && (
-                      <span className="admin-roster__timelineUrgency" data-tone={tone}>
-                        {urgency}
-                      </span>
-                    )}
-                    {assignmentLabel && <span className="admin-roster__timelineAssignment">{assignmentLabel}</span>}
-                    <span className="admin-roster__timelineOwner" data-missing={ownerMissing}>
-                      {ownerLabel}
+          {filteredTimeline.map(({ item, tone, urgency, assignmentLabel, ownerLabel, ownerMissing, when }) => (
+            <li key={item.id} className="admin-roster__timelineItem" data-tone={tone}>
+              <div className="admin-roster__timelineContent">
+                <div className="neo-stack neo-stack--xs">
+                  <span className="admin-roster__timelineTitle">{item.title ?? 'Marcar acompanhamento'}</span>
+                  <span className="admin-roster__timelineDetail">{item.detail ?? 'Detalhes em actualização.'}</span>
+                </div>
+                <div className="admin-roster__timelineMeta">
+                  <span className="admin-roster__timelineWhen">{when}</span>
+                  {urgency && (
+                    <span className="admin-roster__timelineUrgency" data-tone={tone}>
+                      {urgency}
                     </span>
-                  </div>
+                  )}
+                  {assignmentLabel && <span className="admin-roster__timelineAssignment">{assignmentLabel}</span>}
+                  <span className="admin-roster__timelineOwner" data-missing={ownerMissing}>
+                    {ownerLabel}
+                  </span>
                 </div>
               </li>
             );

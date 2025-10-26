@@ -3130,6 +3130,100 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
   margin-top:10px;
 }
 
+.admin-roster__timelineToolbar{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+  align-items:center;
+  justify-content:space-between;
+}
+
+.admin-roster__timelineFilters{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+.admin-roster__timelineFilter{
+  all:unset;
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 16px;
+  border-radius:999px;
+  border:1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  background:color-mix(in srgb, var(--card-bg) 92%, transparent 8%);
+  color:color-mix(in srgb, var(--muted-fg) 88%, var(--fg) 12%);
+  font-size:12px;
+  font-weight:600;
+  letter-spacing:0.06em;
+  text-transform:uppercase;
+  cursor:pointer;
+  transition:transform var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease);
+}
+
+.admin-roster__timelineFilter:hover{
+  transform:translateY(-1px);
+  box-shadow:0 12px 28px color-mix(in srgb, var(--shadow) 12%, transparent);
+}
+
+.admin-roster__timelineFilter:focus-visible{
+  outline:2px solid color-mix(in srgb, var(--primary) 52%, transparent);
+  outline-offset:3px;
+}
+
+.admin-roster__timelineFilter[data-active="true"]{
+  color:var(--fg);
+  border-color:color-mix(in srgb, var(--primary) 42%, transparent);
+  background:color-mix(in srgb, var(--primary) 14%, var(--card-bg) 86%);
+  box-shadow:0 14px 36px color-mix(in srgb, var(--primary) 16%, transparent);
+}
+
+.admin-roster__timelineFilterLabel{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+}
+
+.admin-roster__timelineFilterCount{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:24px;
+  height:24px;
+  padding:0 8px;
+  border-radius:999px;
+  background:color-mix(in srgb, var(--muted-fg) 18%, transparent);
+  color:var(--fg);
+  font-size:12px;
+  font-weight:700;
+}
+
+.admin-roster__timelineFilter[data-active="true"] .admin-roster__timelineFilterCount{
+  background:color-mix(in srgb, var(--primary) 32%, transparent);
+}
+
+.admin-roster__timelineTotal{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-size:12px;
+  font-weight:600;
+  color:color-mix(in srgb, var(--muted-fg) 86%, var(--fg) 14%);
+}
+
+.admin-roster__timelineTotal::before{
+  content:'';
+  display:inline-flex;
+  width:8px;
+  height:8px;
+  border-radius:999px;
+  background:color-mix(in srgb, var(--muted-fg) 70%, transparent);
+}
+
 .admin-roster__timeline{
   list-style:none;
   margin:0;
