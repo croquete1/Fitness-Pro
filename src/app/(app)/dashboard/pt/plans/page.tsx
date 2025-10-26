@@ -22,8 +22,6 @@ const OFFLINE_MESSAGE = 'Sem ligação à internet. A agenda mantém os últimos
 
 type SessionMap = Record<string, Sess[]>;
 
-type SessionMap = Record<string, Sess[]>;
-
 function formatKey(date: Date) {
   return date.toISOString().slice(0, 10);
 }
@@ -248,6 +246,9 @@ export default function PlansBoardPage() {
   };
 
   const reorderSameDay = async (list: Sess[]) => {
+    if (list.length === 0) {
+      return true;
+    }
     const ids = list.map((session) => session.id);
     try {
       const response = await fetch(API, {
@@ -278,8 +279,29 @@ export default function PlansBoardPage() {
     }
   };
 
-  const moveToDay = async (targetDay: string, list: Sess[]) => {
-    const moves = list.map((session, index) => ({ id: session.id, date: targetDay, order_index: index }));
+  const moveBetweenDays = async (
+    targetDay: string,
+    targetList: Sess[],
+    sourceDay: string,
+    sourceList: Sess[],
+  ) => {
+    const moves = [
+      ...targetList.map((session, index) => ({
+        id: session.id,
+        date: targetDay,
+        order_index: index,
+      })),
+      ...sourceList.map((session, index) => ({
+        id: session.id,
+        date: sourceDay,
+        order_index: index,
+      })),
+    ];
+
+    if (moves.length === 0) {
+      return true;
+    }
+
     try {
       const response = await fetch(API, {
         method: 'PATCH',
@@ -352,7 +374,7 @@ export default function PlansBoardPage() {
       next[source.day] = normalizedSource;
 
       void (async () => {
-        const ok = await moveToDay(targetDay, normalizedTarget);
+        const ok = await moveBetweenDays(targetDay, normalizedTarget, source.day, normalizedSource);
         if (!ok && mountedRef.current) {
           setMap(() => snapshot);
           void load({ preserveError: true });
