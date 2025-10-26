@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createServerClient, MissingSupabaseEnvError } from '@/lib/supabaseServer';
+import { buildRateLimitHeaders, rateLimitRequest } from '@/lib/http/rateLimit';
 
 const zBody = z.object({
   name: z.string().trim().max(120).optional().nullable(),
@@ -14,6 +15,16 @@ const zBody = z.object({
 });
 
 export async function POST(req: Request) {
+  const rate = rateLimitRequest(req, { limit: 5, windowMs: 10 * 60_000, prefix: 'register' });
+  const rateHeaders = buildRateLimitHeaders(rate);
+  const headers = { ...rateHeaders, 'cache-control': 'no-store' } as Record<string, string>;
+  if (!rate.ok) {
+    return NextResponse.json(
+      { message: 'Demasiados pedidos de registo. Tenta novamente dentro de alguns minutos.' },
+      { status: 429, headers },
+    );
+  }
+
   try {
     const json = await req.json();
     const body = zBody.parse(json);
@@ -33,7 +44,7 @@ export async function POST(req: Request) {
       if (data && data.length > 0) {
         return NextResponse.json(
           { message: 'Este email já se encontra registado.' },
-          { status: 409 }
+          { status: 409, headers },
         );
       }
     }
@@ -49,7 +60,7 @@ export async function POST(req: Request) {
       if (data && data.length > 0) {
         return NextResponse.json(
           { message: 'Já existe um pedido de registo em análise para este email.' },
-          { status: 409 }
+          { status: 409, headers },
         );
       }
     }
@@ -61,7 +72,7 @@ export async function POST(req: Request) {
       if (u1.data && u1.data.length > 0) {
         return NextResponse.json(
           { message: 'Nome de utilizador já em uso.' },
-          { status: 409 }
+          { status: 409, headers },
         );
       }
       const u2 = await sb.from('register_requests').select('id').ilike('username', username).limit(1);
@@ -69,7 +80,7 @@ export async function POST(req: Request) {
       if (u2.data && u2.data.length > 0) {
         return NextResponse.json(
           { message: 'Nome de utilizador já em uso (pedido pendente).' },
-          { status: 409 }
+          { status: 409, headers },
         );
       }
     }
@@ -87,17 +98,20 @@ export async function POST(req: Request) {
     const ins = await sb.from('register_requests').insert(payload).select('id').single();
     if (ins.error) throw ins.error;
 
-    return NextResponse.json({ ok: true, id: ins.data.id });
+    return NextResponse.json({ ok: true, id: ins.data.id }, { headers });
   } catch (err: any) {
     if (err instanceof MissingSupabaseEnvError) {
       return NextResponse.json(
         { message: 'Configuração do Supabase em falta.' },
-        { status: 503 }
+        { status: 503, headers },
       );
     }
     if (err?.name === 'ZodError') {
-      return NextResponse.json({ message: 'Dados inválidos', details: err.issues }, { status: 400 });
+      return NextResponse.json(
+        { message: 'Dados inválidos', details: err.issues },
+        { status: 400, headers },
+      );
     }
-    return NextResponse.json({ message: err?.message ?? 'Erro interno' }, { status: 500 });
+    return NextResponse.json({ message: err?.message ?? 'Erro interno' }, { status: 500, headers });
   }
 }
