@@ -145,6 +145,15 @@ function makeFilenameSegment(value: string) {
     .toLowerCase();
 }
 
+function escapeHtml(raw: unknown) {
+  return String(raw ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
 const numberFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 });
@@ -413,13 +422,24 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
   }, [count, pageSizeValue]);
 
   const metrics = React.useMemo(() => {
-    const pending = rows.filter((row) => (row.status ?? 'pending').toLowerCase() === 'pending').length;
-    const approved = rows.filter((row) => (row.status ?? '').toLowerCase() === 'approved').length;
-    const rejected = rows.filter((row) => (row.status ?? '').toLowerCase() === 'rejected').length;
+    const counts = rows.reduce(
+      (acc, row) => {
+        const statusValue = String(row.status ?? 'pending').toLowerCase();
+        if (!statusValue || statusValue === 'pending') {
+          acc.pending += 1;
+        } else if (statusValue === 'approved') {
+          acc.approved += 1;
+        } else if (statusValue === 'rejected') {
+          acc.rejected += 1;
+        }
+        return acc;
+      },
+      { pending: 0, approved: 0, rejected: 0 },
+    );
     return [
-      { id: 'pending', label: 'Pendentes', value: pending, tone: 'warning' as const },
-      { id: 'approved', label: 'Aprovados', value: approved, tone: 'success' as const },
-      { id: 'rejected', label: 'Rejeitados', value: rejected, tone: 'danger' as const },
+      { id: 'pending', label: 'Pendentes', value: counts.pending, tone: 'warning' as const },
+      { id: 'approved', label: 'Aprovados', value: counts.approved, tone: 'success' as const },
+      { id: 'rejected', label: 'Rejeitados', value: counts.rejected, tone: 'danger' as const },
       { id: 'total', label: 'Total página', value: rows.length, tone: 'info' as const },
     ];
   }, [rows]);
@@ -723,15 +743,19 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
     }
     const win = window.open('', '_blank', 'noopener,noreferrer,width=1000,height=700');
     if (!win) return;
-    const body = rows.map((row) => {
-      const cells = [
-        row.name ?? '',
-        row.email ?? '',
-        statusLabel(row.status).label,
-        row.requested_at ? formatDate(row.requested_at) : '',
-      ].map((cell) => `<td>${String(cell)}</td>`).join('');
-      return `<tr>${cells}</tr>`;
-    }).join('');
+    const body = rows
+      .map((row) => {
+        const cells = [
+          row.name ?? '',
+          row.email ?? '',
+          statusLabel(row.status).label,
+          row.requested_at ? formatDate(row.requested_at) : '',
+        ]
+          .map((cell) => `<td>${escapeHtml(cell)}</td>`)
+          .join('');
+        return `<tr>${cells}</tr>`;
+      })
+      .join('');
 
     const html = `<!doctype html>
 <html lang="pt-PT">
@@ -817,9 +841,12 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: row.user_id,
+          trainer_id: row.trainer_id,
           name: row.name,
           email: row.email,
           status: row.status ?? 'pending',
+          requested_at: row.requested_at ?? undefined,
+          metadata: row.metadata ?? undefined,
         }),
       });
       if (!res.ok) throw new Error(await res.text());
