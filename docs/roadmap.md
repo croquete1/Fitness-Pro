@@ -155,9 +155,9 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Tornar os badges de alerta da carteira do PT interactivos, permitindo aplicar filtros directamente dos cartões e da tabela para acelerar a navegação por bloqueios operacionais. Fonte: `src/app/(app)/dashboard/pt/clients/page.tsx`.
 - [x] Permitir alternar os filtros de alerta a partir dos próprios badges interactivos na carteira do PT, mantendo a pesquisa activa enquanto se remove rapidamente um filtro específico. Fonte: `src/app/(app)/dashboard/pt/clients/page.tsx`.
 - [x] Alinhar os cartões urgentes e contadores de alertas da carteira do PT com a filtragem activa, garantindo que métricas e badges respeitam a pesquisa, o âmbito e o alerta seleccionado. Fonte: `src/app/(app)/dashboard/pt/clients/page.tsx`.
-- [ ] Documentar configuração e variáveis de ambiente actualizadas após migração para Supabase.
+- [x] Documentar configuração e variáveis de ambiente actualizadas após migração para Supabase (ver `docs/supabase-environment.md`).
 - [ ] Remover dependências/artefactos não utilizados (ex.: pacotes Prisma, scripts legados) após consolidação da camada de dados.
-- [ ] Adicionar protecções de rate limiting e validações adicionais nas rotas sensíveis.
+- [x] Adicionar protecções de rate limiting e validações adicionais nas rotas sensíveis (limites por IP nas rotas de registo e notificações, com cabeçalhos `Retry-After` e `X-RateLimit-*`). Fontes: `src/lib/http/rateLimit.ts`, `src/app/api/register/route.ts`, `src/app/api/notifications/{list,mark-all-read,mark-read,mark-unread,unread}/route.ts`.
 - [ ] Introduzir testes automatizados (unitários/integrados) para ACL, logs e operações críticas.
 
 ## Fase 3 - Funcionalidades Futuras
