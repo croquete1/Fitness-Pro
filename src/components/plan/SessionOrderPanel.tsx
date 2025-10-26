@@ -59,7 +59,7 @@ export default function SessionOrderPanel({ items, onSave, title = 'Ordenar sess
         <div>
           <h1 className="session-order-panel__title">🗂️ {title}</h1>
           <p className="session-order-panel__subtitle">
-            Arrasta, usa as setas ou o teclado para definir a ordem. Dados sincronizados com o Supabase.
+            Arrasta, usa as setas ou o teclado para definir a ordem. Dados sincronizados com o servidor.
           </p>
         </div>
         <div className="session-order-panel__actions">
@@ -88,7 +88,7 @@ export default function SessionOrderPanel({ items, onSave, title = 'Ordenar sess
         <div className="session-order-panel__hint">
           <CheckCircle2 size={16} aria-hidden />
           <span>
-            A lista apresenta {list.length} sessões ordenadas por prioridade. O Supabase atualiza a agenda imediatamente após
+            A lista apresenta {list.length} sessões ordenadas por prioridade. O servidor atualiza a agenda imediatamente após
             guardares.
           </span>
         </div>

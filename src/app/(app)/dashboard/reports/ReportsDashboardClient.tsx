@@ -586,7 +586,7 @@ export default function ReportsDashboardClient({ data, supabase, viewerName }: P
           </div>
           <div className="reports-dashboard__meta">
             <span className="reports-dashboard__supabase" data-online={supabase || undefined}>
-              {supabase ? "Dados ao vivo via Supabase" : "Dataset de exemplo offline"}
+              {supabase ? "Dados ao vivo do servidor" : "Dataset de exemplo offline"}
             </span>
             <span className="reports-dashboard__generated">Actualizado {formatRelative(generatedAt, new Date())}.</span>
           </div>

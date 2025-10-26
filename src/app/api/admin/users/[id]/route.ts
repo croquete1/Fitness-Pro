@@ -14,7 +14,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
   const sb = tryCreateServerClient();
   if (!sb) {
     return supabaseFallbackJson(
-      { ok: false, message: 'Supabase não está configurado.' },
+      { ok: false, message: 'Servidor não está configurado.' },
       { status: 503 }
     );
   }
@@ -52,7 +52,7 @@ export async function DELETE(_: Request, ctx: Ctx) {
   const sb = tryCreateServerClient();
   if (!sb) {
     return supabaseFallbackJson(
-      { ok: false, message: 'Supabase não está configurado.' },
+      { ok: false, message: 'Servidor não está configurado.' },
       { status: 503 }
     );
   }

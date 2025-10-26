@@ -107,7 +107,7 @@ export default async function AdminWeekTable() {
     rows = fallback.rows;
     source = 'fallback';
     generatedAt = fallback.generatedAt;
-    error = 'Sem ligação ao Supabase — a mostrar dados determinísticos.';
+    error = 'Sem ligação ao servidor — a mostrar dados determinísticos.';
   }
 
   const totalSessions = rows.reduce((acc, row) => acc + row.sessions, 0);

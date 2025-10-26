@@ -149,7 +149,7 @@ export default async function ClientUpcomingTable() {
             Próximas sessões
           </h2>
           <p className="neo-panel__subtitle">
-            Até seis compromissos futuros confirmados. Fonte: {source === "supabase" ? "Supabase" : "dados determinísticos"}.
+            Até seis compromissos futuros confirmados. Fonte: {source === "supabase" ? "servidor remoto" : "dados determinísticos"}.
           </p>
         </div>
         <div className="neo-panel__actions neo-panel__actions--table">

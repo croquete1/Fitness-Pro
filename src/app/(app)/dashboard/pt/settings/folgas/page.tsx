@@ -143,7 +143,7 @@ export default async function FolgasPage() {
     <div className="pt-days-off neo-stack neo-stack--xl">
       <PageHeader
         title="🗓️ Folgas"
-        subtitle="Bloqueia horários antes de abrir vagas aos clientes e acompanha o calendário actualizado com dados do Supabase."
+        subtitle="Bloqueia horários antes de abrir vagas aos clientes e acompanha o calendário actualizado com dados do servidor."
         sticky={false}
         actions={<span className="status-pill" data-state={supabaseState}>{supabaseLabel}</span>}
       />

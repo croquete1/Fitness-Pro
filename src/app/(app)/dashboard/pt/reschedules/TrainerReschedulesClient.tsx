@@ -296,7 +296,7 @@ export default function TrainerReschedulesClient({ initialData }: Props) {
         actions={
           <span className="trainer-reschedules__supabaseState">
             <span className="status-pill" data-state={data.source === 'supabase' ? 'ok' : 'warn'}>
-              {data.source === 'supabase' ? 'Supabase activo' : 'Modo fallback'}
+              {data.source === 'supabase' ? 'Servidor activo' : 'Modo fallback'}
             </span>
           </span>
         }

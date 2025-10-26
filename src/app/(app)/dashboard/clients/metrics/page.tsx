@@ -33,7 +33,7 @@ export default async function Page() {
 
     rows = normalizeClientMetricRows(data ?? []);
   } catch (error) {
-    console.error('[client-metrics] Falha ao carregar dados do Supabase:', error);
+    console.error('[client-metrics] Falha ao carregar dados do servidor:', error);
     rows = fallbackClientMetrics;
     source = 'fallback';
   }

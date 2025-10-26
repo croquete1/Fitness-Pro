@@ -114,7 +114,7 @@ export default function SystemHealthClient({ initialData }: Props) {
 
       {dashboard.source === 'fallback' ? (
         <Alert tone="warning" title="A mostrar dados de referência.">
-          Ligação ao Supabase indisponível — a apresentar leituras mais recentes em cache.
+          Ligação ao servidor indisponível — a apresentar leituras mais recentes em cache.
         </Alert>
       ) : null}
 

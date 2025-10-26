@@ -321,7 +321,7 @@ export default function TrainerSessionsPage() {
             <article className="neo-surface" data-variant="primary">
               <span className="neo-surface__label">Sessões agendadas</span>
               <span className="neo-surface__value">{rows.length}</span>
-              <span className="neo-surface__meta">Atualiza automaticamente via Supabase</span>
+              <span className="neo-surface__meta">Atualiza automaticamente via servidor</span>
             </article>
           </li>
           <li>

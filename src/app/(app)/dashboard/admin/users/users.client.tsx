@@ -891,7 +891,7 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
         {feedback && <Alert tone={feedback.tone} title="Aviso">{feedback.message}</Alert>}
         {listData?._supabaseConfigured === false && (
           <Alert tone="warning" title="Dados de exemplo">
-            Supabase não está configurado. A lista apresenta dados fictícios para ilustração.
+            Servidor não está configurado. A lista apresenta dados fictícios para ilustração.
           </Alert>
         )}
         {listError && (

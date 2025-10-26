@@ -193,7 +193,7 @@ export default function PTWorkoutsClient({ initialData, viewerName }: Props) {
 
       {error && (
         <Alert tone="danger" className="trainer-workouts__alert" title="Falha na sincronização">
-          {error.message || 'Não foi possível ligar ao Supabase. A mostrar dados locais.'}
+          {error.message || 'Não foi possível ligar ao servidor. A mostrar dados locais.'}
         </Alert>
       )}
 

@@ -232,7 +232,7 @@ export async function loadSystemDashboard(rangeDays = 14): Promise<SystemDashboa
 
     return { ...dashboard, ok: true, source: 'supabase' } satisfies SystemDashboardResponse;
   } catch (error) {
-    console.error('[system-dashboard] falha ao sincronizar Supabase', error);
+    console.error('[system-dashboard] falha ao sincronizar com o servidor', error);
     return { ...fallback, ok: true, source: 'fallback' };
   }
 }

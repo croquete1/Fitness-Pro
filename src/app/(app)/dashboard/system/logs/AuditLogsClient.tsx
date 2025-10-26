@@ -335,7 +335,7 @@ export default function AuditLogsClient({ initialData, initialRange }: Props) {
             </p>
           </div>
           <span className="system-logs-dashboard__source" data-source={dashboard.source}>
-            {isFallback ? 'Dados de demonstração' : 'Sincronizado via Supabase'}
+            {isFallback ? 'Dados de demonstração' : 'Sincronizado via servidor'}
           </span>
         </div>
         <HeroMetrics metrics={dashboard.hero as AuditLogHeroMetric[]} />

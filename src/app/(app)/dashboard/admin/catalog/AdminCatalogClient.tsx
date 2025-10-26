@@ -821,7 +821,7 @@ export default function AdminCatalogClient({ initialData, initialParams }: Props
           Última geração: {formatRelative(dashboard.generatedAt)} · Dados actualizados automaticamente quando existem alterações.
         </span>
         <span>
-          Fonte: Supabase (`exercises`, actualizações em tempo real) · Intervalo seleccionado: {dashboard.rangeLabel}
+          Fonte: servidor remoto (`exercises`, actualizações em tempo real) · Intervalo seleccionado: {dashboard.rangeLabel}
         </span>
       </footer>
     </div>

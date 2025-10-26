@@ -114,7 +114,7 @@ export async function loadTrainerWorkoutsDashboard(trainerId: string): Promise<L
     .limit(720);
 
   if (error) {
-    console.error('[trainer-workouts] falha ao sincronizar Supabase', error);
+    console.error('[trainer-workouts] falha ao sincronizar com o servidor', error);
     return { ...fallback, ok: true, source: 'fallback' } satisfies LoadResult;
   }
 

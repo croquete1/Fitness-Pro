@@ -106,7 +106,7 @@ export async function POST(req: Request) {
     const sb = tryCreateServerClient();
     if (!sb) {
       return supabaseFallbackJson(
-        { ok: false, message: 'Supabase não está configurado.' },
+        { ok: false, message: 'Servidor não está configurado.' },
         { status: 503 },
       );
     }

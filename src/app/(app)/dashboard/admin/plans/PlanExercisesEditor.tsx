@@ -313,7 +313,7 @@ export default function PlanExercisesEditor({ planId, planName }: Props) {
         <div>
           <h2 className="neo-panel__title">Exercícios do plano</h2>
           <p className="neo-panel__subtitle">
-            {planName ? `Gestão do plano “${planName}”.` : "Sincronizado com o Supabase em tempo real."}
+            {planName ? `Gestão do plano “${planName}”.` : "Sincronizado com o servidor em tempo real."}
           </p>
         </div>
         <div className="admin-plan-exercises__actions">

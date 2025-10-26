@@ -32,7 +32,7 @@ export async function POST(req: Request) {
 
   if (error) {
     const msg = error.message?.includes('bucket not found')
-      ? 'Bucket "uploads" não existe. Cria-o no Supabase Storage.'
+      ? 'Bucket "uploads" não existe. Cria-o no armazenamento do servidor.'
       : 'Falha no upload.';
     return NextResponse.json({ error: msg }, { status: 500 });
   }

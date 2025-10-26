@@ -258,8 +258,8 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
         }
         subtitle={
           supabase
-            ? 'Estamos a usar dados em tempo real do Supabase. Mantém a vigilância sobre os indicadores chave.'
-            : 'O Supabase não está configurado neste ambiente — utilizamos dados de exemplo para não interromper o fluxo.'
+            ? 'Estamos a usar dados em tempo real do servidor. Mantém a vigilância sobre os indicadores chave.'
+            : 'A ligação ao servidor não está configurada neste ambiente — utilizamos dados de exemplo para não interromper o fluxo.'
         }
         actions={
           <div className="admin-dashboard__actions">
@@ -289,7 +289,7 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
         <div className="admin-hero__header">
           <div className="admin-dashboard__status">
             <StatusPill tone={supabase ? 'ok' : 'warn'}>
-              {supabase ? 'Live Supabase' : 'Modo amostra'}
+              {supabase ? 'Servidor em tempo real' : 'Modo amostra'}
             </StatusPill>
             <span className="admin-dashboard__status-note">
               {supabase
@@ -324,7 +324,7 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
                   <CalendarDays className="neo-icon" aria-hidden /> Próximas sessões
                 </h2>
                 <p className="neo-panel__subtitle">
-                  {supabase ? 'Agenda sincronizada com Supabase' : 'Agenda simulada para ambientes locais'}
+                  {supabase ? 'Agenda sincronizada com o servidor' : 'Agenda simulada para ambientes locais'}
                 </p>
               </div>
               <span className="admin-panel__badge" data-variant="primary">
@@ -391,7 +391,7 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
             </header>
             {data.topTrainers.length === 0 ? (
               <div className="admin-panel__empty">
-                Ainda não temos dados suficientes para destacar Personal Trainers. Assim que o Supabase estiver ligado, vais ver o
+                Ainda não temos dados suficientes para destacar Personal Trainers. Assim que a ligação ao servidor estiver activa, vais ver o
                 ranking em tempo real.
               </div>
             ) : (

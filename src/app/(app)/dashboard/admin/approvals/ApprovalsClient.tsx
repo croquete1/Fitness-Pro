@@ -912,7 +912,7 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
         setLastUpdatedAt(Date.now());
         setBanner({
           severity: 'info',
-          message: 'Supabase não está configurado — assim que ligares a base de dados, os pedidos reais vão aparecer aqui.',
+          message: 'Servidor não está configurado — assim que ligares a base de dados, os pedidos reais vão aparecer aqui.',
         });
         return;
       }
@@ -1337,7 +1337,7 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
               {showInsightsSkeleton
                 ? 'A sincronizar métricas…'
                 : `A mostrar ${numberFormatter.format(insights?.sampleSize ?? 0)} de ${numberFormatter.format(insights?.datasetSize ?? 0)} registos.`}
-              {supabaseOnline ? ' Supabase activo.' : ' Modo determinístico.'}
+              {supabaseOnline ? ' Servidor activo.' : ' Modo determinístico.'}
             </span>
           </div>
         </div>
