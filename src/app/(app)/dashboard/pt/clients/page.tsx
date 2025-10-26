@@ -910,14 +910,23 @@ export default async function PtClientsPage({
 
                   <div className="neo-inline neo-inline--sm" role="list">
                     {alerts.map((alert) => (
-                      <span
+                      <Link
                         key={`${alert.key}-${alert.label}`}
+                        href={buildFilterHref({
+                          scope: 'alerts',
+                          alert: alert.key,
+                          query: activeQuery,
+                        })}
                         className="neo-badge"
                         data-tone={alert.tone}
                         role="listitem"
+                        aria-label={`Filtrar por clientes com alerta: ${alert.label}`}
+                        aria-current={alertFilter === alert.key ? 'true' : undefined}
+                        data-selected={alertFilter === alert.key ? 'true' : 'false'}
                       >
                         {alert.label}
-                      </span>
+                        {alertFilter === alert.key && <span className="sr-only"> (filtro activo)</span>}
+                      </Link>
                     ))}
                   </div>
 
@@ -1128,13 +1137,22 @@ export default async function PtClientsPage({
                         {alerts.length > 0 && (
                           <div className="neo-inline neo-inline--xs flex-wrap text-[11px] text-muted">
                             {alerts.map((alert) => (
-                              <span
+                              <Link
                                 key={`${row.id}-${alert.key}`}
+                                href={buildFilterHref({
+                                  scope: 'alerts',
+                                  alert: alert.key,
+                                  query: activeQuery,
+                                })}
                                 className="neo-badge"
                                 data-tone={alert.tone}
+                                aria-label={`Filtrar por clientes com alerta: ${alert.label}`}
+                                aria-current={alertFilter === alert.key ? 'true' : undefined}
+                                data-selected={alertFilter === alert.key ? 'true' : 'false'}
                               >
                                 {alert.label}
-                              </span>
+                                {alertFilter === alert.key && <span className="sr-only"> (filtro activo)</span>}
+                              </Link>
                             ))}
                           </div>
                         )}
