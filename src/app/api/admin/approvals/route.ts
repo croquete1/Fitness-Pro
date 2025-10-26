@@ -253,6 +253,7 @@ export async function GET(req: Request) {
                 _searchFallback: true,
                 fallbackReason: reason,
                 searchSampleSize: sampleSize,
+                searchSampleLimit: fallbackLimit,
               },
               { headers },
             );
@@ -284,6 +285,7 @@ export async function GET(req: Request) {
               _searchFallback: true,
               fallbackReason: reason,
               searchSampleSize: sampleSize,
+              searchSampleLimit: fallbackLimit,
             },
             { headers },
           );

@@ -97,6 +97,7 @@ type ApprovalsApiResponse = {
   _searchFallback?: boolean;
   fallbackReason?: 'search' | 'status' | 'mixed';
   searchSampleSize?: number;
+  searchSampleLimit?: number;
 };
 
 type Banner = { message: string; severity: 'info' | 'success' | 'warning' | 'error' };
@@ -488,6 +489,7 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
   const [count, setCount] = React.useState(0);
   const [countReliable, setCountReliable] = React.useState(true);
   const [searchSampleSize, setSearchSampleSize] = React.useState<number | null>(null);
+  const [searchSampleLimit, setSearchSampleLimit] = React.useState<number | null>(null);
   const [page, setPage] = React.useState(
     Number.isFinite(initialPageParam) && initialPageParam > 0 ? initialPageParam - 1 : 0,
   );
@@ -766,10 +768,23 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
       ? ''
       : ` Resultados limitados${
           searchSampleSize != null ? ` a ${numberFormatter.format(searchSampleSize)} registos avaliados` : ''
+        }${
+          searchSampleLimit != null && searchSampleSize != null && searchSampleSize >= searchSampleLimit
+            ? ` (apenas os primeiros ${numberFormatter.format(searchSampleLimit)} registos foram analisados)`
+            : ''
         }.`;
     const label = `${baseLabel}${limitedSuffix}`;
     return loading ? `${label} (a actualizar…)` : label;
-  }, [count, countReliable, loading, page, pageSizeValue, rows.length, searchSampleSize]);
+  }, [
+    count,
+    countReliable,
+    loading,
+    page,
+    pageSizeValue,
+    rows.length,
+    searchSampleLimit,
+    searchSampleSize,
+  ]);
 
   const undoLabel = React.useMemo(() => {
     if (!undoState?.row) return '';
@@ -824,6 +839,7 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
         setCount(0);
         setCountReliable(true);
         setSearchSampleSize(null);
+        setSearchSampleLimit(null);
         setBanner({
           severity: 'warning',
           message: 'Sessão expirada — autentica-te novamente para gerir os pedidos reais.',
@@ -845,6 +861,7 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
         setCount(0);
         setCountReliable(true);
         setSearchSampleSize(null);
+        setSearchSampleLimit(null);
         setBanner({
           severity: 'info',
           message: 'Supabase não está configurado — assim que ligares a base de dados, os pedidos reais vão aparecer aqui.',
@@ -888,8 +905,13 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
           typeof payload.searchSampleSize === 'number' && Number.isFinite(payload.searchSampleSize)
             ? payload.searchSampleSize
             : mapped.length;
+        const sampleLimit =
+          typeof payload.searchSampleLimit === 'number' && Number.isFinite(payload.searchSampleLimit)
+            ? payload.searchSampleLimit
+            : null;
         setCountReliable(false);
         setSearchSampleSize(sample);
+        setSearchSampleLimit(sampleLimit);
         const reason = payload.fallbackReason ?? (debouncedQ ? (status ? 'mixed' : 'search') : status ? 'status' : 'search');
         const limitedLabel = numberFormatter.format(sample);
         const totalLabel = numberFormatter.format(safeCount);
@@ -898,13 +920,18 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
           status: `Filtro de estado aplicado localmente — analisados ${limitedLabel} registos. Resultados podem estar limitados até ${totalLabel} entradas.`,
           mixed: `Pesquisa e filtro de estado aplicados localmente — analisados ${limitedLabel} registos. Resultados podem estar limitados até ${totalLabel} entradas.`,
         };
+        const cappedMessage =
+          sampleLimit != null && sample >= sampleLimit
+            ? ` Apenas os primeiros ${numberFormatter.format(sampleLimit)} registos foram analisados nesta amostra.`
+            : '';
         setBanner({
           severity: 'info',
-          message: messageByReason[reason],
+          message: `${messageByReason[reason]}${cappedMessage}`,
         });
       } else {
         setCountReliable(true);
         setSearchSampleSize(null);
+        setSearchSampleLimit(null);
       }
       if (page > 0 && mapped.length === 0 && safeCount > 0) {
         const lastPageIndex = Math.max(Math.ceil(safeCount / size) - 1, 0);
@@ -926,6 +953,7 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
       setCount(0);
       setCountReliable(true);
       setSearchSampleSize(null);
+      setSearchSampleLimit(null);
       const message = error?.name === 'AbortError' ? null : error?.message;
       setBanner({
         severity: 'error',
