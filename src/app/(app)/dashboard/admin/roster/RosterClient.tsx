@@ -148,21 +148,27 @@ function getTimelineTimestamp(iso: string | null | undefined): number | null {
   return Number.isNaN(value) ? null : value;
 }
 
-function deriveTimelineTone(iso: string | null | undefined): 'info' | 'warning' | 'danger' {
+function deriveTimelineTone(
+  iso: string | null | undefined,
+  now: number = Date.now(),
+): 'info' | 'warning' | 'danger' {
   if (!iso) return 'warning';
   const timestamp = getTimelineTimestamp(iso);
   if (timestamp === null) return 'info';
-  const diff = timestamp - Date.now();
+  const diff = timestamp - now;
   if (diff < 0) return 'danger';
   if (diff <= 60 * 60_000) return 'warning';
   return 'info';
 }
 
-function describeTimelineUrgency(iso: string | null | undefined): string | null {
+function describeTimelineUrgency(
+  iso: string | null | undefined,
+  now: number = Date.now(),
+): string | null {
   if (!iso) return 'Agendamento por definir';
   const timestamp = getTimelineTimestamp(iso);
   if (timestamp === null) return null;
-  const diff = timestamp - Date.now();
+  const diff = timestamp - now;
   if (Math.abs(diff) < 60_000) {
     return diff < 0 ? 'Em acompanhamento agora' : 'A iniciar agora';
   }
@@ -429,9 +435,11 @@ export default function RosterClient() {
   }, [timeline]);
 
   const timelineEntries = React.useMemo((): TimelineEntry[] => {
+    const reference = nowTick;
+
     return sortedTimeline.map((item) => {
-      const tone = deriveTimelineTone(item.scheduled_at);
-      const urgency = describeTimelineUrgency(item.scheduled_at);
+      const tone = deriveTimelineTone(item.scheduled_at, reference);
+      const urgency = describeTimelineUrgency(item.scheduled_at, reference);
       const timestamp = getTimelineTimestamp(item.scheduled_at);
       const relatedAssignment = item.assignment_id ? assignmentsById.get(item.assignment_id) : undefined;
       const assignmentTrainer = relatedAssignment?.trainer_name ?? relatedAssignment?.trainer_id ?? null;
@@ -451,7 +459,7 @@ export default function RosterClient() {
         when: formatCheckIn(item.scheduled_at),
       } satisfies TimelineEntry;
     });
-  }, [sortedTimeline, assignmentsById]);
+  }, [sortedTimeline, assignmentsById, nowTick]);
 
   React.useEffect(() => {
     if (typeof window === 'undefined') {
