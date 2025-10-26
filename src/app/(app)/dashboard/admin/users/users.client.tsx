@@ -176,7 +176,7 @@ function formatDateTime(iso: string | null) {
   return `${shortDateFormatter.format(date)} · ${timeFormatter.format(date)}`;
 }
 
-function readParams(searchParams: ReturnType<typeof useSearchParams>, fallbackPageSize: number): ParamsState {
+function readParams(searchParams: URLSearchParams, fallbackPageSize: number): ParamsState {
   const page = Number.parseInt(searchParams.get('page') ?? '0', 10);
   const pageSize = Number.parseInt(
     searchParams.get('pageSize') ?? searchParams.get('perPage') ?? String(fallbackPageSize),
@@ -193,6 +193,71 @@ function readParams(searchParams: ReturnType<typeof useSearchParams>, fallbackPa
     status,
     search,
   };
+}
+
+const fallbackRowIdCache = new Map<string, string>();
+
+function serialiseForId(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    return value.map(serialiseForId).filter(Boolean).join('|');
+  }
+  if (typeof value === 'object') {
+    return Object.keys(value as Record<string, unknown>)
+      .sort()
+      .map((key) => `${key}:${serialiseForId((value as Record<string, unknown>)[key])}`)
+      .filter(Boolean)
+      .join(',');
+  }
+  return '';
+}
+
+function deriveRowId(row: any): string {
+  const candidates = [
+    row?.id,
+    row?.user_id,
+    row?.userId,
+    row?.profile_id,
+    row?.profileId,
+    row?.uuid,
+    row?.uid,
+    row?.email,
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate === null || candidate === undefined) continue;
+    const text = String(candidate).trim();
+    if (text) return text;
+  }
+
+  const composed = [row?.name ?? row?.full_name ?? '', row?.email ?? '', row?.created_at ?? row?.createdAt ?? '']
+    .map((part) => (typeof part === 'string' ? part.trim() : ''))
+    .filter(Boolean)
+    .join('|');
+
+  if (composed) {
+    const existing = fallbackRowIdCache.get(composed);
+    if (existing) return existing;
+    const nextId = `row-${fallbackRowIdCache.size + 1}`;
+    fallbackRowIdCache.set(composed, nextId);
+    return nextId;
+  }
+
+  const serialised = serialiseForId(row);
+  if (serialised) {
+    const existing = fallbackRowIdCache.get(serialised);
+    if (existing) return existing;
+    const nextId = `row-${fallbackRowIdCache.size + 1}`;
+    fallbackRowIdCache.set(serialised, nextId);
+    return nextId;
+  }
+
+  const fallbackKey = `fallback-${fallbackRowIdCache.size + 1}`;
+  fallbackRowIdCache.set(fallbackKey, fallbackKey);
+  return fallbackKey;
 }
 
 async function fetcher(url: string): Promise<ListResponse> {
@@ -225,7 +290,7 @@ function mapRow(row: any): Row {
   const statusMeta = STATUS_META[statusKey];
 
   return {
-    id: String(row.id ?? crypto.randomUUID()),
+    id: deriveRowId(row),
     name: row.name?.trim() || row.full_name?.trim() || row.email?.trim() || 'Utilizador',
     email: row.email ?? null,
     roleKey,
@@ -442,7 +507,10 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
   const searchParams = useSearchParams();
   const searchParamsText = React.useMemo(() => searchParams.toString(), [searchParams]);
 
-  const initial = React.useMemo(() => readParams(searchParams, pageSize), [searchParams, pageSize]);
+  const initial = React.useMemo(
+    () => readParams(new URLSearchParams(searchParamsText), pageSize),
+    [searchParamsText, pageSize],
+  );
 
   const [page, setPage] = React.useState(initial.page);
   const [pageSizeState, setPageSizeState] = React.useState(initial.pageSize);
@@ -537,7 +605,13 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
   }, [pageSize]);
 
   const listKey = React.useMemo(() => buildListKey(queryState), [queryState]);
-  const { data: listData, error: listError, isLoading: listLoading, mutate: mutateList } = useSWR(listKey, fetcher, {
+  const {
+    data: listData,
+    error: listError,
+    isLoading: listLoading,
+    isValidating: listValidating,
+    mutate: mutateList,
+  } = useSWR(listKey, fetcher, {
     keepPreviousData: true,
   });
 
@@ -545,6 +619,7 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
     data: dashboard,
     error: dashboardError,
     isLoading: dashboardLoading,
+    isValidating: dashboardValidating,
     mutate: mutateDashboard,
   } = useSWR<DashboardResponse>('/api/admin/users/dashboard', dashboardFetcher, { keepPreviousData: true });
 
@@ -724,7 +799,12 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
     setFeedback({ tone: 'info', message: 'Atualização em curso…' });
   };
 
-  const loading = listLoading && !listData;
+  const listInitialising = listLoading && !listData;
+  const dashboardInitialising = dashboardLoading && !dashboard;
+  const tableBusy = listInitialising || (listValidating && Boolean(listData));
+  const metricsBusy = dashboardInitialising || (dashboardValidating && Boolean(dashboard));
+  const refreshing = (listValidating && !listInitialising) || (dashboardValidating && !dashboardInitialising);
+  const refreshDisabled = refreshing || listInitialising || dashboardInitialising;
 
   return (
     <div className="admin-users">
@@ -737,9 +817,16 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
               variant="ghost"
               size="sm"
               onClick={handleRefresh}
-              leftIcon={<RefreshCcw className="neo-icon neo-icon--sm" aria-hidden />}
+              disabled={refreshDisabled}
+              leftIcon={
+                refreshing ? (
+                  <Loader2 className="neo-icon neo-icon--sm neo-spin" aria-hidden />
+                ) : (
+                  <RefreshCcw className="neo-icon neo-icon--sm" aria-hidden />
+                )
+              }
             >
-              Atualizar
+              {refreshing ? 'A atualizar…' : 'Atualizar'}
             </Button>
             <Button
               variant="ghost"
@@ -777,8 +864,10 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
           <header className="neo-panel__header">
             <div>
               <h2 className="neo-panel__title">Resumo rápido</h2>
-              <p className="neo-panel__subtitle">
-                Indicadores com base em {dashboard?.rows.length ?? 0} registos recentes.
+              <p className="neo-panel__subtitle" aria-live="polite">
+                {metricsBusy && !dashboardInitialising
+                  ? 'A atualizar métricas…'
+                  : `Indicadores com base em ${dashboard?.rows.length ?? 0} registos recentes.`}
               </p>
             </div>
             <span className="neo-panel__icon" aria-hidden>
@@ -854,7 +943,11 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
               Lista de utilizadores
             </h2>
             <p className="neo-panel__subtitle">
-              {listLoading ? 'A carregar registos…' : `${numberFormatter.format(totalRows)} registo(s) encontrados.`}
+              {listInitialising
+                ? 'A carregar registos…'
+                : listValidating && !listInitialising
+                ? 'A atualizar registos…'
+                : `${numberFormatter.format(totalRows)} registo(s) encontrados.`}
             </p>
           </div>
         </header>
@@ -938,7 +1031,7 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
             </Button>
           </div>
 
-          <div className={clsx('neo-table-wrapper', { 'is-loading': loading })}>
+          <div className={clsx('neo-table-wrapper', { 'is-loading': tableBusy })} aria-busy={tableBusy || undefined}>
             <table className="neo-table admin-users__table">
               <thead>
                 <tr>
@@ -1036,9 +1129,10 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
               </tbody>
             </table>
 
-            {loading && (
+            {tableBusy && (
               <div className="admin-users__loading" role="status" aria-live="polite">
-                <Loader2 className="neo-icon neo-spin" aria-hidden /> A carregar…
+                <Loader2 className="neo-icon neo-spin" aria-hidden />{' '}
+                {listInitialising ? 'A carregar…' : 'A atualizar…'}
               </div>
             )}
           </div>
@@ -1046,8 +1140,10 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
 
         <footer className="neo-pagination" aria-label="Paginação">
           <div className="neo-pagination__summary" aria-live="polite" role="status">
-            {loading ? (
+            {listInitialising ? (
               'A carregar registos…'
+            ) : listValidating && !listInitialising ? (
+              'A atualizar registos…'
             ) : totalRows === 0 ? (
               'Sem registos para apresentar.'
             ) : (
