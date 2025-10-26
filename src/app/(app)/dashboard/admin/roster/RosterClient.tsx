@@ -200,6 +200,7 @@ export default function RosterClient() {
   const [lastFetchedAt, setLastFetchedAt] = React.useState<number | null>(null);
   const [banner, setBanner] = React.useState<Banner | null>(null);
   const [timelineFilter, setTimelineFilter] = React.useState<TimelineScope>('all');
+  const [nowTick, setNowTick] = React.useState(() => Date.now());
   const inFlightRef = React.useRef<AbortController | null>(null);
   const searchParamsSnapshotRef = React.useRef<string | null>(null);
 
@@ -452,8 +453,29 @@ export default function RosterClient() {
     });
   }, [sortedTimeline, assignmentsById]);
 
+  React.useEffect(() => {
+    if (typeof window === 'undefined') {
+      setNowTick(Date.now());
+      return;
+    }
+
+    setNowTick(Date.now());
+
+    if (timelineEntries.length === 0) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      setNowTick(Date.now());
+    }, 60_000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [timelineEntries.length]);
+
   const timelineCounts = React.useMemo(() => {
-    const now = Date.now();
+    const now = nowTick;
     const next24h = now + 24 * 60 * 60_000;
     let overdue = 0;
     let upcoming24h = 0;
@@ -479,7 +501,7 @@ export default function RosterClient() {
       next24h: upcoming24h,
       unassigned,
     };
-  }, [timelineEntries]);
+  }, [timelineEntries, nowTick]);
 
   const timelineFilterOptions = React.useMemo(
     () => [
@@ -516,7 +538,7 @@ export default function RosterClient() {
       return timelineEntries;
     }
 
-    const now = Date.now();
+    const now = nowTick;
     const next24h = now + 24 * 60 * 60_000;
 
     return timelineEntries.filter((entry) => {
@@ -534,7 +556,9 @@ export default function RosterClient() {
 
       return true;
     });
-  }, [timelineEntries, timelineFilter]);
+  }, [timelineEntries, timelineFilter, nowTick]);
+
+  const filteredTimelineCount = filteredTimeline.length;
 
   const handleStatusShortcut = React.useCallback(
     (nextStatus: StatusFilter) => {
@@ -595,8 +619,17 @@ export default function RosterClient() {
     if (timelineCounts.total === 0) {
       return 'Sem marcos para monitorizar';
     }
-    return timelineCounts.total === 1 ? '1 marco monitorizado' : `${timelineCounts.total} marcos monitorizados`;
-  }, [timelineCounts.total]);
+
+    const totalSuffix = timelineCounts.total === 1 ? 'marco monitorizado' : 'marcos monitorizados';
+
+    if (timelineFilter === 'all') {
+      return `${timelineCounts.total} ${totalSuffix}`;
+    }
+
+    const filteredSuffix = filteredTimelineCount === 1 ? 'marco' : 'marcos';
+
+    return `${filteredTimelineCount} ${filteredSuffix} no filtro actual de ${timelineCounts.total} ${totalSuffix}`;
+  }, [timelineCounts.total, filteredTimelineCount, timelineFilter]);
 
   const badgeState = React.useMemo<'loading' | 'idle' | 'fresh' | 'stale' | 'warning' | 'danger'>(() => {
     if (loading || isRefreshing) return 'loading';
