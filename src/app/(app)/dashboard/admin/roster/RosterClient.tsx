@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { CalendarClock, RefreshCcw, Sparkles, UserPlus2, Users2 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
 
@@ -120,7 +121,18 @@ function formatCheckIn(iso: string | null | undefined): string {
   }
 }
 
+function describeLastSync(timestamp: number | null): string {
+  if (!timestamp) return 'Aguardando primeira sincronização';
+  const relative = formatRelative(new Date(timestamp).toISOString());
+  if (relative === '—') return 'Actualizado há instantes';
+  if (relative === 'agora mesmo') return 'Actualizado agora mesmo';
+  return `Actualizado ${relative}`;
+}
+
 export default function RosterClient() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [searchInput, setSearchInput] = React.useState('');
   const [search, setSearch] = React.useState('');
   const [status, setStatus] = React.useState<StatusFilter>('');
@@ -129,8 +141,11 @@ export default function RosterClient() {
   const [timeline, setTimeline] = React.useState<TimelineItem[]>([]);
   const [count, setCount] = React.useState(0);
   const [loading, setLoading] = React.useState(false);
+  const [refreshing, setRefreshing] = React.useState(false);
+  const [lastFetchedAt, setLastFetchedAt] = React.useState<number | null>(null);
   const [banner, setBanner] = React.useState<Banner | null>(null);
   const inFlightRef = React.useRef<AbortController | null>(null);
+  const searchParamsSnapshotRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     if (typeof window === 'undefined') {
@@ -138,11 +153,12 @@ export default function RosterClient() {
     }
 
     const handle = window.setTimeout(() => {
+      const trimmed = searchInput.trim();
       setSearch((previous) => {
-        if (previous === searchInput) {
+        if (previous === trimmed) {
           return previous;
         }
-        return searchInput;
+        return trimmed;
       });
     }, 300);
 
@@ -151,7 +167,8 @@ export default function RosterClient() {
     };
   }, [searchInput]);
 
-  const fetchRoster = React.useCallback(async () => {
+  const fetchRoster = React.useCallback(async (options: { silent?: boolean } = {}) => {
+    const { silent = false } = options;
     const params = new URLSearchParams();
     const trimmed = search.trim();
     if (trimmed) params.set('q', trimmed);
@@ -162,8 +179,11 @@ export default function RosterClient() {
     const controller = new AbortController();
     inFlightRef.current = controller;
 
-    setLoading(true);
-    setBanner(null);
+    if (silent) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
 
     try {
       const response = await fetch(`/api/admin/roster?${params.toString()}`, {
@@ -177,6 +197,7 @@ export default function RosterClient() {
         setTimeline([]);
         setCount(0);
         setBanner({ tone: 'warning', message: 'Sessão expirada — autentica-te novamente para veres a escala real.' });
+        setLastFetchedAt(Date.now());
         return;
       }
 
@@ -189,11 +210,14 @@ export default function RosterClient() {
       setAssignments(payload.assignments ?? []);
       setTimeline(payload.timeline ?? []);
       setCount(payload.count ?? (payload.assignments ?? []).length);
+      setLastFetchedAt(Date.now());
 
       if (payload._supabaseConfigured === false) {
         setBanner({ tone: 'info', message: 'Servidor ainda não está ligado — sem dados de escala disponíveis.' });
       } else if (payload.error) {
         setBanner({ tone: 'warning', message: 'Algumas entradas podem estar temporariamente indisponíveis.' });
+      } else {
+        setBanner(null);
       }
     } catch (error: any) {
       if (controller.signal.aborted) {
@@ -204,9 +228,15 @@ export default function RosterClient() {
       setTimeline([]);
       setCount(0);
       setBanner({ tone: 'danger', message: error?.message || 'Não foi possível sincronizar a escala.' });
+      setLastFetchedAt(Date.now());
     } finally {
       if (!controller.signal.aborted) {
-        setLoading(false);
+        if (silent) {
+          setRefreshing(false);
+        } else {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
     }
   }, [search, status, shift]);
@@ -218,6 +248,85 @@ export default function RosterClient() {
   React.useEffect(() => () => {
     inFlightRef.current?.abort();
   }, []);
+
+  React.useEffect(() => {
+    const paramsText = searchParams?.toString() ?? '';
+    if (searchParamsSnapshotRef.current === paramsText) {
+      return;
+    }
+    searchParamsSnapshotRef.current = paramsText;
+
+    const nextSearch = searchParams?.get('q') ?? '';
+    const nextStatusParam = (searchParams?.get('status') ?? '') as StatusFilter;
+    const nextShiftParam = (searchParams?.get('shift') ?? '') as ShiftFilter;
+    const validStatus = statusOptions.some((option) => option.value === nextStatusParam) ? nextStatusParam : '';
+    const validShift = shiftOptions.some((option) => option.value === nextShiftParam) ? nextShiftParam : '';
+
+    setSearchInput((current) => (current === nextSearch ? current : nextSearch));
+    setSearch((current) => (current === nextSearch ? current : nextSearch));
+    setStatus((current) => (current === validStatus ? current : validStatus));
+    setShift((current) => (current === validShift ? current : validShift));
+  }, [searchParams]);
+
+  React.useEffect(() => {
+    if (searchParamsSnapshotRef.current === null) {
+      return;
+    }
+
+    const current = new URLSearchParams(searchParamsSnapshotRef.current);
+    const trimmedSearch = search.trim();
+    let changed = false;
+
+    const applyParam = (key: string, value: string) => {
+      if (value) {
+        if (current.get(key) !== value) {
+          current.set(key, value);
+          changed = true;
+        }
+      } else if (current.has(key)) {
+        current.delete(key);
+        changed = true;
+      }
+    };
+
+    applyParam('q', trimmedSearch);
+    applyParam('status', status);
+    applyParam('shift', shift);
+
+    if (changed) {
+      const query = current.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    }
+  }, [search, status, shift, router, pathname]);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const tick = () => {
+      void fetchRoster({ silent: true });
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        tick();
+      }
+    };
+
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        tick();
+      }
+    }, 60_000);
+
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [fetchRoster]);
 
   const metrics = React.useMemo(() => {
     const trainers = new Set<string>();
@@ -261,8 +370,25 @@ export default function RosterClient() {
   }, []);
 
   const handleRefresh = React.useCallback(() => {
-    void fetchRoster();
+    void fetchRoster({ silent: false });
   }, [fetchRoster]);
+
+  const isRefreshing = refreshing && !loading;
+  const staleThresholdMs = 5 * 60_000;
+  const isStale = lastFetchedAt ? Date.now() - lastFetchedAt > staleThresholdMs : false;
+  const syncMessage = React.useMemo(() => {
+    if (loading) return 'A sincronizar escala…';
+    if (isRefreshing) return 'A actualizar dados…';
+    return describeLastSync(lastFetchedAt);
+  }, [loading, isRefreshing, lastFetchedAt]);
+
+  const badgeState = React.useMemo<'loading' | 'idle' | 'fresh' | 'stale' | 'warning' | 'danger'>(() => {
+    if (loading || isRefreshing) return 'loading';
+    if (!lastFetchedAt) return 'idle';
+    if (banner?.tone === 'danger') return 'danger';
+    if (banner?.tone === 'warning') return 'warning';
+    return isStale ? 'stale' : 'fresh';
+  }, [loading, isRefreshing, lastFetchedAt, banner, isStale]);
 
   return (
     <div className="admin-page neo-stack neo-stack--xl">
@@ -283,11 +409,21 @@ export default function RosterClient() {
               </span>
               <span className="btn__label">Ver aprovações</span>
             </Link>
-            <button type="button" className="btn" data-variant="ghost" onClick={handleRefresh} disabled={loading}>
+            <button
+              type="button"
+              className="btn"
+              data-variant="ghost"
+              onClick={handleRefresh}
+              disabled={loading || isRefreshing}
+            >
               <span className="btn__icon">
-                <RefreshCcw className="neo-icon neo-icon--sm" aria-hidden="true" />
+                {loading || isRefreshing ? (
+                  <span className="neo-spinner" aria-hidden="true" />
+                ) : (
+                  <RefreshCcw className="neo-icon neo-icon--sm" aria-hidden="true" />
+                )}
               </span>
-              <span className="btn__label">Actualizar</span>
+              <span className="btn__label">{loading || isRefreshing ? 'A sincronizar…' : 'Actualizar'}</span>
             </button>
           </div>
         )}
@@ -305,9 +441,19 @@ export default function RosterClient() {
             <h2 className="neo-panel__title">Indicadores principais</h2>
             <p className="neo-panel__subtitle">Resumo da distribuição actual de clientes por treinador.</p>
           </div>
-          <span className="admin-roster__badge" aria-live="polite">
-            {count} {count === 1 ? 'registo' : 'registos'} activos
-          </span>
+          <div className="admin-roster__summary" role="status" aria-live="polite">
+            <span className="admin-roster__countBadge">
+              {count} {count === 1 ? 'registo' : 'registos'} activos
+            </span>
+            <span className="admin-roster__badge" data-state={badgeState}>
+              {badgeState === 'loading' ? (
+                <span className="neo-spinner" aria-hidden="true" />
+              ) : (
+                <span className="admin-roster__badgeDot" data-state={badgeState} aria-hidden="true" />
+              )}
+              <span className="admin-roster__badgeText">{syncMessage}</span>
+            </span>
+          </div>
         </header>
 
         <div className="admin-roster__metrics">
@@ -367,7 +513,9 @@ export default function RosterClient() {
               onKeyDown={(event) => {
                 if (event.key === 'Enter') {
                   event.preventDefault();
-                  setSearch(event.currentTarget.value);
+                  const trimmedValue = event.currentTarget.value.trim();
+                  setSearch(trimmedValue);
+                  setSearchInput(event.currentTarget.value);
                 }
               }}
               autoComplete="off"
