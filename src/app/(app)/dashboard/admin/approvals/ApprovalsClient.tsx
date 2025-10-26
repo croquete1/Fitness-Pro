@@ -841,7 +841,6 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
         };
       });
 
-      setRows(mapped);
       const totalCountRaw =
         typeof payload.count === 'number' ? payload.count : Number(payload.count ?? Number.NaN);
       const safeCount = Number.isFinite(totalCountRaw) ? totalCountRaw : mapped.length;
@@ -863,6 +862,15 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
         setCountReliable(true);
         setSearchSampleSize(null);
       }
+      if (page > 0 && mapped.length === 0 && safeCount > 0) {
+        const lastPageIndex = Math.max(Math.ceil(safeCount / size) - 1, 0);
+        if (lastPageIndex < page) {
+          setRows([]);
+          setPage(lastPageIndex);
+          return;
+        }
+      }
+      setRows(mapped);
       if (payload.error) {
         setBanner({ severity: 'warning', message: 'Alguns pedidos podem não estar disponíveis neste momento.' });
       }
