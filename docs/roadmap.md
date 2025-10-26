@@ -160,6 +160,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Adicionar protecções de rate limiting e validações adicionais nas rotas sensíveis (limites por IP nas rotas de registo e notificações, com cabeçalhos `Retry-After` e `X-RateLimit-*`). Fontes: `src/lib/http/rateLimit.ts`, `src/app/api/register/route.ts`, `src/app/api/notifications/{list,mark-all-read,mark-read,mark-unread,unread}/route.ts`.
   - Actualização: todas as respostas destas rotas incluem agora `cache-control: no-store` juntamente com os cabeçalhos de rate limiting para evitar caches intermédias inconsistentes.
 - [ ] Introduzir testes automatizados (unitários/integrados) para ACL, logs e operações críticas.
+  - Cobertura inicial para o módulo de rate limiting e cabeçalhos de resposta críticos (`tests/unit/rateLimit.test.ts`, `npm run test:unit`).
 
 ## Fase 3 - Funcionalidades Futuras
 - [x] Finalizar módulo de facturação/pagamentos (UI `.neo` ligada à tabela `billing_invoices`, API `/api/billing/dashboard` e fallbacks determinísticos prontos para integração com gateway).

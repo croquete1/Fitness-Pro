@@ -86,3 +86,8 @@ export function buildRateLimitHeaders(info: RateLimitInfo): Record<string, strin
   }
   return headers;
 }
+
+/** @internal – exposto apenas para facilitar testes determinísticos. */
+export function resetRateLimitBuckets() {
+  BUCKETS.clear();
+}
