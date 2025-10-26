@@ -11,16 +11,22 @@ type Props = {
   size?: ButtonProps['size'];
   variant?: ButtonProps['variant'];
   className?: string;
+  disabled?: boolean;
 };
 
-export default function MarkAllRead({ size = 'sm', variant = 'secondary', className }: Props) {
+export default function MarkAllRead({
+  size = 'sm',
+  variant = 'secondary',
+  className,
+  disabled = false,
+}: Props) {
   const [isRefreshing, startTransition] = useTransition();
   const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
   const toast = useToast();
 
   async function onClick() {
-    if (submitting || isRefreshing) return;
+    if (disabled || submitting || isRefreshing) return;
     try {
       setSubmitting(true);
       const response = await fetch('/api/messages/mark-all-read', {
@@ -41,19 +47,21 @@ export default function MarkAllRead({ size = 'sm', variant = 'secondary', classN
   }
 
   const busy = submitting || isRefreshing;
+  const label = busy ? 'A marcar…' : disabled ? 'Tudo lido' : 'Marcar tudo como lido';
 
   return (
     <Button
       type="button"
       onClick={onClick}
       loading={busy}
+      disabled={disabled || busy}
       size={size}
       variant={variant}
       className={className}
       leftIcon={<CheckCheck size={16} aria-hidden />}
-      aria-label="Marcar todas as mensagens como lidas"
+      aria-label={label}
     >
-      {busy ? 'A marcar…' : 'Marcar tudo como lido'}
+      {label}
     </Button>
   );
 }
