@@ -2933,7 +2933,7 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
 .admin-notifications__tooltipList dt{font-weight:600;}
 .admin-notifications__tooltipList dd{margin:0;font-weight:600;color:var(--fg);}
 
-.admin-roster__badge{
+.admin-roster__countBadge{
   display:inline-flex;
   align-items:center;
   justify-content:center;
@@ -2944,6 +2944,86 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
   letter-spacing:0.02em;
   background:color-mix(in srgb, var(--accent) 12%, transparent);
   color:color-mix(in srgb, var(--accent) 78%, var(--fg) 22%);
+}
+
+.admin-roster__summary{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  align-items:flex-start;
+}
+@media (min-width: 640px){
+  .admin-roster__summary{
+    align-items:flex-end;
+    text-align:right;
+  }
+}
+
+.admin-roster__badge{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding:8px 16px;
+  border-radius:999px;
+  border:1px solid color-mix(in srgb, var(--border) 68%, transparent);
+  background:color-mix(in srgb, var(--card-bg) 92%, transparent 8%);
+  color:color-mix(in srgb, var(--muted-fg) 74%, var(--fg) 26%);
+  font-size:13px;
+  font-weight:600;
+  letter-spacing:0.02em;
+  white-space:nowrap;
+}
+
+.admin-roster__badge[data-state="fresh"]{
+  border-color:color-mix(in srgb, var(--success) 38%, transparent);
+  color:color-mix(in srgb, var(--success) 58%, var(--fg) 42%);
+}
+
+.admin-roster__badge[data-state="stale"],
+.admin-roster__badge[data-state="warning"]{
+  border-color:color-mix(in srgb, var(--warning) 42%, transparent);
+  color:color-mix(in srgb, var(--warning) 60%, var(--fg) 40%);
+}
+
+.admin-roster__badge[data-state="danger"]{
+  border-color:color-mix(in srgb, var(--danger) 46%, transparent);
+  color:color-mix(in srgb, var(--danger) 64%, var(--fg) 36%);
+}
+
+.admin-roster__badge[data-state="loading"]{
+  border-color:color-mix(in srgb, var(--primary) 42%, transparent);
+  color:color-mix(in srgb, var(--primary) 52%, var(--fg) 48%);
+}
+
+.admin-roster__badgeDot{
+  width:10px;
+  height:10px;
+  border-radius:999px;
+  background:var(--success);
+  box-shadow:0 0 0 4px color-mix(in srgb, var(--success) 24%, transparent);
+  transition:background var(--motion-fast) var(--motion-ease), box-shadow var(--motion-fast) var(--motion-ease);
+}
+
+.admin-roster__badgeDot[data-state="idle"]{
+  background:color-mix(in srgb, var(--muted-fg) 68%, transparent);
+  box-shadow:0 0 0 4px color-mix(in srgb, var(--muted-fg) 22%, transparent);
+}
+
+.admin-roster__badgeDot[data-state="stale"],
+.admin-roster__badgeDot[data-state="warning"]{
+  background:var(--warning);
+  box-shadow:0 0 0 4px color-mix(in srgb, var(--warning) 24%, transparent);
+}
+
+.admin-roster__badgeDot[data-state="danger"]{
+  background:var(--danger);
+  box-shadow:0 0 0 4px color-mix(in srgb, var(--danger) 28%, transparent);
+}
+
+.admin-roster__badgeText{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
 }
 
 .admin-roster__metrics{
@@ -2961,6 +3041,31 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
   flex-direction:column;
   gap:8px;
   min-height:120px;
+}
+.admin-roster__metric--shortcut{
+  all:unset;
+  border-radius:22px;
+  padding:20px 22px;
+  border:1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background:color-mix(in srgb, var(--card-bg) 92%, transparent 8%);
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  min-height:120px;
+  cursor:pointer;
+  transition:transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+.admin-roster__metric--shortcut:focus-visible{
+  outline:2px solid color-mix(in srgb, var(--primary) 55%, transparent);
+  outline-offset:3px;
+}
+.admin-roster__metric--shortcut:hover{
+  transform:translateY(-2px);
+  box-shadow:0 12px 32px color-mix(in srgb, var(--shadow) 8%, transparent);
+}
+.admin-roster__metric--shortcut[data-active="true"]{
+  border-color:color-mix(in srgb, var(--primary) 40%, transparent);
+  box-shadow:0 16px 40px color-mix(in srgb, var(--primary) 18%, transparent);
 }
 .admin-roster__metric[data-tone="success"]{
   border-color:color-mix(in srgb, var(--success) 42%, transparent);
