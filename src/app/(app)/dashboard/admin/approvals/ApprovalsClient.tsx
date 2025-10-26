@@ -39,6 +39,12 @@ import type {
 
 type Status = 'pending' | 'approved' | 'rejected' | string;
 
+type StatusTone = 'warning' | 'success' | 'danger' | 'info';
+
+type StatusMeta = { value: Status; label: string; tone: StatusTone };
+
+const CANONICAL_STATUS_ORDER: Status[] = ['pending', 'approved', 'rejected'];
+
 type Row = {
   id: string;
   user_id: string;
@@ -46,7 +52,7 @@ type Row = {
   name?: string | null;
   email?: string | null;
   requested_at?: string | null;
-  status?: Status | null;
+  status: Status;
   metadata?: Record<string, unknown> | null;
 };
 
@@ -70,6 +76,9 @@ type ApprovalsApiResponse = {
     approval_id?: string | number | null;
     member_id?: string | number | null;
     status?: string | null;
+    state?: string | null;
+    decision?: string | null;
+    outcome?: string | null;
     metadata?: Record<string, unknown> | null;
   }>;
   count?: number;
@@ -81,16 +90,75 @@ type ApprovalsApiResponse = {
 
 type Banner = { message: string; severity: 'info' | 'success' | 'warning' | 'error' };
 
-const statusCopy: Record<string, { label: string; tone: 'warning' | 'success' | 'danger' | 'neutral' }> = {
+const STATUS_FIELDS = ['status', 'state', 'decision', 'outcome'] as const;
+
+const statusCopy: Record<string, { label: string; tone: StatusTone }> = {
   pending: { label: 'Pendente', tone: 'warning' },
   approved: { label: 'Aprovado', tone: 'success' },
   rejected: { label: 'Rejeitado', tone: 'danger' },
 };
 
-function statusLabel(status?: Status | null) {
-  if (!status) return { label: '—', tone: 'neutral' as const };
-  const normalized = String(status).toLowerCase();
-  return statusCopy[normalized] ?? { label: status, tone: 'neutral' as const };
+function normaliseStatus(value?: Status | null): Status {
+  if (!value) return 'pending';
+  const raw = String(value).toLowerCase();
+  if (
+    raw.includes('reject') ||
+    raw.includes('deny') ||
+    raw.includes('suspend') ||
+    raw.includes('rejeit') ||
+    raw.includes('recus') ||
+    raw.includes('negad')
+  ) {
+    return 'rejected';
+  }
+  if (
+    raw.includes('approve') ||
+    raw === 'ok' ||
+    raw === 'accepted' ||
+    raw.includes('aprov') ||
+    raw.includes('aceit') ||
+    raw.includes('confirm')
+  ) {
+    return 'approved';
+  }
+  if (raw.includes('pend') || raw.includes('aguard') || raw.includes('analis')) {
+    return 'pending';
+  }
+  return raw;
+}
+
+function formatStatusLabel(value: string) {
+  return value
+    .split(/[^a-zA-Z0-9]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function statusLabel(status?: Status | null): StatusMeta {
+  const normalized = normaliseStatus(status);
+  const copy = statusCopy[normalized];
+  if (copy) {
+    return { value: normalized, label: copy.label, tone: copy.tone };
+  }
+  const label = formatStatusLabel(normalized);
+  return {
+    value: normalized,
+    label: label || '—',
+    tone: 'info',
+  };
+}
+
+function resolveRowStatus(row: Record<string, unknown> | null | undefined): Status {
+  if (!row || typeof row !== 'object') {
+    return 'pending';
+  }
+  for (const field of STATUS_FIELDS) {
+    if (field in row && row[field] != null) {
+      return normaliseStatus(row[field] as Status);
+    }
+  }
+  return 'pending';
 }
 
 function formatDate(value?: string | null) {
@@ -425,24 +493,31 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
   }, [count, countReliable, pageSizeValue, rows.length]);
 
   const metrics = React.useMemo(() => {
-    const counts = rows.reduce(
-      (acc, row) => {
-        const statusValue = String(row.status ?? 'pending').toLowerCase();
-        if (!statusValue || statusValue === 'pending') {
-          acc.pending += 1;
-        } else if (statusValue === 'approved') {
-          acc.approved += 1;
-        } else if (statusValue === 'rejected') {
-          acc.rejected += 1;
-        }
-        return acc;
-      },
-      { pending: 0, approved: 0, rejected: 0 },
-    );
+    const counts = new Map<Status, number>();
+    for (const row of rows) {
+      const meta = statusLabel(row.status);
+      counts.set(meta.value, (counts.get(meta.value) ?? 0) + 1);
+    }
+
+    const ordered: Array<{ id: Status; label: string; value: number; tone: StatusTone }> = [];
+
+    for (const status of CANONICAL_STATUS_ORDER) {
+      const meta = statusLabel(status);
+      const value = counts.get(meta.value) ?? 0;
+      counts.delete(meta.value);
+      ordered.push({ id: meta.value, label: meta.label, value, tone: meta.tone });
+    }
+
+    const extras = Array.from(counts.entries())
+      .map(([value, total]) => {
+        const meta = statusLabel(value);
+        return { id: meta.value, label: meta.label, value: total, tone: meta.tone };
+      })
+      .sort((a, b) => a.label.localeCompare(b.label, 'pt-PT'));
+
     return [
-      { id: 'pending', label: 'Pendentes', value: counts.pending, tone: 'warning' as const },
-      { id: 'approved', label: 'Aprovados', value: counts.approved, tone: 'success' as const },
-      { id: 'rejected', label: 'Rejeitados', value: counts.rejected, tone: 'danger' as const },
+      ...ordered,
+      ...extras,
       { id: 'total', label: 'Total página', value: rows.length, tone: 'info' as const },
     ];
   }, [rows]);
@@ -497,6 +572,31 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
     breached: 0,
   };
   const showInsightsSkeleton = insightsLoading && !insights;
+
+  const statusOptions = React.useMemo(() => {
+    const registry = new Map<Status, StatusMeta>();
+    CANONICAL_STATUS_ORDER.forEach((status) => {
+      const meta = statusLabel(status);
+      registry.set(meta.value, meta);
+    });
+    rows.forEach((row) => {
+      const meta = statusLabel(row.status);
+      registry.set(meta.value, meta);
+    });
+    statusSegments.forEach((segment) => {
+      const meta = statusLabel(segment.id as Status);
+      registry.set(meta.value, meta);
+    });
+    return Array.from(registry.values()).sort((a, b) => {
+      const orderA = CANONICAL_STATUS_ORDER.indexOf(a.value);
+      const orderB = CANONICAL_STATUS_ORDER.indexOf(b.value);
+      if (orderA !== orderB) {
+        return (orderA === -1 ? CANONICAL_STATUS_ORDER.length : orderA) -
+          (orderB === -1 ? CANONICAL_STATUS_ORDER.length : orderB);
+      }
+      return a.label.localeCompare(b.label, 'pt-PT');
+    });
+  }, [rows, statusSegments]);
 
   React.useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -554,7 +654,12 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
       params.set('page', String(page));
       params.set('pageSize', String(size));
       if (search) params.set('q', search);
-      if (status) params.set('status', status);
+      if (status) {
+        const normalizedStatus = statusLabel(status).value;
+        if (normalizedStatus) {
+          params.set('status', normalizedStatus);
+        }
+      }
 
       const response = await fetch(`/api/admin/approvals?${params.toString()}`, {
         cache: 'no-store',
@@ -600,7 +705,7 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
       }
 
       const mapped: Row[] = (payload.rows ?? []).map((row, index) => {
-        const statusValue = row?.status ? String(row.status).toLowerCase() : 'pending';
+        const statusValue = resolveRowStatus(row as Record<string, unknown>);
         const requestedAt =
           row?.requested_at ??
           row?.created_at ??
@@ -618,7 +723,7 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
           name: (row?.name ?? row?.full_name ?? row?.profile_name ?? null) as string | null,
           email: (row?.email ?? row?.user_email ?? null) as string | null,
           requested_at: requestedAt,
-          status: (statusValue || 'pending') as Status,
+          status: statusValue,
           metadata:
             row && typeof row === 'object' && row?.metadata && typeof row.metadata === 'object'
               ? (row.metadata as Record<string, unknown>)
@@ -733,14 +838,19 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
     const header = ['id', 'user_id', 'name', 'email', 'status', 'requested_at'];
     const lines = [
       header.join(','),
-      ...rows.map((row) => [
-        row.id,
-        row.user_id,
-        row.name ?? '',
-        row.email ?? '',
-        row.status ?? '',
-        row.requested_at ?? '',
-      ].map((value) => `"${String(value).replace(/"/g, '""')}"`).join(',')),
+      ...rows.map((row) => {
+        const statusMeta = statusLabel(row.status);
+        return [
+          row.id,
+          row.user_id,
+          row.name ?? '',
+          row.email ?? '',
+          statusMeta.label,
+          row.requested_at ?? '',
+        ]
+          .map((value) => `"${String(value).replace(/"/g, '""')}"`)
+          .join(',');
+      }),
     ].join('\n');
 
     const blob = new Blob([lines], { type: 'text/csv;charset=utf-8;' });
@@ -865,7 +975,7 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
           trainer_id: row.trainer_id,
           name: row.name,
           email: row.email,
-          status: row.status ?? 'pending',
+          status: row.status,
           requested_at: row.requested_at ?? undefined,
           metadata: row.metadata ?? undefined,
         }),
@@ -1037,9 +1147,11 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
               }}
             >
               <option value="">Todos</option>
-              <option value="pending">Pendentes</option>
-              <option value="approved">Aprovados</option>
-              <option value="rejected">Rejeitados</option>
+              {statusOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
           </label>
 
@@ -1132,7 +1244,7 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
               )}
 
               {!loading && rows.map((row) => {
-                const { label, tone } = statusLabel(row.status);
+                const meta = statusLabel(row.status);
                 return (
                   <tr key={row.id}>
                     <td data-title="Nome">
@@ -1145,7 +1257,9 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
                       <span className="neo-text--sm text-fg">{row.email ?? '—'}</span>
                     </td>
                     <td data-title="Estado">
-                      <span className="neo-table__status" data-state={tone}>{label}</span>
+                      <span className="neo-table__status" data-state={meta.tone} data-status={meta.value}>
+                        {meta.label}
+                      </span>
                     </td>
                     <td data-title="Pedido em">{row.requested_at ? formatDate(row.requested_at) : '—'}</td>
                     <td data-title="Acções" style={{ textAlign: 'right' }}>
