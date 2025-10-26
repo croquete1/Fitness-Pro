@@ -439,6 +439,7 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const searchParamsText = React.useMemo(() => searchParams.toString(), [searchParams]);
 
   const initial = React.useMemo(() => readParams(searchParams, pageSize), [searchParams, pageSize]);
 
@@ -449,6 +450,12 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
   const [searchInput, setSearchInput] = React.useState(initial.search);
   const [debouncedSearch, setDebouncedSearch] = React.useState(initial.search);
   const [feedback, setFeedback] = React.useState<Feedback>(null);
+  const filtersSnapshotRef = React.useRef<Pick<ParamsState, 'search' | 'role' | 'status' | 'pageSize'>>({
+    search: initial.search,
+    role: initial.role,
+    status: initial.status,
+    pageSize: initial.pageSize,
+  });
 
   React.useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -473,10 +480,33 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
     setStatus((prev) => (prev === initial.status ? prev : initial.status));
     setSearchInput((prev) => (prev === initial.search ? prev : initial.search));
     setDebouncedSearch((prev) => (prev === initial.search ? prev : initial.search));
+    filtersSnapshotRef.current = {
+      search: initial.search,
+      role: initial.role,
+      status: initial.status,
+      pageSize: initial.pageSize,
+    };
   }, [initial.page, initial.pageSize, initial.role, initial.status, initial.search]);
 
   React.useEffect(() => {
-    setPage(0);
+    const snapshot = filtersSnapshotRef.current;
+    if (
+      snapshot.search === debouncedSearch &&
+      snapshot.role === role &&
+      snapshot.status === status &&
+      snapshot.pageSize === pageSizeState
+    ) {
+      return;
+    }
+
+    filtersSnapshotRef.current = {
+      search: debouncedSearch,
+      role,
+      status,
+      pageSize: pageSizeState,
+    };
+
+    setPage((prev) => (prev === 0 ? prev : 0));
   }, [debouncedSearch, role, status, pageSizeState]);
 
   const queryState = React.useMemo<ParamsState>(
@@ -503,10 +533,52 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
     if (queryState.role !== 'all') params.set('role', queryState.role);
     if (queryState.status !== 'all') params.set('status', queryState.status);
     if (queryState.search.trim()) params.set('q', queryState.search.trim());
-    const query = params.toString();
-    const href = query ? `${pathname}?${query}` : pathname;
+
+    const nextQuery = params.toString();
+    const currentParams = new URLSearchParams(searchParamsText);
+    const currentPage = Number.parseInt(currentParams.get('page') ?? '0', 10);
+    if (!Number.isFinite(currentPage) || currentPage <= 0) {
+      currentParams.delete('page');
+    }
+
+    const legacyPerPage = currentParams.get('perPage');
+    const currentPageSizeRaw = currentParams.get('pageSize') ?? legacyPerPage ?? String(pageSize);
+    if (legacyPerPage) {
+      currentParams.delete('perPage');
+    }
+    const currentPageSize = Number.parseInt(currentPageSizeRaw, 10);
+    if (!Number.isFinite(currentPageSize) || currentPageSize === pageSize) {
+      currentParams.delete('pageSize');
+    } else {
+      currentParams.set('pageSize', String(currentPageSize));
+    }
+
+    const currentRole = currentParams.get('role');
+    if (!currentRole || currentRole === 'all') {
+      currentParams.delete('role');
+    }
+
+    const currentStatus = currentParams.get('status');
+    if (!currentStatus || currentStatus === 'all') {
+      currentParams.delete('status');
+    }
+
+    const currentSearch = currentParams.get('q');
+    if (!currentSearch || !currentSearch.trim()) {
+      currentParams.delete('q');
+    } else {
+      currentParams.set('q', currentSearch.trim());
+    }
+
+    const currentQuery = currentParams.toString();
+    const hasLegacyPerPage = searchParamsText.includes('perPage=');
+    if (!hasLegacyPerPage && currentQuery === nextQuery) {
+      return;
+    }
+
+    const href = nextQuery ? `${pathname}?${nextQuery}` : pathname;
     router.replace(href, { scroll: false });
-  }, [pathname, router, queryState, pageSize]);
+  }, [pathname, router, queryState, pageSize, searchParamsText]);
 
   const rows = React.useMemo(() => (listData?.rows ?? []).map(mapRow), [listData]);
   const totalRows = listData?.count ?? rows.length;

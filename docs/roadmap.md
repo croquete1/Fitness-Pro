@@ -42,6 +42,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Afinar a consola de utilizadores do admin com gráfico temporal escalado dinamicamente e percentagens precisas nas distribuições.
 - [x] Corrigir a timeline do roster administrativo garantindo marcação válida e carregamento sem erros.
 - [x] Blindar o gráfico temporal da consola de utilizadores contra violações das regras de hooks React, assegurando alturas consistentes mesmo com métricas incompletas. Fonte: `src/app/(app)/dashboard/admin/users/users.client.tsx`.
+- [x] Preservar a página seleccionada via query string na consola de utilizadores e evitar reescritas redundantes da pesquisa ao sincronizar filtros. Fonte: `src/app/(app)/dashboard/admin/users/users.client.tsx`.
 - [x] Recriar o painel de métricas do cliente no tema `.neo`, com integração Supabase, filtros temporais e gráficos interactivos (src/app/(app)/dashboard/clients/metrics/**/*).
 - [x] Reimaginar o módulo de sessões do cliente no tema `.neo`, com métricas, timeline, ranking de PT e gestão de pedidos ligada ao Supabase (src/app/(app)/dashboard/sessions/**/*).
 - [x] Reestruturar o painel de planos do cliente no tema `.neo`, com métricas reais, gráfico temporal, insights automáticos e fallback sincronizado com o Supabase (src/app/(app)/dashboard/plans/**/*, src/app/api/client/plans/dashboard/route.ts).
