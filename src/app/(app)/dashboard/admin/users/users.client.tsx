@@ -294,7 +294,12 @@ function mapRow(row: any): Row {
   return {
     id: deriveRowId(row),
     name: row.name?.trim() || row.full_name?.trim() || row.email?.trim() || 'Utilizador',
-    email: row.email ?? null,
+    email:
+      typeof row.email === 'string'
+        ? row.email.trim() || null
+        : typeof row.email === 'number'
+        ? String(row.email)
+        : null,
     roleKey,
     roleLabel: roleMeta.label,
     statusKey,
@@ -349,7 +354,10 @@ function OnlineBadge({ online }: { online: boolean }) {
 function TimelineChart({ data, loading }: { data: AdminUsersTimelinePoint[]; loading?: boolean }) {
   const timelineData = Array.isArray(data) ? data : [];
 
-  const { hasPositiveValues, safeMaxValue } = React.useMemo(() => {
+  const {
+    hasPositiveValues: timelineHasPositiveValues,
+    safeMaxValue: timelineSafeMaxValue,
+  } = React.useMemo(() => {
     const maxValue = timelineData.reduce((acc, point) => {
       const signups = typeof point.signups === 'number' ? point.signups : 0;
       const active = typeof point.active === 'number' ? point.active : 0;
@@ -364,17 +372,17 @@ function TimelineChart({ data, loading }: { data: AdminUsersTimelinePoint[]; loa
 
   const computeHeight = React.useCallback(
     (rawValue: number | null | undefined) => {
-      if (!hasPositiveValues) return 0;
+      if (!timelineHasPositiveValues) return 0;
 
       const value = typeof rawValue === 'number' ? rawValue : 0;
       if (value <= 0) return 0;
 
-      const ratio = (value / safeMaxValue) * 100;
+      const ratio = (value / timelineSafeMaxValue) * 100;
       const bounded = Math.min(Math.max(ratio, 0), 100);
       if (bounded === 0) return 0;
       return Math.max(bounded, 6);
     },
-    [hasPositiveValues, safeMaxValue],
+    [timelineHasPositiveValues, timelineSafeMaxValue],
   );
 
   if (loading) {
@@ -887,7 +895,13 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
   };
 
   const handleCopyEmails = async () => {
-    const emails = rows.map((row) => row.email).filter((value): value is string => Boolean(value));
+    const emails = Array.from(
+      new Set(
+        rows
+          .map((row) => (typeof row.email === 'string' ? row.email.trim() : null))
+          .filter((value): value is string => Boolean(value)),
+      ),
+    );
     if (!emails.length) {
       setFeedback({ tone: 'info', message: 'Não há emails disponíveis nesta página.' });
       return;
