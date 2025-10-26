@@ -1,7 +1,7 @@
 // src/app/(app)/dashboard/messages/parts/MarkAllRead.tsx
 'use client';
 
-import { useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckCheck } from 'lucide-react';
 import Button, { type ButtonProps } from '@/components/ui/Button';
@@ -14,13 +14,19 @@ type Props = {
 };
 
 export default function MarkAllRead({ size = 'sm', variant = 'secondary', className }: Props) {
-  const [pending, startTransition] = useTransition();
+  const [isRefreshing, startTransition] = useTransition();
+  const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
   const toast = useToast();
 
   async function onClick() {
+    if (submitting || isRefreshing) return;
     try {
-      const response = await fetch('/api/messages/mark-all-read', { method: 'POST' });
+      setSubmitting(true);
+      const response = await fetch('/api/messages/mark-all-read', {
+        method: 'POST',
+        credentials: 'include',
+      });
       if (!response.ok) {
         throw new Error('Não foi possível marcar as mensagens como lidas.');
       }
@@ -29,22 +35,25 @@ export default function MarkAllRead({ size = 'sm', variant = 'secondary', classN
       const message = error instanceof Error ? error.message : 'Não foi possível marcar como lidas.';
       toast.error(message);
     } finally {
+      setSubmitting(false);
       startTransition(() => router.refresh());
     }
   }
+
+  const busy = submitting || isRefreshing;
 
   return (
     <Button
       type="button"
       onClick={onClick}
-      loading={pending}
+      loading={busy}
       size={size}
       variant={variant}
       className={className}
       leftIcon={<CheckCheck size={16} aria-hidden />}
       aria-label="Marcar todas as mensagens como lidas"
     >
-      {pending ? 'A marcar…' : 'Marcar tudo como lido'}
+      {busy ? 'A marcar…' : 'Marcar tudo como lido'}
     </Button>
   );
 }
