@@ -936,7 +936,6 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
       if (page > 0 && mapped.length === 0 && safeCount > 0) {
         const lastPageIndex = Math.max(Math.ceil(safeCount / size) - 1, 0);
         if (lastPageIndex < page) {
-          setRows([]);
           setPage(lastPageIndex);
           return;
         }
