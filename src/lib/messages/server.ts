@@ -3,6 +3,25 @@ import { buildMessagesDashboard } from './dashboard';
 import type { MessageRecord, MessagesDashboardData } from './types';
 import { getMessagesDashboardFallback } from '@/lib/fallback/messages';
 
+const DAY_MS = 86_400_000;
+const MIN_RANGE = 7;
+const MAX_RANGE = 90;
+const MAX_LOOKBACK = 180;
+
+function clampRange(value: number | null | undefined): number {
+  if (!Number.isFinite(value ?? null)) return 14;
+  return Math.min(MAX_RANGE, Math.max(MIN_RANGE, Math.trunc(value ?? 14)));
+}
+
+function computeLookbackStart(rangeDays: number, now: Date = new Date()): Date {
+  const safeRange = clampRange(rangeDays);
+  const lookbackDays = Math.min(MAX_LOOKBACK, Math.max(safeRange * 2, safeRange + 14));
+  const lookbackMs = Math.max(DAY_MS, lookbackDays * DAY_MS);
+  const start = new Date(now.getTime() - lookbackMs);
+  start.setUTCHours(0, 0, 0, 0);
+  return start;
+}
+
 export type MessagesDashboardResponse = MessagesDashboardData & { ok: true; source: 'supabase' | 'fallback' };
 
 type MessageRow = {
@@ -36,19 +55,27 @@ function extractChannel(row: MessageRow): string | null {
 }
 
 export async function loadMessagesDashboard(viewerId: string, rangeDays = 14): Promise<MessagesDashboardResponse> {
-  const fallback = getMessagesDashboardFallback(viewerId, rangeDays);
+  const safeRange = clampRange(rangeDays);
+  const fallback = getMessagesDashboardFallback(viewerId, safeRange);
   const sb = tryCreateServerClient();
   if (!sb) {
     return { ...fallback, ok: true, source: 'fallback' };
   }
 
   try {
+    const lookbackStart = computeLookbackStart(safeRange);
+    const lookbackIso = lookbackStart.toISOString();
+    const nowMs = Date.now();
+    const daysBetween = Math.max(1, Math.round((nowMs - lookbackStart.getTime()) / DAY_MS));
+    const limit = Math.min(2000, Math.max(480, daysBetween * 24));
+
     const query = sb
       .from('messages')
       .select('id,body,sent_at,from_id,to_id,channel,status,read_at,reply_to_id,metadata')
       .or(`from_id.eq.${viewerId},to_id.eq.${viewerId}`)
+      .gte('sent_at', lookbackIso)
       .order('sent_at', { ascending: false })
-      .limit(480);
+      .limit(limit);
 
     const { data, error } = await query;
     if (error) throw error;
@@ -107,7 +134,7 @@ export async function loadMessagesDashboard(viewerId: string, rangeDays = 14): P
       return record;
     });
 
-    const dashboard = buildMessagesDashboard(records, { viewerId, rangeDays });
+    const dashboard = buildMessagesDashboard(records, { viewerId, rangeDays: safeRange });
     return { ...dashboard, ok: true, source: 'supabase' } satisfies MessagesDashboardResponse;
   } catch (error) {
     console.error('[messages-dashboard] erro ao carregar dados', error);

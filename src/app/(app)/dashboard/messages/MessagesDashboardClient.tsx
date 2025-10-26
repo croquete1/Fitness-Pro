@@ -60,16 +60,20 @@ function normalizeSearchTerm(value: string): string {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
+    .replace(/[^\p{Letter}\p{Number}]+/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
 function tokenizeSearchTerm(value: string): string[] {
   if (!value) return [];
-  return value
+  const unique = new Set<string>();
+  value
     .split(' ')
     .map((token) => token.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .forEach((token) => unique.add(token));
+  return Array.from(unique);
 }
 
 function matchesSearchTokens(haystack: string, tokens: string[]): boolean {
