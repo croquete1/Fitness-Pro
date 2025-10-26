@@ -3093,6 +3093,28 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
   gap:16px;
   grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
 }
+.admin-approvals__summary{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  max-width:100%;
+}
+.admin-approvals__refreshMeta{
+  font-size:12px;
+  color:var(--muted-fg);
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+}
+.admin-approvals__refreshMeta::before{
+  content:'';
+  display:inline-block;
+  width:6px;
+  height:6px;
+  border-radius:999px;
+  background:var(--neo-chart-success);
+  box-shadow:0 0 0 4px color-mix(in srgb, var(--neo-chart-success) 20%, transparent);
+}
 
 .admin-approvals__metric{
   border-radius:22px;
@@ -5653,6 +5675,22 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
   color:var(--danger);
   background:rgba(239,68,68,0.16);
   background:color-mix(in srgb, var(--danger) 16%, transparent);
+}
+.neo-table__status[data-state="success"]{
+  color:var(--success);
+  background:color-mix(in srgb, var(--success) 18%, transparent);
+}
+.neo-table__status[data-state="warning"]{
+  color:var(--warning);
+  background:color-mix(in srgb, var(--warning) 16%, transparent);
+}
+.neo-table__status[data-state="danger"]{
+  color:var(--danger);
+  background:color-mix(in srgb, var(--danger) 16%, transparent);
+}
+.neo-table__status[data-state="info"]{
+  color:color-mix(in srgb, var(--info) 82%, var(--fg) 18%);
+  background:color-mix(in srgb, var(--info) 18%, transparent);
 }
 .neo-table__actions{
   display:flex;
