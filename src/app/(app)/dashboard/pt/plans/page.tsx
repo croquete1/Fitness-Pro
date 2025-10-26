@@ -30,12 +30,63 @@ function formatLabel(date: Date) {
     .padStart(2, '0')}`;
 }
 
+function isAbortError(error: unknown) {
+  if (!error) return false;
+  if (error instanceof DOMException) {
+    return error.name === 'AbortError';
+  }
+  if (error instanceof Error) {
+    return error.name === 'AbortError';
+  }
+  return false;
+}
+
+async function readErrorMessage(response: Response) {
+  try {
+    const data = await response.json();
+    if (data && typeof data === 'object') {
+      const withMessage = data as { message?: unknown; error?: unknown };
+      const message = withMessage.message ?? withMessage.error;
+      if (typeof message === 'string' && message.trim()) {
+        return message.trim();
+      }
+    }
+  } catch (error) {
+    if (!isAbortError(error)) {
+      try {
+        const text = await response.text();
+        if (text.trim()) {
+          return text.trim();
+        }
+      } catch (innerError) {
+        if (isAbortError(innerError)) {
+          return null;
+        }
+      }
+    }
+    return null;
+  }
+
+  return null;
+}
+
+function coerceSessions(value: unknown): Sess[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((session): session is Sess => {
+    if (!session || typeof session !== 'object') return false;
+    const candidate = session as Partial<Sess>;
+    return typeof candidate.id === 'string' && typeof candidate.start_at === 'string';
+  });
+}
+
 export default function PlansBoardPage() {
   const [start, setStart] = React.useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [weeks, setWeeks] = React.useState(2);
   const [map, setMap] = React.useState<Record<string, Sess[]>>({});
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const abortRef = React.useRef<AbortController | null>(null);
+  const mountedRef = React.useRef(true);
 
   const days = React.useMemo(() => {
     const result: Date[] = [];
@@ -47,8 +98,22 @@ export default function PlansBoardPage() {
     return result;
   }, [start, weeks]);
 
+  React.useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+      abortRef.current?.abort();
+    };
+  }, []);
+
   const load = React.useCallback(async () => {
     if (!days.length) return;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    if (!mountedRef.current) {
+      controller.abort();
+      return;
+    }
+    abortRef.current = controller;
     setLoading(true);
     setError(null);
     try {
@@ -56,15 +121,36 @@ export default function PlansBoardPage() {
       const to = `${formatKey(days[days.length - 1])}T23:59:59.999Z`;
       const response = await fetch(`${API}?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, {
         cache: 'no-store',
+        signal: controller.signal,
       });
-      const payload = response.ok ? await response.json() : { items: [] };
-      const items: Sess[] = Array.isArray(payload.items)
-        ? payload.items
-        : Array.isArray(payload.data)
-        ? payload.data
-        : Array.isArray(payload.sessions)
-        ? payload.sessions
-        : [];
+
+      if (!response.ok) {
+        const message = await readErrorMessage(response);
+        throw new Error(message ?? `Falha ao carregar sessões (${response.status})`);
+      }
+
+      let payload: unknown;
+      try {
+        payload = await response.json();
+      } catch (parseError) {
+        throw new Error('Resposta inválida do servidor ao carregar sessões.');
+      }
+
+      const payloadObject =
+        payload && typeof payload === 'object'
+          ? (payload as { items?: unknown; data?: unknown; sessions?: unknown })
+          : {};
+      const itemsCandidates = [
+        Array.isArray(payload) ? payload : null,
+        payloadObject.items,
+        payloadObject.data,
+        payloadObject.sessions,
+      ];
+      const items = itemsCandidates.reduce<Sess[]>((selected, candidate) => {
+        if (selected.length > 0) return selected;
+        const normalized = coerceSessions(candidate);
+        return normalized.length > 0 ? normalized : selected;
+      }, []);
 
       const grouped: Record<string, Sess[]> = {};
       days.forEach((date) => {
@@ -72,7 +158,11 @@ export default function PlansBoardPage() {
       });
 
       items.forEach((session) => {
-        const key = formatKey(new Date(session.start_at));
+        const sessionDate = new Date(session.start_at);
+        if (Number.isNaN(sessionDate.getTime())) {
+          return;
+        }
+        const key = formatKey(sessionDate);
         if (!grouped[key]) {
           grouped[key] = [];
         }
@@ -83,12 +173,21 @@ export default function PlansBoardPage() {
         grouped[key].sort((a, b) => a.order_index - b.order_index || a.start_at.localeCompare(b.start_at));
       });
 
-      setMap(grouped);
-    } catch (err: any) {
-      setError(err?.message ?? 'Falha ao carregar sessões.');
+      if (!controller.signal.aborted && mountedRef.current) {
+        setMap(grouped);
+      }
+    } catch (err: unknown) {
+      if (controller.signal.aborted || !mountedRef.current || isAbortError(err)) {
+        return;
+      }
+      const message = err instanceof Error && err.message ? err.message : 'Falha ao carregar sessões.';
+      setError(message);
       setMap({});
     } finally {
-      setLoading(false);
+      if (mountedRef.current && abortRef.current === controller) {
+        setLoading(false);
+        abortRef.current = null;
+      }
     }
   }, [days]);
 
