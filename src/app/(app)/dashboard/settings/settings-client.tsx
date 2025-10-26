@@ -1545,7 +1545,7 @@ export default function SettingsClient({
       {fallbackActive ? (
         <div className="settings-fallback-banner">
           <Alert tone="warning" title="A mostrar dados de referência">
-            Não foi possível ligar ao Supabase. Estás a ver métricas de demonstração.
+            Não foi possível ligar ao servidor. Estás a ver métricas de demonstração.
           </Alert>
         </div>
       ) : null}

@@ -220,13 +220,13 @@ export default function AuditLogClient() {
 
       {usingFallback && (
         <Alert tone="warning" className="audit-log-dashboard__alert" title="A mostrar dados determinísticos">
-          Não foi possível sincronizar com o Supabase. Estás a ver uma amostra consistente para continuar a análise.
+          Não foi possível sincronizar com o servidor. Estás a ver uma amostra consistente para continuar a análise.
         </Alert>
       )}
 
       {missingTable && (
         <Alert tone="danger" className="audit-log-dashboard__alert" title="Tabela de auditoria em falta">
-          Garante que a extensão de auditoria está ativa na tua instância do Supabase e volta a sincronizar.
+          Garante que a extensão de auditoria está ativa na tua instância da base de dados e volta a sincronizar.
         </Alert>
       )}
 
@@ -429,7 +429,7 @@ export default function AuditLogClient() {
               </span>
               <p className="audit-log-dashboard__emptyTitle">Não foi possível carregar os eventos</p>
               <p className="audit-log-dashboard__emptyDescription">
-                Tenta novamente. Se o erro persistir confirma as permissões do Supabase.
+                Tenta novamente. Se o erro persistir confirma as permissões do servidor.
               </p>
               <Button variant="ghost" onClick={() => mutateList()}>
                 Tentar novamente

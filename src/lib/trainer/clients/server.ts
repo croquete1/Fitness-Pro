@@ -367,7 +367,7 @@ export async function loadTrainerClientOverview(trainerId: string): Promise<Trai
       metrics: buildMetrics(rows),
     } satisfies TrainerClientOverview;
   } catch (error) {
-    console.error('[trainer-clients] fallback devido a erro Supabase', error);
+    console.error('[trainer-clients] fallback devido a erro no servidor', error);
     return mapFallbackRows(trainerId);
   }
 }

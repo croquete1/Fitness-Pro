@@ -36,7 +36,7 @@ export function describeDataSourceRelative(iso: string | null | undefined): stri
 export default function DataSourceBadge({ source, generatedAt, className }: DataSourceBadgeProps) {
   if (!source) return null;
   const tone = source === "supabase" ? "ok" : "warn";
-  const label = source === "supabase" ? "Supabase em tempo real" : "Dados determinísticos";
+  const label = source === "supabase" ? "Sincronizado com o servidor" : "Dados determinísticos";
   const relative = describeDataSourceRelative(generatedAt);
   return (
     <span className={clsx("neo-data-badge", className)} data-tone={tone} role="status">

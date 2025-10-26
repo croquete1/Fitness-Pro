@@ -47,7 +47,7 @@ export default async function AdminHistoryPage() {
 
   if (!tableChecked && !errorMessage) {
     errorMessage =
-      'Tabela de auditoria não encontrada. Garante que executaste o script SQL para criar a audit_log no Supabase.';
+      'Tabela de auditoria não encontrada. Garante que executaste o script SQL para criar a audit_log no servidor.';
   }
 
   return (

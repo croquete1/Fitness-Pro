@@ -13,7 +13,7 @@ export async function GET() {
   } catch (err) {
     if (err instanceof MissingSupabaseEnvError) {
       return NextResponse.json(
-        { message: 'Supabase não está configurado.' },
+        { message: 'Servidor não está configurado.' },
         { status: 503 }
       );
     }

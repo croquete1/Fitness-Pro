@@ -417,7 +417,7 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
 
       {isFallback ? (
         <Alert tone="warning" title="A mostrar dados de demonstração">
-          Não foi possível sincronizar com o Supabase. Estás a ver dados determinísticos para manter a experiência operacional.
+          Não foi possível sincronizar com o servidor. Estás a ver dados determinísticos para manter a experiência operacional.
         </Alert>
       ) : null}
 

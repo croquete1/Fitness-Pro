@@ -356,7 +356,7 @@ export default function PlanDetailClient({
 
       {fallback ? (
         <Alert tone="warning" title="Modo offline" className="plan-detail__alert">
-          A apresentar dados de exemplo enquanto não conseguimos ligar ao Supabase.
+          A apresentar dados de exemplo enquanto não conseguimos ligar ao servidor.
         </Alert>
       ) : null}
 

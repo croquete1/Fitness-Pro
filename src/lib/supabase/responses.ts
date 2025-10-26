@@ -6,7 +6,7 @@ const NO_STORE_HEADER = { 'cache-control': 'no-store' } as const;
 export function supabaseConfigErrorResponse(err: unknown) {
   if (err instanceof MissingSupabaseEnvError) {
     return NextResponse.json(
-      { message: 'Supabase não está configurado.' },
+      { message: 'Servidor não está configurado.' },
       { status: 503 }
     );
   }
@@ -15,7 +15,7 @@ export function supabaseConfigErrorResponse(err: unknown) {
 
 export function supabaseUnavailableResponse() {
   return NextResponse.json(
-    { message: 'Supabase não está configurado.' },
+    { message: 'Servidor não está configurado.' },
     { status: 503, headers: NO_STORE_HEADER }
   );
 }

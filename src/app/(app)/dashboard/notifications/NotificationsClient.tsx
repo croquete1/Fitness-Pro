@@ -262,7 +262,7 @@ export default function NotificationsClient({ initialRows, initialTotal, metrics
               data-tone={metrics.supabase ? 'success' : 'warning'}
               aria-live="polite"
             >
-              {metrics.supabase ? 'Sincronizado com Supabase' : 'Modo demonstração'}
+              {metrics.supabase ? 'Sincronizado com o servidor' : 'Modo demonstração'}
             </span>
             <span className="notifications-dashboard__lastDelivery">
               Última entrega: {formatRelative(metrics.lastDeliveryAt)}

@@ -84,7 +84,7 @@ export function useNotificationItems({ limit = 8 }: Options = {}): Result {
       setItems(fallbackSnapshot.items);
       setSource('fallback');
       setSyncedAt(fallbackSnapshot.generatedAt ?? new Date().toISOString());
-      setError('Sem ligação ao Supabase — a mostrar dados determinísticos.');
+      setError('Sem ligação ao servidor — a mostrar dados determinísticos.');
       headerCounts.setCounts({ notificationsCount: fallbackSnapshot.unreadCount });
     } finally {
       setLoading(false);

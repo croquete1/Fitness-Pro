@@ -329,7 +329,7 @@ export default function SystemMetricsClient({ initialData, initialRange }: Props
             <p className="neo-panel__subtitle">Resumo imediato da utilização e estado financeiro.</p>
           </div>
           <span className="system-metrics__source" data-source={dashboard.source}>
-            {isFallback ? 'Dados de demonstração' : 'Sincronizado via Supabase'}
+            {isFallback ? 'Dados de demonstração' : 'Sincronizado via servidor'}
           </span>
         </div>
         <div className="system-metrics__heroGrid">

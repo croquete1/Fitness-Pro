@@ -20,7 +20,7 @@ function buildFallbackDataset(now: Date): SystemHealthDashboardInput {
     {
       id: 'core-api',
       name: 'Core API',
-      summary: 'Gateway Node + Supabase PostgREST a servir o backend principal.',
+      summary: 'Gateway Node + API REST dedicada a servir o backend principal.',
       state: 'ok',
       latencyMs: 210,
       uptimePercent: 99.92,
@@ -29,9 +29,9 @@ function buildFallbackDataset(now: Date): SystemHealthDashboardInput {
       updatedAt: minutesAgo(now, 3),
     },
     {
-      id: 'supabase',
-      name: 'Supabase',
-      summary: 'Base de dados, storage e autenticação partilhada.',
+      id: 'primary-db',
+      name: 'Base de dados principal',
+      summary: 'Base de dados, armazenamento e autenticação partilhada.',
       state: 'ok',
       latencyMs: 280,
       uptimePercent: 99.88,

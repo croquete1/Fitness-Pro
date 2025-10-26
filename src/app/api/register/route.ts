@@ -102,7 +102,7 @@ export async function POST(req: Request) {
   } catch (err: any) {
     if (err instanceof MissingSupabaseEnvError) {
       return NextResponse.json(
-        { message: 'Configuração do Supabase em falta.' },
+        { message: 'Configuração do servidor em falta.' },
         { status: 503, headers },
       );
     }

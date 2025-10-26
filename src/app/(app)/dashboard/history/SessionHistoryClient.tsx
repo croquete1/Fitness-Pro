@@ -329,7 +329,7 @@ export default function SessionHistoryClient({ data, role, supabase, viewerName 
         </div>
         <div className="history-dashboard__meta neo-inline neo-inline--wrap neo-inline--sm">
           <span className="history-dashboard__badge" data-state={supabase ? 'live' : 'demo'}>
-            {supabase ? 'Dados em tempo real via Supabase' : 'Dados demonstrativos — configure o Supabase'}
+            {supabase ? 'Dados em tempo real via servidor' : 'Dados demonstrativos — configure a ligação ao servidor'}
           </span>
           {greetingName ? <span>Olá, {greetingName}! 👋</span> : null}
           <span>Atualizado em {formatDateTime(generatedAt.toISOString())}</span>
@@ -593,7 +593,7 @@ export default function SessionHistoryClient({ data, role, supabase, viewerName 
                   Registos detalhados
                 </h2>
                 <p className="neo-text--sm neo-text--muted">
-                  Mostramos até {data.rows.length} entradas mais recentes recebidas do Supabase.
+                  Mostramos até {data.rows.length} entradas mais recentes recebidas do servidor.
                 </p>
               </div>
               <div className="history-dashboard__legend neo-inline neo-inline--sm">

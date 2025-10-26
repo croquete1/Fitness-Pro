@@ -200,7 +200,7 @@ export default function MotivationAdminCard() {
       </div>
 
       <p className="admin-motivation__hint">
-        Quando o Supabase estiver configurado, estas frases serão sincronizadas automaticamente com a base de dados.
+        Quando o servidor estiver configurado, estas frases serão sincronizadas automaticamente com a base de dados.
       </p>
 
       <ul className="admin-motivation__list">

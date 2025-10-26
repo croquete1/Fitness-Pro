@@ -251,7 +251,7 @@ export default function HeaderSearch() {
             <span className="neo-text--sm neo-text--semibold">Resultados rápidos</span>
             {source && (
               <span className="neo-tag" data-tone={source === 'supabase' ? 'success' : 'neutral'}>
-                {source === 'supabase' ? 'Supabase · tempo real' : 'Modo offline'}
+                {source === 'supabase' ? 'Servidor · tempo real' : 'Modo offline'}
               </span>
             )}
           </header>

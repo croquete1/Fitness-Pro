@@ -224,7 +224,7 @@ export default function AdminOnboardingListClient({ initialRows }: Props) {
     <div className="neo-stack neo-stack--lg admin-onboarding">
       <PageHeader
         title="Onboarding físico"
-        subtitle="Avaliações de entrada sincronizadas via Supabase com estados e timestamps reais."
+        subtitle="Avaliações de entrada sincronizadas via servidor com estados e timestamps reais."
         actions={(
           <div className="neo-inline neo-inline--sm neo-inline--end">
             <OpenInNewToggle checked={openInNew} onChange={setOpenInNew} label="Abrir revisão em nova aba" />
@@ -358,7 +358,7 @@ export default function AdminOnboardingListClient({ initialRows }: Props) {
                   <td colSpan={5}>
                     <div className="neo-table-empty">
                       {rows.length === 0
-                        ? 'Ainda não existem formulários de onboarding registados no Supabase.'
+                        ? 'Ainda não existem formulários de onboarding registados no servidor.'
                         : 'Nenhum formulário corresponde aos filtros aplicados.'}
                     </div>
                   </td>

@@ -162,7 +162,7 @@ export default function NewSessionPage() {
         setClientMeta({
           source: 'fallback',
           fetchedAt: new Date().toISOString(),
-          error: error?.message ?? 'Falha a carregar clientes do Supabase.',
+          error: error?.message ?? 'Falha a carregar clientes do servidor.',
         });
       }
     }
@@ -190,7 +190,7 @@ export default function NewSessionPage() {
         setSessionMeta({
           source: 'fallback',
           fetchedAt: new Date().toISOString(),
-          error: error?.message ?? 'Falha a carregar métricas de sessões do Supabase.',
+          error: error?.message ?? 'Falha a carregar métricas de sessões do servidor.',
         });
       } finally {
         setLoading(false);
@@ -401,7 +401,7 @@ export default function NewSessionPage() {
                   onChange={(event) => setField('duration', Number(event.target.value))}
                   required
                 />
-                <p className="neo-input-hint">Usado para validar conflitos na agenda do Supabase.</p>
+                <p className="neo-input-hint">Usado para validar conflitos na agenda do servidor.</p>
                 {errors.duration ? <p className="neo-input-error">{errors.duration}</p> : null}
               </div>
             </div>

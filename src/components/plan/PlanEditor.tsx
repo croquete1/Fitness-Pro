@@ -158,7 +158,7 @@ function ExercisePicker({ onPick }: { onPick: (ex: ExerciseLite) => void }) {
       </div>
 
       <p className="plan-editor__pickerHint">
-        Pesquisa alimentada pela API de exercícios do Supabase. Mínimo de 2 caracteres.
+        Pesquisa alimentada pela API de exercícios do servidor. Mínimo de 2 caracteres.
       </p>
 
       {loading && (

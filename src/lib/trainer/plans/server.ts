@@ -98,7 +98,7 @@ export async function loadTrainerPlansDashboard(trainerId: string): Promise<Load
     .limit(360);
 
   if (error) {
-    console.error('[trainer-plans] falha ao sincronizar Supabase', error);
+    console.error('[trainer-plans] falha ao sincronizar com o servidor', error);
     return { ...fallback, ok: true, source: 'fallback' };
   }
 

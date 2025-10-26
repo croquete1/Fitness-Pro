@@ -117,7 +117,7 @@ export default function MyPlanClient({ initialData, defaultRange }: Props) {
 
       {payload.fallback ? (
         <Alert tone="warning" title="Modo offline">
-          A mostrar dados de exemplo enquanto a ligação ao Supabase não está disponível.
+          A mostrar dados de exemplo enquanto a ligação ao servidor não está disponível.
         </Alert>
       ) : null}
 

@@ -172,7 +172,7 @@ export default function SearchClient({
     [],
   );
 
-  const statusLabel = data.source === 'supabase' ? 'Dados em tempo real (Supabase)' : 'Modo offline';
+  const statusLabel = data.source === 'supabase' ? 'Dados em tempo real (servidor)' : 'Modo offline';
   const statusState = data.source === 'supabase' ? 'ok' : 'warn';
 
   const timelineData = React.useMemo(

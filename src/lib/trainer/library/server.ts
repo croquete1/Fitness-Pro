@@ -91,7 +91,7 @@ export async function loadTrainerLibraryDashboard(trainerId: string): Promise<Tr
     personal = Array.isArray(personalData) ? (personalData as Row[]) : [];
     catalog = Array.isArray(catalogData) ? (catalogData as Row[]) : [];
   } catch (error) {
-    console.error('[trainer-library] falha ao carregar dados do Supabase', error);
+    console.error('[trainer-library] falha ao carregar dados do servidor', error);
     return { ...fallback, ok: true, source: 'fallback' };
   }
 

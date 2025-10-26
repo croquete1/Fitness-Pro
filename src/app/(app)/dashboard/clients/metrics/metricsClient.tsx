@@ -557,7 +557,7 @@ export default function MetricsClient({ initialRows, initialSummary, initialTime
               Evolução física
             </h1>
             <p className="client-metrics__heroSubtitle">
-              Acompanha o progresso com dados reais provenientes do Supabase e ajusta planos de treino e nutrição em tempo real.
+              Acompanha o progresso com dados reais provenientes do servidor e ajusta planos de treino e nutrição em tempo real.
             </p>
           </div>
           <div className="client-metrics__heroMeta">
@@ -571,7 +571,7 @@ export default function MetricsClient({ initialRows, initialSummary, initialTime
         </div>
         {fallbackActive && (
           <Alert tone="warning" title="A mostrar dados de referência">
-            Não foi possível ligar ao Supabase. O painel apresenta um conjunto de exemplo até a ligação ser restabelecida.
+            Não foi possível ligar ao servidor. O painel apresenta um conjunto de exemplo até a ligação ser restabelecida.
           </Alert>
         )}
         {remoteError && (

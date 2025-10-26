@@ -251,7 +251,7 @@ export default function AdminClientsClient({ initialData }: Props) {
         <div className="neo-alert neo-alert--info" role="status">
           <div className="neo-alert__content">
             <strong>Modo offline.</strong>
-            <p>Estamos a mostrar dados de demonstração até a ligação ao Supabase ficar disponível.</p>
+            <p>Estamos a mostrar dados de demonstração até a ligação ao servidor ficar disponível.</p>
           </div>
         </div>
       )}

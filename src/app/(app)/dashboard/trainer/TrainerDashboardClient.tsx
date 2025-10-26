@@ -993,7 +993,7 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
 
       {error && (
         <Alert tone="danger" className="trainer-dashboard__alert" title="Sincronização falhou">
-          {error.message || 'Não foi possível ligar ao Supabase. A mostrar dados locais.'}
+          {error.message || 'Não foi possível ligar ao servidor. A mostrar dados locais.'}
         </Alert>
       )}
 

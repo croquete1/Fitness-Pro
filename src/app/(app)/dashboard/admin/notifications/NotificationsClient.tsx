@@ -699,7 +699,7 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
             />
             <span className="admin-notifications__dataset neo-text--xs neo-text--muted">
               {showInsightsSkeleton ? 'A sincronizar métricas…' : datasetSummary}
-              {supabaseOnline ? ' Supabase activo.' : ' Modo determinístico.'}
+              {supabaseOnline ? ' Servidor activo.' : ' Modo determinístico.'}
             </span>
           </div>
         </div>

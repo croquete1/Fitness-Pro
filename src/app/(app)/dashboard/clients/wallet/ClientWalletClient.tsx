@@ -263,7 +263,7 @@ export default function ClientWalletClient({ initialData, initialRange }: Props)
 
       {dashboard.source === 'fallback' ? (
         <Alert tone="warning" title="A mostrar dados de referência.">
-          Não foi possível ligar ao Supabase — a apresentar os últimos dados em cache.
+          Não foi possível ligar ao servidor — a apresentar os últimos dados em cache.
         </Alert>
       ) : null}
 

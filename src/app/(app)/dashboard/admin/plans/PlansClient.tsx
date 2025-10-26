@@ -350,7 +350,7 @@ export default function PlansClient() {
           </div>
           <div className="admin-plans__status" role="status">
             <span className="status-pill" data-state={supabaseOnline ? 'ok' : 'warn'}>
-              {supabaseOnline ? 'Supabase ligado' : 'Modo offline'}
+              {supabaseOnline ? 'Ligação activa ao servidor' : 'Modo offline'}
             </span>
             {insights?.latestUpdate && (
               <span className="admin-plans__statusHint">
@@ -398,7 +398,7 @@ export default function PlansClient() {
             <strong className="admin-plans__metricValue">
               {insightsLoading ? <Spinner size={18} /> : numberFormatter.format(insights?.createdThisMonth ?? 0)}
             </strong>
-            <span className="admin-plans__metricHint">dados Supabase</span>
+            <span className="admin-plans__metricHint">dados do servidor</span>
           </article>
         </div>
 

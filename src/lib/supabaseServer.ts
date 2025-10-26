@@ -18,14 +18,14 @@ const SERVICE =
 
 export class MissingSupabaseEnvError extends Error {
   constructor() {
-    super('Supabase env vars em falta (URL e/ou chave).');
+    super('Variáveis do servidor em falta (URL e/ou chave).');
     this.name = 'MissingSupabaseEnvError';
   }
 }
 
 export class MissingSupabaseServiceRoleKeyError extends Error {
   constructor() {
-    super('Supabase service role key em falta.');
+    super('Chave de serviço do servidor em falta.');
     this.name = 'MissingSupabaseServiceRoleKeyError';
   }
 }

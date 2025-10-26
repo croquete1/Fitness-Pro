@@ -137,7 +137,7 @@ export default function PTExercisesClient({ exercises, supabase }: Props) {
           </div>
           <div className="pt-exercises__status" role="status">
             <span className="status-pill" data-state={supabase ? 'ok' : 'warn'}>
-              {supabase ? 'Supabase ligado' : 'Modo offline' }
+              {supabase ? 'Ligação activa ao servidor' : 'Modo offline' }
             </span>
             {totals.latest ? (
               <span className="pt-exercises__statusHint">Última actualização {formatRelative(totals.latest)}</span>
@@ -256,7 +256,7 @@ export default function PTExercisesClient({ exercises, supabase }: Props) {
 
       {!supabase && (
         <Alert tone="warning" title="Dados de exemplo">
-          A ligação ao Supabase não esteve disponível. A mostrar uma amostra curada de exercícios para manter a produtividade.
+          A ligação ao servidor não esteve disponível. A mostrar uma amostra curada de exercícios para manter a produtividade.
         </Alert>
       )}
     </div>

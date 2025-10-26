@@ -279,7 +279,7 @@ export default function UsersClient({ initialData, viewerName }: Props) {
               </span>
             ) : (
               <span className="users-dashboard__sync users-dashboard__sync--ok">
-                {isLoading ? 'A sincronizar…' : 'Sincronizado com Supabase'}
+                {isLoading ? 'A sincronizar…' : 'Sincronizado com o servidor'}
               </span>
             )}
           </div>
