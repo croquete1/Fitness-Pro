@@ -5654,6 +5654,22 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
   background:rgba(239,68,68,0.16);
   background:color-mix(in srgb, var(--danger) 16%, transparent);
 }
+.neo-table__status[data-state="success"]{
+  color:var(--success);
+  background:color-mix(in srgb, var(--success) 18%, transparent);
+}
+.neo-table__status[data-state="warning"]{
+  color:var(--warning);
+  background:color-mix(in srgb, var(--warning) 16%, transparent);
+}
+.neo-table__status[data-state="danger"]{
+  color:var(--danger);
+  background:color-mix(in srgb, var(--danger) 16%, transparent);
+}
+.neo-table__status[data-state="info"]{
+  color:color-mix(in srgb, var(--info) 82%, var(--fg) 18%);
+  background:color-mix(in srgb, var(--info) 18%, transparent);
+}
 .neo-table__actions{
   display:flex;
   justify-content:flex-end;
