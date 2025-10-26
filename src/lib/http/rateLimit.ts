@@ -18,6 +18,52 @@ type RateLimitOptions = {
 
 const DEFAULT_IDENTIFIER = 'anonymous';
 
+function sanitizeAddressToken(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  let token = raw.trim();
+  if (!token) return null;
+
+  if (token.startsWith('"') && token.endsWith('"') && token.length > 1) {
+    token = token.slice(1, -1).trim();
+  }
+  if (!token || token.toLowerCase() === 'unknown') return null;
+
+  if (token.startsWith('[')) {
+    const closing = token.indexOf(']');
+    if (closing > 0) {
+      const ipv6 = token.slice(1, closing).trim();
+      return ipv6 || null;
+    }
+    return null;
+  }
+
+  if (token.includes(':') && token.includes('.')) {
+    const lastColon = token.lastIndexOf(':');
+    if (lastColon > -1) {
+      token = token.slice(0, lastColon).trim();
+    }
+  }
+
+  return token || null;
+}
+
+function parseForwardedHeader(headerValue: string | null): string | null {
+  if (!headerValue) return null;
+
+  for (const entry of headerValue.split(',')) {
+    const segments = entry.split(';');
+    for (const segment of segments) {
+      const trimmed = segment.trim();
+      if (!trimmed.toLowerCase().startsWith('for=')) continue;
+
+      const ip = sanitizeAddressToken(trimmed.slice(4));
+      if (ip) return ip;
+    }
+  }
+
+  return null;
+}
+
 function cleanupIfExpired(key: string, now: number) {
   const entry = BUCKETS.get(key);
   if (!entry) return;
@@ -30,13 +76,17 @@ export function getRequestFingerprint(request: Request): string {
   const forwarded = request.headers.get('x-forwarded-for');
   if (forwarded) {
     const [first] = forwarded.split(',');
-    const ip = first?.trim();
+    const ip = sanitizeAddressToken(first);
     if (ip) return ip;
   }
+  const forwardedStd = parseForwardedHeader(request.headers.get('forwarded'));
+  if (forwardedStd) return forwardedStd;
   const real = request.headers.get('x-real-ip');
-  if (real) return real.trim();
+  const realIp = sanitizeAddressToken(real);
+  if (realIp) return realIp;
   const cf = request.headers.get('cf-connecting-ip');
-  if (cf) return cf.trim();
+  const cfIp = sanitizeAddressToken(cf);
+  if (cfIp) return cfIp;
   const remoteAddr = (request as unknown as { ip?: string | null }).ip;
   if (typeof remoteAddr === 'string' && remoteAddr.trim().length > 0) {
     return remoteAddr.trim();
