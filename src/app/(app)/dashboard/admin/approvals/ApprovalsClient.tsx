@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -39,6 +40,19 @@ import type {
 
 type Status = 'pending' | 'approved' | 'rejected' | string;
 
+type StatusTone = 'warning' | 'success' | 'danger' | 'info';
+
+type StatusMeta = { value: Status; label: string; tone: StatusTone };
+
+const CANONICAL_STATUS_ORDER: Status[] = ['pending', 'approved', 'rejected'];
+
+function canonicaliseStatusFilter(value?: string | null): Status | '' {
+  if (!value) return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  return statusLabel(trimmed).value;
+}
+
 type Row = {
   id: string;
   user_id: string;
@@ -46,7 +60,7 @@ type Row = {
   name?: string | null;
   email?: string | null;
   requested_at?: string | null;
-  status?: Status | null;
+  status: Status;
   metadata?: Record<string, unknown> | null;
 };
 
@@ -70,27 +84,89 @@ type ApprovalsApiResponse = {
     approval_id?: string | number | null;
     member_id?: string | number | null;
     status?: string | null;
+    state?: string | null;
+    decision?: string | null;
+    outcome?: string | null;
     metadata?: Record<string, unknown> | null;
   }>;
   count?: number;
   _supabaseConfigured?: boolean;
   error?: string;
+  _searchFallback?: boolean;
+  searchSampleSize?: number;
 };
 
 type Banner = { message: string; severity: 'info' | 'success' | 'warning' | 'error' };
 
-type UndoState = { row: Row; timer?: number } | null;
+const STATUS_FIELDS = ['status', 'state', 'decision', 'outcome'] as const;
 
-const statusCopy: Record<string, { label: string; tone: 'warning' | 'success' | 'danger' | 'neutral' }> = {
+const statusCopy: Record<string, { label: string; tone: StatusTone }> = {
   pending: { label: 'Pendente', tone: 'warning' },
   approved: { label: 'Aprovado', tone: 'success' },
   rejected: { label: 'Rejeitado', tone: 'danger' },
 };
 
-function statusLabel(status?: Status | null) {
-  if (!status) return { label: '—', tone: 'neutral' as const };
-  const normalized = String(status).toLowerCase();
-  return statusCopy[normalized] ?? { label: status, tone: 'neutral' as const };
+function normaliseStatus(value?: Status | null): Status {
+  if (!value) return 'pending';
+  const raw = String(value).toLowerCase();
+  if (
+    raw.includes('reject') ||
+    raw.includes('deny') ||
+    raw.includes('suspend') ||
+    raw.includes('rejeit') ||
+    raw.includes('recus') ||
+    raw.includes('negad')
+  ) {
+    return 'rejected';
+  }
+  if (
+    raw.includes('approve') ||
+    raw === 'ok' ||
+    raw === 'accepted' ||
+    raw.includes('aprov') ||
+    raw.includes('aceit') ||
+    raw.includes('confirm')
+  ) {
+    return 'approved';
+  }
+  if (raw.includes('pend') || raw.includes('aguard') || raw.includes('analis')) {
+    return 'pending';
+  }
+  return raw;
+}
+
+function formatStatusLabel(value: string) {
+  return value
+    .split(/[^a-zA-Z0-9]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function statusLabel(status?: Status | null): StatusMeta {
+  const normalized = normaliseStatus(status);
+  const copy = statusCopy[normalized];
+  if (copy) {
+    return { value: normalized, label: copy.label, tone: copy.tone };
+  }
+  const label = formatStatusLabel(normalized);
+  return {
+    value: normalized,
+    label: label || '—',
+    tone: 'info',
+  };
+}
+
+function resolveRowStatus(row: Record<string, unknown> | null | undefined): Status {
+  if (!row || typeof row !== 'object') {
+    return 'pending';
+  }
+  for (const field of STATUS_FIELDS) {
+    if (field in row && row[field] != null) {
+      return normaliseStatus(row[field] as Status);
+    }
+  }
+  return 'pending';
 }
 
 function formatDate(value?: string | null) {
@@ -118,6 +194,40 @@ function toneForBanner(severity: Banner['severity']) {
     default:
       return 'info';
   }
+}
+
+function formatCount(value?: number | null) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return numberFormatter.format(value);
+  }
+  return '0';
+}
+
+function formatHours(value?: number | null) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return hourFormatter.format(value);
+  }
+  return '—';
+}
+
+function makeFilenameSegment(value: string) {
+  return value
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/(^-|-$)/g, '')
+    .toLowerCase();
+}
+
+function escapeHtml(raw: unknown) {
+  return String(raw ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
@@ -280,19 +390,27 @@ function BacklogList({ rows }: { rows: AdminApprovalBacklogRow[] }) {
   }
   return (
     <ul className="admin-approvals__backlog" role="list">
-      {rows.map((row) => (
-        <li key={row.id} className="admin-approvals__backlogItem">
-          <div className="admin-approvals__backlogMeta">
-            <span className="admin-approvals__backlogName">{row.name ?? 'Utilizador sem nome'}</span>
-            <span className="admin-approvals__backlogId">ID: {row.userId ?? row.id}</span>
-            <span className="admin-approvals__backlogSince">Pedido em {formatDate(row.requestedAt)}</span>
-          </div>
-          <div className="admin-approvals__backlogWaiting">
-            <strong>{hourFormatter.format(row.waitingHours)}h</strong>
-            <span className="neo-text--xs neo-text--muted">em fila</span>
-          </div>
-        </li>
-      ))}
+      {rows.map((row) => {
+        const waiting = formatHours(row.waitingHours);
+        return (
+          <li key={row.id} className="admin-approvals__backlogItem">
+            <div className="admin-approvals__backlogMeta">
+              <span className="admin-approvals__backlogName">{row.name ?? 'Utilizador sem nome'}</span>
+              <span className="admin-approvals__backlogId">ID: {row.userId ?? row.id}</span>
+              <span className="admin-approvals__backlogSince">Pedido em {formatDate(row.requestedAt)}</span>
+            </div>
+            <div className="admin-approvals__backlogWaiting">
+              <strong>
+                {waiting}
+                {waiting !== '—' ? 'h' : ''}
+              </strong>
+              <span className="neo-text--xs neo-text--muted">
+                {waiting !== '—' ? 'em fila' : 'Sem SLA calculado'}
+              </span>
+            </div>
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -307,42 +425,43 @@ function ReviewersList({ reviewers }: { reviewers: AdminApprovalReviewerStat[] }
   }
   return (
     <ul className="admin-approvals__reviewers" role="list">
-      {reviewers.map((reviewer) => (
-        <li key={reviewer.id} className="admin-approvals__reviewer">
-          <div>
-            <span className="admin-approvals__reviewerName">{reviewer.name}</span>
-            <span className="admin-approvals__reviewerCount">
-              {numberFormatter.format(reviewer.approvals)} aprovações
+      {reviewers.map((reviewer) => {
+        const slaHours = formatHours(reviewer.avgSlaHours);
+        return (
+          <li key={reviewer.id} className="admin-approvals__reviewer">
+            <div>
+              <span className="admin-approvals__reviewerName">{reviewer.name}</span>
+              <span className="admin-approvals__reviewerCount">
+                {formatCount(reviewer.approvals)} aprovações
+              </span>
+            </div>
+            <span className="admin-approvals__reviewerSla">
+              {slaHours !== '—' ? `${slaHours}h SLA` : 'SLA n/d'}
             </span>
-          </div>
-          <span className="admin-approvals__reviewerSla">
-            {reviewer.avgSlaHours != null ? `${hourFormatter.format(reviewer.avgSlaHours)}h SLA` : 'SLA n/d'}
-          </span>
-        </li>
-      ))}
+          </li>
+        );
+      })}
     </ul>
   );
 }
 
 function SlaCard({ sla }: { sla: AdminApprovalSlaOverview }) {
+  const average = formatHours(sla.averageHours);
+  const percentile90 = formatHours(sla.percentile90Hours);
   return (
     <div className="admin-approvals__sla">
       <div className="admin-approvals__slaPrimary">
         <span className="admin-approvals__slaLabel">SLA médio</span>
         <strong className="admin-approvals__slaValue">
-          {sla.averageHours != null ? `${hourFormatter.format(sla.averageHours)}h` : '—'}
+          {average !== '—' ? `${average}h` : '—'}
         </strong>
         <span className="admin-approvals__slaDetail">
-          90º percentil: {sla.percentile90Hours != null ? `${hourFormatter.format(sla.percentile90Hours)}h` : '—'}
+          90º percentil: {percentile90 !== '—' ? `${percentile90}h` : '—'}
         </span>
       </div>
       <div className="admin-approvals__slaSplit">
-        <span data-tone="positive">
-          {numberFormatter.format(sla.within24h)} dentro de 24h
-        </span>
-        <span data-tone="danger">
-          {numberFormatter.format(sla.breached)} &gt; 24h
-        </span>
+        <span data-tone="positive">{formatCount(sla.within24h)} dentro de 24h</span>
+        <span data-tone="danger">{formatCount(sla.breached)} &gt; 24h</span>
       </div>
     </div>
   );
@@ -350,35 +469,79 @@ function SlaCard({ sla }: { sla: AdminApprovalSlaOverview }) {
 
 export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }) {
   const toast = useToast();
-  const [q, setQ] = React.useState('');
-  const [status, setStatus] = React.useState('');
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const initialQuery = searchParams.get('q') ?? '';
+  const initialStatus = searchParams.get('status');
+  const initialPageParam = Number.parseInt(searchParams.get('page') ?? '', 10);
+  const initialPageSizeParam = Number.parseInt(searchParams.get('pageSize') ?? '', 10);
+  const [q, setQ] = React.useState(initialQuery);
+  const [status, setStatus] = React.useState<Status | ''>(() =>
+    canonicaliseStatusFilter(initialStatus),
+  );
+  const [debouncedQ, setDebouncedQ] = React.useState(initialQuery.trim());
   const [rows, setRows] = React.useState<Row[]>([]);
   const [count, setCount] = React.useState(0);
-  const [page, setPage] = React.useState(0);
-  const [pageSizeState, setPageSizeState] = React.useState(pageSize);
+  const [countReliable, setCountReliable] = React.useState(true);
+  const [searchSampleSize, setSearchSampleSize] = React.useState<number | null>(null);
+  const [page, setPage] = React.useState(
+    Number.isFinite(initialPageParam) && initialPageParam > 0 ? initialPageParam - 1 : 0,
+  );
+  const [pageSizeState, setPageSizeState] = React.useState(() => {
+    if (Number.isFinite(initialPageSizeParam) && PAGE_SIZE_OPTIONS.includes(initialPageSizeParam)) {
+      return initialPageSizeParam;
+    }
+    return pageSize;
+  });
   const [loading, setLoading] = React.useState(false);
   const [banner, setBanner] = React.useState<Banner | null>(null);
   const [openInNew, setOpenInNew] = React.useState(false);
-  const undoRef = React.useRef<UndoState>(null);
-  const [, forceUpdate] = React.useReducer((n) => n + 1, 0);
+  const [undoState, setUndoState] = React.useState<{ row: Row; index: number } | null>(null);
+  const activeFetchRef = React.useRef<AbortController | null>(null);
+  const lastFetchIdRef = React.useRef(0);
+  const undoTimerRef = React.useRef<number | null>(null);
   const [insights, setInsights] = React.useState<AdminApprovalsDashboardData | null>(null);
   const [insightsLoading, setInsightsLoading] = React.useState(false);
   const [insightsError, setInsightsError] = React.useState<string | null>(null);
 
+  const pageSizeValue = React.useMemo(
+    () => (pageSizeState > 0 ? pageSizeState : pageSize),
+    [pageSizeState, pageSize],
+  );
+
   const totalPages = React.useMemo(() => {
-    const size = pageSizeState > 0 ? pageSizeState : pageSize;
-    const pages = Math.ceil((count || 0) / size);
+    const baseTotal = countReliable ? count : Math.max(count, rows.length);
+    const pages = Math.ceil((baseTotal || rows.length || 0) / pageSizeValue);
     return pages > 0 ? pages : 1;
-  }, [count, pageSizeState, pageSize]);
+  }, [count, countReliable, pageSizeValue, rows.length]);
 
   const metrics = React.useMemo(() => {
-    const pending = rows.filter((row) => (row.status ?? 'pending').toLowerCase() === 'pending').length;
-    const approved = rows.filter((row) => (row.status ?? '').toLowerCase() === 'approved').length;
-    const rejected = rows.filter((row) => (row.status ?? '').toLowerCase() === 'rejected').length;
+    const counts = new Map<Status, number>();
+    for (const row of rows) {
+      const meta = statusLabel(row.status);
+      counts.set(meta.value, (counts.get(meta.value) ?? 0) + 1);
+    }
+
+    const ordered: Array<{ id: Status; label: string; value: number; tone: StatusTone }> = [];
+
+    for (const status of CANONICAL_STATUS_ORDER) {
+      const meta = statusLabel(status);
+      const value = counts.get(meta.value) ?? 0;
+      counts.delete(meta.value);
+      ordered.push({ id: meta.value, label: meta.label, value, tone: meta.tone });
+    }
+
+    const extras = Array.from(counts.entries())
+      .map(([value, total]) => {
+        const meta = statusLabel(value);
+        return { id: meta.value, label: meta.label, value: total, tone: meta.tone };
+      })
+      .sort((a, b) => a.label.localeCompare(b.label, 'pt-PT'));
+
     return [
-      { id: 'pending', label: 'Pendentes', value: pending, tone: 'warning' as const },
-      { id: 'approved', label: 'Aprovados', value: approved, tone: 'success' as const },
-      { id: 'rejected', label: 'Rejeitados', value: rejected, tone: 'danger' as const },
+      ...ordered,
+      ...extras,
       { id: 'total', label: 'Total página', value: rows.length, tone: 'info' as const },
     ];
   }, [rows]);
@@ -434,25 +597,181 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
   };
   const showInsightsSkeleton = insightsLoading && !insights;
 
+  const statusOptions = React.useMemo(() => {
+    const registry = new Map<Status, StatusMeta>();
+    CANONICAL_STATUS_ORDER.forEach((status) => {
+      const meta = statusLabel(status);
+      registry.set(meta.value, meta);
+    });
+    if (status) {
+      const meta = statusLabel(status);
+      registry.set(meta.value, meta);
+    }
+    rows.forEach((row) => {
+      const meta = statusLabel(row.status);
+      registry.set(meta.value, meta);
+    });
+    statusSegments.forEach((segment) => {
+      const meta = statusLabel(segment.id as Status);
+      registry.set(meta.value, meta);
+    });
+    return Array.from(registry.values()).sort((a, b) => {
+      const orderA = CANONICAL_STATUS_ORDER.indexOf(a.value);
+      const orderB = CANONICAL_STATUS_ORDER.indexOf(b.value);
+      if (orderA !== orderB) {
+        return (orderA === -1 ? CANONICAL_STATUS_ORDER.length : orderA) -
+          (orderB === -1 ? CANONICAL_STATUS_ORDER.length : orderB);
+      }
+      return a.label.localeCompare(b.label, 'pt-PT');
+    });
+  }, [rows, status, statusSegments]);
+
+  React.useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setDebouncedQ((prev) => {
+        const trimmed = q.trim();
+        return prev === trimmed ? prev : trimmed;
+      });
+    }, 250);
+    return () => window.clearTimeout(handle);
+  }, [q]);
+
+  React.useEffect(() => {
+    const nextQuery = searchParams.get('q') ?? '';
+    if (nextQuery !== q) {
+      setQ(nextQuery);
+    }
+    const trimmed = nextQuery.trim();
+    if (trimmed !== debouncedQ) {
+      setDebouncedQ(trimmed);
+    }
+    const statusParam = searchParams.get('status');
+    const canonicalStatus = canonicaliseStatusFilter(statusParam);
+    if (canonicalStatus !== status) {
+      setStatus(canonicalStatus);
+    }
+    const pageParam = Number.parseInt(searchParams.get('page') ?? '', 10);
+    const nextPage = Number.isFinite(pageParam) && pageParam > 0 ? pageParam - 1 : 0;
+    if (nextPage !== page) {
+      setPage(nextPage);
+    }
+    const pageSizeParam = Number.parseInt(searchParams.get('pageSize') ?? '', 10);
+    const nextSize =
+      Number.isFinite(pageSizeParam) && PAGE_SIZE_OPTIONS.includes(pageSizeParam)
+        ? pageSizeParam
+        : pageSize;
+    if (nextSize !== pageSizeState) {
+      setPageSizeState(nextSize);
+    }
+  }, [pageSize, searchParams]);
+
+  const lastSyncedQueryRef = React.useRef<string>('');
+
+  React.useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    const queryValue = debouncedQ.trim();
+    if (queryValue) {
+      params.set('q', queryValue);
+    } else {
+      params.delete('q');
+    }
+    const canonicalStatus = canonicaliseStatusFilter(status);
+    if (canonicalStatus) {
+      params.set('status', canonicalStatus);
+    } else {
+      params.delete('status');
+    }
+    const pageParam = page + 1;
+    if (pageParam > 1) {
+      params.set('page', String(pageParam));
+    } else {
+      params.delete('page');
+    }
+    if (pageSizeState !== pageSize) {
+      params.set('pageSize', String(pageSizeState));
+    } else {
+      params.delete('pageSize');
+    }
+    const nextString = params.toString();
+    if (nextString === searchParams.toString()) {
+      lastSyncedQueryRef.current = nextString;
+      return;
+    }
+    if (lastSyncedQueryRef.current === nextString) {
+      return;
+    }
+    lastSyncedQueryRef.current = nextString;
+    router.replace(`${pathname}${nextString ? `?${nextString}` : ''}`, { scroll: false });
+  }, [debouncedQ, page, pageSize, pageSizeState, pathname, router, searchParams, status]);
+
+  const pageSummary = React.useMemo(() => {
+    if (!rows.length) {
+      return loading ? 'A carregar pedidos…' : 'Nenhum pedido listado.';
+    }
+    const start = page * pageSizeValue + 1;
+    const end = start + rows.length - 1;
+    const hasValidTotal = countReliable && Number.isFinite(count) && count > 0;
+    const total = hasValidTotal ? count : end;
+    const safeStart = hasValidTotal ? Math.min(start, Math.max(1, total - rows.length + 1)) : start;
+    const safeEnd = hasValidTotal ? Math.min(total, Math.max(safeStart, end)) : end;
+    const baseLabel = `A mostrar ${numberFormatter.format(safeStart)} – ${numberFormatter.format(safeEnd)} de ${numberFormatter.format(
+      Math.max(total, rows.length),
+    )} pedidos.`;
+    const limitedSuffix = countReliable
+      ? ''
+      : ` Resultados limitados${
+          searchSampleSize != null ? ` a ${numberFormatter.format(searchSampleSize)} registos avaliados` : ''
+        }.`;
+    const label = `${baseLabel}${limitedSuffix}`;
+    return loading ? `${label} (a actualizar…)` : label;
+  }, [count, countReliable, loading, page, pageSizeValue, rows.length, searchSampleSize]);
+
+  const undoLabel = React.useMemo(() => {
+    if (!undoState?.row) return '';
+    const label = undoState.row.name ?? undoState.row.email ?? undoState.row.user_id ?? '';
+    return typeof label === 'string' ? label : String(label);
+  }, [undoState]);
+
   const fetchRows = React.useCallback(async () => {
-    const search = q.trim();
+    const controller = new AbortController();
+    const fetchId = lastFetchIdRef.current + 1;
+    lastFetchIdRef.current = fetchId;
+    if (activeFetchRef.current) {
+      activeFetchRef.current.abort();
+    }
+    activeFetchRef.current = controller;
+
+    const search = debouncedQ.trim();
+    const size = pageSizeValue;
     setLoading(true);
     setBanner(null);
     try {
       const params = new URLSearchParams();
       params.set('page', String(page));
-      params.set('pageSize', String(pageSizeState));
+      params.set('pageSize', String(size));
       if (search) params.set('q', search);
-      if (status) params.set('status', status);
+      if (status) {
+        const normalizedStatus = canonicaliseStatusFilter(status);
+        if (normalizedStatus) {
+          params.set('status', normalizedStatus);
+        }
+      }
 
       const response = await fetch(`/api/admin/approvals?${params.toString()}`, {
         cache: 'no-store',
         credentials: 'same-origin',
+        signal: controller.signal,
       });
+
+      if (controller.signal.aborted || fetchId !== lastFetchIdRef.current) {
+        return;
+      }
 
       if (response.status === 401 || response.status === 403) {
         setRows([]);
         setCount(0);
+        setCountReliable(true);
+        setSearchSampleSize(null);
         setBanner({
           severity: 'warning',
           message: 'Sessão expirada — autentica-te novamente para gerir os pedidos reais.',
@@ -465,9 +784,15 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
       }
 
       const payload = (await response.json()) as ApprovalsApiResponse;
+      if (controller.signal.aborted || fetchId !== lastFetchIdRef.current) {
+        return;
+      }
+
       if (payload._supabaseConfigured === false) {
         setRows([]);
         setCount(0);
+        setCountReliable(true);
+        setSearchSampleSize(null);
         setBanner({
           severity: 'info',
           message: 'Supabase não está configurado — assim que ligares a base de dados, os pedidos reais vão aparecer aqui.',
@@ -476,7 +801,7 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
       }
 
       const mapped: Row[] = (payload.rows ?? []).map((row, index) => {
-        const statusValue = row?.status ? String(row.status).toLowerCase() : 'pending';
+        const statusValue = resolveRowStatus(row as Record<string, unknown>);
         const requestedAt =
           row?.requested_at ??
           row?.created_at ??
@@ -486,7 +811,7 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
         const rawId = row?.id ?? row?.approval_id ?? row?.user_id ?? row?.uid ?? row?.user ?? row?.member_id ?? '';
         const userIdSource = row?.user_id ?? row?.uid ?? row?.user ?? row?.member_id ?? rawId;
         const trainerIdSource = row?.trainer_id ?? row?.coach_id ?? null;
-        
+
         return {
           id: String(rawId || `pending-${index}`),
           user_id: String(userIdSource ?? ''),
@@ -494,7 +819,7 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
           name: (row?.name ?? row?.full_name ?? row?.profile_name ?? null) as string | null,
           email: (row?.email ?? row?.user_email ?? null) as string | null,
           requested_at: requestedAt,
-          status: (statusValue || 'pending') as Status,
+          status: statusValue,
           metadata:
             row && typeof row === 'object' && row?.metadata && typeof row.metadata === 'object'
               ? (row.metadata as Record<string, unknown>)
@@ -503,24 +828,58 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
       });
 
       setRows(mapped);
-      setCount(payload.count ?? mapped.length);
+      const totalCountRaw =
+        typeof payload.count === 'number' ? payload.count : Number(payload.count ?? Number.NaN);
+      const safeCount = Number.isFinite(totalCountRaw) ? totalCountRaw : mapped.length;
+      setCount(safeCount);
+      if (payload._searchFallback) {
+        const sample =
+          typeof payload.searchSampleSize === 'number' && Number.isFinite(payload.searchSampleSize)
+            ? payload.searchSampleSize
+            : mapped.length;
+        setCountReliable(false);
+        setSearchSampleSize(sample);
+        setBanner({
+          severity: 'info',
+          message: `Pesquisa compatível aplicada localmente — analisados ${numberFormatter.format(
+            sample,
+          )} registos. Resultados podem estar limitados até ${numberFormatter.format(safeCount)} entradas.`,
+        });
+      } else {
+        setCountReliable(true);
+        setSearchSampleSize(null);
+      }
       if (payload.error) {
         setBanner({ severity: 'warning', message: 'Alguns pedidos podem não estar disponíveis neste momento.' });
       }
     } catch (error: any) {
+      if (controller.signal.aborted || fetchId !== lastFetchIdRef.current) {
+        return;
+      }
       setRows([]);
       setCount(0);
+      setCountReliable(true);
+      setSearchSampleSize(null);
+      const message = error?.name === 'AbortError' ? null : error?.message;
       setBanner({
         severity: 'error',
-        message: error?.message || 'Falha ao carregar pedidos de aprovação. Tenta novamente em instantes.',
+        message: message || 'Falha ao carregar pedidos de aprovação. Tenta novamente em instantes.',
       });
     } finally {
-      setLoading(false);
+      if (activeFetchRef.current === controller) {
+        activeFetchRef.current = null;
+      }
+      if (!controller.signal.aborted && fetchId === lastFetchIdRef.current) {
+        setLoading(false);
+      }
     }
-  }, [page, pageSizeState, q, status]);
+  }, [debouncedQ, page, pageSizeValue, status]);
 
   React.useEffect(() => {
     void fetchRows();
+    return () => {
+      activeFetchRef.current?.abort();
+    };
   }, [fetchRows]);
 
   React.useEffect(() => {
@@ -530,29 +889,41 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
   }, [loadInsights]);
 
   React.useEffect(() => {
-    const size = pageSizeState > 0 ? pageSizeState : pageSize;
-    const pages = Math.ceil((count || 0) / size);
+    const baseTotal = countReliable ? count : Math.max(count, rows.length);
+    const pages = Math.ceil((baseTotal || rows.length || 0) / pageSizeValue);
     if (page >= pages && pages > 0) {
       setPage(Math.max(0, pages - 1));
     }
-  }, [count, page, pageSizeState, pageSize]);
+  }, [count, countReliable, page, pageSizeValue, rows.length]);
 
-  React.useEffect(() => () => {
-    if (undoRef.current?.timer) {
-      window.clearTimeout(undoRef.current.timer);
+  React.useEffect(
+    () => () => {
+      activeFetchRef.current?.abort();
+      if (undoTimerRef.current != null) {
+        window.clearTimeout(undoTimerRef.current);
+        undoTimerRef.current = null;
+      }
+    },
+    [],
+  );
+
+  const clearUndo = React.useCallback(() => {
+    if (undoTimerRef.current != null) {
+      window.clearTimeout(undoTimerRef.current);
+      undoTimerRef.current = null;
     }
+    setUndoState(null);
   }, []);
 
-  const scheduleUndoClear = React.useCallback(() => {
-    if (undoRef.current?.timer) {
-      window.clearTimeout(undoRef.current.timer);
+  const queueUndo = React.useCallback((row: Row, index: number) => {
+    if (undoTimerRef.current != null) {
+      window.clearTimeout(undoTimerRef.current);
     }
-    if (undoRef.current) {
-      undoRef.current.timer = window.setTimeout(() => {
-        undoRef.current = null;
-        forceUpdate();
-      }, 6000);
-    }
+    setUndoState({ row, index });
+    undoTimerRef.current = window.setTimeout(() => {
+      setUndoState(null);
+      undoTimerRef.current = null;
+    }, 6000);
   }, []);
 
   const exportCSV = React.useCallback(() => {
@@ -563,25 +934,34 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
     const header = ['id', 'user_id', 'name', 'email', 'status', 'requested_at'];
     const lines = [
       header.join(','),
-      ...rows.map((row) => [
-        row.id,
-        row.user_id,
-        row.name ?? '',
-        row.email ?? '',
-        row.status ?? '',
-        row.requested_at ?? '',
-      ].map((value) => `"${String(value).replace(/"/g, '""')}"`).join(',')),
+      ...rows.map((row) => {
+        const statusMeta = statusLabel(row.status);
+        return [
+          row.id,
+          row.user_id,
+          row.name ?? '',
+          row.email ?? '',
+          statusMeta.label,
+          row.requested_at ?? '',
+        ]
+          .map((value) => `"${String(value).replace(/"/g, '""')}"`)
+          .join(',');
+      }),
     ].join('\n');
 
     const blob = new Blob([lines], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `approvals${status ? `-${status}` : ''}${q ? `-q-${q}` : ''}.csv`;
+    const safeStatus = status ? makeFilenameSegment(status) : '';
+    const safeQuery = debouncedQ ? makeFilenameSegment(debouncedQ) : '';
+    const statusSuffix = safeStatus ? `-${safeStatus}` : '';
+    const searchSuffix = safeQuery ? `-q-${safeQuery}` : '';
+    a.download = `approvals${statusSuffix}${searchSuffix}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success('Exportação iniciada.');
-  }, [rows, status, q, toast]);
+  }, [rows, status, debouncedQ, toast]);
 
   const printList = React.useCallback(() => {
     if (!rows.length) {
@@ -590,15 +970,19 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
     }
     const win = window.open('', '_blank', 'noopener,noreferrer,width=1000,height=700');
     if (!win) return;
-    const body = rows.map((row) => {
-      const cells = [
-        row.name ?? '',
-        row.email ?? '',
-        statusLabel(row.status).label,
-        row.requested_at ? formatDate(row.requested_at) : '',
-      ].map((cell) => `<td>${String(cell)}</td>`).join('');
-      return `<tr>${cells}</tr>`;
-    }).join('');
+    const body = rows
+      .map((row) => {
+        const cells = [
+          row.name ?? '',
+          row.email ?? '',
+          statusLabel(row.status).label,
+          row.requested_at ? formatDate(row.requested_at) : '',
+        ]
+          .map((cell) => `<td>${escapeHtml(cell)}</td>`)
+          .join('');
+        return `<tr>${cells}</tr>`;
+      })
+      .join('');
 
     const html = `<!doctype html>
 <html lang="pt-PT">
@@ -645,60 +1029,67 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
   const deleteRow = React.useCallback(async (row: Row) => {
     if (!window.confirm(`Remover pedido de ${row.email || row.name || row.id}?`)) return;
 
-    setRows((prev) => prev.filter((item) => item.id !== row.id));
-    const previousUndo = undoRef.current;
-    if (previousUndo?.timer) window.clearTimeout(previousUndo.timer);
-    undoRef.current = { row };
-    forceUpdate();
-    scheduleUndoClear();
+    let originalIndex = 0;
+    setRows((prev) => {
+      const index = prev.findIndex((item) => item.id === row.id);
+      originalIndex = index === -1 ? prev.length : index;
+      queueUndo(row, originalIndex);
+      return prev.filter((item) => item.id !== row.id);
+    });
 
     try {
       const res = await fetch(`/api/admin/approvals/${row.id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error(await res.text());
       toast.info('Pedido removido.');
       void loadInsights();
+      void fetchRows();
     } catch (error: any) {
       toast.error(error?.message || 'Falha ao remover pedido.');
-      undoRef.current = null;
-      forceUpdate();
-      setRows((prev) => [row, ...prev]);
+      clearUndo();
+      setRows((prev) => {
+        const next = [...prev];
+        next.splice(Math.min(originalIndex, next.length), 0, row);
+        return next;
+      });
     }
-  }, [loadInsights, scheduleUndoClear, toast]);
+  }, [clearUndo, fetchRows, loadInsights, queueUndo, toast]);
 
   const undoDelete = React.useCallback(async () => {
-    const state = undoRef.current;
-    if (!state) return;
-    if (state.timer) {
-      window.clearTimeout(state.timer);
+    if (!undoState) return;
+    const { row, index } = undoState;
+    if (undoTimerRef.current != null) {
+      window.clearTimeout(undoTimerRef.current);
+      undoTimerRef.current = null;
     }
-    undoRef.current = null;
-    forceUpdate();
+    setUndoState(null);
     try {
       const res = await fetch('/api/admin/approvals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user_id: state.row.user_id,
-          name: state.row.name,
-          email: state.row.email,
-          status: state.row.status ?? 'pending',
+          user_id: row.user_id,
+          trainer_id: row.trainer_id,
+          name: row.name,
+          email: row.email,
+          status: row.status,
+          requested_at: row.requested_at ?? undefined,
+          metadata: row.metadata ?? undefined,
         }),
       });
       if (!res.ok) throw new Error(await res.text());
       toast.success('Pedido restaurado.');
+      setRows((prev) => {
+        const next = [...prev];
+        next.splice(Math.min(index, next.length), 0, row);
+        return next;
+      });
       void fetchRows();
       void loadInsights();
     } catch (error: any) {
       toast.error(error?.message || 'Falha ao restaurar o pedido.');
+      queueUndo(row, index);
     }
-  }, [fetchRows, loadInsights, toast]);
-
-  const clearUndo = React.useCallback(() => {
-    const state = undoRef.current;
-    if (state?.timer) window.clearTimeout(state.timer);
-    undoRef.current = null;
-    forceUpdate();
-  }, []);
+  }, [fetchRows, loadInsights, queueUndo, toast, undoState]);
 
   return (
     <div className="admin-page neo-stack neo-stack--xl">
@@ -847,14 +1238,17 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
               className="neo-field"
               value={status}
               onChange={(event) => {
-                setStatus(event.target.value);
+                const next = canonicaliseStatusFilter(event.target.value);
+                setStatus(next);
                 setPage(0);
               }}
             >
               <option value="">Todos</option>
-              <option value="pending">Pendentes</option>
-              <option value="approved">Aprovados</option>
-              <option value="rejected">Rejeitados</option>
+              {statusOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
           </label>
 
@@ -865,7 +1259,8 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
               className="neo-field"
               value={pageSizeState}
               onChange={(event) => {
-                const next = Number(event.target.value) || pageSize;
+                const parsed = Number(event.target.value) || pageSize;
+                const next = PAGE_SIZE_OPTIONS.includes(parsed) ? parsed : pageSize;
                 setPageSizeState(next);
                 setPage(0);
               }}
@@ -895,12 +1290,23 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
             <p className="neo-panel__subtitle">Actualiza em tempo real quando alteras filtros ou navegas pelas páginas.</p>
           </div>
           <span className="neo-tag" data-tone="primary" aria-live="polite">
-            {count} {count === 1 ? 'pedido' : 'pedidos'}
+            {(() => {
+              const totalValue = countReliable ? count : Math.max(count, rows.length);
+              const formatted = countReliable ? formatCount(totalValue) : `≥ ${formatCount(totalValue)}`;
+              const suffix = totalValue === 1 ? 'pedido' : 'pedidos';
+              const qualifier = countReliable ? '' : ' (estimativa)';
+              return `${formatted} ${suffix}${qualifier}`;
+            })()}
           </span>
         </header>
 
+        <div className="neo-inline neo-inline--wrap neo-inline--between neo-inline--sm" role="status" aria-live="polite">
+          <span className="neo-text--sm neo-text--muted">{pageSummary}</span>
+          <span className="neo-text--xs neo-text--muted">Página {page + 1} de {totalPages}</span>
+        </div>
+
         <div className="neo-table-wrapper" role="region" aria-live="polite">
-          <table className="neo-table">
+          <table className="neo-table" aria-busy={loading}>
             <thead>
               <tr>
                 <th scope="col">Nome</th>
@@ -936,7 +1342,7 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
               )}
 
               {!loading && rows.map((row) => {
-                const { label, tone } = statusLabel(row.status);
+                const meta = statusLabel(row.status);
                 return (
                   <tr key={row.id}>
                     <td data-title="Nome">
@@ -949,7 +1355,9 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
                       <span className="neo-text--sm text-fg">{row.email ?? '—'}</span>
                     </td>
                     <td data-title="Estado">
-                      <span className="neo-table__status" data-state={tone}>{label}</span>
+                      <span className="neo-table__status" data-state={meta.tone} data-status={meta.value}>
+                        {meta.label}
+                      </span>
                     </td>
                     <td data-title="Pedido em">{row.requested_at ? formatDate(row.requested_at) : '—'}</td>
                     <td data-title="Acções" style={{ textAlign: 'right' }}>
@@ -1020,11 +1428,11 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
         </div>
       </section>
 
-      {undoRef.current && (
+      {undoState && (
         <div className="neo-panel neo-panel--compact" role="status">
           <div className="neo-inline neo-inline--wrap neo-inline--between neo-inline--md">
             <span className="neo-text--sm neo-text--semibold text-fg">
-              Pedido removido. Tens alguns segundos para desfazer.
+              Pedido removido{undoLabel ? ` de ${undoLabel}` : ''}. Tens alguns segundos para desfazer.
             </span>
             <div className="neo-inline neo-inline--sm">
               <button type="button" className="btn" onClick={() => { void undoDelete(); }}>
