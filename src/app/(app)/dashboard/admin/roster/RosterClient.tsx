@@ -1030,9 +1030,9 @@ export default function RosterClient() {
                     {ownerLabel}
                   </span>
                 </div>
-              </li>
-            );
-          })}
+              </div>
+            </li>
+          ))}
         </ol>
       </section>
     </div>

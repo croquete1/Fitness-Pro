@@ -18,6 +18,7 @@ import {
   UserCog,
   UserPlus,
   Users,
+  XCircle,
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -32,6 +33,11 @@ import type {
 import { toAppRole } from '@/lib/roles';
 
 const numberFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 });
+const percentageFormatter = new Intl.NumberFormat('pt-PT', {
+  style: 'percent',
+  maximumFractionDigits: 1,
+  minimumFractionDigits: 0,
+});
 const shortDateFormatter = new Intl.DateTimeFormat('pt-PT', {
   day: '2-digit',
   month: 'short',
@@ -113,6 +119,19 @@ const ROLE_META: Record<Row['roleKey'], { label: string; tone: StatusTone }> = {
   CLIENT: { label: 'Cliente', tone: 'positive' },
 };
 
+function clamp01(value: number | null | undefined) {
+  if (typeof value !== 'number' || Number.isNaN(value)) return 0;
+  if (!Number.isFinite(value)) return 1;
+  if (value <= 0) return 0;
+  if (value >= 1) return 1;
+  return value;
+}
+
+function formatPercentage(value: number | null | undefined) {
+  const safe = clamp01(value);
+  return percentageFormatter.format(safe);
+}
+
 function normaliseStatus(
   status: string | null | undefined,
   approved: boolean | null | undefined,
@@ -157,7 +176,7 @@ function formatDateTime(iso: string | null) {
   return `${shortDateFormatter.format(date)} · ${timeFormatter.format(date)}`;
 }
 
-function readParams(searchParams: ReturnType<typeof useSearchParams>, fallbackPageSize: number): ParamsState {
+function readParams(searchParams: URLSearchParams, fallbackPageSize: number): ParamsState {
   const page = Number.parseInt(searchParams.get('page') ?? '0', 10);
   const pageSize = Number.parseInt(
     searchParams.get('pageSize') ?? searchParams.get('perPage') ?? String(fallbackPageSize),
@@ -174,6 +193,71 @@ function readParams(searchParams: ReturnType<typeof useSearchParams>, fallbackPa
     status,
     search,
   };
+}
+
+const fallbackRowIdCache = new Map<string, string>();
+
+function serialiseForId(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    return value.map(serialiseForId).filter(Boolean).join('|');
+  }
+  if (typeof value === 'object') {
+    return Object.keys(value as Record<string, unknown>)
+      .sort()
+      .map((key) => `${key}:${serialiseForId((value as Record<string, unknown>)[key])}`)
+      .filter(Boolean)
+      .join(',');
+  }
+  return '';
+}
+
+function deriveRowId(row: any): string {
+  const candidates = [
+    row?.id,
+    row?.user_id,
+    row?.userId,
+    row?.profile_id,
+    row?.profileId,
+    row?.uuid,
+    row?.uid,
+    row?.email,
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate === null || candidate === undefined) continue;
+    const text = String(candidate).trim();
+    if (text) return text;
+  }
+
+  const composed = [row?.name ?? row?.full_name ?? '', row?.email ?? '', row?.created_at ?? row?.createdAt ?? '']
+    .map((part) => (typeof part === 'string' ? part.trim() : ''))
+    .filter(Boolean)
+    .join('|');
+
+  if (composed) {
+    const existing = fallbackRowIdCache.get(composed);
+    if (existing) return existing;
+    const nextId = `row-${fallbackRowIdCache.size + 1}`;
+    fallbackRowIdCache.set(composed, nextId);
+    return nextId;
+  }
+
+  const serialised = serialiseForId(row);
+  if (serialised) {
+    const existing = fallbackRowIdCache.get(serialised);
+    if (existing) return existing;
+    const nextId = `row-${fallbackRowIdCache.size + 1}`;
+    fallbackRowIdCache.set(serialised, nextId);
+    return nextId;
+  }
+
+  const fallbackKey = `fallback-${fallbackRowIdCache.size + 1}`;
+  fallbackRowIdCache.set(fallbackKey, fallbackKey);
+  return fallbackKey;
 }
 
 async function fetcher(url: string): Promise<ListResponse> {
@@ -206,7 +290,7 @@ function mapRow(row: any): Row {
   const statusMeta = STATUS_META[statusKey];
 
   return {
-    id: String(row.id ?? crypto.randomUUID()),
+    id: deriveRowId(row),
     name: row.name?.trim() || row.full_name?.trim() || row.email?.trim() || 'Utilizador',
     email: row.email ?? null,
     roleKey,
@@ -261,6 +345,36 @@ function OnlineBadge({ online }: { online: boolean }) {
 }
 
 function TimelineChart({ data, loading }: { data: AdminUsersTimelinePoint[]; loading?: boolean }) {
+  const timelineData = Array.isArray(data) ? data : [];
+
+  const { hasPositiveValues, safeMaxValue } = React.useMemo(() => {
+    const maxValue = timelineData.reduce((acc, point) => {
+      const signups = typeof point.signups === 'number' ? point.signups : 0;
+      const active = typeof point.active === 'number' ? point.active : 0;
+      return Math.max(acc, signups, active);
+    }, 0);
+
+    return {
+      hasPositiveValues: maxValue > 0,
+      safeMaxValue: maxValue > 0 ? maxValue : 1,
+    };
+  }, [timelineData]);
+
+  const computeHeight = React.useCallback(
+    (rawValue: number | null | undefined) => {
+      if (!hasPositiveValues) return 0;
+
+      const value = typeof rawValue === 'number' ? rawValue : 0;
+      if (value <= 0) return 0;
+
+      const ratio = (value / safeMaxValue) * 100;
+      const bounded = Math.min(Math.max(ratio, 0), 100);
+      if (bounded === 0) return 0;
+      return Math.max(bounded, 6);
+    },
+    [hasPositiveValues, safeMaxValue],
+  );
+
   if (loading) {
     return (
       <div className="admin-users__chartSkeleton" aria-hidden>
@@ -271,7 +385,7 @@ function TimelineChart({ data, loading }: { data: AdminUsersTimelinePoint[]; loa
     );
   }
 
-  if (!data.length) {
+  if (!timelineData.length) {
     return (
       <div className="neo-empty">
         <span className="neo-empty__icon" aria-hidden>
@@ -285,17 +399,34 @@ function TimelineChart({ data, loading }: { data: AdminUsersTimelinePoint[]; loa
 
   return (
     <div className="admin-users__chart" role="img" aria-label="Inscrições e atividade semanal">
-      {data.map((point) => (
-        <div key={point.week} className="admin-users__chartWeek">
-          <div className="admin-users__chartWeekBar" data-type="signups" style={{ height: `${Math.min(point.signups, 40)}%` }}>
-            <span className="sr-only">{point.signups} inscrições</span>
+      {timelineData.map((point) => {
+        const signups = typeof point.signups === 'number' ? point.signups : 0;
+        const active = typeof point.active === 'number' ? point.active : 0;
+
+        return (
+          <div
+            key={point.week}
+            className="admin-users__chartWeek"
+            title={`Semana ${point.label}: ${signups} inscrições, ${active} ativos`}
+          >
+            <div
+              className="admin-users__chartWeekBar"
+              data-type="signups"
+              style={{ height: `${computeHeight(signups)}%` }}
+            >
+              <span className="sr-only">{signups} inscrições</span>
+            </div>
+            <div
+              className="admin-users__chartWeekBar"
+              data-type="active"
+              style={{ height: `${computeHeight(active)}%` }}
+            >
+              <span className="sr-only">{active} ativos</span>
+            </div>
+            <div className="admin-users__chartWeekLabel">{point.label}</div>
           </div>
-          <div className="admin-users__chartWeekBar" data-type="active" style={{ height: `${Math.min(point.active, 40)}%` }}>
-            <span className="sr-only">{point.active} ativos</span>
-          </div>
-          <div className="admin-users__chartWeekLabel">{point.label}</div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -323,19 +454,23 @@ function DistributionList({ title, icon, items }: { title: string; icon: React.R
           </div>
         ) : (
           <ul className="admin-users__distributionList" role="list">
-            {items.map((item) => (
-              <li key={item.key} className="admin-users__distributionItem">
-                <div>
-                  <p className="admin-users__distributionLabel">{item.label}</p>
-                  <p className="admin-users__distributionMeta">
-                    {numberFormatter.format(item.total)} · {Math.round(item.percentage * 100)}%
-                  </p>
-                </div>
-                <div className="admin-users__distributionBar" aria-hidden>
-                  <span style={{ width: `${Math.min(item.percentage * 100, 100)}%` }} data-tone={item.tone ?? 'neutral'} />
-                </div>
-              </li>
-            ))}
+            {items.map((item) => {
+              const percentage = clamp01(item.percentage);
+              const width = percentage === 0 ? 0 : Math.min(Math.max(percentage * 100, 6), 100);
+              return (
+                <li key={item.key} className="admin-users__distributionItem">
+                  <div>
+                    <p className="admin-users__distributionLabel">{item.label}</p>
+                    <p className="admin-users__distributionMeta">
+                      {numberFormatter.format(item.total)} · {formatPercentage(percentage)}
+                    </p>
+                  </div>
+                  <div className="admin-users__distributionBar" aria-hidden>
+                    <span style={{ width: `${width}%` }} data-tone={item.tone ?? 'neutral'} />
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
@@ -347,8 +482,12 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const searchParamsText = React.useMemo(() => searchParams.toString(), [searchParams]);
 
-  const initial = React.useMemo(() => readParams(searchParams, pageSize), [searchParams, pageSize]);
+  const initial = React.useMemo(
+    () => readParams(new URLSearchParams(searchParamsText), pageSize),
+    [searchParamsText, pageSize],
+  );
 
   const [page, setPage] = React.useState(initial.page);
   const [pageSizeState, setPageSizeState] = React.useState(initial.pageSize);
@@ -357,6 +496,12 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
   const [searchInput, setSearchInput] = React.useState(initial.search);
   const [debouncedSearch, setDebouncedSearch] = React.useState(initial.search);
   const [feedback, setFeedback] = React.useState<Feedback>(null);
+  const filtersSnapshotRef = React.useRef<Pick<ParamsState, 'search' | 'role' | 'status' | 'pageSize'>>({
+    search: initial.search,
+    role: initial.role,
+    status: initial.status,
+    pageSize: initial.pageSize,
+  });
 
   React.useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -381,10 +526,33 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
     setStatus((prev) => (prev === initial.status ? prev : initial.status));
     setSearchInput((prev) => (prev === initial.search ? prev : initial.search));
     setDebouncedSearch((prev) => (prev === initial.search ? prev : initial.search));
+    filtersSnapshotRef.current = {
+      search: initial.search,
+      role: initial.role,
+      status: initial.status,
+      pageSize: initial.pageSize,
+    };
   }, [initial.page, initial.pageSize, initial.role, initial.status, initial.search]);
 
   React.useEffect(() => {
-    setPage(0);
+    const snapshot = filtersSnapshotRef.current;
+    if (
+      snapshot.search === debouncedSearch &&
+      snapshot.role === role &&
+      snapshot.status === status &&
+      snapshot.pageSize === pageSizeState
+    ) {
+      return;
+    }
+
+    filtersSnapshotRef.current = {
+      search: debouncedSearch,
+      role,
+      status,
+      pageSize: pageSizeState,
+    };
+
+    setPage((prev) => (prev === 0 ? prev : 0));
   }, [debouncedSearch, role, status, pageSizeState]);
 
   const queryState = React.useMemo<ParamsState>(
@@ -392,8 +560,35 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
     [page, pageSizeState, role, status, debouncedSearch],
   );
 
+  const hasActiveFilters =
+    role !== 'all' ||
+    status !== 'all' ||
+    pageSizeState !== pageSize ||
+    Boolean(searchInput.trim());
+
+  const handleResetFilters = React.useCallback(() => {
+    setRole('all');
+    setStatus('all');
+    setPageSizeState(pageSize);
+    setSearchInput('');
+    setDebouncedSearch('');
+    setPage(0);
+    filtersSnapshotRef.current = {
+      search: '',
+      role: 'all',
+      status: 'all',
+      pageSize,
+    };
+  }, [pageSize]);
+
   const listKey = React.useMemo(() => buildListKey(queryState), [queryState]);
-  const { data: listData, error: listError, isLoading: listLoading, mutate: mutateList } = useSWR(listKey, fetcher, {
+  const {
+    data: listData,
+    error: listError,
+    isLoading: listLoading,
+    isValidating: listValidating,
+    mutate: mutateList,
+  } = useSWR(listKey, fetcher, {
     keepPreviousData: true,
   });
 
@@ -401,6 +596,7 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
     data: dashboard,
     error: dashboardError,
     isLoading: dashboardLoading,
+    isValidating: dashboardValidating,
     mutate: mutateDashboard,
   } = useSWR<DashboardResponse>('/api/admin/users/dashboard', dashboardFetcher, { keepPreviousData: true });
 
@@ -411,14 +607,62 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
     if (queryState.role !== 'all') params.set('role', queryState.role);
     if (queryState.status !== 'all') params.set('status', queryState.status);
     if (queryState.search.trim()) params.set('q', queryState.search.trim());
-    const query = params.toString();
-    const href = query ? `${pathname}?${query}` : pathname;
+
+    const nextQuery = params.toString();
+    const currentParams = new URLSearchParams(searchParamsText);
+    const currentPage = Number.parseInt(currentParams.get('page') ?? '0', 10);
+    if (!Number.isFinite(currentPage) || currentPage <= 0) {
+      currentParams.delete('page');
+    }
+
+    const legacyPerPage = currentParams.get('perPage');
+    const currentPageSizeRaw = currentParams.get('pageSize') ?? legacyPerPage ?? String(pageSize);
+    if (legacyPerPage) {
+      currentParams.delete('perPage');
+    }
+    const currentPageSize = Number.parseInt(currentPageSizeRaw, 10);
+    if (!Number.isFinite(currentPageSize) || currentPageSize === pageSize) {
+      currentParams.delete('pageSize');
+    } else {
+      currentParams.set('pageSize', String(currentPageSize));
+    }
+
+    const currentRole = currentParams.get('role');
+    if (!currentRole || currentRole === 'all') {
+      currentParams.delete('role');
+    }
+
+    const currentStatus = currentParams.get('status');
+    if (!currentStatus || currentStatus === 'all') {
+      currentParams.delete('status');
+    }
+
+    const currentSearch = currentParams.get('q');
+    if (!currentSearch || !currentSearch.trim()) {
+      currentParams.delete('q');
+    } else {
+      currentParams.set('q', currentSearch.trim());
+    }
+
+    const currentQuery = currentParams.toString();
+    const hasLegacyPerPage = searchParamsText.includes('perPage=');
+    if (!hasLegacyPerPage && currentQuery === nextQuery) {
+      return;
+    }
+
+    const href = nextQuery ? `${pathname}?${nextQuery}` : pathname;
     router.replace(href, { scroll: false });
-  }, [pathname, router, queryState, pageSize]);
+  }, [pathname, router, queryState, pageSize, searchParamsText]);
 
   const rows = React.useMemo(() => (listData?.rows ?? []).map(mapRow), [listData]);
-  const totalRows = listData?.count ?? rows.length;
+  const resolvedCountRaw = listData?.count;
+  const resolvedCount =
+    resolvedCountRaw === null || resolvedCountRaw === undefined ? Number.NaN : Number(resolvedCountRaw);
+  const totalRows = Number.isFinite(resolvedCount) ? Math.max(0, resolvedCount) : rows.length;
   const maxPageIndex = Math.max(0, Math.ceil(Math.max(totalRows, 1) / queryState.pageSize) - 1);
+  const pageRangeStart = totalRows === 0 ? 0 : page * queryState.pageSize + 1;
+  const pageRangeEnd =
+    totalRows === 0 ? 0 : Math.min(totalRows, pageRangeStart - 1 + rows.length);
 
   React.useEffect(() => {
     if (page > maxPageIndex) {
@@ -532,7 +776,12 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
     setFeedback({ tone: 'info', message: 'Atualização em curso…' });
   };
 
-  const loading = listLoading && !listData;
+  const listInitialising = listLoading && !listData;
+  const dashboardInitialising = dashboardLoading && !dashboard;
+  const tableBusy = listInitialising || (listValidating && Boolean(listData));
+  const metricsBusy = dashboardInitialising || (dashboardValidating && Boolean(dashboard));
+  const refreshing = (listValidating && !listInitialising) || (dashboardValidating && !dashboardInitialising);
+  const refreshDisabled = refreshing || listInitialising || dashboardInitialising;
 
   return (
     <div className="admin-users">
@@ -545,9 +794,16 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
               variant="ghost"
               size="sm"
               onClick={handleRefresh}
-              leftIcon={<RefreshCcw className="neo-icon neo-icon--sm" aria-hidden />}
+              disabled={refreshDisabled}
+              leftIcon={
+                refreshing ? (
+                  <Loader2 className="neo-icon neo-icon--sm neo-spin" aria-hidden />
+                ) : (
+                  <RefreshCcw className="neo-icon neo-icon--sm" aria-hidden />
+                )
+              }
             >
-              Atualizar
+              {refreshing ? 'A atualizar…' : 'Atualizar'}
             </Button>
             <Button
               variant="ghost"
@@ -585,8 +841,10 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
           <header className="neo-panel__header">
             <div>
               <h2 className="neo-panel__title">Resumo rápido</h2>
-              <p className="neo-panel__subtitle">
-                Indicadores com base em {dashboard?.rows.length ?? 0} registos recentes.
+              <p className="neo-panel__subtitle" aria-live="polite">
+                {metricsBusy && !dashboardInitialising
+                  ? 'A atualizar métricas…'
+                  : `Indicadores com base em ${dashboard?.rows.length ?? 0} registos recentes.`}
               </p>
             </div>
             <span className="neo-panel__icon" aria-hidden>
@@ -662,7 +920,11 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
               Lista de utilizadores
             </h2>
             <p className="neo-panel__subtitle">
-              {listLoading ? 'A carregar registos…' : `${numberFormatter.format(totalRows)} registo(s) encontrados.`}
+              {listInitialising
+                ? 'A carregar registos…'
+                : listValidating && !listInitialising
+                ? 'A atualizar registos…'
+                : `${numberFormatter.format(totalRows)} registo(s) encontrados.`}
             </p>
           </div>
         </header>
@@ -734,9 +996,19 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
                 </select>
               </label>
             </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleResetFilters}
+              disabled={!hasActiveFilters}
+              leftIcon={<XCircle className="neo-icon neo-icon--xs" aria-hidden />}
+            >
+              Limpar filtros
+            </Button>
           </div>
 
-          <div className={clsx('neo-table-wrapper', { 'is-loading': loading })}>
+          <div className={clsx('neo-table-wrapper', { 'is-loading': tableBusy })} aria-busy={tableBusy || undefined}>
             <table className="neo-table admin-users__table">
               <thead>
                 <tr>
@@ -834,17 +1106,31 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
               </tbody>
             </table>
 
-            {loading && (
+            {tableBusy && (
               <div className="admin-users__loading" role="status" aria-live="polite">
-                <Loader2 className="neo-icon neo-spin" aria-hidden /> A carregar…
+                <Loader2 className="neo-icon neo-spin" aria-hidden />{' '}
+                {listInitialising ? 'A carregar…' : 'A atualizar…'}
               </div>
             )}
           </div>
         </div>
 
         <footer className="neo-pagination" aria-label="Paginação">
-          <div className="neo-pagination__summary">
-            Página {page + 1} de {maxPageIndex + 1} · {numberFormatter.format(totalRows)} registos
+          <div className="neo-pagination__summary" aria-live="polite" role="status">
+            {listInitialising ? (
+              'A carregar registos…'
+            ) : listValidating && !listInitialising ? (
+              'A atualizar registos…'
+            ) : totalRows === 0 ? (
+              'Sem registos para apresentar.'
+            ) : (
+              <>
+                {pageRangeStart === pageRangeEnd
+                  ? `Registo ${pageRangeStart}`
+                  : `Registos ${pageRangeStart}–${pageRangeEnd}`}{' '}
+                de {numberFormatter.format(totalRows)} · Página {page + 1} de {maxPageIndex + 1}
+              </>
+            )}
           </div>
           <div className="neo-pagination__controls">
             <Button
