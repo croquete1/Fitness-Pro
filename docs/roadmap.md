@@ -109,6 +109,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Monitorizar actividade recente e hiatos na carteira do treinador com métricas resumidas, ordenação por urgência e chips dedicados. Fontes: `src/app/(app)/dashboard/trainer/TrainerDashboardClient.tsx`, `src/app/globals.css`.
 - [x] Reimaginar o cartão de tarefas pessoais no tema `.neo`, com persistência versionada, métricas de progresso e estilos dedicados. Fontes: `src/components/dashboard/TaskListCard.tsx`, `src/app/globals.css`.
 - [ ] Definir padrão consistente para uso de rotas Next.js vs. cliente Supabase (tempo real) e aplicá-lo aos módulos de mensagens/notificações.
+- [x] Optimizar o dashboard de mensagens com pesquisa multi-termo indexada e acção "Marcar tudo" responsiva. Fontes: `src/app/(app)/dashboard/messages/MessagesDashboardClient.tsx`, `src/app/(app)/dashboard/messages/parts/MarkAllRead.tsx`.
 - [ ] Optimizar consultas com índices e vistas materializadas (existe esboço, mas falta adopção generalizada).
 - [x] Polir UX/UI das páginas em construção (Relatórios, Definições e Biblioteca adoptaram o tema `.neo` com métricas reais e responsividade reforçada).
 - [x] Reforçar o formulário de definições com validação de nome/telefone e mensagens de erro descritivas nas actualizações de credenciais.

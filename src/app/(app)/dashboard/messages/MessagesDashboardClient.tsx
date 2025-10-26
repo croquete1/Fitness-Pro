@@ -33,6 +33,7 @@ import type {
   MessageHighlight,
   MessageListRow,
   MessageConversationRow,
+  MessageDirection,
   MessageDistributionSegment,
   MessageTimelinePoint,
   MessagesDashboardData,
@@ -62,6 +63,43 @@ function normalizeSearchTerm(value: string): string {
     .replace(/\s+/g, ' ')
     .trim();
 }
+
+function tokenizeSearchTerm(value: string): string[] {
+  if (!value) return [];
+  return value
+    .split(' ')
+    .map((token) => token.trim())
+    .filter(Boolean);
+}
+
+function matchesSearchTokens(haystack: string, tokens: string[]): boolean {
+  if (!tokens.length) return true;
+  if (!haystack) return false;
+  return tokens.every((token) => haystack.includes(token));
+}
+
+function directionTokens(direction: MessageDirection): string {
+  switch (direction) {
+    case 'inbound':
+      return 'recebida recebidas inbound entrante entrada';
+    case 'outbound':
+      return 'enviada enviadas outbound enviada';
+    case 'internal':
+      return 'interna internas interno equipa';
+    default:
+      return '';
+  }
+}
+
+type ConversationIndexEntry = {
+  conversation: MessageConversationRow;
+  searchIndex: string;
+};
+
+type MessageIndexEntry = {
+  message: MessageListRow;
+  searchIndex: string;
+};
 
 function formatNumber(value: number): string {
   if (!Number.isFinite(value)) return '0';
@@ -335,6 +373,7 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
   const dashboard = data ?? initialData;
   const supabase = dashboard.source === 'supabase';
   const normalizedSearch = React.useMemo(() => normalizeSearchTerm(search), [search]);
+  const searchTokens = React.useMemo(() => tokenizeSearchTerm(normalizedSearch), [normalizedSearch]);
   const totalMessages = React.useMemo(
     () => dashboard.totals.inbound + dashboard.totals.outbound,
     [dashboard.totals.inbound, dashboard.totals.outbound],
@@ -356,56 +395,76 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
     }));
   }, [dashboard.timeline]);
 
+  const conversationIndex = React.useMemo<ConversationIndexEntry[]>(() => {
+    return (dashboard.conversations ?? []).map((conversation) => {
+      const pendingTokens =
+        conversation.pendingResponses > 0
+          ? 'pendente pendentes follow-up por responder'
+          : 'sem-pendentes';
+      const searchIndex = normalizeSearchTerm(
+        [
+          conversation.counterpartName,
+          conversation.counterpartId ?? '',
+          conversation.mainChannelLabel,
+          conversation.mainChannel,
+          conversation.lastMessageAt ?? '',
+          directionTokens(conversation.lastDirection),
+          pendingTokens,
+          conversation.id,
+        ].join(' '),
+      );
+      return { conversation, searchIndex } satisfies ConversationIndexEntry;
+    });
+  }, [dashboard.conversations]);
+
+  const messageIndex = React.useMemo<MessageIndexEntry[]>(() => {
+    return (dashboard.messages ?? []).map((message) => {
+      const hasResponseMinutes =
+        typeof message.responseMinutes === 'number' && Number.isFinite(message.responseMinutes);
+      const responseToken = hasResponseMinutes
+        ? `tempo-resposta ${message.responseMinutes}`
+        : 'sem-tempo-resposta';
+      const searchIndex = normalizeSearchTerm(
+        [
+          message.body ?? '',
+          message.fromName ?? '',
+          message.toName ?? '',
+          message.fromId ?? '',
+          message.toId ?? '',
+          message.channelLabel ?? '',
+          message.channel,
+          message.relative ?? '',
+          directionTokens(message.direction),
+          responseToken,
+          message.sentAt ?? '',
+          message.id,
+        ].join(' '),
+      );
+      return { message, searchIndex } satisfies MessageIndexEntry;
+    });
+  }, [dashboard.messages]);
+
   const filteredConversations = React.useMemo(() => {
-    const query = normalizedSearch;
-    return (dashboard.conversations ?? [])
-      .filter((conversation) => {
-        if (query) {
-          const haystack = normalizeSearchTerm(
-            [
-              conversation.counterpartName,
-              conversation.counterpartId ?? '',
-              conversation.mainChannelLabel,
-              conversation.mainChannel,
-              conversation.pendingResponses > 0 ? 'pendente' : '',
-            ].join(' '),
-          );
-          if (!haystack.includes(query)) return false;
-        }
-        if (directionFilter === 'inbound') return conversation.inbound > 0;
-        if (directionFilter === 'outbound') return conversation.outbound > 0;
+    return conversationIndex
+      .filter(({ conversation, searchIndex }) => {
+        if (directionFilter === 'inbound' && conversation.inbound <= 0) return false;
+        if (directionFilter === 'outbound' && conversation.outbound <= 0) return false;
+        if (searchTokens.length && !matchesSearchTokens(searchIndex, searchTokens)) return false;
         return true;
       })
-      .slice(0, 40);
-  }, [dashboard.conversations, normalizedSearch, directionFilter]);
+      .slice(0, 40)
+      .map(({ conversation }) => conversation);
+  }, [conversationIndex, directionFilter, searchTokens]);
 
   const filteredMessages = React.useMemo<MessageListRow[]>(() => {
-    const query = normalizedSearch;
-    return (dashboard.messages ?? []).filter((message) => {
-      if (directionFilter !== 'all' && message.direction !== directionFilter) return false;
-      if (query) {
-        const content = normalizeSearchTerm(
-          [
-            message.body ?? '',
-            message.fromName ?? '',
-            message.toName ?? '',
-            message.fromId ?? '',
-            message.toId ?? '',
-            message.channelLabel ?? '',
-            message.channel,
-            message.relative ?? '',
-            message.direction === 'outbound'
-              ? 'enviada'
-              : message.direction === 'inbound'
-              ? 'recebida'
-              : 'interna',
-          ].join(' '),
-        );
-        if (!content.includes(query)) return false;
-      }
-      return true;
-    });
-  }, [dashboard.messages, directionFilter, normalizedSearch]);
+    return messageIndex
+      .filter(({ message, searchIndex }) => {
+        if (directionFilter !== 'all' && message.direction !== directionFilter) return false;
+        if (searchTokens.length && !matchesSearchTokens(searchIndex, searchTokens)) return false;
+        return true;
+      })
+      .map(({ message }) => message);
+  }, [messageIndex, directionFilter, searchTokens]);
 
   const onRangeChange = React.useCallback(
     (event: React.ChangeEvent<HTMLSelectElement>) => {
