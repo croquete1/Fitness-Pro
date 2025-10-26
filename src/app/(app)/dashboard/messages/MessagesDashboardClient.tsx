@@ -54,6 +54,15 @@ const percentFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits:
 const durationFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 });
 const relativeFormatter = new Intl.RelativeTimeFormat('pt-PT', { numeric: 'auto' });
 
+function normalizeSearchTerm(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function formatNumber(value: number): string {
   if (!Number.isFinite(value)) return '0';
   return numberFormatter.format(Math.round(value));
@@ -325,6 +334,7 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
 
   const dashboard = data ?? initialData;
   const supabase = dashboard.source === 'supabase';
+  const normalizedSearch = React.useMemo(() => normalizeSearchTerm(search), [search]);
   const totalMessages = React.useMemo(
     () => dashboard.totals.inbound + dashboard.totals.outbound,
     [dashboard.totals.inbound, dashboard.totals.outbound],
@@ -347,28 +357,55 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
   }, [dashboard.timeline]);
 
   const filteredConversations = React.useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query = normalizedSearch;
     return (dashboard.conversations ?? [])
       .filter((conversation) => {
-        if (query && !conversation.counterpartName.toLowerCase().includes(query)) return false;
+        if (query) {
+          const haystack = normalizeSearchTerm(
+            [
+              conversation.counterpartName,
+              conversation.counterpartId ?? '',
+              conversation.mainChannelLabel,
+              conversation.mainChannel,
+              conversation.pendingResponses > 0 ? 'pendente' : '',
+            ].join(' '),
+          );
+          if (!haystack.includes(query)) return false;
+        }
         if (directionFilter === 'inbound') return conversation.inbound > 0;
         if (directionFilter === 'outbound') return conversation.outbound > 0;
         return true;
       })
       .slice(0, 40);
-  }, [dashboard.conversations, search, directionFilter]);
+  }, [dashboard.conversations, normalizedSearch, directionFilter]);
 
   const filteredMessages = React.useMemo<MessageListRow[]>(() => {
-    const query = search.trim().toLowerCase();
+    const query = normalizedSearch;
     return (dashboard.messages ?? []).filter((message) => {
       if (directionFilter !== 'all' && message.direction !== directionFilter) return false;
       if (query) {
-        const content = `${message.body ?? ''} ${message.fromName ?? ''} ${message.toName ?? ''}`.toLowerCase();
+        const content = normalizeSearchTerm(
+          [
+            message.body ?? '',
+            message.fromName ?? '',
+            message.toName ?? '',
+            message.fromId ?? '',
+            message.toId ?? '',
+            message.channelLabel ?? '',
+            message.channel,
+            message.relative ?? '',
+            message.direction === 'outbound'
+              ? 'enviada'
+              : message.direction === 'inbound'
+              ? 'recebida'
+              : 'interna',
+          ].join(' '),
+        );
         if (!content.includes(query)) return false;
       }
       return true;
     });
-  }, [dashboard.messages, directionFilter, search]);
+  }, [dashboard.messages, directionFilter, normalizedSearch]);
 
   const onRangeChange = React.useCallback(
     (event: React.ChangeEvent<HTMLSelectElement>) => {
@@ -394,6 +431,24 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
   }, [router]);
 
   const isFallback = dashboard.source === 'fallback';
+
+  React.useEffect(() => {
+    const raw = searchParams?.get('range') ?? null;
+    if (raw) {
+      const value = Number(raw);
+      if (
+        Number.isFinite(value) &&
+        RANGE_OPTIONS.some((option) => option.value === value) &&
+        value !== range
+      ) {
+        setRange(value);
+      }
+      return;
+    }
+    if (range !== initialRange) {
+      setRange(initialRange);
+    }
+  }, [searchParams, range, initialRange]);
 
   return (
     <div className="messages-dashboard">

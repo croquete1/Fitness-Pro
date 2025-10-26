@@ -20,7 +20,10 @@ export default function MarkAllRead({ size = 'sm', variant = 'secondary', classN
 
   async function onClick() {
     try {
-      const response = await fetch('/api/messages/mark-all-read', { method: 'POST' });
+      const response = await fetch('/api/messages/mark-all-read', {
+        method: 'POST',
+        credentials: 'include',
+      });
       if (!response.ok) {
         throw new Error('Não foi possível marcar as mensagens como lidas.');
       }
