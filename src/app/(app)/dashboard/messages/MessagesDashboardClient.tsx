@@ -591,6 +591,24 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
 
   const isFallback = dashboard.source === 'fallback';
 
+  React.useEffect(() => {
+    const raw = searchParams?.get('range') ?? null;
+    if (raw) {
+      const value = Number(raw);
+      if (
+        Number.isFinite(value) &&
+        RANGE_OPTIONS.some((option) => option.value === value) &&
+        value !== range
+      ) {
+        setRange(value);
+      }
+      return;
+    }
+    if (range !== initialRange) {
+      setRange(initialRange);
+    }
+  }, [searchParams, range, initialRange]);
+
   return (
     <div className="messages-dashboard">
       <PageHeader
