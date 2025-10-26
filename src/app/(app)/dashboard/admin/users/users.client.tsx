@@ -279,6 +279,36 @@ function OnlineBadge({ online }: { online: boolean }) {
 }
 
 function TimelineChart({ data, loading }: { data: AdminUsersTimelinePoint[]; loading?: boolean }) {
+  const timelineData = Array.isArray(data) ? data : [];
+
+  const { hasPositiveValues, safeMaxValue } = React.useMemo(() => {
+    const maxValue = timelineData.reduce((acc, point) => {
+      const signups = typeof point.signups === 'number' ? point.signups : 0;
+      const active = typeof point.active === 'number' ? point.active : 0;
+      return Math.max(acc, signups, active);
+    }, 0);
+
+    return {
+      hasPositiveValues: maxValue > 0,
+      safeMaxValue: maxValue > 0 ? maxValue : 1,
+    };
+  }, [timelineData]);
+
+  const computeHeight = React.useCallback(
+    (rawValue: number | null | undefined) => {
+      if (!hasPositiveValues) return 0;
+
+      const value = typeof rawValue === 'number' ? rawValue : 0;
+      if (value <= 0) return 0;
+
+      const ratio = (value / safeMaxValue) * 100;
+      const bounded = Math.min(Math.max(ratio, 0), 100);
+      if (bounded === 0) return 0;
+      return Math.max(bounded, 6);
+    },
+    [hasPositiveValues, safeMaxValue],
+  );
+
   if (loading) {
     return (
       <div className="admin-users__chartSkeleton" aria-hidden>
@@ -289,7 +319,7 @@ function TimelineChart({ data, loading }: { data: AdminUsersTimelinePoint[]; loa
     );
   }
 
-  if (!data.length) {
+  if (!timelineData.length) {
     return (
       <div className="neo-empty">
         <span className="neo-empty__icon" aria-hidden>
@@ -326,29 +356,34 @@ function TimelineChart({ data, loading }: { data: AdminUsersTimelinePoint[]; loa
 
   return (
     <div className="admin-users__chart" role="img" aria-label="Inscrições e atividade semanal">
-      {data.map((point) => (
-        <div
-          key={point.week}
-          className="admin-users__chartWeek"
-          title={`Semana ${point.label}: ${point.signups} inscrições, ${point.active} ativos`}
-        >
+      {timelineData.map((point) => {
+        const signups = typeof point.signups === 'number' ? point.signups : 0;
+        const active = typeof point.active === 'number' ? point.active : 0;
+
+        return (
           <div
-            className="admin-users__chartWeekBar"
-            data-type="signups"
-            style={{ height: `${computeHeight(point.signups)}%` }}
+            key={point.week}
+            className="admin-users__chartWeek"
+            title={`Semana ${point.label}: ${signups} inscrições, ${active} ativos`}
           >
-            <span className="sr-only">{point.signups} inscrições</span>
+            <div
+              className="admin-users__chartWeekBar"
+              data-type="signups"
+              style={{ height: `${computeHeight(signups)}%` }}
+            >
+              <span className="sr-only">{signups} inscrições</span>
+            </div>
+            <div
+              className="admin-users__chartWeekBar"
+              data-type="active"
+              style={{ height: `${computeHeight(active)}%` }}
+            >
+              <span className="sr-only">{active} ativos</span>
+            </div>
+            <div className="admin-users__chartWeekLabel">{point.label}</div>
           </div>
-          <div
-            className="admin-users__chartWeekBar"
-            data-type="active"
-            style={{ height: `${computeHeight(point.active)}%` }}
-          >
-            <span className="sr-only">{point.active} ativos</span>
-          </div>
-          <div className="admin-users__chartWeekLabel">{point.label}</div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
