@@ -4,11 +4,22 @@ import { tryCreateServerClient } from '@/lib/supabaseServer';
 import { getNotificationsListFallback } from '@/lib/fallback/notifications';
 import { describeType } from '@/lib/notifications/dashboard';
 import type { NotificationRow } from '@/lib/notifications/types';
+import { buildRateLimitHeaders, rateLimitRequest } from '@/lib/http/rateLimit';
 
 export async function GET(req: Request) {
+  const rate = rateLimitRequest(req, { limit: 90, windowMs: 60_000, prefix: 'notifications:list' });
+  const baseHeaders = buildRateLimitHeaders(rate);
+  const headers = { ...baseHeaders, 'cache-control': 'no-store' } as Record<string, string>;
+  if (!rate.ok) {
+    return NextResponse.json(
+      { items: [], total: 0, message: 'Demasiados pedidos. Aguarda um pouco antes de tentar de novo.' },
+      { status: 429, headers },
+    );
+  }
+
   const session = await getSessionUserSafe();
   const uid = session?.user?.id;
-  if (!uid) return NextResponse.json({ items: [], total: 0 });
+  if (!uid) return NextResponse.json({ items: [], total: 0 }, { headers });
 
   const { searchParams } = new URL(req.url);
   const status = (searchParams.get('status') || 'all') as 'all' | 'unread' | 'read';
@@ -31,10 +42,13 @@ export async function GET(req: Request) {
 
   if (!sb) {
     const fallback = buildFallback();
-    return NextResponse.json({
-      ...fallback,
-      source: 'fallback',
-    });
+    return NextResponse.json(
+      {
+        ...fallback,
+        source: 'fallback',
+      },
+      { headers },
+    );
   }
 
   const escapedSearch = querySearch
@@ -70,10 +84,13 @@ export async function GET(req: Request) {
   if (error) {
     console.error('[notifications:list] erro a carregar notificações', error);
     const fallback = buildFallback();
-    return NextResponse.json({
-      ...fallback,
-      source: 'fallback',
-    });
+    return NextResponse.json(
+      {
+        ...fallback,
+        source: 'fallback',
+      },
+      { headers },
+    );
   }
 
   const items: NotificationRow[] = (data ?? []).map((n: any) => ({
@@ -99,15 +116,18 @@ export async function GET(req: Request) {
     baseCountQuery().eq('read', true),
   ]);
 
-  return NextResponse.json({
-    items,
-    total: count ?? 0,
-    counts: {
-      all: allCount.count ?? items.length,
-      unread: unreadCount.count ?? 0,
-      read: readCount.count ?? 0,
+  return NextResponse.json(
+    {
+      items,
+      total: count ?? 0,
+      counts: {
+        all: allCount.count ?? items.length,
+        unread: unreadCount.count ?? 0,
+        read: readCount.count ?? 0,
+      },
+      source: 'supabase',
+      generatedAt: new Date().toISOString(),
     },
-    source: 'supabase',
-    generatedAt: new Date().toISOString(),
-  });
+    { headers },
+  );
 }
