@@ -129,6 +129,48 @@ function describeLastSync(timestamp: number | null): string {
   return `Actualizado ${relative}`;
 }
 
+function getTimelineTimestamp(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  const value = Date.parse(iso);
+  return Number.isNaN(value) ? null : value;
+}
+
+function deriveTimelineTone(iso: string | null | undefined): 'info' | 'warning' | 'danger' {
+  if (!iso) return 'warning';
+const timestamp = getTimelineTimestamp(iso);  
+if (timestamp === null) return 'info';
+const diff = timestamp - Date.now();
+if (diff < 0) return 'danger';
+  if (diff <= 60 * 60_000) return 'warning';
+  return 'info';
+}
+
+function describeTimelineUrgency(iso: string | null | undefined): string | null {
+  if (!iso) return 'Agendamento por definir';
+  const timestamp = getTimelineTimestamp(iso);
+  if (timestamp === null) return null;
+  const diff = timestamp - Date.now();
+  if (Math.abs(diff) < 60_000) {
+    return diff < 0 ? 'Em acompanhamento agora' : 'A iniciar agora';
+  }
+
+  const minuteDiff = Math.max(1, Math.round(Math.abs(diff) / 60_000));
+
+  if (diff < 0) {
+    if (minuteDiff < 60) return `Atrasado ${minuteDiff} min`;
+    const hours = Math.max(1, Math.round(minuteDiff / 60));
+    if (hours < 24) return `Atrasado ${hours} h`;
+    const days = Math.max(1, Math.round(hours / 24));
+    return `Atrasado ${days} dia${days === 1 ? '' : 's'}`;
+  }
+
+  if (minuteDiff < 60) return `Começa em ${minuteDiff} min`;
+  const hours = Math.max(1, Math.round(minuteDiff / 60));
+  if (hours < 24) return `Começa em ${hours} h`;
+  const days = Math.max(1, Math.round(hours / 24));
+  return `Começa em ${days} dia${days === 1 ? '' : 's'}`;
+}
+
 export default function RosterClient() {
   const router = useRouter();
   const pathname = usePathname();
@@ -354,6 +396,22 @@ export default function RosterClient() {
       paused,
     };
   }, [assignments]);
+
+  const assignmentsById = React.useMemo(() => {
+    const map = new Map<string, Assignment>();
+    assignments.forEach((assignment) => {
+      map.set(assignment.id, assignment);
+    });
+    return map;
+  }, [assignments]);
+
+  const sortedTimeline = React.useMemo(() => {
+    return [...timeline].sort((a, b) => {
+      const aTime = getTimelineTimestamp(a.scheduled_at) ?? Number.POSITIVE_INFINITY;
+      const bTime = getTimelineTimestamp(b.scheduled_at) ?? Number.POSITIVE_INFINITY;
+      return aTime - bTime;
+    });
+  }, [timeline]);
 
   const handleStatusShortcut = React.useCallback(
     (nextStatus: StatusFilter) => {
@@ -718,24 +776,51 @@ export default function RosterClient() {
         </header>
 
         <ol className="admin-roster__timeline neo-stack neo-stack--md" aria-live="polite" aria-busy={loading}>
-          {timeline.length === 0 && !loading && (
+          {loading && sortedTimeline.length === 0 && (
+            <li className="neo-panel neo-panel--compact admin-roster__empty admin-roster__timelineLoader">
+              <div className="neo-inline neo-inline--center neo-inline--sm neo-text--sm neo-text--muted">
+                <span className="neo-spinner" aria-hidden /> A sincronizar marcos…
+              </div>
+            </li>
+          )}
+
+          {!loading && sortedTimeline.length === 0 && (
             <li className="neo-panel neo-panel--compact admin-roster__empty">Sem marcos agendados para as atribuições filtradas.</li>
           )}
 
-          {timeline.map((item) => (
-            <li key={item.id} className="admin-roster__timelineItem" data-tone="info">
-              <div className="admin-roster__timelineContent">
-                <div className="neo-stack neo-stack--xs">
-                  <span className="admin-roster__timelineTitle">{item.title ?? 'Marcar acompanhamento'}</span>
-                  <span className="admin-roster__timelineDetail">{item.detail ?? 'Detalhes em actualização.'}</span>
+          {sortedTimeline.map((item) => {
+            const tone = deriveTimelineTone(item.scheduled_at);
+            const urgency = describeTimelineUrgency(item.scheduled_at);
+            const relatedAssignment = item.assignment_id ? assignmentsById.get(item.assignment_id) : undefined;
+            const assignmentTrainer = relatedAssignment?.trainer_name ?? relatedAssignment?.trainer_id ?? null;
+            const ownerMissing = !item.owner_name;
+            const ownerLabel = ownerMissing ? 'Responsável por atribuir' : `Responsável · ${item.owner_name}`;
+            const showAssignment = Boolean(assignmentTrainer && (ownerMissing || assignmentTrainer !== item.owner_name));
+            const assignmentLabel = showAssignment ? `Atribuição · ${assignmentTrainer}` : null;
+
+            return (
+              <li key={item.id} className="admin-roster__timelineItem" data-tone={tone}>
+                <div className="admin-roster__timelineContent">
+                  <div className="neo-stack neo-stack--xs">
+                    <span className="admin-roster__timelineTitle">{item.title ?? 'Marcar acompanhamento'}</span>
+                    <span className="admin-roster__timelineDetail">{item.detail ?? 'Detalhes em actualização.'}</span>
+                  </div>
+                  <div className="admin-roster__timelineMeta">
+                    <span className="admin-roster__timelineWhen">{formatCheckIn(item.scheduled_at)}</span>
+                    {urgency && (
+                      <span className="admin-roster__timelineUrgency" data-tone={tone}>
+                        {urgency}
+                      </span>
+                    )}
+                    {assignmentLabel && <span className="admin-roster__timelineAssignment">{assignmentLabel}</span>}
+                    <span className="admin-roster__timelineOwner" data-missing={ownerMissing}>
+                      {ownerLabel}
+                    </span>
+                  </div>
                 </div>
-                <div className="admin-roster__timelineMeta">
-                  <span className="admin-roster__timelineWhen">{formatCheckIn(item.scheduled_at)}</span>
-                  <span className="admin-roster__timelineOwner">Responsável · {item.owner_name ?? '—'}</span>
-                </div>
-              </div>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ol>
       </section>
     </div>

@@ -162,6 +162,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Transformar os indicadores principais da escala em atalhos de filtro toggláveis para acelerar a análise operacional. Fontes: `src/app/(app)/dashboard/admin/roster/RosterClient.tsx`, `src/app/globals.css`.
 - [x] Expor estados de carregamento da escala e timeline com `aria-busy` e atributos de dados para compatibilidade assistiva. Fonte: `src/app/(app)/dashboard/admin/roster/RosterClient.tsx`.
 - [x] Sincronizar filtros da escala com a URL, activar auto-refresh visível e indicar a última sincronização com estados de staleness. Fontes: `src/app/(app)/dashboard/admin/roster/RosterClient.tsx`, `src/app/globals.css`.
+- [x] Ordenar e sinalizar a timeline da escala por urgência, destacando responsáveis em falta e estados atrasados. Fontes: `src/app/(app)/dashboard/admin/roster/RosterClient.tsx`, `src/app/globals.css`.
 - [x] Sincronizar filtros/paginação da consola de aprovações com a barra de endereço para partilha e histórico do browser. Fontes: `src/app/(app)/dashboard/admin/approvals/ApprovalsClient.tsx`.
 - [x] Guardar a preferência "Abrir perfis noutra aba" da consola de aprovações no `localStorage` e anunciar o resumo de página com `aria-live` para leitores de ecrã. Fonte: `src/app/(app)/dashboard/admin/approvals/ApprovalsClient.tsx`.
 - [x] Permitir limpar o filtro de estado sem o reinterpretar como "Pendente" na consola de aprovações, garantindo sincronização com a URL e a API. Fonte: `src/app/(app)/dashboard/admin/approvals/ApprovalsClient.tsx`.

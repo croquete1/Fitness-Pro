@@ -3147,6 +3147,14 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
   border-color:color-mix(in srgb, var(--primary) 32%, transparent);
   background:color-mix(in srgb, var(--primary) 10%, var(--card-bg) 90%);
 }
+.admin-roster__timelineItem[data-tone="warning"]{
+  border-color:color-mix(in srgb, var(--warning) 38%, transparent);
+  background:color-mix(in srgb, var(--warning) 14%, var(--card-bg) 86%);
+}
+.admin-roster__timelineItem[data-tone="danger"]{
+  border-color:color-mix(in srgb, var(--danger) 42%, transparent);
+  background:color-mix(in srgb, var(--danger) 12%, var(--card-bg) 88%);
+}
 
 .admin-roster__timelineContent{
   display:flex;
@@ -3181,9 +3189,35 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
   color:var(--fg);
 }
 
+.admin-roster__timelineUrgency{
+  font-size:12px;
+  font-weight:600;
+  color:color-mix(in srgb, var(--muted-fg) 70%, var(--fg) 30%);
+}
+.admin-roster__timelineUrgency[data-tone="warning"]{
+  color:color-mix(in srgb, var(--warning) 60%, var(--muted-fg) 40%);
+}
+.admin-roster__timelineUrgency[data-tone="danger"]{
+  color:color-mix(in srgb, var(--danger) 62%, var(--muted-fg) 38%);
+}
+
 .admin-roster__timelineOwner{
   font-size:12px;
   color:var(--muted-fg);
+}
+.admin-roster__timelineOwner[data-missing="true"]{
+  font-weight:600;
+  color:color-mix(in srgb, var(--danger) 58%, var(--muted-fg) 42%);
+}
+
+.admin-roster__timelineAssignment{
+  font-size:12px;
+  color:color-mix(in srgb, var(--muted-fg) 88%, var(--fg) 12%);
+}
+
+.admin-roster__timelineLoader{
+  display:flex;
+  justify-content:center;
 }
 
 .admin-roster__empty{
