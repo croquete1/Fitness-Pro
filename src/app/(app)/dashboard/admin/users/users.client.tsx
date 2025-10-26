@@ -528,6 +528,11 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
     pageSize: initial.pageSize,
   });
   const autoRefreshTimestampRef = React.useRef<number>(0);
+  const [lastSyncedAt, setLastSyncedAt] = React.useState<number | null>(null);
+  const [nowTick, setNowTick] = React.useState(0);
+  const previousValidatingRef = React.useRef<{ list: boolean; dash: boolean } | null>(null);
+  const listValidatingRef = React.useRef(false);
+  const dashboardValidatingRef = React.useRef(false);
 
   React.useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -586,11 +591,13 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
     [page, pageSizeState, role, status, debouncedSearch],
   );
 
+  const trimmedSearchInput = React.useMemo(() => searchInput.trim(), [searchInput]);
+
   const hasActiveFilters =
     role !== 'all' ||
     status !== 'all' ||
     pageSizeState !== pageSize ||
-    Boolean(searchInput.trim());
+    Boolean(trimmedSearchInput);
 
   const activeFiltersDescription = React.useMemo(() => {
     const summaryParts: string[] = [];
@@ -653,6 +660,38 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
     isValidating: dashboardValidating,
     mutate: mutateDashboard,
   } = useSWR<DashboardResponse>('/api/admin/users/dashboard', dashboardFetcher, { keepPreviousData: true });
+
+  React.useEffect(() => {
+    listValidatingRef.current = listValidating;
+    dashboardValidatingRef.current = dashboardValidating;
+  }, [dashboardValidating, listValidating]);
+
+  React.useEffect(() => {
+    const previous = previousValidatingRef.current;
+    const finished = !listValidating && !dashboardValidating;
+    if (previous) {
+      const wasFetching = previous.list || previous.dash;
+      if (wasFetching && finished && (listData || dashboard || listError || dashboardError)) {
+        setLastSyncedAt(Date.now());
+      }
+    } else if (finished && (listData || dashboard || listError || dashboardError)) {
+      setLastSyncedAt(Date.now());
+    }
+
+    previousValidatingRef.current = { list: listValidating, dash: dashboardValidating };
+  }, [dashboard, dashboardError, dashboardValidating, listData, listError, listValidating]);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const interval = window.setInterval(() => {
+      setNowTick((value) => value + 1);
+    }, 30_000);
+
+    return () => window.clearInterval(interval);
+  }, []);
 
   React.useEffect(() => {
     const params = new URLSearchParams();
@@ -825,6 +864,13 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
   };
 
   const handleRefresh = () => {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      setFeedback({
+        tone: 'warning',
+        message: 'Sem ligação à internet. Verifica a ligação e tenta novamente.',
+      });
+      return;
+    }
     autoRefreshTimestampRef.current = Date.now();
     void mutateList();
     void mutateDashboard();
@@ -841,6 +887,12 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
       if (now - autoRefreshTimestampRef.current < AUTO_REFRESH_MIN_GAP_MS) {
         return;
       }
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        return;
+      }
+      if (listValidatingRef.current || dashboardValidatingRef.current) {
+        return;
+      }
       autoRefreshTimestampRef.current = now;
       void mutateList();
       void mutateDashboard();
@@ -852,7 +904,12 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
       }
     };
 
+    const handleFocus = () => {
+      runAutoRefresh();
+    };
+
     document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleFocus);
     const interval = window.setInterval(() => {
       if (document.visibilityState === 'visible') {
         runAutoRefresh();
@@ -862,8 +919,9 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
     return () => {
       window.clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleFocus);
     };
-  }, [mutateList, mutateDashboard]);
+  }, [mutateDashboard, mutateList]);
 
   const listInitialising = listLoading && !listData;
   const dashboardInitialising = dashboardLoading && !dashboard;
@@ -871,6 +929,38 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
   const metricsBusy = dashboardInitialising || (dashboardValidating && Boolean(dashboard));
   const refreshing = (listValidating && !listInitialising) || (dashboardValidating && !dashboardInitialising);
   const refreshDisabled = refreshing || listInitialising || dashboardInitialising;
+  const syncState = refreshing
+    ? 'refreshing'
+    : listError || dashboardError
+    ? 'warning'
+    : lastSyncedAt
+    ? 'idle'
+    : 'pending';
+
+  const syncStatusMessage = React.useMemo(() => {
+    if (refreshing) {
+      return 'A sincronizar dados…';
+    }
+    if (!lastSyncedAt) {
+      return listError || dashboardError
+        ? 'Sincronização pendente. Existem erros activos.'
+        : 'Sincronização pendente.';
+    }
+    const relative = formatRelative(new Date(lastSyncedAt).toISOString());
+    if (relative === '—') {
+      return 'Sincronizado recentemente.';
+    }
+    if (relative === 'agora') {
+      return listError || dashboardError
+        ? 'Sincronizado agora mesmo com alertas.'
+        : 'Sincronizado agora mesmo.';
+    }
+    const base = `Sincronizado ${relative}.`;
+    if (listError || dashboardError) {
+      return `${base} Alguns painéis falharam; tenta novamente.`;
+    }
+    return base;
+  }, [dashboardError, lastSyncedAt, listError, refreshing, nowTick]);
 
   return (
     <div className="admin-users">
@@ -879,6 +969,22 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
         subtitle="Monitoriza o estado da tua comunidade, acompanha aprovações e atua em tempo real."
         actions={(
           <div className="admin-users__headerActions">
+            <span
+              className="admin-users__refreshMeta"
+              data-state={syncState}
+              role="status"
+              aria-live="polite"
+            >
+              {refreshing ? (
+                <>
+                  <Loader2 className="neo-icon neo-icon--xs neo-spin" aria-hidden /> A sincronizar dados…
+                </>
+              ) : (
+                <>
+                  <RefreshCcw className="neo-icon neo-icon--xs" aria-hidden /> {syncStatusMessage}
+                </>
+              )}
+            </span>
             <Button
               variant="ghost"
               size="sm"

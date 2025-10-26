@@ -2285,7 +2285,29 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
   display:flex;
   flex-wrap:wrap;
   justify-content:flex-end;
+  align-items:flex-end;
   gap:12px;
+}
+.admin-users__refreshMeta{
+  display:inline-flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+  font-size:12px;
+  color:color-mix(in srgb, var(--muted-fg) 78%, transparent);
+  text-align:right;
+  flex-basis:100%;
+}
+@media (min-width:640px){
+  .admin-users__refreshMeta{
+    flex-basis:auto;
+  }
+}
+.admin-users__refreshMeta[data-state="refreshing"]{
+  color:color-mix(in srgb, var(--info) 72%, var(--fg) 28%);
+}
+.admin-users__refreshMeta[data-state="warning"]{
+  color:color-mix(in srgb, var(--warning) 75%, var(--fg) 25%);
 }
 .admin-users__layout{
   display:grid;
