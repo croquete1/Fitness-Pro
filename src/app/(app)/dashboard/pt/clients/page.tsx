@@ -665,13 +665,15 @@ function buildFilterHref({
   scope,
   alert,
   query,
+  keepAlertsScope,
 }: {
   scope: 'all' | 'alerts';
   alert?: ClientAlertKey | null;
   query?: string | null;
+  keepAlertsScope?: boolean;
 }) {
   const params = new URLSearchParams();
-  if (scope === 'alerts' || alert) {
+  if (scope === 'alerts' || alert || keepAlertsScope) {
     params.set('scope', 'alerts');
   }
   if (alert) {
@@ -714,7 +716,13 @@ export default async function PtClientsPage({
     ? analysedRows.filter((entry) => rowMatchesQuery(entry, preparedQuery))
     : analysedRows;
   const attentionAll = analysedRows.filter((entry) => entry.alerts.length > 0);
-  const attentionMatches = queryMatches.filter((entry) => entry.alerts.length > 0);
+  const attentionMatches = queryMatches.filter((entry) => {
+    if (entry.alerts.length === 0) return false;
+    if (alertFilter && !entry.alerts.some((alert) => alert.key === alertFilter)) {
+      return false;
+    }
+    return true;
+  });
   const urgentRows = attentionMatches.slice(0, 6);
   const overflowCount = Math.max(attentionMatches.length - urgentRows.length, 0);
   const alertSummary = summarizeAlerts(attentionMatches);
@@ -731,8 +739,12 @@ export default async function PtClientsPage({
   const hasFilters = scope === 'alerts' || Boolean(alertFilter) || hasQuery;
   const activeAlertLabel = alertFilter ? ALERT_SUMMARY_META[alertFilter]?.label ?? null : null;
   const queryMatchedCount = queryMatches.length;
-  const attentionDisplayCount = hasQuery ? attentionMatches.length : attentionAll.length;
-  const hasHiddenAlerts = hasQuery && attentionDisplayCount === 0 && attentionAll.length > 0;
+  const attentionDisplayCount =
+    hasQuery || scope === 'alerts' || alertFilter ? attentionMatches.length : attentionAll.length;
+  const hasHiddenAlerts =
+    (hasQuery || scope === 'alerts' || alertFilter) &&
+    attentionDisplayCount === 0 &&
+    attentionAll.length > 0;
   const attentionBadgeTone: 'warning' | 'success' | 'info' = hasHiddenAlerts
     ? 'info'
     : attentionDisplayCount > 0
@@ -860,23 +872,36 @@ export default async function PtClientsPage({
 
         {alertSummary.length > 0 && (
           <div className="neo-inline neo-inline--sm flex-wrap" role="list">
-            {alertSummary.map((item) => (
-              <Link
-                key={item.key}
-                href={buildFilterHref({ scope: 'alerts', alert: item.key, query: activeQuery })}
-                className="neo-badge"
-                data-tone={item.tone}
-                role="listitem"
-                aria-label={`${item.count} clientes com alerta: ${item.label}`}
-                aria-current={alertFilter === item.key ? 'true' : undefined}
-                data-selected={alertFilter === item.key ? 'true' : 'false'}
-              >
-                <span className="font-semibold">{item.count}</span>
-                <span aria-hidden="true"> · </span>
-                {item.label}
-                {alertFilter === item.key && <span className="sr-only"> (filtro activo)</span>}
-              </Link>
-            ))}
+            {alertSummary.map((item) => {
+              const isActive = alertFilter === item.key;
+              return (
+                <Link
+                  key={item.key}
+                  href={buildFilterHref({
+                    scope: 'alerts',
+                    alert: isActive ? null : item.key,
+                    query: activeQuery,
+                    keepAlertsScope: true,
+                  })}
+                  prefetch={false}
+                  className="neo-badge"
+                  data-tone={item.tone}
+                  role="listitem"
+                  aria-label={
+                    isActive
+                      ? `Remover filtro de clientes com alerta: ${item.label}`
+                      : `${item.count} clientes com alerta: ${item.label}`
+                  }
+                  aria-current={isActive ? 'true' : undefined}
+                  data-selected={isActive ? 'true' : 'false'}
+                >
+                  <span className="font-semibold">{item.count}</span>
+                  <span aria-hidden="true"> · </span>
+                  {item.label}
+                  {isActive && <span className="sr-only"> (filtro activo)</span>}
+                </Link>
+              );
+            })}
           </div>
         )}
 
@@ -909,25 +934,34 @@ export default async function PtClientsPage({
                   </header>
 
                   <div className="neo-inline neo-inline--sm" role="list">
-                    {alerts.map((alert) => (
-                      <Link
-                        key={`${alert.key}-${alert.label}`}
-                        href={buildFilterHref({
-                          scope: 'alerts',
-                          alert: alert.key,
-                          query: activeQuery,
-                        })}
-                        className="neo-badge"
-                        data-tone={alert.tone}
-                        role="listitem"
-                        aria-label={`Filtrar por clientes com alerta: ${alert.label}`}
-                        aria-current={alertFilter === alert.key ? 'true' : undefined}
-                        data-selected={alertFilter === alert.key ? 'true' : 'false'}
-                      >
-                        {alert.label}
-                        {alertFilter === alert.key && <span className="sr-only"> (filtro activo)</span>}
-                      </Link>
-                    ))}
+                    {alerts.map((alert) => {
+                      const isActive = alertFilter === alert.key;
+                      return (
+                        <Link
+                          key={`${alert.key}-${alert.label}`}
+                          href={buildFilterHref({
+                            scope: 'alerts',
+                            alert: isActive ? null : alert.key,
+                            query: activeQuery,
+                            keepAlertsScope: true,
+                          })}
+                          prefetch={false}
+                          className="neo-badge"
+                          data-tone={alert.tone}
+                          role="listitem"
+                          aria-label={
+                            isActive
+                              ? `Remover filtro de clientes com alerta: ${alert.label}`
+                              : `Filtrar por clientes com alerta: ${alert.label}`
+                          }
+                          aria-current={isActive ? 'true' : undefined}
+                          data-selected={isActive ? 'true' : 'false'}
+                        >
+                          {alert.label}
+                          {isActive && <span className="sr-only"> (filtro activo)</span>}
+                        </Link>
+                      );
+                    })}
                   </div>
 
                   <dl className="grid grid-cols-1 gap-3 text-xs text-muted sm:grid-cols-3">
@@ -1136,24 +1170,33 @@ export default async function PtClientsPage({
                         </div>
                         {alerts.length > 0 && (
                           <div className="neo-inline neo-inline--xs flex-wrap text-[11px] text-muted">
-                            {alerts.map((alert) => (
-                              <Link
-                                key={`${row.id}-${alert.key}`}
-                                href={buildFilterHref({
-                                  scope: 'alerts',
-                                  alert: alert.key,
-                                  query: activeQuery,
-                                })}
-                                className="neo-badge"
-                                data-tone={alert.tone}
-                                aria-label={`Filtrar por clientes com alerta: ${alert.label}`}
-                                aria-current={alertFilter === alert.key ? 'true' : undefined}
-                                data-selected={alertFilter === alert.key ? 'true' : 'false'}
-                              >
-                                {alert.label}
-                                {alertFilter === alert.key && <span className="sr-only"> (filtro activo)</span>}
-                              </Link>
-                            ))}
+                            {alerts.map((alert) => {
+                              const isActive = alertFilter === alert.key;
+                              return (
+                                <Link
+                                  key={`${row.id}-${alert.key}`}
+                                  href={buildFilterHref({
+                                    scope: 'alerts',
+                                    alert: isActive ? null : alert.key,
+                                    query: activeQuery,
+                                    keepAlertsScope: true,
+                                  })}
+                                  prefetch={false}
+                                  className="neo-badge"
+                                  data-tone={alert.tone}
+                                  aria-label={
+                                    isActive
+                                      ? `Remover filtro de clientes com alerta: ${alert.label}`
+                                      : `Filtrar por clientes com alerta: ${alert.label}`
+                                  }
+                                  aria-current={isActive ? 'true' : undefined}
+                                  data-selected={isActive ? 'true' : 'false'}
+                                >
+                                  {alert.label}
+                                  {isActive && <span className="sr-only"> (filtro activo)</span>}
+                                </Link>
+                              );
+                            })}
                           </div>
                         )}
                       </div>
