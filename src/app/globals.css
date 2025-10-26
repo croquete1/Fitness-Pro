@@ -2466,6 +2466,9 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
   flex-wrap:wrap;
   gap:12px;
 }
+.admin-users__filtersSummary{
+  margin:-8px 0 12px;
+}
 .admin-users__search{
   width:100%;
 }
@@ -2492,6 +2495,9 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
     flex-direction:row;
     align-items:flex-end;
     justify-content:space-between;
+  }
+  .admin-users__filtersSummary{
+    margin-top:-12px;
   }
   .admin-users__search{
     max-width:360px;
