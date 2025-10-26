@@ -65,6 +65,8 @@ const STATUS_FILTERS: Array<{ value: string; label: string }> = [
 ];
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
+const AUTO_REFRESH_INTERVAL_MS = 60_000;
+const AUTO_REFRESH_MIN_GAP_MS = 5_000;
 
 type StatusKey = 'ACTIVE' | 'PENDING' | 'INVITED' | 'SUSPENDED' | 'DISABLED' | 'UNKNOWN';
 type StatusTone = 'positive' | 'warning' | 'critical' | 'info' | 'neutral';
@@ -525,6 +527,7 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
     status: initial.status,
     pageSize: initial.pageSize,
   });
+  const autoRefreshTimestampRef = React.useRef<number>(0);
 
   React.useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -589,7 +592,35 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
     pageSizeState !== pageSize ||
     Boolean(searchInput.trim());
 
+  const activeFiltersDescription = React.useMemo(() => {
+    const summaryParts: string[] = [];
+    const trimmedSearch = debouncedSearch.trim();
+    if (trimmedSearch) {
+      summaryParts.push(`pesquisa “${trimmedSearch}”`);
+    }
+
+    if (role !== 'all') {
+      const roleLabel = ROLE_FILTERS.find((option) => option.value === role)?.label ?? role;
+      summaryParts.push(`perfil ${roleLabel}`);
+    }
+
+    if (status !== 'all') {
+      const statusLabel = STATUS_FILTERS.find((option) => option.value === status)?.label ?? status;
+      summaryParts.push(`estado ${statusLabel}`);
+    }
+
+    const pageSizeSummary = `A mostrar ${pageSizeState} registo${pageSizeState === 1 ? '' : 's'} por página.`;
+    if (summaryParts.length === 0) {
+      return `Sem filtros activos. ${pageSizeSummary}`;
+    }
+
+    return `Filtros activos: ${summaryParts.join(', ')}. ${pageSizeSummary}`;
+  }, [debouncedSearch, role, status, pageSizeState]);
+
   const handleResetFilters = React.useCallback(() => {
+    if (!hasActiveFilters) {
+      return;
+    }
     setRole('all');
     setStatus('all');
     setPageSizeState(pageSize);
@@ -602,7 +633,7 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
       status: 'all',
       pageSize,
     };
-  }, [pageSize]);
+  }, [pageSize, hasActiveFilters]);
 
   const listKey = React.useMemo(() => buildListKey(queryState), [queryState]);
   const {
@@ -794,10 +825,45 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
   };
 
   const handleRefresh = () => {
+    autoRefreshTimestampRef.current = Date.now();
     void mutateList();
     void mutateDashboard();
     setFeedback({ tone: 'info', message: 'Atualização em curso…' });
   };
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const runAutoRefresh = () => {
+      const now = Date.now();
+      if (now - autoRefreshTimestampRef.current < AUTO_REFRESH_MIN_GAP_MS) {
+        return;
+      }
+      autoRefreshTimestampRef.current = now;
+      void mutateList();
+      void mutateDashboard();
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        runAutoRefresh();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        runAutoRefresh();
+      }
+    }, AUTO_REFRESH_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [mutateList, mutateDashboard]);
 
   const listInitialising = listLoading && !listData;
   const dashboardInitialising = dashboardLoading && !dashboard;
@@ -1030,6 +1096,13 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
               Limpar filtros
             </Button>
           </div>
+          <p
+            className="neo-text--sm neo-text--muted admin-users__filtersSummary"
+            role="status"
+            aria-live="polite"
+          >
+            {activeFiltersDescription}
+          </p>
 
           <div className={clsx('neo-table-wrapper', { 'is-loading': tableBusy })} aria-busy={tableBusy || undefined}>
             <table className="neo-table admin-users__table">
