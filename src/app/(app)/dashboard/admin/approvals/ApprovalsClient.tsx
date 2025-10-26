@@ -47,6 +47,8 @@ type StatusMeta = { value: Status; label: string; tone: StatusTone };
 
 const CANONICAL_STATUS_ORDER: Status[] = ['pending', 'approved', 'rejected'];
 const OPEN_IN_NEW_STORAGE_KEY = 'admin-approvals-open-in-new';
+const AUTO_REFRESH_INTERVAL_MS = 60_000;
+const RELATIVE_REFRESH_TICK_MS = 30_000;
 
 function canonicaliseStatusFilter(value?: string | null): Status | '' {
   if (!value) return '';
@@ -239,6 +241,35 @@ const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 const numberFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 });
 const hourFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 1 });
 const dayFormatter = new Intl.DateTimeFormat('pt-PT', { day: '2-digit', month: 'short' });
+
+const relativeTimeFormatter = new Intl.RelativeTimeFormat('pt-PT', { numeric: 'auto' });
+const relativeTimeDivisions = [
+  { amount: 60, unit: 'second' as const },
+  { amount: 60, unit: 'minute' as const },
+  { amount: 24, unit: 'hour' as const },
+  { amount: 7, unit: 'day' as const },
+  { amount: 4.34524, unit: 'week' as const },
+  { amount: 12, unit: 'month' as const },
+  { amount: Number.POSITIVE_INFINITY, unit: 'year' as const },
+];
+
+function formatRelativeTimestamp(timestamp: number | null) {
+  if (timestamp == null) {
+    return '';
+  }
+  const diffMs = timestamp - Date.now();
+  if (Math.abs(diffMs) < 10_000) {
+    return 'agora mesmo';
+  }
+  let duration = diffMs / 1000;
+  for (const division of relativeTimeDivisions) {
+    if (Math.abs(duration) < division.amount) {
+      return relativeTimeFormatter.format(Math.round(duration), division.unit);
+    }
+    duration /= division.amount;
+  }
+  return relativeTimeFormatter.format(Math.round(duration), 'year');
+}
 
 type TimelineDatum = AdminApprovalTimelinePoint & { label: string };
 
@@ -503,6 +534,8 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
   const [banner, setBanner] = React.useState<Banner | null>(null);
   const [openInNew, setOpenInNewState] = React.useState(false);
   const [undoState, setUndoState] = React.useState<{ row: Row; index: number } | null>(null);
+  const [lastUpdatedAt, setLastUpdatedAt] = React.useState<number | null>(null);
+  const [refreshTick, setRefreshTick] = React.useState(0);
   const activeFetchRef = React.useRef<AbortController | null>(null);
   const lastFetchIdRef = React.useRef(0);
   const undoTimerRef = React.useRef<number | null>(null);
@@ -786,6 +819,19 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
     searchSampleSize,
   ]);
 
+  const lastUpdatedLabel = React.useMemo(() => {
+    if (loading && rows.length === 0 && lastUpdatedAt == null) {
+      return 'Sincronização inicial em curso…';
+    }
+    if (loading) {
+      return 'Actualização em curso…';
+    }
+    if (lastUpdatedAt == null) {
+      return 'Última sincronização pendente.';
+    }
+    return `Actualizado ${formatRelativeTimestamp(lastUpdatedAt)}.`;
+  }, [lastUpdatedAt, loading, refreshTick, rows.length]);
+
   const undoLabel = React.useMemo(() => {
     if (!undoState?.row) return '';
     const label = undoState.row.name ?? undoState.row.email ?? undoState.row.user_id ?? '';
@@ -840,6 +886,7 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
         setCountReliable(true);
         setSearchSampleSize(null);
         setSearchSampleLimit(null);
+        setLastUpdatedAt(null);
         setBanner({
           severity: 'warning',
           message: 'Sessão expirada — autentica-te novamente para gerir os pedidos reais.',
@@ -862,6 +909,7 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
         setCountReliable(true);
         setSearchSampleSize(null);
         setSearchSampleLimit(null);
+        setLastUpdatedAt(Date.now());
         setBanner({
           severity: 'info',
           message: 'Supabase não está configurado — assim que ligares a base de dados, os pedidos reais vão aparecer aqui.',
@@ -941,6 +989,7 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
         }
       }
       setRows(mapped);
+      setLastUpdatedAt(Date.now());
       if (payload.error) {
         setBanner({ severity: 'warning', message: 'Alguns pedidos podem não estar disponíveis neste momento.' });
       }
@@ -948,11 +997,6 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
       if (controller.signal.aborted || fetchId !== lastFetchIdRef.current) {
         return;
       }
-      setRows([]);
-      setCount(0);
-      setCountReliable(true);
-      setSearchSampleSize(null);
-      setSearchSampleLimit(null);
       const message = error?.name === 'AbortError' ? null : error?.message;
       setBanner({
         severity: 'error',
@@ -976,10 +1020,42 @@ export default function ApprovalsClient({ pageSize = 20 }: { pageSize?: number }
   }, [fetchRows]);
 
   React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (lastUpdatedAt == null) return;
+    const interval = window.setInterval(() => {
+      setRefreshTick((tick) => tick + 1);
+    }, RELATIVE_REFRESH_TICK_MS);
+    return () => window.clearInterval(interval);
+  }, [lastUpdatedAt]);
+
+  React.useEffect(() => {
     const controller = new AbortController();
     void loadInsights({ signal: controller.signal });
     return () => controller.abort();
   }, [loadInsights]);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const autoRefresh = () => {
+      void fetchRows();
+      void loadInsights();
+    };
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        autoRefresh();
+      }
+    }, AUTO_REFRESH_INTERVAL_MS);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        autoRefresh();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [fetchRows, loadInsights]);
 
   React.useEffect(() => {
     const baseTotal = countReliable ? count : Math.max(count, rows.length);
@@ -1408,9 +1484,12 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
         </header>
 
         <div className="neo-inline neo-inline--wrap neo-inline--between neo-inline--sm" role="status" aria-live="polite">
-          <span className="neo-text--sm neo-text--muted" aria-live="polite" aria-atomic="true">
-            {pageSummary}
-          </span>
+          <div className="admin-approvals__summary" aria-live="polite" aria-atomic="true">
+            <span className="neo-text--sm neo-text--muted">{pageSummary}</span>
+            <span className="admin-approvals__refreshMeta">
+              {lastUpdatedLabel} Actualização automática a cada minuto.
+            </span>
+          </div>
           <span className="neo-text--xs neo-text--muted">Página {page + 1} de {totalPages}</span>
         </div>
 
