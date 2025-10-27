@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 import SessionFormClient from './SessionFormClient';
 import { useTrainerPtsCounts } from '@/lib/hooks/usePtsCounts';
@@ -26,6 +26,8 @@ const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
 ];
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+
+const OFFLINE_ERROR = 'Sem ligação à internet.';
 
 type StatusTone = 'ok' | 'warn' | 'down';
 
@@ -80,6 +82,15 @@ function formatDateTime(value: string | null | undefined) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '—';
   return date.toLocaleString('pt-PT');
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function StatusPill({ tone, label }: { tone: StatusTone; label: string }) {
@@ -211,20 +222,42 @@ function Modal({
 
 export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: number }) {
   const router = useRouter();
-  const [status, setStatus] = React.useState('');
-  const [query, setQuery] = React.useState('');
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const [status, setStatus] = React.useState(() => searchParams.get('status') ?? '');
+  const [query, setQuery] = React.useState(() => searchParams.get('q') ?? '');
   const [rows, setRows] = React.useState<Row[]>([]);
   const [count, setCount] = React.useState(0);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [pagination, setPagination] = React.useState({ page: 0, pageSize });
+  const [pagination, setPagination] = React.useState(() => {
+    const page = Math.max(0, Number.parseInt(searchParams.get('page') ?? '0', 10) || 0);
+    const parsedPageSize = Number.parseInt(searchParams.get('pageSize') ?? `${pageSize}`, 10);
+    const safePageSize = PAGE_SIZE_OPTIONS.includes(parsedPageSize) ? parsedPageSize : pageSize;
+    return { page, pageSize: safePageSize };
+  });
   const [createOpen, setCreateOpen] = React.useState(false);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = React.useState<Date | null>(null);
+  const [isOffline, setIsOffline] = React.useState(
+    () => (typeof navigator !== 'undefined' ? !navigator.onLine : false),
+  );
+
+  const deferredQuery = React.useDeferredValue(query);
+  const abortRef = React.useRef<AbortController | null>(null);
 
   const { today, next7, loading: loadingCounts } = useTrainerPtsCounts();
 
   const fetchRows = React.useCallback(async () => {
     if (typeof window === 'undefined') return;
+    if (isOffline) {
+      setLoading(false);
+      return;
+    }
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     setLoading(true);
     setError(null);
     try {
@@ -233,7 +266,7 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
       url.searchParams.set('pageSize', String(pagination.pageSize));
       if (status) url.searchParams.set('status', status);
 
-      const response = await fetch(url.toString(), { cache: 'no-store' });
+      const response = await fetch(url.toString(), { cache: 'no-store', signal: controller.signal });
       if (!response.ok) throw new Error(await response.text());
       const json = await response.json();
       const source: any[] = Array.isArray(json?.rows)
@@ -258,22 +291,76 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
 
       setRows(mapped);
       setCount(Number(json?.count ?? mapped.length));
+      setLastSyncedAt(new Date());
     } catch (err) {
+      if ((err as DOMException)?.name === 'AbortError') return;
       console.error('[trainer schedule] load failed', err);
-      setRows([]);
-      setCount(0);
-      setError('Não foi possível sincronizar a agenda.');
+      const offlineDetected = typeof navigator !== 'undefined' && !navigator.onLine;
+      setError(offlineDetected ? OFFLINE_ERROR : 'Não foi possível sincronizar a agenda.');
     } finally {
-      setLoading(false);
+      if (abortRef.current === controller) {
+        setLoading(false);
+        abortRef.current = null;
+      }
     }
-  }, [pagination.page, pagination.pageSize, status]);
+  }, [isOffline, pagination.page, pagination.pageSize, status]);
 
   React.useEffect(() => {
     void fetchRows();
   }, [fetchRows]);
 
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  React.useEffect(() => () => abortRef.current?.abort(), []);
+
+  React.useEffect(() => {
+    if (isOffline) {
+      setError(OFFLINE_ERROR);
+    } else {
+      setError((prev) => (prev === OFFLINE_ERROR ? null : prev));
+    }
+  }, [isOffline]);
+
+  React.useEffect(() => {
+    const nextStatus = searchParams.get('status') ?? '';
+    const nextQuery = searchParams.get('q') ?? '';
+    const nextPage = Math.max(0, Number.parseInt(searchParams.get('page') ?? '0', 10) || 0);
+    const parsedPageSize = Number.parseInt(searchParams.get('pageSize') ?? `${pageSize}`, 10);
+    const nextPageSize = PAGE_SIZE_OPTIONS.includes(parsedPageSize) ? parsedPageSize : pageSize;
+
+    setStatus((prev) => (prev === nextStatus ? prev : nextStatus));
+    setQuery((prev) => (prev === nextQuery ? prev : nextQuery));
+    setPagination((prev) => {
+      if (prev.page === nextPage && prev.pageSize === nextPageSize) return prev;
+      return { page: nextPage, pageSize: nextPageSize };
+    });
+  }, [searchParams, pageSize]);
+
+  React.useEffect(() => {
+    const params = new URLSearchParams();
+    if (status) params.set('status', status);
+    if (query) params.set('q', query);
+    if (pagination.page) params.set('page', String(pagination.page));
+    if (pagination.pageSize !== pageSize) params.set('pageSize', String(pagination.pageSize));
+    const next = params.toString();
+    const current = searchParams.toString();
+    if (next === current) return;
+    const target = next ? `${pathname}?${next}` : pathname;
+    router.replace(target, { scroll: false });
+  }, [status, query, pagination.page, pagination.pageSize, router, pathname, searchParams, pageSize]);
+
   const filteredRows = React.useMemo(() => {
-    const term = query.trim().toLowerCase();
+    const term = deferredQuery.trim().toLowerCase();
     if (!term) return rows;
     return rows.filter((row) => {
       const haystack = [row.client_id, row.location, row.status, row.notes]
@@ -282,22 +369,28 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
         .toLowerCase();
       return haystack.includes(term);
     });
-  }, [rows, query]);
+  }, [rows, deferredQuery]);
 
   const statusMessage = React.useMemo(() => {
     if (loading) return 'A sincronizar…';
-    if (error) return 'Falha ao sincronizar';
-    if (filteredRows.length === 0) return 'Sem sessões visíveis';
-    if (query.trim()) return `${filteredRows.length} resultado(s)`;
-    return `${count} registo(s)`;
-  }, [loading, error, filteredRows.length, query, count]);
+    if (error) return error;
+    const trimmed = deferredQuery.trim();
+    if (filteredRows.length === 0) return trimmed ? 'Nenhum resultado' : 'Sem sessões visíveis';
+    const base = trimmed ? `${filteredRows.length} resultado(s)` : `${count} registo(s)`;
+    if (!lastSyncedAt) return base;
+    return `${base} · Actualizado às ${lastSyncedAt.toLocaleTimeString('pt-PT', {
+      hour: '2-digit',
+      minute: '2-digit',
+    })}`;
+  }, [loading, error, deferredQuery, filteredRows.length, count, lastSyncedAt]);
 
   const statusState: StatusTone = loading ? 'warn' : error ? 'down' : 'ok';
 
   const totalPages = Math.max(1, Math.ceil(Math.max(count, 1) / pagination.pageSize));
   const currentPage = Math.min(pagination.page, totalPages - 1);
-  const rangeStart = count === 0 ? 0 : currentPage * pagination.pageSize + 1;
-  const rangeEnd = count === 0 ? 0 : Math.min(count, rangeStart + pagination.pageSize - 1);
+  const hasSearch = deferredQuery.trim().length > 0;
+  const rangeStart = hasSearch ? filteredRows.length > 0 ? 1 : 0 : count === 0 ? 0 : currentPage * pagination.pageSize + 1;
+  const rangeEnd = hasSearch ? filteredRows.length : count === 0 ? 0 : Math.min(count, rangeStart + pagination.pageSize - 1);
 
   const handleDelete = React.useCallback(
     async (id: string) => {
@@ -359,7 +452,7 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
           statusLabel(row.status ?? null),
           (row.notes ?? '').replace(/\r?\n/g, ' '),
         ]
-          .map((cell) => `<td>${String(cell)}</td>`)
+          .map((cell) => `<td>${escapeHtml(String(cell))}</td>`)
           .join('');
         return `<tr>${cells}</tr>`;
       })
@@ -413,6 +506,13 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
 
   const filtersLayoutGap = { '--neo-stack-gap': '20px' } as React.CSSProperties;
   const footerGap = { '--neo-stack-gap': '14px' } as React.CSSProperties;
+  const footerSummary = hasSearch
+    ? filteredRows.length === 0
+      ? 'Nenhum resultado para a pesquisa actual.'
+      : `A mostrar ${filteredRows.length} registo(s) filtrados`
+    : count === 0
+    ? 'Sem registos'
+    : `A mostrar ${filteredRows.length} registo(s) · ${rangeStart} – ${rangeEnd} de ${count}`;
 
   return (
     <div className="neo-stack neo-stack--xl">
@@ -629,9 +729,7 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
           </table>
         </div>
         <div className="neo-panel__footer" style={footerGap}>
-          <div>
-            {count === 0 ? 'Sem registos' : `A mostrar ${filteredRows.length} registo(s) · ${rangeStart} – ${rangeEnd} de ${count}`}
-          </div>
+          <div>{footerSummary}</div>
           <div className="neo-inline neo-inline--wrap neo-inline--md">
             <label className="neo-inline neo-inline--sm neo-text--xs neo-text--uppercase neo-text--muted">
               <span>Itens por página</span>
