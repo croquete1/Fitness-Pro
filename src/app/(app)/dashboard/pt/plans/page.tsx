@@ -91,6 +91,40 @@ function cloneSessionMap(source: SessionMap): SessionMap {
   );
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function listsHaveSameOrder(a?: Sess[], b?: Sess[]) {
+  const first = a ?? [];
+  const second = b ?? [];
+  if (first.length !== second.length) {
+    return false;
+  }
+  return first.every((session, index) => session.id === second[index]?.id);
+}
+
+function rebaseSessionDate(session: Sess, dayKey: string): Sess {
+  const baseline = new Date(`${dayKey}T00:00:00.000Z`);
+  const original = new Date(session.start_at);
+
+  if (Number.isNaN(baseline.getTime()) || Number.isNaN(original.getTime())) {
+    return { ...session };
+  }
+
+  baseline.setUTCHours(
+    original.getUTCHours(),
+    original.getUTCMinutes(),
+    original.getUTCSeconds(),
+    original.getUTCMilliseconds(),
+  );
+
+  return {
+    ...session,
+    start_at: baseline.toISOString(),
+  };
+}
+
 export default function PlansBoardPage() {
   const [start, setStart] = React.useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [weeks, setWeeks] = React.useState(2);
@@ -237,12 +271,23 @@ export default function PlansBoardPage() {
 
   const drag = React.useRef<{ day: string; index: number } | null>(null);
 
-  const onDragStart = (day: string, index: number) => () => {
+  const onDragStart = (day: string, index: number) => (event: React.DragEvent) => {
     drag.current = { day, index };
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', '');
+    }
+  };
+
+  const onDragEnd = () => {
+    drag.current = null;
   };
 
   const onDragOver = (event: React.DragEvent) => {
     event.preventDefault();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'move';
+    }
   };
 
   const reorderSameDay = async (list: Sess[]) => {
@@ -341,8 +386,14 @@ export default function PlansBoardPage() {
       const snapshot = cloneSessionMap(previous);
       const next = cloneSessionMap(previous);
 
-      const sourceList = next[source.day]?.slice() ?? [];
-      const [moved] = sourceList.splice(source.index, 1);
+      const originalSourceList = snapshot[source.day] ?? [];
+      const workingSourceList = next[source.day]?.slice() ?? [];
+
+      if (workingSourceList.length === 0 || source.index < 0 || source.index >= workingSourceList.length) {
+        return previous;
+      }
+
+      const [moved] = workingSourceList.splice(source.index, 1);
       if (!moved) {
         return previous;
       }
@@ -350,8 +401,14 @@ export default function PlansBoardPage() {
       const isSameDay = source.day === targetDay;
 
       if (isSameDay) {
-        sourceList.splice(targetIndex, 0, moved);
-        const normalized = sourceList.map((session, index) => ({ ...session, order_index: index }));
+        const boundedIndex = clamp(targetIndex, 0, workingSourceList.length);
+        workingSourceList.splice(boundedIndex, 0, moved);
+        const normalized = workingSourceList.map((session, index) => ({ ...session, order_index: index }));
+
+        if (listsHaveSameOrder(normalized, originalSourceList)) {
+          return previous;
+        }
+
         next[source.day] = normalized;
 
         void (async () => {
@@ -365,10 +422,22 @@ export default function PlansBoardPage() {
         return next;
       }
 
+      const previousTargetList = snapshot[targetDay];
       const targetList = next[targetDay]?.slice() ?? [];
-      targetList.splice(targetIndex, 0, moved);
+      const boundedIndex = clamp(targetIndex, 0, targetList.length);
+      const movedWithNewDate = rebaseSessionDate(moved, targetDay);
+
+      targetList.splice(boundedIndex, 0, movedWithNewDate);
+
+      const normalizedSource = workingSourceList.map((session, index) => ({ ...session, order_index: index }));
       const normalizedTarget = targetList.map((session, index) => ({ ...session, order_index: index }));
-      const normalizedSource = sourceList.map((session, index) => ({ ...session, order_index: index }));
+
+      if (
+        listsHaveSameOrder(normalizedSource, originalSourceList) &&
+        listsHaveSameOrder(normalizedTarget, previousTargetList)
+      ) {
+        return previous;
+      }
 
       next[targetDay] = normalizedTarget;
       next[source.day] = normalizedSource;
@@ -567,6 +636,7 @@ export default function PlansBoardPage() {
                         className="trainer-plan-board__session"
                         draggable
                         onDragStart={onDragStart(key, index)}
+                        onDragEnd={onDragEnd}
                         onDragOver={onDragOver}
                         onDrop={onDrop(key, index)}
                       >
