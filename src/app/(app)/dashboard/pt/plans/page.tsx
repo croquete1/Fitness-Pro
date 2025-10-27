@@ -19,6 +19,7 @@ type Sess = {
 
 const API = '/api/pt/plans';
 const OFFLINE_MESSAGE = 'Sem ligação à internet. A agenda mantém os últimos dados disponíveis.';
+const STORAGE_KEY = 'pt-planner:last-range';
 
 type SessionMap = Record<string, Sess[]>;
 
@@ -139,6 +140,9 @@ export default function PlansBoardPage() {
   const mountedRef = React.useRef(true);
   const loadingRef = React.useRef(false);
   const offlineRef = React.useRef(isOffline);
+  const mapRef = React.useRef<SessionMap>({});
+  const hydratedRangeRef = React.useRef<string | null>(null);
+  const rangeRef = React.useRef<string | null>(null);
 
   const days = React.useMemo(() => {
     const result: Date[] = [];
@@ -165,6 +169,109 @@ export default function PlansBoardPage() {
     offlineRef.current = isOffline;
   }, [isOffline]);
 
+  React.useEffect(() => {
+    mapRef.current = map;
+  }, [map]);
+
+  const persistSnapshot = React.useCallback(
+    (snapshotMap: SessionMap, syncAt: Date | null) => {
+      if (typeof window === 'undefined' || days.length === 0) {
+        return;
+      }
+
+      try {
+        const from = formatKey(days[0]);
+        const to = formatKey(days[days.length - 1]);
+        const rangeKey = `${from}:${to}`;
+        const payload = {
+          version: 1 as const,
+          range: { from, to },
+          map: cloneSessionMap(snapshotMap),
+          lastSyncAt: syncAt ? syncAt.toISOString() : null,
+        };
+        rangeRef.current = rangeKey;
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      } catch (storageError) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('Não foi possível guardar o snapshot local do planeador.', storageError);
+        }
+      }
+    },
+    [days],
+  );
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined' || days.length === 0) {
+      return;
+    }
+
+    const from = formatKey(days[0]);
+    const to = formatKey(days[days.length - 1]);
+    const rangeKey = `${from}:${to}`;
+
+    if (hydratedRangeRef.current === rangeKey && rangeRef.current === rangeKey) {
+      return;
+    }
+
+    hydratedRangeRef.current = rangeKey;
+
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        return;
+      }
+
+      const parsed = JSON.parse(raw) as {
+        version?: number;
+        range?: { from?: string; to?: string };
+        map?: Record<string, unknown>;
+        lastSyncAt?: string | null;
+      } | null;
+
+      if (!parsed || parsed.version !== 1) {
+        return;
+      }
+
+      if (parsed.range?.from !== from || parsed.range?.to !== to) {
+        return;
+      }
+
+      const hydratedMap: SessionMap = {};
+
+      days.forEach((day) => {
+        const key = formatKey(day);
+        const storedSessions = Array.isArray(parsed.map?.[key])
+          ? coerceSessions(parsed.map?.[key])
+          : [];
+        hydratedMap[key] = storedSessions
+          .map((session, index) => ({
+            ...session,
+            order_index: typeof session.order_index === 'number' ? session.order_index : index,
+          }))
+          .sort((a, b) => a.order_index - b.order_index || a.start_at.localeCompare(b.start_at));
+      });
+
+      setMap((current) => {
+        if (rangeRef.current === rangeKey && Object.keys(current).length > 0) {
+          return current;
+        }
+        rangeRef.current = rangeKey;
+        return hydratedMap;
+      });
+
+      if (parsed.lastSyncAt) {
+        const last = new Date(parsed.lastSyncAt);
+        if (!Number.isNaN(last.getTime())) {
+          setLastSyncAt((previous) => previous ?? last);
+        }
+      }
+    } catch (storageError) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('Falha ao ler snapshot local do planeador.', storageError);
+      }
+    }
+  }, [days]);
+
   const load = React.useCallback(async (options?: { preserveError?: boolean }) => {
     if (!days.length) return;
     abortRef.current?.abort();
@@ -187,8 +294,11 @@ export default function PlansBoardPage() {
       setError(null);
     }
     try {
-      const from = `${formatKey(days[0])}T00:00:00.000Z`;
-      const to = `${formatKey(days[days.length - 1])}T23:59:59.999Z`;
+      const firstDayKey = formatKey(days[0]);
+      const lastDayKey = formatKey(days[days.length - 1]);
+      const from = `${firstDayKey}T00:00:00.000Z`;
+      const to = `${lastDayKey}T23:59:59.999Z`;
+      const rangeKey = `${firstDayKey}:${lastDayKey}`;
       const response = await fetch(`${API}?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, {
         cache: 'no-store',
         signal: controller.signal,
@@ -244,8 +354,11 @@ export default function PlansBoardPage() {
       });
 
       if (!controller.signal.aborted && mountedRef.current) {
+        const syncTime = new Date();
+        rangeRef.current = rangeKey;
         setMap(grouped);
-        setLastSyncAt(new Date());
+        setLastSyncAt(syncTime);
+        persistSnapshot(grouped, syncTime);
         setIsOffline(false);
         if (options?.preserveError) {
           setError(null);
@@ -309,6 +422,9 @@ export default function PlansBoardPage() {
         return false;
       }
       toast('Ordem actualizada ↕️', 1500, 'success');
+      const syncTime = new Date();
+      setLastSyncAt(syncTime);
+      persistSnapshot(mapRef.current, syncTime);
       return true;
     } catch (err: unknown) {
       if (isAbortError(err)) {
@@ -361,6 +477,9 @@ export default function PlansBoardPage() {
         return false;
       }
       toast('Sessão movida ⇄', 1500, 'success');
+      const syncTime = new Date();
+      setLastSyncAt(syncTime);
+      persistSnapshot(mapRef.current, syncTime);
       return true;
     } catch (err: unknown) {
       if (isAbortError(err)) {
