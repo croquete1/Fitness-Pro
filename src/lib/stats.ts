@@ -77,6 +77,7 @@ export const getAdminDashboardStats = unstable_cache(
     // Sessões/semana por PT (MV → fallback direto)
     let weekRows: Array<{ id: string; name: string; count: number }> = [];
     try {
+      await sb.rpc('refresh_mv_sessions_next7_by_trainer');
       const { data: mv } = await sb
         .from('mv_sessions_next7_by_trainer' as any)
         .select('trainer_id, day_date, total');

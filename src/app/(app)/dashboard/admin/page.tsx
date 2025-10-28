@@ -4,6 +4,121 @@ import { tryCreateServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { getSampleAdminDashboard } from '@/lib/fallback/users';
 
+type SupabaseClient = NonNullable<ReturnType<typeof tryCreateServerClient>>;
+
+type SessionRow = {
+  id: string | number;
+  trainer_id: string | number | null;
+  client_id: string | number | null;
+  scheduled_at: string | null;
+  location: string | null;
+  trainer?: { id: string | number; name: string | null; email: string | null } | null;
+  client?: { id: string | number; name: string | null; email: string | null } | null;
+};
+
+type TrainerAggregateRow = {
+  trainer_id: string | number | null;
+  total: number | null;
+};
+
+function startOfUtcDay(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+function addUtcDays(base: Date, days: number): Date {
+  return new Date(base.getTime() + days * 86_400_000);
+}
+
+function toIso(date: Date): string {
+  return date.toISOString();
+}
+
+async function countRows(
+  sb: SupabaseClient,
+  table: 'users' | 'sessions',
+  build?: (query: any) => any,
+) {
+  let query = sb.from(table).select('id', { count: 'exact', head: true });
+  if (build) {
+    const maybe = build(query as any);
+    if (maybe) query = maybe as any;
+  }
+  const { count, error } = await (query as any);
+  if (error) {
+    console.warn('[admin dashboard] falha ao contar registos', table, error);
+    return 0;
+  }
+  return count ?? 0;
+}
+
+async function refreshMaterializedView(sb: SupabaseClient) {
+  try {
+    const { error } = await sb.rpc('refresh_mv_sessions_next7_by_trainer');
+    if (error) {
+      console.warn('[admin dashboard] falha ao actualizar vista materializada de sessões', error);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.warn('[admin dashboard] erro inesperado ao actualizar vista materializada de sessões', error);
+    return false;
+  }
+}
+
+async function loadTrainerAggregates(
+  sb: SupabaseClient,
+  sessionsUpcoming: SessionRow[],
+): Promise<{ totals: Map<string, number>; source: AdminDashboardData['topTrainersSource'] }> {
+  const totals = new Map<string, number>();
+
+  const refreshed = await refreshMaterializedView(sb);
+  if (refreshed) {
+    const { data: mvRows, error } = await sb
+      .from('mv_sessions_next7_by_trainer' as never)
+      .select('trainer_id,total');
+    if (!error) {
+      for (const row of (mvRows ?? []) as TrainerAggregateRow[]) {
+        if (!row?.trainer_id) continue;
+        const id = String(row.trainer_id);
+        totals.set(id, (totals.get(id) ?? 0) + Number(row.total ?? 0));
+      }
+      return { totals, source: 'materialized-view' };
+    }
+    console.warn('[admin dashboard] falha ao ler vista materializada de sessões', error);
+  }
+
+  for (const row of sessionsUpcoming ?? []) {
+    if (!row?.trainer_id) continue;
+    const id = String(row.trainer_id);
+    totals.set(id, (totals.get(id) ?? 0) + 1);
+  }
+  return { totals, source: 'sessions-fallback' };
+}
+
+function collectDirectory(
+  rows: SessionRow[],
+): { trainers: Map<string, string>; clients: Map<string, string> } {
+  const trainers = new Map<string, string>();
+  const clients = new Map<string, string>();
+
+  for (const row of rows ?? []) {
+    if (row?.trainer_id) {
+      const trainer = row.trainer ?? null;
+      const id = String(row.trainer_id);
+      const name = trainer?.name ?? trainer?.email ?? id;
+      trainers.set(id, name);
+    }
+    if (row?.client_id) {
+      const client = row.client ?? null;
+      const id = String(row.client_id);
+      const name = client?.name ?? client?.email ?? id;
+      clients.set(id, name);
+    }
+  }
+
+  return { trainers, clients };
+}
+
 export const dynamic = 'force-dynamic';
 
 async function loadAdminDashboard(): Promise<{ data: AdminDashboardData; supabase: boolean }> {
@@ -15,94 +130,87 @@ async function loadAdminDashboard(): Promise<{ data: AdminDashboardData; supabas
 
   try {
     const now = new Date();
-    const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startTomorrow = new Date(startToday);
-    startTomorrow.setDate(startTomorrow.getDate() + 1);
-    const sevenDays = new Date(startToday);
-    sevenDays.setDate(sevenDays.getDate() + 7);
+    const startToday = startOfUtcDay(now);
+    const startTomorrow = addUtcDays(startToday, 1);
+    const inSevenDays = addUtcDays(startToday, 7);
+    const startTodayIso = toIso(startToday);
+    const startTomorrowIso = toIso(startTomorrow);
+    const inSevenDaysIso = toIso(inSevenDays);
 
     const [usersCount, clientsCount, trainersCount, pendingCount, sessionsToday] = await Promise.all([
-      sb.from('users').select('*', { count: 'exact', head: true }),
-      sb.from('users').select('*', { count: 'exact', head: true }).eq('role', 'CLIENT'),
-      sb.from('users').select('*', { count: 'exact', head: true }).in('role', ['TRAINER', 'PT']),
-      sb.from('users').select('*', { count: 'exact', head: true }).eq('status', 'PENDING'),
-      sb
-        .from('sessions')
-        .select('id', { count: 'exact', head: true })
-        .gte('start_time', startToday.toISOString())
-        .lt('start_time', startTomorrow.toISOString()),
-    ]).then((results) => results.map((r) => r.count ?? 0));
+      countRows(sb, 'users'),
+      countRows(sb, 'users', (q) => q.eq('role', 'CLIENT')),
+      countRows(sb, 'users', (q) => q.in('role', ['TRAINER', 'PT'])),
+      countRows(sb, 'users', (q) => q.eq('status', 'PENDING')),
+      countRows(sb, 'sessions', (q) => q.gte('scheduled_at', startTodayIso).lt('scheduled_at', startTomorrowIso)),
+    ]);
 
-    const { data: lastUsers } = await sb
+    const { data: lastUsers, error: lastUsersError } = await sb
       .from('users')
       .select('id,name,email,created_at')
       .order('created_at', { ascending: false })
       .limit(5);
+    if (lastUsersError) {
+      console.warn('[admin dashboard] falha ao carregar últimos utilizadores', lastUsersError);
+    }
 
-    const { data: sessionsUpcoming } = await sb
+    const { data: sessionsUpcomingRaw, error: sessionsError } = await sb
       .from('sessions')
-      .select('id, trainer_id, client_id, start_time, location')
-      .gte('start_time', startToday.toISOString())
-      .lt('start_time', sevenDays.toISOString())
-      .order('start_time', { ascending: true });
-
-    const trainerCounts = new Map<string, number>();
-    const trainerIds = new Set<string>();
-    const clientIds = new Set<string>();
-    for (const row of sessionsUpcoming ?? []) {
-      if (!row?.trainer_id) continue;
-      const trainerId = String(row.trainer_id);
-      trainerCounts.set(trainerId, (trainerCounts.get(trainerId) ?? 0) + 1);
-      trainerIds.add(trainerId);
-      if (row?.client_id) clientIds.add(String(row.client_id));
+      .select(
+        `
+          id,
+          trainer_id,
+          client_id,
+          scheduled_at,
+          location,
+          trainer:users!sessions_trainer_id_fkey(id,name,email),
+          client:users!sessions_client_id_fkey(id,name,email)
+        `,
+      )
+      .gte('scheduled_at', startTodayIso)
+      .lt('scheduled_at', inSevenDaysIso)
+      .order('scheduled_at', { ascending: true });
+    if (sessionsError) {
+      console.warn('[admin dashboard] falha ao carregar sessões próximas', sessionsError);
     }
+    const sessionsUpcoming = (sessionsUpcomingRaw ?? []) as unknown as SessionRow[];
 
-    const trainerProfiles: Record<string, { name: string }> = {};
-    if (trainerIds.size) {
-      const { data: trainers } = await sb
-        .from('users')
-        .select('id,name,email')
-        .in('id', Array.from(trainerIds));
-      for (const t of trainers ?? []) {
-        if (!t?.id) continue;
-        trainerProfiles[String(t.id)] = { name: t.name ?? t.email ?? String(t.id) };
+    const { trainers: trainerNames, clients: clientNames } = collectDirectory(sessionsUpcoming);
+
+    const { totals: trainerTotals, source: topTrainersSource } = await loadTrainerAggregates(sb, sessionsUpcoming);
+
+    const missingTrainerIds = Array.from(trainerTotals.keys()).filter((id) => !trainerNames.has(id));
+    if (missingTrainerIds.length > 0) {
+      const { data: trainers, error } = await sb.from('users').select('id,name,email').in('id', missingTrainerIds);
+      if (error) {
+        console.warn('[admin dashboard] falha ao carregar nomes dos PT', error);
+      }
+      for (const trainer of trainers ?? []) {
+        if (!trainer?.id) continue;
+        const id = String(trainer.id);
+        trainerNames.set(id, trainer.name ?? trainer.email ?? id);
       }
     }
 
-    const clientProfiles: Record<string, { name: string }> = {};
-    if (clientIds.size) {
-      const { data: clients } = await sb
-        .from('users')
-        .select('id,name,email')
-        .in('id', Array.from(clientIds));
-      for (const c of clients ?? []) {
-        if (!c?.id) continue;
-        clientProfiles[String(c.id)] = { name: c.name ?? c.email ?? String(c.id) };
-      }
-    }
-
-    const topTrainers = Array.from(trainerCounts.entries())
-      .map(([id, total]) => ({
-        id,
-        name: trainerProfiles[id]?.name ?? id,
-        total,
-      }))
+    const topTrainers = Array.from(trainerTotals.entries())
+      .map(([id, total]) => ({ id, name: trainerNames.get(id) ?? id, total }))
       .sort((a, b) => b.total - a.total)
       .slice(0, 5);
 
-    const agenda = (sessionsUpcoming ?? []).map((session, index) => ({
-      id: session?.id ? String(session.id) : `session-${index}`,
-      start_time: session.start_time ?? null,
-      trainer_id: session.trainer_id ? String(session.trainer_id) : null,
-      trainer_name:
-        (session.trainer_id && trainerProfiles[String(session.trainer_id)]?.name) ||
-        (session.trainer_id ? String(session.trainer_id) : '-'),
-      client_id: session.client_id ? String(session.client_id) : null,
-      client_name:
-        (session.client_id && clientProfiles[String(session.client_id)]?.name) ||
-        (session.client_id ? String(session.client_id) : '-'),
-      location: session.location ?? null,
-    }));
+    const agenda = sessionsUpcoming.map((session, index) => {
+      const trainerId = session.trainer_id ? String(session.trainer_id) : null;
+      const clientId = session.client_id ? String(session.client_id) : null;
+      return {
+        id: session?.id ? String(session.id) : `session-${index}`,
+        scheduled_at: session?.scheduled_at ?? null,
+        start_time: session?.scheduled_at ?? null,
+        trainer_id: trainerId,
+        trainer_name: trainerId ? trainerNames.get(trainerId) ?? trainerId : '-',
+        client_id: clientId,
+        client_name: clientId ? clientNames.get(clientId) ?? clientId : '-',
+        location: session.location ?? null,
+      };
+    });
 
     const data: AdminDashboardData = {
       totals: {
@@ -120,6 +228,8 @@ async function loadAdminDashboard(): Promise<{ data: AdminDashboardData; supabas
       })),
       topTrainers,
       agenda,
+      topTrainersSource,
+      agendaSource: 'supabase',
     };
 
     return { data, supabase: true };

@@ -31,13 +31,16 @@ export type SampleAdminDashboard = {
   topTrainers: Array<{ id: string; name: string; total: number }>;
   agenda: Array<{
     id: string;
-    start_time: string;
+    scheduled_at: string | null;
+    start_time?: string | null;
     trainer_id: string;
     trainer_name: string;
     client_id: string;
     client_name: string;
     location?: string | null;
   }>;
+  topTrainersSource: 'materialized-view' | 'sessions-fallback' | 'sample';
+  agendaSource: 'supabase' | 'sample';
 };
 
 export function getSampleAdminDashboard(): SampleAdminDashboard {
@@ -52,6 +55,8 @@ export function getSampleAdminDashboard(): SampleAdminDashboard {
     recentUsers: [],
     topTrainers: [],
     agenda: [],
+    topTrainersSource: 'sample',
+    agendaSource: 'sample',
   };
 }
 
