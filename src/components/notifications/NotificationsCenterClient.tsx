@@ -2,12 +2,14 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { ArrowUpRight, CheckCheck, MailOpen, MailX, RefreshCcw, Search } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
 import Spinner from '@/components/ui/Spinner';
 import DataSourceBadge from '@/components/ui/DataSourceBadge';
 import type { NotificationRow } from '@/lib/notifications/types';
+import { useSupabaseRealtime } from '@/lib/supabase/useRealtime';
 
 type StatusFilter = 'all' | 'unread' | 'read';
 
@@ -25,6 +27,7 @@ type NotificationsCenterClientProps = {
   initialCounts?: { all: number; unread: number; read: number };
   initialSource?: 'supabase' | 'fallback';
   initialGeneratedAt?: string | null;
+  viewerId?: string | null;
 };
 
 type StatusSegment = {
@@ -72,8 +75,10 @@ export default function NotificationsCenterClient({
   initialCounts,
   initialSource = 'fallback',
   initialGeneratedAt = null,
+  viewerId: providedViewerId = null,
 }: NotificationsCenterClientProps) {
   const router = useRouter();
+  const { data: session } = useSession();
   const [status, setStatus] = React.useState<StatusFilter>('unread');
   const [page, setPage] = React.useState(0);
   const pageSize = 12;
@@ -88,6 +93,35 @@ export default function NotificationsCenterClient({
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [refreshKey, setRefreshKey] = React.useState(0);
+  const realtimeTimerRef = React.useRef<number | null>(null);
+
+  const viewerId = React.useMemo(() => {
+    if (typeof providedViewerId === 'string' && providedViewerId.trim()) {
+      return providedViewerId.trim();
+    }
+    const sessionId =
+      session?.user && 'id' in session.user && typeof (session.user as { id?: unknown }).id === 'string'
+        ? ((session.user as { id?: string }).id as string)
+        : null;
+    return sessionId;
+  }, [providedViewerId, session?.user]);
+
+  const scheduleRealtimeRefresh = React.useCallback(() => {
+    if (realtimeTimerRef.current) return;
+    realtimeTimerRef.current = window.setTimeout(() => {
+      realtimeTimerRef.current = null;
+      setRefreshKey((key) => key + 1);
+    }, 450);
+  }, []);
+
+  React.useEffect(() => {
+    return () => {
+      if (realtimeTimerRef.current) {
+        window.clearTimeout(realtimeTimerRef.current);
+        realtimeTimerRef.current = null;
+      }
+    };
+  }, []);
 
   React.useEffect(() => {
     const controller = new AbortController();
@@ -194,6 +228,18 @@ export default function NotificationsCenterClient({
   const refresh = React.useCallback(() => {
     setRefreshKey((key) => key + 1);
   }, []);
+
+  useSupabaseRealtime(
+    `notifications-center-${viewerId ?? 'anonymous'}`,
+    React.useMemo(
+      () => [
+        viewerId ? { table: 'notifications', filter: `user_id=eq.${viewerId}` } : { table: 'notifications' },
+      ],
+      [viewerId],
+    ),
+    scheduleRealtimeRefresh,
+    { enabled: true },
+  );
 
   return (
     <section className="notifications-center neo-panel neo-stack neo-stack--xl" aria-live="polite">

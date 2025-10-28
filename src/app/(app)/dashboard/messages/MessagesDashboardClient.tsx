@@ -28,6 +28,7 @@ import PageHeader from '@/components/ui/PageHeader';
 import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
 import DataSourceBadge from '@/components/ui/DataSourceBadge';
+import { useSupabaseRealtime } from '@/lib/supabase/useRealtime';
 import type {
   MessageHeroMetric,
   MessageHighlight,
@@ -437,6 +438,24 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
     },
   );
 
+  const realtimeTimerRef = React.useRef<number | null>(null);
+  const scheduleRealtimeRefresh = React.useCallback(() => {
+    if (realtimeTimerRef.current) return;
+    realtimeTimerRef.current = window.setTimeout(() => {
+      realtimeTimerRef.current = null;
+      void mutate();
+    }, 450);
+  }, [mutate]);
+
+  React.useEffect(() => {
+    return () => {
+      if (realtimeTimerRef.current) {
+        window.clearTimeout(realtimeTimerRef.current);
+        realtimeTimerRef.current = null;
+      }
+    };
+  }, []);
+
   const dashboard = data ?? initialData;
   const supabase = dashboard.source === 'supabase';
   const deferredSearch = React.useDeferredValue(search);
@@ -482,6 +501,19 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
     }, 300);
     return () => window.clearTimeout(handle);
   }, [search, updateQueryParams]);
+
+  useSupabaseRealtime(
+    `messages-dashboard-${viewerId}`,
+    React.useMemo(
+      () => [
+        { table: 'messages', filter: `from_id=eq.${viewerId}` },
+        { table: 'messages', filter: `to_id=eq.${viewerId}` },
+      ],
+      [viewerId],
+    ),
+    scheduleRealtimeRefresh,
+    { enabled: Boolean(viewerId) },
+  );
 
   const timelineData = React.useMemo<ChartDatum[]>(() => {
     return (dashboard.timeline ?? []).map((point: MessageTimelinePoint) => ({
