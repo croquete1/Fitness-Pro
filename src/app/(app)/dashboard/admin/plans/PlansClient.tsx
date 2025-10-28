@@ -181,6 +181,32 @@ export default function PlansClient() {
   const [ready, setReady] = React.useState(false);
   const [cloneBusyIds, setCloneBusyIds] = React.useState<Set<string>>(() => new Set());
   const cloneBusyRef = React.useRef<Set<string>>(new Set());
+  const queryRef = React.useRef(query);
+  const debouncedQueryRef = React.useRef(debouncedQuery);
+  const difficultyRef = React.useRef(difficulty);
+  const pageSizeRef = React.useRef(pageSize);
+  const pageRef = React.useRef(page);
+  const pageResetMode = React.useRef<'auto' | 'skip'>('auto');
+
+  React.useEffect(() => {
+    queryRef.current = query;
+  }, [query]);
+
+  React.useEffect(() => {
+    debouncedQueryRef.current = debouncedQuery;
+  }, [debouncedQuery]);
+
+  React.useEffect(() => {
+    difficultyRef.current = difficulty;
+  }, [difficulty]);
+
+  React.useEffect(() => {
+    pageSizeRef.current = pageSize;
+  }, [pageSize]);
+
+  React.useEffect(() => {
+    pageRef.current = page;
+  }, [page]);
 
   const supabaseOnline = insights?.source === 'supabase' && insights?._supabaseConfigured !== false;
 
@@ -269,22 +295,18 @@ export default function PlansClient() {
 
   const difficultyOptions = React.useMemo(() => {
     const options = new Map<string, string>();
-    rows.forEach((row) => {
-      if (row.difficulty) {
-        const token = difficultyToken(row.difficulty);
-        options.set(token, formatDifficulty(row.difficulty));
-      }
-    });
-    insights?.difficulties.forEach((stat) => {
-      const token = difficultyToken(stat.key);
-      options.set(token, formatDifficulty(stat.key));
-    });
-    if (difficulty !== 'all' && difficulty.trim()) {
-      const token = difficultyToken(difficulty);
-      options.set(token, formatDifficulty(difficulty));
-    }
-    return Array.from(options.values())
-      .sort((a, b) => a.localeCompare(b, 'pt-PT'));
+    const register = (value: string | null | undefined) => {
+      if (!value) return;
+      const token = difficultyToken(value);
+      if (!token || token === 'all') return;
+      options.set(token, formatDifficulty(value));
+    };
+    rows.forEach((row) => register(row.difficulty));
+    insights?.difficulties.forEach((stat) => register(stat.key));
+    if (difficulty !== 'all') register(difficulty);
+    const entries = Array.from(options.entries());
+    entries.sort((a, b) => a[1].localeCompare(b[1], 'pt-PT'));
+    return entries;
   }, [rows, insights, difficulty]);
 
   const totalPages = Math.max(1, Math.ceil(count / pageSize));
@@ -303,6 +325,10 @@ export default function PlansClient() {
 
   React.useEffect(() => {
     if (!ready) return;
+    if (pageResetMode.current === 'skip') {
+      pageResetMode.current = 'auto';
+      return;
+    }
     setPage(0);
   }, [ready, debouncedQuery, difficulty, pageSize]);
 
@@ -310,27 +336,36 @@ export default function PlansClient() {
     if (typeof window === 'undefined') return;
     function applySearchParams(search: URLSearchParams) {
       const nextQuery = search.get('q') ?? '';
-      const nextDifficulty = search.get('difficulty') ?? 'all';
+      const nextDifficultyParam = search.get('difficulty') ?? 'all';
       const nextPage = Number.parseInt(search.get('page') ?? '0', 10);
       const nextPageSize = Number.parseInt(search.get('pageSize') ?? '20', 10);
 
+      const trimmedQuery = nextQuery.trim();
+      const resolvedDifficulty = !nextDifficultyParam || nextDifficultyParam === 'all'
+        ? 'all'
+        : difficultyToken(nextDifficultyParam);
+      const parsedPage = Number.isFinite(nextPage) && nextPage >= 0 ? nextPage : 0;
+      const parsedPageSize = Number.isFinite(nextPageSize) && PAGE_SIZE_OPTIONS.includes(nextPageSize)
+        ? nextPageSize
+        : 20;
+
+      const queryChanged = queryRef.current !== nextQuery;
+      const debouncedChanged = debouncedQueryRef.current !== trimmedQuery;
+      const difficultyChanged = difficultyRef.current !== resolvedDifficulty;
+      const pageSizeChanged = pageSizeRef.current !== parsedPageSize;
+      const pageChanged = pageRef.current !== parsedPage;
+
       setQuery((prev) => (prev === nextQuery ? prev : nextQuery));
-      setDebouncedQuery(nextQuery.trim());
-      setDifficulty((prev) => {
-        if (!nextDifficulty || nextDifficulty === 'all') return prev === 'all' ? prev : 'all';
-        const value = formatDifficulty(nextDifficulty);
-        return prev === value ? prev : value;
-      });
-      setPage((prev) => {
-        const parsed = Number.isFinite(nextPage) && nextPage >= 0 ? nextPage : 0;
-        return prev === parsed ? prev : parsed;
-      });
-      setPageSize((prev) => {
-        const parsed = Number.isFinite(nextPageSize) && PAGE_SIZE_OPTIONS.includes(nextPageSize)
-          ? nextPageSize
-          : 20;
-        return prev === parsed ? prev : parsed;
-      });
+      setDebouncedQuery((prev) => (prev === trimmedQuery ? prev : trimmedQuery));
+      setDifficulty((prev) => (prev === resolvedDifficulty ? prev : resolvedDifficulty));
+      setPage((prev) => (prev === parsedPage ? prev : parsedPage));
+      setPageSize((prev) => (prev === parsedPageSize ? prev : parsedPageSize));
+
+      if (queryChanged || debouncedChanged || difficultyChanged || pageSizeChanged || pageChanged) {
+        pageResetMode.current = 'skip';
+      } else {
+        pageResetMode.current = 'auto';
+      }
     }
 
     const initial = new URLSearchParams(window.location.search);
@@ -389,7 +424,7 @@ export default function PlansClient() {
     })));
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    const diffSlug = difficulty !== 'all' ? difficultyToken(difficulty) : null;
+    const diffSlug = difficulty !== 'all' ? difficulty : null;
     const querySlug = debouncedQuery ? stripDiacritics(debouncedQuery).replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') : '';
     const name = `planos${diffSlug ? `-diff-${diffSlug}` : ''}${querySlug ? `-q-${querySlug}` : ''}.csv`;
     const link = document.createElement('a');
@@ -657,9 +692,9 @@ export default function PlansClient() {
               onChange={(event) => setDifficulty(event.target.value)}
             >
               <option value="all">Todas</option>
-              {difficultyOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
+              {difficultyOptions.map(([token, label]) => (
+                <option key={token} value={token}>
+                  {label}
                 </option>
               ))}
             </select>

@@ -31,6 +31,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Endurecer o endpoint de planos administrativos com guarda de administrador e fallbacks Supabase. Fonte: `src/app/api/admin/plans/route.ts`.
 - [x] Refinar a consola administrativa de planos com filtros normalizados, sumários `aria-live` e prevenção de clones duplicados. Fontes: `src/app/(app)/dashboard/admin/plans/PlansClient.tsx`, `src/app/globals.css`.
   - 2025-10-29: Deduplicação das dificuldades, exportações com nomes higienizados, contagens em tempo real após clones/remoções e bloqueio imediato de acções concorrentes.
+  - 2025-10-30: Preservação da paginação ao hidratar filtros partilhados e normalização dos tokens de dificuldade para sincronizar URL/seleção sem perdas.
 - [x] Modernizar a ficha detalhada de clientes/utentes com overview completo, métricas e gestão de PT em cartão único. Fontes: `src/app/(app)/dashboard/users/[id]/page.tsx`, `src/app/(app)/dashboard/users/[id]/profile.client.tsx`.
 - [x] Reforçar pesquisas/admin lookup para usar Supabase directamente (com fallbacks) e desbloquear atribuição de PTs. Fontes: `src/app/api/admin/lookup/people/route.ts`, `src/app/api/search/{clients,trainer}/route.ts`, `src/app/api/admin/assign-pt/route.ts`.
 - [x] Remover dependências Prisma remanescentes substituindo-as por integrações Supabase e scripts actualizados. Fontes: `src/lib/events.ts`, `src/lib/planLog.ts`, `scripts/{create-admin,promote-admin,reset-password}.mjs`.
