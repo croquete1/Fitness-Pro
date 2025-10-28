@@ -21,17 +21,30 @@ async function loadAdminDashboard(): Promise<{ data: AdminDashboardData; supabas
     const sevenDays = new Date(startToday);
     sevenDays.setDate(sevenDays.getDate() + 7);
 
+    const startTodayIso = startToday.toISOString();
+    const startTomorrowIso = startTomorrow.toISOString();
+    const sevenDaysIso = sevenDays.toISOString();
+
+    async function count(table: 'users' | 'sessions', build?: (q: any) => any) {
+      let query: any = sb.from(table as any);
+      if (build) {
+        query = build(query) ?? query;
+      }
+      const { count, error } = await query.select('id', { count: 'exact', head: true });
+      if (error) {
+        console.warn('[admin dashboard] falha ao contar registos', error);
+        return 0;
+      }
+      return count ?? 0;
+    }
+
     const [usersCount, clientsCount, trainersCount, pendingCount, sessionsToday] = await Promise.all([
-      sb.from('users').select('*', { count: 'exact', head: true }),
-      sb.from('users').select('*', { count: 'exact', head: true }).eq('role', 'CLIENT'),
-      sb.from('users').select('*', { count: 'exact', head: true }).in('role', ['TRAINER', 'PT']),
-      sb.from('users').select('*', { count: 'exact', head: true }).eq('status', 'PENDING'),
-      sb
-        .from('sessions')
-        .select('id', { count: 'exact', head: true })
-        .gte('start_time', startToday.toISOString())
-        .lt('start_time', startTomorrow.toISOString()),
-    ]).then((results) => results.map((r) => r.count ?? 0));
+      count('users'),
+      count('users', (q) => q.eq('role', 'CLIENT')),
+      count('users', (q) => q.in('role', ['TRAINER', 'PT'])),
+      count('users', (q) => q.eq('status', 'PENDING')),
+      count('sessions', (q) => q.gte('scheduled_at', startTodayIso).lt('scheduled_at', startTomorrowIso)),
+    ]);
 
     const { data: lastUsers } = await sb
       .from('users')
@@ -41,68 +54,101 @@ async function loadAdminDashboard(): Promise<{ data: AdminDashboardData; supabas
 
     const { data: sessionsUpcoming } = await sb
       .from('sessions')
-      .select('id, trainer_id, client_id, start_time, location')
-      .gte('start_time', startToday.toISOString())
-      .lt('start_time', sevenDays.toISOString())
-      .order('start_time', { ascending: true });
+      .select(
+        `
+          id,
+          trainer_id,
+          client_id,
+          scheduled_at,
+          location,
+          trainer:users!sessions_trainer_id_fkey(id,name,email),
+          client:users!sessions_client_id_fkey(id,name,email)
+        `,
+      )
+      .gte('scheduled_at', startTodayIso)
+      .lt('scheduled_at', sevenDaysIso)
+      .order('scheduled_at', { ascending: true });
 
-    const trainerCounts = new Map<string, number>();
-    const trainerIds = new Set<string>();
-    const clientIds = new Set<string>();
+    const trainerNames = new Map<string, string>();
+    const clientNames = new Map<string, string>();
     for (const row of sessionsUpcoming ?? []) {
-      if (!row?.trainer_id) continue;
-      const trainerId = String(row.trainer_id);
-      trainerCounts.set(trainerId, (trainerCounts.get(trainerId) ?? 0) + 1);
-      trainerIds.add(trainerId);
-      if (row?.client_id) clientIds.add(String(row.client_id));
-    }
-
-    const trainerProfiles: Record<string, { name: string }> = {};
-    if (trainerIds.size) {
-      const { data: trainers } = await sb
-        .from('users')
-        .select('id,name,email')
-        .in('id', Array.from(trainerIds));
-      for (const t of trainers ?? []) {
-        if (!t?.id) continue;
-        trainerProfiles[String(t.id)] = { name: t.name ?? t.email ?? String(t.id) };
+      if (row?.trainer_id) {
+        const trainer = (row as any).trainer ?? {};
+        const id = String(row.trainer_id);
+        trainerNames.set(id, trainer.name ?? trainer.email ?? id);
+      }
+      if (row?.client_id) {
+        const client = (row as any).client ?? {};
+        const id = String(row.client_id);
+        clientNames.set(id, client.name ?? client.email ?? id);
       }
     }
 
-    const clientProfiles: Record<string, { name: string }> = {};
-    if (clientIds.size) {
-      const { data: clients } = await sb
-        .from('users')
-        .select('id,name,email')
-        .in('id', Array.from(clientIds));
-      for (const c of clients ?? []) {
-        if (!c?.id) continue;
-        clientProfiles[String(c.id)] = { name: c.name ?? c.email ?? String(c.id) };
+    const trainerTotals = new Map<string, number>();
+    let viewAggregated = false;
+    try {
+      await sb.rpc('refresh_mv_sessions_next7_by_trainer');
+      const { data: mvRows, error: mvError } = await sb
+        .from('mv_sessions_next7_by_trainer' as any)
+        .select('trainer_id,total');
+      if (!mvError) {
+        for (const row of mvRows ?? []) {
+          if (!row?.trainer_id) continue;
+          const id = String(row.trainer_id);
+          const total = Number(row.total ?? 0);
+          trainerTotals.set(id, (trainerTotals.get(id) ?? 0) + total);
+        }
+        viewAggregated = trainerTotals.size > 0;
+      } else {
+        console.warn('[admin dashboard] falha ao ler vista materializada de sessões', mvError);
+      }
+    } catch (error) {
+      console.warn('[admin dashboard] erro ao actualizar vista materializada de sessões', error);
+    }
+
+    if (!viewAggregated) {
+      for (const row of sessionsUpcoming ?? []) {
+        if (!row?.trainer_id) continue;
+        const id = String(row.trainer_id);
+        trainerTotals.set(id, (trainerTotals.get(id) ?? 0) + 1);
       }
     }
 
-    const topTrainers = Array.from(trainerCounts.entries())
-      .map(([id, total]) => ({
-        id,
-        name: trainerProfiles[id]?.name ?? id,
-        total,
-      }))
+    const missingTrainerIds = Array.from(trainerTotals.keys()).filter((id) => !trainerNames.has(id));
+    if (missingTrainerIds.length > 0) {
+      const { data: trainers, error } = await sb
+        .from('users')
+        .select('id,name,email')
+        .in('id', missingTrainerIds);
+      if (error) {
+        console.warn('[admin dashboard] falha ao carregar nomes dos PT', error);
+      }
+      for (const trainer of trainers ?? []) {
+        if (!trainer?.id) continue;
+        const id = String(trainer.id);
+        trainerNames.set(id, trainer.name ?? trainer.email ?? id);
+      }
+    }
+
+    const topTrainers = Array.from(trainerTotals.entries())
+      .map(([id, total]) => ({ id, name: trainerNames.get(id) ?? id, total }))
       .sort((a, b) => b.total - a.total)
       .slice(0, 5);
 
-    const agenda = (sessionsUpcoming ?? []).map((session, index) => ({
-      id: session?.id ? String(session.id) : `session-${index}`,
-      start_time: session.start_time ?? null,
-      trainer_id: session.trainer_id ? String(session.trainer_id) : null,
-      trainer_name:
-        (session.trainer_id && trainerProfiles[String(session.trainer_id)]?.name) ||
-        (session.trainer_id ? String(session.trainer_id) : '-'),
-      client_id: session.client_id ? String(session.client_id) : null,
-      client_name:
-        (session.client_id && clientProfiles[String(session.client_id)]?.name) ||
-        (session.client_id ? String(session.client_id) : '-'),
-      location: session.location ?? null,
-    }));
+    const agenda = (sessionsUpcoming ?? []).map((session, index) => {
+      const trainerId = session.trainer_id ? String(session.trainer_id) : null;
+      const clientId = session.client_id ? String(session.client_id) : null;
+      return {
+        id: session?.id ? String(session.id) : `session-${index}`,
+        scheduled_at: session?.scheduled_at ?? null,
+        start_time: session?.scheduled_at ?? null,
+        trainer_id: trainerId,
+        trainer_name: trainerId ? trainerNames.get(trainerId) ?? trainerId : '-',
+        client_id: clientId,
+        client_name: clientId ? clientNames.get(clientId) ?? clientId : '-',
+        location: session.location ?? null,
+      };
+    });
 
     const data: AdminDashboardData = {
       totals: {
