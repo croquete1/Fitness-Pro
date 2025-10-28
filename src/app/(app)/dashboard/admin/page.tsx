@@ -137,6 +137,23 @@ async function loadAdminDashboard(): Promise<{ data: AdminDashboardData; supabas
     const startTomorrowIso = toIso(startTomorrow);
     const inSevenDaysIso = toIso(inSevenDays);
 
+    const startTodayIso = startToday.toISOString();
+    const startTomorrowIso = startTomorrow.toISOString();
+    const sevenDaysIso = sevenDays.toISOString();
+
+    async function count(table: 'users' | 'sessions', build?: (q: any) => any) {
+      let query: any = sb.from(table as any);
+      if (build) {
+        query = build(query) ?? query;
+      }
+      const { count, error } = await query.select('id', { count: 'exact', head: true });
+      if (error) {
+        console.warn('[admin dashboard] falha ao contar registos', error);
+        return 0;
+      }
+      return count ?? 0;
+    }
+
     const [usersCount, clientsCount, trainersCount, pendingCount, sessionsToday] = await Promise.all([
       countRows(sb, 'users'),
       countRows(sb, 'users', (q) => q.eq('role', 'CLIENT')),
