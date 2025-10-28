@@ -131,7 +131,10 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Optimizar o dashboard de mensagens com pesquisa multi-termo indexada e acção "Marcar tudo" responsiva. Fontes: `src/app/(app)/dashboard/messages/MessagesDashboardClient.tsx`, `src/app/(app)/dashboard/messages/parts/MarkAllRead.tsx`.
 - [x] Sincronizar filtros e pesquisa do dashboard de mensagens com a query string e desactivar "Marcar tudo" quando não existem pendentes, expondo contagens acessíveis. Fontes: `src/app/(app)/dashboard/messages/MessagesDashboardClient.tsx`, `src/app/(app)/dashboard/messages/parts/MarkAllRead.tsx`.
 - [x] Restringir o carregamento do dashboard de mensagens ao intervalo activo no Supabase com lookback alargado para métricas históricas e pesquisa textural que ignora pontuação duplicada. Fontes: `src/lib/messages/server.ts`, `src/app/(app)/dashboard/messages/MessagesDashboardClient.tsx`.
-- [ ] Optimizar consultas com índices e vistas materializadas (existe esboço, mas falta adopção generalizada).
+- [x] Optimizar consultas com índices e vistas materializadas (existe esboço, mas falta adopção generalizada).
+  - 2025-04-18: Dashboard admin usa a vista materializada para ranking de PTs e agenda optimizada, com refresh concorrente e fallback seguro.
+  - 2025-04-19: Painel admin destaca a origem dos dados (vista materializada vs. fallback), normaliza janelas UTC e reforça logs.
+  - 2025-04-20: Ranking de PTs passa a consumir função RPC dedicada com nomes higienizados e ordenação determinística.
 - [x] Polir UX/UI das páginas em construção (Relatórios, Definições e Biblioteca adoptaram o tema `.neo` com métricas reais e responsividade reforçada).
 - [x] Sincronizar filtros, pesquisa e paginação da consola de planos com a barra de endereço, preservando partilhas/exportações e alinhando o estado com o painel `.neo`. Fontes: `src/app/(app)/dashboard/admin/plans/PlansClient.tsx`.
 - [x] Reforçar o formulário de definições com validação de nome/telefone e mensagens de erro descritivas nas actualizações de credenciais.
