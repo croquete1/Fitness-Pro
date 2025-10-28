@@ -21,7 +21,8 @@ import { greetingForDate } from '@/lib/time';
 
 export type AgendaRow = {
   id: string;
-  start_time: string | null;
+  scheduled_at: string | null;
+  start_time?: string | null;
   trainer_id: string | null;
   trainer_name: string;
   client_id: string | null;
@@ -67,10 +68,11 @@ type PulseMetric = {
 };
 
 function formatAgendaTime(value: AgendaRow) {
-  if (!value.start_time) {
+  const iso = value.scheduled_at ?? value.start_time ?? null;
+  if (!iso) {
     return { day: 'Agendar', time: '—' };
   }
-  const date = new Date(value.start_time);
+  const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return { day: '—', time: '—' };
   const day = date
     .toLocaleDateString('pt-PT', { weekday: 'short', day: '2-digit', month: 'short' })
@@ -212,6 +214,9 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
   ];
 
   const sessionsNext7 = data.topTrainers.reduce((sum, row) => sum + (row.total ?? 0), 0);
+  const sessionsNext7Hint = supabase
+    ? 'vista materializada com refresh no carregamento'
+    : 'estimativa local (fallback)';
   const clientsShare = data.totals.users
     ? Math.round((data.totals.clients / Math.max(1, data.totals.users)) * 100)
     : 0;
@@ -232,7 +237,7 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
     {
       label: 'Sessões (7 dias)',
       value: sessionsNext7,
-      hint: 'inclui próximas 24h',
+      hint: sessionsNext7Hint,
       tone: sessionsNext7 > 6 ? 'ok' : sessionsNext7 > 0 ? 'warn' : 'down',
     },
     {
@@ -383,7 +388,7 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
                 <h2 className="neo-panel__title admin-panel__title">
                   <Sparkles className="neo-icon" aria-hidden /> Trainers em destaque
                 </h2>
-                <p className="neo-panel__subtitle">Top sessões na última semana</p>
+                <p className="neo-panel__subtitle">Próximos 7 dias (vista materializada)</p>
               </div>
               <span className="admin-panel__badge" data-variant="accent">
                 {data.topTrainers.length}
@@ -401,7 +406,7 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
                     <span className="admin-trainers__avatar">{initials(trainer.name)}</span>
                     <div className="admin-trainers__body">
                       <p className="admin-trainers__name">{trainer.name}</p>
-                      <p className="admin-trainers__info">Sessões: {trainer.total}</p>
+                      <p className="admin-trainers__info">Sessões (7d): {trainer.total}</p>
                     </div>
                     <Link
                       href={`/dashboard/admin/roster/${trainer.id}`}
