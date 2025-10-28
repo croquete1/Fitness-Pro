@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import SessionFormClient from './SessionFormClient';
 import { useTrainerPtsCounts } from '@/lib/hooks/usePtsCounts';
 
-export type Row = {
+type BaseRow = {
   id: string;
   start_time?: string | null;
   end_time?: string | null;
@@ -20,6 +20,8 @@ export type Row = {
   notes?: string | null;
   created_at?: string | null;
 };
+
+export type Row = BaseRow & { searchIndex: string };
 
 const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
   { value: '', label: 'Todos os estados' },
@@ -68,6 +70,65 @@ function statusTone(value: string | null | undefined): StatusTone {
   if (normalized === 'done' || normalized === 'completed') return 'ok';
   if (normalized === 'cancelled') return 'down';
   return 'warn';
+}
+
+function normalizeString(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9\s]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function normalizePhone(value: string | null | undefined): string {
+  if (!value) return '';
+  return value.replace(/\D+/g, '');
+}
+
+function formatDialable(value: string | null | undefined): string {
+  if (!value) return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  const digits = trimmed.replace(/\D+/g, '');
+  if (!digits) return '';
+  if (trimmed.startsWith('+')) return `+${digits}`;
+  if (trimmed.startsWith('00') && digits.length > 2) {
+    return `+${digits.slice(2)}`;
+  }
+  return digits;
+}
+
+function buildSearchIndex(row: BaseRow): string {
+  const segments: string[] = [];
+  const append = (value: string | null | undefined) => {
+    if (!value) return;
+    const normalized = normalizeString(String(value));
+    if (normalized) segments.push(normalized);
+    const digits = normalizePhone(String(value));
+    if (digits) segments.push(digits);
+  };
+
+  append(row.id);
+  append(row.client_id);
+  append(row.client_name);
+  append(row.client_email);
+  append(row.client_phone);
+  append(row.location);
+  append(row.status);
+  append(statusLabel(row.status ?? null));
+  append(row.notes);
+
+  return segments.join(' ');
+}
+
+function normalizeQuery(value: string): string[] {
+  const normalized = normalizeString(value);
+  const tokens = normalized ? normalized.split(' ').filter(Boolean) : [];
+  const digits = normalizePhone(value);
+  if (digits) tokens.push(digits);
+  return tokens;
 }
 
 function formatSlot(row: Row): Slot {
@@ -300,7 +361,7 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
         );
         const clientEmail = firstString(row?.client_email, client?.email);
         const clientPhone = firstString(row?.client_phone, client?.phone);
-        return {
+        const baseRow: BaseRow = {
           id: String(row?.id ?? crypto.randomUUID()),
           start_time: row?.start_time ?? row?.start ?? row?.starts_at ?? row?.scheduled_at ?? null,
           end_time: row?.end_time ?? row?.end ?? row?.ends_at ?? null,
@@ -314,6 +375,7 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
           notes: row?.notes ?? null,
           created_at: row?.created_at ?? null,
         };
+        return { ...baseRow, searchIndex: buildSearchIndex(baseRow) };
       });
 
       setRows(mapped);
@@ -386,38 +448,25 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
     router.replace(target, { scroll: false });
   }, [status, query, pagination.page, pagination.pageSize, router, pathname, searchParams, pageSize]);
 
+  const searchTokens = React.useMemo(() => normalizeQuery(deferredQuery), [deferredQuery]);
+
   const filteredRows = React.useMemo(() => {
-    const term = deferredQuery.trim().toLowerCase();
-    if (!term) return rows;
-    return rows.filter((row) => {
-      const haystack = [
-        row.client_id,
-        row.client_name,
-        row.client_email,
-        row.client_phone,
-        row.location,
-        row.status,
-        row.notes,
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-      return haystack.includes(term);
-    });
-  }, [rows, deferredQuery]);
+    if (searchTokens.length === 0) return rows;
+    return rows.filter((row) => searchTokens.every((token) => row.searchIndex.includes(token)));
+  }, [rows, searchTokens]);
 
   const statusMessage = React.useMemo(() => {
     if (loading) return 'A sincronizar…';
     if (error) return error;
-    const trimmed = deferredQuery.trim();
-    if (filteredRows.length === 0) return trimmed ? 'Nenhum resultado' : 'Sem sessões visíveis';
-    const base = trimmed ? `${filteredRows.length} resultado(s)` : `${count} registo(s)`;
+    const hasTokens = searchTokens.length > 0;
+    if (filteredRows.length === 0) return hasTokens ? 'Nenhum resultado' : 'Sem sessões visíveis';
+    const base = hasTokens ? `${filteredRows.length} resultado(s)` : `${count} registo(s)`;
     if (!lastSyncedAt) return base;
     return `${base} · Actualizado às ${lastSyncedAt.toLocaleTimeString('pt-PT', {
       hour: '2-digit',
       minute: '2-digit',
     })}`;
-  }, [loading, error, deferredQuery, filteredRows.length, count, lastSyncedAt]);
+  }, [loading, error, searchTokens.length, filteredRows.length, count, lastSyncedAt]);
 
   const statusState: StatusTone = loading ? 'warn' : error ? 'down' : 'ok';
 
@@ -431,7 +480,7 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
 
   const totalPages = Math.max(1, Math.ceil(Math.max(count, 1) / pagination.pageSize));
   const currentPage = Math.min(pagination.page, totalPages - 1);
-  const hasSearch = deferredQuery.trim().length > 0;
+  const hasSearch = searchTokens.length > 0;
   const rangeStart = hasSearch ? filteredRows.length > 0 ? 1 : 0 : count === 0 ? 0 : currentPage * pagination.pageSize + 1;
   const rangeEnd = hasSearch ? filteredRows.length : count === 0 ? 0 : Math.min(count, rangeStart + pagination.pageSize - 1);
 
@@ -659,7 +708,7 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
               <span className="neo-text--xs neo-text--uppercase neo-text--muted neo-text--semibold">Pesquisa rápida</span>
               <input
                 className="neo-input"
-                placeholder="Filtrar por cliente, email, local ou estado"
+                placeholder="Filtrar por cliente, email, telefone, local ou estado"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
               />
@@ -738,6 +787,7 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
               )}
               {filteredRows.map((row) => {
                 const slot = formatSlot(row);
+                const dialablePhone = formatDialable(row.client_phone);
                 return (
                   <tr key={row.id}>
                     <td>
@@ -755,10 +805,24 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
                           {firstString(row.client_name, row.client_id) ?? '—'}
                         </span>
                         {row.client_email && (
-                          <span className="neo-text--xs neo-text--muted">{row.client_email}</span>
+                          <a
+                            className="neo-text--xs neo-text--muted"
+                            href={`mailto:${row.client_email}`}
+                          >
+                            {row.client_email}
+                          </a>
                         )}
                         {row.client_phone && (
-                          <span className="neo-text--xs neo-text--muted">{row.client_phone}</span>
+                          dialablePhone ? (
+                            <a
+                              className="neo-text--xs neo-text--muted"
+                              href={`tel:${dialablePhone}`}
+                            >
+                              {row.client_phone}
+                            </a>
+                          ) : (
+                            <span className="neo-text--xs neo-text--muted">{row.client_phone}</span>
+                          )
                         )}
                         {!row.client_name && row.client_id && (
                           <span className="neo-text--xs neo-text--muted">ID #{row.client_id}</span>

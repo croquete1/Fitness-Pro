@@ -5,10 +5,16 @@ import { MissingSupabaseEnvError } from '@/lib/supabaseServer';
 import { getTrainerId } from '@/lib/auth/getTrainerId';
 import { supabaseConfigErrorResponse, supabaseFallbackJson } from '@/lib/supabase/responses';
 
+const ALLOWED_PAGE_SIZES = new Set([10, 20, 50, 100]);
+const STATUS_VALUES = new Set(['scheduled', 'done', 'cancelled']);
+
 function readPage(req: Request) {
   const url = new URL(req.url);
-  const page = Number(url.searchParams.get('page') ?? 0);
-  const pageSize = Number(url.searchParams.get('pageSize') ?? 20);
+  const rawPage = Number(url.searchParams.get('page') ?? 0);
+  const rawPageSize = Number(url.searchParams.get('pageSize') ?? 20);
+  const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.floor(rawPage) : 0;
+  const pageSizeCandidate = Number.isFinite(rawPageSize) && rawPageSize > 0 ? Math.floor(rawPageSize) : 20;
+  const pageSize = ALLOWED_PAGE_SIZES.has(pageSizeCandidate) ? pageSizeCandidate : 20;
   return { page, pageSize, searchParams: url.searchParams };
 }
 function rangeFor(page: number, pageSize: number) {
@@ -41,7 +47,8 @@ export async function GET(req: Request) {
     return supabaseFallbackJson({ rows: [], count: 0, error: 'SUPABASE_OFFLINE' });
   }
   const { page, pageSize, searchParams } = readPage(req);
-  const status = searchParams.get('status') || '';
+  const statusParam = searchParams.get('status');
+  const status = statusParam && STATUS_VALUES.has(statusParam) ? statusParam : '';
   const { from, to } = rangeFor(page, pageSize);
 
   let q = sb
