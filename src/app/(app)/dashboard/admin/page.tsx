@@ -16,10 +16,42 @@ type SessionRow = {
   client?: { id: string | number; name: string | null; email: string | null } | null;
 };
 
-type TrainerAggregateRow = {
+type TrainerLeaderboardRow = {
   trainer_id: string | number | null;
+  trainer_name: string | null;
   total: number | null;
 };
+
+type TrainerLeaderboardResult = Pick<AdminDashboardData, 'topTrainers' | 'topTrainersSource'>;
+
+function resolveTrainerName(
+  id: string,
+  candidate: string | null | undefined,
+  directory: Map<string, string>,
+) {
+  const fromDirectory = directory.get(id);
+  const fromDirectoryTrimmed = fromDirectory?.trim();
+  const cleaned = candidate?.trim();
+
+  if (cleaned) {
+    if (!fromDirectoryTrimmed || fromDirectoryTrimmed === id) {
+      directory.set(id, cleaned);
+      return cleaned;
+    }
+  }
+
+  if (fromDirectoryTrimmed) {
+    return fromDirectoryTrimmed;
+  }
+
+  if (cleaned) {
+    directory.set(id, cleaned);
+    return cleaned;
+  }
+
+  directory.set(id, id);
+  return id;
+}
 
 function startOfUtcDay(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
@@ -68,31 +100,50 @@ async function refreshMaterializedView(sb: SupabaseClient) {
 async function loadTrainerAggregates(
   sb: SupabaseClient,
   sessionsUpcoming: SessionRow[],
-): Promise<{ totals: Map<string, number>; source: AdminDashboardData['topTrainersSource'] }> {
-  const totals = new Map<string, number>();
+  trainerNames: Map<string, string>,
+): Promise<TrainerLeaderboardResult> {
+  const buildFallback = (): TrainerLeaderboardResult => {
+    const totals = new Map<string, number>();
+    for (const row of sessionsUpcoming ?? []) {
+      if (!row?.trainer_id) continue;
+      const id = String(row.trainer_id);
+      totals.set(id, (totals.get(id) ?? 0) + 1);
+    }
+    const leaderboard = Array.from(totals.entries())
+      .map<TrainerLeaderboardResult['topTrainers'][number]>(([id, total]) => ({
+        id,
+        name: resolveTrainerName(id, null, trainerNames),
+        total,
+      }))
+      .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name))
+      .slice(0, 5);
+    return { topTrainers: leaderboard, topTrainersSource: 'sessions-fallback' };
+  };
 
   const refreshed = await refreshMaterializedView(sb);
   if (refreshed) {
-    const { data: mvRows, error } = await sb
-      .from('mv_sessions_next7_by_trainer' as never)
-      .select('trainer_id,total');
-    if (!error) {
-      for (const row of (mvRows ?? []) as TrainerAggregateRow[]) {
-        if (!row?.trainer_id) continue;
-        const id = String(row.trainer_id);
-        totals.set(id, (totals.get(id) ?? 0) + Number(row.total ?? 0));
+    const { data: mvRows, error } = await sb.rpc('get_mv_sessions_next7_totals', { limit_count: 5 });
+    if (!error && Array.isArray(mvRows)) {
+      const leaderboard = (mvRows as TrainerLeaderboardRow[])
+        .filter((row) => row?.trainer_id)
+        .map<TrainerLeaderboardResult['topTrainers'][number]>((row) => {
+          const id = String(row.trainer_id);
+          const total = Number(row.total ?? 0);
+          const name = resolveTrainerName(id, row.trainer_name, trainerNames);
+          return { id, name, total };
+        })
+        .filter((row) => Number.isFinite(row.total))
+        .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+
+      if (leaderboard.length > 0) {
+        return { topTrainers: leaderboard.slice(0, 5), topTrainersSource: 'materialized-view' };
       }
-      return { totals, source: 'materialized-view' };
+    } else if (error) {
+      console.warn('[admin dashboard] falha ao ler ranking materializado', error);
     }
-    console.warn('[admin dashboard] falha ao ler vista materializada de sessões', error);
   }
 
-  for (const row of sessionsUpcoming ?? []) {
-    if (!row?.trainer_id) continue;
-    const id = String(row.trainer_id);
-    totals.set(id, (totals.get(id) ?? 0) + 1);
-  }
-  return { totals, source: 'sessions-fallback' };
+  return buildFallback();
 }
 
 function collectDirectory(
@@ -137,23 +188,6 @@ async function loadAdminDashboard(): Promise<{ data: AdminDashboardData; supabas
     const startTomorrowIso = toIso(startTomorrow);
     const inSevenDaysIso = toIso(inSevenDays);
 
-    const startTodayIso = startToday.toISOString();
-    const startTomorrowIso = startTomorrow.toISOString();
-    const sevenDaysIso = sevenDays.toISOString();
-
-    async function count(table: 'users' | 'sessions', build?: (q: any) => any) {
-      let query: any = sb.from(table as any);
-      if (build) {
-        query = build(query) ?? query;
-      }
-      const { count, error } = await query.select('id', { count: 'exact', head: true });
-      if (error) {
-        console.warn('[admin dashboard] falha ao contar registos', error);
-        return 0;
-      }
-      return count ?? 0;
-    }
-
     const [usersCount, clientsCount, trainersCount, pendingCount, sessionsToday] = await Promise.all([
       countRows(sb, 'users'),
       countRows(sb, 'users', (q) => q.eq('role', 'CLIENT')),
@@ -170,6 +204,7 @@ async function loadAdminDashboard(): Promise<{ data: AdminDashboardData; supabas
     if (lastUsersError) {
       console.warn('[admin dashboard] falha ao carregar últimos utilizadores', lastUsersError);
     }
+    const sessionsUpcoming = (sessionsUpcomingRaw ?? []) as unknown as SessionRow[];
 
     const { data: sessionsUpcomingRaw, error: sessionsError } = await sb
       .from('sessions')
@@ -194,25 +229,11 @@ async function loadAdminDashboard(): Promise<{ data: AdminDashboardData; supabas
 
     const { trainers: trainerNames, clients: clientNames } = collectDirectory(sessionsUpcoming);
 
-    const { totals: trainerTotals, source: topTrainersSource } = await loadTrainerAggregates(sb, sessionsUpcoming);
-
-    const missingTrainerIds = Array.from(trainerTotals.keys()).filter((id) => !trainerNames.has(id));
-    if (missingTrainerIds.length > 0) {
-      const { data: trainers, error } = await sb.from('users').select('id,name,email').in('id', missingTrainerIds);
-      if (error) {
-        console.warn('[admin dashboard] falha ao carregar nomes dos PT', error);
-      }
-      for (const trainer of trainers ?? []) {
-        if (!trainer?.id) continue;
-        const id = String(trainer.id);
-        trainerNames.set(id, trainer.name ?? trainer.email ?? id);
-      }
-    }
-
-    const topTrainers = Array.from(trainerTotals.entries())
-      .map(([id, total]) => ({ id, name: trainerNames.get(id) ?? id, total }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 5);
+    const { topTrainers, topTrainersSource } = await loadTrainerAggregates(
+      sb,
+      sessionsUpcoming,
+      trainerNames,
+    );
 
     const agenda = sessionsUpcoming.map((session, index) => {
       const trainerId = session.trainer_id ? String(session.trainer_id) : null;

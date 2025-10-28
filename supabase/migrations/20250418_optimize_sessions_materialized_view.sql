@@ -51,4 +51,34 @@ end;
 $$;
 
 grant execute on function public.refresh_mv_sessions_next7_by_trainer() to authenticated, service_role;
+
+-- Função para obter o ranking agregado dos próximos 7 dias diretamente da vista materializada.
+create or replace function public.get_mv_sessions_next7_totals(limit_count integer default 5)
+returns table (
+  trainer_id uuid,
+  trainer_name text,
+  total bigint
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select
+    u.id as trainer_id,
+    coalesce(
+      nullif(trim(u.name), ''),
+      nullif(trim(u.email), ''),
+      u.id::text
+    ) as trainer_name,
+    sum(m.total)::bigint as total
+  from public.mv_sessions_next7_by_trainer m
+  join public.users u on u.id = m.trainer_id
+  group by u.id, coalesce(nullif(trim(u.name), ''), nullif(trim(u.email), ''), u.id::text)
+  order by total desc, trainer_name asc
+  limit greatest(1, coalesce(limit_count, 5));
+$$;
+
+comment on function public.get_mv_sessions_next7_totals(integer) is 'Devolve o ranking agregado de sessões por treinador na janela dinâmica de 7 dias.';
+
+grant execute on function public.get_mv_sessions_next7_totals(integer) to authenticated, service_role;
 grant select on table public.mv_sessions_next7_by_trainer to authenticated, service_role;
