@@ -39,6 +39,8 @@ export type SampleAdminDashboard = {
     client_name: string;
     location?: string | null;
   }>;
+  topTrainersSource: 'materialized-view' | 'sessions-fallback' | 'sample';
+  agendaSource: 'supabase' | 'sample';
 };
 
 export function getSampleAdminDashboard(): SampleAdminDashboard {
@@ -53,6 +55,8 @@ export function getSampleAdminDashboard(): SampleAdminDashboard {
     recentUsers: [],
     topTrainers: [],
     agenda: [],
+    topTrainersSource: 'sample',
+    agendaSource: 'sample',
   };
 }
 

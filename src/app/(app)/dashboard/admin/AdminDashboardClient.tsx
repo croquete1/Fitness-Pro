@@ -41,6 +41,8 @@ export type AdminDashboardData = {
   recentUsers: Array<{ id: string; name: string; email: string | null; createdAt: string | null }>;
   topTrainers: Array<{ id: string; name: string; total: number }>;
   agenda: AgendaRow[];
+  topTrainersSource: 'materialized-view' | 'sessions-fallback' | 'sample';
+  agendaSource: 'supabase' | 'sample';
 };
 
 type Props = {
@@ -214,9 +216,16 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
   ];
 
   const sessionsNext7 = data.topTrainers.reduce((sum, row) => sum + (row.total ?? 0), 0);
-  const sessionsNext7Hint = supabase
-    ? 'vista materializada com refresh no carregamento'
-    : 'estimativa local (fallback)';
+  const sessionsNext7Hint = React.useMemo(() => {
+    if (!supabase) return 'estimativa local (fallback)';
+    if (data.topTrainersSource === 'materialized-view') {
+      return 'vista materializada com refresh concorrente';
+    }
+    if (data.topTrainersSource === 'sessions-fallback') {
+      return 'contagem directa das sessões (fallback)';
+    }
+    return 'dados simulados';
+  }, [data.topTrainersSource, supabase]);
   const clientsShare = data.totals.users
     ? Math.round((data.totals.clients / Math.max(1, data.totals.users)) * 100)
     : 0;
@@ -329,7 +338,11 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
                   <CalendarDays className="neo-icon" aria-hidden /> Próximas sessões
                 </h2>
                 <p className="neo-panel__subtitle">
-                  {supabase ? 'Agenda sincronizada com o servidor' : 'Agenda simulada para ambientes locais'}
+                  {supabase
+                    ? data.agendaSource === 'supabase'
+                      ? 'Agenda sincronizada com o servidor'
+                      : 'Agenda reconstruída a partir de dados simulados'
+                    : 'Agenda simulada para ambientes locais'}
                 </p>
               </div>
               <span className="admin-panel__badge" data-variant="primary">
@@ -388,7 +401,15 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
                 <h2 className="neo-panel__title admin-panel__title">
                   <Sparkles className="neo-icon" aria-hidden /> Trainers em destaque
                 </h2>
-                <p className="neo-panel__subtitle">Próximos 7 dias (vista materializada)</p>
+                <p className="neo-panel__subtitle">
+                  Próximos 7 dias (
+                  {supabase
+                    ? data.topTrainersSource === 'materialized-view'
+                      ? 'vista materializada'
+                      : 'fallback directo'
+                    : 'dados simulados'}
+                  )
+                </p>
               </div>
               <span className="admin-panel__badge" data-variant="accent">
                 {data.topTrainers.length}
