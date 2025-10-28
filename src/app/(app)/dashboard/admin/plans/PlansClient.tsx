@@ -113,11 +113,48 @@ function buildCsv(rows: PlanRow[]) {
   return [header.join(','), ...body].join('\n');
 }
 
-function normaliseDifficulty(value: string | null | undefined) {
-  if (!value) return 'Não definido';
-  const label = value.trim();
-  if (!label) return 'Não definido';
-  return label.charAt(0).toUpperCase() + label.slice(1);
+function stripDiacritics(value: string) {
+  return value.normalize('NFD').replace(/\p{Diacritic}/gu, '');
+}
+
+function difficultyToken(value: string | null | undefined) {
+  if (!value) return 'nao-definido';
+  const trimmed = value.trim();
+  if (!trimmed) return 'nao-definido';
+  const normalised = stripDiacritics(trimmed).toLowerCase();
+  if (normalised === 'all' || normalised === 'todas') return 'all';
+  if (normalised.includes('inic')) return 'iniciante';
+  if (normalised.includes('inter')) return 'intermedio';
+  if (normalised.includes('avan')) return 'avancado';
+  if (normalised.includes('esp')) return 'especializado';
+  if (normalised.includes('nao') || normalised.includes('indefi') || normalised.includes('undefined')) {
+    return 'nao-definido';
+  }
+  return normalised.replace(/[^a-z0-9]+/g, '-');
+}
+
+function formatDifficulty(value: string | null | undefined) {
+  const token = difficultyToken(value);
+  if (token === 'all') return 'Todas';
+  switch (token) {
+    case 'iniciante':
+      return 'Iniciante';
+    case 'intermedio':
+      return 'Intermédio';
+    case 'avancado':
+      return 'Avançado';
+    case 'especializado':
+      return 'Especializado';
+    case 'nao-definido':
+      return 'Não definido';
+    default: {
+      if (typeof value === 'string') {
+        const label = value.trim();
+        if (label) return label.charAt(0).toUpperCase() + label.slice(1);
+      }
+      return 'Não definido';
+    }
+  }
 }
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
@@ -142,8 +179,27 @@ export default function PlansClient() {
   const [refreshKey, setRefreshKey] = React.useState(0);
   const [listHydrated, setListHydrated] = React.useState(false);
   const [ready, setReady] = React.useState(false);
+  const [cloneBusyIds, setCloneBusyIds] = React.useState<Set<string>>(() => new Set());
+  const cloneBusyRef = React.useRef<Set<string>>(new Set());
 
   const supabaseOnline = insights?.source === 'supabase' && insights?._supabaseConfigured !== false;
+
+  const markCloneBusy = React.useCallback((id: string, busy: boolean) => {
+    setCloneBusyIds((prev) => {
+      const next = new Set(prev);
+      if (busy) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      cloneBusyRef.current = next;
+      return next;
+    });
+  }, []);
+
+  React.useEffect(() => {
+    cloneBusyRef.current = cloneBusyIds;
+  }, [cloneBusyIds]);
 
   React.useEffect(() => () => {
     if (undoTimer.current) clearTimeout(undoTimer.current);
@@ -160,7 +216,7 @@ export default function PlansClient() {
         url.searchParams.set('page', String(page));
         url.searchParams.set('pageSize', String(pageSize));
         if (debouncedQuery) url.searchParams.set('q', debouncedQuery);
-        if (difficulty !== 'all') url.searchParams.set('difficulty', difficulty);
+        if (difficulty !== 'all') url.searchParams.set('difficulty', formatDifficulty(difficulty));
         const response = await fetch(url.toString(), { cache: 'no-store', signal: controller.signal });
         if (!response.ok) {
           throw new Error(await response.text().catch(() => 'Falha ao carregar os planos.'));
@@ -212,15 +268,23 @@ export default function PlansClient() {
   }, [refreshKey]);
 
   const difficultyOptions = React.useMemo(() => {
-    const options = new Set<string>();
+    const options = new Map<string, string>();
     rows.forEach((row) => {
-      if (row.difficulty) options.add(normaliseDifficulty(row.difficulty));
+      if (row.difficulty) {
+        const token = difficultyToken(row.difficulty);
+        options.set(token, formatDifficulty(row.difficulty));
+      }
     });
-    insights?.difficulties.forEach((stat) => options.add(normaliseDifficulty(stat.key)));
+    insights?.difficulties.forEach((stat) => {
+      const token = difficultyToken(stat.key);
+      options.set(token, formatDifficulty(stat.key));
+    });
     if (difficulty !== 'all' && difficulty.trim()) {
-      options.add(normaliseDifficulty(difficulty));
+      const token = difficultyToken(difficulty);
+      options.set(token, formatDifficulty(difficulty));
     }
-    return Array.from(options.values()).sort((a, b) => a.localeCompare(b));
+    return Array.from(options.values())
+      .sort((a, b) => a.localeCompare(b, 'pt-PT'));
   }, [rows, insights, difficulty]);
 
   const totalPages = Math.max(1, Math.ceil(count / pageSize));
@@ -253,7 +317,8 @@ export default function PlansClient() {
       setQuery((prev) => (prev === nextQuery ? prev : nextQuery));
       setDebouncedQuery(nextQuery.trim());
       setDifficulty((prev) => {
-        const value = nextDifficulty && nextDifficulty !== 'all' ? nextDifficulty : 'all';
+        if (!nextDifficulty || nextDifficulty === 'all') return prev === 'all' ? prev : 'all';
+        const value = formatDifficulty(nextDifficulty);
         return prev === value ? prev : value;
       });
       setPage((prev) => {
@@ -289,7 +354,7 @@ export default function PlansClient() {
       search.delete('q');
     }
     if (difficulty !== 'all') {
-      search.set('difficulty', difficulty);
+      search.set('difficulty', difficultyToken(difficulty));
     } else {
       search.delete('difficulty');
     }
@@ -318,10 +383,15 @@ export default function PlansClient() {
   }, [feedback]);
 
   function handleExport() {
-    const csv = buildCsv(rows);
+    const csv = buildCsv(rows.map((row) => ({
+      ...row,
+      difficulty: formatDifficulty(row.difficulty ?? ''),
+    })));
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    const name = `planos${difficulty !== 'all' ? `-diff-${difficulty}` : ''}${debouncedQuery ? `-q-${debouncedQuery}` : ''}.csv`;
+    const diffSlug = difficulty !== 'all' ? difficultyToken(difficulty) : null;
+    const querySlug = debouncedQuery ? stripDiacritics(debouncedQuery).replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') : '';
+    const name = `planos${diffSlug ? `-diff-${diffSlug}` : ''}${querySlug ? `-q-${querySlug}` : ''}.csv`;
     const link = document.createElement('a');
     link.href = url;
     link.download = name;
@@ -337,7 +407,7 @@ export default function PlansClient() {
       .map((row) => {
         const values = [
           row.name,
-          normaliseDifficulty(row.difficulty ?? ''),
+          formatDifficulty(row.difficulty),
           formatWeeks(row.duration_weeks ?? null),
           row.is_public ? 'Sim' : 'Não',
           formatDate(row.created_at ?? null),
@@ -356,13 +426,18 @@ export default function PlansClient() {
 
   async function handleClone(id: string) {
     try {
+      if (cloneBusyRef.current.has(id)) return;
+      markCloneBusy(id, true);
       const response = await fetch(`/api/admin/plans/${id}/clone`, { method: 'POST' });
       if (!response.ok) throw new Error(await response.text().catch(() => 'Falha ao clonar o plano.'));
       setFeedback({ tone: 'success', message: 'Plano clonado com sucesso.' });
+      setCount((value) => value + 1);
       setRefreshKey((value) => value + 1);
     } catch (error) {
       console.warn('[admin/plans] clone failed', error);
       setFeedback({ tone: 'danger', message: error instanceof Error ? error.message : 'Falha ao clonar o plano.' });
+    } finally {
+      markCloneBusy(id, false);
     }
   }
 
@@ -370,6 +445,7 @@ export default function PlansClient() {
     if (!confirm(`Remover plano "${row.name}"?`)) return;
     setRows((prev) => prev.filter((item) => item.id !== row.id));
     setUndo({ row, busy: false });
+    setCount((value) => Math.max(0, value - 1));
     if (undoTimer.current) clearTimeout(undoTimer.current);
     undoTimer.current = setTimeout(() => setUndo({ row: null, busy: false }), 5000);
 
@@ -380,6 +456,7 @@ export default function PlansClient() {
     } catch (error) {
       if (undoTimer.current) clearTimeout(undoTimer.current);
       setRows((prev) => [row, ...prev]);
+      setCount((value) => value + 1);
       setUndo({ row: null, busy: false });
       console.warn('[admin/plans] delete failed', error);
       setFeedback({ tone: 'danger', message: error instanceof Error ? error.message : 'Falha ao remover o plano.' });
@@ -404,6 +481,7 @@ export default function PlansClient() {
       });
       if (!response.ok) throw new Error(await response.text().catch(() => 'Falha ao restaurar o plano.'));
       setFeedback({ tone: 'success', message: 'Plano restaurado.' });
+      setCount((value) => value + 1);
       setRefreshKey((value) => value + 1);
     } catch (error) {
       console.warn('[admin/plans] undo failed', error);
@@ -417,6 +495,38 @@ export default function PlansClient() {
   const handleRefresh = React.useCallback(() => {
     setRefreshKey((value) => value + 1);
   }, []);
+
+  const activeFilters = React.useMemo(() => {
+    const filters: string[] = [];
+    if (debouncedQuery) filters.push(`pesquisa "${debouncedQuery}"`);
+    if (difficulty !== 'all') filters.push(`dificuldade ${formatDifficulty(difficulty)}`);
+    return filters;
+  }, [debouncedQuery, difficulty]);
+
+  const filtersDescription = React.useMemo(() => {
+    if (!activeFilters.length) return '';
+    if (activeFilters.length === 1) return activeFilters[0];
+    const head = activeFilters.slice(0, -1).join(', ');
+    const tail = activeFilters[activeFilters.length - 1];
+    return `${head} e ${tail}`;
+  }, [activeFilters]);
+
+  const filtersSummary = React.useMemo(() => {
+    if (!activeFilters.length) return 'Sem filtros activos.';
+    return `Filtros activos: ${filtersDescription}.`;
+  }, [activeFilters, filtersDescription]);
+
+  const listSummary = React.useMemo(() => {
+    if (loading) return 'A carregar planos…';
+    if (!rows.length) {
+      if (!activeFilters.length) return 'Nenhum plano encontrado.';
+      return `Nenhum plano encontrado para ${filtersDescription}.`;
+    }
+    const visible = numberFormatter.format(rows.length);
+    const total = numberFormatter.format(count);
+    const base = `A mostrar ${visible} de ${total} planos`;
+    return activeFilters.length ? `${base} filtrados por ${filtersDescription}.` : `${base}.`;
+  }, [loading, rows.length, count, activeFilters, filtersDescription]);
 
   return (
     <div className="admin-plans neo-stack neo-stack--xl">
@@ -491,7 +601,7 @@ export default function PlansClient() {
             <ul>
               {(insights?.difficulties ?? []).map((stat) => (
                 <li key={stat.key}>
-                  <span className="admin-plans__distributionLabel">{normaliseDifficulty(stat.key)}</span>
+                  <span className="admin-plans__distributionLabel">{formatDifficulty(stat.key)}</span>
                   <span className="admin-plans__distributionBar">
                     <span
                       aria-hidden
@@ -587,6 +697,7 @@ export default function PlansClient() {
             Imprimir
           </Button>
         </div>
+        <p className="admin-plans__filtersSummary" aria-live="polite">{filtersSummary}</p>
       </section>
 
       {feedback && (
@@ -616,7 +727,7 @@ export default function PlansClient() {
         <header className="admin-plans__tableHeader">
           <div>
             <h2>Lista de planos</h2>
-            <p>{count} registos</p>
+            <p className="admin-plans__tableSummary" aria-live="polite">{listSummary}</p>
           </div>
           <Button
             variant="ghost"
@@ -652,8 +763,8 @@ export default function PlansClient() {
                     </div>
                   </td>
                   <td>
-                    <span className="admin-plans__difficulty" data-tone={normaliseDifficulty(row.difficulty ?? '')}>
-                      {normaliseDifficulty(row.difficulty ?? '')}
+                    <span className="admin-plans__difficulty" data-tone={difficultyToken(row.difficulty)}>
+                      {formatDifficulty(row.difficulty)}
                     </span>
                   </td>
                   <td className="neo-table__cell--right">{formatWeeks(row.duration_weeks)}</td>
@@ -688,8 +799,11 @@ export default function PlansClient() {
                       className="neo-icon-button"
                       aria-label={`Clonar plano ${row.name}`}
                       onClick={() => handleClone(row.id)}
+                      disabled={cloneBusyIds.has(row.id)}
                     >
-                      <span aria-hidden>⧉</span>
+                      <span aria-hidden>
+                        {cloneBusyIds.has(row.id) ? <Loader2 className="neo-spin" size={14} /> : '⧉'}
+                      </span>
                     </button>
                     <button
                       type="button"
