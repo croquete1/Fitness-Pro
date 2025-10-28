@@ -2,12 +2,14 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import { ArrowUpRight, CheckCheck, MailOpen, MailX } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
 import Alert from '@/components/ui/Alert';
 import DataSourceBadge from '@/components/ui/DataSourceBadge';
 import type { NotificationRow } from '@/lib/notifications/types';
+import { useSupabaseRealtime } from '@/lib/supabase/useRealtime';
 
 type StatusFilter = 'all' | 'unread' | 'read';
 
@@ -57,6 +59,7 @@ function getTotalForStatus(counts: { all: number; unread: number; read: number }
 }
 
 export default function NotificationsListClient() {
+  const { data: session } = useSession();
   const [status, setStatus] = React.useState<StatusFilter>('unread');
   const [page, setPage] = React.useState(0);
   const pageSize = 10;
@@ -67,6 +70,32 @@ export default function NotificationsListClient() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [refreshKey, setRefreshKey] = React.useState(0);
+  const realtimeTimerRef = React.useRef<number | null>(null);
+
+  const viewerId = React.useMemo(() => {
+    const candidate =
+      session?.user && 'id' in session.user && typeof (session.user as { id?: unknown }).id === 'string'
+        ? ((session.user as { id?: string }).id as string)
+        : null;
+    return candidate;
+  }, [session?.user]);
+
+  const scheduleRealtimeRefresh = React.useCallback(() => {
+    if (realtimeTimerRef.current) return;
+    realtimeTimerRef.current = window.setTimeout(() => {
+      realtimeTimerRef.current = null;
+      setRefreshKey((key) => key + 1);
+    }, 450);
+  }, []);
+
+  React.useEffect(() => {
+    return () => {
+      if (realtimeTimerRef.current) {
+        window.clearTimeout(realtimeTimerRef.current);
+        realtimeTimerRef.current = null;
+      }
+    };
+  }, []);
 
   React.useEffect(() => {
     const controller = new AbortController();
@@ -167,6 +196,18 @@ export default function NotificationsListClient() {
       console.error('[notifications:list] falha a actualizar estado', err);
     }
   }, []);
+
+  useSupabaseRealtime(
+    `notifications-list-${viewerId ?? 'anonymous'}`,
+    React.useMemo(
+      () => [
+        viewerId ? { table: 'notifications', filter: `user_id=eq.${viewerId}` } : { table: 'notifications' },
+      ],
+      [viewerId],
+    ),
+    scheduleRealtimeRefresh,
+    { enabled: true },
+  );
 
   return (
     <section className="neo-panel notifications-list" aria-live="polite">
