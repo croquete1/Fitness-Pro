@@ -13,6 +13,9 @@ export type Row = {
   status?: 'scheduled' | 'done' | 'cancelled' | string | null;
   trainer_id?: string | null;
   client_id?: string | null;
+  client_name?: string | null;
+  client_email?: string | null;
+  client_phone?: string | null;
   location?: string | null;
   notes?: string | null;
   created_at?: string | null;
@@ -34,6 +37,15 @@ type StatusTone = 'ok' | 'warn' | 'down';
 type Slot = { day: string; start: string; end: string };
 
 type IconProps = { className?: string };
+
+function firstString(...values: Array<string | null | undefined>): string | null {
+  for (const value of values) {
+    if (typeof value !== 'string') continue;
+    const trimmed = value.trim();
+    if (trimmed) return trimmed;
+  }
+  return null;
+}
 
 function statusLabel(value: string | null | undefined) {
   if (!value) return '—';
@@ -95,7 +107,7 @@ function escapeHtml(value: string) {
 
 function StatusPill({ tone, label }: { tone: StatusTone; label: string }) {
   return (
-    <span className="status-pill" data-state={tone}>
+    <span className="status-pill" data-state={tone} role="status" aria-live="polite">
       {label}
     </span>
   );
@@ -277,17 +289,32 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
         ? json.data
         : [];
 
-      const mapped = source.map((row: any): Row => ({
-        id: String(row?.id ?? crypto.randomUUID()),
-        start_time: row?.start_time ?? row?.start ?? row?.starts_at ?? row?.scheduled_at ?? null,
-        end_time: row?.end_time ?? row?.end ?? row?.ends_at ?? null,
-        status: row?.status ?? row?.state ?? null,
-        trainer_id: row?.trainer_id ?? row?.pt_id ?? null,
-        client_id: row?.client_id ?? row?.member_id ?? null,
-        location: row?.location ?? row?.place ?? null,
-        notes: row?.notes ?? null,
-        created_at: row?.created_at ?? null,
-      }));
+      const mapped = source.map((row: any): Row => {
+        const trainer = row?.trainer ?? row?.trainer_profile ?? null;
+        const client = row?.client ?? row?.client_profile ?? null;
+        const clientName = firstString(
+          row?.client_name,
+          row?.client_full_name,
+          client?.full_name,
+          client?.name,
+        );
+        const clientEmail = firstString(row?.client_email, client?.email);
+        const clientPhone = firstString(row?.client_phone, client?.phone);
+        return {
+          id: String(row?.id ?? crypto.randomUUID()),
+          start_time: row?.start_time ?? row?.start ?? row?.starts_at ?? row?.scheduled_at ?? null,
+          end_time: row?.end_time ?? row?.end ?? row?.ends_at ?? null,
+          status: row?.status ?? row?.state ?? null,
+          trainer_id: row?.trainer_id ?? row?.pt_id ?? trainer?.id ?? null,
+          client_id: row?.client_id ?? row?.member_id ?? client?.id ?? null,
+          client_name: clientName,
+          client_email: clientEmail,
+          client_phone: clientPhone,
+          location: row?.location ?? row?.place ?? null,
+          notes: row?.notes ?? null,
+          created_at: row?.created_at ?? null,
+        };
+      });
 
       setRows(mapped);
       setCount(Number(json?.count ?? mapped.length));
@@ -363,7 +390,15 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
     const term = deferredQuery.trim().toLowerCase();
     if (!term) return rows;
     return rows.filter((row) => {
-      const haystack = [row.client_id, row.location, row.status, row.notes]
+      const haystack = [
+        row.client_id,
+        row.client_name,
+        row.client_email,
+        row.client_phone,
+        row.location,
+        row.status,
+        row.notes,
+      ]
         .filter(Boolean)
         .join(' ')
         .toLowerCase();
@@ -385,6 +420,14 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
   }, [loading, error, deferredQuery, filteredRows.length, count, lastSyncedAt]);
 
   const statusState: StatusTone = loading ? 'warn' : error ? 'down' : 'ok';
+
+  React.useEffect(() => {
+    setPagination((prev) => {
+      const totalPages = Math.max(1, Math.ceil(Math.max(count, 1) / prev.pageSize));
+      if (prev.page <= totalPages - 1) return prev;
+      return { ...prev, page: totalPages - 1 };
+    });
+  }, [count, pagination.pageSize]);
 
   const totalPages = Math.max(1, Math.ceil(Math.max(count, 1) / pagination.pageSize));
   const currentPage = Math.min(pagination.page, totalPages - 1);
@@ -411,7 +454,19 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
   );
 
   const exportCSV = React.useCallback(() => {
-    const header = ['id', 'start_time', 'end_time', 'status', 'client_id', 'location', 'notes', 'created_at'];
+    const header = [
+      'id',
+      'start_time',
+      'end_time',
+      'status',
+      'client_id',
+      'client_name',
+      'client_email',
+      'client_phone',
+      'location',
+      'notes',
+      'created_at',
+    ];
     const lines = [
       header.join(','),
       ...filteredRows.map((row) =>
@@ -421,6 +476,9 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
           row.end_time ?? '',
           row.status ?? '',
           row.client_id ?? '',
+          row.client_name ?? '',
+          row.client_email ?? '',
+          row.client_phone ?? '',
           row.location ?? '',
           (row.notes ?? '').replace(/\r?\n/g, ' '),
           row.created_at ?? '',
@@ -445,9 +503,14 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
     const rowsHtml = filteredRows
       .map((row) => {
         const slot = formatSlot(row);
+        const clientPrimary = firstString(row.client_name, row.client_id) ?? '—';
+        const clientContacts = [row.client_email, row.client_phone]
+          .filter((value): value is string => Boolean(value && value.trim()))
+          .join(' · ');
+        const clientCell = clientContacts ? `${clientPrimary} · ${clientContacts}` : clientPrimary;
         const cells = [
           `${slot.day} — ${slot.start} → ${slot.end}`,
-          row.client_id ?? '—',
+          clientCell,
           row.location ?? '—',
           statusLabel(row.status ?? null),
           (row.notes ?? '').replace(/\r?\n/g, ' '),
@@ -596,7 +659,7 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
               <span className="neo-text--xs neo-text--uppercase neo-text--muted neo-text--semibold">Pesquisa rápida</span>
               <input
                 className="neo-input"
-                placeholder="Filtrar por cliente, local ou estado"
+                placeholder="Filtrar por cliente, email, local ou estado"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
               />
@@ -637,7 +700,7 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
             {error}
           </div>
         )}
-        <div className="neo-table-wrapper" role="region" aria-live="polite">
+        <div className="neo-table-wrapper" role="region" aria-live="polite" aria-busy={loading}>
           <table className="neo-table">
             <thead>
               <tr>
@@ -687,7 +750,20 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
                       </div>
                     </td>
                     <td>
-                      <span className="neo-text--sm neo-text--semibold text-fg">{row.client_id ?? '—'}</span>
+                      <div className="neo-stack neo-stack--xs">
+                        <span className="neo-text--sm neo-text--semibold text-fg">
+                          {firstString(row.client_name, row.client_id) ?? '—'}
+                        </span>
+                        {row.client_email && (
+                          <span className="neo-text--xs neo-text--muted">{row.client_email}</span>
+                        )}
+                        {row.client_phone && (
+                          <span className="neo-text--xs neo-text--muted">{row.client_phone}</span>
+                        )}
+                        {!row.client_name && row.client_id && (
+                          <span className="neo-text--xs neo-text--muted">ID #{row.client_id}</span>
+                        )}
+                      </div>
                     </td>
                     <td>
                       <span className="neo-text--sm neo-text--muted">{row.location ?? 'A definir'}</span>

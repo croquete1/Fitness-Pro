@@ -44,8 +44,14 @@ export async function GET(req: Request) {
   const status = searchParams.get('status') || '';
   const { from, to } = rangeFor(page, pageSize);
 
-  let q = sb.from('sessions')
-    .select('id,trainer_id,client_id,start_time,end_time,status,location,notes,created_at', { count: 'exact' })
+  let q = sb
+    .from('sessions')
+    .select(
+      `id,trainer_id,client_id,start_time,end_time,status,location,notes,created_at,
+        trainer:trainer_id(id,full_name,name,email),
+        client:client_id(id,full_name,name,email,phone)`,
+      { count: 'exact' },
+    )
     .eq('trainer_id', trainerId)
     .order('start_time', { ascending: false });
 
@@ -54,17 +60,24 @@ export async function GET(req: Request) {
   const { data, error, count } = await q.range(from, to);
   if (error) return NextResponse.json({ rows: [], count: 0, error: error.message }, { status: 400 });
 
-  const rows = (data ?? []).map(r => ({
-    id: String(r.id),
-    trainer_id: r.trainer_id ?? null,
-    client_id: r.client_id ?? null,
-    start_time: r.start_time ?? null,
-    end_time: r.end_time ?? null,
-    status: r.status ?? null,
-    location: r.location ?? null,
-    notes: r.notes ?? null,
-    created_at: r.created_at ?? null,
-  }));
+  const rows = (data ?? []).map((r: any) => {
+    const trainer = Array.isArray(r?.trainer) ? r.trainer[0] : r?.trainer;
+    const client = Array.isArray(r?.client) ? r.client[0] : r?.client;
+    return {
+      id: String(r.id),
+      trainer_id: r.trainer_id ?? trainer?.id ?? null,
+      client_id: r.client_id ?? client?.id ?? null,
+      start_time: r.start_time ?? null,
+      end_time: r.end_time ?? null,
+      status: r.status ?? null,
+      location: r.location ?? null,
+      notes: r.notes ?? null,
+      created_at: r.created_at ?? null,
+      client_name: client?.full_name ?? client?.name ?? null,
+      client_email: client?.email ?? null,
+      client_phone: client?.phone ?? null,
+    };
+  });
   return NextResponse.json({ rows, count: count ?? rows.length });
 }
 
