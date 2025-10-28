@@ -140,6 +140,8 @@ export default function PlansClient() {
   const [insightsLoading, setInsightsLoading] = React.useState(false);
   const [insightsError, setInsightsError] = React.useState<string | null>(null);
   const [refreshKey, setRefreshKey] = React.useState(0);
+  const [listHydrated, setListHydrated] = React.useState(false);
+  const [ready, setReady] = React.useState(false);
 
   const supabaseOnline = insights?.source === 'supabase' && insights?._supabaseConfigured !== false;
 
@@ -151,6 +153,7 @@ export default function PlansClient() {
     const controller = new AbortController();
     async function load() {
       setLoading(true);
+      setListHydrated(false);
       setListError(null);
       try {
         const url = new URL('/api/admin/plans', window.location.origin);
@@ -172,7 +175,10 @@ export default function PlansClient() {
         setRows([]);
         setCount(0);
       } finally {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+          setListHydrated(true);
+        }
       }
     }
     void load();
@@ -211,14 +217,18 @@ export default function PlansClient() {
       if (row.difficulty) options.add(normaliseDifficulty(row.difficulty));
     });
     insights?.difficulties.forEach((stat) => options.add(normaliseDifficulty(stat.key)));
+    if (difficulty !== 'all' && difficulty.trim()) {
+      options.add(normaliseDifficulty(difficulty));
+    }
     return Array.from(options.values()).sort((a, b) => a.localeCompare(b));
-  }, [rows, insights]);
+  }, [rows, insights, difficulty]);
 
   const totalPages = Math.max(1, Math.ceil(count / pageSize));
   const currentPage = Math.min(page, totalPages - 1);
   React.useEffect(() => {
+    if (!ready || !listHydrated) return;
     if (page !== currentPage) setPage(currentPage);
-  }, [currentPage, page]);
+  }, [ready, listHydrated, currentPage, page]);
 
   React.useEffect(() => {
     const handle = setTimeout(() => {
@@ -228,8 +238,78 @@ export default function PlansClient() {
   }, [query]);
 
   React.useEffect(() => {
+    if (!ready) return;
     setPage(0);
-  }, [debouncedQuery, difficulty, pageSize]);
+  }, [ready, debouncedQuery, difficulty, pageSize]);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    function applySearchParams(search: URLSearchParams) {
+      const nextQuery = search.get('q') ?? '';
+      const nextDifficulty = search.get('difficulty') ?? 'all';
+      const nextPage = Number.parseInt(search.get('page') ?? '0', 10);
+      const nextPageSize = Number.parseInt(search.get('pageSize') ?? '20', 10);
+
+      setQuery((prev) => (prev === nextQuery ? prev : nextQuery));
+      setDebouncedQuery(nextQuery.trim());
+      setDifficulty((prev) => {
+        const value = nextDifficulty && nextDifficulty !== 'all' ? nextDifficulty : 'all';
+        return prev === value ? prev : value;
+      });
+      setPage((prev) => {
+        const parsed = Number.isFinite(nextPage) && nextPage >= 0 ? nextPage : 0;
+        return prev === parsed ? prev : parsed;
+      });
+      setPageSize((prev) => {
+        const parsed = Number.isFinite(nextPageSize) && PAGE_SIZE_OPTIONS.includes(nextPageSize)
+          ? nextPageSize
+          : 20;
+        return prev === parsed ? prev : parsed;
+      });
+    }
+
+    const initial = new URLSearchParams(window.location.search);
+    applySearchParams(initial);
+    setReady(true);
+
+    const onPopState = () => {
+      applySearchParams(new URLSearchParams(window.location.search));
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  React.useEffect(() => {
+    if (!ready || typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    const search = url.searchParams;
+    if (debouncedQuery) {
+      search.set('q', debouncedQuery);
+    } else {
+      search.delete('q');
+    }
+    if (difficulty !== 'all') {
+      search.set('difficulty', difficulty);
+    } else {
+      search.delete('difficulty');
+    }
+    if (page > 0) {
+      search.set('page', String(page));
+    } else {
+      search.delete('page');
+    }
+    if (pageSize !== 20) {
+      search.set('pageSize', String(pageSize));
+    } else {
+      search.delete('pageSize');
+    }
+
+    const next = `${url.pathname}${search.toString() ? `?${search.toString()}` : ''}${url.hash}`;
+    const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (next !== current) {
+      window.history.replaceState(window.history.state, '', next);
+    }
+  }, [ready, debouncedQuery, difficulty, page, pageSize]);
 
   React.useEffect(() => {
     if (!feedback) return;

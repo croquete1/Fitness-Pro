@@ -130,6 +130,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Restringir o carregamento do dashboard de mensagens ao intervalo activo no Supabase com lookback alargado para métricas históricas e pesquisa textural que ignora pontuação duplicada. Fontes: `src/lib/messages/server.ts`, `src/app/(app)/dashboard/messages/MessagesDashboardClient.tsx`.
 - [ ] Optimizar consultas com índices e vistas materializadas (existe esboço, mas falta adopção generalizada).
 - [x] Polir UX/UI das páginas em construção (Relatórios, Definições e Biblioteca adoptaram o tema `.neo` com métricas reais e responsividade reforçada).
+- [x] Sincronizar filtros, pesquisa e paginação da consola de planos com a barra de endereço, preservando partilhas/exportações e alinhando o estado com o painel `.neo`. Fontes: `src/app/(app)/dashboard/admin/plans/PlansClient.tsx`.
 - [x] Reforçar o formulário de definições com validação de nome/telefone e mensagens de erro descritivas nas actualizações de credenciais.
 - [x] Validar credenciais nas definições com pré-validação de email, reforço de requisitos de palavra-passe e normalização do contacto telefónico.
 - [x] Refinar os formulários de definições limpando estados após alterações, normalizando contactos e expondo conflitos de email/telefone do Supabase com mensagens dedicadas.
@@ -211,6 +212,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Hidratar o planeador semanal do PT a partir de um snapshot offline e sincronizar a cache local após cada alteração confirmada, garantindo dados visíveis mesmo sem ligação imediata. Fonte: `src/app/(app)/dashboard/pt/plans/page.tsx`.
 - [x] Documentar configuração e variáveis de ambiente actualizadas após migração para Supabase (ver `docs/supabase-environment.md`).
 - [ ] Remover dependências/artefactos não utilizados (ex.: pacotes Prisma, scripts legados) após consolidação da camada de dados.
+  - 2025-10-28: Removido o grid legacy `plans.client.tsx` baseado em MUI na consola de planos administrativa, mantendo apenas a versão `.neo` activa.
 - [x] Adicionar protecções de rate limiting e validações adicionais nas rotas sensíveis (limites por IP nas rotas de registo e notificações, com cabeçalhos `Retry-After` e `X-RateLimit-*`). Fontes: `src/lib/http/rateLimit.ts`, `src/app/api/register/route.ts`, `src/app/api/notifications/{list,mark-all-read,mark-read,mark-unread,unread}/route.ts`.
   - 2025-10-26: Alargámos a identificação de cliente para interpretar cabeçalhos `Forwarded`, garantindo limites justos atrás de proxies padrão.
   - Actualização: todas as respostas destas rotas incluem agora `cache-control: no-store` juntamente com os cabeçalhos de rate limiting para evitar caches intermédias inconsistentes.
