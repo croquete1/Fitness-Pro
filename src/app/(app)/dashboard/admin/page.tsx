@@ -204,6 +204,7 @@ async function loadAdminDashboard(): Promise<{ data: AdminDashboardData; supabas
     if (lastUsersError) {
       console.warn('[admin dashboard] falha ao carregar últimos utilizadores', lastUsersError);
     }
+    const sessionsUpcoming = (sessionsUpcomingRaw ?? []) as unknown as SessionRow[];
 
     const { data: sessionsUpcomingRaw, error: sessionsError } = await sb
       .from('sessions')
