@@ -184,6 +184,7 @@ export function buildMessagesDashboard(
   const totals = {
     inbound: 0,
     outbound: 0,
+    internal: 0,
     replies: 0,
     participants: new Set<string>(),
   };
@@ -239,6 +240,7 @@ export function buildMessagesDashboard(
           totalMessages: 0,
           inbound: 0,
           outbound: 0,
+          internal: 0,
           lastDirection: direction,
           lastMessageAt: sentAtDate ? sentAtDate.toISOString() : null,
           averageResponseMinutes: null,
@@ -262,6 +264,7 @@ export function buildMessagesDashboard(
       conversation.row.totalMessages += 1;
       if (direction === 'inbound') conversation.row.inbound += 1;
       if (direction === 'outbound') conversation.row.outbound += 1;
+      if (direction === 'internal') conversation.row.internal += 1;
       conversation.channelCounts.set(channel, (conversation.channelCounts.get(channel) ?? 0) + 1);
     }
 
@@ -309,6 +312,7 @@ export function buildMessagesDashboard(
 
     if (direction === 'inbound') totals.inbound += 1;
     if (direction === 'outbound') totals.outbound += 1;
+    if (direction === 'internal') totals.internal += 1;
 
     const dayKey = sentAtDate ? toIsoDay(sentAtDate) : null;
     if (dayKey && timelineBuckets.has(dayKey)) {
@@ -343,7 +347,7 @@ export function buildMessagesDashboard(
   }
 
   const hero: MessageHeroMetric[] = [];
-  const totalMessages = totals.inbound + totals.outbound;
+  const totalMessages = totals.inbound + totals.outbound + totals.internal;
   const previousMessages = previousTotal;
   const averagePerDay = totalMessages / rangeDays;
 
@@ -497,6 +501,7 @@ export function buildMessagesDashboard(
     totals: {
       inbound: totals.inbound,
       outbound: totals.outbound,
+      internal: totals.internal,
       replies: totals.replies,
       participants: totals.participants.size,
       pendingResponses: pendingResponsesTotal,
