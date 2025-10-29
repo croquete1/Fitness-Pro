@@ -188,6 +188,11 @@ export default function ProfileClient({
     : null;
   const questionnaire = React.useMemo(() => normalizeQuestionnaire(questionnaireRow ?? null), [questionnaireRow]);
   const questionnaireLoading = !questionnaireResp && questionnaireValidating;
+  const refreshBusy = isValidating || questionnaireValidating;
+
+  const retryQuestionnaire = React.useCallback(() => {
+    void mutateQuestionnaire(undefined, { revalidate: true });
+  }, [mutateQuestionnaire]);
 
   let questionnaireBadgeVariant: 'success' | 'warning' | 'neutral' = 'warning';
   let questionnaireBadgeLabel = 'Por preencher';
@@ -422,10 +427,10 @@ export default function ProfileClient({
             variant="secondary"
             size="sm"
             onClick={refreshDashboard}
-            leftIcon={isValidating ? <Loader2 className="icon-spin" aria-hidden /> : <RefreshCcw className="icon" aria-hidden />}
-            disabled={isValidating}
+            leftIcon={refreshBusy ? <Loader2 className="icon-spin" aria-hidden /> : <RefreshCcw className="icon" aria-hidden />}
+            disabled={refreshBusy}
           >
-            Actualizar métricas
+            Actualizar dados
           </Button>
         }
       />
@@ -496,7 +501,18 @@ export default function ProfileClient({
         ) : questionnaire ? (
           <FitnessQuestionnaireSummary data={questionnaire} variant="compact" />
         ) : questionnaireError ? (
-          <Alert tone="danger" className="neo-alert--inline" title={questionnaireError} />
+          <div className="profile-dashboard__questionnaireError">
+            <Alert tone="danger" className="neo-alert--inline" title={questionnaireError} />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={retryQuestionnaire}
+              leftIcon={<RefreshCcw className="icon" aria-hidden />}
+              disabled={questionnaireValidating}
+            >
+              Tentar novamente
+            </Button>
+          </div>
         ) : (
           <div className="profile-dashboard__questionnaireEmpty">
             <p>

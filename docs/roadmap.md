@@ -41,6 +41,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
   - 2025-11-03: Corrigida a submissão inicial sem registos prévios (formulário deixava de responder ao espalhar `null`) e o resumo administrativo passou a ser actualizado a partir do payload persistido. Fontes: `src/components/questionnaire/FitnessQuestionnaireForm.tsx`.
   - 2025-11-04: Actualizado o formulário para reaproveitar o registo recém-criado, sincronizando badges/IDs após submissões e ao alternar perfis, evitando estados desactualizados no dashboard. Fontes: `src/components/questionnaire/FitnessQuestionnaireForm.tsx`.
   - 2025-11-05: O dashboard do cliente passou a receber o questionário pré-carregado do servidor, revalidando junto das métricas e exibindo estado de sincronização em tempo real. Fontes: `src/app/(app)/dashboard/profile/page.tsx`, `src/app/(app)/dashboard/profile/ProfileClient.tsx`, `src/app/globals.css`.
+  - 2025-11-06: Permitimos revalidar o questionário directamente do cartão do perfil, alinhando o botão de refresh com ambos os carregamentos e expondo retry dedicado em caso de falha. Fontes: `src/app/(app)/dashboard/profile/ProfileClient.tsx`, `src/app/globals.css`.
 
 ## Fase 2 - Melhorias Estruturais
 - [x] Validar carregamento real da lista de utilizadores/aprovações no Supabase (remoção dos fallbacks quando a API estiver estável e seeds completos).

@@ -15504,6 +15504,7 @@ a.neo-sidebar__highlight {
 .profile-dashboard__questionnaireStatus{ display:flex; align-items:center; gap:.5rem; }
 .profile-dashboard__questionnaireSpinner{ display:inline-flex; align-items:center; gap:.35rem; font-size:.85rem; color:color-mix(in srgb, var(--neo-text) 70%, transparent); }
 .profile-dashboard__questionnaireLoading{ display:flex; align-items:center; gap:.5rem; font-size:.9rem; color:color-mix(in srgb, var(--neo-text) 70%, transparent); }
+.profile-dashboard__questionnaireError{ display:flex; flex-direction:column; gap:.75rem; }
 .profile-dashboard__questionnaireEmpty{ display:flex; flex-direction:column; gap:.75rem; font-size:.95rem; }
 
 .questionnaire-form{ display:grid; gap:1.5rem; }
