@@ -212,9 +212,21 @@ export function buildMessagesDashboard(
     const direction = directionFor(viewerId, record);
     const channel = normaliseChannel(record.channel);
     const counterpartId = direction === 'outbound' ? record.toId : direction === 'inbound' ? record.fromId : null;
+    const threadHint =
+      typeof record.replyToId === 'string' && record.replyToId.trim().length > 0
+        ? record.replyToId.trim()
+        : record.id;
     const counterpartNameRaw = direction === 'outbound' ? record.toName : direction === 'inbound' ? record.fromName : null;
-    const counterpartName = counterpartNameRaw?.trim() || (counterpartId ? `Contacto ${counterpartId.slice(0, 6)}` : 'Canal interno');
-    const key = counterpartId ?? (direction === 'internal' ? `internal-${record.id}` : `unknown-${record.id}`);
+    const counterpartKey = counterpartId && counterpartId.trim().length > 0 ? counterpartId.trim() : null;
+    const counterpartName =
+      direction === 'internal'
+        ? 'Equipa interna'
+        : counterpartNameRaw?.trim() || (counterpartKey ? `Contacto ${counterpartKey.slice(0, 6)}` : 'Contacto desconhecido');
+    const key =
+      counterpartKey ?? (direction === 'internal' ? `internal-${threadHint}` : `unknown-${threadHint}`);
+    if (direction !== 'internal' && counterpartKey) {
+      totals.participants.add(counterpartKey);
+    }
     const inRange = sentAtDate ? sentAtDate.getTime() >= start.getTime() && sentAtDate.getTime() <= end.getTime() : false;
     const isPreviousRange = sentAtDate ? sentAtDate.getTime() <= previousEnd.getTime() && sentAtDate.getTime() >= previousStart.getTime() : false;
     let responded = false;
@@ -226,16 +238,12 @@ export function buildMessagesDashboard(
       if (direction === 'inbound') previousInbound += 1;
     }
 
-    if (direction !== 'internal' && counterpartId) {
-      totals.participants.add(counterpartId);
-    }
-
     let conversation = conversations.get(key);
     if (!conversation) {
       conversation = {
         row: {
           id: key,
-          counterpartId,
+          counterpartId: counterpartKey,
           counterpartName,
           totalMessages: 0,
           inbound: 0,
