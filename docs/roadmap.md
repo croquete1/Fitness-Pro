@@ -45,6 +45,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
   - 2025-10-29: Consola de clientes sincroniza filtros via query string, expõe badge da fonte Supabase/fallback, auto-refresh condicionado ao estado online e resumo acessível dos resultados filtrados.
   - 2025-10-31: Consola de clientes ganha botão "Limpar filtros", resumo descritivo dos filtros activos e filtro dedicado a clientes sem treinador com contagens normalizadas por treinador.
   - 2025-11-01: Consola de clientes indexa pesquisas multi-termo sem acentos, com atraso diferido para digitação e correspondência por campos derivados (sessões, risco, "sem treinador").
+  - 2025-11-02: Consola de clientes cacheia normalizações e comprime o índice em texto único, removendo tokens duplicados para acelerar filtros multi-termo e clarificar o placeholder da pesquisa.
 - [x] Afinar a consola de utilizadores do admin com gráfico temporal escalado dinamicamente e percentagens precisas nas distribuições.
 - [x] Corrigir a timeline do roster administrativo garantindo marcação válida e carregamento sem erros.
 - [x] Blindar o gráfico temporal da consola de utilizadores contra violações das regras de hooks React, assegurando alturas consistentes mesmo com métricas incompletas. Fonte: `src/app/(app)/dashboard/admin/users/users.client.tsx`.

@@ -140,15 +140,74 @@ const SORT_OPTIONS: Array<{ value: SortValue; label: string }> = [
   { value: 'risk', label: 'Maior risco' },
 ];
 
-type SearchIndex = Map<string, string[]>;
+type SearchIndex = Map<string, string>;
 
 function matchesQuery(row: AdminClientRow, tokens: string[], index: SearchIndex): boolean {
   if (tokens.length === 0) return true;
-  const values = index.get(row.id);
-  if (!values?.length) {
+  const haystack = index.get(row.id);
+  if (!haystack) {
     return false;
   }
-  return tokens.every((token) => values.some((value) => value.includes(token)));
+  return tokens.every((token) => haystack.includes(token));
+}
+
+function buildSearchIndex(rows: AdminClientRow[]): SearchIndex {
+  const index: SearchIndex = new Map();
+  const normalisedCache = new Map<string, string>();
+
+  const getNormalised = (value: string) => {
+    const cached = normalisedCache.get(value);
+    if (cached !== undefined) {
+      return cached;
+    }
+    const normalised = normaliseText(value);
+    normalisedCache.set(value, normalised);
+    return normalised;
+  };
+
+  rows.forEach((row) => {
+    const entries = [
+      row.displayName,
+      row.email ?? '',
+      row.statusLabel,
+      row.statusKey,
+      row.trainerName ?? '',
+      row.id,
+      row.sessionsLabel,
+      row.sessionsTooltip,
+      row.nextSessionLabel,
+      row.riskLabel,
+      row.riskLevel,
+      row.walletLabel,
+      row.spendLabel,
+    ];
+
+    if (!row.trainerName) {
+      entries.push('Sem treinador');
+    }
+
+    const tokens = new Set<string>();
+
+    entries.forEach((entry) => {
+      if (!entry) {
+        return;
+      }
+      const normalised = getNormalised(entry);
+      if (!normalised) {
+        return;
+      }
+      tokens.add(normalised);
+      normalised.split(/\s+/).forEach((token) => {
+        if (token) {
+          tokens.add(token);
+        }
+      });
+    });
+
+    index.set(row.id, Array.from(tokens).join(' '));
+  });
+
+  return index;
 }
 
 function compareRows(sort: SortValue): (a: AdminClientRow, b: AdminClientRow) => number {
@@ -268,47 +327,17 @@ export default function AdminClientsClient({ initialData }: Props) {
     if (!trimmed) {
       return [] as string[];
     }
-    return normaliseText(trimmed)
+    const tokens = normaliseText(trimmed)
       .split(/\s+/)
       .map((token) => token.trim())
       .filter(Boolean);
+    if (tokens.length <= 1) {
+      return tokens;
+    }
+    return Array.from(new Set(tokens));
   }, [deferredSearch]);
 
-  const searchIndex = React.useMemo<SearchIndex>(() => {
-    const index: SearchIndex = new Map();
-    dashboard.rows.forEach((row) => {
-      const baseEntries = [
-        row.displayName,
-        row.email ?? '',
-        row.statusLabel,
-        row.statusKey,
-        row.trainerName ?? '',
-        row.id,
-        row.sessionsLabel,
-        row.sessionsTooltip,
-        row.nextSessionLabel,
-        row.riskLabel,
-        row.riskLevel,
-        row.walletLabel,
-        row.spendLabel,
-      ];
-      if (!row.trainerName) {
-        baseEntries.push('Sem treinador');
-      }
-
-      const normalised = baseEntries
-        .map((entry) => normaliseText(entry))
-        .flatMap((entry) => {
-          if (!entry) return [] as string[];
-          return [entry, ...entry.split(/\s+/)];
-        })
-        .filter(Boolean);
-
-      index.set(row.id, Array.from(new Set(normalised)));
-    });
-
-    return index;
-  }, [dashboard.rows]);
+  const searchIndex = React.useMemo<SearchIndex>(() => buildSearchIndex(dashboard.rows), [dashboard.rows]);
 
   React.useEffect(() => {
     if (!data?.ok) return;
@@ -362,6 +391,8 @@ export default function AdminClientsClient({ initialData }: Props) {
     };
   }, [isOnline, mutate]);
 
+  const trimmedSearch = React.useMemo(() => search.trim(), [search]);
+
   React.useEffect(() => {
     const params = new URLSearchParams(searchParamsString);
     const nextRange = canonicaliseRange(params.get('range'), defaultRangeValue);
@@ -392,7 +423,6 @@ export default function AdminClientsClient({ initialData }: Props) {
 
   React.useEffect(() => {
     const params = new URLSearchParams(searchParamsString);
-    const trimmedSearch = search.trim();
     if (trimmedSearch) {
       params.set('q', trimmedSearch);
     } else {
@@ -439,11 +469,11 @@ export default function AdminClientsClient({ initialData }: Props) {
     range,
     risk,
     router,
-    search,
     searchParamsString,
     sort,
     status,
     trainer,
+    trimmedSearch,
   ]);
 
   const filteredRows = React.useMemo(() => {
@@ -488,8 +518,8 @@ export default function AdminClientsClient({ initialData }: Props) {
     if (status !== 'all' || risk !== 'all' || trainer !== 'all') return true;
     if (range !== initialRangeRef.current) return true;
     if (sort !== 'recent') return true;
-    return Boolean(search.trim());
-  }, [initialRangeRef, range, risk, search, sort, status, trainer]);
+    return Boolean(trimmedSearch);
+  }, [initialRangeRef, range, risk, sort, status, trainer, trimmedSearch]);
 
   const resultsSummary = React.useMemo(() => {
     const total = dashboard.rows.length;
@@ -565,7 +595,6 @@ export default function AdminClientsClient({ initialData }: Props) {
 
   const activeFiltersDescription = React.useMemo(() => {
     const parts: string[] = [];
-    const trimmedSearch = search.trim();
     if (trimmedSearch) {
       parts.push(`Pesquisa por "${trimmedSearch}"`);
     }
@@ -596,7 +625,7 @@ export default function AdminClientsClient({ initialData }: Props) {
       return 'Sem filtros adicionais aplicados.';
     }
     return `${listFormatter.format(parts)}.`;
-  }, [range, risk, search, sort, status, trainer, trainerLabelByValue, initialRangeRef]);
+  }, [range, risk, sort, status, trainer, trainerLabelByValue, initialRangeRef, trimmedSearch]);
 
   return (
     <div className="admin-clients-dashboard neo-stack neo-stack--xl">
@@ -818,10 +847,11 @@ export default function AdminClientsClient({ initialData }: Props) {
             <label className="neo-input-group admin-clients-dashboard__filter">
               <span className="neo-input-group__label">Pesquisa</span>
               <input
+                type="search"
                 className="neo-input neo-input--compact"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Nome, email ou ID"
+                placeholder="Nome, email, estado, risco ou PT"
                 aria-label="Pesquisar clientes"
               />
             </label>
