@@ -41,8 +41,10 @@ export function normalizeNotificationsListResponse(
     fallbackTypesMap.set(meta.key, current);
   });
 
-  const normalizedTypes = Array.isArray(payload?.types)
-    ? payload!.types
+  const rawTypes = Array.isArray(payload?.types) ? payload!.types : null;
+
+  const normalizedTypesSource = rawTypes
+    ? rawTypes
         .map((entry) => {
           if (!entry) return null;
           const meta = describeType(entry.key ?? null);
@@ -55,7 +57,12 @@ export function normalizeNotificationsListResponse(
           };
         })
         .filter((entry): entry is { key: string; label: string; count: number } => Boolean(entry))
-    : Array.from(fallbackTypesMap.values());
+    : null;
+
+  const normalizedTypes =
+    normalizedTypesSource && normalizedTypesSource.length > 0
+      ? normalizedTypesSource
+      : Array.from(fallbackTypesMap.values());
 
   return {
     items,

@@ -115,11 +115,10 @@ export async function GET(req: Request) {
     let summary = applyFilters(
       sb
         .from('notifications')
-        .select('type, count:id', { head: false })
-        .order('count', { ascending: false })
-        .order('type', { ascending: true }),
+        .select('type, count:id', { head: false }),
       { includeType: false },
-    );
+    ) as any;
+    summary = summary.group('type').order('count', { ascending: false }).order('type', { ascending: true });
     if (status === 'unread') {
       summary = summary.eq('read', false);
     }
@@ -136,18 +135,38 @@ export async function GET(req: Request) {
     typeSummaryQuery(),
   ]);
 
+  const buildTypesFromItems = () => {
+    const fallbackMap = new Map<string, { key: string; label: string; count: number }>();
+    items.forEach((item) => {
+      const meta = describeType(item.type ?? null);
+      const current = fallbackMap.get(meta.key) ?? { key: meta.key, label: meta.label, count: 0 };
+      current.count += 1;
+      fallbackMap.set(meta.key, current);
+    });
+    return Array.from(fallbackMap.values());
+  };
+
   if (typeRows.error) {
     console.error('[notifications:list] erro a calcular tipos', typeRows.error);
   }
 
-  const types = (typeRows.data ?? []).map((row: any) => {
-    const meta = describeType(row.type ?? null);
-    const count = Number(row.count ?? 0);
-    return {
-      key: meta.key,
-      label: meta.label,
-      count: Number.isFinite(count) && count >= 0 ? count : 0,
-    };
+  const supabaseTypes = Array.isArray(typeRows.data) ? typeRows.data : [];
+  const typesSource =
+    supabaseTypes.length > 0
+      ? supabaseTypes.map((row: any) => {
+          const meta = describeType(row.type ?? null);
+          const count = Number(row.count ?? 0);
+          return {
+            key: meta.key,
+            label: meta.label,
+            count: Number.isFinite(count) && count >= 0 ? count : 0,
+          };
+        })
+      : buildTypesFromItems();
+
+  const types = typesSource.sort((a, b) => {
+    if (b.count === a.count) return a.label.localeCompare(b.label, 'pt-PT');
+    return b.count - a.count;
   });
 
   return NextResponse.json(
