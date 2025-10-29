@@ -101,10 +101,7 @@ export default function NotificationsListClient() {
   );
 
   const notificationSubscriptions = React.useMemo(
-    () =>
-      viewerId
-        ? [{ table: 'notifications', filter: `user_id=eq.${viewerId}` }]
-        : [{ table: 'notifications' }],
+    () => (viewerId ? [{ table: 'notifications', filter: `user_id=eq.${viewerId}` }] : []),
     [viewerId],
   );
 
@@ -117,7 +114,7 @@ export default function NotificationsListClient() {
     initialData: initialPayload,
     channel: `notifications-list-${viewerId ?? 'anonymous'}`,
     subscriptions: notificationSubscriptions,
-    realtimeEnabled: true,
+    realtimeEnabled: Boolean(viewerId),
   });
 
   const payload = data ?? initialPayload;
@@ -127,12 +124,12 @@ export default function NotificationsListClient() {
   const generatedAt = payload.generatedAt;
   const errorMessage = error?.message ?? null;
   const loading = (isLoading || isValidating) && !errorMessage;
+  const totalForStatus = payload.total;
 
   React.useEffect(() => {
     setPage(0);
   }, [status]);
 
-  const totalForStatus = React.useMemo(() => getTotalForStatus(counts, status), [counts, status]);
   const totalPages = Math.max(1, Math.ceil(totalForStatus / pageSize));
 
   React.useEffect(() => {
@@ -164,18 +161,6 @@ export default function NotificationsListClient() {
       console.error('[notifications:list] falha a actualizar estado', err);
     }
   }, [refreshNotifications]);
-
-  useSupabaseRealtime(
-    `notifications-list-${viewerId ?? 'anonymous'}`,
-    React.useMemo(
-      () => [
-        viewerId ? { table: 'notifications', filter: `user_id=eq.${viewerId}` } : { table: 'notifications' },
-      ],
-      [viewerId],
-    ),
-    scheduleRealtimeRefresh,
-    { enabled: true },
-  );
 
   return (
     <section className="neo-panel notifications-list" aria-live="polite">

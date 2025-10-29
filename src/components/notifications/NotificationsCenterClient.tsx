@@ -143,10 +143,7 @@ export default function NotificationsCenterClient({
   );
 
   const notificationSubscriptions = React.useMemo(
-    () =>
-      viewerId
-        ? [{ table: 'notifications', filter: `user_id=eq.${viewerId}` }]
-        : [{ table: 'notifications' }],
+    () => (viewerId ? [{ table: 'notifications', filter: `user_id=eq.${viewerId}` }] : []),
     [viewerId],
   );
 
@@ -159,7 +156,7 @@ export default function NotificationsCenterClient({
     initialData: initialPayload,
     channel: `notifications-center-${viewerId ?? 'anonymous'}`,
     subscriptions: notificationSubscriptions,
-    realtimeEnabled: true,
+    realtimeEnabled: Boolean(viewerId),
   });
 
   const payload = data ?? initialPayload;
@@ -169,12 +166,12 @@ export default function NotificationsCenterClient({
   const generatedAt = payload.generatedAt;
   const errorMessage = error?.message ?? null;
   const loading = (isLoading || isValidating) && !errorMessage;
+  const totalForStatus = payload.total;
 
   React.useEffect(() => {
     setPage(0);
   }, [status, deferredQuery]);
 
-  const totalForStatus = React.useMemo(() => countForStatus(counts, status), [counts, status]);
   const totalPages = Math.max(1, Math.ceil(totalForStatus / pageSize));
 
   React.useEffect(() => {
@@ -210,18 +207,6 @@ export default function NotificationsCenterClient({
   const refresh = React.useCallback(() => {
     void refreshNotifications();
   }, [refreshNotifications]);
-
-  useSupabaseRealtime(
-    `notifications-center-${viewerId ?? 'anonymous'}`,
-    React.useMemo(
-      () => [
-        viewerId ? { table: 'notifications', filter: `user_id=eq.${viewerId}` } : { table: 'notifications' },
-      ],
-      [viewerId],
-    ),
-    scheduleRealtimeRefresh,
-    { enabled: true },
-  );
 
   return (
     <section className="notifications-center neo-panel neo-stack neo-stack--xl" aria-live="polite">
@@ -265,8 +250,14 @@ export default function NotificationsCenterClient({
       <section className="notifications-center__summary" aria-label="Resumo de notificações">
         <article className="notifications-center__metric" data-tone="primary">
           <span className="notifications-center__metricLabel">Total filtrado</span>
-          <strong className="notifications-center__metricValue">{numberFormatter.format(counts.all)}</strong>
-          <span className="notifications-center__metricHint">Última sincronização {generatedAt ? formatDate(generatedAt) : 'desconhecida'}</span>
+          <strong className="notifications-center__metricValue">{numberFormatter.format(totalForStatus)}</strong>
+          <span className="notifications-center__metricHint">
+            {status === 'all'
+              ? 'Inclui todas as notificações no filtro actual'
+              : status === 'unread'
+                ? 'Apenas notificações por ler após aplicar filtros'
+                : 'Apenas notificações lidas após aplicar filtros'}
+          </span>
         </article>
         <article className="notifications-center__metric" data-tone={counts.unread > 0 ? 'warning' : 'success'}>
           <span className="notifications-center__metricLabel">Por ler</span>
