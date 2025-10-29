@@ -211,6 +211,18 @@ export default function NotificationsCenterClient({
     void refreshNotifications();
   }, [refreshNotifications]);
 
+  useSupabaseRealtime(
+    `notifications-center-${viewerId ?? 'anonymous'}`,
+    React.useMemo(
+      () => [
+        viewerId ? { table: 'notifications', filter: `user_id=eq.${viewerId}` } : { table: 'notifications' },
+      ],
+      [viewerId],
+    ),
+    scheduleRealtimeRefresh,
+    { enabled: true },
+  );
+
   return (
     <section className="notifications-center neo-panel neo-stack neo-stack--xl" aria-live="polite">
       <header className="notifications-center__header">

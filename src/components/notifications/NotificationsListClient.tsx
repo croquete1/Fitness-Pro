@@ -165,6 +165,18 @@ export default function NotificationsListClient() {
     }
   }, [refreshNotifications]);
 
+  useSupabaseRealtime(
+    `notifications-list-${viewerId ?? 'anonymous'}`,
+    React.useMemo(
+      () => [
+        viewerId ? { table: 'notifications', filter: `user_id=eq.${viewerId}` } : { table: 'notifications' },
+      ],
+      [viewerId],
+    ),
+    scheduleRealtimeRefresh,
+    { enabled: true },
+  );
+
   return (
     <section className="neo-panel notifications-list" aria-live="polite">
       <header className="notifications-list__header">

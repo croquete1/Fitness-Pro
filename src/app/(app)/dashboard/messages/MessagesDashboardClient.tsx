@@ -497,6 +497,19 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
     return () => window.clearTimeout(handle);
   }, [search, updateQueryParams]);
 
+  useSupabaseRealtime(
+    `messages-dashboard-${viewerId}`,
+    React.useMemo(
+      () => [
+        { table: 'messages', filter: `from_id=eq.${viewerId}` },
+        { table: 'messages', filter: `to_id=eq.${viewerId}` },
+      ],
+      [viewerId],
+    ),
+    scheduleRealtimeRefresh,
+    { enabled: Boolean(viewerId) },
+  );
+
   const timelineData = React.useMemo<ChartDatum[]>(() => {
     return (dashboard.timeline ?? []).map((point: MessageTimelinePoint) => ({
       day: point.day,
