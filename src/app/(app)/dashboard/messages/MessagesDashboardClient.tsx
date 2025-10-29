@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import useSWR from 'swr';
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -28,6 +27,7 @@ import PageHeader from '@/components/ui/PageHeader';
 import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
 import DataSourceBadge from '@/components/ui/DataSourceBadge';
+import { useRealtimeResource } from '@/lib/supabase/useRealtimeResource';
 import type {
   MessageHeroMetric,
   MessageHighlight,
@@ -427,15 +427,29 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
     [initialRange, pathname, router, searchParams],
   );
 
-  const { data, error, isValidating, mutate } = useSWR<MessagesDashboardResponse, Error, FetchKey>(
-    ['messages-dashboard', range],
-    fetcher,
-    {
-      fallbackData: initialData,
-      revalidateOnFocus: true,
-      revalidateOnReconnect: true,
-    },
+  const messagesKey = React.useMemo<FetchKey>(() => ['messages-dashboard', range], [range]);
+  const messageSubscriptions = React.useMemo(
+    () =>
+      viewerId
+        ? [
+            { table: 'messages', filter: `from_id=eq.${viewerId}` },
+            { table: 'messages', filter: `to_id=eq.${viewerId}` },
+          ]
+        : [],
+    [viewerId],
   );
+
+  const { data, error, isValidating, refresh: refreshDashboard } = useRealtimeResource<
+    MessagesDashboardResponse,
+    FetchKey
+  >({
+    key: messagesKey,
+    fetcher,
+    initialData,
+    channel: `messages-dashboard-${viewerId ?? 'anonymous'}`,
+    subscriptions: messageSubscriptions,
+    realtimeEnabled: Boolean(viewerId),
+  });
 
   const dashboard = data ?? initialData;
   const supabase = dashboard.source === 'supabase';
@@ -582,7 +596,7 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
   );
 
   const onRefresh = () => {
-    void mutate();
+    void refreshDashboard();
   };
 
   const goToComposer = React.useCallback(() => {
