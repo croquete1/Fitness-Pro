@@ -54,6 +54,12 @@ const numberFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 
 const percentFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 1, minimumFractionDigits: 0 });
 const durationFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 });
 const relativeFormatter = new Intl.RelativeTimeFormat('pt-PT', { numeric: 'auto' });
+const conversationDateFormatter = new Intl.DateTimeFormat('pt-PT', {
+  day: '2-digit',
+  month: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+});
 
 function normalizeSearchTerm(value: string): string {
   return value
@@ -144,6 +150,20 @@ function formatRelativeTime(target: Date | null): string | null {
   const bucket = ranges.find((item) => absMs < item.limit) ?? ranges[ranges.length - 1]!;
   const value = Math.round(diffMs / bucket.size);
   return relativeFormatter.format(value, bucket.unit);
+}
+
+function formatConversationMoment(value: string | null): { absolute: string | null; relative: string | null } {
+  if (!value) {
+    return { absolute: null, relative: null };
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return { absolute: null, relative: null };
+  }
+  return {
+    absolute: conversationDateFormatter.format(date),
+    relative: formatRelativeTime(date),
+  };
 }
 
 type ChartDatum = {
@@ -323,35 +343,39 @@ function ConversationsTable({
           </tr>
         </thead>
         <tbody>
-          {conversations.map((conversation) => (
-            <tr key={conversation.id}>
-              <th scope="row">
-                <div className="messages-dashboard__conversationName">{conversation.counterpartName}</div>
-                <span className="messages-dashboard__conversationMeta">
-                  {conversation.lastMessageAt ? `Última ${new Date(conversation.lastMessageAt).toLocaleString('pt-PT')}` : 'Sem registos'}
-                </span>
-              </th>
-              <td>{formatNumber(conversation.totalMessages)}</td>
-              <td>{formatNumber(conversation.inbound)}</td>
-              <td>{formatNumber(conversation.outbound)}</td>
-              <td>{formatNumber(conversation.internal)}</td>
-              <td>
-                <span className="messages-dashboard__channel" data-channel={conversation.mainChannel}>
-                  {conversation.mainChannelLabel}
-                </span>
-              </td>
-              <td>{formatDuration(conversation.averageResponseMinutes)}</td>
-              <td>
-                {conversation.pendingResponses > 0 ? (
-                  <span className="messages-dashboard__pending" data-active>
-                    {formatNumber(conversation.pendingResponses)}
+          {conversations.map((conversation) => {
+            const moment = formatConversationMoment(conversation.lastMessageAt);
+            const metaLabel = moment.absolute
+              ? `Última ${moment.absolute}${moment.relative ? ` • ${moment.relative}` : ''}`
+              : 'Sem registos';
+            return (
+              <tr key={conversation.id}>
+                <th scope="row">
+                  <div className="messages-dashboard__conversationName">{conversation.counterpartName}</div>
+                  <span className="messages-dashboard__conversationMeta">{metaLabel}</span>
+                </th>
+                <td>{formatNumber(conversation.totalMessages)}</td>
+                <td>{formatNumber(conversation.inbound)}</td>
+                <td>{formatNumber(conversation.outbound)}</td>
+                <td>{formatNumber(conversation.internal)}</td>
+                <td>
+                  <span className="messages-dashboard__channel" data-channel={conversation.mainChannel}>
+                    {conversation.mainChannelLabel}
                   </span>
-                ) : (
-                  <span className="messages-dashboard__pending">0</span>
-                )}
-              </td>
-            </tr>
-          ))}
+                </td>
+                <td>{formatDuration(conversation.averageResponseMinutes)}</td>
+                <td>
+                  {conversation.pendingResponses > 0 ? (
+                    <span className="messages-dashboard__pending" data-active>
+                      {formatNumber(conversation.pendingResponses)}
+                    </span>
+                  ) : (
+                    <span className="messages-dashboard__pending">0</span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -609,24 +633,6 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
   }, [router]);
 
   const isFallback = dashboard.source === 'fallback';
-
-  React.useEffect(() => {
-    const raw = searchParams?.get('range') ?? null;
-    if (raw) {
-      const value = Number(raw);
-      if (
-        Number.isFinite(value) &&
-        RANGE_OPTIONS.some((option) => option.value === value) &&
-        value !== range
-      ) {
-        setRange(value);
-      }
-      return;
-    }
-    if (range !== initialRange) {
-      setRange(initialRange);
-    }
-  }, [searchParams, range, initialRange]);
 
   return (
     <div className="messages-dashboard">

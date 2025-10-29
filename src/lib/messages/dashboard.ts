@@ -134,6 +134,9 @@ function normaliseChannel(value: string | null | undefined): MessageChannelKey {
 }
 
 function directionFor(viewerId: string, record: MessageRecord): MessageDirection {
+  if (record.fromId === viewerId && record.toId === viewerId) {
+    return 'internal';
+  }
   if (record.fromId === viewerId) return 'outbound';
   if (record.toId === viewerId) return 'inbound';
   return 'internal';
@@ -224,8 +227,9 @@ export function buildMessagesDashboard(
         : counterpartNameRaw?.trim() || (counterpartKey ? `Contacto ${counterpartKey.slice(0, 6)}` : 'Contacto desconhecido');
     const key =
       counterpartKey ?? (direction === 'internal' ? `internal-${threadHint}` : `unknown-${threadHint}`);
-    if (direction !== 'internal' && counterpartKey) {
-      totals.participants.add(counterpartKey);
+    if (direction !== 'internal') {
+      const participantToken = counterpartKey && counterpartKey !== viewerId ? counterpartKey : key;
+      totals.participants.add(participantToken);
     }
     const inRange = sentAtDate ? sentAtDate.getTime() >= start.getTime() && sentAtDate.getTime() <= end.getTime() : false;
     const isPreviousRange = sentAtDate ? sentAtDate.getTime() <= previousEnd.getTime() && sentAtDate.getTime() >= previousStart.getTime() : false;
