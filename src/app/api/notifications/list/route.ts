@@ -111,8 +111,8 @@ export async function GET(req: Request) {
         .order('created_at', { ascending: false }),
     );
 
-  const typeSummaryQuery = () =>
-    applyFilters(
+  const typeSummaryQuery = () => {
+    let summary = applyFilters(
       sb
         .from('notifications')
         .select('type, count:id', { head: false })
@@ -120,6 +120,14 @@ export async function GET(req: Request) {
         .order('type', { ascending: true }),
       { includeType: false },
     );
+    if (status === 'unread') {
+      summary = summary.eq('read', false);
+    }
+    if (status === 'read') {
+      summary = summary.eq('read', true);
+    }
+    return summary;
+  };
 
   const [allCount, unreadCount, readCount, typeRows] = await Promise.all([
     baseCountQuery(),

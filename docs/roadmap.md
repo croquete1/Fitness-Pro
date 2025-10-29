@@ -130,6 +130,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Definir padrão consistente para uso de rotas Next.js vs. cliente Supabase (tempo real) e aplicá-lo aos módulos de mensagens/notificações.
 - [x] Blindar o centro/lista de notificações para só subscrever após identificar o utilizador e alinhar os totais expostos com o filtro activo.
 - [x] Enriquecer o centro/lista de notificações com filtro por tipo e contagens unificadas, garantindo que métricas e totais respeitam pesquisa e actualizações em tempo real.
+  - 2025-10-29: Alinhámos o resumo por tipo com o filtro de estado activo, garantindo que chips exibem apenas notificações por ler/lidas conforme seleccionado.
 - [x] Optimizar o dashboard de mensagens com pesquisa multi-termo indexada e acção "Marcar tudo" responsiva. Fontes: `src/app/(app)/dashboard/messages/MessagesDashboardClient.tsx`, `src/app/(app)/dashboard/messages/parts/MarkAllRead.tsx`.
 - [x] Sincronizar filtros e pesquisa do dashboard de mensagens com a query string e desactivar "Marcar tudo" quando não existem pendentes, expondo contagens acessíveis. Fontes: `src/app/(app)/dashboard/messages/MessagesDashboardClient.tsx`, `src/app/(app)/dashboard/messages/parts/MarkAllRead.tsx`.
 - [x] Restringir o carregamento do dashboard de mensagens ao intervalo activo no Supabase com lookback alargado para métricas históricas e pesquisa textural que ignora pontuação duplicada. Fontes: `src/lib/messages/server.ts`, `src/app/(app)/dashboard/messages/MessagesDashboardClient.tsx`.

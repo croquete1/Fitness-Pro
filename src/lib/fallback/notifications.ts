@@ -195,8 +195,15 @@ export function getNotificationsListFallback(params: ListFallbackParams) {
     });
   }
 
+  const typeSummarySource =
+    params.status === 'unread'
+      ? dataset.filter((row) => !row.read)
+      : params.status === 'read'
+        ? dataset.filter((row) => row.read)
+        : dataset;
+
   const typeSummaryMap = new Map<string, { key: string; label: string; count: number }>();
-  dataset.forEach((row) => {
+  typeSummarySource.forEach((row) => {
     const meta = describeType(row.type);
     const current = typeSummaryMap.get(meta.key) ?? { key: meta.key, label: meta.label, count: 0 };
     current.count += 1;
