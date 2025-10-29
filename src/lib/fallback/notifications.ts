@@ -188,14 +188,23 @@ export function getNotificationsListFallback(params: ListFallbackParams) {
   const search = params.search?.trim().toLowerCase();
 
   let dataset = FALLBACK_ROWS.slice();
-  if (typeKey && typeKey !== 'all') {
-    dataset = dataset.filter((row) => describeType(row.type).key === typeKey);
-  }
   if (search) {
     dataset = dataset.filter((row) => {
       const haystack = `${row.title ?? ''} ${row.body ?? ''}`.toLowerCase();
       return haystack.includes(search);
     });
+  }
+
+  const typeSummaryMap = new Map<string, { key: string; label: string; count: number }>();
+  dataset.forEach((row) => {
+    const meta = describeType(row.type);
+    const current = typeSummaryMap.get(meta.key) ?? { key: meta.key, label: meta.label, count: 0 };
+    current.count += 1;
+    typeSummaryMap.set(meta.key, current);
+  });
+
+  if (typeKey && typeKey !== 'all') {
+    dataset = dataset.filter((row) => describeType(row.type).key === typeKey);
   }
 
   const counts = {
@@ -224,5 +233,15 @@ export function getNotificationsListFallback(params: ListFallbackParams) {
     total,
     counts,
     generatedAt: FALLBACK_ROWS[0]?.created_at ?? new Date().toISOString(),
+    types: Array.from(typeSummaryMap.values())
+      .sort((a, b) => {
+        if (b.count === a.count) return a.label.localeCompare(b.label, 'pt-PT');
+        return b.count - a.count;
+      })
+      .map((entry) => ({
+        key: entry.key,
+        label: entry.label,
+        count: entry.count,
+      })),
   };
 }

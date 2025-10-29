@@ -2,22 +2,23 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { ArrowUpRight, CheckCheck, MailOpen, MailX, RefreshCcw, Search } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
 import Spinner from '@/components/ui/Spinner';
 import DataSourceBadge from '@/components/ui/DataSourceBadge';
 import type { NotificationRow } from '@/lib/notifications/types';
+import {
+  normalizeNotificationsListResponse,
+  type NormalizedNotificationsList,
+  type NotificationsListResponse,
+} from '@/lib/notifications/list';
+import { useRealtimeResource } from '@/lib/supabase/useRealtimeResource';
 
 type StatusFilter = 'all' | 'unread' | 'read';
 
-type ListResponse = {
-  items: NotificationRow[];
-  total: number;
-  counts?: { all: number; unread: number; read: number };
-  source?: 'supabase' | 'fallback';
-  generatedAt?: string | null;
-};
+type TypeFilter = 'all' | string;
 
 type NotificationsCenterClientProps = {
   initialItems?: NotificationRow[];
@@ -25,6 +26,7 @@ type NotificationsCenterClientProps = {
   initialCounts?: { all: number; unread: number; read: number };
   initialSource?: 'supabase' | 'fallback';
   initialGeneratedAt?: string | null;
+  viewerId?: string | null;
 };
 
 type StatusSegment = {
@@ -32,6 +34,8 @@ type StatusSegment = {
   label: string;
   icon: React.ReactNode;
 };
+
+type NotificationsKey = ['notifications:center', string, StatusFilter, TypeFilter, number, number, string];
 
 const STATUS_SEGMENTS: StatusSegment[] = [
   { value: 'all', label: 'Todas', icon: <CheckCheck size={16} aria-hidden /> },
@@ -72,93 +76,117 @@ export default function NotificationsCenterClient({
   initialCounts,
   initialSource = 'fallback',
   initialGeneratedAt = null,
+  viewerId: providedViewerId = null,
 }: NotificationsCenterClientProps) {
   const router = useRouter();
+  const { data: session } = useSession();
   const [status, setStatus] = React.useState<StatusFilter>('unread');
+  const [typeFilter, setTypeFilter] = React.useState<TypeFilter>('all');
   const [page, setPage] = React.useState(0);
   const pageSize = 12;
   const [query, setQuery] = React.useState('');
   const deferredQuery = React.useDeferredValue(query);
-  const [items, setItems] = React.useState<NotificationRow[]>(initialItems);
-  const [counts, setCounts] = React.useState<{ all: number; unread: number; read: number }>(
-    initialCounts ?? { all: initialTotal, unread: initialItems.filter((item) => !item.read).length, read: initialItems.filter((item) => item.read).length },
+  const normalizedQuery = React.useMemo(() => deferredQuery.trim(), [deferredQuery]);
+  const initialPayload = React.useMemo<NormalizedNotificationsList>(
+    () =>
+      normalizeNotificationsListResponse({
+        items: initialItems,
+        total: initialTotal,
+        counts: initialCounts ?? undefined,
+        source: initialSource,
+        generatedAt: initialGeneratedAt,
+      }),
+    [initialCounts, initialGeneratedAt, initialItems, initialSource, initialTotal],
   );
-  const [source, setSource] = React.useState<'supabase' | 'fallback'>(initialSource);
-  const [generatedAt, setGeneratedAt] = React.useState<string | null>(initialGeneratedAt);
-  const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-  const [refreshKey, setRefreshKey] = React.useState(0);
 
-  React.useEffect(() => {
-    const controller = new AbortController();
-    setLoading(true);
-    setError(null);
+  const viewerId = React.useMemo(() => {
+    if (typeof providedViewerId === 'string' && providedViewerId.trim()) {
+      return providedViewerId.trim();
+    }
+    const sessionId =
+      session?.user && 'id' in session.user && typeof (session.user as { id?: unknown }).id === 'string'
+        ? ((session.user as { id?: string }).id as string)
+        : null;
+    return sessionId;
+  }, [providedViewerId, session?.user]);
 
-    (async () => {
-      try {
-        const url = new URL('/api/notifications/list', window.location.origin);
-        url.searchParams.set('status', status);
-        url.searchParams.set('page', String(page));
-        url.searchParams.set('pageSize', String(pageSize));
-        if (deferredQuery) {
-          url.searchParams.set('q', deferredQuery);
-        }
-        const response = await fetch(url.toString(), {
-          cache: 'no-store',
-          credentials: 'include',
-          signal: controller.signal,
-        });
-        if (!response.ok) {
-          const message = await response.text().catch(() => '');
-          throw new Error(message || `Falha ao carregar notificações (${response.status}).`);
-        }
-        const payload = (await response.json()) as ListResponse;
-        if (controller.signal.aborted) return;
-        setItems(payload.items ?? []);
-        setCounts((prev) => ({
-          all:
-            typeof payload.counts?.all === 'number'
-              ? payload.counts.all
-              : status === 'all'
-                ? payload.total ?? prev.all
-                : prev.all,
-          unread:
-            typeof payload.counts?.unread === 'number'
-              ? payload.counts.unread
-              : status === 'unread'
-                ? payload.total ?? prev.unread
-                : prev.unread,
-          read:
-            typeof payload.counts?.read === 'number'
-              ? payload.counts.read
-              : status === 'read'
-                ? payload.total ?? prev.read
-                : prev.read,
-        }));
-        setSource(payload.source === 'supabase' ? 'supabase' : 'fallback');
-        setGeneratedAt(typeof payload.generatedAt === 'string' ? payload.generatedAt : null);
-      } catch (err: any) {
-        if (controller.signal.aborted) return;
-        console.error('[notifications:center] falha a carregar', err);
-        setItems([]);
-        setError(err?.message ?? 'Não foi possível carregar notificações.');
-        setSource('fallback');
-        setGeneratedAt(null);
-      } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
+  const notificationsKey = React.useMemo<NotificationsKey>(
+    () => [
+      'notifications:center',
+      viewerId ?? 'anonymous',
+      status,
+      typeFilter,
+      page,
+      pageSize,
+      normalizedQuery,
+    ],
+    [viewerId, status, typeFilter, page, pageSize, normalizedQuery],
+  );
+
+  const notificationsFetcher = React.useCallback(
+    async ([, , nextStatus, nextType, nextPage, nextPageSize, search]: NotificationsKey) => {
+      const params = new URLSearchParams();
+      params.set('status', nextStatus);
+      if (nextType && nextType !== 'all') {
+        params.set('type', nextType);
       }
-    })();
+      params.set('page', String(nextPage));
+      params.set('pageSize', String(nextPageSize));
+      if (search) {
+        params.set('q', search);
+      }
+      const response = await fetch(`/api/notifications/list?${params.toString()}`, {
+        cache: 'no-store',
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        const message = await response.text().catch(() => '');
+        throw new Error(message || `Falha ao carregar notificações (${response.status}).`);
+      }
+      const payload = (await response.json()) as NotificationsListResponse;
+      return normalizeNotificationsListResponse(payload);
+    },
+    [],
+  );
 
-    return () => controller.abort();
-  }, [status, page, pageSize, deferredQuery, refreshKey]);
+  const notificationSubscriptions = React.useMemo(
+    () => (viewerId ? [{ table: 'notifications', filter: `user_id=eq.${viewerId}` }] : []),
+    [viewerId],
+  );
+
+  const { data, error, isLoading, isValidating, refresh: refreshNotifications } = useRealtimeResource<
+    NormalizedNotificationsList,
+    NotificationsKey
+  >({
+    key: notificationsKey,
+    fetcher: notificationsFetcher,
+    initialData: initialPayload,
+    channel: `notifications-center-${viewerId ?? 'anonymous'}`,
+    subscriptions: notificationSubscriptions,
+    realtimeEnabled: Boolean(viewerId),
+  });
+
+  const payload = data ?? initialPayload;
+  const items = payload.items;
+  const counts = payload.counts;
+  const source = payload.source;
+  const generatedAt = payload.generatedAt;
+  const errorMessage = error?.message ?? null;
+  const loading = (isLoading || isValidating) && !errorMessage;
+  const totalForStatus = payload.total;
+  const totalAcrossTypes = React.useMemo(
+    () => payload.types.reduce((acc, type) => acc + type.count, 0),
+    [payload.types],
+  );
+  const activeTypeLabel = React.useMemo(
+    () => (typeFilter === 'all' ? null : payload.types.find((type) => type.key === typeFilter)?.label ?? null),
+    [payload.types, typeFilter],
+  );
 
   React.useEffect(() => {
     setPage(0);
-  }, [status, deferredQuery]);
+  }, [status, typeFilter, deferredQuery]);
 
-  const totalForStatus = React.useMemo(() => countForStatus(counts, status), [counts, status]);
   const totalPages = Math.max(1, Math.ceil(totalForStatus / pageSize));
 
   React.useEffect(() => {
@@ -167,16 +195,24 @@ export default function NotificationsCenterClient({
     }
   }, [page, totalPages]);
 
+  React.useEffect(() => {
+    if (typeFilter === 'all') return;
+    const stillAvailable = payload.types.some((type) => type.key === typeFilter);
+    if (!stillAvailable) {
+      setTypeFilter('all');
+    }
+  }, [payload.types, typeFilter]);
+
   const markAllRead = React.useCallback(async () => {
     try {
       await fetch('/api/notifications/mark-all-read', { method: 'POST' });
       setStatus('unread');
       setPage(0);
-      setRefreshKey((key) => key + 1);
+      await refreshNotifications();
     } catch (err) {
       console.error('[notifications:center] falha a marcar tudo como lido', err);
     }
-  }, []);
+  }, [refreshNotifications]);
 
   const toggleRead = React.useCallback(async (row: NotificationRow) => {
     try {
@@ -185,15 +221,15 @@ export default function NotificationsCenterClient({
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ ids: [row.id] }),
       });
-      setRefreshKey((key) => key + 1);
+      await refreshNotifications();
     } catch (err) {
       console.error('[notifications:center] falha a actualizar estado', err);
     }
-  }, []);
+  }, [refreshNotifications]);
 
   const refresh = React.useCallback(() => {
-    setRefreshKey((key) => key + 1);
-  }, []);
+    void refreshNotifications();
+  }, [refreshNotifications]);
 
   return (
     <section className="notifications-center neo-panel neo-stack neo-stack--xl" aria-live="polite">
@@ -203,7 +239,9 @@ export default function NotificationsCenterClient({
             <h2 className="notifications-center__title">Centro de notificações</h2>
             <p className="notifications-center__subtitle">
               {totalForStatus > 0
-                ? `${numberFormatter.format(totalForStatus)} notificações ${status === 'unread' ? 'por ler' : status === 'read' ? 'lidas' : 'no filtro seleccionado'}`
+                ? `${numberFormatter.format(totalForStatus)} notificações ${
+                    status === 'unread' ? 'por ler' : status === 'read' ? 'lidas' : 'no filtro seleccionado'
+                  }${typeFilter !== 'all' && activeTypeLabel ? ` · ${activeTypeLabel}` : ''}`
                 : 'Sem notificações para o filtro actual.'}
             </p>
           </div>
@@ -226,7 +264,7 @@ export default function NotificationsCenterClient({
               size="sm"
               onClick={markAllRead}
               title="Marcar todas as notificações como lidas"
-              disabled={loading || totalForStatus === 0}
+              disabled={loading || counts.unread === 0}
             >
               Marcar tudo como lido
             </Button>
@@ -237,8 +275,14 @@ export default function NotificationsCenterClient({
       <section className="notifications-center__summary" aria-label="Resumo de notificações">
         <article className="notifications-center__metric" data-tone="primary">
           <span className="notifications-center__metricLabel">Total filtrado</span>
-          <strong className="notifications-center__metricValue">{numberFormatter.format(counts.all)}</strong>
-          <span className="notifications-center__metricHint">Última sincronização {generatedAt ? formatDate(generatedAt) : 'desconhecida'}</span>
+          <strong className="notifications-center__metricValue">{numberFormatter.format(totalForStatus)}</strong>
+          <span className="notifications-center__metricHint">
+            {status === 'all'
+              ? 'Inclui todas as notificações no filtro actual'
+              : status === 'unread'
+                ? 'Apenas notificações por ler após aplicar filtros'
+                : 'Apenas notificações lidas após aplicar filtros'}
+          </span>
         </article>
         <article className="notifications-center__metric" data-tone={counts.unread > 0 ? 'warning' : 'success'}>
           <span className="notifications-center__metricLabel">Por ler</span>
@@ -283,15 +327,42 @@ export default function NotificationsCenterClient({
                 {segment.icon}
               </span>
               <span className="notifications-center__tabLabel">{segment.label}</span>
-              <span className="neo-segmented__count">{countForStatus(counts, segment.value)}</span>
-            </button>
-          ))}
+            <span className="neo-segmented__count">{countForStatus(counts, segment.value)}</span>
+          </button>
+        ))}
         </div>
+        {payload.types.length > 0 ? (
+          <div className="notifications-center__types" role="group" aria-label="Filtrar por tipo de notificação">
+            <button
+              type="button"
+              className="notifications-center__type"
+              data-active={typeFilter === 'all'}
+              aria-pressed={typeFilter === 'all'}
+              onClick={() => setTypeFilter('all')}
+            >
+              <span className="notifications-center__typeLabel">Todos</span>
+              <span className="notifications-center__typeCount">{numberFormatter.format(totalAcrossTypes)}</span>
+            </button>
+            {payload.types.map((type) => (
+              <button
+                key={type.key}
+                type="button"
+                className="notifications-center__type"
+                data-active={typeFilter === type.key}
+                aria-pressed={typeFilter === type.key}
+                onClick={() => setTypeFilter(type.key)}
+              >
+                <span className="notifications-center__typeLabel">{type.label}</span>
+                <span className="notifications-center__typeCount">{numberFormatter.format(type.count)}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
 
-      {error && !loading ? (
+      {errorMessage && !loading ? (
         <Alert tone="warning" title="Falha ao sincronizar notificações" role="alert">
-          {error}
+          {errorMessage}
         </Alert>
       ) : null}
 
@@ -335,7 +406,7 @@ export default function NotificationsCenterClient({
               {item.body ? <p className="notifications-center__itemBody">{item.body}</p> : null}
             </article>
           ))}
-          {!items.length && !error ? (
+          {!items.length && !errorMessage ? (
             <div className="notifications-center__empty" role="status">
               <span className="neo-text--sm neo-text--muted">Sem notificações para este filtro.</span>
             </div>
