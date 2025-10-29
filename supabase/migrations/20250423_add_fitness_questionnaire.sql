@@ -82,26 +82,30 @@ create trigger fitness_questionnaire_set_updated_at
 alter table public.fitness_questionnaire enable row level security;
 alter table public.fitness_questionnaire_notes enable row level security;
 
-create policy if not exists fitness_questionnaire_owner
+drop policy if exists fitness_questionnaire_owner on public.fitness_questionnaire;
+create policy fitness_questionnaire_owner
   on public.fitness_questionnaire
   for select
   to authenticated
   using (public.is_admin(auth.uid()) or public.is_trainer(auth.uid()) or user_id = auth.uid());
 
-create policy if not exists fitness_questionnaire_insert_owner
+drop policy if exists fitness_questionnaire_insert_owner on public.fitness_questionnaire;
+create policy fitness_questionnaire_insert_owner
   on public.fitness_questionnaire
   for insert
   to authenticated
   with check (public.is_admin(auth.uid()) or public.is_trainer(auth.uid()) or user_id = auth.uid());
 
-create policy if not exists fitness_questionnaire_update_owner
+drop policy if exists fitness_questionnaire_update_owner on public.fitness_questionnaire;
+create policy fitness_questionnaire_update_owner
   on public.fitness_questionnaire
   for update
   to authenticated
   using (public.is_admin(auth.uid()) or public.is_trainer(auth.uid()) or user_id = auth.uid())
   with check (public.is_admin(auth.uid()) or public.is_trainer(auth.uid()) or user_id = auth.uid());
 
-create policy if not exists fitness_questionnaire_notes_select
+drop policy if exists fitness_questionnaire_notes_select on public.fitness_questionnaire_notes;
+create policy fitness_questionnaire_notes_select
   on public.fitness_questionnaire_notes
   for select
   to authenticated
@@ -117,20 +121,23 @@ create policy if not exists fitness_questionnaire_notes_select
     )
   );
 
-create policy if not exists fitness_questionnaire_notes_insert
+drop policy if exists fitness_questionnaire_notes_insert on public.fitness_questionnaire_notes;
+create policy fitness_questionnaire_notes_insert
   on public.fitness_questionnaire_notes
   for insert
   to authenticated
   with check (public.is_admin(auth.uid()) or public.is_trainer(auth.uid()) or author_id = auth.uid());
 
-create policy if not exists fitness_questionnaire_notes_update
+drop policy if exists fitness_questionnaire_notes_update on public.fitness_questionnaire_notes;
+create policy fitness_questionnaire_notes_update
   on public.fitness_questionnaire_notes
   for update
   to authenticated
   using (public.is_admin(auth.uid()) or public.is_trainer(auth.uid()) or author_id = auth.uid())
   with check (public.is_admin(auth.uid()) or public.is_trainer(auth.uid()) or author_id = auth.uid());
 
-create policy if not exists fitness_questionnaire_notes_delete
+drop policy if exists fitness_questionnaire_notes_delete on public.fitness_questionnaire_notes;
+create policy fitness_questionnaire_notes_delete
   on public.fitness_questionnaire_notes
   for delete
   to authenticated
