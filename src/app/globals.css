@@ -11296,7 +11296,7 @@ h1,.h1{
 .messages-dashboard__highlightDescription{ font-size:14px; color:var(--muted-fg); }
 .messages-dashboard__highlightMeta{ font-size:12px; color:color-mix(in srgb, var(--muted-fg) 85%, transparent); }
 .messages-dashboard__tableWrapper{ overflow:auto; border-radius:16px; border:1px solid color-mix(in srgb, var(--border) 75%, transparent); }
-.messages-dashboard__table{ width:100%; border-collapse:collapse; font-size:14px; min-width:720px; }
+.messages-dashboard__table{ width:100%; border-collapse:collapse; font-size:14px; min-width:840px; }
 .messages-dashboard__table th,
 .messages-dashboard__table td{ padding:14px 16px; text-align:left; border-bottom:1px solid color-mix(in srgb, var(--border) 70%, transparent); }
 .messages-dashboard__table tbody tr:hover{ background:color-mix(in srgb, var(--surface) 94%, transparent); }
