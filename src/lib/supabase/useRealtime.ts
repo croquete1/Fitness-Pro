@@ -4,14 +4,14 @@ import * as React from 'react';
 import type { RealtimePostgresChangesPayload, RealtimePostgresChangesFilter } from '@supabase/supabase-js';
 import { tryGetSupabaseBrowserClient } from '@/lib/supabaseBrowser';
 
-type SubscriptionConfig = {
+export type SubscriptionConfig = {
   event?: 'INSERT' | 'UPDATE' | 'DELETE' | '*';
   schema?: string;
   table: string;
   filter?: string;
 };
 
-type UseSupabaseRealtimeOptions = {
+export type UseSupabaseRealtimeOptions = {
   enabled?: boolean;
 };
 

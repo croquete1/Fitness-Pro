@@ -9,17 +9,14 @@ import Alert from '@/components/ui/Alert';
 import Spinner from '@/components/ui/Spinner';
 import DataSourceBadge from '@/components/ui/DataSourceBadge';
 import type { NotificationRow } from '@/lib/notifications/types';
-import { useSupabaseRealtime } from '@/lib/supabase/useRealtime';
+import {
+  normalizeNotificationsListResponse,
+  type NormalizedNotificationsList,
+  type NotificationsListResponse,
+} from '@/lib/notifications/list';
+import { useRealtimeResource } from '@/lib/supabase/useRealtimeResource';
 
 type StatusFilter = 'all' | 'unread' | 'read';
-
-type ListResponse = {
-  items: NotificationRow[];
-  total: number;
-  counts?: { all: number; unread: number; read: number };
-  source?: 'supabase' | 'fallback';
-  generatedAt?: string | null;
-};
 
 type NotificationsCenterClientProps = {
   initialItems?: NotificationRow[];
@@ -35,6 +32,8 @@ type StatusSegment = {
   label: string;
   icon: React.ReactNode;
 };
+
+type NotificationsKey = ['notifications:center', string, StatusFilter, number, number, string];
 
 const STATUS_SEGMENTS: StatusSegment[] = [
   { value: 'all', label: 'Todas', icon: <CheckCheck size={16} aria-hidden /> },
@@ -84,16 +83,18 @@ export default function NotificationsCenterClient({
   const pageSize = 12;
   const [query, setQuery] = React.useState('');
   const deferredQuery = React.useDeferredValue(query);
-  const [items, setItems] = React.useState<NotificationRow[]>(initialItems);
-  const [counts, setCounts] = React.useState<{ all: number; unread: number; read: number }>(
-    initialCounts ?? { all: initialTotal, unread: initialItems.filter((item) => !item.read).length, read: initialItems.filter((item) => item.read).length },
+  const normalizedQuery = React.useMemo(() => deferredQuery.trim(), [deferredQuery]);
+  const initialPayload = React.useMemo<NormalizedNotificationsList>(
+    () =>
+      normalizeNotificationsListResponse({
+        items: initialItems,
+        total: initialTotal,
+        counts: initialCounts ?? undefined,
+        source: initialSource,
+        generatedAt: initialGeneratedAt,
+      }),
+    [initialCounts, initialGeneratedAt, initialItems, initialSource, initialTotal],
   );
-  const [source, setSource] = React.useState<'supabase' | 'fallback'>(initialSource);
-  const [generatedAt, setGeneratedAt] = React.useState<string | null>(initialGeneratedAt);
-  const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-  const [refreshKey, setRefreshKey] = React.useState(0);
-  const realtimeTimerRef = React.useRef<number | null>(null);
 
   const viewerId = React.useMemo(() => {
     if (typeof providedViewerId === 'string' && providedViewerId.trim()) {
@@ -106,87 +107,68 @@ export default function NotificationsCenterClient({
     return sessionId;
   }, [providedViewerId, session?.user]);
 
-  const scheduleRealtimeRefresh = React.useCallback(() => {
-    if (realtimeTimerRef.current) return;
-    realtimeTimerRef.current = window.setTimeout(() => {
-      realtimeTimerRef.current = null;
-      setRefreshKey((key) => key + 1);
-    }, 450);
-  }, []);
+  const notificationsKey = React.useMemo<NotificationsKey>(
+    () => [
+      'notifications:center',
+      viewerId ?? 'anonymous',
+      status,
+      page,
+      pageSize,
+      normalizedQuery,
+    ],
+    [viewerId, status, page, pageSize, normalizedQuery],
+  );
 
-  React.useEffect(() => {
-    return () => {
-      if (realtimeTimerRef.current) {
-        window.clearTimeout(realtimeTimerRef.current);
-        realtimeTimerRef.current = null;
+  const notificationsFetcher = React.useCallback(
+    async ([, , nextStatus, nextPage, nextPageSize, search]: NotificationsKey) => {
+      const params = new URLSearchParams();
+      params.set('status', nextStatus);
+      params.set('page', String(nextPage));
+      params.set('pageSize', String(nextPageSize));
+      if (search) {
+        params.set('q', search);
       }
-    };
-  }, []);
-
-  React.useEffect(() => {
-    const controller = new AbortController();
-    setLoading(true);
-    setError(null);
-
-    (async () => {
-      try {
-        const url = new URL('/api/notifications/list', window.location.origin);
-        url.searchParams.set('status', status);
-        url.searchParams.set('page', String(page));
-        url.searchParams.set('pageSize', String(pageSize));
-        if (deferredQuery) {
-          url.searchParams.set('q', deferredQuery);
-        }
-        const response = await fetch(url.toString(), {
-          cache: 'no-store',
-          credentials: 'include',
-          signal: controller.signal,
-        });
-        if (!response.ok) {
-          const message = await response.text().catch(() => '');
-          throw new Error(message || `Falha ao carregar notificações (${response.status}).`);
-        }
-        const payload = (await response.json()) as ListResponse;
-        if (controller.signal.aborted) return;
-        setItems(payload.items ?? []);
-        setCounts((prev) => ({
-          all:
-            typeof payload.counts?.all === 'number'
-              ? payload.counts.all
-              : status === 'all'
-                ? payload.total ?? prev.all
-                : prev.all,
-          unread:
-            typeof payload.counts?.unread === 'number'
-              ? payload.counts.unread
-              : status === 'unread'
-                ? payload.total ?? prev.unread
-                : prev.unread,
-          read:
-            typeof payload.counts?.read === 'number'
-              ? payload.counts.read
-              : status === 'read'
-                ? payload.total ?? prev.read
-                : prev.read,
-        }));
-        setSource(payload.source === 'supabase' ? 'supabase' : 'fallback');
-        setGeneratedAt(typeof payload.generatedAt === 'string' ? payload.generatedAt : null);
-      } catch (err: any) {
-        if (controller.signal.aborted) return;
-        console.error('[notifications:center] falha a carregar', err);
-        setItems([]);
-        setError(err?.message ?? 'Não foi possível carregar notificações.');
-        setSource('fallback');
-        setGeneratedAt(null);
-      } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
+      const response = await fetch(`/api/notifications/list?${params.toString()}`, {
+        cache: 'no-store',
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        const message = await response.text().catch(() => '');
+        throw new Error(message || `Falha ao carregar notificações (${response.status}).`);
       }
-    })();
+      const payload = (await response.json()) as NotificationsListResponse;
+      return normalizeNotificationsListResponse(payload);
+    },
+    [],
+  );
 
-    return () => controller.abort();
-  }, [status, page, pageSize, deferredQuery, refreshKey]);
+  const notificationSubscriptions = React.useMemo(
+    () =>
+      viewerId
+        ? [{ table: 'notifications', filter: `user_id=eq.${viewerId}` }]
+        : [{ table: 'notifications' }],
+    [viewerId],
+  );
+
+  const { data, error, isLoading, isValidating, refresh: refreshNotifications } = useRealtimeResource<
+    NormalizedNotificationsList,
+    NotificationsKey
+  >({
+    key: notificationsKey,
+    fetcher: notificationsFetcher,
+    initialData: initialPayload,
+    channel: `notifications-center-${viewerId ?? 'anonymous'}`,
+    subscriptions: notificationSubscriptions,
+    realtimeEnabled: true,
+  });
+
+  const payload = data ?? initialPayload;
+  const items = payload.items;
+  const counts = payload.counts;
+  const source = payload.source;
+  const generatedAt = payload.generatedAt;
+  const errorMessage = error?.message ?? null;
+  const loading = (isLoading || isValidating) && !errorMessage;
 
   React.useEffect(() => {
     setPage(0);
@@ -206,11 +188,11 @@ export default function NotificationsCenterClient({
       await fetch('/api/notifications/mark-all-read', { method: 'POST' });
       setStatus('unread');
       setPage(0);
-      setRefreshKey((key) => key + 1);
+      await refreshNotifications();
     } catch (err) {
       console.error('[notifications:center] falha a marcar tudo como lido', err);
     }
-  }, []);
+  }, [refreshNotifications]);
 
   const toggleRead = React.useCallback(async (row: NotificationRow) => {
     try {
@@ -219,15 +201,15 @@ export default function NotificationsCenterClient({
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ ids: [row.id] }),
       });
-      setRefreshKey((key) => key + 1);
+      await refreshNotifications();
     } catch (err) {
       console.error('[notifications:center] falha a actualizar estado', err);
     }
-  }, []);
+  }, [refreshNotifications]);
 
   const refresh = React.useCallback(() => {
-    setRefreshKey((key) => key + 1);
-  }, []);
+    void refreshNotifications();
+  }, [refreshNotifications]);
 
   useSupabaseRealtime(
     `notifications-center-${viewerId ?? 'anonymous'}`,
@@ -335,9 +317,9 @@ export default function NotificationsCenterClient({
         </div>
       </div>
 
-      {error && !loading ? (
+      {errorMessage && !loading ? (
         <Alert tone="warning" title="Falha ao sincronizar notificações" role="alert">
-          {error}
+          {errorMessage}
         </Alert>
       ) : null}
 
@@ -381,7 +363,7 @@ export default function NotificationsCenterClient({
               {item.body ? <p className="notifications-center__itemBody">{item.body}</p> : null}
             </article>
           ))}
-          {!items.length && !error ? (
+          {!items.length && !errorMessage ? (
             <div className="notifications-center__empty" role="status">
               <span className="neo-text--sm neo-text--muted">Sem notificações para este filtro.</span>
             </div>
