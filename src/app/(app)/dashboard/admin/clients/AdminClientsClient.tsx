@@ -3,6 +3,7 @@
 import * as React from 'react';
 import useSWR from 'swr';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { XCircle } from 'lucide-react';
 import {
   Area,
   AreaChart,
@@ -42,6 +43,9 @@ const numberFormatter = new Intl.NumberFormat('pt-PT');
 const STATUS_VALUES = new Set(['all', 'active', 'pending', 'suspended', 'inactive']);
 const RISK_VALUES = new Set(['all', 'healthy', 'watch', 'critical']);
 const SORT_VALUES = new Set(['recent', 'sessions', 'spend', 'risk']);
+const UNASSIGNED_TRAINER_VALUE = '__none__';
+
+const listFormatter = new Intl.ListFormat('pt-PT', { style: 'long', type: 'conjunction' });
 
 function deriveRangeFromWeeks(weeks: number): RangeValue {
   if (weeks >= 36) return '36w';
@@ -77,8 +81,13 @@ function canonicaliseSort(value: string | null): SortValue {
   return 'recent';
 }
 
-function canonicaliseTrainer(value: string | null): 'all' | string {
+type TrainerValue = 'all' | typeof UNASSIGNED_TRAINER_VALUE | string;
+
+function canonicaliseTrainer(value: string | null): TrainerValue {
   if (!value) return 'all';
+  if (value === UNASSIGNED_TRAINER_VALUE || value === 'none') {
+    return UNASSIGNED_TRAINER_VALUE;
+  }
   return value;
 }
 
@@ -224,10 +233,11 @@ export default function AdminClientsClient({ initialData }: Props) {
   const searchParamsString = searchParams?.toString() ?? '';
 
   const [dashboard, setDashboard] = React.useState(initialData);
-  const [range, setRange] = React.useState<RangeValue>(() => deriveRangeFromWeeks(initialData.rangeWeeks));
+  const initialRangeRef = React.useRef<RangeValue>(deriveRangeFromWeeks(initialData.rangeWeeks));
+  const [range, setRange] = React.useState<RangeValue>(initialRangeRef.current);
   const [status, setStatus] = React.useState<'all' | AdminClientStatusKey>('all');
   const [risk, setRisk] = React.useState<'all' | AdminClientRiskLevel>('all');
-  const [trainer, setTrainer] = React.useState<'all' | string>('all');
+  const [trainer, setTrainer] = React.useState<TrainerValue>('all');
   const [search, setSearch] = React.useState('');
   const [sort, setSort] = React.useState<SortValue>('recent');
   const [dataSource, setDataSource] = React.useState<'supabase' | 'fallback'>(
@@ -395,7 +405,13 @@ export default function AdminClientsClient({ initialData }: Props) {
       .filter((row) => matchesQuery(row, search))
       .filter((row) => (status === 'all' ? true : row.statusKey === status))
       .filter((row) => (risk === 'all' ? true : row.riskLevel === risk))
-      .filter((row) => (trainer === 'all' ? true : row.trainerName === trainer));
+      .filter((row) => {
+        if (trainer === 'all') return true;
+        if (trainer === UNASSIGNED_TRAINER_VALUE) {
+          return !row.trainerName;
+        }
+        return row.trainerName === trainer;
+      });
   }, [dashboard.rows, risk, search, status, trainer]);
 
   const sortedRows = React.useMemo(() => {
@@ -424,9 +440,10 @@ export default function AdminClientsClient({ initialData }: Props) {
 
   const filtersActive = React.useMemo(() => {
     if (status !== 'all' || risk !== 'all' || trainer !== 'all') return true;
+    if (range !== initialRangeRef.current) return true;
     if (sort !== 'recent') return true;
     return Boolean(search.trim());
-  }, [risk, search, sort, status, trainer]);
+  }, [initialRangeRef, range, risk, search, sort, status, trainer]);
 
   const resultsSummary = React.useMemo(() => {
     const total = dashboard.rows.length;
@@ -444,19 +461,96 @@ export default function AdminClientsClient({ initialData }: Props) {
     ? 'Actualização automática a cada minuto.'
     : 'Actualização automática suspensa enquanto estiver offline.';
 
-  const activeTrainerOptions = React.useMemo(() => {
-    const base = dashboard.filters.trainers;
-    const trainerNames = new Set(base.map((item) => item.name));
-    const tableTrainers = new Set(
-      dashboard.rows
-        .map((row) => row.trainerName)
-        .filter((name): name is string => Boolean(name)),
-    );
-    const merged = new Set([...trainerNames, ...tableTrainers]);
-    return Array.from(merged)
-      .filter(Boolean)
-      .sort((a, b) => a.localeCompare(b));
+  const trainerFilterOptions = React.useMemo(() => {
+    const actualCounts = new Map<string, number>();
+    dashboard.rows.forEach((row) => {
+      const key = row.trainerName ?? UNASSIGNED_TRAINER_VALUE;
+      actualCounts.set(key, (actualCounts.get(key) ?? 0) + 1);
+    });
+
+    const labelByValue = new Map<string, string>();
+    const options: Array<{ value: string; label: string }> = [];
+
+    dashboard.filters.trainers.forEach((item) => {
+      const total = Math.max(item.total, actualCounts.get(item.name) ?? 0);
+      const label = total > 0 ? `${item.name} (${numberFormatter.format(total)})` : item.name;
+      options.push({ value: item.name, label });
+      labelByValue.set(item.name, item.name);
+    });
+
+    const knownNames = new Set(options.map((option) => option.value));
+    Array.from(actualCounts.entries()).forEach(([name, total]) => {
+      if (name === UNASSIGNED_TRAINER_VALUE) {
+        return;
+      }
+      if (knownNames.has(name)) {
+        return;
+      }
+      const label = total > 0 ? `${name} (${numberFormatter.format(total)})` : name;
+      options.push({ value: name, label });
+      labelByValue.set(name, name);
+    });
+
+    options.sort((a, b) => normaliseText(a.value).localeCompare(normaliseText(b.value)));
+
+    labelByValue.set(UNASSIGNED_TRAINER_VALUE, 'Sem treinador');
+
+    return {
+      options,
+      unassignedTotal: actualCounts.get(UNASSIGNED_TRAINER_VALUE) ?? 0,
+      labelByValue,
+    };
   }, [dashboard.filters.trainers, dashboard.rows]);
+
+  const {
+    options: trainerOptions,
+    unassignedTotal: unassignedTrainerTotal,
+    labelByValue: trainerLabelByValue,
+  } = trainerFilterOptions;
+
+  const handleResetFilters = React.useCallback(() => {
+    setSearch('');
+    setStatus('all');
+    setRisk('all');
+    setTrainer('all');
+    setSort('recent');
+    setRange(initialRangeRef.current);
+  }, [initialRangeRef]);
+
+  const activeFiltersDescription = React.useMemo(() => {
+    const parts: string[] = [];
+    const trimmedSearch = search.trim();
+    if (trimmedSearch) {
+      parts.push(`Pesquisa por "${trimmedSearch}"`);
+    }
+    if (status !== 'all') {
+      const label = STATUS_FILTERS.find((option) => option.value === status)?.label ?? status;
+      parts.push(`Estado: ${label}`);
+    }
+    if (risk !== 'all') {
+      const label = RISK_FILTERS.find((option) => option.value === risk)?.label ?? risk;
+      parts.push(`Risco: ${label}`);
+    }
+    if (trainer !== 'all') {
+      const label =
+        trainer === UNASSIGNED_TRAINER_VALUE
+          ? 'Sem treinador'
+          : trainerLabelByValue.get(trainer) ?? trainer;
+      parts.push(`Treinador: ${label}`);
+    }
+    if (range !== initialRangeRef.current) {
+      const label = RANGE_OPTIONS.find((option) => option.value === range)?.label ?? range;
+      parts.push(`Intervalo: ${label}`);
+    }
+    if (sort !== 'recent') {
+      const label = SORT_OPTIONS.find((option) => option.value === sort)?.label ?? sort;
+      parts.push(`Ordenação: ${label}`);
+    }
+    if (parts.length === 0) {
+      return 'Sem filtros adicionais aplicados.';
+    }
+    return `${listFormatter.format(parts)}.`;
+  }, [range, risk, search, sort, status, trainer, trainerLabelByValue, initialRangeRef]);
 
   return (
     <div className="admin-clients-dashboard neo-stack neo-stack--xl">
@@ -674,7 +768,7 @@ export default function AdminClientsClient({ initialData }: Props) {
               Pesquisa, filtros e exportação dos clientes com métricas operacionais.
             </p>
           </div>
-          <div className="admin-clients-dashboard__filters">
+          <div className="admin-clients-dashboard__filters" role="group" aria-label="Filtros da lista de clientes">
             <label className="neo-input-group admin-clients-dashboard__filter">
               <span className="neo-input-group__label">Pesquisa</span>
               <input
@@ -682,6 +776,7 @@ export default function AdminClientsClient({ initialData }: Props) {
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Nome, email ou ID"
+                aria-label="Pesquisar clientes"
               />
             </label>
             <label className="neo-input-group admin-clients-dashboard__filter">
@@ -690,6 +785,7 @@ export default function AdminClientsClient({ initialData }: Props) {
                 className="neo-input neo-input--compact"
                 value={status}
                 onChange={(event) => setStatus(event.target.value as any)}
+                aria-label="Filtrar por estado"
               >
                 {STATUS_FILTERS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -704,6 +800,7 @@ export default function AdminClientsClient({ initialData }: Props) {
                 className="neo-input neo-input--compact"
                 value={risk}
                 onChange={(event) => setRisk(event.target.value as any)}
+                aria-label="Filtrar por risco"
               >
                 {RISK_FILTERS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -717,12 +814,18 @@ export default function AdminClientsClient({ initialData }: Props) {
               <select
                 className="neo-input neo-input--compact"
                 value={trainer}
-                onChange={(event) => setTrainer(event.target.value as any)}
+                onChange={(event) => setTrainer(event.target.value as TrainerValue)}
+                aria-label="Filtrar por treinador"
               >
                 <option value="all">Todos</option>
-                {activeTrainerOptions.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
+                {unassignedTrainerTotal > 0 && (
+                  <option value={UNASSIGNED_TRAINER_VALUE}>
+                    {`Sem treinador (${numberFormatter.format(unassignedTrainerTotal)})`}
+                  </option>
+                )}
+                {trainerOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
                   </option>
                 ))}
               </select>
@@ -733,6 +836,7 @@ export default function AdminClientsClient({ initialData }: Props) {
                 className="neo-input neo-input--compact"
                 value={sort}
                 onChange={(event) => setSort(event.target.value as SortValue)}
+                aria-label="Ordenar lista"
               >
                 {SORT_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -741,7 +845,20 @@ export default function AdminClientsClient({ initialData }: Props) {
                 ))}
               </select>
             </label>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleResetFilters}
+              disabled={!filtersActive}
+              leftIcon={<XCircle className="neo-icon neo-icon--xs" aria-hidden />}
+            >
+              Limpar filtros
+            </Button>
           </div>
+          <p className="neo-text--sm neo-text--muted" role="status" aria-live="polite">
+            {activeFiltersDescription}
+          </p>
         </header>
 
         <div className="neo-inline neo-inline--between neo-inline--sm" role="status" aria-live="polite">
