@@ -140,18 +140,15 @@ const SORT_OPTIONS: Array<{ value: SortValue; label: string }> = [
   { value: 'risk', label: 'Maior risco' },
 ];
 
-function matchesQuery(row: AdminClientRow, query: string): boolean {
-  if (!query) return true;
-  const value = normaliseText(query.trim());
-  if (!value) return true;
-  const haystack = [
-    row.displayName,
-    row.email ?? '',
-    row.statusLabel,
-    row.trainerName ?? '',
-    row.id,
-  ].map((entry) => normaliseText(entry));
-  return haystack.some((entry) => entry.includes(value));
+type SearchIndex = Map<string, string[]>;
+
+function matchesQuery(row: AdminClientRow, tokens: string[], index: SearchIndex): boolean {
+  if (tokens.length === 0) return true;
+  const values = index.get(row.id);
+  if (!values?.length) {
+    return false;
+  }
+  return tokens.every((token) => values.some((value) => value.includes(token)));
 }
 
 function compareRows(sort: SortValue): (a: AdminClientRow, b: AdminClientRow) => number {
@@ -263,6 +260,55 @@ export default function AdminClientsClient({ initialData }: Props) {
       revalidateOnFocus: false,
     },
   );
+
+  const deferredSearch = React.useDeferredValue(search);
+
+  const searchTokens = React.useMemo(() => {
+    const trimmed = deferredSearch.trim();
+    if (!trimmed) {
+      return [] as string[];
+    }
+    return normaliseText(trimmed)
+      .split(/\s+/)
+      .map((token) => token.trim())
+      .filter(Boolean);
+  }, [deferredSearch]);
+
+  const searchIndex = React.useMemo<SearchIndex>(() => {
+    const index: SearchIndex = new Map();
+    dashboard.rows.forEach((row) => {
+      const baseEntries = [
+        row.displayName,
+        row.email ?? '',
+        row.statusLabel,
+        row.statusKey,
+        row.trainerName ?? '',
+        row.id,
+        row.sessionsLabel,
+        row.sessionsTooltip,
+        row.nextSessionLabel,
+        row.riskLabel,
+        row.riskLevel,
+        row.walletLabel,
+        row.spendLabel,
+      ];
+      if (!row.trainerName) {
+        baseEntries.push('Sem treinador');
+      }
+
+      const normalised = baseEntries
+        .map((entry) => normaliseText(entry))
+        .flatMap((entry) => {
+          if (!entry) return [] as string[];
+          return [entry, ...entry.split(/\s+/)];
+        })
+        .filter(Boolean);
+
+      index.set(row.id, Array.from(new Set(normalised)));
+    });
+
+    return index;
+  }, [dashboard.rows]);
 
   React.useEffect(() => {
     if (!data?.ok) return;
@@ -402,7 +448,7 @@ export default function AdminClientsClient({ initialData }: Props) {
 
   const filteredRows = React.useMemo(() => {
     return dashboard.rows
-      .filter((row) => matchesQuery(row, search))
+      .filter((row) => matchesQuery(row, searchTokens, searchIndex))
       .filter((row) => (status === 'all' ? true : row.statusKey === status))
       .filter((row) => (risk === 'all' ? true : row.riskLevel === risk))
       .filter((row) => {
@@ -412,7 +458,7 @@ export default function AdminClientsClient({ initialData }: Props) {
         }
         return row.trainerName === trainer;
       });
-  }, [dashboard.rows, risk, search, status, trainer]);
+  }, [dashboard.rows, risk, searchIndex, searchTokens, status, trainer]);
 
   const sortedRows = React.useMemo(() => {
     const comparer = compareRows(sort);
