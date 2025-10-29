@@ -38,6 +38,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Ajustar o layout do dashboard para ocupar toda a largura e responder melhor a todos os breakpoints. Fontes: `src/components/layout/DashboardFrame.tsx` e páginas `dashboard/*` com `Container maxWidth={false}`.
 - [x] Corrigir regressão de build das sidebars `.neo` consolidando o hook partilhado `useSidebarNavigationSummary` sem redeclaração de identificadores. Fontes: `src/components/layout/useSidebarNavigationSummary.ts`, `src/components/layout/Sidebar{Client,PT}.tsx`.
 - [x] Formalizar o questionário de avaliação física com submissão única do cliente, edição administrativa e validação mínima de dados críticos. Fontes: `src/components/questionnaire/FitnessQuestionnaireForm.tsx`, `src/lib/questionnaire.ts`, `src/app/api/onboarding/submit/route.ts`, `src/app/(app)/dashboard/admin/clients/[id]/page.tsx`.
+  - 2025-11-03: Corrigida a submissão inicial sem registos prévios (formulário deixava de responder ao espalhar `null`) e o resumo administrativo passou a ser actualizado a partir do payload persistido. Fontes: `src/components/questionnaire/FitnessQuestionnaireForm.tsx`.
 
 ## Fase 2 - Melhorias Estruturais
 - [x] Validar carregamento real da lista de utilizadores/aprovações no Supabase (remoção dos fallbacks quando a API estiver estável e seeds completos).

@@ -104,23 +104,55 @@ export default function FitnessQuestionnaireForm({
         throw new Error(message);
       }
 
-      const nextRow = {
-        ...initial,
-        id: (json?.id as string | undefined) ?? recordId ?? null,
-        status: 'submitted',
+      const timestamp = new Date().toISOString();
+      const persistedId =
+        (json?.id as string | undefined) ?? recordId ?? savedRow?.id ?? initial?.id ?? null;
+
+      const nextRowLike = {
+        ...(savedRow ?? initial ?? {}),
+        id: persistedId ?? undefined,
+        status: 'submitted' as const,
         ...payload,
         schedule: payload.schedule,
         metrics: payload.metrics,
-        updated_at: new Date().toISOString(),
-      } as FitnessQuestionnaireRow;
+        updated_at: timestamp,
+      } as Partial<FitnessQuestionnaireRow>;
 
-      const cleanState = buildFormState(nextRow);
+      const cleanState = buildFormState(nextRowLike as FitnessQuestionnaireRow);
       baseline.current = cleanState;
       setForm(cleanState);
       setDirty(false);
       setStatus('submitted');
-      if (json?.id) setRecordId(json.id as string);
-      setSavedRow(nextRow);
+      if (persistedId) setRecordId(persistedId);
+      setSavedRow((prev) => {
+        const base: Partial<FitnessQuestionnaireRow> | null =
+          (prev as Partial<FitnessQuestionnaireRow> | null) ??
+          (initial as Partial<FitnessQuestionnaireRow> | null) ??
+          (mode === 'admin' && targetUserId
+            ? ({ user_id: targetUserId, created_at: timestamp } as Partial<FitnessQuestionnaireRow>)
+            : null);
+
+        if (!base?.user_id || !persistedId) {
+          return prev;
+        }
+
+        return {
+          ...base,
+          id: persistedId,
+          status: 'submitted',
+          wellbeing_0_to_5: payload.wellbeing_0_to_5,
+          objective: payload.objective,
+          job: payload.job,
+          active: payload.active,
+          sport: payload.sport,
+          sport_time: payload.sport_time,
+          pathologies: payload.pathologies,
+          schedule: payload.schedule,
+          metrics: payload.metrics,
+          updated_at: timestamp,
+          created_at: base.created_at ?? timestamp,
+        } as FitnessQuestionnaireRow;
+      });
 
       setFeedback({
         tone: 'success',
