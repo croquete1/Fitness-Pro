@@ -1,3 +1,4 @@
+import { describeType } from '@/lib/notifications/dashboard';
 import type { NotificationRow } from '@/lib/notifications/types';
 
 export type NotificationsListCounts = {
@@ -12,6 +13,7 @@ export type NotificationsListResponse = {
   counts?: Partial<NotificationsListCounts> | null;
   source?: 'supabase' | 'fallback' | null;
   generatedAt?: string | null;
+  types?: Array<{ key?: string | null; label?: string | null; count?: number | null }> | null;
 };
 
 export type NormalizedNotificationsList = {
@@ -20,6 +22,7 @@ export type NormalizedNotificationsList = {
   counts: NotificationsListCounts;
   source: 'supabase' | 'fallback';
   generatedAt: string | null;
+  types: Array<{ key: string; label: string; count: number }>;
 };
 
 export function normalizeNotificationsListResponse(
@@ -30,6 +33,29 @@ export function normalizeNotificationsListResponse(
   const fallbackRead = items.length - fallbackUnread;
   const total = typeof payload?.total === 'number' ? payload.total : items.length;
   const counts = payload?.counts ?? {};
+  const fallbackTypesMap = new Map<string, { key: string; label: string; count: number }>();
+  items.forEach((item) => {
+    const meta = describeType(item.type ?? null);
+    const current = fallbackTypesMap.get(meta.key) ?? { key: meta.key, label: meta.label, count: 0 };
+    current.count += 1;
+    fallbackTypesMap.set(meta.key, current);
+  });
+
+  const normalizedTypes = Array.isArray(payload?.types)
+    ? payload!.types
+        .map((entry) => {
+          if (!entry) return null;
+          const meta = describeType(entry.key ?? null);
+          const count = typeof entry.count === 'number' ? entry.count : 0;
+          const label = typeof entry.label === 'string' && entry.label.trim() ? entry.label.trim() : meta.label;
+          return {
+            key: meta.key,
+            label,
+            count: Math.max(0, count),
+          };
+        })
+        .filter((entry): entry is { key: string; label: string; count: number } => Boolean(entry))
+    : Array.from(fallbackTypesMap.values());
 
   return {
     items,
@@ -41,5 +67,9 @@ export function normalizeNotificationsListResponse(
     },
     source: payload?.source === 'supabase' ? 'supabase' : 'fallback',
     generatedAt: typeof payload?.generatedAt === 'string' ? payload.generatedAt : null,
+    types: normalizedTypes.sort((a, b) => {
+      if (b.count === a.count) return a.label.localeCompare(b.label, 'pt-PT');
+      return b.count - a.count;
+    }),
   };
 }

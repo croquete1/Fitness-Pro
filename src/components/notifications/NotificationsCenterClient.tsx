@@ -18,6 +18,8 @@ import { useRealtimeResource } from '@/lib/supabase/useRealtimeResource';
 
 type StatusFilter = 'all' | 'unread' | 'read';
 
+type TypeFilter = 'all' | string;
+
 type NotificationsCenterClientProps = {
   initialItems?: NotificationRow[];
   initialTotal?: number;
@@ -33,7 +35,7 @@ type StatusSegment = {
   icon: React.ReactNode;
 };
 
-type NotificationsKey = ['notifications:center', string, StatusFilter, number, number, string];
+type NotificationsKey = ['notifications:center', string, StatusFilter, TypeFilter, number, number, string];
 
 const STATUS_SEGMENTS: StatusSegment[] = [
   { value: 'all', label: 'Todas', icon: <CheckCheck size={16} aria-hidden /> },
@@ -79,6 +81,7 @@ export default function NotificationsCenterClient({
   const router = useRouter();
   const { data: session } = useSession();
   const [status, setStatus] = React.useState<StatusFilter>('unread');
+  const [typeFilter, setTypeFilter] = React.useState<TypeFilter>('all');
   const [page, setPage] = React.useState(0);
   const pageSize = 12;
   const [query, setQuery] = React.useState('');
@@ -112,17 +115,21 @@ export default function NotificationsCenterClient({
       'notifications:center',
       viewerId ?? 'anonymous',
       status,
+      typeFilter,
       page,
       pageSize,
       normalizedQuery,
     ],
-    [viewerId, status, page, pageSize, normalizedQuery],
+    [viewerId, status, typeFilter, page, pageSize, normalizedQuery],
   );
 
   const notificationsFetcher = React.useCallback(
-    async ([, , nextStatus, nextPage, nextPageSize, search]: NotificationsKey) => {
+    async ([, , nextStatus, nextType, nextPage, nextPageSize, search]: NotificationsKey) => {
       const params = new URLSearchParams();
       params.set('status', nextStatus);
+      if (nextType && nextType !== 'all') {
+        params.set('type', nextType);
+      }
       params.set('page', String(nextPage));
       params.set('pageSize', String(nextPageSize));
       if (search) {
@@ -167,10 +174,18 @@ export default function NotificationsCenterClient({
   const errorMessage = error?.message ?? null;
   const loading = (isLoading || isValidating) && !errorMessage;
   const totalForStatus = payload.total;
+  const totalAcrossTypes = React.useMemo(
+    () => payload.types.reduce((acc, type) => acc + type.count, 0),
+    [payload.types],
+  );
+  const activeTypeLabel = React.useMemo(
+    () => (typeFilter === 'all' ? null : payload.types.find((type) => type.key === typeFilter)?.label ?? null),
+    [payload.types, typeFilter],
+  );
 
   React.useEffect(() => {
     setPage(0);
-  }, [status, deferredQuery]);
+  }, [status, typeFilter, deferredQuery]);
 
   const totalPages = Math.max(1, Math.ceil(totalForStatus / pageSize));
 
@@ -179,6 +194,14 @@ export default function NotificationsCenterClient({
       setPage(totalPages - 1);
     }
   }, [page, totalPages]);
+
+  React.useEffect(() => {
+    if (typeFilter === 'all') return;
+    const stillAvailable = payload.types.some((type) => type.key === typeFilter);
+    if (!stillAvailable) {
+      setTypeFilter('all');
+    }
+  }, [payload.types, typeFilter]);
 
   const markAllRead = React.useCallback(async () => {
     try {
@@ -216,7 +239,9 @@ export default function NotificationsCenterClient({
             <h2 className="notifications-center__title">Centro de notificações</h2>
             <p className="notifications-center__subtitle">
               {totalForStatus > 0
-                ? `${numberFormatter.format(totalForStatus)} notificações ${status === 'unread' ? 'por ler' : status === 'read' ? 'lidas' : 'no filtro seleccionado'}`
+                ? `${numberFormatter.format(totalForStatus)} notificações ${
+                    status === 'unread' ? 'por ler' : status === 'read' ? 'lidas' : 'no filtro seleccionado'
+                  }${typeFilter !== 'all' && activeTypeLabel ? ` · ${activeTypeLabel}` : ''}`
                 : 'Sem notificações para o filtro actual.'}
             </p>
           </div>
@@ -239,7 +264,7 @@ export default function NotificationsCenterClient({
               size="sm"
               onClick={markAllRead}
               title="Marcar todas as notificações como lidas"
-              disabled={loading || totalForStatus === 0}
+              disabled={loading || counts.unread === 0}
             >
               Marcar tudo como lido
             </Button>
@@ -302,10 +327,37 @@ export default function NotificationsCenterClient({
                 {segment.icon}
               </span>
               <span className="notifications-center__tabLabel">{segment.label}</span>
-              <span className="neo-segmented__count">{countForStatus(counts, segment.value)}</span>
-            </button>
-          ))}
+            <span className="neo-segmented__count">{countForStatus(counts, segment.value)}</span>
+          </button>
+        ))}
         </div>
+        {payload.types.length > 0 ? (
+          <div className="notifications-center__types" role="group" aria-label="Filtrar por tipo de notificação">
+            <button
+              type="button"
+              className="notifications-center__type"
+              data-active={typeFilter === 'all'}
+              aria-pressed={typeFilter === 'all'}
+              onClick={() => setTypeFilter('all')}
+            >
+              <span className="notifications-center__typeLabel">Todos</span>
+              <span className="notifications-center__typeCount">{numberFormatter.format(totalAcrossTypes)}</span>
+            </button>
+            {payload.types.map((type) => (
+              <button
+                key={type.key}
+                type="button"
+                className="notifications-center__type"
+                data-active={typeFilter === type.key}
+                aria-pressed={typeFilter === type.key}
+                onClick={() => setTypeFilter(type.key)}
+              >
+                <span className="notifications-center__typeLabel">{type.label}</span>
+                <span className="notifications-center__typeCount">{numberFormatter.format(type.count)}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       {errorMessage && !loading ? (

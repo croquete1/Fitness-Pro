@@ -18,13 +18,15 @@ import { useRealtimeResource } from '@/lib/supabase/useRealtimeResource';
 
 type StatusFilter = 'all' | 'unread' | 'read';
 
+type TypeFilter = 'all' | string;
+
 type StatusSegment = {
   value: StatusFilter;
   label: string;
   icon: React.ReactNode;
 };
 
-type NotificationsKey = ['notifications:list', string, StatusFilter, number, number];
+type NotificationsKey = ['notifications:list', string, StatusFilter, TypeFilter, number, number];
 
 const STATUS_SEGMENTS: StatusSegment[] = [
   { value: 'all', label: 'Todas', icon: <CheckCheck size={16} aria-hidden /> },
@@ -38,6 +40,8 @@ const formatter = new Intl.DateTimeFormat('pt-PT', {
   hour: '2-digit',
   minute: '2-digit',
 });
+
+const numberFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 });
 
 function formatDate(value: string | null | undefined): string {
   if (!value) return '—';
@@ -60,6 +64,7 @@ function getTotalForStatus(counts: { all: number; unread: number; read: number }
 export default function NotificationsListClient() {
   const { data: session } = useSession();
   const [status, setStatus] = React.useState<StatusFilter>('unread');
+  const [typeFilter, setTypeFilter] = React.useState<TypeFilter>('all');
   const [page, setPage] = React.useState(0);
   const pageSize = 10;
   const initialPayload = React.useMemo<NormalizedNotificationsList>(
@@ -76,14 +81,17 @@ export default function NotificationsListClient() {
   }, [session?.user]);
 
   const notificationsKey = React.useMemo<NotificationsKey>(
-    () => ['notifications:list', viewerId ?? 'anonymous', status, page, pageSize],
-    [viewerId, status, page, pageSize],
+    () => ['notifications:list', viewerId ?? 'anonymous', status, typeFilter, page, pageSize],
+    [viewerId, status, typeFilter, page, pageSize],
   );
 
   const notificationsFetcher = React.useCallback(
-    async ([, , nextStatus, nextPage, nextPageSize]: NotificationsKey) => {
+    async ([, , nextStatus, nextType, nextPage, nextPageSize]: NotificationsKey) => {
       const params = new URLSearchParams();
       params.set('status', nextStatus);
+      if (nextType && nextType !== 'all') {
+        params.set('type', nextType);
+      }
       params.set('page', String(nextPage));
       params.set('pageSize', String(nextPageSize));
       const response = await fetch(`/api/notifications/list?${params.toString()}`, {
@@ -125,10 +133,18 @@ export default function NotificationsListClient() {
   const errorMessage = error?.message ?? null;
   const loading = (isLoading || isValidating) && !errorMessage;
   const totalForStatus = payload.total;
+  const totalAcrossTypes = React.useMemo(
+    () => payload.types.reduce((acc, type) => acc + type.count, 0),
+    [payload.types],
+  );
+  const activeTypeLabel = React.useMemo(
+    () => (typeFilter === 'all' ? null : payload.types.find((type) => type.key === typeFilter)?.label ?? null),
+    [payload.types, typeFilter],
+  );
 
   React.useEffect(() => {
     setPage(0);
-  }, [status]);
+  }, [status, typeFilter]);
 
   const totalPages = Math.max(1, Math.ceil(totalForStatus / pageSize));
 
@@ -137,6 +153,14 @@ export default function NotificationsListClient() {
       setPage(totalPages - 1);
     }
   }, [page, totalPages]);
+
+  React.useEffect(() => {
+    if (typeFilter === 'all') return;
+    const stillAvailable = payload.types.some((type) => type.key === typeFilter);
+    if (!stillAvailable) {
+      setTypeFilter('all');
+    }
+  }, [payload.types, typeFilter]);
 
   const markAllRead = React.useCallback(async () => {
     try {
@@ -170,7 +194,9 @@ export default function NotificationsListClient() {
             <h2 className="notifications-list__title">Centro de notificações</h2>
             <p className="notifications-list__subtitle">
               {totalForStatus > 0
-                ? `${totalForStatus} notificações ${status === 'unread' ? 'por ler' : status === 'read' ? 'lidas' : 'no filtro seleccionado'}`
+                ? `${totalForStatus} notificações ${
+                    status === 'unread' ? 'por ler' : status === 'read' ? 'lidas' : 'no filtro seleccionado'
+                  }${typeFilter !== 'all' && activeTypeLabel ? ` · ${activeTypeLabel}` : ''}`
                 : 'Sem notificações no filtro actual.'}
             </p>
           </div>
@@ -181,7 +207,7 @@ export default function NotificationsListClient() {
             variant="ghost"
             size="sm"
             onClick={markAllRead}
-            disabled={loading || totalForStatus === 0}
+            disabled={loading || counts.unread === 0}
             title="Marcar todas as notificações como lidas"
           >
             Marcar tudo como lido
@@ -208,6 +234,33 @@ export default function NotificationsListClient() {
           </button>
         ))}
       </div>
+      {payload.types.length > 0 ? (
+        <div className="notifications-list__types" role="group" aria-label="Filtrar por tipo de notificação">
+          <button
+            type="button"
+            className="notifications-list__type"
+            data-active={typeFilter === 'all'}
+            aria-pressed={typeFilter === 'all'}
+            onClick={() => setTypeFilter('all')}
+          >
+            <span className="notifications-list__typeLabel">Todos</span>
+            <span className="notifications-list__typeCount">{numberFormatter.format(totalAcrossTypes)}</span>
+          </button>
+          {payload.types.map((type) => (
+            <button
+              key={type.key}
+              type="button"
+              className="notifications-list__type"
+              data-active={typeFilter === type.key}
+              aria-pressed={typeFilter === type.key}
+              onClick={() => setTypeFilter(type.key)}
+            >
+              <span className="notifications-list__typeLabel">{type.label}</span>
+              <span className="notifications-list__typeCount">{numberFormatter.format(type.count)}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {errorMessage && !loading ? (
         <Alert tone="warning" title="Falha ao sincronizar notificações" role="alert">

@@ -57,9 +57,9 @@ export async function GET(req: Request) {
         .replace(/[%_]/g, (match) => `\\${match}`)
     : '';
 
-  const applyFilters = (query: any) => {
+  const applyFilters = (query: any, options: { includeType?: boolean } = {}) => {
     let next = query.eq('user_id', uid);
-    if (typeFilter && typeFilter !== 'all') {
+    if (options.includeType !== false && typeFilter && typeFilter !== 'all') {
       next = next.eq('type', typeFilter);
     }
     if (escapedSearch) {
@@ -103,18 +103,44 @@ export async function GET(req: Request) {
     created_at: (n.created_at ?? null) as string | null,
   }));
 
-  const baseCountQuery = () => applyFilters(
-    sb
-      .from('notifications')
-      .select('id', { count: 'exact', head: true })
-      .order('created_at', { ascending: false }),
-  );
+  const baseCountQuery = () =>
+    applyFilters(
+      sb
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .order('created_at', { ascending: false }),
+    );
 
-  const [allCount, unreadCount, readCount] = await Promise.all([
+  const typeSummaryQuery = () =>
+    applyFilters(
+      sb
+        .from('notifications')
+        .select('type, count:id', { head: false })
+        .order('count', { ascending: false })
+        .order('type', { ascending: true }),
+      { includeType: false },
+    );
+
+  const [allCount, unreadCount, readCount, typeRows] = await Promise.all([
     baseCountQuery(),
     baseCountQuery().eq('read', false),
     baseCountQuery().eq('read', true),
+    typeSummaryQuery(),
   ]);
+
+  if (typeRows.error) {
+    console.error('[notifications:list] erro a calcular tipos', typeRows.error);
+  }
+
+  const types = (typeRows.data ?? []).map((row: any) => {
+    const meta = describeType(row.type ?? null);
+    const count = Number(row.count ?? 0);
+    return {
+      key: meta.key,
+      label: meta.label,
+      count: Number.isFinite(count) && count >= 0 ? count : 0,
+    };
+  });
 
   return NextResponse.json(
     {
@@ -127,6 +153,7 @@ export async function GET(req: Request) {
       },
       source: 'supabase',
       generatedAt: new Date().toISOString(),
+      types,
     },
     { headers },
   );
