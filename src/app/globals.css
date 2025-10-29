@@ -14781,6 +14781,41 @@ a.neo-sidebar__highlight {
 .notifications-list__tabs{
   width:100%;
 }
+.notifications-list__types{
+  display:flex;
+  flex-wrap:wrap;
+  gap:var(--neo-space-2);
+  width:100%;
+}
+.notifications-list__type{
+  display:inline-flex;
+  align-items:center;
+  gap:var(--neo-space-1);
+  padding:6px 12px;
+  border-radius:999px;
+  border:1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background:color-mix(in srgb, var(--surface) 96%, transparent);
+  font-size:13px;
+  font-weight:600;
+  color:var(--muted-fg);
+  transition:background .2s ease, border .2s ease, color .2s ease;
+}
+.notifications-list__type:hover{
+  border-color:color-mix(in srgb, var(--primary) 40%, transparent);
+  color:color-mix(in srgb, var(--primary) 70%, var(--fg));
+}
+.notifications-list__type[data-active='true']{
+  border-color:color-mix(in srgb, var(--primary) 62%, transparent);
+  background:color-mix(in srgb, var(--primary) 14%, transparent);
+  color:var(--primary);
+}
+.notifications-list__typeLabel{
+  pointer-events:none;
+}
+.notifications-list__typeCount{
+  pointer-events:none;
+  font-variant-numeric:tabular-nums;
+}
 .notifications-list__tabIcon{
   display:inline-flex;
   align-items:center;
@@ -14995,6 +15030,42 @@ a.neo-sidebar__highlight {
 .notifications-center__tabs{
   width:max-content;
   min-width:280px;
+}
+.notifications-center__types{
+  display:flex;
+  flex-wrap:wrap;
+  gap:var(--neo-space-2);
+  flex:1 1 100%;
+  align-items:center;
+}
+.notifications-center__type{
+  display:inline-flex;
+  align-items:center;
+  gap:var(--neo-space-1);
+  padding:6px 12px;
+  border-radius:999px;
+  border:1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background:color-mix(in srgb, var(--surface) 96%, transparent);
+  font-size:13px;
+  font-weight:600;
+  color:var(--muted-fg);
+  transition:background 0.2s ease, border 0.2s ease, color 0.2s ease;
+}
+.notifications-center__type:hover{
+  border-color:color-mix(in srgb, var(--primary) 40%, transparent);
+  color:color-mix(in srgb, var(--primary) 70%, var(--fg));
+}
+.notifications-center__type[data-active='true']{
+  border-color:color-mix(in srgb, var(--primary) 62%, transparent);
+  background:color-mix(in srgb, var(--primary) 14%, transparent);
+  color:var(--primary);
+}
+.notifications-center__typeLabel{
+  pointer-events:none;
+}
+.notifications-center__typeCount{
+  pointer-events:none;
+  font-variant-numeric:tabular-nums;
 }
 .notifications-center__tabIcon{
   display:inline-flex;

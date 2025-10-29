@@ -2,28 +2,31 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import { ArrowUpRight, CheckCheck, MailOpen, MailX } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
 import Alert from '@/components/ui/Alert';
 import DataSourceBadge from '@/components/ui/DataSourceBadge';
 import type { NotificationRow } from '@/lib/notifications/types';
+import {
+  normalizeNotificationsListResponse,
+  type NormalizedNotificationsList,
+  type NotificationsListResponse,
+} from '@/lib/notifications/list';
+import { useRealtimeResource } from '@/lib/supabase/useRealtimeResource';
 
 type StatusFilter = 'all' | 'unread' | 'read';
 
-type ListResponse = {
-  items: NotificationRow[];
-  total: number;
-  counts?: { all: number; unread: number; read: number };
-  source?: 'supabase' | 'fallback';
-  generatedAt?: string | null;
-};
+type TypeFilter = 'all' | string;
 
 type StatusSegment = {
   value: StatusFilter;
   label: string;
   icon: React.ReactNode;
 };
+
+type NotificationsKey = ['notifications:list', string, StatusFilter, TypeFilter, number, number];
 
 const STATUS_SEGMENTS: StatusSegment[] = [
   { value: 'all', label: 'Todas', icon: <CheckCheck size={16} aria-hidden /> },
@@ -37,6 +40,8 @@ const formatter = new Intl.DateTimeFormat('pt-PT', {
   hour: '2-digit',
   minute: '2-digit',
 });
+
+const numberFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 });
 
 function formatDate(value: string | null | undefined): string {
   if (!value) return '—';
@@ -57,85 +62,90 @@ function getTotalForStatus(counts: { all: number; unread: number; read: number }
 }
 
 export default function NotificationsListClient() {
+  const { data: session } = useSession();
   const [status, setStatus] = React.useState<StatusFilter>('unread');
+  const [typeFilter, setTypeFilter] = React.useState<TypeFilter>('all');
   const [page, setPage] = React.useState(0);
   const pageSize = 10;
-  const [items, setItems] = React.useState<NotificationRow[]>([]);
-  const [counts, setCounts] = React.useState<{ all: number; unread: number; read: number }>({ all: 0, unread: 0, read: 0 });
-  const [source, setSource] = React.useState<'supabase' | 'fallback'>('fallback');
-  const [generatedAt, setGeneratedAt] = React.useState<string | null>(null);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
-  const [refreshKey, setRefreshKey] = React.useState(0);
+  const initialPayload = React.useMemo<NormalizedNotificationsList>(
+    () => normalizeNotificationsListResponse(),
+    [],
+  );
 
-  React.useEffect(() => {
-    const controller = new AbortController();
-    setLoading(true);
-    setError(null);
+  const viewerId = React.useMemo(() => {
+    const candidate =
+      session?.user && 'id' in session.user && typeof (session.user as { id?: unknown }).id === 'string'
+        ? ((session.user as { id?: string }).id as string)
+        : null;
+    return candidate;
+  }, [session?.user]);
 
-    (async () => {
-      try {
-        const url = new URL('/api/notifications/list', window.location.origin);
-        url.searchParams.set('status', status);
-        url.searchParams.set('page', String(page));
-        url.searchParams.set('pageSize', String(pageSize));
-        const response = await fetch(url.toString(), {
-          cache: 'no-store',
-          credentials: 'include',
-          signal: controller.signal,
-        });
-        if (!response.ok) {
-          const message = await response.text().catch(() => '');
-          throw new Error(message || `Falha ao carregar notificações (${response.status}).`);
-        }
-        const payload = (await response.json()) as ListResponse;
-        if (controller.signal.aborted) return;
-        setItems(payload.items ?? []);
-        setCounts((prev) => ({
-          all:
-            typeof payload.counts?.all === 'number'
-              ? payload.counts.all
-              : status === 'all'
-                ? payload.total ?? prev.all
-                : prev.all,
-          unread:
-            typeof payload.counts?.unread === 'number'
-              ? payload.counts.unread
-              : status === 'unread'
-                ? payload.total ?? prev.unread
-                : prev.unread,
-          read:
-            typeof payload.counts?.read === 'number'
-              ? payload.counts.read
-              : status === 'read'
-                ? payload.total ?? prev.read
-                : prev.read,
-        }));
-        setSource(payload.source === 'supabase' ? 'supabase' : 'fallback');
-        setGeneratedAt(typeof payload.generatedAt === 'string' ? payload.generatedAt : null);
-      } catch (err: any) {
-        if (controller.signal.aborted) return;
-        console.error('[notifications:list] falha a carregar', err);
-        setItems([]);
-        setCounts((prev) => prev);
-        setSource('fallback');
-        setGeneratedAt(null);
-        setError(err?.message ?? 'Não foi possível carregar notificações.');
-      } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
+  const notificationsKey = React.useMemo<NotificationsKey>(
+    () => ['notifications:list', viewerId ?? 'anonymous', status, typeFilter, page, pageSize],
+    [viewerId, status, typeFilter, page, pageSize],
+  );
+
+  const notificationsFetcher = React.useCallback(
+    async ([, , nextStatus, nextType, nextPage, nextPageSize]: NotificationsKey) => {
+      const params = new URLSearchParams();
+      params.set('status', nextStatus);
+      if (nextType && nextType !== 'all') {
+        params.set('type', nextType);
       }
-    })();
+      params.set('page', String(nextPage));
+      params.set('pageSize', String(nextPageSize));
+      const response = await fetch(`/api/notifications/list?${params.toString()}`, {
+        cache: 'no-store',
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        const message = await response.text().catch(() => '');
+        throw new Error(message || `Falha ao carregar notificações (${response.status}).`);
+      }
+      const payload = (await response.json()) as NotificationsListResponse;
+      return normalizeNotificationsListResponse(payload);
+    },
+    [],
+  );
 
-    return () => controller.abort();
-  }, [status, page, pageSize, refreshKey]);
+  const notificationSubscriptions = React.useMemo(
+    () => (viewerId ? [{ table: 'notifications', filter: `user_id=eq.${viewerId}` }] : []),
+    [viewerId],
+  );
+
+  const { data, error, isLoading, isValidating, refresh: refreshNotifications } = useRealtimeResource<
+    NormalizedNotificationsList,
+    NotificationsKey
+  >({
+    key: notificationsKey,
+    fetcher: notificationsFetcher,
+    initialData: initialPayload,
+    channel: `notifications-list-${viewerId ?? 'anonymous'}`,
+    subscriptions: notificationSubscriptions,
+    realtimeEnabled: Boolean(viewerId),
+  });
+
+  const payload = data ?? initialPayload;
+  const items = payload.items;
+  const counts = payload.counts;
+  const source = payload.source;
+  const generatedAt = payload.generatedAt;
+  const errorMessage = error?.message ?? null;
+  const loading = (isLoading || isValidating) && !errorMessage;
+  const totalForStatus = payload.total;
+  const totalAcrossTypes = React.useMemo(
+    () => payload.types.reduce((acc, type) => acc + type.count, 0),
+    [payload.types],
+  );
+  const activeTypeLabel = React.useMemo(
+    () => (typeFilter === 'all' ? null : payload.types.find((type) => type.key === typeFilter)?.label ?? null),
+    [payload.types, typeFilter],
+  );
 
   React.useEffect(() => {
     setPage(0);
-  }, [status]);
+  }, [status, typeFilter]);
 
-  const totalForStatus = React.useMemo(() => getTotalForStatus(counts, status), [counts, status]);
   const totalPages = Math.max(1, Math.ceil(totalForStatus / pageSize));
 
   React.useEffect(() => {
@@ -144,16 +154,24 @@ export default function NotificationsListClient() {
     }
   }, [page, totalPages]);
 
+  React.useEffect(() => {
+    if (typeFilter === 'all') return;
+    const stillAvailable = payload.types.some((type) => type.key === typeFilter);
+    if (!stillAvailable) {
+      setTypeFilter('all');
+    }
+  }, [payload.types, typeFilter]);
+
   const markAllRead = React.useCallback(async () => {
     try {
       await fetch('/api/notifications/mark-all-read', { method: 'POST' });
       setStatus('unread');
       setPage(0);
-      setRefreshKey((key) => key + 1);
+      await refreshNotifications();
     } catch (err) {
       console.error('[notifications:list] falha a marcar tudo como lido', err);
     }
-  }, []);
+  }, [refreshNotifications]);
 
   const toggleRead = React.useCallback(async (row: NotificationRow) => {
     try {
@@ -162,11 +180,11 @@ export default function NotificationsListClient() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ ids: [row.id] }),
       });
-      setRefreshKey((key) => key + 1);
+      await refreshNotifications();
     } catch (err) {
       console.error('[notifications:list] falha a actualizar estado', err);
     }
-  }, []);
+  }, [refreshNotifications]);
 
   return (
     <section className="neo-panel notifications-list" aria-live="polite">
@@ -176,7 +194,9 @@ export default function NotificationsListClient() {
             <h2 className="notifications-list__title">Centro de notificações</h2>
             <p className="notifications-list__subtitle">
               {totalForStatus > 0
-                ? `${totalForStatus} notificações ${status === 'unread' ? 'por ler' : status === 'read' ? 'lidas' : 'no filtro seleccionado'}`
+                ? `${totalForStatus} notificações ${
+                    status === 'unread' ? 'por ler' : status === 'read' ? 'lidas' : 'no filtro seleccionado'
+                  }${typeFilter !== 'all' && activeTypeLabel ? ` · ${activeTypeLabel}` : ''}`
                 : 'Sem notificações no filtro actual.'}
             </p>
           </div>
@@ -187,7 +207,7 @@ export default function NotificationsListClient() {
             variant="ghost"
             size="sm"
             onClick={markAllRead}
-            disabled={loading || totalForStatus === 0}
+            disabled={loading || counts.unread === 0}
             title="Marcar todas as notificações como lidas"
           >
             Marcar tudo como lido
@@ -214,10 +234,37 @@ export default function NotificationsListClient() {
           </button>
         ))}
       </div>
+      {payload.types.length > 0 ? (
+        <div className="notifications-list__types" role="group" aria-label="Filtrar por tipo de notificação">
+          <button
+            type="button"
+            className="notifications-list__type"
+            data-active={typeFilter === 'all'}
+            aria-pressed={typeFilter === 'all'}
+            onClick={() => setTypeFilter('all')}
+          >
+            <span className="notifications-list__typeLabel">Todos</span>
+            <span className="notifications-list__typeCount">{numberFormatter.format(totalAcrossTypes)}</span>
+          </button>
+          {payload.types.map((type) => (
+            <button
+              key={type.key}
+              type="button"
+              className="notifications-list__type"
+              data-active={typeFilter === type.key}
+              aria-pressed={typeFilter === type.key}
+              onClick={() => setTypeFilter(type.key)}
+            >
+              <span className="notifications-list__typeLabel">{type.label}</span>
+              <span className="notifications-list__typeCount">{numberFormatter.format(type.count)}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
 
-      {error && !loading ? (
+      {errorMessage && !loading ? (
         <Alert tone="warning" title="Falha ao sincronizar notificações" role="alert">
-          {error}
+          {errorMessage}
         </Alert>
       ) : null}
 
@@ -261,7 +308,7 @@ export default function NotificationsListClient() {
               </footer>
             </article>
           ))}
-          {!items.length && !error ? (
+          {!items.length && !errorMessage ? (
             <div className="notifications-list__empty" role="status">
               <span className="neo-text--sm neo-text--muted">Sem notificações para este filtro.</span>
             </div>

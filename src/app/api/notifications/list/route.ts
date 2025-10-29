@@ -57,9 +57,9 @@ export async function GET(req: Request) {
         .replace(/[%_]/g, (match) => `\\${match}`)
     : '';
 
-  const applyFilters = (query: any) => {
+  const applyFilters = (query: any, options: { includeType?: boolean } = {}) => {
     let next = query.eq('user_id', uid);
-    if (typeFilter && typeFilter !== 'all') {
+    if (options.includeType !== false && typeFilter && typeFilter !== 'all') {
       next = next.eq('type', typeFilter);
     }
     if (escapedSearch) {
@@ -103,18 +103,71 @@ export async function GET(req: Request) {
     created_at: (n.created_at ?? null) as string | null,
   }));
 
-  const baseCountQuery = () => applyFilters(
-    sb
-      .from('notifications')
-      .select('id', { count: 'exact', head: true })
-      .order('created_at', { ascending: false }),
-  );
+  const baseCountQuery = () =>
+    applyFilters(
+      sb
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .order('created_at', { ascending: false }),
+    );
 
-  const [allCount, unreadCount, readCount] = await Promise.all([
+  const typeSummaryQuery = () => {
+    let summary = applyFilters(
+      sb
+        .from('notifications')
+        .select('type, count:id', { head: false }),
+      { includeType: false },
+    ) as any;
+    summary = summary.group('type').order('count', { ascending: false }).order('type', { ascending: true });
+    if (status === 'unread') {
+      summary = summary.eq('read', false);
+    }
+    if (status === 'read') {
+      summary = summary.eq('read', true);
+    }
+    return summary;
+  };
+
+  const [allCount, unreadCount, readCount, typeRows] = await Promise.all([
     baseCountQuery(),
     baseCountQuery().eq('read', false),
     baseCountQuery().eq('read', true),
+    typeSummaryQuery(),
   ]);
+
+  const buildTypesFromItems = () => {
+    const fallbackMap = new Map<string, { key: string; label: string; count: number }>();
+    items.forEach((item) => {
+      const meta = describeType(item.type ?? null);
+      const current = fallbackMap.get(meta.key) ?? { key: meta.key, label: meta.label, count: 0 };
+      current.count += 1;
+      fallbackMap.set(meta.key, current);
+    });
+    return Array.from(fallbackMap.values());
+  };
+
+  if (typeRows.error) {
+    console.error('[notifications:list] erro a calcular tipos', typeRows.error);
+  }
+
+  const supabaseTypes = Array.isArray(typeRows.data) ? typeRows.data : [];
+  const typesSource =
+    supabaseTypes.length > 0
+      ? supabaseTypes.map((row: any) => {
+          const meta = describeType(row.type ?? null);
+          const count = Number(row.count ?? 0);
+          return {
+            key: meta.key,
+            label: meta.label,
+            count: Number.isFinite(count) && count >= 0 ? count : 0,
+          };
+        })
+      : buildTypesFromItems();
+
+  const types = typesSource.sort((a, b) => {
+    if (b.count === a.count) return a.label.localeCompare(b.label, 'pt-PT');
+    return b.count - a.count;
+  });
 
   return NextResponse.json(
     {
@@ -127,6 +180,7 @@ export async function GET(req: Request) {
       },
       source: 'supabase',
       generatedAt: new Date().toISOString(),
+      types,
     },
     { headers },
   );
