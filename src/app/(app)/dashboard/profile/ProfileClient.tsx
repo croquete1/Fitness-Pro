@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import useSWR from 'swr';
 import {
   Area,
@@ -25,8 +26,11 @@ import {
 import clsx from 'clsx';
 
 import Alert from '@/components/ui/Alert';
+import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import PageHeader from '@/components/ui/PageHeader';
+import FitnessQuestionnaireSummary from '@/components/questionnaire/FitnessQuestionnaireSummary';
+import { normalizeQuestionnaire } from '@/lib/questionnaire';
 import { normalizeUsername, validateUsernameCandidate } from '@/lib/username';
 import type { ProfileDashboardResponse, ProfileHeroMetric, ProfileTimelinePoint } from '@/lib/profile/types';
 
@@ -157,6 +161,33 @@ export default function ProfileClient({
     fallbackData: initialDashboard,
     revalidateOnFocus: false,
   });
+
+  const {
+    data: questionnaireResp,
+    isValidating: questionnaireValidating,
+  } = useSWR('/api/profile/questionnaire', fetcher, { revalidateOnFocus: false });
+
+  const questionnaireRow = questionnaireResp?.ok ? questionnaireResp.data ?? null : null;
+  const questionnaireError = questionnaireResp && !questionnaireResp.ok
+    ? typeof questionnaireResp.error === 'string'
+      ? questionnaireResp.error
+      : 'Não foi possível carregar o questionário.'
+    : null;
+  const questionnaire = React.useMemo(() => normalizeQuestionnaire(questionnaireRow ?? null), [questionnaireRow]);
+  const questionnaireLoading = !questionnaireResp && questionnaireValidating;
+
+  let questionnaireBadgeVariant: 'success' | 'warning' | 'neutral' = 'warning';
+  let questionnaireBadgeLabel = 'Por preencher';
+  if (questionnaire?.status === 'submitted') {
+    questionnaireBadgeVariant = 'success';
+    questionnaireBadgeLabel = 'Submetido';
+  } else if (questionnaire?.status === 'draft') {
+    questionnaireBadgeVariant = 'warning';
+    questionnaireBadgeLabel = 'Em rascunho';
+  } else if (questionnaireError) {
+    questionnaireBadgeVariant = 'neutral';
+    questionnaireBadgeLabel = 'Indisponível';
+  }
 
   const dashboard = data ?? initialDashboard;
   const account = dashboard.account;
@@ -423,6 +454,35 @@ export default function ProfileClient({
             </article>
           ))}
         </div>
+      </section>
+
+      <section className="neo-panel profile-dashboard__questionnaire">
+        <header className="profile-dashboard__questionnaireHeader">
+          <div>
+            <h2>Avaliação física</h2>
+            <p>Resumo das respostas partilhadas com o teu Personal Trainer.</p>
+          </div>
+          <Badge variant={questionnaireBadgeVariant}>{questionnaireBadgeLabel}</Badge>
+        </header>
+
+        {questionnaireLoading ? (
+          <div className="profile-dashboard__questionnaireLoading">
+            <Loader2 className="icon-spin" aria-hidden /> A carregar dados do questionário…
+          </div>
+        ) : questionnaire ? (
+          <FitnessQuestionnaireSummary data={questionnaire} variant="compact" />
+        ) : questionnaireError ? (
+          <Alert tone="danger" className="neo-alert--inline" title={questionnaireError} />
+        ) : (
+          <div className="profile-dashboard__questionnaireEmpty">
+            <p>
+              Ainda não preencheste o questionário obrigatório. Isto ajuda a equipa a personalizar o plano.
+            </p>
+            <Link href="/dashboard/onboarding" className="btn chip">
+              Preencher agora
+            </Link>
+          </div>
+        )}
       </section>
 
       <div className="profile-dashboard__grid">
