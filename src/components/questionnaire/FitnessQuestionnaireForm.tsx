@@ -18,6 +18,8 @@ import {
 
 type Mode = 'client' | 'admin';
 
+type QuestionnaireRowInput = Parameters<typeof buildFormState>[0];
+
 type Props = {
   initial: FitnessQuestionnaireRow | null;
   viewerName?: string | null;
@@ -44,7 +46,7 @@ export default function FitnessQuestionnaireForm({
   const initialState = React.useMemo(() => buildFormState(initial), [initial]);
   const baseline = React.useRef<QuestionnaireFormState>(initialState);
   const [form, setForm] = React.useState<QuestionnaireFormState>(initialState);
-  const [savedRow, setSavedRow] = React.useState<FitnessQuestionnaireRow | null>(initial);
+  const [savedRow, setSavedRow] = React.useState<QuestionnaireRowInput>(initial);
   const [feedback, setFeedback] = React.useState<Feedback>(null);
   const [busy, setBusy] = React.useState(false);
   const [dirty, setDirty] = React.useState(false);
@@ -57,6 +59,7 @@ export default function FitnessQuestionnaireForm({
     setStatus(initial?.status === 'submitted' ? 'submitted' : 'draft');
     setDirty(false);
     setSavedRow(initial);
+    setRecordId(initial?.id ?? null);
   }, [initialState, initial]);
 
   const updateForm = React.useCallback((next: React.SetStateAction<QuestionnaireFormState>) => {
@@ -116,29 +119,24 @@ export default function FitnessQuestionnaireForm({
         schedule: payload.schedule,
         metrics: payload.metrics,
         updated_at: timestamp,
-      } as Partial<FitnessQuestionnaireRow>;
+      } as QuestionnaireRowInput;
 
-      const cleanState = buildFormState(nextRowLike as FitnessQuestionnaireRow);
+      const cleanState = buildFormState(nextRowLike);
       baseline.current = cleanState;
       setForm(cleanState);
       setDirty(false);
       setStatus('submitted');
       if (persistedId) setRecordId(persistedId);
       setSavedRow((prev) => {
-        const base: Partial<FitnessQuestionnaireRow> | null =
-          (prev as Partial<FitnessQuestionnaireRow> | null) ??
-          (initial as Partial<FitnessQuestionnaireRow> | null) ??
-          (mode === 'admin' && targetUserId
-            ? ({ user_id: targetUserId, created_at: timestamp } as Partial<FitnessQuestionnaireRow>)
-            : null);
+        const base: Partial<FitnessQuestionnaireRow> = {
+          ...(prev ?? {}),
+          ...(initial ?? {}),
+        };
 
-        if (!base?.user_id || !persistedId) {
-          return prev;
-        }
-
-        return {
+        const next: Partial<FitnessQuestionnaireRow> = {
           ...base,
-          id: persistedId,
+          ...nextRowLike,
+          id: persistedId ?? base.id,
           status: 'submitted',
           wellbeing_0_to_5: payload.wellbeing_0_to_5,
           objective: payload.objective,
@@ -151,7 +149,13 @@ export default function FitnessQuestionnaireForm({
           metrics: payload.metrics,
           updated_at: timestamp,
           created_at: base.created_at ?? timestamp,
-        } as FitnessQuestionnaireRow;
+        };
+
+        if (!next.user_id && mode === 'admin' && targetUserId) {
+          next.user_id = targetUserId;
+        }
+
+        return next;
       });
 
       setFeedback({
@@ -168,7 +172,12 @@ export default function FitnessQuestionnaireForm({
 
   const statusBadge = status === 'submitted' ? 'success' : 'warning';
   const statusLabel = status === 'submitted' ? 'Submetido' : 'Pendente';
-  const lastUpdate = initial?.updated_at ?? initial?.created_at ?? null;
+  const lastUpdate =
+    savedRow?.updated_at ??
+    savedRow?.created_at ??
+    initial?.updated_at ??
+    initial?.created_at ??
+    null;
   const normalized = React.useMemo(() => normalizeQuestionnaire(savedRow), [savedRow]);
 
   React.useEffect(() => {
