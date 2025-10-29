@@ -64,6 +64,7 @@ export type MessageConversationRow = {
   totalMessages: number;
   inbound: number;
   outbound: number;
+  internal: number;
   lastDirection: MessageDirection;
   lastMessageAt: string | null;
   averageResponseMinutes: number | null;
@@ -99,6 +100,7 @@ export type MessagesDashboardData = {
   totals: {
     inbound: number;
     outbound: number;
+    internal: number;
     replies: number;
     participants: number;
     pendingResponses: number;

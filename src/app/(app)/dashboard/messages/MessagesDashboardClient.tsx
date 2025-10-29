@@ -160,7 +160,7 @@ type DashboardProps = {
   initialData: MessagesDashboardResponse;
 };
 
-type DirectionFilter = 'all' | 'inbound' | 'outbound';
+type DirectionFilter = 'all' | 'inbound' | 'outbound' | 'internal';
 
 type FetchKey = [string, number];
 
@@ -316,6 +316,7 @@ function ConversationsTable({
             <th scope="col">Mensagens</th>
             <th scope="col">Entrantes</th>
             <th scope="col">Respondidas</th>
+            <th scope="col">Internas</th>
             <th scope="col">Canal principal</th>
             <th scope="col">Tempo médio de resposta</th>
             <th scope="col">Pendentes</th>
@@ -333,6 +334,7 @@ function ConversationsTable({
               <td>{formatNumber(conversation.totalMessages)}</td>
               <td>{formatNumber(conversation.inbound)}</td>
               <td>{formatNumber(conversation.outbound)}</td>
+              <td>{formatNumber(conversation.internal)}</td>
               <td>
                 <span className="messages-dashboard__channel" data-channel={conversation.mainChannel}>
                   {conversation.mainChannelLabel}
@@ -372,7 +374,7 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
   });
   const [directionFilter, setDirectionFilter] = React.useState<DirectionFilter>(() => {
     const raw = searchParams?.get('direction');
-    return raw === 'inbound' || raw === 'outbound' ? raw : 'all';
+    return raw === 'inbound' || raw === 'outbound' || raw === 'internal' ? raw : 'all';
   });
   const [search, setSearch] = React.useState(() => searchParams?.get('q') ?? '');
   const updateQueryParams = React.useCallback(
@@ -457,8 +459,8 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
   const normalizedSearch = React.useMemo(() => normalizeSearchTerm(deferredSearch), [deferredSearch]);
   const searchTokens = React.useMemo(() => tokenizeSearchTerm(normalizedSearch), [normalizedSearch]);
   const totalMessages = React.useMemo(
-    () => dashboard.totals.inbound + dashboard.totals.outbound,
-    [dashboard.totals.inbound, dashboard.totals.outbound],
+    () => dashboard.totals.inbound + dashboard.totals.outbound + dashboard.totals.internal,
+    [dashboard.totals.inbound, dashboard.totals.outbound, dashboard.totals.internal],
   );
   const generatedAt = React.useMemo(() => {
     const date = dashboard.generatedAt ? new Date(dashboard.generatedAt) : null;
@@ -483,7 +485,9 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
 
     const rawDirection = searchParams?.get('direction');
     const nextDirection: DirectionFilter =
-      rawDirection === 'inbound' || rawDirection === 'outbound' ? rawDirection : 'all';
+      rawDirection === 'inbound' || rawDirection === 'outbound' || rawDirection === 'internal'
+        ? rawDirection
+        : 'all';
     setDirectionFilter((current) => (current === nextDirection ? current : nextDirection));
 
     const rawSearch = searchParams?.get('q') ?? '';
@@ -561,6 +565,7 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
       .filter(({ conversation, searchIndex }) => {
         if (directionFilter === 'inbound' && conversation.inbound <= 0) return false;
         if (directionFilter === 'outbound' && conversation.outbound <= 0) return false;
+        if (directionFilter === 'internal' && conversation.internal <= 0) return false;
         if (searchTokens.length && !matchesSearchTokens(searchIndex, searchTokens)) return false;
         return true;
       })
@@ -809,6 +814,13 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
                   onClick={() => onDirectionChange('outbound')}
                 >
                   Enviadas
+                </button>
+                <button
+                  type="button"
+                  className={`messages-dashboard__segmentedItem${directionFilter === 'internal' ? ' is-active' : ''}`}
+                  onClick={() => onDirectionChange('internal')}
+                >
+                  Internas
                 </button>
               </div>
               <label className="messages-dashboard__search">
