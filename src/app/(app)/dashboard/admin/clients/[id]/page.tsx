@@ -7,6 +7,7 @@ import Card, { CardContent } from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import DataSourceBadge from '@/components/ui/DataSourceBadge';
 import FitnessQuestionnaireForm from '@/components/questionnaire/FitnessQuestionnaireForm';
+import QuestionnaireNotesPanel from '@/components/questionnaire/QuestionnaireNotesPanel';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole } from '@/lib/roles';
 import { createServerClient } from '@/lib/supabaseServer';
@@ -34,6 +35,7 @@ export default async function ClientProfile({ params }: { params: { id: string }
     .maybeSingle();
 
   const viewerName = session?.name ?? session?.user?.name ?? null;
+  const questionnaireId = questionnaire?.id ?? null;
 
   const sourceTimestamp = c.updated_at ?? c.created_at ?? null;
 
@@ -76,6 +78,11 @@ export default async function ClientProfile({ params }: { params: { id: string }
         targetUserId={id}
         viewerName={viewerName}
       />
+      <Card>
+        <CardContent>
+          <QuestionnaireNotesPanel questionnaireId={questionnaireId} viewerRole="ADMIN" />
+        </CardContent>
+      </Card>
     </div>
   );
 }

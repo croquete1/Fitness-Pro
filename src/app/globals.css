@@ -15606,6 +15606,38 @@ a.neo-sidebar__highlight {
 .questionnaire-summary__notes{ background:var(--neo-bg-muted); border-radius:.75rem; padding:.75rem; font-size:.9rem; }
 .questionnaire-summary--compact{ gap:1rem; }
 .questionnaire-summary--compact .questionnaire-summary__section dl{ grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); }
+.questionnaire-notes{display:grid;gap:var(--neo-space-4);}
+.questionnaire-notes__header{display:flex;flex-direction:column;gap:var(--neo-space-2);align-items:flex-start;}
+@media (min-width:640px){.questionnaire-notes__header{flex-direction:row;align-items:center;justify-content:space-between;}}
+.questionnaire-notes__title{display:flex;flex-direction:column;gap:var(--neo-space-1);max-width:640px;}
+.questionnaire-notes__title h3{font-size:1.05rem;font-weight:600;}
+.questionnaire-notes__title p{font-size:.9rem;color:var(--neo-text-muted);}
+.questionnaire-notes__form{display:grid;gap:var(--neo-space-3);}
+.questionnaire-notes__field{display:flex;flex-direction:column;gap:var(--neo-space-1);}
+.questionnaire-notes__label{font-size:.85rem;font-weight:600;color:var(--muted-strong);}
+.questionnaire-notes__formActions{display:flex;flex-direction:column;gap:var(--neo-space-3);align-items:flex-start;}
+@media (min-width:640px){.questionnaire-notes__formActions{flex-direction:row;align-items:center;justify-content:space-between;}}
+.questionnaire-notes__visibility{display:flex;flex-wrap:wrap;gap:var(--neo-space-2);}
+.questionnaire-notes__visibilityButton{display:inline-flex;align-items:center;gap:.35rem;padding:.5rem 1rem;border-radius:999px;border:1px solid var(--neo-border-subtle);background:var(--neo-surface-subtle);font-size:.85rem;font-weight:600;color:var(--muted-strong);transition:all .18s ease;}
+.questionnaire-notes__visibilityButton svg{width:16px;height:16px;}
+.questionnaire-notes__visibilityButton[data-active]{background:color-mix(in srgb,var(--neo-primary) 18%,transparent);border-color:color-mix(in srgb,var(--neo-primary) 35%,transparent);color:var(--neo-primary-strong);box-shadow:0 10px 24px rgba(59,130,246,0.18);}
+.questionnaire-notes__error{color:var(--neo-text-danger);font-size:.85rem;}
+.questionnaire-notes__toolbar{display:flex;flex-direction:column;gap:var(--neo-space-2);}
+@media (min-width:640px){.questionnaire-notes__toolbar{flex-direction:row;align-items:center;justify-content:space-between;}}
+.questionnaire-notes__filters{display:flex;flex-wrap:wrap;gap:var(--neo-space-2);}
+.questionnaire-notes__filter{display:inline-flex;align-items:center;gap:.25rem;padding:.4rem .85rem;border-radius:999px;border:1px solid transparent;background:var(--neo-surface-subtle);font-size:.8rem;font-weight:600;color:var(--muted-strong);transition:all .18s ease;}
+.questionnaire-notes__filter[data-active]{background:color-mix(in srgb,var(--neo-primary) 16%,transparent);border-color:color-mix(in srgb,var(--neo-primary) 32%,transparent);color:var(--neo-primary-strong);box-shadow:0 10px 20px rgba(59,130,246,0.16);}
+.questionnaire-notes__loading,.questionnaire-notes__empty{display:flex;align-items:center;gap:.5rem;font-size:.85rem;color:var(--muted-strong);}
+.questionnaire-notes__spinner{width:16px;height:16px;animation:spin 1s linear infinite;}
+.questionnaire-notes__list{display:flex;flex-direction:column;gap:var(--neo-space-3);}
+.questionnaire-notes__item{display:grid;gap:var(--neo-space-2);padding:var(--neo-space-3);border-radius:var(--neo-radius-lg);border:1px solid color-mix(in srgb,var(--neo-border-strong) 26%,transparent);background:var(--neo-surface-subtle);box-shadow:0 10px 24px rgba(15,23,42,0.08);}
+.questionnaire-notes__itemHeader{display:flex;flex-direction:column;gap:.35rem;align-items:flex-start;justify-content:space-between;}
+@media (min-width:640px){.questionnaire-notes__itemHeader{flex-direction:row;align-items:center;}}
+.questionnaire-notes__itemMeta{display:flex;flex-direction:column;gap:.25rem;}
+.questionnaire-notes__author{font-weight:600;font-size:.95rem;}
+.questionnaire-notes__timestamp{font-size:.8rem;color:var(--neo-text-muted);}
+.questionnaire-notes__body{white-space:pre-wrap;line-height:1.45;color:var(--muted-strong);font-size:.95rem;}
+@keyframes spin{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}
 .client-admin__headerMeta{ display:flex; flex-wrap:wrap; align-items:center; gap:.5rem; }
 .client-admin__meta{ --neo-grid-gap:12px; --neo-grid-min:220px; }
 .client-admin__meta>div{
