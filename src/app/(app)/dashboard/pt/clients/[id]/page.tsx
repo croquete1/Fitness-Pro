@@ -9,6 +9,7 @@ import PageHeader from '@/components/ui/PageHeader';
 import Card, { CardContent } from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import FitnessQuestionnaireSummary from '@/components/questionnaire/FitnessQuestionnaireSummary';
+import QuestionnaireNotesPanel from '@/components/questionnaire/QuestionnaireNotesPanel';
 import { normalizeQuestionnaire } from '@/lib/questionnaire';
 
 type TrainingPlanSummary = {
@@ -152,6 +153,8 @@ export default async function PTClientDetailPage({ params }: { params: Promise<{
     .maybeSingle();
 
   const questionnaire = normalizeQuestionnaire(questionnaireRow ?? null);
+  const questionnaireId = questionnaireRow?.id ?? null;
+  const viewerRole = role === 'ADMIN' ? 'ADMIN' : 'PT';
 
   // 6) UI derivada do cliente
   const ui = {
@@ -202,6 +205,12 @@ export default async function PTClientDetailPage({ params }: { params: Promise<{
           ) : (
             <p className="text-sm opacity-70">Sem questionário submetido.</p>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <QuestionnaireNotesPanel questionnaireId={questionnaireId} viewerRole={viewerRole} />
         </CardContent>
       </Card>
 
