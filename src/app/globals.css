@@ -4296,6 +4296,14 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
   font-size:13px;
   color:var(--muted-fg);
 }
+.profile-completion__favourite{
+  margin:0;
+  font-size:13px;
+  color:var(--muted-fg);
+}
+.profile-completion__favourite strong{
+  color:var(--fg);
+}
 
 .profile-summary__notifications{
   display:flex;

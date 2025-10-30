@@ -176,7 +176,18 @@ function pickFavouriteTrainer(sessions: ClientSession[]): string | null {
     }
   });
 
-  return favourite?.name ?? favourite?.count ? `Treinador(a) preferido(a)` : null;
+  if (!favourite || favourite.count <= 0) {
+    return null;
+  }
+
+  if (typeof favourite.name === 'string') {
+    const trimmed = favourite.name.trim();
+    if (trimmed.length > 0) {
+      return trimmed;
+    }
+  }
+
+  return 'o teu Personal Trainer preferido';
 }
 
 function buildHeroMetrics(
@@ -270,6 +281,16 @@ function buildHighlights(
       title: 'Completa o teu perfil',
       description: `Faltam ${completion.missing.length} detalhes para chegares a 100%.`,
       tone: 'info',
+    });
+  }
+
+  if (sessionsSnapshot.favouriteTrainer) {
+    const favouriteName = sessionsSnapshot.favouriteTrainer;
+    highlights.push({
+      id: 'favourite-trainer',
+      title: 'PT de confiança',
+      description: `Manténs uma cadência consistente com ${favouriteName}.`,
+      tone: 'success',
     });
   }
 
