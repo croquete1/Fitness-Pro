@@ -15,6 +15,7 @@ const NOTIFICATION_TABLES = ['notifications', 'admin_notifications'];
 const HISTORY_TABLES = ['plan_history', 'plan_events'];
 const ASSIGNMENT_TABLES = ['plan_assignments', 'plan_clients'];
 const PLAN_TABLES = ['training_plans', 'plans', 'programs'];
+const PLAN_TRAINER_CACHE = new Map<string, string | null>();
 
 function normalizeDate(value?: Date | string | null) {
   if (!value) return new Date().toISOString();
@@ -58,14 +59,79 @@ async function tryUpdate(table: string, id: string, payload: Record<string, any>
   }
 }
 
+async function resolvePlanTrainerId(planId: string): Promise<string | null> {
+  if (PLAN_TRAINER_CACHE.has(planId)) {
+    return PLAN_TRAINER_CACHE.get(planId) ?? null;
+  }
+
+  const sb = tryCreateServerClient();
+  if (!sb) return null;
+
+  const sources: Array<{ table: string; column: string }> = [
+    { table: 'training_plans', column: 'id' },
+    { table: 'plans', column: 'id' },
+    { table: 'programs', column: 'id' },
+    { table: 'plan_assignments', column: 'plan_id' },
+    { table: 'plan_assignments', column: 'planId' },
+    { table: 'plan_clients', column: 'plan_id' },
+    { table: 'plan_clients', column: 'planId' },
+  ];
+
+  for (const source of sources) {
+    try {
+      const res = await sb
+        .from(source.table)
+        .select('*')
+        .eq(source.column, planId)
+        .maybeSingle();
+
+      if (res.error) {
+        const code = res.error.code ?? '';
+        if (code === 'PGRST205' || code === 'PGRST301' || code === '42703') continue;
+        continue;
+      }
+
+      const row = res.data;
+      if (!row) continue;
+
+      const trainerRelation = Array.isArray(row.trainer)
+        ? row.trainer[0]
+        : typeof row.trainer === 'object'
+          ? row.trainer
+          : null;
+      const trainer =
+        row.trainer_id ??
+        row.trainerId ??
+        (trainerRelation && typeof trainerRelation === 'object' && 'id' in trainerRelation
+          ? (trainerRelation as any).id
+          : null);
+
+      if (trainer) {
+        const normalized = String(trainer);
+        PLAN_TRAINER_CACHE.set(planId, normalized);
+        return normalized;
+      }
+    } catch (error: any) {
+      const code = error?.code ?? error?.message ?? '';
+      if (code.includes('PGRST205') || code.includes('PGRST301') || code.includes('42703')) {
+        continue;
+      }
+    }
+  }
+
+  PLAN_TRAINER_CACHE.set(planId, null);
+  return null;
+}
+
 export async function writeEvent(data: EventInput) {
+  const trainerId = data.trainerId ?? (data.planId ? await resolvePlanTrainerId(data.planId) : null);
   const createdAt = normalizeDate(data.createdAt);
   const payload = {
     type: data.type,
-    actor_id: data.actorId ?? data.trainerId ?? null,
-    actorId: data.actorId ?? data.trainerId ?? null,
+    actor_id: data.actorId ?? trainerId ?? null,
+    actorId: data.actorId ?? trainerId ?? null,
     user_id: data.userId ?? null,
-    trainer_id: data.trainerId ?? null,
+    trainer_id: trainerId ?? null,
     plan_id: data.planId ?? null,
     meta: data.meta ?? null,
     created_at: createdAt,
@@ -77,7 +143,7 @@ export async function writeEvent(data: EventInput) {
   }
 
   const notifPayload = {
-    user_id: data.trainerId ?? data.userId ?? null,
+    user_id: trainerId ?? data.userId ?? null,
     title: 'Atualização de plano',
     body: data.type.replace('PLAN_', '').replace('_', ' '),
     read: false,
@@ -188,6 +254,8 @@ export async function upsertPlanAssignment(opts: { planId: string; clientId?: st
     trainer_id: opts.trainerId ?? null,
     trainerId: opts.trainerId ?? null,
   };
+
+  PLAN_TRAINER_CACHE.set(opts.planId, opts.trainerId ?? null);
 
   for (const table of ASSIGNMENT_TABLES) {
     try {
