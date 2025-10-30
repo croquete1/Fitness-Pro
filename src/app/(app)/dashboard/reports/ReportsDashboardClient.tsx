@@ -37,6 +37,8 @@ const fullDateFormatter = new Intl.DateTimeFormat("pt-PT", {
   year: "numeric",
 });
 
+const DAY_MS = 86_400_000;
+
 function safeDate(value: string | null | undefined): Date | null {
   if (!value) return null;
   const date = new Date(value);
@@ -73,7 +75,7 @@ function formatPercentage(value: number, fractionDigits = 1) {
 
 function differenceInDays(later: Date, earlier: Date) {
   const diffMs = later.getTime() - earlier.getTime();
-  return Math.round(diffMs / 86_400_000);
+  return Math.round(diffMs / DAY_MS);
 }
 
 function formatRelative(target: Date | null, base: Date) {
@@ -158,6 +160,18 @@ export default function ReportsDashboardClient({ data, supabase, viewerName }: P
   const [explicitClientId, setExplicitClientId] = React.useState<string | null>(null);
 
   const generatedAt = React.useMemo(() => safeDate(data.meta.generatedAt) ?? new Date(), [data.meta.generatedAt]);
+
+  React.useEffect(() => {
+    if (focusTrainer === "all") return;
+    if (data.meta.trainers.some((trainer) => trainer.id === focusTrainer)) return;
+    setFocusTrainer("all");
+  }, [data.meta.trainers, focusTrainer]);
+
+  React.useEffect(() => {
+    if (focusClient === "all") return;
+    if (data.meta.clients.some((client) => client.id === focusClient)) return;
+    setFocusClient("all");
+  }, [data.meta.clients, focusClient]);
 
   const [rangeStart, rangeEnd] = React.useMemo(() => {
     const days = Number(period) || 90;
@@ -252,10 +266,23 @@ export default function ReportsDashboardClient({ data, supabase, viewerName }: P
       const current = aggregate.get(key) ?? { total: 0, date };
       aggregate.set(key, { total: current.total + entry.amount, date: current.date });
     });
-    return Array.from(aggregate.values())
-      .sort((a, b) => a.date.getTime() - b.date.getTime())
-      .map((item) => ({ name: dayFormatter.format(item.date), value: Math.round(item.total) }));
-  }, [filteredFinancialEntries]);
+
+    const series: DataPoint[] = [];
+    const startMs = rangeStart.getTime();
+    const endMs = rangeEnd.getTime();
+
+    for (let current = startMs; current <= endMs; current += DAY_MS) {
+      const date = new Date(current);
+      const key = date.toISOString().slice(0, 10);
+      const bucket = aggregate.get(key);
+      series.push({
+        name: dayFormatter.format(date),
+        value: bucket ? Math.round(bucket.total) : 0,
+      });
+    }
+
+    return series;
+  }, [filteredFinancialEntries, rangeEnd, rangeStart]);
 
   const sessionStats = React.useMemo(() => {
     const counts: Record<SessionKind, number> = { completed: 0, cancelled: 0, upcoming: 0 };
@@ -751,7 +778,11 @@ export default function ReportsDashboardClient({ data, supabase, viewerName }: P
               </div>
               <div>
                 <dt>Duração média</dt>
-                <dd>{sessionStats.averageDuration ? `${formatNumber(sessionStats.averageDuration, 1)} min` : "—"}</dd>
+                <dd>
+                  {sessionStats.averageDuration != null
+                    ? `${formatNumber(sessionStats.averageDuration, 1)} min`
+                    : "—"}
+                </dd>
               </div>
               <div>
                 <dt>Clientes acompanhados</dt>

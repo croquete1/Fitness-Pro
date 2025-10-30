@@ -192,6 +192,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
     `src/components/dashboard/AdminHome.tsx`.
 - [x] Completar o fluxo operacional do PT (clientes, planos, agenda e biblioteca) com dados reais e interacções consistentes (carteira de clientes alimentada por `trainer_clients`, planos e sessões reais expostos no cockpit).
 - [x] Permitir que o PT informe o cliente ao guardar alterações no plano com validação de mensagem, bloqueio quando não existe cliente atribuído e feedback de limite de caracteres no formulário. Fontes: `src/components/plan/PlanForm.tsx`, `src/app/api/sb/plan/[id]/route.ts`.
+  - 2025-11-14: Corrigimos a consulta de validação ao recuperar um plano do Supabase, garantindo que os metadados completos (`title`, `status`, `trainer_id`) chegam ao handler e evitando que a API falhe em tempo de execução.
   - 2025-11-18: Suportámos notificações isoladas sem alterar metadados do plano e travámos submissões vazias no formulário, assegurando que o PT só grava quando existe alteração ou comunicação para o cliente.
   - 2025-11-19: Refinámos o formulário do plano para validar respostas mal formatadas do backend, expor contadores acessíveis e higienizar o identificador do cliente antes de enviar notificações.
 - [x] Corrigir a agenda do PT ao recuar automaticamente para uma página válida quando filtros reduzem a amostra e anunciar estados de carregamento com mais acessibilidade. Fonte: `src/app/(app)/dashboard/pt/schedule/TrainerScheduleClient.tsx`.
@@ -265,6 +266,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 ## Fase 3 - Funcionalidades Futuras
 - [x] Finalizar módulo de facturação/pagamentos (UI `.neo` ligada à tabela `billing_invoices`, API `/api/billing/dashboard` e fallbacks determinísticos prontos para integração com gateway).
 - [ ] Implementar relatórios avançados (financeiros, progresso do cliente, desempenho de PTs) — visão inicial entregue com métricas reais e ranking de treinadores; expandir para previsões e benchmarking.
+  - 2025-11-14: Consolidação da linha de receita com preenchimento diário (incluindo dias sem movimento) e normalização automática dos filtros de treinador/cliente para evitar vistas vazias quando dados mudam; também corrigimos a apresentação da duração média ao aceitar valores nulos.
 - [ ] Evoluir sistema de mensagens/notificações para suporte a envio em tempo real e threads.
 - [ ] Completar gestão da biblioteca de exercícios com CRUD e selector avançado.
   - 2025-10-30: Reativámos a pesquisa do selector no PlanEditor com API autenticada e fallback determinístico, sinalizando a origem dos dados e tratando estados de erro/aviso diretamente no fluxo de criação de planos.
