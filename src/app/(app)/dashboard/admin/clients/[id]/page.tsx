@@ -12,8 +12,8 @@ import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole } from '@/lib/roles';
 import { createServerClient } from '@/lib/supabaseServer';
 
-export default async function ClientProfile({ params }: { params: { id: string } }) {
-  const { id } = params;
+export default async function ClientProfile({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSessionUserSafe();
   const viewer = (session as any)?.user;
   if (!viewer?.id) redirect('/login' as Route);
