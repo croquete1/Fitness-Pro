@@ -260,6 +260,9 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [ ] Implementar relatórios avançados (financeiros, progresso do cliente, desempenho de PTs) — visão inicial entregue com métricas reais e ranking de treinadores; expandir para previsões e benchmarking.
 - [ ] Evoluir sistema de mensagens/notificações para suporte a envio em tempo real e threads.
 - [ ] Completar gestão da biblioteca de exercícios com CRUD e selector avançado.
+  - 2025-10-30: Reativámos a pesquisa do selector no PlanEditor com API autenticada e fallback determinístico, sinalizando a origem dos dados e tratando estados de erro/aviso diretamente no fluxo de criação de planos.
+  - 2025-10-31: Corrigimos a duplicação inadvertida de exercícios no PlanEditor, limpámos a pesquisa após adições e garantimos que o selector respeita a remoção de PT/cliente ao preparar novos planos.
+  - 2025-11-01: Normalizámos a preparação dos exercícios do plano, garantindo séries/repetições válidas, sincronização do estado inicial e resposta da API `/api/exercises` com cabeçalhos de cache adequados e pedidos concorrentes optimizados.
 - [ ] Introduzir um planeador de sessões/agenda com sincronização externa (Google/Apple) e insights de disponibilidade.
 - [ ] Avaliar experiências mobile (PWA/app) e integração com calendários externos.
 - [ ] Planear integrações futuras (wearables, pagamentos adicionais, gamificação) conforme feedback de utilizadores.
