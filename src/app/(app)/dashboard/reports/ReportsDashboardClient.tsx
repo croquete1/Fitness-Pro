@@ -116,6 +116,17 @@ function downloadCSV(rows: string[][], filename: string) {
   URL.revokeObjectURL(url);
 }
 
+function sanitizeFilename(label: string) {
+  let normalized = label.normalize("NFD");
+  try {
+    normalized = normalized.replace(/\p{Diacritic}/gu, "");
+  } catch {
+    normalized = normalized.replace(/[\u0300-\u036f]/g, "");
+  }
+  normalized = normalized.replace(/[^\w.-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+  return normalized.toLowerCase();
+}
+
 function calcDelta(current: number, previous: number | null | undefined) {
   if (previous == null || previous === 0) return null;
   const delta = ((current - previous) / previous) * 100;
@@ -144,6 +155,7 @@ export default function ReportsDashboardClient({ data, supabase, viewerName }: P
   const [period, setPeriod] = React.useState<string>(PERIOD_OPTIONS[1].value);
   const [focusTrainer, setFocusTrainer] = React.useState<string>("all");
   const [focusClient, setFocusClient] = React.useState<string>("all");
+  const [explicitClientId, setExplicitClientId] = React.useState<string | null>(null);
 
   const generatedAt = React.useMemo(() => safeDate(data.meta.generatedAt) ?? new Date(), [data.meta.generatedAt]);
 
@@ -226,6 +238,8 @@ export default function ReportsDashboardClient({ data, supabase, viewerName }: P
     () => filteredFinancialEntries.reduce((acc, entry) => acc + entry.amount, 0),
     [filteredFinancialEntries],
   );
+
+  const canExportFinancials = filteredFinancialEntries.length > 0;
 
   const revenueDelta = React.useMemo(() => calcDelta(revenueTotal, previousFinancialTotal), [revenueTotal, previousFinancialTotal]);
 
@@ -345,7 +359,9 @@ export default function ReportsDashboardClient({ data, supabase, viewerName }: P
     filteredSessions.forEach((session) => {
       const bucket = ensureTrainer(session);
       bucket.total += 1;
-      bucket.clients.add(session.clientId ?? "");
+      if (session.clientId) {
+        bucket.clients.add(session.clientId);
+      }
       const kind = sessionKind(session.status);
       bucket[kind] += 1;
       if (session.durationMin != null && Number.isFinite(Number(session.durationMin))) {
@@ -457,13 +473,34 @@ export default function ReportsDashboardClient({ data, supabase, viewerName }: P
     measurementByClient,
   ]);
 
+  React.useEffect(() => {
+    if (focusClient !== "all" && focusClient) {
+      setExplicitClientId(focusClient);
+      return;
+    }
+    if (explicitClientId && clientSummaries.every((client) => client.id !== explicitClientId)) {
+      setExplicitClientId(null);
+    }
+  }, [clientSummaries, explicitClientId, focusClient]);
+
   const selectedClientId = React.useMemo(() => {
+    if (explicitClientId) return explicitClientId;
     if (focusClient !== "all" && focusClient) return focusClient;
     if (clientSummaries.length > 0) return clientSummaries[0].id;
     if (data.meta.clients.length > 0) return data.meta.clients[0].id;
     if (data.measurements.length > 0) return data.measurements[0].userId;
     return null;
-  }, [clientSummaries, data.meta.clients, data.measurements, focusClient]);
+  }, [
+    clientSummaries,
+    data.measurements,
+    data.meta.clients,
+    explicitClientId,
+    focusClient,
+  ]);
+
+  const handleClientSelect = React.useCallback((clientId: string) => {
+    setExplicitClientId((current) => (current === clientId ? null : clientId));
+  }, []);
 
   const measurementSeries = React.useMemo<DataPoint[]>(() => {
     if (!selectedClientId) return [];
@@ -567,9 +604,10 @@ export default function ReportsDashboardClient({ data, supabase, viewerName }: P
         entry.description ?? "—",
       ]);
     });
-    const safeLabel = periodLabel.replace(/[\s–—]+/g, "-").replace(/-+/g, "-");
+    if (!canExportFinancials) return;
+    const safeLabel = sanitizeFilename(periodLabel) || "periodo";
     downloadCSV(rows, `relatorio-financeiro-${safeLabel}.csv`);
-  }, [currency, filteredFinancialEntries, periodLabel]);
+  }, [canExportFinancials, currency, filteredFinancialEntries, periodLabel]);
 
   return (
     <div className="reports-dashboard">
@@ -673,7 +711,7 @@ export default function ReportsDashboardClient({ data, supabase, viewerName }: P
                   Evolução diária das entradas financeiras para o período seleccionado.
                 </p>
               </div>
-              <Button variant="secondary" onClick={handleExport}>
+              <Button variant="secondary" onClick={handleExport} disabled={!canExportFinancials}>
                 Exportar CSV
               </Button>
             </header>
@@ -789,8 +827,18 @@ export default function ReportsDashboardClient({ data, supabase, viewerName }: P
                     clientSummaries.map((client) => {
                       const lastDate = safeDate(client.lastMeasurement);
                       return (
-                        <tr key={client.id}>
-                          <td>{client.name}</td>
+                        <tr key={client.id} data-selected={selectedClientId === client.id || undefined}>
+                          <td>
+                            <button
+                              type="button"
+                              className="reports-dashboard__clientButton"
+                              data-selected={selectedClientId === client.id || undefined}
+                              aria-pressed={selectedClientId === client.id}
+                              onClick={() => handleClientSelect(client.id)}
+                            >
+                              {client.name}
+                            </button>
+                          </td>
                           <td>{formatCurrency(client.revenue, currency)}</td>
                           <td>{formatCurrency(client.outstanding, currency)}</td>
                           <td>

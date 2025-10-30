@@ -159,6 +159,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
   - 2025-04-19: Painel admin destaca a origem dos dados (vista materializada vs. fallback), normaliza janelas UTC e reforça logs.
   - 2025-04-20: Ranking de PTs passa a consumir função RPC dedicada com nomes higienizados e ordenação determinística.
 - [x] Polir UX/UI das páginas em construção (Relatórios, Definições e Biblioteca adoptaram o tema `.neo` com métricas reais e responsividade reforçada).
+  - 2025-11-17: Tornámos o painel de relatórios interactivo com selecção directa de clientes, exportação CSV higienizada e contagem precisa de clientes únicos no ranking de PTs. Fontes: `src/app/(app)/dashboard/reports/ReportsDashboardClient.tsx`, `src/app/globals.css`.
 - [x] Sincronizar filtros, pesquisa e paginação da consola de planos com a barra de endereço, preservando partilhas/exportações e alinhando o estado com o painel `.neo`. Fontes: `src/app/(app)/dashboard/admin/plans/PlansClient.tsx`.
 - [x] Reforçar o formulário de definições com validação de nome/telefone e mensagens de erro descritivas nas actualizações de credenciais.
 - [x] Validar credenciais nas definições com pré-validação de email, reforço de requisitos de palavra-passe e normalização do contacto telefónico.
