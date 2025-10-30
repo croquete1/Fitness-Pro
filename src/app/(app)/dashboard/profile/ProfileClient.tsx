@@ -314,8 +314,29 @@ export default function ProfileClient({
   const [relativeNow, setRelativeNow] = React.useState(() => Date.now());
   React.useEffect(() => {
     if (typeof window === 'undefined') return undefined;
-    const interval = window.setInterval(() => setRelativeNow(Date.now()), 60000);
-    return () => window.clearInterval(interval);
+
+    const updateNow = () => setRelativeNow(Date.now());
+    const handleVisibility = () => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        updateNow();
+      }
+    };
+
+    updateNow();
+
+    const interval = window.setInterval(updateNow, 60000);
+    window.addEventListener('focus', updateNow);
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibility);
+    }
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', updateNow);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibility);
+      }
+    };
   }, []);
 
   let questionnaireBadgeVariant: 'success' | 'warning' | 'neutral' = 'warning';
@@ -491,6 +512,13 @@ export default function ProfileClient({
     if (messages.size > 0) {
       setRefreshStatus({ type: 'error', message: Array.from(messages).join(' ') });
       return;
+    }
+
+    if (
+      dashboardResult.status === 'fulfilled' ||
+      (questionnaireResult.status === 'fulfilled' && questionnaireResult.value?.ok)
+    ) {
+      setRelativeNow(Date.now());
     }
 
     setRefreshStatus({ type: 'success', message: 'Dados sincronizados com sucesso.' });
