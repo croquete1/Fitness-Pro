@@ -62,6 +62,13 @@ export default function PlanForm({
     }
   }, [allowNotification]);
 
+  useEffect(() => {
+    if (!allowNotification) {
+      setNotifyClient(false);
+      setNotifyMessage('');
+    }
+  }, [allowNotification]);
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSubmit || loading) return;

@@ -68,6 +68,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
     .from('training_plans')
     .select('id, title, status, trainer_id, client_id')
     .eq('id', id)
+    .select('client_id')
     .maybeSingle();
 
   if (planError) {
