@@ -145,6 +145,19 @@ const FALLBACK_ROWS: NotificationRow[] = [
   },
 ];
 
+function sortByCreatedDesc(rows: NotificationRow[]): NotificationRow[] {
+  return rows
+    .slice()
+    .sort((a, b) => {
+      const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+      if (bTime === aTime) {
+        return (a.id ?? '').localeCompare(b.id ?? '', 'pt-PT');
+      }
+      return bTime - aTime;
+    });
+}
+
 function toSnapshot(rows: NotificationRow[]): NotificationSnapshot[] {
   return rows.map((row) => ({
     read: row.read,
@@ -154,23 +167,24 @@ function toSnapshot(rows: NotificationRow[]): NotificationSnapshot[] {
 }
 
 export function getNotificationsDashboardFallback(): NotificationDashboardData {
-  const snapshots = toSnapshot(FALLBACK_ROWS);
-  const unread = FALLBACK_ROWS.filter((row) => !row.read).length;
+  const sortedRows = sortByCreatedDesc(FALLBACK_ROWS);
+  const snapshots = toSnapshot(sortedRows);
+  const unread = sortedRows.filter((row) => !row.read).length;
   const metrics = buildNotificationDashboardMetrics(snapshots, {
-    total: FALLBACK_ROWS.length,
+    total: sortedRows.length,
     unread,
-    lastDeliveryAt: FALLBACK_ROWS[0]?.created_at ?? null,
+    lastDeliveryAt: sortedRows[0]?.created_at ?? null,
     supabase: false,
   });
 
-  const initialRows = FALLBACK_ROWS.slice(0, 40).map((row) => ({
+  const initialRows = sortedRows.slice(0, 40).map((row) => ({
     ...row,
     type: describeType(row.type).key,
   }));
 
   return {
     initialRows,
-    initialTotal: FALLBACK_ROWS.length,
+    initialTotal: sortedRows.length,
     metrics,
   };
 }
@@ -187,7 +201,7 @@ export function getNotificationsListFallback(params: ListFallbackParams) {
   const typeKey = params.type?.trim().toLowerCase();
   const search = params.search?.trim().toLowerCase();
 
-  let dataset = FALLBACK_ROWS.slice();
+  let dataset = sortByCreatedDesc(FALLBACK_ROWS);
   if (search) {
     dataset = dataset.filter((row) => {
       const haystack = `${row.title ?? ''} ${row.body ?? ''}`.toLowerCase();
@@ -239,7 +253,7 @@ export function getNotificationsListFallback(params: ListFallbackParams) {
     })),
     total,
     counts,
-    generatedAt: FALLBACK_ROWS[0]?.created_at ?? new Date().toISOString(),
+    generatedAt: dataset[0]?.created_at ?? new Date().toISOString(),
     types: Array.from(typeSummaryMap.values())
       .sort((a, b) => {
         if (b.count === a.count) return a.label.localeCompare(b.label, 'pt-PT');

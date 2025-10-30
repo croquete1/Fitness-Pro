@@ -30,7 +30,7 @@ export default async function Page() {
     const [initial, windowed, unread] = await Promise.all([
       sb
         .from('notifications')
-        .select('id,title,body,href,read,type,created_at', { count: 'exact' })
+        .select('id,title,body,href,metadata,read,type,created_at', { count: 'exact' })
         .eq('user_id', id)
         .order('created_at', { ascending: false })
         .limit(40),
@@ -58,15 +58,21 @@ export default async function Page() {
       return <NotificationsClient {...fallback} />;
     }
 
-    const initialRows: NotificationRow[] = (initial.data ?? []).map((n: any) => ({
-      id: n.id,
-      title: n.title ?? null,
-      body: n.body ?? null,
-      href: n.href ?? null,
-      read: !!n.read,
-      type: describeType(n.type ?? null).key,
-      created_at: n.created_at ?? null,
-    }));
+    const initialRows: NotificationRow[] = (initial.data ?? []).map((n: any) => {
+      const meta = n?.metadata && typeof n.metadata === 'object' ? (n.metadata as Record<string, unknown>) : null;
+      const href = typeof n?.href === 'string' && n.href.trim() ? n.href.trim() : null;
+      const metaHref =
+        meta && typeof meta.href === 'string' && meta.href.trim() ? (meta.href as string).trim() : null;
+      return {
+        id: n.id,
+        title: n.title ?? null,
+        body: n.body ?? null,
+        href: href ?? metaHref,
+        read: !!n.read,
+        type: describeType(n.type ?? null).key,
+        created_at: n.created_at ?? null,
+      };
+    });
 
     const snapshots: NotificationSnapshot[] = (windowed.data ?? []).map((n: any) => ({
       read: !!n.read,

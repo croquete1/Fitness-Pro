@@ -214,6 +214,7 @@ export type Database = {
           user_id: string | null;
           title: string;
           body: string;
+          href: string | null;
           type: string;
           read: boolean;
           metadata: Json;
@@ -225,6 +226,7 @@ export type Database = {
           user_id?: string | null;
           title?: string;
           body?: string;
+          href?: string | null;
           type?: string;
           read?: boolean;
           metadata?: Json;
@@ -236,6 +238,7 @@ export type Database = {
           user_id?: string | null;
           title?: string;
           body?: string;
+          href?: string | null;
           type?: string;
           read?: boolean;
           metadata?: Json;

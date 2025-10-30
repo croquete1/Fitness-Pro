@@ -70,9 +70,9 @@ export async function GET(req: Request) {
   };
 
   let q = applyFilters(
-    sb
-      .from('notifications')
-      .select('id,title,body,href,read,type,created_at', { count: 'exact' })
+      sb
+        .from('notifications')
+        .select('id,title,body,href,metadata,read,type,created_at', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(from, to),
   );
@@ -93,15 +93,21 @@ export async function GET(req: Request) {
     );
   }
 
-  const items: NotificationRow[] = (data ?? []).map((n: any) => ({
-    id: n.id as string,
-    title: (n.title ?? null) as string | null,
-    body: (n.body ?? null) as string | null,
-    href: (n.href ?? null) as string | null,
-    read: !!n.read,
-    type: describeType(n.type ?? null).key,
-    created_at: (n.created_at ?? null) as string | null,
-  }));
+  const items: NotificationRow[] = (data ?? []).map((n: any) => {
+    const meta = n?.metadata && typeof n.metadata === 'object' ? (n.metadata as Record<string, unknown>) : null;
+    const href = typeof n?.href === 'string' && n.href.trim() ? n.href.trim() : null;
+    const metaHref =
+      meta && typeof meta.href === 'string' && meta.href.trim() ? (meta.href as string).trim() : null;
+    return {
+      id: n.id as string,
+      title: (n.title ?? null) as string | null,
+      body: (n.body ?? null) as string | null,
+      href: (href ?? metaHref) as string | null,
+      read: !!n.read,
+      type: describeType(n.type ?? null).key,
+      created_at: (n.created_at ?? null) as string | null,
+    };
+  });
 
   const baseCountQuery = () =>
     applyFilters(
