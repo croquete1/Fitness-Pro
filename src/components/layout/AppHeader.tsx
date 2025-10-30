@@ -29,6 +29,7 @@ import type { NavigationSummary } from '@/lib/navigation/types';
 import { signOut } from 'next-auth/react';
 import { formatRelativeTime } from '@/lib/datetime/relative';
 import { useToast } from '@/components/ui/ToastProvider';
+import { useAlerts } from '@/hooks/useAlerts';
 
 const METRIC_CARD_LIMIT = 3;
 
@@ -60,6 +61,8 @@ export default function AppHeader({
   const { openMobile } = useSidebar();
   const headerCounts = useHeaderCounts();
   const toast = useToast();
+  const { alerts, dismiss } = useAlerts();
+  const handledAlertsRef = React.useRef<Set<string>>(new Set());
   const [query, setQuery] = React.useState('');
 
   const quickMetrics = React.useMemo(
@@ -173,6 +176,17 @@ export default function AppHeader({
     const cleaned = userLabel.replace(/^[\s·•\-–:]*?(cliente|client[ea]?)([\s·•\-–:]+|\s+)/i, '').trim();
     return cleaned || userLabel;
   }, [userLabel, role]);
+
+  React.useEffect(() => {
+    if (!alerts.length) return;
+    for (const alert of alerts) {
+      if (handledAlertsRef.current.has(alert.id)) continue;
+      handledAlertsRef.current.add(alert.id);
+      const message = alert.body ? `${alert.title}: ${alert.body}` : alert.title;
+      toast.info(message);
+      dismiss(alert.id);
+    }
+  }, [alerts, toast, dismiss]);
 
   React.useEffect(() => {
     if (!notifAnchorOpen && !userMenuOpen) return undefined;

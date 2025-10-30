@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import Spinner from "@/components/ui/Spinner";
 import Alert from "@/components/ui/Alert";
+import PlanViewBeacon from "@/components/PlanViewBeacon";
 import { toast } from "sonner";
 import type { ClientPlanDetail } from "@/lib/client/plans/detail/types";
 
@@ -313,6 +314,7 @@ export default function PlanDetailClient({
 
   return (
     <div className="plan-detail">
+      {role === "CLIENT" && !fallback ? <PlanViewBeacon planId={plan.id} /> : null}
       <section className="neo-panel plan-detail__header">
         <div className="plan-detail__heading">
           <div className="plan-detail__titleGroup">
