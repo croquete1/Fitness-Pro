@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole } from '@/lib/roles';
+import { notifyPlanUpdated } from '@/lib/notify';
 
 type PlanStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
 
@@ -9,6 +10,8 @@ type Body = {
   title?: string;
   clientId?: string | null;
   status?: PlanStatus;
+  notifyClient?: boolean;
+  notifyMessage?: string | null;
 };
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -56,6 +59,9 @@ export async function PATCH(req: Request, ctx: Ctx) {
   }
 
   const updates: Record<string, unknown> = {};
+  const shouldNotify = payload.notifyClient === true;
+  const notifyMessage =
+    typeof payload.notifyMessage === 'string' ? payload.notifyMessage.trim() : '';
   if (typeof payload.title === 'string' && payload.title.trim().length >= 3) {
     updates.title = payload.title.trim();
   }
@@ -74,7 +80,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
   // garantir que o utilizador pode editar este plano
   const { data: plan } = await sb
     .from('training_plans')
-    .select('id, trainer_id')
+    .select('id, trainer_id, client_id')
     .eq('id', id)
     .maybeSingle();
 
@@ -90,6 +96,18 @@ export async function PATCH(req: Request, ctx: Ctx) {
 
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  }
+
+  if (shouldNotify && plan.client_id) {
+    const result = await notifyPlanUpdated(
+      sb,
+      plan.client_id,
+      id,
+      notifyMessage || undefined
+    );
+    if (result.ok === false) {
+      console.error('[notify-plan-updated] failed', result.reason);
+    }
   }
 
   return NextResponse.json({ ok: true, id });
