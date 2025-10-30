@@ -3,7 +3,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole } from '@/lib/roles';
-import { getTrainerLibraryRecordsFallback } from '@/lib/fallback/trainer-library';
+import {
+  getTrainerLibraryGlobalFallback,
+  getTrainerLibraryRecordsFallback,
+} from '@/lib/fallback/trainer-library';
 
 type SearchScope = 'personal' | 'global';
 
@@ -220,7 +223,9 @@ export async function GET(req: NextRequest) {
     return response;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Serviço indisponível.';
-    const fallbackRecords = getTrainerLibraryRecordsFallback(ownerId ?? userId);
+    const fallbackRecords = includePersonal
+      ? getTrainerLibraryRecordsFallback(ownerId ?? userId)
+      : getTrainerLibraryGlobalFallback();
     const fallbackItems = filterFallback(fallbackRecords.map(mapFallbackToItem), term).slice(0, limit);
     const response = NextResponse.json(
       {

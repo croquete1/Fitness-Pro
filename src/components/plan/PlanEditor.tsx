@@ -177,12 +177,29 @@ function useExerciseSearch(ownerId?: string | null): PickerResult {
   const abortRef = useRef<AbortController | null>(null);
   const latestTermRef = useRef('');
   const cacheRef = useRef<Map<string, SearchCacheEntry>>(new Map());
+  const ownerRef = useRef<string | null>(ownerId ?? null);
 
   useEffect(() => {
     return () => {
       abortRef.current?.abort();
     };
   }, []);
+
+  useEffect(() => {
+    const currentOwner = ownerId ?? null;
+    if (ownerRef.current === currentOwner) return;
+    ownerRef.current = currentOwner;
+    cacheRef.current.clear();
+    abortRef.current?.abort();
+    abortRef.current = null;
+    latestTermRef.current = '';
+    setItems([]);
+    setSource(null);
+    setGeneratedAt(null);
+    setWarning(null);
+    setError(null);
+    setLoading(false);
+  }, [ownerId]);
 
   const executeSearch = useCallback(async (term: string, owner: string | null) => {
     const cacheKey = makeCacheKey(term, owner);
