@@ -273,6 +273,23 @@ export default function ProfileClient({
   const notificationsNextReminder = dashboard.notifications.nextReminderAt
     ? formatTimestamp(dashboard.notifications.nextReminderAt)
     : null;
+  const unreadNotificationsLabel = React.useMemo(() => {
+    const raw = dashboard.notifications.unread;
+    const unread = typeof raw === 'number' && Number.isFinite(raw) ? raw : Number(raw ?? 0);
+    if (Number.isNaN(unread) || unread <= 0) return 'Sem alertas por ler';
+    if (unread === 1) return '1 alerta por ler';
+    return `${unread} alertas por ler`;
+  }, [dashboard.notifications.unread]);
+  const notificationsLastDeliveryMessage = React.useMemo(() => {
+    if (!dashboard.notifications.lastDeliveryAt || notificationsLastDelivery === '—') {
+      return 'Ainda não recebeste alertas automáticos.';
+    }
+    return `Último envio ${notificationsLastDelivery}`;
+  }, [dashboard.notifications.lastDeliveryAt, notificationsLastDelivery]);
+  const nextReminderMessage = React.useMemo(() => {
+    if (!notificationsNextReminder || notificationsNextReminder === '—') return null;
+    return `Próximo lembrete ${notificationsNextReminder}.`;
+  }, [notificationsNextReminder]);
 
   const [form, setForm] = React.useState<FormState>(() => sanitizeForm(account));
   const [baseline, setBaseline] = React.useState<FormState>(() => sanitizeForm(account));
@@ -522,17 +539,27 @@ export default function ProfileClient({
     const base = Array.isArray(dashboard.highlights) ? dashboard.highlights : [];
     if (!questionnaireReminderActive) return base;
     const filtered = base.filter((item) => item.id !== 'questionnaire-reminder');
+    const formattedReminder = dashboard.notifications.nextReminderAt
+      ? formatTimestamp(dashboard.notifications.nextReminderAt)
+      : null;
+    const reminderSuffix = formattedReminder && formattedReminder !== '—'
+      ? ` Próximo lembrete ${formattedReminder}.`
+      : '';
     return [
       {
         id: 'questionnaire-reminder',
         title: 'Questionário em falta',
         description:
-          'Completa o questionário obrigatório para personalizarmos o plano e parar os lembretes automáticos.',
+          `Completa o questionário obrigatório para personalizarmos o plano e parar os lembretes automáticos.${reminderSuffix}`,
         tone: 'warning' as const,
       },
       ...filtered,
     ];
-  }, [dashboard.highlights, questionnaireReminderActive]);
+  }, [
+    dashboard.highlights,
+    dashboard.notifications.nextReminderAt,
+    questionnaireReminderActive,
+  ]);
 
   const heroHighlight = highlightItems[0];
   const HeroHighlightIcon = heroHighlight?.id === 'questionnaire-reminder' ? AlertTriangle : ShieldCheck;
@@ -604,9 +631,18 @@ export default function ProfileClient({
           {heroHighlight ? (
             <div className={clsx('profile-dashboard__highlight', heroHighlight.tone)}>
               <HeroHighlightIcon aria-hidden />
-              <div>
+              <div className="profile-dashboard__highlightContent">
                 <strong>{heroHighlight.title}</strong>
                 <p>{heroHighlight.description}</p>
+                {heroHighlight.id === 'questionnaire-reminder' ? (
+                  <Link
+                    href="/dashboard/onboarding"
+                    className="btn chip profile-dashboard__highlightAction"
+                    aria-label="Preencher o questionário obrigatório"
+                  >
+                    Preencher agora
+                  </Link>
+                ) : null}
               </div>
             </div>
           ) : null}
@@ -764,18 +800,14 @@ export default function ProfileClient({
             <Bell aria-hidden />
             <div>
               <strong>
-                {questionnaireReminderActive
-                  ? 'Lembretes automáticos activos'
-                  : `${dashboard.notifications.unread} alertas por ler`}
+                {questionnaireReminderActive ? 'Lembretes automáticos activos' : unreadNotificationsLabel}
               </strong>
-              <p>Último envio {notificationsLastDelivery}</p>
+              <p>{notificationsLastDeliveryMessage}</p>
               {questionnaireReminderActive ? (
                 <>
                   <p className="profile-summary__notificationsReminder">
                     O questionário obrigatório continua por preencher.
-                    {notificationsNextReminder
-                      ? ` Próximo lembrete ${notificationsNextReminder}.`
-                      : ' Receberás um novo lembrete em breve.'}
+                    {nextReminderMessage ? ` ${nextReminderMessage}` : ' Receberás um novo lembrete em breve.'}
                   </p>
                   <Link
                     href="/dashboard/onboarding"
@@ -785,6 +817,8 @@ export default function ProfileClient({
                     Preencher agora
                   </Link>
                 </>
+              ) : nextReminderMessage ? (
+                <p className="profile-summary__notificationsReminder">{nextReminderMessage}</p>
               ) : null}
             </div>
           </div>

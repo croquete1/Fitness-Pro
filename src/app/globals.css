@@ -4128,7 +4128,7 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
   text-transform:uppercase;
 }
 
-.profile-dashboard__highlight{
+.profile-dashboard__highlight{ 
   display:flex;
   align-items:flex-start;
   gap:12px;
@@ -4142,6 +4142,14 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
 .profile-dashboard__highlight svg{
   width:20px;
   height:20px;
+}
+.profile-dashboard__highlightContent{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.profile-dashboard__highlightAction{
+  align-self:flex-start;
 }
 .profile-dashboard__highlight.success{ background:rgba(34,197,94,0.18); }
 .profile-dashboard__highlight.warning{ background:rgba(245,158,11,0.22); }
