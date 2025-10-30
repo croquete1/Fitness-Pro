@@ -36,7 +36,31 @@ export default function PlanForm({
 
   const allowNotification = mode === 'edit' && Boolean(clientId);
 
-  const canSubmit = useMemo(() => title.trim().length >= 3, [title]);
+  const titleValid = useMemo(() => title.trim().length >= 3, [title]);
+  const initialTitle = initial?.title ?? '';
+  const initialStatus = initial?.status ?? 'DRAFT';
+  const initialClientId = initial?.clientId ?? '';
+
+  const formDirty = useMemo(() => {
+    if (mode === 'create') return true;
+    const normalizedTitle = title.trim();
+    const normalizedInitialTitle = initialTitle.trim();
+    const hasPlanChanges =
+      normalizedTitle !== normalizedInitialTitle ||
+      status !== initialStatus ||
+      clientId !== initialClientId;
+    const wantsNotification = notifyClient;
+    return hasPlanChanges || wantsNotification;
+  }, [mode, title, status, clientId, notifyClient, initialTitle, initialStatus, initialClientId]);
+
+  const canSubmit = titleValid && (mode === 'create' || formDirty);
+
+  useEffect(() => {
+    if (!allowNotification) {
+      setNotifyClient(false);
+      setNotifyMessage('');
+    }
+  }, [allowNotification]);
 
   useEffect(() => {
     if (!allowNotification) {
@@ -52,7 +76,8 @@ export default function PlanForm({
     setErr(null);
 
     try {
-      const normalizedClientId = clientId === '' ? null : clientId;
+      const normalizedClientIdValue = clientId.trim();
+      const normalizedClientId = normalizedClientIdValue.length === 0 ? null : normalizedClientIdValue;
       const body = {
         title: title.trim(),
         status,
@@ -78,8 +103,17 @@ export default function PlanForm({
         body: JSON.stringify(body),
       });
 
-      const data: { ok: boolean; id?: string; error?: string } = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error || 'Falha ao gravar');
+      let data: { ok: boolean; id?: string; error?: string } | null = null;
+      try {
+        data = await res.json();
+      } catch (parseErr) {
+        console.error('plan form response parse error', parseErr);
+      }
+
+      if (!res.ok || !data?.ok) {
+        const fallback = !res.ok ? `Falha ao gravar (HTTP ${res.status})` : 'Falha ao gravar';
+        throw new Error(data?.error || fallback);
+      }
 
       // redireciona para o detalhe/lista
       router.push('/dashboard/pt/plans');
@@ -183,9 +217,13 @@ export default function PlanForm({
                   }
                   rows={3}
                   placeholder="Explica brevemente o que foi alterado neste plano."
+                  maxLength={NOTIFY_MAX_CHARS}
                   className="w-full rounded-lg border px-3 py-2 text-sm bg-white/80 dark:bg-black/20"
                 />
-                <div className="mt-1 flex items-center justify-between text-[11px] uppercase tracking-wide opacity-60">
+                <div
+                  className="mt-1 flex items-center justify-between text-[11px] uppercase tracking-wide opacity-60"
+                  aria-live="polite"
+                >
                   <span>Será anexado à notificação que o cliente recebe.</span>
                   <span>{NOTIFY_MAX_CHARS - notifyMessage.length} restantes</span>
                 </div>
@@ -195,7 +233,11 @@ export default function PlanForm({
         )}
 
         {err && (
-          <div className="mt-4 rounded-lg border border-rose-300/40 bg-rose-50/60 dark:bg-rose-500/10 px-3 py-2 text-sm text-rose-700 dark:text-rose-200">
+          <div
+            role="alert"
+            aria-live="polite"
+            className="mt-4 rounded-lg border border-rose-300/40 bg-rose-50/60 dark:bg-rose-500/10 px-3 py-2 text-sm text-rose-700 dark:text-rose-200"
+          >
             {err}
           </div>
         )}

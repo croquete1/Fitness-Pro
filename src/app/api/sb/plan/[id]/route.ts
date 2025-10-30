@@ -68,6 +68,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
     .from('training_plans')
     .select('id, title, status, trainer_id, client_id')
     .eq('id', id)
+    .select('client_id')
     .maybeSingle();
 
   if (planError) {
@@ -130,7 +131,8 @@ export async function PATCH(req: Request, ctx: Ctx) {
     }
   }
 
-  if (Object.keys(updates).length === 0) {
+  const needsUpdate = Object.keys(updates).length > 0;
+  if (!needsUpdate && !shouldNotify) {
     return NextResponse.json({ ok: false, error: 'Nenhuma alteração detetada.' }, { status: 400 });
   }
 
@@ -147,21 +149,25 @@ export async function PATCH(req: Request, ctx: Ctx) {
     );
   }
 
-  const { data: updatedPlan, error: updateError } = await sb
-    .from('training_plans')
-    .update(updates)
-    .eq('id', id)
-    .select('client_id')
-    .maybeSingle();
+  let finalClientId: string | null | undefined = effectiveClientId;
 
-  if (updateError) {
-    return NextResponse.json({ ok: false, error: updateError.message }, { status: 500 });
+  if (needsUpdate) {
+    const { data: updatedPlan, error: updateError } = await sb
+      .from('training_plans')
+      .update(updates)
+      .eq('id', id)
+      .select('client_id')
+      .maybeSingle();
+
+    if (updateError) {
+      return NextResponse.json({ ok: false, error: updateError.message }, { status: 500 });
+    }
+
+    finalClientId =
+      nextClientId !== undefined
+        ? nextClientId
+        : (updatedPlan?.client_id as string | null | undefined) ?? plan.client_id;
   }
-
-  const finalClientId =
-    nextClientId !== undefined
-      ? nextClientId
-      : (updatedPlan?.client_id as string | null | undefined) ?? plan.client_id;
 
   if (shouldNotify && finalClientId) {
     const result = await notifyPlanUpdated(
@@ -171,18 +177,6 @@ export async function PATCH(req: Request, ctx: Ctx) {
       notifyMessageRaw || undefined
     );
     if (!result.ok && 'reason' in result) {
-      console.error('[notify-plan-updated] failed', result.reason);
-    }
-  }
-
-  if (shouldNotify && plan.client_id) {
-    const result = await notifyPlanUpdated(
-      sb,
-      plan.client_id,
-      id,
-      notifyMessage || undefined
-    );
-    if (result.ok === false) {
       console.error('[notify-plan-updated] failed', result.reason);
     }
   }
