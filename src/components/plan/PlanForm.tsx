@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 type PlanStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
@@ -13,6 +13,8 @@ export type PlanInitial = {
   status?: PlanStatus;
   clientId?: string | null;
 };
+
+const NOTIFY_MAX_CHARS = 500;
 
 export default function PlanForm({
   mode,
@@ -29,8 +31,36 @@ export default function PlanForm({
   const [clientId, setClientId] = useState<string>(initial?.clientId ?? '');
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [notifyClient, setNotifyClient] = useState(false);
+  const [notifyMessage, setNotifyMessage] = useState('');
 
-  const canSubmit = useMemo(() => title.trim().length >= 3, [title]);
+  const allowNotification = mode === 'edit' && Boolean(clientId);
+
+  const titleValid = useMemo(() => title.trim().length >= 3, [title]);
+  const initialTitle = initial?.title ?? '';
+  const initialStatus = initial?.status ?? 'DRAFT';
+  const initialClientId = initial?.clientId ?? '';
+
+  const formDirty = useMemo(() => {
+    if (mode === 'create') return true;
+    const normalizedTitle = title.trim();
+    const normalizedInitialTitle = initialTitle.trim();
+    const hasPlanChanges =
+      normalizedTitle !== normalizedInitialTitle ||
+      status !== initialStatus ||
+      clientId !== initialClientId;
+    const wantsNotification = notifyClient;
+    return hasPlanChanges || wantsNotification;
+  }, [mode, title, status, clientId, notifyClient, initialTitle, initialStatus, initialClientId]);
+
+  const canSubmit = titleValid && (mode === 'create' || formDirty);
+
+  useEffect(() => {
+    if (!allowNotification) {
+      setNotifyClient(false);
+      setNotifyMessage('');
+    }
+  }, [allowNotification]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,7 +69,22 @@ export default function PlanForm({
     setErr(null);
 
     try {
-      const body = { title: title.trim(), status, clientId: clientId || undefined };
+      const normalizedClientIdValue = clientId.trim();
+      const normalizedClientId = normalizedClientIdValue.length === 0 ? null : normalizedClientIdValue;
+      const body = {
+        title: title.trim(),
+        status,
+        clientId: normalizedClientId,
+        ...(mode === 'edit'
+          ? {
+              notifyClient: allowNotification && notifyClient ? true : undefined,
+              notifyMessage:
+                allowNotification && notifyClient && notifyMessage.trim().length > 0
+                  ? notifyMessage.trim()
+                  : undefined,
+            }
+          : {}),
+      };
       const url = mode === 'create'
         ? '/api/sb/plans'
         : `/api/sb/plan/${encodeURIComponent(String(initial?.id))}`;
@@ -51,8 +96,17 @@ export default function PlanForm({
         body: JSON.stringify(body),
       });
 
-      const data: { ok: boolean; id?: string; error?: string } = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error || 'Falha ao gravar');
+      let data: { ok: boolean; id?: string; error?: string } | null = null;
+      try {
+        data = await res.json();
+      } catch (parseErr) {
+        console.error('plan form response parse error', parseErr);
+      }
+
+      if (!res.ok || !data?.ok) {
+        const fallback = !res.ok ? `Falha ao gravar (HTTP ${res.status})` : 'Falha ao gravar';
+        throw new Error(data?.error || fallback);
+      }
 
       // redireciona para o detalhe/lista
       router.push('/dashboard/pt/plans');
@@ -115,8 +169,68 @@ export default function PlanForm({
           </div>
         </div>
 
+        {mode === 'edit' && (
+          <div className="mt-4 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 bg-white/40 dark:bg-slate-900/30 px-4 py-3">
+            <label className="flex items-start gap-3 text-sm font-medium">
+              <input
+                type="checkbox"
+                checked={allowNotification && notifyClient}
+                disabled={!allowNotification}
+                onChange={(event) => {
+                  const checked = event.target.checked;
+                  setNotifyClient(checked);
+                  if (!checked) setNotifyMessage('');
+                }}
+                className="mt-1"
+              />
+              <span>
+                Informar o cliente sobre esta alteração
+                <span className="block text-xs font-normal opacity-70">
+                  Envia uma notificação opcional com as notas que quiseres partilhar.
+                </span>
+              </span>
+            </label>
+
+            {!allowNotification && (
+              <p className="mt-3 text-xs text-slate-600 dark:text-slate-300">
+                Atribui um cliente ao plano para poderes enviar-lhe uma notificação.
+              </p>
+            )}
+
+            {allowNotification && notifyClient && (
+              <div className="mt-3">
+                <label className="block text-xs font-medium mb-1" htmlFor="plan-notify-message">
+                  Mensagem para o cliente (opcional)
+                </label>
+                <textarea
+                  id="plan-notify-message"
+                  value={notifyMessage}
+                  onChange={(event) =>
+                    setNotifyMessage(event.target.value.slice(0, NOTIFY_MAX_CHARS))
+                  }
+                  rows={3}
+                  placeholder="Explica brevemente o que foi alterado neste plano."
+                  maxLength={NOTIFY_MAX_CHARS}
+                  className="w-full rounded-lg border px-3 py-2 text-sm bg-white/80 dark:bg-black/20"
+                />
+                <div
+                  className="mt-1 flex items-center justify-between text-[11px] uppercase tracking-wide opacity-60"
+                  aria-live="polite"
+                >
+                  <span>Será anexado à notificação que o cliente recebe.</span>
+                  <span>{NOTIFY_MAX_CHARS - notifyMessage.length} restantes</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {err && (
-          <div className="mt-4 rounded-lg border border-rose-300/40 bg-rose-50/60 dark:bg-rose-500/10 px-3 py-2 text-sm text-rose-700 dark:text-rose-200">
+          <div
+            role="alert"
+            aria-live="polite"
+            className="mt-4 rounded-lg border border-rose-300/40 bg-rose-50/60 dark:bg-rose-500/10 px-3 py-2 text-sm text-rose-700 dark:text-rose-200"
+          >
             {err}
           </div>
         )}
@@ -131,7 +245,7 @@ export default function PlanForm({
           </button>
           <button
             type="button"
-            onClick={() => history.back()}
+            onClick={() => router.back()}
             className="rounded-lg border px-4 py-2"
           >
             Cancelar

@@ -191,6 +191,9 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
     evitando actualizações de estado após abortos para eliminar pedidos redundantes e avisos de desmontagem. Fontes:
     `src/components/dashboard/AdminHome.tsx`.
 - [x] Completar o fluxo operacional do PT (clientes, planos, agenda e biblioteca) com dados reais e interacções consistentes (carteira de clientes alimentada por `trainer_clients`, planos e sessões reais expostos no cockpit).
+- [x] Permitir que o PT informe o cliente ao guardar alterações no plano com validação de mensagem, bloqueio quando não existe cliente atribuído e feedback de limite de caracteres no formulário. Fontes: `src/components/plan/PlanForm.tsx`, `src/app/api/sb/plan/[id]/route.ts`.
+  - 2025-11-18: Suportámos notificações isoladas sem alterar metadados do plano e travámos submissões vazias no formulário, assegurando que o PT só grava quando existe alteração ou comunicação para o cliente.
+  - 2025-11-19: Refinámos o formulário do plano para validar respostas mal formatadas do backend, expor contadores acessíveis e higienizar o identificador do cliente antes de enviar notificações.
 - [x] Corrigir a agenda do PT ao recuar automaticamente para uma página válida quando filtros reduzem a amostra e anunciar estados de carregamento com mais acessibilidade. Fonte: `src/app/(app)/dashboard/pt/schedule/TrainerScheduleClient.tsx`.
 - [x] Exibir nomes/contactos reais dos clientes na agenda do PT, com exportações e pesquisa a cobrir os novos campos carregados do Supabase. Fontes: `src/app/api/trainer/pts-schedule/route.ts`, `src/app/(app)/dashboard/pt/schedule/TrainerScheduleClient.tsx`.
 - [x] Normalizar a pesquisa da agenda do PT para aceitar acentuação, contactos com indicativo e múltiplos termos, pré-indexando resultados para acelerar filtros locais. Fonte: `src/app/(app)/dashboard/pt/schedule/TrainerScheduleClient.tsx`.
