@@ -183,7 +183,9 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Ajustar a normalização do email para evitar remoção de caracteres válidos e alinhar a API de credenciais com o helper partilhado. Fontes: `src/app/(app)/dashboard/settings/settings-client.tsx`, `src/app/api/me/settings/credentials/route.ts`, `src/lib/email.ts`.
 - [x] Unificar mensagens de erro de rede/abortadas nas definições para evitar textos inconsistentes entre navegadores. Fonte: `src/app/(app)/dashboard/settings/settings-client.tsx`.
 - [x] Clarificar os erros do painel de métricas nas definições, destacando sessões expiradas, limites de pedidos e indisponibilidades do serviço com mensagens guiadas. Fonte: `src/app/(app)/dashboard/settings/settings-client.tsx`.
-- [ ] Harmonizar o design dos dashboards (admin, PT e cliente) com a linguagem visual HMS, validando breakpoints mobile/desktop.
+- [x] Harmonizar o design dos dashboards (admin, PT e cliente) com a linguagem visual HMS, validando breakpoints mobile/desktop.
+  - 2025-11-15: Actualizámos o cabeçalho partilhado (`PageHeader`) com eyebrow dedicado, sticky real e tipografia consistente,
+    alinhando admin, PT e cliente e tornando as acções responsivas nos vários breakpoints.
 - [x] Completar o fluxo operacional do PT (clientes, planos, agenda e biblioteca) com dados reais e interacções consistentes (carteira de clientes alimentada por `trainer_clients`, planos e sessões reais expostos no cockpit).
 - [x] Corrigir a agenda do PT ao recuar automaticamente para uma página válida quando filtros reduzem a amostra e anunciar estados de carregamento com mais acessibilidade. Fonte: `src/app/(app)/dashboard/pt/schedule/TrainerScheduleClient.tsx`.
 - [x] Exibir nomes/contactos reais dos clientes na agenda do PT, com exportações e pesquisa a cobrir os novos campos carregados do Supabase. Fontes: `src/app/api/trainer/pts-schedule/route.ts`, `src/app/(app)/dashboard/pt/schedule/TrainerScheduleClient.tsx`.

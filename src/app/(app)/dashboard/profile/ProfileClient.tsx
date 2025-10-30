@@ -689,6 +689,7 @@ export default function ProfileClient({
   return (
     <div className="profile-dashboard">
       <PageHeader
+        eyebrow="Área pessoal"
         title="Perfil"
         subtitle="Actualiza os teus dados pessoais e acompanha a tua actividade recente."
         actions={

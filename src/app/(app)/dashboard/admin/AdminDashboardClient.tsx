@@ -120,9 +120,10 @@ function StatusPill({ tone, children }: { tone: StatusTone; children: React.Reac
   );
 }
 
+const quickMetricFormatter = new Intl.NumberFormat('pt-PT');
+
 function QuickMetricCard({ label, value, hint, href, tone = 'info', icon }: QuickMetric) {
-  const formatter = React.useMemo(() => new Intl.NumberFormat('pt-PT'), []);
-  const formattedValue = formatter.format(value);
+  const formattedValue = quickMetricFormatter.format(value);
 
   const content = (
     <div className="admin-quick-metric__layout">
@@ -262,14 +263,8 @@ export default function AdminDashboardClient({ name, data, supabase }: Props) {
   return (
     <div className="admin-dashboard">
       <PageHeader
-        title={
-          <div className="admin-dashboard__headline">
-            <span className="caps-tag">Centro de operações</span>
-            <span className="admin-dashboard__title">
-              {greeting.emoji} {greeting.label}, {name || 'Admin'}!
-            </span>
-          </div>
-        }
+        eyebrow="Centro de operações"
+        title={`${greeting.emoji} ${greeting.label}, ${name || 'Admin'}!`}
         subtitle={
           supabase
             ? 'Estamos a usar dados em tempo real do servidor. Mantém a vigilância sobre os indicadores chave.'
