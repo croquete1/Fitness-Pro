@@ -4,6 +4,7 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import Image from 'next/image';
@@ -19,6 +20,7 @@ import {
 
 import { showToast } from '@/components/ui/Toasts';
 import UserSelect from '@/components/users/UserSelect';
+import DataSourceBadge from '@/components/ui/DataSourceBadge';
 
 const DEFAULT_SETS = 3;
 const DEFAULT_REPS = 10;
@@ -46,6 +48,10 @@ type Exercise = {
   name: string;
   mediaUrl?: string;
   muscleUrl?: string;
+  muscleGroup?: string | null;
+  equipment?: string | null;
+  difficulty?: string | null;
+  scope?: 'personal' | 'global';
   sets?: number;
   reps?: number;
   notes?: string;
@@ -75,8 +81,12 @@ type Props = {
 type ExerciseLite = {
   id: string;
   name: string;
-  mediaUrl?: string;
-  muscleUrl?: string;
+  mediaUrl?: string | null;
+  muscleUrl?: string | null;
+  muscleGroup?: string | null;
+  equipment?: string | null;
+  difficulty?: string | null;
+  scope?: 'personal' | 'global';
 };
 
 type PickerResult = {
@@ -84,6 +94,11 @@ type PickerResult = {
   setQ: (value: string) => void;
   items: ExerciseLite[];
   loading: boolean;
+  error: string | null;
+  warning: string | null;
+  source: 'supabase' | 'fallback' | null;
+  generatedAt: string | null;
+  retry: () => void;
 };
 
 const STATUS_OPTIONS: PlanWorkflowStatus[] = [
@@ -103,44 +118,171 @@ function debounce<F extends (...args: any[]) => void>(fn: F, ms = 320) {
   };
 }
 
-function useExerciseSearch(): PickerResult {
+function useExerciseSearch(ownerId?: string | null): PickerResult {
   const [q, setQ] = useState('');
   const [items, setItems] = useState<ExerciseLite[]>([]);
   const [loading, setLoading] = useState(false);
-
-  const fetcher = useMemo(
-    () =>
-      debounce(async (term: string) => {
-        if (!term || term.trim().length < 2) {
-          setItems([]);
-          return;
-        }
-        try {
-          setLoading(true);
-          const res = await fetch(`/api/exercises?q=${encodeURIComponent(term.trim())}`, {
-            cache: 'no-store',
-          });
-          const data = (await res.json()) as ExerciseLite[];
-          setItems(Array.isArray(data) ? data : []);
-        } catch {
-          setItems([]);
-        } finally {
-          setLoading(false);
-        }
-      }, 320),
-    []
-  );
+  const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
+  const [source, setSource] = useState<'supabase' | 'fallback' | null>(null);
+  const [generatedAt, setGeneratedAt] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const latestTermRef = useRef('');
 
   useEffect(() => {
-    fetcher(q);
-  }, [q, fetcher]);
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
 
-  return { q, setQ, items, loading };
+  const executeSearch = useCallback(async (term: string, owner: string | null) => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    setLoading(true);
+    setError(null);
+    setWarning(null);
+
+    try {
+      const params = new URLSearchParams({ q: term });
+      if (owner) params.set('ownerId', owner);
+
+      const response = await fetch(`/api/exercises?${params.toString()}`, {
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | {
+            ok?: boolean;
+            source?: 'supabase' | 'fallback';
+            generatedAt?: string | null;
+            items?: any[];
+            error?: string;
+            message?: string;
+          }
+        | any[]
+        | null;
+
+      if (!payload) {
+        throw new Error('Não foi possível carregar exercícios.');
+      }
+
+      if (!response.ok && !Array.isArray(payload) && payload.ok !== true) {
+        const message = typeof payload.error === 'string' ? payload.error : null;
+        throw new Error(message || 'Não foi possível carregar exercícios.');
+      }
+
+      const rows = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload.items)
+          ? payload.items
+          : [];
+
+      const map = new Map<string, ExerciseLite>();
+      for (const entry of rows) {
+        const idCandidate = typeof entry?.id === 'string' ? entry.id : String(entry?.id ?? '');
+        const nameCandidate = typeof entry?.name === 'string' ? entry.name : '';
+        if (!idCandidate || !nameCandidate) continue;
+
+        const record: ExerciseLite = {
+          id: idCandidate,
+          name: nameCandidate,
+          mediaUrl:
+            typeof entry?.mediaUrl === 'string'
+              ? entry.mediaUrl
+              : typeof entry?.video_url === 'string'
+                ? entry.video_url
+                : null,
+          muscleGroup:
+            typeof entry?.muscleGroup === 'string'
+              ? entry.muscleGroup
+              : typeof entry?.muscle_group === 'string'
+                ? entry.muscle_group
+                : null,
+          equipment: typeof entry?.equipment === 'string' ? entry.equipment : null,
+          difficulty: typeof entry?.difficulty === 'string' ? entry.difficulty : null,
+          scope: entry?.scope === 'global' ? 'global' : 'personal',
+        };
+
+        if (!map.has(record.id)) {
+          map.set(record.id, record);
+        }
+      }
+
+      setItems(Array.from(map.values()));
+
+      if (!Array.isArray(payload) && payload.source === 'fallback') {
+        setSource('fallback');
+        setWarning(
+          payload.message ?? 'A mostrar catálogo determinístico por falta de ligação ao servidor.',
+        );
+      } else {
+        setSource(map.size ? 'supabase' : null);
+        setWarning(null);
+      }
+
+      const generated = !Array.isArray(payload) && typeof payload.generatedAt === 'string'
+        ? payload.generatedAt
+        : new Date().toISOString();
+      setGeneratedAt(map.size ? generated : null);
+    } catch (err) {
+      if ((err as { name?: string } | null)?.name === 'AbortError') return;
+      setItems([]);
+      setSource(null);
+      setGeneratedAt(null);
+      setWarning(null);
+      setError(err instanceof Error ? err.message : 'Não foi possível carregar exercícios.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const debouncedSearch = useMemo(() => debounce(executeSearch, 320), [executeSearch]);
+
+  useEffect(() => {
+    const term = q.trim();
+    if (term.length < 2) {
+      abortRef.current?.abort();
+      latestTermRef.current = '';
+      setItems([]);
+      setError(null);
+      setWarning(null);
+      setSource(null);
+      setGeneratedAt(null);
+      setLoading(false);
+      return;
+    }
+
+    latestTermRef.current = term;
+    debouncedSearch(term, ownerId ?? null);
+  }, [q, ownerId, debouncedSearch]);
+
+  const retry = useCallback(() => {
+    const term = latestTermRef.current;
+    if (term.length < 2) return;
+    executeSearch(term, ownerId ?? null);
+  }, [executeSearch, ownerId]);
+
+  return { q, setQ, items, loading, error, warning, source, generatedAt, retry };
 }
 
-function ExercisePicker({ onPick }: { onPick: (ex: ExerciseLite) => void }) {
-  const { q, setQ, items, loading } = useExerciseSearch();
-  const isIdle = !loading && q.trim().length >= 2 && items.length === 0;
+function ExercisePicker({
+  onPick,
+  search,
+  admin,
+  trainerSelected,
+}: {
+  onPick: (ex: ExerciseLite) => void;
+  search: PickerResult;
+  admin: boolean;
+  trainerSelected: boolean;
+}) {
+  const { q, setQ, items, loading, error, warning, retry } = search;
+  const query = q.trim();
+  const hasQuery = query.length >= 2;
+  const showEmpty = !loading && hasQuery && !error && items.length === 0;
 
   return (
     <div className="plan-editor__picker">
@@ -158,47 +300,79 @@ function ExercisePicker({ onPick }: { onPick: (ex: ExerciseLite) => void }) {
       </div>
 
       <p className="plan-editor__pickerHint">
-        Pesquisa alimentada pela API de exercícios do servidor. Mínimo de 2 caracteres.
+        Introduz pelo menos 2 caracteres para pesquisar na biblioteca em tempo real.
       </p>
 
-      {loading && (
+      {admin && !trainerSelected ? (
+        <div className="plan-editor__pickerState" role="status" data-tone="info">
+          Seleciona um Personal Trainer para incluir a biblioteca pessoal desse profissional.
+        </div>
+      ) : null}
+
+      {warning ? (
+        <div className="plan-editor__pickerState" role="status" data-tone="warning">
+          {warning}
+        </div>
+      ) : null}
+
+      {error ? (
+        <div className="plan-editor__pickerState" role="alert" data-tone="error">
+          <span>{error}</span>
+          <button
+            type="button"
+            className="btn chip"
+            onClick={retry}
+            disabled={loading}
+          >
+            Tentar novamente
+          </button>
+        </div>
+      ) : null}
+
+      {loading ? (
         <div className="plan-editor__pickerState" role="status">
           <Loader2 className="plan-editor__spinner" aria-hidden /> A procurar exercícios…
         </div>
-      )}
+      ) : null}
 
-      {isIdle && (
+      {showEmpty ? (
         <div className="plan-editor__pickerState" role="status">
           Nenhum exercício corresponde à pesquisa atual.
         </div>
-      )}
+      ) : null}
 
-      {items.length > 0 && (
+      {items.length > 0 ? (
         <ul className="plan-editor__suggestions" role="listbox" aria-label="Sugestões de exercícios">
-          {items.map((item) => (
-            <li key={item.id}>
-              <button
-                type="button"
-                className="plan-editor__suggestion"
-                onClick={() => onPick(item)}
-              >
-                <span className="plan-editor__suggestionMedia">
-                  <Image
-                    src={item.mediaUrl || '/exercise-placeholder.png'}
-                    alt=""
-                    width={48}
-                    height={48}
-                  />
-                </span>
-                <span className="plan-editor__suggestionInfo">
-                  <span className="plan-editor__suggestionTitle">{item.name}</span>
-                  <span className="plan-editor__suggestionMeta">ID {item.id}</span>
-                </span>
-              </button>
-            </li>
-          ))}
+          {items.map((item) => {
+            const scopeLabel = item.scope === 'global' ? 'Catálogo global' : 'Biblioteca pessoal';
+            return (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  className="plan-editor__suggestion"
+                  onClick={() => onPick(item)}
+                >
+                  <span className="plan-editor__suggestionMedia">
+                    <Image
+                      src={item.mediaUrl || '/exercise-placeholder.png'}
+                      alt=""
+                      width={48}
+                      height={48}
+                    />
+                  </span>
+                  <span className="plan-editor__suggestionInfo">
+                    <span className="plan-editor__suggestionTitle">{item.name}</span>
+                    <span className="plan-editor__suggestionMeta">
+                      {scopeLabel}
+                      {item.muscleGroup ? ` · ${item.muscleGroup}` : ''}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
         </ul>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -220,6 +394,8 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin = fal
   const [client, setClient] = useState<{ id: string; name?: string | null; email?: string | null } | null>(
     initial.clientId ? { id: initial.clientId, name: initial.clientName } : null
   );
+
+  const exerciseSearch = useExerciseSearch(trainerId);
 
   const canSave = useMemo(() => {
     const hasTitle = title.trim().length >= 3;
@@ -246,8 +422,12 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin = fal
         {
           id: item.id,
           name: item.name,
-          mediaUrl: item.mediaUrl,
-          muscleUrl: item.muscleUrl,
+          mediaUrl: item.mediaUrl ?? undefined,
+          muscleUrl: item.muscleUrl ?? undefined,
+          muscleGroup: item.muscleGroup ?? null,
+          equipment: item.equipment ?? null,
+          difficulty: item.difficulty ?? null,
+          scope: item.scope ?? 'personal',
           sets: DEFAULT_SETS,
           reps: DEFAULT_REPS,
           notes: '',
@@ -431,8 +611,14 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin = fal
               </h2>
               <p className="plan-editor__sectionSubtitle">Pesquisa em tempo real na biblioteca oficial.</p>
             </div>
+            <DataSourceBadge source={exerciseSearch.source ?? undefined} generatedAt={exerciseSearch.generatedAt} />
           </header>
-          <ExercisePicker onPick={addExercise} />
+          <ExercisePicker
+            onPick={addExercise}
+            search={exerciseSearch}
+            admin={admin}
+            trainerSelected={Boolean(trainerId)}
+          />
         </section>
 
         <section className="neo-panel plan-editor__exercisePanel">
@@ -462,6 +648,15 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin = fal
               {exercises.map((exercise, index) => {
                 const canMoveUp = index > 0;
                 const canMoveDown = index < exercises.length - 1;
+                const metaSegments: string[] = [];
+                if (exercise.scope) {
+                  metaSegments.push(
+                    exercise.scope === 'global' ? 'Catálogo global' : 'Biblioteca pessoal',
+                  );
+                }
+                if (exercise.muscleGroup) metaSegments.push(exercise.muscleGroup);
+                if (exercise.equipment) metaSegments.push(exercise.equipment);
+                if (exercise.difficulty) metaSegments.push(exercise.difficulty);
                 return (
                   <li key={`${exercise.id}-${index}`} className="plan-editor__exercise">
                     <div className="plan-editor__media">
@@ -476,6 +671,9 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin = fal
                     <div className="plan-editor__exerciseContent">
                       <header className="plan-editor__exerciseHeader">
                         <h3 className="plan-editor__exerciseTitle">{exercise.name}</h3>
+                        {metaSegments.length ? (
+                          <p className="plan-editor__exerciseMeta">{metaSegments.join(' · ')}</p>
+                        ) : null}
                       </header>
 
                       <div className="plan-editor__exerciseControls">
