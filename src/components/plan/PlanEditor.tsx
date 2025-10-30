@@ -118,6 +118,40 @@ function debounce<F extends (...args: any[]) => void>(fn: F, ms = 320) {
   };
 }
 
+function normaliseScope(scope: Exercise['scope']): Exercise['scope'] {
+  if (scope === 'global' || scope === 'personal') return scope;
+  return 'personal';
+}
+
+function ensurePositiveInteger(value: number | null | undefined, fallback: number): number {
+  if (typeof value !== 'number') return fallback;
+  if (!Number.isFinite(value)) return fallback;
+  const rounded = Math.round(value);
+  return Math.max(1, rounded);
+}
+
+function sanitiseExercise(exercise: Exercise): Exercise {
+  return {
+    id: exercise.id,
+    name: exercise.name,
+    mediaUrl: exercise.mediaUrl,
+    muscleUrl: exercise.muscleUrl,
+    muscleGroup: exercise.muscleGroup ?? null,
+    equipment: exercise.equipment ?? null,
+    difficulty: exercise.difficulty ?? null,
+    scope: normaliseScope(exercise.scope),
+    sets: ensurePositiveInteger(exercise.sets, DEFAULT_SETS),
+    reps: ensurePositiveInteger(exercise.reps, DEFAULT_REPS),
+    notes: exercise.notes ?? '',
+  };
+}
+
+function parsePositiveIntegerFromInput(value: string, fallback: number): number {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(1, parsed);
+}
+
 function useExerciseSearch(ownerId?: string | null): PickerResult {
   const [q, setQ] = useState('');
   const [items, setItems] = useState<ExerciseLite[]>([]);
@@ -385,7 +419,9 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin = fal
   const [title, setTitle] = useState(initial.title);
   const [notes, setNotes] = useState(initial.notes);
   const [status, setStatus] = useState<PlanWorkflowStatus>(initial.status ?? 'PENDING');
-  const [exercises, setExercises] = useState<Exercise[]>(initial.exercises ?? []);
+  const [exercises, setExercises] = useState<Exercise[]>(() =>
+    (initial.exercises ?? []).map((exercise) => sanitiseExercise(exercise)),
+  );
   const [busy, setBusy] = useState(false);
 
   const [trainer, setTrainer] = useState<{ id: string; name?: string | null; email?: string | null } | null>(
@@ -405,8 +441,17 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin = fal
   }, [trainerId, clientId, title, exercises.length, busy]);
 
   const metrics = useMemo(() => {
-    const totalSets = exercises.reduce((acc, ex) => acc + (ex.sets ?? DEFAULT_SETS), 0);
-    const totalReps = exercises.reduce((acc, ex) => acc + (ex.sets ?? DEFAULT_SETS) * (ex.reps ?? DEFAULT_REPS), 0);
+    const totalSets = exercises.reduce(
+      (acc, ex) => acc + ensurePositiveInteger(ex.sets, DEFAULT_SETS),
+      0,
+    );
+    const totalReps = exercises.reduce(
+      (acc, ex) =>
+        acc +
+        ensurePositiveInteger(ex.sets, DEFAULT_SETS) *
+          ensurePositiveInteger(ex.reps, DEFAULT_REPS),
+      0,
+    );
     const withNotes = exercises.filter((ex) => (ex.notes ?? '').trim().length > 0).length;
     return [
       { label: 'Exercícios', value: exercises.length, tone: 'primary', meta: 'Itens ativos no plano' },
@@ -418,38 +463,47 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin = fal
 
   const addExercise = useCallback(
     (item: ExerciseLite) => {
-      if (exercises.some((exercise) => exercise.id === item.id)) {
+      let added = false;
+      setExercises((prev) => {
+        if (prev.some((exercise) => exercise.id === item.id)) {
+          return prev;
+        }
+
+        added = true;
+        return [
+          ...prev,
+          sanitiseExercise({
+            id: item.id,
+            name: item.name,
+            mediaUrl: item.mediaUrl ?? undefined,
+            muscleUrl: item.muscleUrl ?? undefined,
+            muscleGroup: item.muscleGroup ?? null,
+            equipment: item.equipment ?? null,
+            difficulty: item.difficulty ?? null,
+            scope: item.scope ?? 'personal',
+            sets: DEFAULT_SETS,
+            reps: DEFAULT_REPS,
+            notes: '',
+          }),
+        ];
+      });
+
+      if (!added) {
         toast('info', 'Este exercício já está no plano.');
         return;
       }
 
-      setExercises([
-        ...exercises,
-        {
-          id: item.id,
-          name: item.name,
-          mediaUrl: item.mediaUrl ?? undefined,
-          muscleUrl: item.muscleUrl ?? undefined,
-          muscleGroup: item.muscleGroup ?? null,
-          equipment: item.equipment ?? null,
-          difficulty: item.difficulty ?? null,
-          scope: item.scope ?? 'personal',
-          sets: DEFAULT_SETS,
-          reps: DEFAULT_REPS,
-          notes: '',
-        },
-      ]);
-
       toast('success', `Adicionado: ${item.name}`);
       setSearchTerm('');
     },
-    [exercises, setSearchTerm]
+    [setSearchTerm],
   );
 
   const updateExercise = useCallback((index: number, patch: Partial<Exercise>) => {
     setExercises((prev) => {
+      if (index < 0 || index >= prev.length) return prev;
       const next = prev.slice();
-      next[index] = { ...next[index], ...patch };
+      next[index] = sanitiseExercise({ ...next[index], ...patch });
       return next;
     });
   }, []);
@@ -460,6 +514,10 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin = fal
 
   const moveExercise = useCallback((from: number, to: number) => {
     setExercises((prev) => {
+      if (from === to) return prev;
+      if (from < 0 || from >= prev.length || to < 0 || to >= prev.length) {
+        return prev;
+      }
       const next = prev.slice();
       const [item] = next.splice(from, 1);
       next.splice(to, 0, item);
@@ -479,7 +537,7 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin = fal
         title: title.trim(),
         notes,
         status,
-        exercises,
+        exercises: exercises.map((exercise) => sanitiseExercise(exercise)),
       };
 
       let res: Response;
@@ -666,7 +724,7 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin = fal
                 if (exercise.equipment) metaSegments.push(exercise.equipment);
                 if (exercise.difficulty) metaSegments.push(exercise.difficulty);
                 return (
-                  <li key={`${exercise.id}-${index}`} className="plan-editor__exercise">
+                  <li key={exercise.id} className="plan-editor__exercise">
                     <div className="plan-editor__media">
                       <Image
                         src={exercise.mediaUrl || '/exercise-placeholder.png'}
@@ -691,10 +749,13 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin = fal
                             type="number"
                             min={1}
                             className="neo-input neo-input--compact"
-                            value={exercise.sets ?? DEFAULT_SETS}
+                            value={ensurePositiveInteger(exercise.sets, DEFAULT_SETS)}
                             onChange={(event) =>
                               updateExercise(index, {
-                                sets: Number(event.target.value) || 0,
+                                sets: parsePositiveIntegerFromInput(
+                                  event.target.value,
+                                  ensurePositiveInteger(exercise.sets, DEFAULT_SETS),
+                                ),
                               })
                             }
                           />
@@ -705,10 +766,13 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin = fal
                             type="number"
                             min={1}
                             className="neo-input neo-input--compact"
-                            value={exercise.reps ?? DEFAULT_REPS}
+                            value={ensurePositiveInteger(exercise.reps, DEFAULT_REPS)}
                             onChange={(event) =>
                               updateExercise(index, {
-                                reps: Number(event.target.value) || 0,
+                                reps: parsePositiveIntegerFromInput(
+                                  event.target.value,
+                                  ensurePositiveInteger(exercise.reps, DEFAULT_REPS),
+                                ),
                               })
                             }
                           />

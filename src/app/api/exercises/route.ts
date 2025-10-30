@@ -142,43 +142,55 @@ export async function GET(req: NextRequest) {
       'id,name,description,muscle_group,equipment,difficulty,video_url,owner_id,is_global,is_published,created_at,updated_at';
     const filters = buildSearchFilter(term);
 
-    const items = new Map<string, ExerciseSearchItem>();
+    const personalQuery = includePersonal && ownerId
+      ? (() => {
+          let builder = sb
+            .from('exercises')
+            .select(selection)
+            .eq('owner_id', ownerId)
+            .eq('is_global', false)
+            .order('updated_at', { ascending: false, nullsFirst: false })
+            .limit(limit);
+          if (filters) builder = builder.or(filters);
+          return builder;
+        })()
+      : Promise.resolve<{ data: ExerciseSearchRow[]; error: null }>({
+          data: [],
+          error: null,
+        });
 
-    if (includePersonal && ownerId) {
-      let personal = sb
-        .from('exercises')
-        .select(selection)
-        .eq('owner_id', ownerId)
-        .eq('is_global', false)
-        .order('updated_at', { ascending: false, nullsFirst: false })
-        .limit(limit);
-      if (filters) personal = personal.or(filters);
-
-      const { data: personalData, error: personalError } = await personal;
-      if (personalError) {
-        throw new Error(personalError.message || 'Erro ao consultar exercícios pessoais.');
-      }
-      for (const row of personalData ?? []) {
-        const item = mapRowToItem(row);
-        if (!items.has(item.id)) {
-          items.set(item.id, item);
-        }
-      }
-    }
-
-    let global = sb
+    let globalBuilder = sb
       .from('exercises')
       .select(selection)
       .eq('is_global', true)
       .eq('is_published', true)
       .order('updated_at', { ascending: false, nullsFirst: false })
       .limit(limit);
-    if (filters) global = global.or(filters);
+    if (filters) globalBuilder = globalBuilder.or(filters);
 
-    const { data: globalData, error: globalError } = await global;
+    const [personalResult, globalResult] = await Promise.all([
+      personalQuery,
+      globalBuilder,
+    ]);
+
+    const { data: personalData, error: personalError } = personalResult;
+    if (personalError) {
+      throw new Error(personalError.message || 'Erro ao consultar exercícios pessoais.');
+    }
+
+    const { data: globalData, error: globalError } = globalResult;
     if (globalError) {
       throw new Error(globalError.message || 'Erro ao consultar o catálogo de exercícios.');
     }
+
+    const items = new Map<string, ExerciseSearchItem>();
+    for (const row of personalData ?? []) {
+      const item = mapRowToItem(row);
+      if (!items.has(item.id)) {
+        items.set(item.id, item);
+      }
+    }
+
     for (const row of globalData ?? []) {
       const item = mapRowToItem(row);
       if (!items.has(item.id)) {
@@ -194,17 +206,23 @@ export async function GET(req: NextRequest) {
       })
       .slice(0, limit);
 
-    return NextResponse.json({
-      ok: true,
-      source: 'supabase' as const,
-      generatedAt: new Date().toISOString(),
-      items: ordered,
-    });
+    const response = NextResponse.json(
+      {
+        ok: true,
+        source: 'supabase' as const,
+        generatedAt: new Date().toISOString(),
+        items: ordered,
+      },
+      { status: 200 },
+    );
+    response.headers.set('cache-control', 'no-store');
+    response.headers.set('vary', 'cookie, authorization');
+    return response;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Serviço indisponível.';
     const fallbackRecords = getTrainerLibraryRecordsFallback(ownerId ?? userId);
     const fallbackItems = filterFallback(fallbackRecords.map(mapFallbackToItem), term).slice(0, limit);
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
         ok: true,
         source: 'fallback' as const,
@@ -214,6 +232,9 @@ export async function GET(req: NextRequest) {
       },
       { status: 200 },
     );
+    response.headers.set('cache-control', 'no-store');
+    response.headers.set('vary', 'cookie, authorization');
+    return response;
   }
 }
 
