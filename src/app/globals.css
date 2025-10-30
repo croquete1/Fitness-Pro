@@ -4333,6 +4333,12 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
 .profile-dashboard__reminder{
   margin-bottom:24px;
 }
+.profile-dashboard__reminderHint{
+  display:inline-block;
+  margin-top:6px;
+  font-size:13px;
+  color:color-mix(in srgb, var(--warning) 62%, var(--fg));
+}
 .profile-dashboard__reminderAction{
   margin-top:8px;
   display:inline-flex;

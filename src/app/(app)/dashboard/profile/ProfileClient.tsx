@@ -88,6 +88,63 @@ function formatTimestamp(iso: string | null): string {
   return date.toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' });
 }
 
+type TemporalDescriptor = { absolute: string; relative: string | null };
+
+const RELATIVE_TIME_FORMATTER = new Intl.RelativeTimeFormat('pt-PT', { numeric: 'auto' });
+
+const SECOND = 1000;
+const MINUTE = 60 * SECOND;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+const WEEK = 7 * DAY;
+const MONTH = 30 * DAY;
+const YEAR = 365 * DAY;
+
+function formatRelativeTimestamp(iso: string | null | undefined, now: number): string | null {
+  if (!iso) return null;
+  const target = new Date(iso);
+  if (Number.isNaN(target.getTime())) return null;
+
+  const diff = target.getTime() - now;
+  const abs = Math.abs(diff);
+
+  let unit: Intl.RelativeTimeFormatUnit;
+  let value: number;
+
+  if (abs < 30 * SECOND) {
+    unit = 'second';
+    value = Math.round(diff / SECOND);
+  } else if (abs < 45 * MINUTE) {
+    unit = 'minute';
+    value = Math.round(diff / MINUTE);
+  } else if (abs < 36 * HOUR) {
+    unit = 'hour';
+    value = Math.round(diff / HOUR);
+  } else if (abs < 10 * DAY) {
+    unit = 'day';
+    value = Math.round(diff / DAY);
+  } else if (abs < 8 * WEEK) {
+    unit = 'week';
+    value = Math.round(diff / WEEK);
+  } else if (abs < 18 * MONTH) {
+    unit = 'month';
+    value = Math.round(diff / MONTH);
+  } else {
+    unit = 'year';
+    value = Math.round(diff / YEAR);
+  }
+
+  return RELATIVE_TIME_FORMATTER.format(value, unit);
+}
+
+function getTemporalDescriptor(iso: string | null | undefined, now: number): TemporalDescriptor | null {
+  if (!iso) return null;
+  const absolute = formatTimestamp(iso);
+  if (absolute === '—') return null;
+  const relative = formatRelativeTimestamp(iso, now);
+  return { absolute, relative };
+}
+
 function applyServerPatch(base: FormState, patch: unknown): FormState {
   if (!patch || typeof patch !== 'object') return base;
   const record = patch as Record<string, unknown>;
@@ -254,6 +311,13 @@ export default function ProfileClient({
 
   const refreshStatusId = React.useId();
 
+  const [relativeNow, setRelativeNow] = React.useState(() => Date.now());
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const interval = window.setInterval(() => setRelativeNow(Date.now()), 60000);
+    return () => window.clearInterval(interval);
+  }, []);
+
   let questionnaireBadgeVariant: 'success' | 'warning' | 'neutral' = 'warning';
   let questionnaireBadgeLabel = 'Por preencher';
   if (questionnaire?.status === 'submitted') {
@@ -269,10 +333,14 @@ export default function ProfileClient({
 
   const dashboard = data ?? initialDashboard;
   const account = dashboard.account;
-  const notificationsLastDelivery = formatTimestamp(dashboard.notifications.lastDeliveryAt);
-  const notificationsNextReminder = dashboard.notifications.nextReminderAt
-    ? formatTimestamp(dashboard.notifications.nextReminderAt)
-    : null;
+  const nextReminderDescriptor = React.useMemo(
+    () => getTemporalDescriptor(dashboard.notifications.nextReminderAt, relativeNow),
+    [dashboard.notifications.nextReminderAt, relativeNow],
+  );
+  const lastDeliveryDescriptor = React.useMemo(
+    () => getTemporalDescriptor(dashboard.notifications.lastDeliveryAt, relativeNow),
+    [dashboard.notifications.lastDeliveryAt, relativeNow],
+  );
   const unreadNotificationsLabel = React.useMemo(() => {
     const raw = dashboard.notifications.unread;
     const unread = typeof raw === 'number' && Number.isFinite(raw) ? raw : Number(raw ?? 0);
@@ -281,15 +349,21 @@ export default function ProfileClient({
     return `${unread} alertas por ler`;
   }, [dashboard.notifications.unread]);
   const notificationsLastDeliveryMessage = React.useMemo(() => {
-    if (!dashboard.notifications.lastDeliveryAt || notificationsLastDelivery === '—') {
+    if (!lastDeliveryDescriptor) {
       return 'Ainda não recebeste alertas automáticos.';
     }
-    return `Último envio ${notificationsLastDelivery}`;
-  }, [dashboard.notifications.lastDeliveryAt, notificationsLastDelivery]);
+    if (lastDeliveryDescriptor.relative) {
+      return `Último envio ${lastDeliveryDescriptor.relative} (${lastDeliveryDescriptor.absolute}).`;
+    }
+    return `Último envio ${lastDeliveryDescriptor.absolute}.`;
+  }, [lastDeliveryDescriptor]);
   const nextReminderMessage = React.useMemo(() => {
-    if (!notificationsNextReminder || notificationsNextReminder === '—') return null;
-    return `Próximo lembrete ${notificationsNextReminder}.`;
-  }, [notificationsNextReminder]);
+    if (!nextReminderDescriptor) return null;
+    if (nextReminderDescriptor.relative) {
+      return `Próximo lembrete ${nextReminderDescriptor.relative} (${nextReminderDescriptor.absolute}).`;
+    }
+    return `Próximo lembrete ${nextReminderDescriptor.absolute}.`;
+  }, [nextReminderDescriptor]);
 
   const [form, setForm] = React.useState<FormState>(() => sanitizeForm(account));
   const [baseline, setBaseline] = React.useState<FormState>(() => sanitizeForm(account));
@@ -539,12 +613,7 @@ export default function ProfileClient({
     const base = Array.isArray(dashboard.highlights) ? dashboard.highlights : [];
     if (!questionnaireReminderActive) return base;
     const filtered = base.filter((item) => item.id !== 'questionnaire-reminder');
-    const formattedReminder = dashboard.notifications.nextReminderAt
-      ? formatTimestamp(dashboard.notifications.nextReminderAt)
-      : null;
-    const reminderSuffix = formattedReminder && formattedReminder !== '—'
-      ? ` Próximo lembrete ${formattedReminder}.`
-      : '';
+    const reminderSuffix = nextReminderMessage ? ` ${nextReminderMessage}` : '';
     return [
       {
         id: 'questionnaire-reminder',
@@ -557,7 +626,7 @@ export default function ProfileClient({
     ];
   }, [
     dashboard.highlights,
-    dashboard.notifications.nextReminderAt,
+    nextReminderMessage,
     questionnaireReminderActive,
   ]);
 
@@ -604,6 +673,12 @@ export default function ProfileClient({
           title="Completa o questionário obrigatório"
         >
           Ainda temos perguntas essenciais por responder. Vais continuar a receber lembretes automáticos até concluir.
+          {nextReminderMessage ? (
+            <>
+              <br />
+              <span className="profile-dashboard__reminderHint">{nextReminderMessage}</span>
+            </>
+          ) : null}
           <br />
           <Link href="/dashboard/onboarding" className="btn chip profile-dashboard__reminderAction">
             Preencher agora

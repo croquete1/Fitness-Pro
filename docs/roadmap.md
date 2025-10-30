@@ -44,6 +44,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
   - 2025-11-06: Permitimos revalidar o questionário directamente do cartão do perfil, alinhando o botão de refresh com ambos os carregamentos e expondo retry dedicado em caso de falha. Fontes: `src/app/(app)/dashboard/profile/ProfileClient.tsx`, `src/app/globals.css`.
   - 2025-11-07: Automatizámos os lembretes para questionários em falta com destaque visível e CTA directo no dashboard do cliente, reutilizando o estado do questionário carregado. Fontes: `src/app/(app)/dashboard/profile/ProfileClient.tsx`, `src/app/globals.css`.
   - 2025-11-08: Refinámos o destaque principal e o painel de notificações com CTA accionável e mensagens contextuais que exibem o próximo lembrete automático, clarificando o estado dos alertas no dashboard do cliente. Fontes: `src/app/(app)/dashboard/profile/ProfileClient.tsx`, `src/app/globals.css`.
+  - 2025-11-09: Enriquecemos os lembretes com tempo relativo e renovação automática, garantindo que o dashboard e as notificações exibem o próximo envio com contexto natural (ex.: "daqui a 2 dias"), inclusive no banner de alerta. Fontes: `src/app/(app)/dashboard/profile/ProfileClient.tsx`, `src/app/globals.css`.
 
 ## Fase 2 - Melhorias Estruturais
 - [x] Validar carregamento real da lista de utilizadores/aprovações no Supabase (remoção dos fallbacks quando a API estiver estável e seeds completos).
