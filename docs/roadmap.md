@@ -263,6 +263,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
   - 2025-10-30: Reativámos a pesquisa do selector no PlanEditor com API autenticada e fallback determinístico, sinalizando a origem dos dados e tratando estados de erro/aviso diretamente no fluxo de criação de planos.
   - 2025-10-31: Corrigimos a duplicação inadvertida de exercícios no PlanEditor, limpámos a pesquisa após adições e garantimos que o selector respeita a remoção de PT/cliente ao preparar novos planos.
   - 2025-11-01: Normalizámos a preparação dos exercícios do plano, garantindo séries/repetições válidas, sincronização do estado inicial e resposta da API `/api/exercises` com cabeçalhos de cache adequados e pedidos concorrentes optimizados.
+  - 2025-11-02: Activámos cache curta para pesquisas na biblioteca, mantivemos a badge de origem mesmo sem resultados e limpámos automaticamente exercícios pessoais ao trocar o PT no PlanEditor.
 - [ ] Introduzir um planeador de sessões/agenda com sincronização externa (Google/Apple) e insights de disponibilidade.
 - [ ] Avaliar experiências mobile (PWA/app) e integração com calendários externos.
 - [ ] Planear integrações futuras (wearables, pagamentos adicionais, gamificação) conforme feedback de utilizadores.

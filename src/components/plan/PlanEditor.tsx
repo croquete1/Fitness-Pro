@@ -24,6 +24,7 @@ import DataSourceBadge from '@/components/ui/DataSourceBadge';
 
 const DEFAULT_SETS = 3;
 const DEFAULT_REPS = 10;
+const SEARCH_CACHE_TTL = 30_000; // 30s de cache por termo/owner
 
 function toast(type: 'success' | 'error' | 'info' | 'warning', msg: string) {
   try {
@@ -101,6 +102,14 @@ type PickerResult = {
   retry: () => void;
 };
 
+type SearchCacheEntry = {
+  items: ExerciseLite[];
+  source: 'supabase' | 'fallback';
+  warning: string | null;
+  generatedAt: string | null;
+  timestamp: number;
+};
+
 const STATUS_OPTIONS: PlanWorkflowStatus[] = [
   'PENDING',
   'ACTIVE',
@@ -152,6 +161,11 @@ function parsePositiveIntegerFromInput(value: string, fallback: number): number 
   return Math.max(1, parsed);
 }
 
+function makeCacheKey(term: string, ownerId: string | null) {
+  const safeTerm = term.trim().toLowerCase();
+  return `${ownerId ?? 'global-only'}::${safeTerm}`;
+}
+
 function useExerciseSearch(ownerId?: string | null): PickerResult {
   const [q, setQ] = useState('');
   const [items, setItems] = useState<ExerciseLite[]>([]);
@@ -162,6 +176,7 @@ function useExerciseSearch(ownerId?: string | null): PickerResult {
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const latestTermRef = useRef('');
+  const cacheRef = useRef<Map<string, SearchCacheEntry>>(new Map());
 
   useEffect(() => {
     return () => {
@@ -170,6 +185,20 @@ function useExerciseSearch(ownerId?: string | null): PickerResult {
   }, []);
 
   const executeSearch = useCallback(async (term: string, owner: string | null) => {
+    const cacheKey = makeCacheKey(term, owner);
+    const cached = cacheRef.current.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < SEARCH_CACHE_TTL) {
+      abortRef.current?.abort();
+      abortRef.current = null;
+      setItems(cached.items);
+      setSource(cached.source);
+      setGeneratedAt(cached.generatedAt);
+      setWarning(cached.warning);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -245,24 +274,33 @@ function useExerciseSearch(ownerId?: string | null): PickerResult {
         }
       }
 
-      setItems(Array.from(map.values()));
-
-      if (!Array.isArray(payload) && payload.source === 'fallback') {
-        setSource('fallback');
-        setWarning(
-          payload.message ?? 'A mostrar catálogo determinístico por falta de ligação ao servidor.',
-        );
-      } else {
-        setSource(map.size ? 'supabase' : null);
-        setWarning(null);
-      }
-
-      const generated = !Array.isArray(payload) && typeof payload.generatedAt === 'string'
-        ? payload.generatedAt
+      const nextItems = Array.from(map.values());
+      const payloadObject = Array.isArray(payload) ? null : payload;
+      const resolvedSource = payloadObject?.source === 'fallback' ? 'fallback' : 'supabase';
+      const resolvedWarning =
+        resolvedSource === 'fallback'
+          ? payloadObject?.message ??
+            'A mostrar catálogo determinístico por falta de ligação ao servidor.'
+          : null;
+      const generated = payloadObject?.generatedAt && typeof payloadObject.generatedAt === 'string'
+        ? payloadObject.generatedAt
         : new Date().toISOString();
-      setGeneratedAt(map.size ? generated : null);
+
+      setItems(nextItems);
+      setSource(resolvedSource);
+      setWarning(resolvedWarning);
+      setGeneratedAt(generated);
+
+      cacheRef.current.set(cacheKey, {
+        items: nextItems,
+        source: resolvedSource,
+        warning: resolvedWarning,
+        generatedAt: generated,
+        timestamp: Date.now(),
+      });
     } catch (err) {
       if ((err as { name?: string } | null)?.name === 'AbortError') return;
+      cacheRef.current.delete(cacheKey);
       setItems([]);
       setSource(null);
       setGeneratedAt(null);
@@ -296,7 +334,9 @@ function useExerciseSearch(ownerId?: string | null): PickerResult {
   const retry = useCallback(() => {
     const term = latestTermRef.current;
     if (term.length < 2) return;
-    executeSearch(term, ownerId ?? null);
+    const owner = ownerId ?? null;
+    cacheRef.current.delete(makeCacheKey(term, owner));
+    executeSearch(term, owner);
   }, [executeSearch, ownerId]);
 
   return { q, setQ, items, loading, error, warning, source, generatedAt, retry };
@@ -635,8 +675,37 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin = fal
               role="TRAINER"
               value={trainer}
               onChange={(value) => {
+                const previousTrainerId = trainerId;
+                const nextTrainerId = value?.id ?? null;
+
                 setTrainer(value);
-                setTrainerId(value?.id ?? null);
+                setTrainerId(nextTrainerId);
+
+                if (previousTrainerId !== nextTrainerId) {
+                  let removedPersonal = 0;
+                  setExercises((prev) => {
+                    if (!prev.length) return prev;
+                    const nextList = prev.filter((exercise) => {
+                      if (exercise.scope === 'personal') {
+                        removedPersonal += 1;
+                        return false;
+                      }
+                      return true;
+                    });
+                    return removedPersonal ? nextList : prev;
+                  });
+
+                  setSearchTerm('');
+
+                  if (removedPersonal > 0) {
+                    toast(
+                      'warning',
+                      removedPersonal === 1
+                        ? 'Removemos 1 exercício pessoal ao trocar de PT; mantém apenas o catálogo global.'
+                        : `Removemos ${removedPersonal} exercícios pessoais ao trocar de PT; mantém apenas o catálogo global.`,
+                    );
+                  }
+                }
               }}
               placeholder="Seleciona o PT responsável…"
               disabled={!admin}
