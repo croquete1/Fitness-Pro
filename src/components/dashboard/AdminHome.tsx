@@ -45,14 +45,19 @@ type AdminNotification = {
   } | null;
 };
 
-async function getJSON<T>(url: string): Promise<T | null> {
+async function getJSON<T>(url: string, signal?: AbortSignal): Promise<T | null> {
   try {
-    const res = await fetch(url, { cache: "no-store", credentials: "same-origin" });
+    const res = await fetch(url, {
+      cache: "no-store",
+      credentials: "same-origin",
+      signal,
+    });
     if (!res.ok) return null;
     const j = (await res.json()) as ApiResult<T>;
     // @ts-expect-error — tolerância a {data:…} ou payload direto
     return (j?.data ?? j) as T;
-  } catch {
+  } catch (error) {
+    if (signal?.aborted) return null;
     return null;
   }
 }
@@ -85,107 +90,225 @@ export default function AdminHome() {
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const supabaseRef = useRef<ReturnType<typeof supabaseBrowser> | null>(null);
   const realtimeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const loadAbortRef = useRef<AbortController | null>(null);
+  const lightAbortRef = useRef<AbortController | null>(null);
+  const refreshAbortRef = useRef<AbortController | null>(null);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
-    let timer: any;
-    (async () => {
-      await loadAll(); // carga inicial
-      // poll leve a cada 30s
-      timer = setInterval(loadLight, 30_000);
-    })();
-    return () => timer && clearInterval(timer);
+    return () => {
+      isMountedRef.current = false;
+      loadAbortRef.current?.abort();
+      lightAbortRef.current?.abort();
+      refreshAbortRef.current?.abort();
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+      if (realtimeTimerRef.current) {
+        clearTimeout(realtimeTimerRef.current);
+        realtimeTimerRef.current = null;
+      }
+    };
   }, []);
 
-  async function loadAll() {
+  const loadAll = useCallback(async () => {
+    const controller = new AbortController();
+    loadAbortRef.current?.abort();
+    loadAbortRef.current = controller;
+
     setLoading(true);
 
-    // janela sessões: últimos 6 dias até hoje + próximos 7
-    const from = startOfDay(addDays(new Date(), -6)).toISOString();
-    const to = addDays(new Date(), 7).toISOString();
+    try {
+      // janela sessões: últimos 6 dias até hoje + próximos 7
+      const from = startOfDay(addDays(new Date(), -6)).toISOString();
+      const to = addDays(new Date(), 7).toISOString();
 
-    const [s, acts, sess, notif, count] = await Promise.all([
-      getJSON<Stats>("/api/dashboard/stats"),
-      getJSON<ActivityItem[]>("/api/dashboard/activities?limit=8"),
-      getJSON<SessionItem[]>(
-        `/api/trainer/sessions?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
-      ),
-      getJSON<AdminNotification[]>("/api/admin/notifications?limit=8"),
-      getJSON<{ pending: number; active: number; suspended: number; total: number }>(
-        "/api/admin/approvals/count"
-      ),
-    ]);
+      const [s, acts, sess, notif, count] = await Promise.all([
+        getJSON<Stats>("/api/dashboard/stats", controller.signal),
+        getJSON<ActivityItem[]>("/api/dashboard/activities?limit=8", controller.signal),
+        getJSON<SessionItem[]>(
+          `/api/trainer/sessions?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+          controller.signal
+        ),
+        getJSON<AdminNotification[]>("/api/admin/notifications?limit=8", controller.signal),
+        getJSON<{ pending: number; active: number; suspended: number; total: number }>(
+          "/api/admin/approvals/count",
+          controller.signal
+        ),
+      ]);
 
-    setStats(s ?? { clients: 0, trainers: 0, admins: 0, sessionsNext7: 0 });
-    setActivities(Array.isArray(acts) ? acts : []);
+      if (!isMountedRef.current || controller.signal.aborted) {
+        return;
+      }
 
-    const list = Array.isArray(sess) ? sess : [];
+      setStats(s ?? { clients: 0, trainers: 0, admins: 0, sessionsNext7: 0 });
+      setActivities(Array.isArray(acts) ? acts : []);
 
-    // Agenda (próx 7)
-    const upcoming: AgendaItem[] = list
-      .filter((x) => +new Date(x.start ?? x.date ?? x.when ?? 0) >= Date.now())
-      .map((x) => {
-        const when = new Date(x.start ?? x.date ?? x.when ?? Date.now());
-        return {
-          id: String(x.id ?? `${when.getTime()}-${Math.random()}`),
-          when: when.toISOString(),
-          title: x.title ?? x.name ?? `Sessão${x.clientName ? ` · ${x.clientName}` : ""}`,
-          meta:
-            x.trainerName && x.clientName
-              ? `${x.trainerName} → ${x.clientName}`
-              : x.trainerName ?? x.clientName ?? "",
-          href: "/dashboard/sessions",
-        };
-      })
-      .sort((a, b) => +new Date(a.when) - +new Date(b.when))
-      .slice(0, 6);
-    setAgenda(upcoming);
+      const list = Array.isArray(sess) ? sess : [];
 
-    // Série (últimos 7)
-    const base: SeriesPoint[] = [];
-    const start = startOfDay(addDays(new Date(), -6));
-    for (let i = 0; i < 7; i++) {
-      const d = addDays(start, i);
-      base.push({ label: d.toLocaleDateString("pt-PT", { weekday: "short" }), value: 0 });
+      // Agenda (próx 7)
+      const upcoming: AgendaItem[] = list
+        .filter((x) => +new Date(x.start ?? x.date ?? x.when ?? 0) >= Date.now())
+        .map((x) => {
+          const when = new Date(x.start ?? x.date ?? x.when ?? Date.now());
+          return {
+            id: String(x.id ?? `${when.getTime()}-${Math.random()}`),
+            when: when.toISOString(),
+            title: x.title ?? x.name ?? `Sessão${x.clientName ? ` · ${x.clientName}` : ""}`,
+            meta:
+              x.trainerName && x.clientName
+                ? `${x.trainerName} → ${x.clientName}`
+                : x.trainerName ?? x.clientName ?? "",
+            href: "/dashboard/sessions",
+          };
+        })
+        .sort((a, b) => +new Date(a.when) - +new Date(b.when))
+        .slice(0, 6);
+      setAgenda(upcoming);
+
+      // Série (últimos 7)
+      const base: SeriesPoint[] = [];
+      const start = startOfDay(addDays(new Date(), -6));
+      for (let i = 0; i < 7; i++) {
+        const d = addDays(start, i);
+        base.push({ label: d.toLocaleDateString("pt-PT", { weekday: "short" }), value: 0 });
+      }
+      list.forEach((x) => {
+        const d = startOfDay(new Date(x.start ?? x.date ?? x.when ?? Date.now()));
+        const idx = Math.round((+d - +start) / 86400000);
+        if (idx >= 0 && idx < base.length) base[idx].value += 1;
+      });
+      setSeries(base);
+
+      setNotifications(Array.isArray(notif) ? notif : []);
+      setPendingCount(Number(count?.pending ?? 0));
+    } finally {
+      if (loadAbortRef.current === controller) {
+        loadAbortRef.current = null;
+      }
+      if (isMountedRef.current && !controller.signal.aborted) {
+        setLoading(false);
+      }
     }
-    list.forEach((x) => {
-      const d = startOfDay(new Date(x.start ?? x.date ?? x.when ?? Date.now()));
-      const idx = Math.round((+d - +start) / 86400000);
-      if (idx >= 0 && idx < base.length) base[idx].value += 1;
-    });
-    setSeries(base);
-
-    setNotifications(Array.isArray(notif) ? notif : []);
-    setPendingCount(Number(count?.pending ?? 0));
-
-    setLoading(false);
-  }
+  }, []);
 
   // carga "leve" só para notificações e pendentes
-  async function loadLight() {
-    const [notif, count] = await Promise.all([
-      getJSON<AdminNotification[]>("/api/admin/notifications?limit=8"),
-      getJSON<{ pending: number }>(
-        "/api/admin/approvals/count"
-      ),
-    ]);
-    if (Array.isArray(notif)) setNotifications(notif);
-    if (count && typeof count.pending === "number") setPendingCount(count.pending);
-  }
+  const loadLight = useCallback(async () => {
+    const controller = new AbortController();
+    lightAbortRef.current?.abort();
+    lightAbortRef.current = controller;
+
+    try {
+      const [notif, count] = await Promise.all([
+        getJSON<AdminNotification[]>("/api/admin/notifications?limit=8", controller.signal),
+        getJSON<{ pending: number }>("/api/admin/approvals/count", controller.signal),
+      ]);
+
+      if (!isMountedRef.current || controller.signal.aborted) {
+        return;
+      }
+
+      if (Array.isArray(notif)) setNotifications(notif);
+      if (count && typeof count.pending === "number") setPendingCount(count.pending);
+    } finally {
+      if (lightAbortRef.current === controller) {
+        lightAbortRef.current = null;
+      }
+    }
+  }, []);
 
   const refreshStats = useCallback(async () => {
-    const next = await getJSON<Stats>("/api/dashboard/stats");
-    if (next) {
-      setStats(next);
+    const controller = new AbortController();
+    refreshAbortRef.current?.abort();
+    refreshAbortRef.current = controller;
+
+    try {
+      const next = await getJSON<Stats>("/api/dashboard/stats", controller.signal);
+      if (!isMountedRef.current || controller.signal.aborted) {
+        return;
+      }
+      if (next) {
+        setStats(next);
+      }
+    } finally {
+      if (refreshAbortRef.current === controller) {
+        refreshAbortRef.current = null;
+      }
     }
   }, []);
 
   const scheduleRealtimeRefresh = useCallback(() => {
+    if (typeof document !== "undefined" && document.hidden) {
+      return;
+    }
     if (realtimeTimerRef.current) return;
     realtimeTimerRef.current = setTimeout(() => {
       realtimeTimerRef.current = null;
       void refreshStats();
     }, 350);
   }, [refreshStats]);
+
+  useEffect(() => {
+    let disposed = false;
+
+    const stopPolling = () => {
+      if (!pollTimerRef.current) return;
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    };
+
+    const startPolling = () => {
+      if (pollTimerRef.current) return;
+      pollTimerRef.current = setInterval(() => {
+        void loadLight();
+      }, 30_000);
+    };
+
+    void (async () => {
+      try {
+        await loadAll();
+      } catch (error) {
+        console.error("[admin-home] falha ao carregar resumo", error);
+      } finally {
+        if (!disposed) {
+          if (typeof document !== "undefined" && document.hidden) {
+            stopPolling();
+          } else {
+            startPolling();
+          }
+        }
+      }
+    })();
+
+    const handleVisibility = () => {
+      if (typeof document !== "undefined" && document.hidden) {
+        stopPolling();
+        return;
+      }
+      void loadLight();
+      startPolling();
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("focus", handleVisibility);
+    }
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", handleVisibility);
+    }
+
+    return () => {
+      disposed = true;
+      stopPolling();
+      if (typeof window !== "undefined") {
+        window.removeEventListener("focus", handleVisibility);
+      }
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", handleVisibility);
+      }
+    };
+  }, [loadAll, loadLight]);
 
   // KPI: próximos 7 dias
   const sessionsNext7 = useMemo(() => {
