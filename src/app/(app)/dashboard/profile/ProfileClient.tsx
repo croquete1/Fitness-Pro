@@ -387,6 +387,12 @@ export default function ProfileClient({
     if (unread === 1) return '1 alerta por ler';
     return `${unread} alertas por ler`;
   }, [dashboard.notifications.unread]);
+  const favouriteTrainerLabel = React.useMemo(() => {
+    const label = dashboard.sessions.favouriteTrainer;
+    if (typeof label !== 'string') return null;
+    const trimmed = label.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }, [dashboard.sessions.favouriteTrainer]);
   const notificationsLastDeliveryMessage = React.useMemo(() => {
     if (!lastDeliveryDescriptor) {
       return 'Ainda não recebeste alertas automáticos.';
@@ -921,6 +927,11 @@ export default function ProfileClient({
             ) : (
               <p>Todas as informações essenciais estão preenchidas. 👏</p>
             )}
+            {favouriteTrainerLabel ? (
+              <p className="profile-completion__favourite">
+                Ritmo consistente com <strong>{favouriteTrainerLabel}</strong>.
+              </p>
+            ) : null}
           </div>
 
           <div className="profile-summary__notifications" data-reminder={questionnaireReminderActive ? 'true' : undefined}>
