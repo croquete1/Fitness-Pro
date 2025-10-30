@@ -1262,9 +1262,9 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
   return (
     <div className="trainer-dashboard">
       <PageHeader
+        eyebrow="Cockpit PT"
         title={`Olá, ${greeting}`}
         subtitle="Acompanha métricas, pedidos e sessões do teu portefólio."
-        sticky={false}
         actions={
           <div className="trainer-dashboard__actions">
             <DataSourceBadge
