@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole } from '@/lib/roles';
+import { notifyPlanUpdated } from '@/lib/notify';
 
 type PlanStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
 
@@ -9,7 +10,12 @@ type Body = {
   title?: string;
   clientId?: string | null;
   status?: PlanStatus;
+  notifyClient?: boolean;
+  notifyMessage?: string | null;
 };
+
+const PLAN_STATUSES: readonly PlanStatus[] = ['DRAFT', 'ACTIVE', 'ARCHIVED'];
+const NOTIFY_MAX_CHARS = 500;
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -55,41 +61,118 @@ export async function PATCH(req: Request, ctx: Ctx) {
     return NextResponse.json({ ok: false, error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const updates: Record<string, unknown> = {};
-  if (typeof payload.title === 'string' && payload.title.trim().length >= 3) {
-    updates.title = payload.title.trim();
-  }
-  if (payload.status) {
-    updates.status = payload.status;
-  }
-  if (payload.clientId !== undefined) {
-    updates.client_id = payload.clientId || null;
-  }
-  if (Object.keys(updates).length === 0) {
-    return NextResponse.json({ ok: false, error: 'Nada para atualizar' }, { status: 400 });
-  }
-
   const sb = createServerClient();
 
   // garantir que o utilizador pode editar este plano
-  const { data: plan } = await sb
+  const { data: plan, error: planError } = await sb
     .from('training_plans')
-    .select('id, trainer_id')
+    .select('id, title, status, trainer_id, client_id')
     .eq('id', id)
     .maybeSingle();
 
+  if (planError) {
+    return NextResponse.json({ ok: false, error: planError.message }, { status: 500 });
+  }
   if (!plan) return NextResponse.json({ ok: false, error: 'Not found' }, { status: 404 });
   if (role !== 'ADMIN' && plan.trainer_id !== user.id) {
     return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 });
   }
 
-  const { error } = await sb
+  const updates: Record<string, unknown> = {};
+  const shouldNotify = payload.notifyClient === true;
+  const notifyMessageRaw =
+    typeof payload.notifyMessage === 'string' ? payload.notifyMessage.trim() : '';
+
+  if (notifyMessageRaw.length > NOTIFY_MAX_CHARS) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: `Mensagem demasiado longa (máximo ${NOTIFY_MAX_CHARS} caracteres).`,
+      },
+      { status: 400 }
+    );
+  }
+
+  if (typeof payload.title === 'string') {
+    const trimmed = payload.title.trim();
+    if (trimmed.length < 3) {
+      return NextResponse.json(
+        { ok: false, error: 'Título demasiado curto (mínimo 3 caracteres).' },
+        { status: 400 }
+      );
+    }
+    if (trimmed !== plan.title) {
+      updates.title = trimmed;
+    }
+  }
+
+  if (payload.status) {
+    if (!PLAN_STATUSES.includes(payload.status)) {
+      return NextResponse.json({ ok: false, error: 'Estado inválido.' }, { status: 400 });
+    }
+    if (payload.status !== plan.status) {
+      updates.status = payload.status;
+    }
+  }
+
+  let nextClientId: string | null | undefined;
+  if (payload.clientId !== undefined) {
+    if (payload.clientId === null) {
+      nextClientId = null;
+    } else if (typeof payload.clientId === 'string' && payload.clientId.trim().length > 0) {
+      nextClientId = payload.clientId.trim();
+    } else {
+      nextClientId = null;
+    }
+
+    if (nextClientId !== plan.client_id) {
+      updates.client_id = nextClientId;
+    }
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ ok: false, error: 'Nenhuma alteração detetada.' }, { status: 400 });
+  }
+
+  const effectiveClientId =
+    nextClientId !== undefined ? nextClientId : (plan.client_id as string | null);
+
+  if (shouldNotify && !effectiveClientId) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'Atribui um cliente ao plano antes de enviar notificações.',
+      },
+      { status: 400 }
+    );
+  }
+
+  const { data: updatedPlan, error: updateError } = await sb
     .from('training_plans')
     .update(updates)
-    .eq('id', id);
+    .eq('id', id)
+    .select('client_id')
+    .maybeSingle();
 
-  if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (updateError) {
+    return NextResponse.json({ ok: false, error: updateError.message }, { status: 500 });
+  }
+
+  const finalClientId =
+    nextClientId !== undefined
+      ? nextClientId
+      : (updatedPlan?.client_id as string | null | undefined) ?? plan.client_id;
+
+  if (shouldNotify && finalClientId) {
+    const result = await notifyPlanUpdated(
+      sb,
+      finalClientId,
+      id,
+      notifyMessageRaw || undefined
+    );
+    if (!result.ok && 'reason' in result) {
+      console.error('[notify-plan-updated] failed', result.reason);
+    }
   }
 
   return NextResponse.json({ ok: true, id });
