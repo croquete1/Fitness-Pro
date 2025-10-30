@@ -261,6 +261,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [ ] Evoluir sistema de mensagens/notificações para suporte a envio em tempo real e threads.
 - [ ] Completar gestão da biblioteca de exercícios com CRUD e selector avançado.
   - 2025-10-30: Reativámos a pesquisa do selector no PlanEditor com API autenticada e fallback determinístico, sinalizando a origem dos dados e tratando estados de erro/aviso diretamente no fluxo de criação de planos.
+  - 2025-10-31: Corrigimos a duplicação inadvertida de exercícios no PlanEditor, limpámos a pesquisa após adições e garantimos que o selector respeita a remoção de PT/cliente ao preparar novos planos.
 - [ ] Introduzir um planeador de sessões/agenda com sincronização externa (Google/Apple) e insights de disponibilidade.
 - [ ] Avaliar experiências mobile (PWA/app) e integração com calendários externos.
 - [ ] Planear integrações futuras (wearables, pagamentos adicionais, gamificação) conforme feedback de utilizadores.

@@ -58,8 +58,8 @@ type Exercise = {
 };
 
 type InitialPlan = {
-  trainerId: string;
-  clientId: string;
+  trainerId: string | null;
+  clientId: string | null;
   trainerName?: string | null;
   clientName?: string | null;
   title: string;
@@ -380,8 +380,8 @@ function ExercisePicker({
 export default function PlanEditor({ mode, initial, planId, onSaved, admin = false }: Props) {
   const router = useRouter();
 
-  const [trainerId, setTrainerId] = useState(initial.trainerId);
-  const [clientId, setClientId] = useState(initial.clientId);
+  const [trainerId, setTrainerId] = useState<string | null>(initial.trainerId || null);
+  const [clientId, setClientId] = useState<string | null>(initial.clientId || null);
   const [title, setTitle] = useState(initial.title);
   const [notes, setNotes] = useState(initial.notes);
   const [status, setStatus] = useState<PlanWorkflowStatus>(initial.status ?? 'PENDING');
@@ -396,6 +396,7 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin = fal
   );
 
   const exerciseSearch = useExerciseSearch(trainerId);
+  const { setQ: setSearchTerm } = exerciseSearch;
 
   const canSave = useMemo(() => {
     const hasTitle = title.trim().length >= 3;
@@ -417,8 +418,13 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin = fal
 
   const addExercise = useCallback(
     (item: ExerciseLite) => {
-      setExercises((prev) => [
-        ...prev,
+      if (exercises.some((exercise) => exercise.id === item.id)) {
+        toast('info', 'Este exercício já está no plano.');
+        return;
+      }
+
+      setExercises([
+        ...exercises,
         {
           id: item.id,
           name: item.name,
@@ -433,9 +439,11 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin = fal
           notes: '',
         },
       ]);
+
       toast('success', `Adicionado: ${item.name}`);
+      setSearchTerm('');
     },
-    []
+    [exercises, setSearchTerm]
   );
 
   const updateExercise = useCallback((index: number, patch: Partial<Exercise>) => {
@@ -570,7 +578,7 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin = fal
               value={trainer}
               onChange={(value) => {
                 setTrainer(value);
-                setTrainerId(value?.id ?? initial.trainerId);
+                setTrainerId(value?.id ?? null);
               }}
               placeholder="Seleciona o PT responsável…"
               disabled={!admin}
@@ -581,7 +589,7 @@ export default function PlanEditor({ mode, initial, planId, onSaved, admin = fal
               value={client}
               onChange={(value) => {
                 setClient(value);
-                setClientId(value?.id ?? initial.clientId);
+                setClientId(value?.id ?? null);
               }}
               placeholder="Escolhe o cliente alvo…"
             />
