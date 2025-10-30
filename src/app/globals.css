@@ -10317,6 +10317,37 @@ h1,.h1{
   font-size:14px;
   font-weight:500;
 }
+.reports-dashboard__table tr[data-selected]{
+  background:color-mix(in srgb, var(--primary) 10%, transparent);
+}
+.reports-dashboard__table tr[data-selected] td{
+  font-weight:600;
+}
+.reports-dashboard__clientButton{
+  appearance:none;
+  border:none;
+  background:none;
+  padding:0;
+  margin:0;
+  font:inherit;
+  color:inherit;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+}
+.reports-dashboard__clientButton:hover,
+.reports-dashboard__clientButton:focus-visible{
+  color:color-mix(in srgb, var(--primary-600) 88%, var(--fg));
+}
+.reports-dashboard__clientButton:focus-visible{
+  outline:2px solid color-mix(in srgb, var(--primary) 55%, transparent);
+  outline-offset:2px;
+  border-radius:6px;
+}
+.reports-dashboard__clientButton[data-selected]{
+  font-weight:700;
+}
 .reports-dashboard__tableHint{
   display:block;
   font-size:12px;
