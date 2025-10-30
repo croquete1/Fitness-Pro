@@ -17,6 +17,7 @@ import type {
   ProfileSessionSnapshot,
   ProfileTimelinePoint,
 } from './types';
+import { FALLBACK_FAVOURITE_TRAINER_LABEL } from './constants';
 import type { ProfileAccount } from './types';
 
 const DAY_MS = 86_400_000;
@@ -158,20 +159,95 @@ function computeCompletion(account: ProfileAccount): ProfileCompletionState {
   return { percentage, missing };
 }
 
+function normaliseTrainerIdentifier(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return trimmed.toLowerCase();
+}
+
+function sanitiseTrainerName(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function sanitiseTrainerEmail(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const [localPart] = trimmed.split('@');
+  if (!localPart) return trimmed;
+  const tokens = localPart.split(/[._-]+/).filter(Boolean);
+  if (!tokens.length) return localPart;
+  const formatted = tokens
+    .map((token) => token.charAt(0).toUpperCase() + token.slice(1))
+    .join(' ');
+  return formatted.length > 0 ? formatted : localPart;
+}
+
+function deriveTrainerKey(session: ClientSession): string | null {
+  const byId = normaliseTrainerIdentifier(session.trainerId ?? undefined);
+  if (byId) return `id:${byId}`;
+  const byEmail = normaliseTrainerIdentifier(session.trainerEmail ?? undefined);
+  if (byEmail) return `email:${byEmail}`;
+  const byName = normaliseTrainerIdentifier(session.trainerName ?? undefined);
+  if (byName) return `name:${byName}`;
+  return null;
+}
+
+type TrainerCounterEntry = { label: string | null; quality: number; count: number };
+
+function resolveTrainerLabel(session: ClientSession): { label: string; quality: number } | null {
+  const name = sanitiseTrainerName(session.trainerName ?? undefined);
+  if (name) {
+    return { label: name, quality: 3 };
+  }
+  const emailLabel = sanitiseTrainerEmail(session.trainerEmail ?? undefined);
+  if (emailLabel) {
+    return { label: emailLabel, quality: 2 };
+  }
+  return null;
+}
+
+function isEligibleForFavourite(session: ClientSession): boolean {
+  const status = (session.attendanceStatus ?? session.status ?? '').toString().toLowerCase();
+  if (!status) return true;
+  return status !== 'cancelled' && status !== 'no_show';
+}
+
 function pickFavouriteTrainer(sessions: ClientSession[]): string | null {
   if (!sessions.length) return null;
-  const counter = new Map<string, { name: string | null; count: number }>();
+
+  const counter = new Map<string, TrainerCounterEntry>();
+
   sessions.forEach((session) => {
-    const key = session.trainerId ?? session.trainerEmail ?? session.trainerName ?? 'unknown';
-    const existing = counter.get(key) ?? { name: session.trainerName ?? session.trainerEmail ?? null, count: 0 };
-    existing.count += 1;
-    if (!existing.name && session.trainerName) existing.name = session.trainerName;
-    counter.set(key, existing);
+    if (!isEligibleForFavourite(session)) {
+      return;
+    }
+
+    const key = deriveTrainerKey(session);
+    if (!key) {
+      return;
+    }
+
+    const entry = counter.get(key) ?? { label: null, quality: 0, count: 0 };
+    entry.count += 1;
+
+    const candidate = resolveTrainerLabel(session);
+    if (candidate && candidate.quality >= entry.quality) {
+      entry.label = candidate.label;
+      entry.quality = candidate.quality;
+    }
+
+    counter.set(key, entry);
   });
 
-  let favourite: { name: string | null; count: number } | null = null;
+  let favourite: TrainerCounterEntry | null = null;
   counter.forEach((entry) => {
     if (!favourite || entry.count > favourite.count) {
+      favourite = entry;
+    } else if (favourite && entry.count === favourite.count && entry.quality > favourite.quality) {
       favourite = entry;
     }
   });
@@ -180,14 +256,11 @@ function pickFavouriteTrainer(sessions: ClientSession[]): string | null {
     return null;
   }
 
-  if (typeof favourite.name === 'string') {
-    const trimmed = favourite.name.trim();
-    if (trimmed.length > 0) {
-      return trimmed;
-    }
+  if (favourite.label) {
+    return favourite.label;
   }
 
-  return 'o teu Personal Trainer preferido';
+  return FALLBACK_FAVOURITE_TRAINER_LABEL;
 }
 
 function buildHeroMetrics(
@@ -286,10 +359,14 @@ function buildHighlights(
 
   if (sessionsSnapshot.favouriteTrainer) {
     const favouriteName = sessionsSnapshot.favouriteTrainer;
+    const description =
+      favouriteName === FALLBACK_FAVOURITE_TRAINER_LABEL
+        ? 'Manténs uma cadência consistente com o teu Personal Trainer preferido.'
+        : `Manténs uma cadência consistente com ${favouriteName}.`;
     highlights.push({
       id: 'favourite-trainer',
       title: 'PT de confiança',
-      description: `Manténs uma cadência consistente com ${favouriteName}.`,
+      description,
       tone: 'success',
     });
   }

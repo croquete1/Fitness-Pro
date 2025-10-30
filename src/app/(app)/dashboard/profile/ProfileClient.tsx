@@ -35,6 +35,7 @@ import { normalizeQuestionnaire } from '@/lib/questionnaire';
 import type { FitnessQuestionnaireRow } from '@/lib/questionnaire';
 import { normalizeUsername, validateUsernameCandidate } from '@/lib/username';
 import type { ProfileDashboardResponse, ProfileHeroMetric, ProfileTimelinePoint } from '@/lib/profile/types';
+import { FALLBACK_FAVOURITE_TRAINER_LABEL } from '@/lib/profile/constants';
 
 type Status = { type: 'idle' | 'success' | 'error'; message?: string };
 
@@ -929,7 +930,13 @@ export default function ProfileClient({
             )}
             {favouriteTrainerLabel ? (
               <p className="profile-completion__favourite">
-                Ritmo consistente com <strong>{favouriteTrainerLabel}</strong>.
+                {favouriteTrainerLabel === FALLBACK_FAVOURITE_TRAINER_LABEL ? (
+                  <>Ritmo consistente com o teu Personal Trainer preferido.</>
+                ) : (
+                  <>
+                    Ritmo consistente com <strong>{favouriteTrainerLabel}</strong>.
+                  </>
+                )}
               </p>
             ) : null}
           </div>
