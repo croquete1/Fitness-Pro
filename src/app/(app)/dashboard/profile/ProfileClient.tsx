@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import useSWR from 'swr';
 import {
   Area,
@@ -12,6 +13,7 @@ import {
   YAxis,
 } from 'recharts';
 import {
+  AlertTriangle,
   Bell,
   CalendarClock,
   CheckCircle2,
@@ -25,8 +27,12 @@ import {
 import clsx from 'clsx';
 
 import Alert from '@/components/ui/Alert';
+import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import PageHeader from '@/components/ui/PageHeader';
+import FitnessQuestionnaireSummary from '@/components/questionnaire/FitnessQuestionnaireSummary';
+import { normalizeQuestionnaire } from '@/lib/questionnaire';
+import type { FitnessQuestionnaireRow } from '@/lib/questionnaire';
 import { normalizeUsername, validateUsernameCandidate } from '@/lib/username';
 import type { ProfileDashboardResponse, ProfileHeroMetric, ProfileTimelinePoint } from '@/lib/profile/types';
 
@@ -73,6 +79,13 @@ function sanitizeForm(account: ProfileDashboardResponse['account']): FormState {
     bio: toFormString(account.bio),
     avatarUrl: toFormString(account.avatarUrl),
   };
+}
+
+function formatTimestamp(iso: string | null): string {
+  if (!iso) return '—';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' });
 }
 
 function applyServerPatch(base: FormState, patch: unknown): FormState {
@@ -146,20 +159,120 @@ function resolveUsernameHelper(value: string, status: UsernameStatus) {
   }
 }
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+type QuestionnaireResponse = {
+  ok: boolean;
+  data?: FitnessQuestionnaireRow | null;
+  error?: string;
+};
+
+async function fetchProfileDashboard(url: string): Promise<ProfileDashboardResponse> {
+  const res = await fetch(url, { cache: 'no-store' });
+  const payload = await res.json().catch(() => null);
+
+  if (payload && typeof payload === 'object' && (payload as { ok?: boolean }).ok === true) {
+    return payload as ProfileDashboardResponse;
+  }
+
+  const message =
+    payload && typeof payload === 'object' && typeof (payload as { message?: unknown }).message === 'string'
+      ? ((payload as { message: string }).message || 'Não foi possível actualizar os dados do perfil.')
+      : 'Não foi possível actualizar os dados do perfil.';
+
+  throw Object.assign(new Error(message), { payload, status: res.status });
+}
+
+async function fetchQuestionnaire(url: string): Promise<QuestionnaireResponse> {
+  try {
+    const res = await fetch(url, { cache: 'no-store' });
+    const payload = (await res.json().catch(() => null)) as QuestionnaireResponse | null;
+    if (payload && typeof payload === 'object' && typeof payload.ok === 'boolean') {
+      if (!payload.ok && !payload.error) {
+        return { ok: false, error: 'Não foi possível carregar o questionário.' };
+      }
+      return payload;
+    }
+    return { ok: false, error: 'Não foi possível carregar o questionário.' };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : 'Não foi possível carregar o questionário.' };
+  }
+}
+
+function extractErrorMessage(error: unknown): string | null {
+  if (!error) return null;
+  if (typeof error === 'string') return error;
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object' && 'message' in error && typeof (error as { message?: unknown }).message === 'string') {
+    return String((error as { message: string }).message);
+  }
+  return null;
+}
 
 export default function ProfileClient({
   initialDashboard,
+  initialQuestionnaire,
 }: {
   initialDashboard: ProfileDashboardResponse;
+  initialQuestionnaire: QuestionnaireResponse | null;
 }) {
-  const { data, mutate, isValidating } = useSWR<ProfileDashboardResponse>('/api/profile/dashboard', fetcher, {
+  const {
+    data,
+    mutate,
+    isValidating,
+    error: dashboardError,
+  } = useSWR<ProfileDashboardResponse, Error>('/api/profile/dashboard', fetchProfileDashboard, {
     fallbackData: initialDashboard,
     revalidateOnFocus: false,
   });
 
+  const {
+    data: questionnaireResp,
+    isValidating: questionnaireValidating,
+    mutate: mutateQuestionnaire,
+  } = useSWR<QuestionnaireResponse>('/api/profile/questionnaire', fetchQuestionnaire, {
+    revalidateOnFocus: false,
+    fallbackData: initialQuestionnaire ?? undefined,
+  });
+
+  const questionnaireRow = questionnaireResp?.ok ? questionnaireResp.data ?? null : null;
+  const questionnaireError = questionnaireResp && !questionnaireResp.ok
+    ? typeof questionnaireResp.error === 'string'
+      ? questionnaireResp.error
+      : 'Não foi possível carregar o questionário.'
+    : null;
+  const questionnaire = React.useMemo(() => normalizeQuestionnaire(questionnaireRow ?? null), [questionnaireRow]);
+  const questionnaireLoading = !questionnaireResp && questionnaireValidating;
+  const refreshBusy = isValidating || questionnaireValidating;
+  const [refreshStatus, setRefreshStatus] = React.useState<Status>({ type: 'idle' });
+  const questionnaireReminderActive =
+    !questionnaireError &&
+    !questionnaireLoading &&
+    (questionnaire?.status ?? 'draft') !== 'submitted';
+
+  const retryQuestionnaire = React.useCallback(() => {
+    void mutateQuestionnaire(undefined, { revalidate: true });
+  }, [mutateQuestionnaire]);
+
+  const refreshStatusId = React.useId();
+
+  let questionnaireBadgeVariant: 'success' | 'warning' | 'neutral' = 'warning';
+  let questionnaireBadgeLabel = 'Por preencher';
+  if (questionnaire?.status === 'submitted') {
+    questionnaireBadgeVariant = 'success';
+    questionnaireBadgeLabel = 'Submetido';
+  } else if (questionnaire?.status === 'draft') {
+    questionnaireBadgeVariant = 'warning';
+    questionnaireBadgeLabel = 'Em rascunho';
+  } else if (questionnaireError) {
+    questionnaireBadgeVariant = 'neutral';
+    questionnaireBadgeLabel = 'Indisponível';
+  }
+
   const dashboard = data ?? initialDashboard;
   const account = dashboard.account;
+  const notificationsLastDelivery = formatTimestamp(dashboard.notifications.lastDeliveryAt);
+  const notificationsNextReminder = dashboard.notifications.nextReminderAt
+    ? formatTimestamp(dashboard.notifications.nextReminderAt)
+    : null;
 
   const [form, setForm] = React.useState<FormState>(() => sanitizeForm(account));
   const [baseline, setBaseline] = React.useState<FormState>(() => sanitizeForm(account));
@@ -246,8 +359,50 @@ export default function ProfileClient({
     usernameStatus,
   ]);
 
+  React.useEffect(() => {
+    if (!dashboardError) return;
+    setRefreshStatus((current) => {
+      if (current.type !== 'idle') return current;
+      return {
+        type: 'error',
+        message: extractErrorMessage(dashboardError) ?? 'Não foi possível actualizar os dados do perfil.',
+      };
+    });
+  }, [dashboardError]);
+
+  React.useEffect(() => {
+    if (refreshStatus.type !== 'success') return;
+    const timeout = setTimeout(() => {
+      setRefreshStatus({ type: 'idle' });
+    }, 4000);
+    return () => clearTimeout(timeout);
+  }, [refreshStatus.type]);
+
   async function refreshDashboard() {
-    await mutate(undefined, { revalidate: true });
+    setRefreshStatus({ type: 'idle' });
+    const [dashboardResult, questionnaireResult] = await Promise.allSettled([
+      mutate(undefined, { revalidate: true }),
+      mutateQuestionnaire(undefined, { revalidate: true }),
+    ]);
+
+    const messages = new Set<string>();
+
+    if (dashboardResult.status === 'rejected') {
+      messages.add(extractErrorMessage(dashboardResult.reason) ?? 'Não foi possível actualizar os dados do perfil.');
+    }
+
+    if (questionnaireResult.status === 'rejected') {
+      messages.add(extractErrorMessage(questionnaireResult.reason) ?? 'Não foi possível actualizar o questionário.');
+    } else if (questionnaireResult.value && questionnaireResult.value.ok === false) {
+      messages.add(questionnaireResult.value.error ?? 'Não foi possível actualizar o questionário.');
+    }
+
+    if (messages.size > 0) {
+      setRefreshStatus({ type: 'error', message: Array.from(messages).join(' ') });
+      return;
+    }
+
+    setRefreshStatus({ type: 'success', message: 'Dados sincronizados com sucesso.' });
   }
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -363,7 +518,24 @@ export default function ProfileClient({
     }
   }
 
-  const heroHighlight = dashboard.highlights[0];
+  const highlightItems = React.useMemo(() => {
+    const base = Array.isArray(dashboard.highlights) ? dashboard.highlights : [];
+    if (!questionnaireReminderActive) return base;
+    const filtered = base.filter((item) => item.id !== 'questionnaire-reminder');
+    return [
+      {
+        id: 'questionnaire-reminder',
+        title: 'Questionário em falta',
+        description:
+          'Completa o questionário obrigatório para personalizarmos o plano e parar os lembretes automáticos.',
+        tone: 'warning' as const,
+      },
+      ...filtered,
+    ];
+  }, [dashboard.highlights, questionnaireReminderActive]);
+
+  const heroHighlight = highlightItems[0];
+  const HeroHighlightIcon = heroHighlight?.id === 'questionnaire-reminder' ? AlertTriangle : ShieldCheck;
 
   return (
     <div className="profile-dashboard">
@@ -375,13 +547,42 @@ export default function ProfileClient({
             variant="secondary"
             size="sm"
             onClick={refreshDashboard}
-            leftIcon={isValidating ? <Loader2 className="icon-spin" aria-hidden /> : <RefreshCcw className="icon" aria-hidden />}
-            disabled={isValidating}
+            leftIcon={refreshBusy ? <Loader2 className="icon-spin" aria-hidden /> : <RefreshCcw className="icon" aria-hidden />}
+            disabled={refreshBusy}
+            aria-describedby={refreshStatus.type !== 'idle' ? refreshStatusId : undefined}
           >
-            Actualizar métricas
+            Actualizar dados
           </Button>
         }
       />
+
+      {refreshStatus.type !== 'idle' ? (
+        <Alert
+          id={refreshStatusId}
+          tone={refreshStatus.type === 'success' ? 'success' : 'danger'}
+          className="profile-dashboard__refreshAlert neo-alert--inline"
+          title={
+            refreshStatus.message ??
+            (refreshStatus.type === 'success'
+              ? 'Dados sincronizados com sucesso.'
+              : 'Não foi possível actualizar os dados.')
+          }
+        />
+      ) : null}
+
+      {questionnaireReminderActive ? (
+        <Alert
+          tone="warning"
+          className="profile-dashboard__reminder"
+          title="Completa o questionário obrigatório"
+        >
+          Ainda temos perguntas essenciais por responder. Vais continuar a receber lembretes automáticos até concluir.
+          <br />
+          <Link href="/dashboard/onboarding" className="btn chip profile-dashboard__reminderAction">
+            Preencher agora
+          </Link>
+        </Alert>
+      ) : null}
 
       <section className="neo-panel profile-dashboard__hero">
         <div className="profile-dashboard__heroHeader">
@@ -402,7 +603,7 @@ export default function ProfileClient({
           </div>
           {heroHighlight ? (
             <div className={clsx('profile-dashboard__highlight', heroHighlight.tone)}>
-              <ShieldCheck aria-hidden />
+              <HeroHighlightIcon aria-hidden />
               <div>
                 <strong>{heroHighlight.title}</strong>
                 <p>{heroHighlight.description}</p>
@@ -423,6 +624,57 @@ export default function ProfileClient({
             </article>
           ))}
         </div>
+      </section>
+
+      <section
+        className="neo-panel profile-dashboard__questionnaire"
+        aria-busy={questionnaireValidating ? 'true' : undefined}
+      >
+        <header className="profile-dashboard__questionnaireHeader">
+          <div>
+            <h2>Avaliação física</h2>
+            <p>Resumo das respostas partilhadas com o teu Personal Trainer.</p>
+          </div>
+          <div className="profile-dashboard__questionnaireStatus">
+            <Badge variant={questionnaireBadgeVariant}>{questionnaireBadgeLabel}</Badge>
+            {questionnaireValidating ? (
+              <span className="profile-dashboard__questionnaireSpinner">
+                <Loader2 className="icon-spin" aria-hidden />
+                <span className="sr-only">A actualizar o questionário…</span>
+              </span>
+            ) : null}
+          </div>
+        </header>
+
+        {questionnaireLoading ? (
+          <div className="profile-dashboard__questionnaireLoading">
+            <Loader2 className="icon-spin" aria-hidden /> A carregar dados do questionário…
+          </div>
+        ) : questionnaire ? (
+          <FitnessQuestionnaireSummary data={questionnaire} variant="compact" />
+        ) : questionnaireError ? (
+          <div className="profile-dashboard__questionnaireError">
+            <Alert tone="danger" className="neo-alert--inline" title={questionnaireError} />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={retryQuestionnaire}
+              leftIcon={<RefreshCcw className="icon" aria-hidden />}
+              disabled={questionnaireValidating}
+            >
+              Tentar novamente
+            </Button>
+          </div>
+        ) : (
+          <div className="profile-dashboard__questionnaireEmpty">
+            <p>
+              Ainda não preencheste o questionário obrigatório. Isto ajuda a equipa a personalizar o plano.
+            </p>
+            <Link href="/dashboard/onboarding" className="btn chip">
+              Preencher agora
+            </Link>
+          </div>
+        )}
       </section>
 
       <div className="profile-dashboard__grid">
@@ -508,13 +760,32 @@ export default function ProfileClient({
             )}
           </div>
 
-          <div className="profile-summary__notifications">
+          <div className="profile-summary__notifications" data-reminder={questionnaireReminderActive ? 'true' : undefined}>
             <Bell aria-hidden />
             <div>
-              <strong>{dashboard.notifications.unread} alertas por ler</strong>
-              <p>
-                Último envio {dashboard.notifications.lastDeliveryAt ? new Date(dashboard.notifications.lastDeliveryAt).toLocaleString('pt-PT') : '—'}
-              </p>
+              <strong>
+                {questionnaireReminderActive
+                  ? 'Lembretes automáticos activos'
+                  : `${dashboard.notifications.unread} alertas por ler`}
+              </strong>
+              <p>Último envio {notificationsLastDelivery}</p>
+              {questionnaireReminderActive ? (
+                <>
+                  <p className="profile-summary__notificationsReminder">
+                    O questionário obrigatório continua por preencher.
+                    {notificationsNextReminder
+                      ? ` Próximo lembrete ${notificationsNextReminder}.`
+                      : ' Receberás um novo lembrete em breve.'}
+                  </p>
+                  <Link
+                    href="/dashboard/onboarding"
+                    className="btn chip profile-summary__notificationsAction"
+                    aria-label="Preencher o questionário obrigatório"
+                  >
+                    Preencher agora
+                  </Link>
+                </>
+              ) : null}
             </div>
           </div>
         </section>
