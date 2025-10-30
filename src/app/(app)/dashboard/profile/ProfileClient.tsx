@@ -13,6 +13,7 @@ import {
   YAxis,
 } from 'recharts';
 import {
+  AlertTriangle,
   Bell,
   CalendarClock,
   CheckCircle2,
@@ -78,6 +79,13 @@ function sanitizeForm(account: ProfileDashboardResponse['account']): FormState {
     bio: toFormString(account.bio),
     avatarUrl: toFormString(account.avatarUrl),
   };
+}
+
+function formatTimestamp(iso: string | null): string {
+  if (!iso) return '—';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' });
 }
 
 function applyServerPatch(base: FormState, patch: unknown): FormState {
@@ -235,7 +243,11 @@ export default function ProfileClient({
   const questionnaireLoading = !questionnaireResp && questionnaireValidating;
   const refreshBusy = isValidating || questionnaireValidating;
   const [refreshStatus, setRefreshStatus] = React.useState<Status>({ type: 'idle' });
-  
+  const questionnaireReminderActive =
+    !questionnaireError &&
+    !questionnaireLoading &&
+    (questionnaire?.status ?? 'draft') !== 'submitted';
+
   const retryQuestionnaire = React.useCallback(() => {
     void mutateQuestionnaire(undefined, { revalidate: true });
   }, [mutateQuestionnaire]);
@@ -257,6 +269,10 @@ export default function ProfileClient({
 
   const dashboard = data ?? initialDashboard;
   const account = dashboard.account;
+  const notificationsLastDelivery = formatTimestamp(dashboard.notifications.lastDeliveryAt);
+  const notificationsNextReminder = dashboard.notifications.nextReminderAt
+    ? formatTimestamp(dashboard.notifications.nextReminderAt)
+    : null;
 
   const [form, setForm] = React.useState<FormState>(() => sanitizeForm(account));
   const [baseline, setBaseline] = React.useState<FormState>(() => sanitizeForm(account));
@@ -502,7 +518,24 @@ export default function ProfileClient({
     }
   }
 
-  const heroHighlight = dashboard.highlights[0];
+  const highlightItems = React.useMemo(() => {
+    const base = Array.isArray(dashboard.highlights) ? dashboard.highlights : [];
+    if (!questionnaireReminderActive) return base;
+    const filtered = base.filter((item) => item.id !== 'questionnaire-reminder');
+    return [
+      {
+        id: 'questionnaire-reminder',
+        title: 'Questionário em falta',
+        description:
+          'Completa o questionário obrigatório para personalizarmos o plano e parar os lembretes automáticos.',
+        tone: 'warning' as const,
+      },
+      ...filtered,
+    ];
+  }, [dashboard.highlights, questionnaireReminderActive]);
+
+  const heroHighlight = highlightItems[0];
+  const HeroHighlightIcon = heroHighlight?.id === 'questionnaire-reminder' ? AlertTriangle : ShieldCheck;
 
   return (
     <div className="profile-dashboard">
@@ -537,6 +570,20 @@ export default function ProfileClient({
         />
       ) : null}
 
+      {questionnaireReminderActive ? (
+        <Alert
+          tone="warning"
+          className="profile-dashboard__reminder"
+          title="Completa o questionário obrigatório"
+        >
+          Ainda temos perguntas essenciais por responder. Vais continuar a receber lembretes automáticos até concluir.
+          <br />
+          <Link href="/dashboard/onboarding" className="btn chip profile-dashboard__reminderAction">
+            Preencher agora
+          </Link>
+        </Alert>
+      ) : null}
+
       <section className="neo-panel profile-dashboard__hero">
         <div className="profile-dashboard__heroHeader">
           <div className="profile-dashboard__heroIdentity">
@@ -556,7 +603,7 @@ export default function ProfileClient({
           </div>
           {heroHighlight ? (
             <div className={clsx('profile-dashboard__highlight', heroHighlight.tone)}>
-              <ShieldCheck aria-hidden />
+              <HeroHighlightIcon aria-hidden />
               <div>
                 <strong>{heroHighlight.title}</strong>
                 <p>{heroHighlight.description}</p>
@@ -713,13 +760,32 @@ export default function ProfileClient({
             )}
           </div>
 
-          <div className="profile-summary__notifications">
+          <div className="profile-summary__notifications" data-reminder={questionnaireReminderActive ? 'true' : undefined}>
             <Bell aria-hidden />
             <div>
-              <strong>{dashboard.notifications.unread} alertas por ler</strong>
-              <p>
-                Último envio {dashboard.notifications.lastDeliveryAt ? new Date(dashboard.notifications.lastDeliveryAt).toLocaleString('pt-PT') : '—'}
-              </p>
+              <strong>
+                {questionnaireReminderActive
+                  ? 'Lembretes automáticos activos'
+                  : `${dashboard.notifications.unread} alertas por ler`}
+              </strong>
+              <p>Último envio {notificationsLastDelivery}</p>
+              {questionnaireReminderActive ? (
+                <>
+                  <p className="profile-summary__notificationsReminder">
+                    O questionário obrigatório continua por preencher.
+                    {notificationsNextReminder
+                      ? ` Próximo lembrete ${notificationsNextReminder}.`
+                      : ' Receberás um novo lembrete em breve.'}
+                  </p>
+                  <Link
+                    href="/dashboard/onboarding"
+                    className="btn chip profile-summary__notificationsAction"
+                    aria-label="Preencher o questionário obrigatório"
+                  >
+                    Preencher agora
+                  </Link>
+                </>
+              ) : null}
             </div>
           </div>
         </section>
