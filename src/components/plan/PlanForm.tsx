@@ -29,6 +29,8 @@ export default function PlanForm({
   const [clientId, setClientId] = useState<string>(initial?.clientId ?? '');
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [notifyClient, setNotifyClient] = useState(false);
+  const [notifyMessage, setNotifyMessage] = useState('');
 
   const canSubmit = useMemo(() => title.trim().length >= 3, [title]);
 
@@ -39,7 +41,16 @@ export default function PlanForm({
     setErr(null);
 
     try {
-      const body = { title: title.trim(), status, clientId: clientId || undefined };
+      const body = {
+        title: title.trim(),
+        status,
+        clientId: clientId || undefined,
+        notifyClient: notifyClient || undefined,
+        notifyMessage:
+          notifyClient && notifyMessage.trim().length > 0
+            ? notifyMessage.trim()
+            : undefined,
+      };
       const url = mode === 'create'
         ? '/api/sb/plans'
         : `/api/sb/plan/${encodeURIComponent(String(initial?.id))}`;
@@ -113,6 +124,46 @@ export default function PlanForm({
               Podes criar sem cliente e atribuir mais tarde.
             </p>
           </div>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 bg-white/40 dark:bg-slate-900/30 px-4 py-3">
+          <label className="flex items-start gap-3 text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={notifyClient}
+              onChange={(event) => {
+                const checked = event.target.checked;
+                setNotifyClient(checked);
+                if (!checked) setNotifyMessage('');
+              }}
+              className="mt-1"
+            />
+            <span>
+              Informar o cliente sobre esta alteração
+              <span className="block text-xs font-normal opacity-70">
+                Envia uma notificação opcional com as notas que quiseres partilhar.
+              </span>
+            </span>
+          </label>
+
+          {notifyClient && (
+            <div className="mt-3">
+              <label className="block text-xs font-medium mb-1" htmlFor="plan-notify-message">
+                Mensagem para o cliente (opcional)
+              </label>
+              <textarea
+                id="plan-notify-message"
+                value={notifyMessage}
+                onChange={(event) => setNotifyMessage(event.target.value)}
+                rows={3}
+                placeholder="Explica brevemente o que foi alterado neste plano."
+                className="w-full rounded-lg border px-3 py-2 text-sm bg-white/80 dark:bg-black/20"
+              />
+              <p className="text-xs opacity-60 mt-1">
+                Será anexado à notificação que o cliente recebe.
+              </p>
+            </div>
+          )}
         </div>
 
         {err && (

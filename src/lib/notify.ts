@@ -49,14 +49,17 @@ export async function notifyPlanCreated(
 export async function notifyPlanUpdated(
   sb: SB,
   clientId: string,
-  planId: string
+  planId: string,
+  message?: string
 ): Promise<NotifyResult> {
   const link = `/dashboard/my-plan?plan=${encodeURIComponent(planId)}`;
+  const baseBody = 'O teu plano de treino foi atualizado.';
+  const note = message?.trim();
   return insertNotification(
     sb,
     clientId,
     'Plano atualizado',
-    'O teu plano de treino foi atualizado.',
+    note && note.length > 0 ? `${baseBody}\n\n${note}` : baseBody,
     link
   );
 }
