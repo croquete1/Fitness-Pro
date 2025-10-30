@@ -8,6 +8,8 @@ import { toAppRole, type AppRole } from '@/lib/roles';
 import PageHeader from '@/components/ui/PageHeader';
 import Card, { CardContent } from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
+import FitnessQuestionnaireSummary from '@/components/questionnaire/FitnessQuestionnaireSummary';
+import { normalizeQuestionnaire } from '@/lib/questionnaire';
 
 type TrainingPlanSummary = {
   id: string;
@@ -142,7 +144,16 @@ export default async function PTClientDetailPage({ params }: { params: Promise<{
     }));
   }
 
-  // 5) UI derivada do cliente
+  // 5) Questionário
+  const { data: questionnaireRow } = await sb
+    .from('fitness_questionnaire')
+    .select('*')
+    .eq('user_id', clientId)
+    .maybeSingle();
+
+  const questionnaire = normalizeQuestionnaire(questionnaireRow ?? null);
+
+  // 6) UI derivada do cliente
   const ui = {
     id: client.id,
     name: client.name,
@@ -176,6 +187,23 @@ export default async function PTClientDetailPage({ params }: { params: Promise<{
           </div>
         }
       />
+
+      {/* Card: Questionário */}
+      <Card>
+        <CardContent className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold">Avaliação física</h3>
+            <Badge variant={questionnaire?.status === 'submitted' ? 'success' : 'warning'}>
+              {questionnaire?.status === 'submitted' ? 'Submetido' : 'Pendente'}
+            </Badge>
+          </div>
+          {questionnaire ? (
+            <FitnessQuestionnaireSummary data={questionnaire} variant="compact" />
+          ) : (
+            <p className="text-sm opacity-70">Sem questionário submetido.</p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Card: Planos */}
       <Card>
