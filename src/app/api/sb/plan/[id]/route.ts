@@ -175,5 +175,17 @@ export async function PATCH(req: Request, ctx: Ctx) {
     }
   }
 
+  if (shouldNotify && plan.client_id) {
+    const result = await notifyPlanUpdated(
+      sb,
+      plan.client_id,
+      id,
+      notifyMessage || undefined
+    );
+    if (result.ok === false) {
+      console.error('[notify-plan-updated] failed', result.reason);
+    }
+  }
+
   return NextResponse.json({ ok: true, id });
 }
