@@ -46,6 +46,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
   - 2025-11-08: Refinámos o destaque principal e o painel de notificações com CTA accionável e mensagens contextuais que exibem o próximo lembrete automático, clarificando o estado dos alertas no dashboard do cliente. Fontes: `src/app/(app)/dashboard/profile/ProfileClient.tsx`, `src/app/globals.css`.
   - 2025-11-09: Enriquecemos os lembretes com tempo relativo e renovação automática, garantindo que o dashboard e as notificações exibem o próximo envio com contexto natural (ex.: "daqui a 2 dias"), inclusive no banner de alerta. Fontes: `src/app/(app)/dashboard/profile/ProfileClient.tsx`, `src/app/globals.css`.
   - 2025-11-10: Mantivemos os lembretes sincronizados com o relógio ao regressar ao dashboard ou focar a aba, actualizando automaticamente o texto relativo e o estado após refresh manual. Fonte: `src/app/(app)/dashboard/profile/ProfileClient.tsx`.
+  - 2025-11-11: Preservámos o último questionário válido em cache e destacámos falhas de carregamento sem ocultar o resumo, permitindo reintentos rápidos. Fonte: `src/app/(app)/dashboard/profile/ProfileClient.tsx`.
 
 ## Fase 2 - Melhorias Estruturais
 - [x] Validar carregamento real da lista de utilizadores/aprovações no Supabase (remoção dos fallbacks quando a API estiver estável e seeds completos).

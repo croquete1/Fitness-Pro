@@ -290,7 +290,25 @@ export default function ProfileClient({
     fallbackData: initialQuestionnaire ?? undefined,
   });
 
-  const questionnaireRow = questionnaireResp?.ok ? questionnaireResp.data ?? null : null;
+  const [questionnaireCache, setQuestionnaireCache] = React.useState<FitnessQuestionnaireRow | null>(() => {
+    if (initialQuestionnaire?.ok) {
+      return initialQuestionnaire.data ?? null;
+    }
+    return null;
+  });
+
+  React.useEffect(() => {
+    if (questionnaireResp?.ok) {
+      setQuestionnaireCache(questionnaireResp.data ?? null);
+    }
+  }, [questionnaireResp]);
+
+  const questionnaireRow = React.useMemo(() => {
+    if (questionnaireResp?.ok) {
+      return questionnaireResp.data ?? null;
+    }
+    return questionnaireCache;
+  }, [questionnaireCache, questionnaireResp]);
   const questionnaireError = questionnaireResp && !questionnaireResp.ok
     ? typeof questionnaireResp.error === 'string'
       ? questionnaireResp.error
@@ -789,30 +807,36 @@ export default function ProfileClient({
           <div className="profile-dashboard__questionnaireLoading">
             <Loader2 className="icon-spin" aria-hidden /> A carregar dados do questionário…
           </div>
-        ) : questionnaire ? (
-          <FitnessQuestionnaireSummary data={questionnaire} variant="compact" />
-        ) : questionnaireError ? (
-          <div className="profile-dashboard__questionnaireError">
-            <Alert tone="danger" className="neo-alert--inline" title={questionnaireError} />
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={retryQuestionnaire}
-              leftIcon={<RefreshCcw className="icon" aria-hidden />}
-              disabled={questionnaireValidating}
-            >
-              Tentar novamente
-            </Button>
-          </div>
         ) : (
-          <div className="profile-dashboard__questionnaireEmpty">
-            <p>
-              Ainda não preencheste o questionário obrigatório. Isto ajuda a equipa a personalizar o plano.
-            </p>
-            <Link href="/dashboard/onboarding" className="btn chip">
-              Preencher agora
-            </Link>
-          </div>
+          <>
+            {questionnaireError ? (
+              <div className="profile-dashboard__questionnaireError">
+                <Alert tone="danger" className="neo-alert--inline" title={questionnaireError} />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={retryQuestionnaire}
+                  leftIcon={<RefreshCcw className="icon" aria-hidden />}
+                  disabled={questionnaireValidating}
+                >
+                  Tentar novamente
+                </Button>
+              </div>
+            ) : null}
+
+            {questionnaire ? (
+              <FitnessQuestionnaireSummary data={questionnaire} variant="compact" />
+            ) : questionnaireError ? null : (
+              <div className="profile-dashboard__questionnaireEmpty">
+                <p>
+                  Ainda não preencheste o questionário obrigatório. Isto ajuda a equipa a personalizar o plano.
+                </p>
+                <Link href="/dashboard/onboarding" className="btn chip">
+                  Preencher agora
+                </Link>
+              </div>
+            )}
+          </>
         )}
       </section>
 
