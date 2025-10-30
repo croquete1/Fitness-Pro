@@ -157,7 +157,47 @@ type QuestionnaireResponse = {
   error?: string;
 };
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+async function fetchProfileDashboard(url: string): Promise<ProfileDashboardResponse> {
+  const res = await fetch(url, { cache: 'no-store' });
+  const payload = await res.json().catch(() => null);
+
+  if (payload && typeof payload === 'object' && (payload as { ok?: boolean }).ok === true) {
+    return payload as ProfileDashboardResponse;
+  }
+
+  const message =
+    payload && typeof payload === 'object' && typeof (payload as { message?: unknown }).message === 'string'
+      ? ((payload as { message: string }).message || 'Não foi possível actualizar os dados do perfil.')
+      : 'Não foi possível actualizar os dados do perfil.';
+
+  throw Object.assign(new Error(message), { payload, status: res.status });
+}
+
+async function fetchQuestionnaire(url: string): Promise<QuestionnaireResponse> {
+  try {
+    const res = await fetch(url, { cache: 'no-store' });
+    const payload = (await res.json().catch(() => null)) as QuestionnaireResponse | null;
+    if (payload && typeof payload === 'object' && typeof payload.ok === 'boolean') {
+      if (!payload.ok && !payload.error) {
+        return { ok: false, error: 'Não foi possível carregar o questionário.' };
+      }
+      return payload;
+    }
+    return { ok: false, error: 'Não foi possível carregar o questionário.' };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : 'Não foi possível carregar o questionário.' };
+  }
+}
+
+function extractErrorMessage(error: unknown): string | null {
+  if (!error) return null;
+  if (typeof error === 'string') return error;
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object' && 'message' in error && typeof (error as { message?: unknown }).message === 'string') {
+    return String((error as { message: string }).message);
+  }
+  return null;
+}
 
 export default function ProfileClient({
   initialDashboard,
@@ -166,7 +206,12 @@ export default function ProfileClient({
   initialDashboard: ProfileDashboardResponse;
   initialQuestionnaire: QuestionnaireResponse | null;
 }) {
-  const { data, mutate, isValidating } = useSWR<ProfileDashboardResponse>('/api/profile/dashboard', fetcher, {
+  const {
+    data,
+    mutate,
+    isValidating,
+    error: dashboardError,
+  } = useSWR<ProfileDashboardResponse, Error>('/api/profile/dashboard', fetchProfileDashboard, {
     fallbackData: initialDashboard,
     revalidateOnFocus: false,
   });
@@ -175,7 +220,7 @@ export default function ProfileClient({
     data: questionnaireResp,
     isValidating: questionnaireValidating,
     mutate: mutateQuestionnaire,
-  } = useSWR<QuestionnaireResponse>('/api/profile/questionnaire', fetcher, {
+  } = useSWR<QuestionnaireResponse>('/api/profile/questionnaire', fetchQuestionnaire, {
     revalidateOnFocus: false,
     fallbackData: initialQuestionnaire ?? undefined,
   });
@@ -189,10 +234,13 @@ export default function ProfileClient({
   const questionnaire = React.useMemo(() => normalizeQuestionnaire(questionnaireRow ?? null), [questionnaireRow]);
   const questionnaireLoading = !questionnaireResp && questionnaireValidating;
   const refreshBusy = isValidating || questionnaireValidating;
-
+  const [refreshStatus, setRefreshStatus] = React.useState<Status>({ type: 'idle' });
+  
   const retryQuestionnaire = React.useCallback(() => {
     void mutateQuestionnaire(undefined, { revalidate: true });
   }, [mutateQuestionnaire]);
+
+  const refreshStatusId = React.useId();
 
   let questionnaireBadgeVariant: 'success' | 'warning' | 'neutral' = 'warning';
   let questionnaireBadgeLabel = 'Por preencher';
@@ -295,11 +343,50 @@ export default function ProfileClient({
     usernameStatus,
   ]);
 
+  React.useEffect(() => {
+    if (!dashboardError) return;
+    setRefreshStatus((current) => {
+      if (current.type !== 'idle') return current;
+      return {
+        type: 'error',
+        message: extractErrorMessage(dashboardError) ?? 'Não foi possível actualizar os dados do perfil.',
+      };
+    });
+  }, [dashboardError]);
+
+  React.useEffect(() => {
+    if (refreshStatus.type !== 'success') return;
+    const timeout = setTimeout(() => {
+      setRefreshStatus({ type: 'idle' });
+    }, 4000);
+    return () => clearTimeout(timeout);
+  }, [refreshStatus.type]);
+
   async function refreshDashboard() {
-    await Promise.all([
+    setRefreshStatus({ type: 'idle' });
+    const [dashboardResult, questionnaireResult] = await Promise.allSettled([
       mutate(undefined, { revalidate: true }),
       mutateQuestionnaire(undefined, { revalidate: true }),
     ]);
+
+    const messages = new Set<string>();
+
+    if (dashboardResult.status === 'rejected') {
+      messages.add(extractErrorMessage(dashboardResult.reason) ?? 'Não foi possível actualizar os dados do perfil.');
+    }
+
+    if (questionnaireResult.status === 'rejected') {
+      messages.add(extractErrorMessage(questionnaireResult.reason) ?? 'Não foi possível actualizar o questionário.');
+    } else if (questionnaireResult.value && questionnaireResult.value.ok === false) {
+      messages.add(questionnaireResult.value.error ?? 'Não foi possível actualizar o questionário.');
+    }
+
+    if (messages.size > 0) {
+      setRefreshStatus({ type: 'error', message: Array.from(messages).join(' ') });
+      return;
+    }
+
+    setRefreshStatus({ type: 'success', message: 'Dados sincronizados com sucesso.' });
   }
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -429,11 +516,26 @@ export default function ProfileClient({
             onClick={refreshDashboard}
             leftIcon={refreshBusy ? <Loader2 className="icon-spin" aria-hidden /> : <RefreshCcw className="icon" aria-hidden />}
             disabled={refreshBusy}
+            aria-describedby={refreshStatus.type !== 'idle' ? refreshStatusId : undefined}
           >
             Actualizar dados
           </Button>
         }
       />
+
+      {refreshStatus.type !== 'idle' ? (
+        <Alert
+          id={refreshStatusId}
+          tone={refreshStatus.type === 'success' ? 'success' : 'danger'}
+          className="profile-dashboard__refreshAlert neo-alert--inline"
+          title={
+            refreshStatus.message ??
+            (refreshStatus.type === 'success'
+              ? 'Dados sincronizados com sucesso.'
+              : 'Não foi possível actualizar os dados.')
+          }
+        />
+      ) : null}
 
       <section className="neo-panel profile-dashboard__hero">
         <div className="profile-dashboard__heroHeader">
@@ -477,7 +579,10 @@ export default function ProfileClient({
         </div>
       </section>
 
-      <section className="neo-panel profile-dashboard__questionnaire">
+      <section
+        className="neo-panel profile-dashboard__questionnaire"
+        aria-busy={questionnaireValidating ? 'true' : undefined}
+      >
         <header className="profile-dashboard__questionnaireHeader">
           <div>
             <h2>Avaliação física</h2>

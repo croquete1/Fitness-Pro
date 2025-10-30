@@ -4379,6 +4379,10 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
 @media (min-width:640px){
   .profile-status{ max-width:420px; }
 }
+.profile-dashboard__refreshAlert{ width:100%; margin:1rem 0 0; }
+@media (min-width:640px){
+  .profile-dashboard__refreshAlert{ max-width:640px; }
+}
 
 .profile-metrics__chart{
   display:flex;

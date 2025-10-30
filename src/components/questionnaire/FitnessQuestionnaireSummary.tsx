@@ -8,8 +8,11 @@ type Props = {
 };
 
 export default function FitnessQuestionnaireSummary({ data, variant = 'full' }: Props) {
-  const days = data.schedule.days.map((day) => QUESTIONNAIRE_WEEKDAY_LABEL[day]).join(', ');
-  const hasDays = Boolean(days);
+  const dayLabels = data.schedule.days
+    .map((day) => QUESTIONNAIRE_WEEKDAY_LABEL[day] ?? day)
+    .filter((label): label is string => Boolean(label));
+  const hasDays = dayLabels.length > 0;
+  const days = hasDays ? formatDays(dayLabels) : '';
   const updatedLabel = data.updatedAt ? formatDate(data.updatedAt) : data.createdAt ? formatDate(data.createdAt) : null;
 
   return (
@@ -29,7 +32,7 @@ export default function FitnessQuestionnaireSummary({ data, variant = 'full' }: 
         <dl>
           <div>
             <dt>Profissão</dt>
-            <dd>{data.job ?? '—'}</dd>
+            <dd>{renderValue(data.job)}</dd>
           </div>
           <div>
             <dt>Actividade diária</dt>
@@ -37,11 +40,29 @@ export default function FitnessQuestionnaireSummary({ data, variant = 'full' }: 
           </div>
           <div>
             <dt>Objectivo</dt>
-            <dd>{data.objective ?? '—'}</dd>
+            <dd>{renderValue(data.objective)}</dd>
           </div>
           <div>
             <dt>Bem-estar (0-5)</dt>
-            <dd>{data.wellbeing ?? '—'}</dd>
+            <dd>{renderValue(data.wellbeing)}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section className="questionnaire-summary__section">
+        <h4>Prática de exercício</h4>
+        <dl>
+          <div>
+            <dt>Pratica actividade física?</dt>
+            <dd>{data.exercise.practice ? 'Sim' : 'Não'}</dd>
+          </div>
+          <div>
+            <dt>Modalidade</dt>
+            <dd>{renderValue(data.exercise.sport)}</dd>
+          </div>
+          <div>
+            <dt>Frequência/Duração</dt>
+            <dd>{renderValue(data.exercise.duration)}</dd>
           </div>
         </dl>
       </section>
@@ -49,10 +70,10 @@ export default function FitnessQuestionnaireSummary({ data, variant = 'full' }: 
       <section className="questionnaire-summary__section">
         <h4>Anamnese</h4>
         <dl>
-          {Object.entries(data.anamnesis).map(([key, value]) => (
+          {ANAMNESIS_FIELDS.map((key) => (
             <div key={key}>
-              <dt>{ANAMNESIS_LABELS[key as keyof typeof ANAMNESIS_LABELS]}</dt>
-              <dd>{value ? value : '—'}</dd>
+              <dt>{ANAMNESIS_LABELS[key]}</dt>
+              <dd>{renderValue(data.anamnesis[key])}</dd>
             </div>
           ))}
         </dl>
@@ -68,13 +89,12 @@ export default function FitnessQuestionnaireSummary({ data, variant = 'full' }: 
         <div>
           <h4>Métricas corporais</h4>
           <dl>
-            {Object.keys(BODY_LABELS).map((key) => {
-              const typedKey = key as keyof typeof BODY_LABELS;
-              const value = data.metrics.body[typedKey];
+            {BODY_FIELDS.map((key) => {
+              const value = data.metrics.body[key];
               return (
                 <div key={key}>
-                  <dt>{BODY_LABELS[typedKey]}</dt>
-                  <dd>{value ? value : '—'}</dd>
+                  <dt>{BODY_LABELS[key]}</dt>
+                  <dd>{renderValue(value)}</dd>
                 </div>
               );
             })}
@@ -83,13 +103,12 @@ export default function FitnessQuestionnaireSummary({ data, variant = 'full' }: 
         <div>
           <h4>Perímetros</h4>
           <dl>
-            {Object.keys(PERIMETER_LABELS).map((key) => {
-              const typedKey = key as keyof typeof PERIMETER_LABELS;
-              const value = data.metrics.perimeters[typedKey];
+            {PERIMETER_FIELDS.map((key) => {
+              const value = data.metrics.perimeters[key];
               return (
                 <div key={key}>
-                  <dt>{PERIMETER_LABELS[typedKey]}</dt>
-                  <dd>{value ? value : '—'}</dd>
+                  <dt>{PERIMETER_LABELS[key]}</dt>
+                  <dd>{renderValue(value)}</dd>
                 </div>
               );
             })}
@@ -102,12 +121,17 @@ export default function FitnessQuestionnaireSummary({ data, variant = 'full' }: 
           <h4>Notas adicionais</h4>
           {data.summary ? <p className="questionnaire-summary__notes">{data.summary}</p> : null}
           {data.metrics.notes ? <p className="questionnaire-summary__notes">{data.metrics.notes}</p> : null}
-          {data.metrics.observations ? <p className="questionnaire-summary__notes">{data.metrics.observations}</p> : null}
+          {data.metrics.observations ? (
+            <p className="questionnaire-summary__notes">{data.metrics.observations}</p>
+          ) : null}
         </section>
       )}
     </div>
   );
 }
+
+const LIST_FORMATTER = new Intl.ListFormat('pt-PT', { style: 'long', type: 'conjunction' });
+const DATE_TIME_FORMATTER = new Intl.DateTimeFormat('pt-PT', { dateStyle: 'short', timeStyle: 'short' });
 
 const ANAMNESIS_LABELS = {
   cardiac: 'Patologias cardíacas',
@@ -145,14 +169,35 @@ const PERIMETER_LABELS = {
   thigh: 'Coxa',
 } as const;
 
+const ANAMNESIS_FIELDS = Object.keys(ANAMNESIS_LABELS) as (keyof typeof ANAMNESIS_LABELS)[];
+const BODY_FIELDS = Object.keys(BODY_LABELS) as (keyof typeof BODY_LABELS)[];
+const PERIMETER_FIELDS = Object.keys(PERIMETER_LABELS) as (keyof typeof PERIMETER_LABELS)[];
+
+function formatDays(labels: string[]): string {
+  try {
+    return LIST_FORMATTER.format(labels);
+  } catch {
+    return labels.join(', ');
+  }
+}
+
 function formatDate(iso: string) {
   try {
-    return new Intl.DateTimeFormat('pt-PT', {
-      dateStyle: 'short',
-      timeStyle: 'short',
-    }).format(new Date(iso));
+    return DATE_TIME_FORMATTER.format(new Date(iso));
   } catch {
     return '—';
   }
+}
+
+function renderValue(value: unknown): string {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed ? trimmed : '—';
+  }
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? String(value) : '—';
+  }
+  if (value == null) return '—';
+  return String(value);
 }
 
