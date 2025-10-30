@@ -16,6 +16,11 @@ function iso(date: Date) {
 
 type TrainerLibrarySeed = TrainerLibraryExerciseRecord & { trainerId: string };
 
+function seedToRecord(seed: TrainerLibrarySeed): TrainerLibraryExerciseRecord {
+  const { trainerId: _trainerId, ...record } = seed;
+  return record;
+}
+
 const now = new Date();
 const base = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0, 0, 0);
 
@@ -248,7 +253,11 @@ export function getTrainerLibraryRecordsFallback(trainerId: string): TrainerLibr
 
   const catalog = FALLBACK_TRAINER_LIBRARY.filter((seed) => seed.scope === 'global');
 
-  return [...dataset, ...catalog].map(({ trainerId: _trainerId, ...record }) => record);
+  return [...dataset, ...catalog].map(seedToRecord);
+}
+
+export function getTrainerLibraryGlobalFallback(): TrainerLibraryExerciseRecord[] {
+  return FALLBACK_TRAINER_LIBRARY.filter((seed) => seed.scope === 'global').map(seedToRecord);
 }
 
 export function getTrainerLibraryDashboardFallback(trainerId: string): TrainerLibraryDashboardData {

@@ -14504,12 +14504,16 @@ a.neo-sidebar__highlight {
 .plan-editor__layout{ display:grid; gap:24px; }
 .plan-editor__pickerPanel,
 .plan-editor__exercisePanel{ display:flex; flex-direction:column; gap:20px; }
-.plan-editor__sectionHeader{ display:flex; flex-direction:column; gap:6px; }
+.plan-editor__sectionHeader{ display:flex; flex-direction:column; gap:6px; align-items:flex-start; }
 .plan-editor__sectionTitle{ display:flex; align-items:center; gap:8px; font-size:18px; font-weight:600; margin:0; }
 .plan-editor__sectionSubtitle{ margin:0; font-size:13px; color:color-mix(in srgb, var(--muted-fg) 82%, transparent); }
 .plan-editor__picker{ display:flex; flex-direction:column; gap:12px; }
 .plan-editor__pickerHint{ font-size:12px; color:color-mix(in srgb, var(--muted-fg) 85%, transparent); }
-.plan-editor__pickerState{ font-size:13px; color:color-mix(in srgb, var(--muted-fg) 82%, transparent); display:flex; align-items:center; gap:8px; }
+.plan-editor__pickerState{ font-size:13px; color:color-mix(in srgb, var(--muted-fg) 82%, transparent); display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.plan-editor__pickerState[data-tone="error"]{ color:color-mix(in srgb, var(--danger) 82%, var(--fg) 18%); }
+.plan-editor__pickerState[data-tone="warning"]{ color:color-mix(in srgb, var(--warning) 82%, transparent); }
+.plan-editor__pickerState[data-tone="info"]{ color:color-mix(in srgb, var(--info) 80%, transparent); }
+.plan-editor__pickerState > .btn{ margin-left:auto; }
 .plan-editor__spinner{ width:16px; height:16px; animation:neo-spin .9s linear infinite; }
 .plan-editor__suggestions{ display:grid; gap:10px; margin:0; padding:0; list-style:none; }
 .plan-editor__suggestion{ width:100%; display:flex; gap:12px; align-items:center; padding:10px 12px; border-radius:14px; border:1px solid color-mix(in srgb, var(--border) 78%, transparent); background:color-mix(in srgb, var(--card-bg) 94%, transparent); text-align:left; transition:transform .18s ease, box-shadow .18s ease; }
@@ -14523,6 +14527,7 @@ a.neo-sidebar__highlight {
 .plan-editor__media{ position:relative; width:96px; height:96px; border-radius:16px; overflow:hidden; background:color-mix(in srgb, var(--hover) 40%, transparent); }
 .plan-editor__exerciseContent{ display:flex; flex-direction:column; gap:14px; }
 .plan-editor__exerciseTitle{ margin:0; font-size:16px; font-weight:600; color:var(--fg); }
+.plan-editor__exerciseMeta{ margin:4px 0 0; font-size:12px; color:color-mix(in srgb, var(--muted-fg) 78%, transparent); }
 .plan-editor__exerciseControls{ display:grid; gap:12px; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); }
 .plan-editor__exerciseNote .neo-input{ min-width:180px; }
 .plan-editor__muscleMap{ position:relative; width:100%; height:160px; border-radius:16px; overflow:hidden; background:color-mix(in srgb, var(--hover) 36%, transparent); }
@@ -14535,6 +14540,7 @@ a.neo-sidebar__highlight {
   .plan-editor__grid{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
   .plan-editor__participants{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
   .plan-editor__layout{ grid-template-columns:minmax(280px, 340px) 1fr; }
+  .plan-editor__sectionHeader{ flex-direction:row; align-items:center; justify-content:space-between; }
   .plan-editor__exerciseActions{ gap:8px; }
   .plan-editor__footer{ flex-direction:row; align-items:center; }
 }
