@@ -7,7 +7,8 @@ type Row = {
   id: string;
   title: string | null;
   body: string | null;
-  link: string | null;
+  href: string | null;
+  link?: string | null;
   created_at: string | null;
   read: boolean | null;
 };
@@ -81,18 +82,25 @@ export default function NotificationMenu() {
             <div className="px-2 py-3 text-sm text-slate-500">Sem notificações recentes.</div>
           )}
           <ul className="max-h-[60vh] overflow-auto">
-            {items.map(n => (
-              <li key={n.id} className="p-2 rounded-lg hover:bg-[var(--hover)]">
-                <div className="flex items-center justify-between">
-                  <div className="font-medium text-sm">{n.title ?? 'Notificação'}</div>
-                  <div className="text-xs opacity-70">
-                    {n.created_at ? new Date(n.created_at).toLocaleString('pt-PT') : '—'}
+            {items.map((n) => {
+              const target = n.href ?? n.link ?? null;
+              return (
+                <li key={n.id} className="p-2 rounded-lg hover:bg-[var(--hover)]">
+                  <div className="flex items-center justify-between">
+                    <div className="font-medium text-sm">{n.title ?? 'Notificação'}</div>
+                    <div className="text-xs opacity-70">
+                      {n.created_at ? new Date(n.created_at).toLocaleString('pt-PT') : '—'}
+                    </div>
                   </div>
-                </div>
-                {n.body && <div className="text-sm opacity-90">{n.body}</div>}
-                {n.link && <a className="btn chip mt-2" href={n.link}>Abrir</a>}
-              </li>
-            ))}
+                  {n.body && <div className="text-sm opacity-90">{n.body}</div>}
+                  {target && (
+                    <a className="btn chip mt-2" href={target}>
+                      Abrir
+                    </a>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}
