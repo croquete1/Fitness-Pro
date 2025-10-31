@@ -3,6 +3,7 @@ import { getSessionUserSafe } from '@/lib/session-bridge';
 import { tryCreateServerClient } from '@/lib/supabaseServer';
 import { getNotificationsListFallback } from '@/lib/fallback/notifications';
 import { describeType } from '@/lib/notifications/dashboard';
+import { extractNotificationMetadata } from '@/lib/notifications/metadata';
 import type { NotificationRow } from '@/lib/notifications/types';
 import { buildRateLimitHeaders, rateLimitRequest } from '@/lib/http/rateLimit';
 
@@ -94,17 +95,20 @@ export async function GET(req: Request) {
   }
 
   const items: NotificationRow[] = (data ?? []).map((n: any) => {
-    const meta = n?.metadata && typeof n.metadata === 'object' ? (n.metadata as Record<string, unknown>) : null;
-    const href = typeof n?.href === 'string' && n.href.trim() ? n.href.trim() : null;
-    const metaHref =
-      meta && typeof meta.href === 'string' && meta.href.trim() ? (meta.href as string).trim() : null;
+    const meta = extractNotificationMetadata(n?.metadata ?? null);
+    const hrefCandidate = [n?.href, meta.href]
+      .map((value) => (typeof value === 'string' ? value.trim() : ''))
+      .find((value) => value.length > 0);
+
+    const type = describeType((meta.type ?? n?.type ?? null) as string | null);
+
     return {
       id: n.id as string,
       title: (n.title ?? null) as string | null,
       body: (n.body ?? null) as string | null,
-      href: (href ?? metaHref) as string | null,
+      href: (hrefCandidate && hrefCandidate.length > 0 ? hrefCandidate : null) as string | null,
       read: !!n.read,
-      type: describeType(n.type ?? null).key,
+      type: type.key,
       created_at: (n.created_at ?? null) as string | null,
     };
   });

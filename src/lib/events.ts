@@ -142,6 +142,16 @@ export async function writeEvent(data: EventInput) {
     if (await tryInsert(table, payload)) break;
   }
 
+  const meta =
+    data.meta && typeof data.meta === 'object' && !Array.isArray(data.meta)
+      ? (data.meta as Record<string, unknown>)
+      : null;
+
+  const metadata = {
+    ...(meta ?? {}),
+    event: payload,
+  };
+
   const notifPayload = {
     user_id: trainerId ?? data.userId ?? null,
     title: 'Atualização de plano',
@@ -149,7 +159,7 @@ export async function writeEvent(data: EventInput) {
     read: false,
     created_at: createdAt,
     createdAt,
-    payload,
+    metadata,
   };
 
   for (const table of NOTIFICATION_TABLES) {

@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
+import { extractNotificationMetadata } from '@/lib/notifications/metadata';
 
 export async function GET() {
   try {
@@ -23,16 +24,19 @@ export async function GET() {
       return NextResponse.json({ items: [] }, { status: 200 });
     }
     const items = (data ?? []).map((row: any) => {
-      const meta = row?.metadata && typeof row.metadata === 'object' ? (row.metadata as Record<string, unknown>) : null;
-      const href = typeof row?.href === 'string' && row.href.trim() ? row.href.trim() : null;
-      const metaHref =
-        meta && typeof meta.href === 'string' && meta.href.trim() ? (meta.href as string).trim() : null;
+      const meta = extractNotificationMetadata(row?.metadata ?? null);
+      const hrefCandidate = [row?.href, meta.href]
+        .map((value) => (typeof value === 'string' ? value.trim() : ''))
+        .find((value) => value.length > 0);
+
+      const href = hrefCandidate && hrefCandidate.length > 0 ? hrefCandidate : null;
+
       return {
         id: row.id,
         title: row.title ?? null,
         body: row.body ?? null,
-        href: href ?? metaHref,
-        link: href ?? metaHref,
+        href,
+        link: href,
         created_at: row.created_at ?? null,
         read: row.read ?? false,
       };
