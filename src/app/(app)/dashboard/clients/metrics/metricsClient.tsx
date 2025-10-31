@@ -41,6 +41,32 @@ type MetricsApiSuccess = {
 
 type MetricsApiResponse = MetricsApiSuccess & { message?: string };
 
+type AutoTableFn = (doc: any, options: any) => void;
+
+function resolveAutoTable(module: unknown): AutoTableFn {
+  const candidateValues: unknown[] = [];
+  if (module && typeof module === 'object') {
+    candidateValues.push((module as { autoTable?: unknown }).autoTable);
+    candidateValues.push((module as { default?: unknown }).default);
+
+    const nestedDefault = (module as { default?: unknown }).default;
+    if (nestedDefault && typeof nestedDefault === 'object') {
+      candidateValues.push((nestedDefault as { autoTable?: unknown }).autoTable);
+      candidateValues.push((nestedDefault as { default?: unknown }).default);
+    }
+  }
+
+  candidateValues.push(module);
+
+  for (const candidate of candidateValues) {
+    if (typeof candidate === 'function') {
+      return candidate as AutoTableFn;
+    }
+  }
+
+  throw new Error('Não foi possível carregar o módulo jspdf-autotable.');
+}
+
 const rangeOptions: Array<{ label: string; value: RangeValue }> = [
   { label: '30 dias', value: '30d' },
   { label: '90 dias', value: '90d' },
@@ -390,8 +416,7 @@ export default function MetricsClient({ initialRows, initialSummary, initialTime
         import('jspdf'),
         import('jspdf-autotable'),
       ]);
-      const autoTable = (autoTableModule as { default?: (doc: any, options: any) => void }).default ??
-        (autoTableModule as unknown as (doc: any, options: any) => void);
+      const autoTable = resolveAutoTable(autoTableModule);
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       const latest = rows[0];
       const createdAt = latest.measured_at ? new Date(latest.measured_at) : new Date();
