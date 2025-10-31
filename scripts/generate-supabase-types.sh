@@ -1,18 +1,22 @@
-#!/usr/bin/env bash
-set -euo pipefail
+-- Create a table to store generated files
+CREATE TABLE IF NOT EXISTS generated_files (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL UNIQUE,
+  contents text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-OUTPUT_FILE="$ROOT_DIR/src/types/supabase.ts"
+-- Trigger function to keep updated_at current
+CREATE OR REPLACE FUNCTION update_generated_files_updated_at()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+  NEW.updated_at := now();
+  RETURN NEW;
+END;
+$$;
 
-if ! command -v npx >/dev/null 2>&1; then
-  echo "npx is required to generate Supabase types." >&2
-  exit 1
-fi
-
-TMP_FILE="$(mktemp)"
-trap 'rm -f "$TMP_FILE"' EXIT
-
-npx supabase@latest gen types typescript --linked --schema public >"$TMP_FILE"
-
-mv "$TMP_FILE" "$OUTPUT_FILE"
-echo "Supabase types written to $OUTPUT_FILE"
+DROP TRIGGER IF EXISTS trg_update_generated_files_updated_at ON generated_files;
+CREATE TRIGGER trg_update_generated_files_updated_at
+BEFORE UPDATE ON generated_files
+FOR EACH ROW EXECUTE FUNCTION update_generated_files_updated_at();
