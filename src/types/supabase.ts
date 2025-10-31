@@ -17,9 +17,13 @@ export type Database = {
         Row: {
           id: string;
           user_id: string | null;
+          client_id: string | null;
           measured_at: string | null;
+          date: string | null;
           weight_kg: number | null;
+          weight: number | null;
           height_cm: number | null;
+          height: number | null;
           body_fat_pct: number | null;
           bmi: number | null;
           chest_cm: number | null;
@@ -38,9 +42,13 @@ export type Database = {
         Insert: {
           id?: string;
           user_id?: string | null;
+          client_id?: string | null;
           measured_at?: string | null;
+          date?: string | null;
           weight_kg?: number | null;
+          weight?: number | null;
           height_cm?: number | null;
+          height?: number | null;
           body_fat_pct?: number | null;
           bmi?: number | null;
           chest_cm?: number | null;
@@ -59,9 +67,13 @@ export type Database = {
         Update: {
           id?: string;
           user_id?: string | null;
+          client_id?: string | null;
           measured_at?: string | null;
+          date?: string | null;
           weight_kg?: number | null;
+          weight?: number | null;
           height_cm?: number | null;
+          height?: number | null;
           body_fat_pct?: number | null;
           bmi?: number | null;
           chest_cm?: number | null;
@@ -79,33 +91,77 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: 'session_requests_client_id_fkey';
+            foreignKeyName: 'anthropometry_user_id_fkey';
+            columns: ['user_id'];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'anthropometry_client_id_fkey';
             columns: ['client_id'];
             referencedRelation: 'users';
             referencedColumns: ['id'];
           },
           {
-            foreignKeyName: 'session_requests_trainer_id_fkey';
-            columns: ['trainer_id'];
+            foreignKeyName: 'anthropometry_created_by_id_fkey';
+            columns: ['created_by_id'];
             referencedRelation: 'users';
             referencedColumns: ['id'];
-          },
+          }
+        ];
+      };
+
+      billing_invoices: {
+        Row: {
+          id: string;
+          client_id: string | null;
+          client_name: string;
+          service_name: string;
+          amount: string;
+          status: 'paid' | 'pending' | 'refunded';
+          method: 'mbway' | 'visa' | 'transfer' | 'multibanco' | 'cash';
+          issued_at: string;
+          due_at: string | null;
+          paid_at: string | null;
+          refunded_at: string | null;
+          reference: string | null;
+          notes: string | null;
+        };
+        Insert: {
+          id?: string;
+          client_id?: string | null;
+          client_name: string;
+          service_name: string;
+          amount: string;
+          status?: 'paid' | 'pending' | 'refunded';
+          method: 'mbway' | 'visa' | 'transfer' | 'multibanco' | 'cash';
+          issued_at?: string;
+          due_at?: string | null;
+          paid_at?: string | null;
+          refunded_at?: string | null;
+          reference?: string | null;
+          notes?: string | null;
+        };
+        Update: {
+          id?: string;
+          client_id?: string | null;
+          client_name?: string;
+          service_name?: string;
+          amount?: string;
+          status?: 'paid' | 'pending' | 'refunded';
+          method?: 'mbway' | 'visa' | 'transfer' | 'multibanco' | 'cash';
+          issued_at?: string;
+          due_at?: string | null;
+          paid_at?: string | null;
+          refunded_at?: string | null;
+          reference?: string | null;
+          notes?: string | null;
+        };
+        Relationships: [
           {
-            foreignKeyName: 'session_requests_session_id_fkey';
-            columns: ['session_id'];
-            referencedRelation: 'sessions';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'session_requests_proposed_by_fkey';
-            columns: ['proposed_by'];
-            referencedRelation: 'users';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'session_requests_responded_by_fkey';
-            columns: ['responded_by'];
-            referencedRelation: 'users';
+            foreignKeyName: 'billing_invoices_client_id_fkey';
+            columns: ['client_id'];
+            referencedRelation: 'profiles';
             referencedColumns: ['id'];
           }
         ];
