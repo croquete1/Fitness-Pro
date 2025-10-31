@@ -16,7 +16,7 @@ type Row = {
 };
 
 export default function PlansPTClient({ rows: initial }: { rows: Row[] }) {
-  const [rows] = React.useState<Row[]>(initial);
+  const rows = React.useMemo(() => initial, [initial]);
 
   const columns: GridColDef<Row>[] = [
     { field: 'title', headerName: 'Título', flex: 1, minWidth: 220 },
