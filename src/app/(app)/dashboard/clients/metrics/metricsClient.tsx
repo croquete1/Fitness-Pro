@@ -390,7 +390,9 @@ export default function MetricsClient({ initialRows, initialSummary, initialTime
         import('jspdf'),
         import('jspdf-autotable'),
       ]);
-      const autoTable = (autoTableModule as { default?: (doc: any, options: any) => void }).default ??
+      const autoTable =
+        (autoTableModule as { autoTable?: (doc: any, options: any) => void }).autoTable ??
+        (autoTableModule as { default?: (doc: any, options: any) => void }).default ??
         (autoTableModule as unknown as (doc: any, options: any) => void);
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       const latest = rows[0];
