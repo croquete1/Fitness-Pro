@@ -8,6 +8,7 @@ import type {
   NotificationSnapshot,
 } from '@/lib/notifications/types';
 import { getNotificationsDashboardFallback } from '@/lib/fallback/notifications';
+import { extractNotificationMetadata } from '@/lib/notifications/metadata';
 import NotificationsClient from './NotificationsClient';
 
 export const dynamic = 'force-dynamic';
@@ -59,17 +60,20 @@ export default async function Page() {
     }
 
     const initialRows: NotificationRow[] = (initial.data ?? []).map((n: any) => {
-      const meta = n?.metadata && typeof n.metadata === 'object' ? (n.metadata as Record<string, unknown>) : null;
-      const href = typeof n?.href === 'string' && n.href.trim() ? n.href.trim() : null;
-      const metaHref =
-        meta && typeof meta.href === 'string' && meta.href.trim() ? (meta.href as string).trim() : null;
+      const meta = extractNotificationMetadata(n?.metadata ?? null);
+      const hrefCandidate = [n?.href, meta.href]
+        .map((value) => (typeof value === 'string' ? value.trim() : ''))
+        .find((value) => value.length > 0);
+
+      const type = describeType((meta.type ?? n?.type ?? null) as string | null);
+
       return {
         id: n.id,
         title: n.title ?? null,
         body: n.body ?? null,
-        href: href ?? metaHref,
+        href: hrefCandidate && hrefCandidate.length > 0 ? hrefCandidate : null,
         read: !!n.read,
-        type: describeType(n.type ?? null).key,
+        type: type.key,
         created_at: n.created_at ?? null,
       };
     });
