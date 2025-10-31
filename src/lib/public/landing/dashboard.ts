@@ -1,4 +1,5 @@
-import { createServerClient } from '@/lib/supabaseServer';
+import { getFallbackLandingSummary } from '@/lib/fallback/auth-landing';
+import { tryCreateServerClient } from '@/lib/supabaseServer';
 import { countUsersByRole } from '@/lib/userRepo';
 import type {
   LandingActivity,
@@ -397,7 +398,11 @@ function buildActivities(
 }
 
 export async function getLandingSummary(now: Date = new Date()): Promise<LandingSummary> {
-  const supabase = createServerClient();
+  const supabase = tryCreateServerClient();
+
+  if (!supabase) {
+    return getFallbackLandingSummary(now);
+  }
 
   const timelineStart = startOfDay(new Date(now.getTime() - 7 * WEEK_MS + DAY_MS));
   const rangeStart = startOfDay(new Date(now.getTime() - 60 * DAY_MS));

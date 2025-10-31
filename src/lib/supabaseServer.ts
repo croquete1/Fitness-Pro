@@ -1,6 +1,9 @@
 // src/lib/supabaseServer.ts
-import 'server-only';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+
+if (typeof window !== 'undefined') {
+  throw new Error('supabaseServer só pode ser utilizado no contexto do servidor.');
+}
 
 const URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL ||

@@ -3,6 +3,8 @@
 Este documento rastreia o estado actual das tarefas priorizadas identificadas na auditoria técnica anterior. Cada item inclui a situação actual na base de código.
 
 ## Fase 1 - Correções Imediatas
+- [x] Remover a dependência directa de `server-only` em `src/lib/supabaseServer.ts`, aplicando guarda de ambiente server-side compatível com testes unitários (`npm run test:unit`).
+- [x] Blindar o endpoint público `/api/public/landing` contra ambientes sem variáveis do Supabase, retornando o resumo determinístico de fallback quando o cliente do Supabase não pode ser inicializado.
 - [x] Alinhar método HTTP e normalizar estados na aprovação/suspensão de utilizadores (`POST`/`PATCH` aceites e alias `DISABLED` mapeado). Fonte: `src/app/api/admin/users/[id]/status/route.ts`.
 - [x] Proteger a exportação CSV de utilizadores com guarda de administrador. Fonte: `src/app/api/admin/users.csv/route.ts`.
 - [x] Implementar listagem de utilizadores com filtros, paginação e normalização de campos (`rows`/`count`). Fonte: `src/app/api/admin/users/route.ts`.
