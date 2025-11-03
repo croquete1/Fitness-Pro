@@ -120,7 +120,24 @@ export function createServerClient() {
 }
 
 export function tryCreateServerClient(): SupabaseClient | null {
-  return ensureClient({ optional: true });
+  const override = (globalThis as {
+    __supabaseServerClientOverride?: SupabaseClient | (() => SupabaseClient | null) | null;
+  }).__supabaseServerClientOverride;
+
+  if (override) {
+    try {
+      const client = typeof override === 'function' ? override() : override;
+      return client ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  try {
+    return ensureClient({ optional: true });
+  } catch {
+    return null;
+  }
 }
 
 export function createServiceRoleClient(): SupabaseClient {

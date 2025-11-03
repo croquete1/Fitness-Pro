@@ -45,6 +45,7 @@ type UsernameStatus =
   | { state: 'available' }
   | { state: 'taken'; reason?: string }
   | { state: 'invalid'; reason?: string }
+  | { state: 'offline' }
   | { state: 'error' };
 
 type FormState = {
@@ -207,6 +208,8 @@ function resolveUsernameHelper(value: string, status: UsernameStatus) {
         return { message: 'Este username não está disponível.', tone: 'error' as const };
       }
       return { message: 'Escolhe um identificador com 3 a 30 caracteres válidos.', tone: 'error' as const };
+    case 'offline':
+      return { message: 'Modo offline: vamos confirmar assim que possível.', tone: 'checking' as const };
     case 'error':
       return { message: 'Não foi possível validar agora.', tone: 'error' as const };
     case 'available':
@@ -459,8 +462,17 @@ export default function ProfileClient({
           signal: controller.signal,
         });
         const payload = await res.json().catch(() => null);
+        const source: 'fallback' | 'supabase' | null = payload?.source === 'fallback' ? 'fallback' : payload?.source === 'supabase' ? 'supabase' : null;
         if (!res.ok || !payload?.ok) {
           setUsernameStatus({ state: 'error' });
+          return;
+        }
+        if (source === 'fallback') {
+          if (!payload.available) {
+            setUsernameStatus({ state: 'invalid', reason: 'reserved' });
+            return;
+          }
+          setUsernameStatus({ state: 'offline' });
           return;
         }
         if (payload.reason === 'INVALID_OR_RESERVED') {
