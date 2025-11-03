@@ -263,6 +263,9 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Adicionar protecções de rate limiting e validações adicionais nas rotas sensíveis (limites por IP nas rotas de registo e notificações, com cabeçalhos `Retry-After` e `X-RateLimit-*`). Fontes: `src/lib/http/rateLimit.ts`, `src/app/api/register/route.ts`, `src/app/api/notifications/{list,mark-all-read,mark-read,mark-unread,unread}/route.ts`.
   - 2025-10-26: Alargámos a identificação de cliente para interpretar cabeçalhos `Forwarded`, garantindo limites justos atrás de proxies padrão.
   - Actualização: todas as respostas destas rotas incluem agora `cache-control: no-store` juntamente com os cabeçalhos de rate limiting para evitar caches intermédias inconsistentes.
+- [ ] Corrigir o hook `useMe` para deixar de assumir `role: 'ADMIN'` quando a chamada à sessão falha, evitando que componentes como `useAlerts` executem fetches administrativos com um utilizador anónimo. Fontes: `src/hooks/useMe.ts`, `src/hooks/useAlerts.ts`.
+- [ ] Proteger a rota `/api/events` com autenticação e verificação de role (ADMIN/PT), devolvendo fallback seguro quando o Supabase está offline e impedindo o uso inadvertido da service role para expor eventos históricos a qualquer visitante. Fontes: `src/app/api/events/route.ts`, `src/lib/events.ts`, `src/lib/supabaseServer.ts`.
+- [ ] Encerrar correctamente a stream SSE de aprovações (`/api/admin/approvals/stream`) libertando o `setInterval` quando o cliente fecha a ligação ou a aba, evitando vazamento de timers no servidor. Fonte: `src/app/api/admin/approvals/stream/route.ts`.
 - [ ] Introduzir testes automatizados (unitários/integrados) para ACL, logs e operações críticas.
   - Cobertura inicial para o módulo de rate limiting e cabeçalhos de resposta críticos (`tests/unit/rateLimit.test.ts`, `npm run test:unit`).
 
