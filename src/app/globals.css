@@ -15737,3 +15737,17 @@ a.neo-sidebar__highlight {
   border:1px solid var(--border);
   background:color-mix(in srgb, var(--card-bg, rgba(255,255,255,0.95)) 88%, transparent);
 }
+.plan-blocks-editor{ display:flex; flex-direction:column; gap:20px; }
+.plan-blocks-editor__header{ display:flex; flex-direction:column; gap:16px; align-items:flex-start; }
+.plan-blocks-editor__heading{ display:flex; flex-direction:column; gap:10px; }
+.plan-blocks-editor__eyebrow{ margin:0; font-size:12px; letter-spacing:0.08em; text-transform:uppercase; color:color-mix(in srgb, var(--muted-fg) 82%, transparent); }
+.plan-blocks-editor__title{ margin:0; font-size:22px; font-weight:700; color:var(--fg); }
+.plan-blocks-editor__subtitle{ margin:0; font-size:13px; color:color-mix(in srgb, var(--muted-fg) 82%, transparent); max-width:540px; }
+.plan-blocks-editor__actions{ display:flex; gap:10px; flex-wrap:wrap; }
+.plan-blocks-editor__footer{ display:flex; justify-content:flex-start; }
+.plan-blocks-editor__hint{ display:flex; align-items:center; gap:8px; font-size:13px; color:color-mix(in srgb, var(--muted-fg) 84%, transparent); }
+@media (min-width: 768px){
+  .plan-blocks-editor__header{ flex-direction:row; justify-content:space-between; align-items:center; }
+  .plan-blocks-editor__heading{ max-width:560px; }
+  .plan-blocks-editor__footer{ justify-content:flex-end; }
+}
