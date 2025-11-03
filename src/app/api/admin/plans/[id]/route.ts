@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
+import { requireAdminGuard, isGuardErr } from '@/lib/api-guards';
 
 type Ctx = { params: Promise<{ id: string }> };
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(_req: Request, ctx: Ctx) {
+  const guard = await requireAdminGuard();
+  if (isGuardErr(guard)) return guard.response;
+
   const { id } = await ctx.params;
   const sb = createServerClient();
   for (const table of ['plans', 'training_plans', 'programs']) {
@@ -21,6 +25,9 @@ export async function GET(_req: Request, ctx: Ctx) {
 }
 
 export async function PATCH(req: Request, ctx: Ctx) {
+  const guard = await requireAdminGuard();
+  if (isGuardErr(guard)) return guard.response;
+
   const { id } = await ctx.params;
   const sb = createServerClient();
   const b = await req.json().catch(() => ({}));
@@ -49,6 +56,9 @@ export async function PATCH(req: Request, ctx: Ctx) {
 }
 
 export async function DELETE(_req: Request, ctx: Ctx) {
+  const guard = await requireAdminGuard();
+  if (isGuardErr(guard)) return guard.response;
+
   const { id } = await ctx.params;
   const sb = createServerClient();
   const tryDel = async (table: string) => sb.from(table).delete().eq('id', id);

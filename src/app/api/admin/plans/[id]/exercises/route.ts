@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
+import { requireAdminGuard, isGuardErr } from '@/lib/api-guards';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -12,6 +13,9 @@ function pick<T extends Record<string, any>>(row: T, keys: string[]) {
 
 // GET: listar exercícios do plano
 export async function GET(_req: Request, ctx: Ctx) {
+  const guard = await requireAdminGuard();
+  if (isGuardErr(guard)) return guard.response;
+
   const { id: planId } = await ctx.params;
   const sb = createServerClient();
 
@@ -51,6 +55,9 @@ export async function GET(_req: Request, ctx: Ctx) {
 
 // POST: adicionar exercícios (array de { exercise_id, sort? })
 export async function POST(req: Request, ctx: Ctx) {
+  const guard = await requireAdminGuard();
+  if (isGuardErr(guard)) return guard.response;
+
   const { id: planId } = await ctx.params;
   const sb = createServerClient();
   const body = await req.json().catch(() => ({}));
@@ -74,6 +81,9 @@ export async function POST(req: Request, ctx: Ctx) {
 
 // PATCH: reordenar (array { id, sort })
 export async function PATCH(req: Request, ctx: Ctx) {
+  const guard = await requireAdminGuard();
+  if (isGuardErr(guard)) return guard.response;
+
   const { id: planId } = await ctx.params;
   const sb = createServerClient();
   const body = await req.json().catch(() => ({}));
@@ -91,6 +101,9 @@ export async function PATCH(req: Request, ctx: Ctx) {
 
 // DELETE: remover um exercício (query param exId)
 export async function DELETE(req: Request, ctx: Ctx) {
+  const guard = await requireAdminGuard();
+  if (isGuardErr(guard)) return guard.response;
+
   const { id: planId } = await ctx.params;
   const sb = createServerClient();
   const url = new URL(req.url);
