@@ -75,6 +75,25 @@ jobs:
       - name: TS --noEmit
         run: npx tsc -p tsconfig.json --noEmit
 
+  ts-diagnostics:
+    name: TS diagnostics
+    runs-on: ubuntu-latest
+    needs: [guard]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - run: npm ci
+      - name: Extended diagnostics
+        run: npm run tsc:diagnostics | tee ts-diagnostics.log
+      - name: Upload TS diagnostics report
+        uses: actions/upload-artifact@v4
+        with:
+          name: ts-extended-diagnostics
+          path: ts-diagnostics.log
+
   build:
     name: Next build
     runs-on: ubuntu-latest

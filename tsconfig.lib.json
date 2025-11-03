@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": false,
+    "tsBuildInfoFile": ".tsbuild/lib.tsbuildinfo",
+    "emitDeclarationOnly": true,
+    "declaration": true,
+    "declarationMap": true,
+    "declarationDir": ".types/lib"
+  },
+  "include": [
+    "src/lib/**/*.ts",
+    "src/lib/**/*.tsx",
+    "src/types/**/*.ts"
+  ]
+}
