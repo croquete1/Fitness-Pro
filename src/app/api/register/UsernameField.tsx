@@ -15,19 +15,27 @@ export default function UsernameField({
   label?: string;
 }) {
   const [checking, setChecking] = React.useState(false);
-  const [available, setAvailable] = React.useState<boolean | null>(null);
+  const [availability, setAvailability] = React.useState<{ available: boolean | null; source: 'supabase' | 'fallback' | null }>({
+    available: null,
+    source: null,
+  });
 
   React.useEffect(() => {
-    if (!value) { setAvailable(null); return; }
+    if (!value) { setAvailability({ available: null, source: null }); return; }
     const ctrl = new AbortController();
     const t = setTimeout(async () => {
       setChecking(true);
       try {
         const res = await fetch(`/api/username/check?u=${encodeURIComponent(value)}`, { signal: ctrl.signal });
         const json = await res.json();
-        setAvailable(!!json?.available);
+        const source: 'supabase' | 'fallback' | null = json?.source === 'fallback' ? 'fallback' : json?.source === 'supabase' ? 'supabase' : null;
+        if (!res.ok || !json?.ok) {
+          setAvailability({ available: null, source: source ?? null });
+          return;
+        }
+        setAvailability({ available: Boolean(json.available), source });
       } catch {
-        setAvailable(null);
+        setAvailability({ available: null, source: null });
       } finally {
         setChecking(false);
       }
@@ -35,8 +43,20 @@ export default function UsernameField({
     return () => { clearTimeout(t); ctrl.abort(); };
   }, [value]);
 
-  const error = available === false;
-  const helper = error ? 'Este username não está disponível.' : '3–20 letras/números, ponto, hífen, underscore.';
+  const offline = availability.source === 'fallback';
+  const error = availability.available === false;
+  let helper = '3–20 letras/números, ponto, hífen, underscore.';
+  if (value.trim()) {
+    if (checking) {
+      helper = 'A verificar disponibilidade…';
+    } else if (error) {
+      helper = 'Este username não está disponível.';
+    } else if (offline) {
+      helper = 'Modo offline: não foi possível confirmar disponibilidade.';
+    } else if (availability.available) {
+      helper = 'Disponível.';
+    }
+  }
 
   return (
     <TextField
@@ -49,7 +69,13 @@ export default function UsernameField({
       InputProps={{
         endAdornment: (
           <InputAdornment position="end">
-            {checking ? <CircularProgress size={18} /> : available === true ? <CheckIcon color="success" /> : available === false ? <CloseIcon color="error" /> : null}
+            {checking ? (
+              <CircularProgress size={18} />
+            ) : error ? (
+              <CloseIcon color="error" />
+            ) : availability.available && !offline ? (
+              <CheckIcon color="success" />
+            ) : null}
           </InputAdornment>
         )
       }}

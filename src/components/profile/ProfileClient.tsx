@@ -48,22 +48,33 @@ export default function ProfileClient({
   const [snack, setSnack] = React.useState<{ open: boolean; msg: string; sev?: 'success'|'error' }>({ open: false, msg: '' });
 
   // Validação live de username
-  const [uCheck, setUCheck] = React.useState<{ value: string; loading: boolean; available: boolean | null }>({
+  const [uCheck, setUCheck] = React.useState<{
+    value: string;
+    loading: boolean;
+    available: boolean | null;
+    source: 'supabase' | 'fallback' | null;
+  }>({
     value: initialProfile.username ?? '',
     loading: false,
     available: null,
+    source: null,
   });
   React.useEffect(() => {
     const v = p.username?.trim() ?? '';
-    if (!v) { setUCheck((s) => ({ ...s, value: v, available: null })); return; }
+    if (!v) { setUCheck((s) => ({ ...s, value: v, available: null, source: null })); return; }
     setUCheck((s) => ({ ...s, value: v, loading: true }));
     const t = setTimeout(async () => {
       try {
         const r = await fetch(`/api/profile/username/check?u=${encodeURIComponent(v)}`);
         const j = await r.json();
-        setUCheck({ value: v, loading: false, available: !!j.available });
+        const source: 'supabase' | 'fallback' | null = j?.source === 'fallback' ? 'fallback' : j?.source === 'supabase' ? 'supabase' : null;
+        if (!r.ok || !j?.ok) {
+          setUCheck({ value: v, loading: false, available: null, source });
+          return;
+        }
+        setUCheck({ value: v, loading: false, available: !!j.available, source });
       } catch {
-        setUCheck({ value: v, loading: false, available: null });
+        setUCheck({ value: v, loading: false, available: null, source: null });
       }
     }, 300);
     return () => clearTimeout(t);
@@ -178,7 +189,9 @@ export default function ProfileClient({
                         ? 'A verificar disponibilidade…'
                         : uCheck.available === false
                           ? 'Este username já está ocupado.'
-                          : 'Disponível.'
+                          : uCheck.source === 'fallback'
+                            ? 'Modo offline: não foi possível confirmar disponibilidade.'
+                            : 'Disponível.'
                   }
                   error={!!p.username && uCheck.available === false}
                 />

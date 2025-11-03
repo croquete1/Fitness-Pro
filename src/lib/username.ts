@@ -8,6 +8,37 @@ export type UsernameValidationResult =
 
 const USERNAME_REGEX = /^[a-z0-9_.-]+$/i;
 
+const RESERVED_USERNAMES = [
+  'admin',
+  'root',
+  'support',
+  'fitness',
+  'user',
+  'contato',
+  'contact',
+  'suporte',
+  'help',
+  'demo',
+  'manager',
+  'coach',
+  'team',
+  'info',
+  'staff',
+  'system',
+  'guest',
+  'marketing',
+];
+
+const RESERVED_LOOKUP = new Set(RESERVED_USERNAMES);
+
+export function isReservedUsername(raw: string): boolean {
+  if (!raw) return false;
+  const normalized = normalizeUsername(raw);
+  return RESERVED_LOOKUP.has(normalized);
+}
+
+export { RESERVED_USERNAMES };
+
 export function normalizeUsername(raw: string): string {
   return raw.trim().toLowerCase();
 }
@@ -53,6 +84,10 @@ export async function checkUsernameAvailability(
   options: { excludeUserId?: string } = {},
 ): Promise<AvailabilityResult> {
   const uname = normalizeUsername(username);
+
+  if (isReservedUsername(uname)) {
+    return { ok: true, available: false };
+  }
   const { excludeUserId } = options;
 
   const [{ count: userCount, error: userError }, { count: profileCount, error: profileError }] = await Promise.all([

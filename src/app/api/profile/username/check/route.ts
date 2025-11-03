@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabaseServer';
+import { tryCreateServerClient } from '@/lib/supabaseServer';
 import { isGuardErr, requireUserGuard } from '@/lib/api-guards';
-import { checkUsernameAvailability, validateUsernameCandidate } from '@/lib/username';
+import { checkUsernameAvailability, isReservedUsername, validateUsernameCandidate } from '@/lib/username';
 
 export async function GET(req: Request) {
   const guard = await requireUserGuard();
@@ -16,8 +16,20 @@ export async function GET(req: Request) {
     return NextResponse.json({ available: false, reason });
   }
 
-  const sb = createServerClient();
+  const sb = tryCreateServerClient();
   const normalized = validationResult.normalized;
+
+  if (!sb) {
+    const available = !isReservedUsername(normalized);
+    return NextResponse.json({
+      ok: true,
+      available,
+      normalized,
+      source: 'fallback' as const,
+      reason: available ? undefined : 'reserved',
+    });
+  }
+
   const availability = await checkUsernameAvailability(sb, normalized, {
     excludeUserId: guard.me.id,
   });
@@ -25,12 +37,14 @@ export async function GET(req: Request) {
   if (!availability.ok) {
     const reason = 'reason' in availability ? availability.reason : 'ERROR';
     const status = 'status' in availability ? availability.status : undefined;
-    return NextResponse.json({ available: false, reason }, { status: status ?? 500 });
+    return NextResponse.json({ ok: false, available: false, reason, source: 'supabase' as const }, { status: status ?? 500 });
   }
 
   return NextResponse.json({
     available: availability.available,
     normalized,
+    ok: true,
+    source: 'supabase' as const,
     reason: availability.available ? undefined : 'taken',
   });
 }
