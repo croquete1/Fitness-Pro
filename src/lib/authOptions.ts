@@ -1,6 +1,6 @@
 // src/lib/authOptions.ts
 import type { NextAuthOptions } from 'next-auth';
-import Credentials from 'next-auth/providers/credentials';
+import CredentialsProviderImport from 'next-auth/providers/credentials';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { LoginSchema } from '@/lib/validation/auth';
 import { checkPassword } from '@/lib/hash';
@@ -46,12 +46,19 @@ async function getUserByIdentifier(identifier: string) {
   return getUserBy('username', normalized.toLowerCase());
 }
 
+const CredentialsProvider =
+  typeof CredentialsProviderImport === 'function'
+    ? CredentialsProviderImport
+    : typeof (CredentialsProviderImport as any)?.default === 'function'
+      ? (CredentialsProviderImport as any).default
+      : (config: any) => ({ id: 'credentials', type: 'credentials', name: 'Credentials', ...config });
+
 export const authOptions: NextAuthOptions = {
   pages: { signIn: '/login' },
   session: { strategy: 'jwt' },
 
   providers: [
-    Credentials({
+    CredentialsProvider({
       name: 'Credentials',
       credentials: {
         identifier: { label: 'Email ou utilizador', type: 'text' },

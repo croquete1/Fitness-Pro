@@ -151,6 +151,7 @@ Este documento rastreia o estado actual das tarefas priorizadas identificadas na
 - [x] Definir padrão consistente para uso de rotas Next.js vs. cliente Supabase (tempo real) e aplicá-lo aos módulos de mensagens/notificações.
 - [x] Blindar o centro/lista de notificações para só subscrever após identificar o utilizador e alinhar os totais expostos com o filtro activo.
 - [x] Enriquecer o centro/lista de notificações com filtro por tipo e contagens unificadas, garantindo que métricas e totais respeitam pesquisa e actualizações em tempo real.
+  - 2025-11-19: Endurecer `/api/admin/notifications/**` com `requireAdminGuard`, reaproveitando o `guard.me` para auditar metadados e cobrindo respostas 403/200 para ADMIN/PT/CLIENT em testes unitários. Fontes: `src/app/api/admin/notifications/**/*`, `tests/unit/api-admin-notifications-guard.test.ts`.
   - 2025-10-29: Alinhámos o resumo por tipo com o filtro de estado activo, garantindo que chips exibem apenas notificações por ler/lidas conforme seleccionado.
   - 2025-10-30: Corrigimos a agregação Supabase do resumo por tipo com `group by` e fallback determinístico, preservando os chips mesmo quando a função agregada falha.
 - [x] Optimizar o dashboard de mensagens com pesquisa multi-termo indexada e acção "Marcar tudo" responsiva. Fontes: `src/app/(app)/dashboard/messages/MessagesDashboardClient.tsx`, `src/app/(app)/dashboard/messages/parts/MarkAllRead.tsx`.

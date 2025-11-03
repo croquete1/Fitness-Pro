@@ -33,16 +33,41 @@ export type SessionBridge = {
  * devolve objeto com `user.*` e campos "flat" (id/role/...) para compat.
  */
 export async function getSessionUserSafe(): Promise<SessionBridge | null> {
-  const hdrs = await headers();
-  const cookieStore = await cookies();
+  const override = (globalThis as { __sessionBridgeOverride?: SessionBridge | null }).__sessionBridgeOverride;
+  if (override !== undefined) {
+    return override;
+  }
+
+  let headerEntries: Iterable<[string, string]> = [];
+  try {
+    const hdrs = typeof headers === 'function' ? await headers() : null;
+    if (hdrs && typeof (hdrs as any).entries === 'function') {
+      headerEntries = (hdrs as any).entries();
+    }
+  } catch (error) {
+    console.warn('[session-bridge] headers unavailable', error);
+  }
+
+  let cookieEntries: Array<[string, string]> = [];
+  try {
+    const cookieStore = typeof cookies === 'function' ? await cookies() : null;
+    if (cookieStore && typeof (cookieStore as any).getAll === 'function') {
+      cookieEntries = (cookieStore as any).getAll().map((c: any) => [c.name, c.value]);
+    }
+  } catch (error) {
+    console.warn('[session-bridge] cookies unavailable', error);
+  }
+
   const reqLike: any = {
-    headers: Object.fromEntries(hdrs.entries()),
-    cookies: Object.fromEntries(cookieStore.getAll().map((c) => [c.name, c.value])),
+    headers: Object.fromEntries(headerEntries),
+    cookies: Object.fromEntries(cookieEntries),
   };
 
   let token: any | null = null;
   try {
-    token = await getToken({ req: reqLike, secret: process.env.NEXTAUTH_SECRET });
+    if (typeof getToken === 'function') {
+      token = await getToken({ req: reqLike, secret: process.env.NEXTAUTH_SECRET });
+    }
   } catch (error) {
     console.warn('[session-bridge] getToken falhou — a tentar getServerSession', error);
   }

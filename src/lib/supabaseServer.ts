@@ -109,6 +109,11 @@ export function getSupabaseServer() {
 }
 
 export function createServerClient() {
+  const override = (globalThis as { __supabaseServerClientOverride?: SupabaseClient | (() => SupabaseClient) })
+    .__supabaseServerClientOverride;
+  if (override) {
+    return typeof override === 'function' ? override() : override;
+  }
   const client = ensureClient();
   if (!client) throw new MissingSupabaseEnvError();
   return client;
