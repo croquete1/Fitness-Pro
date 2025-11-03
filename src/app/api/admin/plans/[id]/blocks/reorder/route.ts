@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
+import { requireAdminGuard, isGuardErr } from '@/lib/api-guards';
 
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function POST(_req: Request, ctx: Ctx) {
+  const guard = await requireAdminGuard();
+  if (isGuardErr(guard)) return guard.response;
+
   const { id: planId } = await ctx.params;
   const body = await _req.json(); // [{id, order_index}, ...]
   if (!Array.isArray(body)) return NextResponse.json({ error: 'bad_request' }, { status: 400 });

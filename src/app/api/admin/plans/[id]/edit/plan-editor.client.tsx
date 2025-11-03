@@ -2,7 +2,15 @@
 
 import * as React from 'react';
 import {
-  Paper, Typography, List, ListItem, ListItemText, IconButton, Stack, Button
+  Paper,
+  Typography,
+  List,
+  ListItem,
+  ListItemText,
+  IconButton,
+  Stack,
+  Button,
+  Alert,
 } from '@mui/material';
 import DragIndicator from '@mui/icons-material/DragIndicator';
 import ArrowUpward from '@mui/icons-material/ArrowUpward';
@@ -16,6 +24,8 @@ export default function PlanEditor({
 }: { planId: string; title: string; initialItems: Item[] }) {
   const [items, setItems] = React.useState<Item[]>([...initialItems].sort((a,b)=>a.order_index-b.order_index));
   const [dirty, setDirty] = React.useState(false);
+  const [saving, setSaving] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
   const orderize = React.useCallback((arr: Item[]) => arr.map((it, i) => ({ ...it, order_index: i })), []);
 
   // DnD básico (HTML5)
@@ -51,20 +61,54 @@ export default function PlanEditor({
   };
 
   const save = async () => {
-    await fetch(`/api/admin/plans/${planId}/blocks/reorder`, {
-      method: 'POST',
-      headers: { 'content-type':'application/json' },
-      body: JSON.stringify(items.map(({id,order_index}) => ({id,order_index}))),
-    });
-    setDirty(false);
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/admin/plans/${planId}/blocks/reorder`, {
+        method: 'POST',
+        headers: { 'content-type':'application/json' },
+        body: JSON.stringify(items.map(({id,order_index}) => ({id,order_index}))),
+      });
+
+      if (response.status === 401) {
+        setError('Sessão expirada ou inválida. Inicie sessão novamente como administrador.');
+        return;
+      }
+
+      if (response.status === 403) {
+        setError('Sem permissões para reordenar blocos. Apenas administradores podem gerir estes planos.');
+        return;
+      }
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        throw new Error(text || 'Falha ao guardar a ordem dos blocos.');
+      }
+
+      setDirty(false);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Falha ao guardar a ordem dos blocos.';
+      setError(message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <Paper sx={{ p: 2, display:'grid', gap: 2 }}>
       <Stack direction="row" alignItems="center" justifyContent="space-between">
         <Typography variant="h6">{title} — Blocos</Typography>
-        <Button onClick={save} variant="contained" startIcon={<Save />} disabled={!dirty}>Guardar ordem</Button>
+        <Button
+          onClick={save}
+          variant="contained"
+          startIcon={<Save />}
+          disabled={!dirty || saving}
+        >
+          {saving ? 'A guardar…' : 'Guardar ordem'}
+        </Button>
       </Stack>
+
+      {error ? <Alert severity="error">{error}</Alert> : null}
 
       <List dense disablePadding sx={{ display:'grid', gap: .5 }}>
         {items.map((it, i) => (

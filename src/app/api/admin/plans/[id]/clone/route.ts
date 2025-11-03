@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabaseServer';
+import { requireAdminGuard, isGuardErr } from '@/lib/api-guards';
 
 type Ctx = { params: Promise<{ id: string }> };
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(_req: Request, ctx: Ctx) {
+  const guard = await requireAdminGuard();
+  if (isGuardErr(guard)) return guard.response;
+
   const { id } = await ctx.params;
   const sb = createServerClient();
 
