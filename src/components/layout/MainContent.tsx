@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import { Box, Container, Stack } from '@mui/material';
+import { NeoMainContainer } from '@/components/layout/NeoMainContainer';
 
 type Props = {
   children: React.ReactNode;
@@ -21,10 +21,8 @@ export default function MainContent({
   spacing = 2,
 }: Props) {
   return (
-    <Box component="main" sx={{ py: 3, minWidth: 0 }}>
-      <Container maxWidth={maxWidth} disableGutters={disableGutters}>
-        <Stack spacing={spacing}>{children}</Stack>
-      </Container>
-    </Box>
+    <NeoMainContainer maxWidth={maxWidth} disableGutters={disableGutters} spacing={spacing}>
+      {children}
+    </NeoMainContainer>
   );
 }

@@ -2,7 +2,6 @@
 'use client';
 
 import * as React from 'react';
-import { Box } from '@mui/material';
 import { useSidebar } from './SidebarProvider';
 
 /**
@@ -16,22 +15,11 @@ export default function SidebarHoverPeeker() {
   if (isMobile || !collapsed) return null;
 
   return (
-    <Box
+    <div
       aria-hidden
+      className="neo-sidebar-peeker"
       onMouseEnter={() => setPeek(true)}
       onMouseLeave={() => setPeek(false)}
-      sx={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        bottom: 0,
-        width: 12,
-        zIndex: 1200,
-        // transparente e “não intrusivo”
-        background: 'transparent',
-        // permitir hover por cima de conteúdos
-        pointerEvents: 'auto',
-      }}
     />
   );
 }
