@@ -1,8 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import Box from '@mui/material/Box';
 import AppHeader from '@/components/layout/AppHeader';
+import { NeoFlexShell } from '@/components/layout/NeoFlexShell';
 
 /**
  * Casca comum para o dashboard: sidebar (vinda por props) + AppHeader + conteúdo.
@@ -15,15 +15,15 @@ export default function DashboardShell({
   children: React.ReactNode;
 }) {
   return (
-    <Box sx={{ display: 'flex', minHeight: '100dvh', bgcolor: 'background.default' }}>
+    <NeoFlexShell>
       {/* Sidebar (controla colapso/drawer internamente) */}
       {sidebar}
 
       {/* Conteúdo */}
-      <Box component="main" sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+      <div className="neo-flex-shell__main">
         <AppHeader />
-        <Box component="div" sx={{ flex: 1, minHeight: 0 }}>{children}</Box>
-      </Box>
-    </Box>
+        <div className="neo-flex-shell__content">{children}</div>
+      </div>
+    </NeoFlexShell>
   );
 }
