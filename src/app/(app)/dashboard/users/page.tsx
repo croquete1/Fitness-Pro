@@ -23,7 +23,9 @@ export default async function UsersAdminPage() {
 
   const { data, error } = await sb
     .from('users')
-    .select('id,name,email,role,status,approved,active,created_at,last_login_at,last_seen_at,online')
+    .select(
+      'id,name,email,role,status,approved,active:is_active,created_at,last_login_at,last_seen_at,online',
+    )
     .order('created_at', { ascending: false })
     .limit(1000);
 
@@ -40,7 +42,7 @@ export default async function UsersAdminPage() {
     role: row.role ?? null,
     status: row.status ?? null,
     approved: row.approved ?? null,
-    active: row.active ?? null,
+    active: row.active ?? row.is_active ?? null,
     createdAt: row.created_at ?? null,
     lastLoginAt: row.last_login_at ?? row.last_sign_in_at ?? null,
     lastSeenAt: row.last_seen_at ?? null,

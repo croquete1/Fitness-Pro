@@ -11851,10 +11851,13 @@ h1,.h1{
 }
 
 /* Admin exercises dashboard */
-.admin-exercises{display:flex;flex-direction:column;gap:var(--neo-space-6);padding-bottom:var(--neo-space-12)}
-.admin-exercises__layout{display:flex;flex-direction:column;gap:var(--neo-space-6)}
-.admin-exercises__metrics{display:grid;gap:var(--neo-space-4);grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
-.admin-exercises__metric{display:flex;flex-direction:column;gap:var(--neo-space-2);padding:var(--neo-space-4);border-radius:var(--neo-radius-xl);border:1px solid color-mix(in srgb,var(--neo-border-strong) 55%,transparent);background:var(--neo-surface-raised);box-shadow:var(--neo-shadow-sm);min-height:150px}
+.admin-exercises{display:flex;flex-direction:column;gap:var(--neo-space-8);padding-bottom:var(--neo-space-12)}
+.admin-exercises__layout{display:flex;flex-direction:column;gap:var(--neo-space-7)}
+.admin-exercises__overview{display:grid;gap:var(--neo-space-5);grid-template-columns:repeat(auto-fit,minmax(320px,1fr));align-items:stretch}
+.admin-exercises__metricsPanel{display:flex;flex-direction:column;gap:var(--neo-space-5)}
+.admin-exercises__metricsHeader svg{width:22px;height:22px;color:var(--neo-chart-primary)}
+.admin-exercises__metrics{display:grid;gap:var(--neo-space-4);grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.admin-exercises__metric{display:flex;flex-direction:column;gap:var(--neo-space-2);padding:var(--neo-space-5);border-radius:var(--neo-radius-xl);border:1px solid color-mix(in srgb,var(--neo-border-strong) 55%,transparent);background:var(--neo-surface-raised);box-shadow:var(--neo-shadow-sm);min-height:160px}
 .admin-exercises__metric.tone-primary{border-color:color-mix(in srgb,var(--neo-chart-primary) 42%,transparent)}
 .admin-exercises__metric.tone-positive{border-color:color-mix(in srgb,var(--neo-chart-success) 38%,transparent)}
 .admin-exercises__metric.tone-warning{border-color:color-mix(in srgb,var(--neo-chart-warning) 35%,transparent)}
@@ -11866,10 +11869,11 @@ h1,.h1{
 .admin-exercises__metricTrend svg{width:14px;height:14px}
 .admin-exercises__metricValue{font-size:var(--neo-font-size-3xl);font-weight:700;color:var(--neo-text-primary)}
 .admin-exercises__metricHelper{font-size:var(--neo-font-size-sm);color:var(--neo-text-secondary)}
-.admin-exercises__toolbar{display:flex;flex-direction:column;gap:var(--neo-space-4)}
-.admin-exercises__filters{display:flex;flex-wrap:wrap;gap:var(--neo-space-3)}
-.admin-exercises__actions{display:flex;flex-wrap:wrap;align-items:center;gap:var(--neo-space-3);justify-content:flex-end}
-.admin-exercises__field{position:relative;display:flex;flex-direction:column;gap:var(--neo-space-1);min-width:160px;flex:1 1 220px}
+.admin-exercises__toolbarPanel{display:flex;flex-direction:column;gap:var(--neo-space-5)}
+.admin-exercises__toolbar{display:flex;flex-direction:column;gap:var(--neo-space-5)}
+.admin-exercises__filters{display:grid;gap:var(--neo-space-4);grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.admin-exercises__actions{display:flex;flex-wrap:wrap;align-items:center;gap:var(--neo-space-3);justify-content:flex-start}
+.admin-exercises__field{position:relative;display:flex;flex-direction:column;gap:var(--neo-space-1);min-width:200px;flex:1 1 220px}
 .admin-exercises__fieldLabel{font-size:var(--neo-font-size-xs);font-weight:600;color:var(--neo-text-subtle);text-transform:uppercase;letter-spacing:.04em}
 .admin-exercises__fieldIcon{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--neo-text-subtle)}
 .admin-exercises__field>.neo-field{padding-left:var(--neo-space-7)}

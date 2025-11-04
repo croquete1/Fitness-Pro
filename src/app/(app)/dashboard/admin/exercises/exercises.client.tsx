@@ -20,6 +20,7 @@ import {
   Filter,
   Layers,
   LineChart,
+  TrendingUp,
   Plus,
   Printer,
   RefreshCcw,
@@ -91,6 +92,8 @@ const shareFormatter = new Intl.NumberFormat('pt-PT', {
   minimumFractionDigits: 0,
   maximumFractionDigits: 1,
 });
+
+const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
 const fetcher = async (url: string): Promise<AdminExercisesDashboardResult> => {
   const response = await fetch(url, { cache: 'no-store' });
@@ -554,143 +557,221 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
       />
 
       <div className="admin-exercises__layout">
-        <section className="admin-exercises__metrics" aria-label="Indicadores principais">
-          {dashboard.hero.map((metric) => (
-            <MetricCard key={metric.id} metric={metric} />
-          ))}
+        <section className="admin-exercises__overview" aria-label="Resumo do catálogo">
+          <section
+            className="neo-panel admin-exercises__panel admin-exercises__metricsPanel"
+            aria-label="Indicadores principais"
+          >
+            <header className="neo-panel__header admin-exercises__metricsHeader">
+              <div>
+                <h3 className="neo-panel__title">Indicadores principais</h3>
+                <p className="neo-panel__subtitle">Últimas tendências com base nos filtros aplicados.</p>
+              </div>
+              <TrendingUp aria-hidden />
+            </header>
+            <div className="admin-exercises__metrics" role="list">
+              {dashboard.hero.map((metric) => (
+                <MetricCard key={metric.id} metric={metric} />
+              ))}
+            </div>
+          </section>
+
+          <section
+            className="neo-panel admin-exercises__panel admin-exercises__chartPanel"
+            aria-label="Evolução do catálogo"
+          >
+            <header className="neo-panel__header">
+              <div>
+                <h3 className="neo-panel__title">Evolução do catálogo</h3>
+                <p className="neo-panel__subtitle">{RANGE_LABEL[filters.range]}</p>
+              </div>
+              <LineChart aria-hidden />
+            </header>
+            <div className="admin-exercises__chart">
+              <ResponsiveContainer width="100%" height={280}>
+                <AreaChart data={dashboard.timeline} margin={{ top: 16, left: 0, right: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="chartCreated" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#1d4ed8" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="#1d4ed8" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="chartPublished" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#059669" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="#059669" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="4 4" vertical={false} />
+                  <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
+                  <YAxis allowDecimals={false} tickLine={false} axisLine={false} fontSize={12} width={40} />
+                  <Tooltip content={<ExerciseTooltip />} cursor={{ stroke: '#94a3b8', strokeWidth: 1 }} />
+                  <Area type="monotone" dataKey="created" stroke="#1d4ed8" fill="url(#chartCreated)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="published" stroke="#059669" fill="url(#chartPublished)" strokeWidth={2} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
         </section>
 
-        <section className="admin-exercises__toolbar" aria-label="Filtros e acções">
-          <div className="admin-exercises__filters">
-            <label className="admin-exercises__field">
-              <span className="sr-only">Pesquisar exercícios</span>
-              <Search aria-hidden className="admin-exercises__fieldIcon" />
-              <input
-                className="neo-field"
-                placeholder="Pesquisar por nome, grupo ou equipamento"
-                value={filters.q}
-                onChange={(event) => updateFilters({ q: event.target.value })}
-              />
-            </label>
+        <section
+          className="neo-panel admin-exercises__panel admin-exercises__toolbarPanel"
+          aria-label="Filtros e acções"
+        >
+          <header className="neo-panel__header">
+            <div>
+              <h3 className="neo-panel__title">Filtrar catálogo</h3>
+              <p className="neo-panel__subtitle">
+                Refina a lista com origem, estado, dificuldade e equipamento específicos.
+              </p>
+            </div>
+            <Filter aria-hidden />
+          </header>
+          <div className="admin-exercises__toolbar">
+            <div className="admin-exercises__filters">
+              <label className="admin-exercises__field">
+                <span className="sr-only">Pesquisar exercícios</span>
+                <Search aria-hidden className="admin-exercises__fieldIcon" />
+                <input
+                  className="neo-field"
+                  placeholder="Pesquisar por nome, grupo ou equipamento"
+                  value={filters.q}
+                  onChange={(event) => updateFilters({ q: event.target.value })}
+                />
+              </label>
 
-            <label className="admin-exercises__field">
-              <span className="admin-exercises__fieldLabel">Origem</span>
-              <select
-                className="neo-field"
-                value={filters.scope}
-                onChange={(event) => updateFilters({ scope: event.target.value as Filters['scope'] })}
-              >
-                <option value="all">Todos</option>
-                <option value="global">Catálogo global</option>
-                <option value="personal">Privados</option>
-              </select>
-            </label>
+              <label className="admin-exercises__field">
+                <span className="admin-exercises__fieldLabel">Origem</span>
+                <select
+                  className="neo-field"
+                  value={filters.scope}
+                  onChange={(event) => updateFilters({ scope: event.target.value as Filters['scope'] })}
+                >
+                  <option value="all">Todos</option>
+                  <option value="global">Catálogo global</option>
+                  <option value="personal">Privados</option>
+                </select>
+              </label>
 
-            <label className="admin-exercises__field">
-              <span className="admin-exercises__fieldLabel">Estado</span>
-              <select
-                className="neo-field"
-                value={filters.published}
-                onChange={(event) => updateFilters({ published: event.target.value as Filters['published'] })}
-              >
-                <option value="all">Todos</option>
-                <option value="published">Publicados</option>
-                <option value="draft">Rascunho</option>
-              </select>
-            </label>
+              <label className="admin-exercises__field">
+                <span className="admin-exercises__fieldLabel">Estado</span>
+                <select
+                  className="neo-field"
+                  value={filters.published}
+                  onChange={(event) => updateFilters({ published: event.target.value as Filters['published'] })}
+                >
+                  <option value="all">Todos</option>
+                  <option value="published">Publicados</option>
+                  <option value="draft">Rascunho</option>
+                </select>
+              </label>
 
-            <label className="admin-exercises__field">
-              <span className="admin-exercises__fieldLabel">Dificuldade</span>
-              <select
-                className="neo-field"
-                value={filters.difficulty}
-                onChange={(event) => updateFilters({ difficulty: event.target.value })}
-              >
-                <option value="">Todas</option>
-                {dashboard.facets.difficulties.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <label className="admin-exercises__field">
+                <span className="admin-exercises__fieldLabel">Dificuldade</span>
+                <select
+                  className="neo-field"
+                  value={filters.difficulty}
+                  onChange={(event) => updateFilters({ difficulty: event.target.value })}
+                >
+                  <option value="">Todas</option>
+                  {dashboard.facets.difficulties.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-            <label className="admin-exercises__field">
-              <span className="admin-exercises__fieldLabel">Grupo muscular</span>
-              <select
-                className="neo-field"
-                value={filters.muscle}
-                onChange={(event) => updateFilters({ muscle: event.target.value })}
-              >
-                <option value="">Todos</option>
-                {dashboard.facets.muscles.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <label className="admin-exercises__field">
+                <span className="admin-exercises__fieldLabel">Grupo muscular</span>
+                <select
+                  className="neo-field"
+                  value={filters.muscle}
+                  onChange={(event) => updateFilters({ muscle: event.target.value })}
+                >
+                  <option value="">Todos</option>
+                  {dashboard.facets.muscles.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-            <label className="admin-exercises__field">
-              <span className="admin-exercises__fieldLabel">Equipamento</span>
-              <select
-                className="neo-field"
-                value={filters.equipment}
-                onChange={(event) => updateFilters({ equipment: event.target.value })}
-              >
-                <option value="">Todos</option>
-                {dashboard.facets.equipments.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <label className="admin-exercises__field">
+                <span className="admin-exercises__fieldLabel">Equipamento</span>
+                <select
+                  className="neo-field"
+                  value={filters.equipment}
+                  onChange={(event) => updateFilters({ equipment: event.target.value })}
+                >
+                  <option value="">Todos</option>
+                  {dashboard.facets.equipments.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-            <label className="admin-exercises__field">
-              <span className="admin-exercises__fieldLabel">Intervalo</span>
-              <select
-                className="neo-field"
-                value={filters.range}
-                onChange={(event) => updateFilters({ range: event.target.value as Filters['range'] })}
-              >
-                <option value="30d">30 dias</option>
-                <option value="90d">90 dias</option>
-                <option value="180d">6 meses</option>
-                <option value="365d">12 meses</option>
-              </select>
-            </label>
+              <label className="admin-exercises__field">
+                <span className="admin-exercises__fieldLabel">Intervalo</span>
+                <select
+                  className="neo-field"
+                  value={filters.range}
+                  onChange={(event) => updateFilters({ range: event.target.value as Filters['range'] })}
+                >
+                  <option value="30d">30 dias</option>
+                  <option value="90d">90 dias</option>
+                  <option value="180d">6 meses</option>
+                  <option value="365d">12 meses</option>
+                </select>
+              </label>
 
-            <label className="admin-exercises__field">
-              <span className="admin-exercises__fieldLabel">Ordenar por</span>
-              <select
-                className="neo-field"
-                value={filters.sort}
-                onChange={(event) => updateFilters({ sort: event.target.value as Filters['sort'] })}
-              >
-                <option value="created_desc">Mais recentes</option>
-                <option value="updated_desc">Actualizados</option>
-                <option value="name_asc">Nome (A-Z)</option>
-              </select>
-            </label>
-          </div>
+              <label className="admin-exercises__field">
+                <span className="admin-exercises__fieldLabel">Ordenar</span>
+                <select
+                  className="neo-field"
+                  value={filters.sort}
+                  onChange={(event) => updateFilters({ sort: event.target.value as Filters['sort'] })}
+                >
+                  <option value="created_desc">Mais recentes</option>
+                  <option value="updated_desc">Actualizados recentemente</option>
+                  <option value="name_asc">Nome A–Z</option>
+                </select>
+              </label>
 
-          <div className="admin-exercises__actions">
-            <Button variant="ghost" leftIcon={<Filter aria-hidden />} onClick={resetFilters}>
-              Limpar filtros
-            </Button>
-            <Button variant="ghost" leftIcon={<RefreshCcw aria-hidden />} loading={loading} onClick={refresh}>
-              Actualizar
-            </Button>
-            <Button variant="ghost" leftIcon={<Printer aria-hidden />} onClick={printList}>
-              Imprimir
-            </Button>
-            <Button variant="ghost" leftIcon={<Download aria-hidden />} onClick={exportCSV}>
-              Exportar CSV
-            </Button>
-            <Button variant="primary" leftIcon={<Plus aria-hidden />} onClick={() => setCreateOpen(true)}>
-              Novo exercício
-            </Button>
+              <label className="admin-exercises__field">
+                <span className="admin-exercises__fieldLabel">Resultados por página</span>
+                <select
+                  className="neo-field"
+                  value={filters.pageSize}
+                  onChange={(event) => updateFilters({ pageSize: Number(event.target.value) })}
+                >
+                  {PAGE_SIZE_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="admin-exercises__actions">
+              <Button variant="ghost" leftIcon={<Filter aria-hidden />} onClick={resetFilters}>
+                Limpar filtros
+              </Button>
+              <Button variant="ghost" leftIcon={<RefreshCcw aria-hidden />} loading={loading} onClick={refresh}>
+                Actualizar
+              </Button>
+              <Button variant="ghost" leftIcon={<Printer aria-hidden />} onClick={printList}>
+                Imprimir
+              </Button>
+              <Button variant="ghost" leftIcon={<Download aria-hidden />} onClick={exportCSV}>
+                Exportar CSV
+              </Button>
+              <Button variant="primary" leftIcon={<Plus aria-hidden />} onClick={() => setCreateOpen(true)}>
+                Novo exercício
+              </Button>
+            </div>
           </div>
         </section>
 
@@ -705,39 +786,6 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
             </button>
           </Alert>
         ) : null}
-
-        <section className="neo-panel admin-exercises__panel" aria-label="Evolução do catálogo">
-          <header className="neo-panel__header">
-            <div>
-              <h3 className="neo-panel__title">Evolução do catálogo</h3>
-              <p className="neo-panel__subtitle">{RANGE_LABEL[filters.range]}</p>
-            </div>
-            <LineChart aria-hidden />
-          </header>
-          <div className="admin-exercises__chart">
-            <ResponsiveContainer width="100%" height={280}>
-              <AreaChart data={dashboard.timeline} margin={{ top: 16, left: 0, right: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="chartCreated" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#1d4ed8" stopOpacity={0.35} />
-                    <stop offset="95%" stopColor="#1d4ed8" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="chartPublished" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#059669" stopOpacity={0.35} />
-                    <stop offset="95%" stopColor="#059669" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="4 4" vertical={false} />
-                <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
-                <YAxis allowDecimals={false} tickLine={false} axisLine={false} fontSize={12} width={40} />
-                <Tooltip content={<ExerciseTooltip />} cursor={{ stroke: '#94a3b8', strokeWidth: 1 }} />
-                <Area type="monotone" dataKey="created" stroke="#1d4ed8" fill="url(#chartCreated)" strokeWidth={2} />
-                <Area type="monotone" dataKey="published" stroke="#059669" fill="url(#chartPublished)" strokeWidth={2} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </section>
-
         <section className="admin-exercises__insights" aria-label="Distribuições e destaques">
           <DistributionList
             title="Dificuldades aplicadas"
