@@ -65,7 +65,7 @@ export async function GET(req: Request) {
   let query = sb
     .from('exercises')
     .select(
-      'id,name,muscle_group,equipment,difficulty,description,video_url,is_global,is_published,published_at,owner_id,created_at,updated_at,created_by,owner:users!exercises_owner_id_fkey(id,name,email),creator:users!exercises_created_by_fkey(id,name,email)',
+      'id,name,muscle_group,equipment,difficulty,description,video_url,is_global,is_published,published_at,owner_id,created_at,updated_at,created_by',
       { count: 'exact' },
     )
     .order('created_at', { ascending: false, nullsFirst: false });

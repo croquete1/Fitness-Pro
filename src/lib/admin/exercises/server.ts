@@ -137,7 +137,7 @@ export async function loadAdminExercisesDashboard(
 
   try {
     const selection =
-      'id,name,description,muscle_group,equipment,difficulty,video_url,is_global,is_published,published_at,owner_id,created_at,updated_at,created_by,owner:users!exercises_owner_id_fkey(id,name,email),creator:users!exercises_created_by_fkey(id,name,email)';
+      'id,name,description,muscle_group,equipment,difficulty,video_url,is_global,is_published,published_at,owner_id,created_at,updated_at,created_by';
 
     const analyticsQuery = applyFilters(
       sb.from('exercises').select(selection).order('created_at', { ascending: false }),

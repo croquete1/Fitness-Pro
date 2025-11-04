@@ -51,10 +51,28 @@ export async function PATCH(req: Request, ctx: Ctx) {
   return NextResponse.json(data);
 }
 
+function isMissingCascadeFunction(error: { code?: string | null } | null): boolean {
+  if (!error?.code) return false;
+  return error.code === '42883' || error.code === 'PGRST116' || error.code === 'PGRST301';
+}
+
 export async function DELETE(_: Request, ctx: Ctx) {
   const { id } = await ctx.params;
   const sb = createServerClient();
+
+  const { error: cascadeError } = await sb.rpc('admin_cascade_delete_exercise', {
+    target_exercise_id: id,
+  });
+  if (cascadeError && !isMissingCascadeFunction(cascadeError)) {
+    console.warn('[admin/exercises] falha ao limpar dependências', cascadeError);
+    return NextResponse.json({ error: cascadeError.message }, { status: 400 });
+  }
+
   const { error } = await sb.from('exercises').delete().eq('id', id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+    console.error('[admin/exercises] falha ao remover exercício', error);
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+
   return NextResponse.json({ ok: true });
 }
