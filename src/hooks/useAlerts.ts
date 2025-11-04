@@ -14,7 +14,13 @@ export function useAlerts() {
   useEffect(() => {
     if (loading) return;
 
-    const role = toAppRole(user?.role);
+    const role = user?.role ? toAppRole(user.role) : null;
+    if (!user || !role) {
+      last.current = {};
+      setAlerts((prev) => (prev.length ? [] : prev));
+      return;
+    }
+
     const isAdmin = role === "ADMIN";
     const isTrainer = role === "PT";
     const allowed = isAdmin || isTrainer;
