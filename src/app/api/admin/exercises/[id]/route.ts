@@ -51,10 +51,53 @@ export async function PATCH(req: Request, ctx: Ctx) {
   return NextResponse.json(data);
 }
 
+const CASCADE_TABLES: Array<{ table: string; columns: string[] }> = [
+  { table: 'plan_exercises', columns: ['exercise_id', 'ex_id'] },
+  { table: 'program_exercises', columns: ['exercise_id', 'ex_id'] },
+  { table: 'exercise_notes', columns: ['exercise_id'] },
+  { table: 'exercise_logs', columns: ['exercise_id'] },
+];
+
 export async function DELETE(_: Request, ctx: Ctx) {
   const { id } = await ctx.params;
   const sb = createServerClient();
+
+  for (const target of CASCADE_TABLES) {
+    let cleared = false;
+    for (const column of target.columns) {
+      const { error } = await sb.from(target.table).delete().eq(column, id);
+      if (!error) {
+        cleared = true;
+        break;
+      }
+
+      if (error.code === '42P01') {
+        cleared = true;
+        break;
+      }
+
+      if (error.code === '42703') {
+        continue;
+      }
+
+      console.warn(`[admin/exercises] falha ao limpar dependências`, {
+        table: target.table,
+        column,
+        error,
+      });
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    if (!cleared) {
+      console.warn(`[admin/exercises] tabela ${target.table} não pôde ser limpa`);
+    }
+  }
+
   const { error } = await sb.from('exercises').delete().eq('id', id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+    console.error('[admin/exercises] falha ao remover exercício', error);
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+
   return NextResponse.json({ ok: true });
 }

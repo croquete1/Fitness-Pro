@@ -782,7 +782,7 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
             data-adjusting={adjustingPagination ? 'true' : undefined}
           >
             {hasRows ? (
-              <table>
+              <table className="admin-exercises__table">
                 <thead>
                   <tr>
                     <th>Exercício</th>
@@ -798,90 +798,138 @@ export default function AdminExercisesClient({ initialData, initialParams }: Pro
                 <tbody>
                   {paginatedRows.map((row) => {
                     const publication = resolvePublication(row);
+                    const published = publication.isPublished;
                     return (
-                      <tr key={row.id}>
-                        <td>
-                          <span className="admin-exercises__tableName">{row.name}</span>
+                      <tr
+                        key={row.id}
+                        className={clsx(
+                          'admin-exercises__tableRow',
+                          published ? 'is-published' : 'is-draft',
+                        )}
+                      >
+                        <td className="admin-exercises__cell admin-exercises__cell--primary">
+                          <div className="admin-exercises__rowHead">
+                            <div className="admin-exercises__rowTitle">
+                              <span className="admin-exercises__tableName">{row.name}</span>
+                              <div className="admin-exercises__rowBadges" role="list" aria-label="Estado e disponibilidade">
+                                <span
+                                  role="listitem"
+                                  className={clsx(
+                                    'admin-exercises__status',
+                                    published ? 'is-published' : 'is-draft',
+                                  )}
+                                >
+                                  {published ? 'Publicado' : 'Rascunho'}
+                                </span>
+                                <span
+                                  role="listitem"
+                                  className={clsx(
+                                    'admin-exercises__status',
+                                    row.isGlobal ? 'is-global' : 'is-private',
+                                  )}
+                                >
+                                  {row.isGlobal ? 'Catálogo global' : 'Biblioteca privada'}
+                                </span>
+                              </div>
+                            </div>
+                            <span className="admin-exercises__rowTimestamp">
+                              Actualizado {formatRelative(publication.updatedAt)}
+                            </span>
+                          </div>
                           {row.description ? (
-                          <span className="admin-exercises__tableDescription">{row.description}</span>
-                        ) : null}
-                        <span className="admin-exercises__tableMeta">Criado por {row.creatorLabel}</span>
-                      </td>
-                      <td>
-                        {row.muscleTags.length ? (
-                          <ul className="admin-exercises__tags">
-                            {row.muscleTags.map((tag) => (
-                              <li key={`${row.id}-muscle-${tag}`}>{tag}</li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <span className="admin-exercises__tableEmpty">—</span>
-                        )}
-                      </td>
-                      <td>
-                        {row.equipmentTags.length ? (
-                          <ul className="admin-exercises__tags">
-                            {row.equipmentTags.map((tag) => (
-                              <li key={`${row.id}-equipment-${tag}`}>{tag}</li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <span className="admin-exercises__tableEmpty">—</span>
-                        )}
-                      </td>
-                      <td>
-                        {row.difficulty ? (
-                          <span className={clsx('admin-exercises__badge', row.difficulty.toLowerCase())}>{row.difficulty}</span>
-                        ) : (
-                          <span className="admin-exercises__tableEmpty">—</span>
-                        )}
-                      </td>
-                      <td>{row.audienceLabel}</td>
-                      <td>
-                        {row.isGlobal ? (
-                          <PublishToggle
-                            id={row.id}
-                            published={publication.isPublished}
-                            onChange={handlePublishChange}
-                          />
-                        ) : (
-                          <span className="admin-exercises__badge neutral">Privado</span>
-                        )}
-                      </td>
-                      <td>{formatRelative(publication.updatedAt)}</td>
-                      <td>
-                        <div className="admin-exercises__tableActions">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            leftIcon={<Edit aria-hidden />}
-                            onClick={() => {
-                              router.push(`/dashboard/admin/exercises/${row.id}`);
-                            }}
-                          >
-                            Editar
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            leftIcon={<ArrowUpRight aria-hidden />}
-                            onClick={() => {
-                              setCloneRow(row);
-                            }}
-                          >
-                            Duplicar
-                          </Button>
-                          <Button
-                            variant="danger"
-                            size="sm"
-                            leftIcon={<Trash2 aria-hidden />}
-                            onClick={() => handleDelete(row)}
-                          >
-                            Remover
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
+                            <p className="admin-exercises__tableDescription">{row.description}</p>
+                          ) : null}
+                          <div className="admin-exercises__tableMeta">
+                            Criado por {row.creatorLabel}
+                            {row.createdLabel ? (
+                              <>
+                                <span className="admin-exercises__dot" aria-hidden>
+                                  •
+                                </span>
+                                <span>{row.createdLabel}</span>
+                              </>
+                            ) : null}
+                          </div>
+                        </td>
+                        <td className="admin-exercises__cell admin-exercises__cell--muscle">
+                          {row.muscleTags.length ? (
+                            <ul className="admin-exercises__tags">
+                              {row.muscleTags.map((tag) => (
+                                <li key={`${row.id}-muscle-${tag}`}>{tag}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <span className="admin-exercises__tableEmpty">—</span>
+                          )}
+                        </td>
+                        <td className="admin-exercises__cell admin-exercises__cell--equipment">
+                          {row.equipmentTags.length ? (
+                            <ul className="admin-exercises__tags">
+                              {row.equipmentTags.map((tag) => (
+                                <li key={`${row.id}-equipment-${tag}`}>{tag}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <span className="admin-exercises__tableEmpty">—</span>
+                          )}
+                        </td>
+                        <td className="admin-exercises__cell admin-exercises__cell--difficulty">
+                          {row.difficulty ? (
+                            <span className={clsx('admin-exercises__badge', row.difficulty.toLowerCase())}>{row.difficulty}</span>
+                          ) : (
+                            <span className="admin-exercises__tableEmpty">—</span>
+                          )}
+                        </td>
+                        <td className="admin-exercises__cell admin-exercises__cell--audience">
+                          <span className="admin-exercises__audience">{row.audienceLabel}</span>
+                        </td>
+                        <td className="admin-exercises__cell admin-exercises__cell--published">
+                          {row.isGlobal ? (
+                            <PublishToggle
+                              id={row.id}
+                              published={publication.isPublished}
+                              onChange={handlePublishChange}
+                            />
+                          ) : (
+                            <span className="admin-exercises__badge neutral">Privado</span>
+                          )}
+                        </td>
+                        <td className="admin-exercises__cell admin-exercises__cell--updated">
+                          <span className="admin-exercises__time">{formatRelative(publication.updatedAt)}</span>
+                        </td>
+                        <td className="admin-exercises__cell admin-exercises__cell--actions">
+                          <div className="admin-exercises__tableActions">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              leftIcon={<Edit aria-hidden />}
+                              onClick={() => {
+                                router.push(`/dashboard/admin/exercises/${row.id}`);
+                              }}
+                            >
+                              Editar
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              leftIcon={<ArrowUpRight aria-hidden />}
+                              onClick={() => {
+                                setCloneRow(row);
+                              }}
+                            >
+                              Duplicar
+                            </Button>
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              leftIcon={<Trash2 aria-hidden />}
+                              onClick={() => handleDelete(row)}
+                            >
+                              Remover
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
                     );
                   })}
                 </tbody>
