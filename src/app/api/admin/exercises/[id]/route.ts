@@ -54,9 +54,21 @@ export async function PATCH(req: Request, ctx: Ctx) {
 const CASCADE_TABLES: Array<{ table: string; columns: string[] }> = [
   { table: 'plan_exercises', columns: ['exercise_id', 'ex_id'] },
   { table: 'program_exercises', columns: ['exercise_id', 'ex_id'] },
+  { table: 'training_plan_exercises', columns: ['exercise_id', 'ex_id'] },
+  { table: 'session_exercises', columns: ['exercise_id'] },
   { table: 'exercise_notes', columns: ['exercise_id'] },
   { table: 'exercise_logs', columns: ['exercise_id'] },
 ];
+
+function isMissingTable(error: { code?: string | null } | null): boolean {
+  if (!error?.code) return false;
+  return error.code === '42P01' || error.code === 'PGRST205';
+}
+
+function isMissingColumn(error: { code?: string | null } | null): boolean {
+  if (!error?.code) return false;
+  return error.code === '42703' || error.code === 'PGRST204';
+}
 
 export async function DELETE(_: Request, ctx: Ctx) {
   const { id } = await ctx.params;
@@ -71,12 +83,12 @@ export async function DELETE(_: Request, ctx: Ctx) {
         break;
       }
 
-      if (error.code === '42P01') {
+      if (isMissingTable(error)) {
         cleared = true;
         break;
       }
 
-      if (error.code === '42703') {
+      if (isMissingColumn(error)) {
         continue;
       }
 
