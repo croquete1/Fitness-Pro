@@ -51,58 +51,21 @@ export async function PATCH(req: Request, ctx: Ctx) {
   return NextResponse.json(data);
 }
 
-const CASCADE_TABLES: Array<{ table: string; columns: string[] }> = [
-  { table: 'plan_exercises', columns: ['exercise_id', 'ex_id'] },
-  { table: 'program_exercises', columns: ['exercise_id', 'ex_id'] },
-  { table: 'training_plan_exercises', columns: ['exercise_id', 'ex_id'] },
-  { table: 'session_exercises', columns: ['exercise_id'] },
-  { table: 'exercise_notes', columns: ['exercise_id'] },
-  { table: 'exercise_logs', columns: ['exercise_id'] },
-];
-
-function isMissingTable(error: { code?: string | null } | null): boolean {
+function isMissingCascadeFunction(error: { code?: string | null } | null): boolean {
   if (!error?.code) return false;
-  return error.code === '42P01' || error.code === 'PGRST205';
-}
-
-function isMissingColumn(error: { code?: string | null } | null): boolean {
-  if (!error?.code) return false;
-  return error.code === '42703' || error.code === 'PGRST204';
+  return error.code === '42883' || error.code === 'PGRST116' || error.code === 'PGRST301';
 }
 
 export async function DELETE(_: Request, ctx: Ctx) {
   const { id } = await ctx.params;
   const sb = createServerClient();
 
-  for (const target of CASCADE_TABLES) {
-    let cleared = false;
-    for (const column of target.columns) {
-      const { error } = await sb.from(target.table).delete().eq(column, id);
-      if (!error) {
-        cleared = true;
-        break;
-      }
-
-      if (isMissingTable(error)) {
-        cleared = true;
-        break;
-      }
-
-      if (isMissingColumn(error)) {
-        continue;
-      }
-
-      console.warn(`[admin/exercises] falha ao limpar dependências`, {
-        table: target.table,
-        column,
-        error,
-      });
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-
-    if (!cleared) {
-      console.warn(`[admin/exercises] tabela ${target.table} não pôde ser limpa`);
-    }
+  const { error: cascadeError } = await sb.rpc('admin_cascade_delete_exercise', {
+    target_exercise_id: id,
+  });
+  if (cascadeError && !isMissingCascadeFunction(cascadeError)) {
+    console.warn('[admin/exercises] falha ao limpar dependências', cascadeError);
+    return NextResponse.json({ error: cascadeError.message }, { status: 400 });
   }
 
   const { error } = await sb.from('exercises').delete().eq('id', id);

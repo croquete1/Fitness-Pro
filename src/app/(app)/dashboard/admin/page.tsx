@@ -146,23 +146,110 @@ async function loadTrainerAggregates(
   return buildFallback();
 }
 
+async function buildParticipantDirectory(
+  sb: SupabaseClient,
+  ids: Set<string>,
+): Promise<Map<string, string>> {
+  const directory = new Map<string, string>();
+  if (ids.size === 0) {
+    return directory;
+  }
+
+  const list = Array.from(ids);
+  const applyCandidate = (id: string, candidate: string | null | undefined) => {
+    const trimmed = candidate?.trim();
+    if (!trimmed) return;
+    const current = directory.get(id);
+    if (!current || current === id) {
+      directory.set(id, trimmed);
+    }
+  };
+
+  const { data: profiles, error: profilesError } = await sb
+    .from('profiles')
+    .select('id,full_name,name,email')
+    .in('id', list);
+  if (profilesError) {
+    console.warn('[admin dashboard] falha ao carregar perfis de participantes', profilesError);
+  } else {
+    for (const profile of profiles ?? []) {
+      const typedProfile = profile as {
+        id?: string | number | null;
+        full_name?: string | null;
+        name?: string | null;
+        email?: string | null;
+      } | null;
+      if (!typedProfile?.id) continue;
+      const id = String(typedProfile.id);
+      applyCandidate(id, typedProfile.full_name ?? null);
+      applyCandidate(id, typedProfile.name ?? null);
+      applyCandidate(id, typedProfile.email ?? null);
+    }
+  }
+
+  const { data: users, error: usersError } = await sb.from('users').select('id,name,email').in('id', list);
+  if (usersError) {
+    console.warn('[admin dashboard] falha ao carregar utilizadores de participantes', usersError);
+  } else {
+    for (const user of users ?? []) {
+      const typedUser = user as {
+        id?: string | number | null;
+        name?: string | null;
+        email?: string | null;
+      } | null;
+      if (!typedUser?.id) continue;
+      const id = String(typedUser.id);
+      applyCandidate(id, typedUser.name ?? null);
+      applyCandidate(id, typedUser.email ?? null);
+    }
+  }
+
+  for (const id of list) {
+    const current = directory.get(id);
+    const trimmed = current?.trim();
+    directory.set(id, trimmed && trimmed.length > 0 ? trimmed : id);
+  }
+
+  return directory;
+}
+
+function resolveParticipantName(
+  id: string,
+  participants: Map<string, string>,
+  fallback?: { name: string | null; email: string | null } | null,
+): string {
+  const fromDirectory = participants.get(id)?.trim();
+  if (fromDirectory) {
+    return fromDirectory;
+  }
+
+  const fallbackCandidate = fallback?.name ?? fallback?.email ?? null;
+  const fallbackTrimmed = fallbackCandidate?.trim();
+  if (fallbackTrimmed) {
+    participants.set(id, fallbackTrimmed);
+    return fallbackTrimmed;
+  }
+
+  participants.set(id, id);
+  return id;
+}
+
 function collectDirectory(
   rows: SessionRow[],
+  participants: Map<string, string>,
 ): { trainers: Map<string, string>; clients: Map<string, string> } {
   const trainers = new Map<string, string>();
   const clients = new Map<string, string>();
 
   for (const row of rows ?? []) {
     if (row?.trainer_id) {
-      const trainer = row.trainer ?? null;
       const id = String(row.trainer_id);
-      const name = trainer?.name ?? trainer?.email ?? id;
+      const name = resolveParticipantName(id, participants, row.trainer ?? null);
       trainers.set(id, name);
     }
     if (row?.client_id) {
-      const client = row.client ?? null;
       const id = String(row.client_id);
-      const name = client?.name ?? client?.email ?? id;
+      const name = resolveParticipantName(id, participants, row.client ?? null);
       clients.set(id, name);
     }
   }
@@ -206,17 +293,7 @@ async function loadAdminDashboard(): Promise<{ data: AdminDashboardData; supabas
     }
     const { data: sessionsUpcomingRaw, error: sessionsError } = await sb
       .from('sessions')
-      .select(
-        `
-          id,
-          trainer_id,
-          client_id,
-          scheduled_at,
-          location,
-          trainer:users!sessions_trainer_id_fkey(id,name,email),
-          client:users!sessions_client_id_fkey(id,name,email)
-        `,
-      )
+      .select('id,trainer_id,client_id,scheduled_at,location')
       .gte('scheduled_at', startTodayIso)
       .lt('scheduled_at', inSevenDaysIso)
       .order('scheduled_at', { ascending: true });
@@ -225,7 +302,18 @@ async function loadAdminDashboard(): Promise<{ data: AdminDashboardData; supabas
     }
     const sessionsUpcoming = (sessionsUpcomingRaw ?? []) as unknown as SessionRow[];
 
-    const { trainers: trainerNames, clients: clientNames } = collectDirectory(sessionsUpcoming);
+    const participantIds = new Set<string>();
+    for (const session of sessionsUpcoming ?? []) {
+      if (session?.trainer_id) participantIds.add(String(session.trainer_id));
+      if (session?.client_id) participantIds.add(String(session.client_id));
+    }
+
+    const participantsDirectory = await buildParticipantDirectory(sb, participantIds);
+
+    const { trainers: trainerNames, clients: clientNames } = collectDirectory(
+      sessionsUpcoming,
+      participantsDirectory,
+    );
 
     const { topTrainers, topTrainersSource } = await loadTrainerAggregates(
       sb,
