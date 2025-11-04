@@ -75,6 +75,7 @@ type RawUserRow = {
   status: string | null;
   approved: boolean | null;
   active: boolean | null;
+  is_active?: boolean | null;
   created_at: string | null;
   updated_at: string | null;
   last_sign_in_at: string | null;
@@ -164,7 +165,7 @@ function addRecordDefaults(row: RawUserRow): AdminClientRecord {
     email: row.email ?? null,
     status: row.status ?? null,
     approved: row.approved ?? null,
-    active: row.active ?? null,
+    active: row.active ?? row.is_active ?? null,
     createdAt: row.created_at ?? null,
     lastActiveAt: row.last_seen_at ?? row.updated_at ?? null,
     lastSignInAt: row.last_login_at ?? row.last_sign_in_at ?? null,
@@ -235,7 +236,7 @@ export async function loadAdminClientsDashboard(
     const { data: userRows, error: userError } = await sb
       .from('users')
       .select(
-        'id,email,name,role,status,approved,active,created_at,updated_at,last_sign_in_at,last_login_at,last_seen_at,metadata',
+        'id,email,name,role,status,approved,active:is_active,created_at,updated_at,last_sign_in_at,last_login_at,last_seen_at,metadata',
       )
       .eq('role', 'CLIENT')
       .order('created_at', { ascending: false })

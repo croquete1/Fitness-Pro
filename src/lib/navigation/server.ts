@@ -25,6 +25,27 @@ type CountAttempt = {
   builder?: QueryBuilder;
 };
 
+type AverageSource = {
+  table: string;
+  column: string;
+  alias?: string;
+  builder?: QueryBuilder;
+  limit?: number;
+};
+
+const SKIPPABLE_TABLE_ERROR_CODES = new Set(['PGRST205', '42P01', '42703']);
+
+function shouldSkipMissingRelation(error: any): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const code = typeof (error as any).code === 'string' ? (error as any).code : null;
+  if (code && SKIPPABLE_TABLE_ERROR_CODES.has(code)) return true;
+  const message = typeof (error as any).message === 'string' ? error.message.toLowerCase() : '';
+  if (message.includes('does not exist')) return true;
+  const hint = typeof (error as any).hint === 'string' ? error.hint.toLowerCase() : '';
+  if (hint.includes('does not exist')) return true;
+  return false;
+}
+
 function normaliseRole(role?: string | null): NavigationRole {
   const value = String(role ?? 'CLIENT').toUpperCase();
   if (value === 'ADMIN') return 'ADMIN';
@@ -63,6 +84,7 @@ async function safeCount(client: SupabaseLike, table: string, builder?: QueryBui
     if (error) throw error;
     return typeof count === 'number' ? count : 0;
   } catch (error) {
+    if (shouldSkipMissingRelation(error)) return null;
     console.warn(`[navigation] falha ao contar ${table}`, error);
     return null;
   }
@@ -91,9 +113,45 @@ async function safeSum(
     if (!Array.isArray(data)) return 0;
     return data.reduce((total, row) => total + Number(row?.[column] ?? 0), 0);
   } catch (error) {
+    if (shouldSkipMissingRelation(error)) return null;
     console.warn(`[navigation] falha ao somar ${table}.${column}`, error);
     return null;
   }
+}
+
+async function safeAverage(client: SupabaseLike, sources: AverageSource[]): Promise<number | null> {
+  if (!client) return null;
+  for (const source of sources) {
+    try {
+      const selection = source.alias ? `${source.alias}:${source.column}` : source.column;
+      let query = (client as any).from(source.table).select(selection);
+      if (source.builder) {
+        query = source.builder(query);
+      }
+      query = query.limit(source.limit ?? 480);
+      const { data, error } = await query;
+      if (error) {
+        if (shouldSkipMissingRelation(error)) continue;
+        console.warn(
+          `[navigation] falha ao calcular média ${source.table}.${source.column}`,
+          error,
+        );
+        continue;
+      }
+      if (!Array.isArray(data) || !data.length) continue;
+      const key = source.alias ?? source.column;
+      const values = data
+        .map((row: any) => Number(row?.[key]))
+        .filter((value) => Number.isFinite(value));
+      if (!values.length) continue;
+      const total = values.reduce((sum, value) => sum + value, 0);
+      return total / values.length;
+    } catch (error) {
+      if (shouldSkipMissingRelation(error)) continue;
+      console.warn(`[navigation] falha ao calcular média ${source.table}.${source.column}`, error);
+    }
+  }
+  return null;
 }
 
 export async function loadNavigationSummary(
@@ -228,12 +286,16 @@ export async function loadNavigationSummary(
     );
     if (revenuePending !== null) counts.revenuePending = revenuePending;
 
-    const satisfaction = await safeSum(client, 'plan_feedback', 'score', (query) =>
-      query.limit(480),
-    );
-    const satisfactionTotal = await safeCount(client, 'plan_feedback');
-    if (satisfaction !== null && satisfactionTotal && satisfactionTotal > 0) {
-      counts.satisfactionScore = satisfaction / satisfactionTotal;
+    const satisfactionScore = await safeAverage(client, [
+      { table: 'plan_feedback', column: 'score', limit: 480 },
+      { table: 'plan_feedback_entries', column: 'score', limit: 480 },
+      { table: 'plan_feedbacks', column: 'score', limit: 480 },
+      { table: 'plan_reviews', column: 'score', limit: 480 },
+      { table: 'plan_day_feedback', column: 'score', limit: 480 },
+      { table: 'plan_days', column: 'satisfaction_score', alias: 'score', limit: 480 },
+    ]);
+    if (satisfactionScore !== null) {
+      counts.satisfactionScore = satisfactionScore;
     }
 
     if (params.userId) {
