@@ -80,7 +80,7 @@ function buildQuickMetrics(
         value: formatInteger(counts.clientsActive ?? 0),
         tone: 'primary',
         hint: 'Perfis com planos em curso',
-        href: '/dashboard/users',
+        href: '/dashboard/admin/users',
       },
       {
         id: 'revenue-month',
@@ -328,7 +328,7 @@ function buildGroups(role: NavigationSummaryInput['role'], counts: NavigationSum
           {
             id: 'admin-users',
             label: 'Utilizadores',
-            href: '/dashboard/users',
+            href: '/dashboard/admin/users',
             icon: 'users',
             description: 'Gestão de equipas, perfis e permissões.',
             kpiLabel: 'Activos',
