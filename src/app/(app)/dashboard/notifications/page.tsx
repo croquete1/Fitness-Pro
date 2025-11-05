@@ -9,6 +9,7 @@ import type {
 } from '@/lib/notifications/types';
 import { getNotificationsDashboardFallback } from '@/lib/fallback/notifications';
 import { extractNotificationMetadata } from '@/lib/notifications/metadata';
+import { toAppRole } from '@/lib/roles';
 import NotificationsClient from './NotificationsClient';
 
 export const dynamic = 'force-dynamic';
@@ -17,6 +18,11 @@ export default async function Page() {
   const sessionUser = await getSessionUserSafe();
   const id = sessionUser?.user?.id;
   if (!id) redirect('/login');
+
+  const role = toAppRole(sessionUser?.user?.role) ?? 'CLIENT';
+  if (role === 'CLIENT') {
+    redirect('/dashboard/clients');
+  }
 
   const sb = tryCreateServerClient();
   if (!sb) {
