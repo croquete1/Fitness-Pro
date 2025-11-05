@@ -340,90 +340,94 @@ export default function PTLibraryClient({ initialData, viewerName }: Props) {
         </div>
       </section>
 
-      <section className="neo-panel trainer-library__panel" aria-labelledby="trainer-library-timeline">
-        <header className="trainer-library__panelHeader">
-          <div>
-            <h2 id="trainer-library-timeline" className="neo-panel__title">
-              Criações semanais
-            </h2>
-            <p className="neo-panel__subtitle">
-              Evolução das criações pessoais e publicações globais nas últimas doze semanas.
-            </p>
-          </div>
-        </header>
-        {dashboard.timeline.length ? (
-          <div className="trainer-library__chart">
-            <ResponsiveContainer width="100%" height={320}>
-              <AreaChart data={dashboard.timeline} margin={{ top: 8, right: 24, bottom: 0, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--neo-border-subtle)" />
-                <XAxis dataKey="label" stroke="var(--neo-text-subtle)" />
-                <YAxis stroke="var(--neo-text-subtle)" allowDecimals={false} />
-                <Tooltip content={<TimelineTooltipContent />} />
-                <Area
-                  type="monotone"
-                  dataKey="personal"
-                  stackId="count"
-                  stroke="var(--neo-chart-primary)"
-                  fill="var(--neo-chart-primary-soft)"
-                  name="Pessoais"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="global"
-                  stackId="count"
-                  stroke="var(--neo-chart-info)"
-                  fill="var(--neo-chart-info-soft)"
-                  name="Catálogo"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        ) : (
-          <div className="trainer-library__empty" role="status">
-            <p className="neo-text--muted">Ainda não existem dados suficientes para desenhar o gráfico.</p>
-          </div>
-        )}
-      </section>
+      <section className="trainer-library__layout" aria-label="Análise da biblioteca">
+        <article className="neo-panel trainer-library__panel trainer-library__timeline" aria-labelledby="trainer-library-timeline">
+          <header className="trainer-library__panelHeader">
+            <div>
+              <h2 id="trainer-library-timeline" className="neo-panel__title">
+                Criações semanais
+              </h2>
+              <p className="trainer-library__panelDescription">
+                Evolução das criações pessoais e publicações globais nas últimas doze semanas.
+              </p>
+            </div>
+          </header>
+          {dashboard.timeline.length ? (
+            <div className="trainer-library__chart">
+              <ResponsiveContainer width="100%" height={320}>
+                <AreaChart data={dashboard.timeline} margin={{ top: 8, right: 24, bottom: 0, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--neo-border-subtle)" />
+                  <XAxis dataKey="label" stroke="var(--neo-text-subtle)" />
+                  <YAxis stroke="var(--neo-text-subtle)" allowDecimals={false} />
+                  <Tooltip content={<TimelineTooltipContent />} />
+                  <Area
+                    type="monotone"
+                    dataKey="personal"
+                    stackId="count"
+                    stroke="var(--neo-chart-primary)"
+                    fill="var(--neo-chart-primary-soft)"
+                    name="Pessoais"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="global"
+                    stackId="count"
+                    stroke="var(--neo-chart-info)"
+                    fill="var(--neo-chart-info-soft)"
+                    name="Catálogo"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="trainer-library__empty" role="status">
+              <p className="neo-text--muted">Ainda não existem dados suficientes para desenhar o gráfico.</p>
+            </div>
+          )}
+        </article>
 
-      <section className="neo-panel trainer-library__panel" aria-labelledby="trainer-library-difficulty">
-        <header className="trainer-library__panelHeader">
-          <div>
-            <h2 id="trainer-library-difficulty" className="neo-panel__title">
-              Distribuição por dificuldade
-            </h2>
-            <p className="neo-panel__subtitle">
-              Garante equilíbrio entre exercícios de iniciação, progressão e desafio avançado.
-            </p>
-          </div>
-        </header>
-        <div className="trainer-library__distribution" role="list">
-          {dashboard.difficulties.map((item) => (
-            <article key={item.id} className="trainer-library__distributionCard" data-tone={item.tone}>
-              <header>
-                <span>{item.label}</span>
-                <strong>{item.count}</strong>
-              </header>
-              <div className="trainer-library__distributionBar">
-                <span style={{ width: `${Math.min(100, Math.round(item.percentage))}%` }} />
+        <aside className="trainer-library__aside" aria-label="Resumo complementar">
+          <section className="neo-panel trainer-library__panel trainer-library__panel--compact" aria-labelledby="trainer-library-difficulty">
+            <header className="trainer-library__panelHeader">
+              <div>
+                <h2 id="trainer-library-difficulty" className="neo-panel__title">
+                  Distribuição por dificuldade
+                </h2>
+                <p className="trainer-library__panelDescription">
+                  Garante equilíbrio entre exercícios de iniciação, progressão e desafio avançado.
+                </p>
               </div>
-              <footer>{item.percentage.toFixed(1)}%</footer>
-            </article>
-          ))}
-        </div>
-      </section>
+            </header>
+            <div className="trainer-library__distribution" role="list">
+              {dashboard.difficulties.map((item) => (
+                <article key={item.id} className="trainer-library__distributionCard" data-tone={item.tone}>
+                  <header>
+                    <span>{item.label}</span>
+                    <strong>{item.count}</strong>
+                  </header>
+                  <div className="trainer-library__distributionBar">
+                    <span style={{ width: `${Math.min(100, Math.round(item.percentage))}%` }} />
+                  </div>
+                  <footer>{item.percentage.toFixed(1)}%</footer>
+                </article>
+              ))}
+            </div>
+          </section>
 
-      <section className="neo-panel trainer-library__panel" aria-labelledby="trainer-library-highlights">
-        <header className="trainer-library__panelHeader">
-          <div>
-            <h2 id="trainer-library-highlights" className="neo-panel__title">
-              Destaques operacionais
-            </h2>
-            <p className="neo-panel__subtitle">
-              Insights rápidos que ajudam a decidir o próximo passo na curadoria da biblioteca.
-            </p>
-          </div>
-        </header>
-        <HighlightsList highlights={dashboard.highlights} />
+          <section className="neo-panel trainer-library__panel trainer-library__panel--compact" aria-labelledby="trainer-library-highlights">
+            <header className="trainer-library__panelHeader">
+              <div>
+                <h2 id="trainer-library-highlights" className="neo-panel__title">
+                  Destaques operacionais
+                </h2>
+                <p className="trainer-library__panelDescription">
+                  Insights rápidos que ajudam a decidir o próximo passo na curadoria da biblioteca.
+                </p>
+              </div>
+            </header>
+            <HighlightsList highlights={dashboard.highlights} />
+          </section>
+        </aside>
       </section>
 
       <section className="neo-panel trainer-library__panel" aria-labelledby="trainer-library-table">
