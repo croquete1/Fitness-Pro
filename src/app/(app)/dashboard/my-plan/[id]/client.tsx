@@ -115,21 +115,34 @@ export default function PlanDetailClient({
     const dateFormatter = new Intl.DateTimeFormat('pt-PT', { day: '2-digit', month: 'short' });
     const durationDays = start && end ? Math.max(1, Math.round((end.getTime() - start.getTime()) / 86_400_000)) : null;
     const statusChipTone = statusTone(plan.status);
-    const statusHeroTone =
-      statusChipTone === 'success'
+    const statusHeroTone = plan.status
+      ? statusChipTone === 'success'
         ? 'positive'
         : statusChipTone === 'danger'
           ? 'critical'
           : statusChipTone === 'warning'
             ? 'warning'
-            : 'neutral';
+            : 'neutral'
+      : fallback
+        ? 'warning'
+        : 'neutral';
+    const statusValue = plan.status
+      ? plan.status.toString().toUpperCase()
+      : fallback
+        ? 'INDISPONÍVEL OFFLINE'
+        : 'SEM ESTADO';
+    const statusHint = start && end
+      ? `${dateFormatter.format(start)} – ${dateFormatter.format(end)}`
+      : fallback
+        ? 'Sincroniza novamente para veres as datas.'
+        : 'Sem datas definidas';
 
     return [
       {
         id: 'status',
         label: 'Estado',
-        value: (plan.status ?? 'ATIVO').toString().toUpperCase(),
-        hint: `${start ? dateFormatter.format(start) : '—'} – ${end ? dateFormatter.format(end) : '—'}`,
+        value: statusValue,
+        hint: statusHint,
         tone: statusHeroTone,
       },
       {
@@ -143,8 +156,8 @@ export default function PlanDetailClient({
         id: 'duration',
         label: 'Duração prevista',
         value: durationDays ? `${durationDays} dia${durationDays === 1 ? '' : 's'}` : '—',
-        hint: start && end ? 'Do início ao fim definidos' : 'Sem datas definidas',
-        tone: durationDays ? 'neutral' : 'warning',
+        hint: start && end ? 'Do início ao fim definidos' : fallback ? 'Sem dados disponíveis offline' : 'Sem datas definidas',
+        tone: durationDays ? 'neutral' : fallback ? 'warning' : 'neutral',
       },
       {
         id: 'today',
@@ -154,7 +167,7 @@ export default function PlanDetailClient({
         tone: currentDay.items.length > 0 ? 'positive' : 'neutral',
       },
     ] as const;
-  }, [days, plan.startDate, plan.endDate, plan.status, currentDay.dayIndex, currentDay.items.length]);
+  }, [days, plan.startDate, plan.endDate, plan.status, currentDay.dayIndex, currentDay.items.length, fallback]);
 
   const handleSelectDay = React.useCallback(
     (nextIdx: number) => {
@@ -321,7 +334,7 @@ export default function PlanDetailClient({
             <h1 className="plan-detail__title">{plan.title ?? "Plano de treino"}</h1>
             <div className="plan-detail__tags">
               <span className="neo-tag" data-tone={statusTone(plan.status)}>
-                {(plan.status ?? "ATIVO").toString().toUpperCase()}
+                {plan.status ? plan.status.toString().toUpperCase() : "—"}
               </span>
               {plan.startDate && (
                 <span className="neo-tag" data-tone="neutral">
@@ -358,7 +371,7 @@ export default function PlanDetailClient({
 
       {fallback ? (
         <Alert tone="warning" title="Modo offline" className="plan-detail__alert">
-          A apresentar dados de exemplo enquanto não conseguimos ligar ao servidor.
+          Não foi possível sincronizar o plano — mostraremos informação limitada até restabeleceres a ligação.
         </Alert>
       ) : null}
 
