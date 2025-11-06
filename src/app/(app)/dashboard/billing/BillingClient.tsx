@@ -257,13 +257,17 @@ export default function BillingClient({ initialData, viewerName }: Props) {
   );
 
   const handleExport = React.useCallback(() => {
+    if (!dashboard.ledger.length) return;
     exportLedger(dashboard.ledger);
   }, [dashboard.ledger]);
 
   const overdueRelative = nextDue ? formatRelativeDays(nextDue.dueAt) : null;
+  const isFallback = dashboard.source === 'fallback';
+  const emptyLedger = dashboard.ledger.length === 0;
 
   return (
-    <div className="billing-dashboard" data-loading={isLoading}>
+    <div className="client-page">
+      <div className="billing-dashboard" data-loading={isLoading}>
       <PageHeader
         title="Faturação"
         subtitle={
@@ -272,7 +276,14 @@ export default function BillingClient({ initialData, viewerName }: Props) {
             : 'Monitoriza a facturação, identifica riscos de cobrança e exporta relatórios com um clique.'
         }
         actions={
-          <Button type="button" variant="primary" onClick={handleExport} leftIcon={<Download size={16} />}>
+          <Button
+            type="button"
+            variant="primary"
+            onClick={handleExport}
+            leftIcon={<Download size={16} />}
+            disabled={emptyLedger}
+            title={emptyLedger ? 'Sem lançamentos para exportar' : undefined}
+          >
             Exportar CSV
           </Button>
         }
@@ -290,6 +301,17 @@ export default function BillingClient({ initialData, viewerName }: Props) {
         </div>
         <DataSourceBadge source={dashboard.source} generatedAt={dashboard.generatedAt} />
       </div>
+
+      {isFallback ? (
+        <Alert
+          tone="warning"
+          className="billing-dashboard__alert"
+          role="status"
+          title="Modo offline"
+        >
+          Não foi possível ligar ao servidor. Alguns blocos podem não mostrar dados actualizados.
+        </Alert>
+      ) : null}
 
       <section className="neo-panel billing-dashboard__panel" aria-labelledby="billing-hero-heading">
         <header className="billing-dashboard__sectionHeader">
@@ -544,6 +566,7 @@ export default function BillingClient({ initialData, viewerName }: Props) {
           {error.message}
         </Alert>
       ) : null}
+      </div>
     </div>
   );
 }
