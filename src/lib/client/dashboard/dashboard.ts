@@ -491,22 +491,11 @@ function buildHeroMetrics(
 
 function buildHighlights(
   planHighlights: ClientHighlight[],
-  notifications: { unread: number },
   upcomingCount: number,
   measurements: ClientMeasurementSnapshot,
   now: Date,
 ): ClientHighlight[] {
   const highlights = [...planHighlights];
-
-  if (notifications.unread > 0) {
-    highlights.push({
-      id: 'unread-notifications',
-      title: 'Notificações por ler',
-      description: `${notifications.unread} alerta(s) aguardam a tua atenção.`,
-      tone: 'warning',
-      icon: '🔔',
-    });
-  }
 
   if (upcomingCount === 0) {
     highlights.push({
@@ -546,7 +535,6 @@ function buildHighlights(
 function buildRecommendations(
   plan: ClientPlanSummary | null,
   wallet: ClientWalletSnapshot | null,
-  notifications: { unread: number },
   sessions: { upcomingCount: number },
   measurements: ClientMeasurementSnapshot,
   now: Date,
@@ -590,15 +578,6 @@ function buildRecommendations(
     });
   }
 
-  if (notifications.unread > 0) {
-    recs.push({
-      id: 'review-notifications',
-      message: 'Revê as notificações pendentes para não perderes actualizações importantes.',
-      tone: 'warning',
-      icon: '🔔',
-    });
-  }
-
   if (!recs.length) {
     recs.push({
       id: 'keep-going',
@@ -624,8 +603,8 @@ export function buildClientDashboard(source: ClientDashboardSource): ClientDashb
   const notifications = buildNotifications(source, now);
 
   const hero = buildHeroMetrics(`${source.rangeDays} dias`, sessions.upcomingCount, currentCompleted, previousCompleted, plan, wallet, measurements);
-  const highlights = buildHighlights(planHighlights, notifications, sessions.upcomingCount, measurements, now);
-  const recommendations = buildRecommendations(plan, wallet, notifications, sessions, measurements, now);
+  const highlights = buildHighlights(planHighlights, sessions.upcomingCount, measurements, now);
+  const recommendations = buildRecommendations(plan, wallet, sessions, measurements, now);
 
   return {
     generatedAt: now.toISOString(),

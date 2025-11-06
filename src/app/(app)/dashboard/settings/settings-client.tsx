@@ -1509,7 +1509,8 @@ export default function SettingsClient({
   );
 
   return (
-    <div className="settings-dashboard neo-dashboard">
+    <div className="client-page">
+      <div className="settings-dashboard neo-dashboard">
       <PageHeader
         title="Definições"
         subtitle="Controla preferências da conta, métricas de segurança e canais de comunicação."
@@ -1544,8 +1545,8 @@ export default function SettingsClient({
       ) : null}
       {fallbackActive ? (
         <div className="settings-fallback-banner">
-          <Alert tone="warning" title="A mostrar dados de referência">
-            Não foi possível ligar ao servidor. Estás a ver métricas de demonstração.
+          <Alert tone="warning" title="Modo offline">
+            Não foi possível ligar ao servidor. Alguns painéis podem não apresentar dados actualizados.
           </Alert>
         </div>
       ) : null}
@@ -1593,6 +1594,7 @@ export default function SettingsClient({
             />
           </SectionCard>
         </aside>
+      </div>
       </div>
     </div>
   );

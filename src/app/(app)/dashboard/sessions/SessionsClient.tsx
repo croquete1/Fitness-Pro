@@ -24,7 +24,6 @@ import type {
   SessionRequestStatus,
   SessionTimelinePoint,
 } from '@/lib/sessions/types';
-import { getFallbackClientSessions, getFallbackSessionRequests } from '@/lib/fallback/sessions';
 
 const HALF_HOUR_MS = 30 * 60 * 1000;
 
@@ -197,12 +196,8 @@ type Props = {
 export default function SessionsClient({ initialSessions, initialRequests }: Props) {
   const supabaseSessions = initialSessions.length > 0;
   const supabaseRequests = initialRequests.length > 0;
-  const [sessions, setSessions] = React.useState<ClientSession[]>(() =>
-    supabaseSessions ? initialSessions : getFallbackClientSessions(),
-  );
-  const [requests, setRequests] = React.useState<SessionRequest[]>(() =>
-    supabaseRequests ? initialRequests : getFallbackSessionRequests(),
-  );
+  const [sessions, setSessions] = React.useState<ClientSession[]>(() => initialSessions);
+  const [requests, setRequests] = React.useState<SessionRequest[]>(() => initialRequests);
   const [sessionError, setSessionError] = React.useState<string | null>(null);
   const [requestError, setRequestError] = React.useState<string | null>(null);
   const [requestSuccess, setRequestSuccess] = React.useState<string | null>(null);
@@ -681,7 +676,7 @@ export default function SessionsClient({ initialSessions, initialRequests }: Pro
   }
 
   return (
-    <div className="client-sessions">
+    <div className="client-page client-sessions">
       <header className="client-sessions__header">
         <div>
           <h1 className="client-sessions__title">Sessões &amp; Pedidos</h1>
@@ -706,9 +701,8 @@ export default function SessionsClient({ initialSessions, initialRequests }: Pro
       {requestError ? <Alert tone="danger" title={requestError} /> : null}
       {requestSuccess ? <Alert tone="success" title={requestSuccess} /> : null}
       {!dashboard.metrics.supabase ? (
-        <Alert tone="warning" title="A mostrar dados de exemplo">
-          Não foi possível carregar dados em tempo real — estamos a usar um dataset actualizado automaticamente para manter a
-          experiência Neo funcional.
+        <Alert tone="warning" title="Sincronização limitada">
+          Não foi possível carregar dados em tempo real — alguns indicadores podem ficar vazios até a ligação ser reposta.
         </Alert>
       ) : null}
 

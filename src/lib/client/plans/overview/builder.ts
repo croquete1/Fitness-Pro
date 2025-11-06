@@ -238,75 +238,109 @@ export function buildClientPlanOverview(
     .filter((day) => day.offset < 7)
     .reduce((acc, day) => acc + day.totalExercises, 0);
 
-  const hero: ClientPlanOverviewMetric[] = [
-    {
-      id: 'plans-active',
-      label: 'Planos activos',
-      value: integer(activePlans),
-      hint: `${draftPlans} rascunho${draftPlans === 1 ? '' : 's'} · ${archivedPlans} arquivado${
-        archivedPlans === 1 ? '' : 's'
-      }`,
-      tone: activePlans > 0 ? 'positive' : 'warning',
-    },
-    {
-      id: 'agenda-week',
-      label: 'Exercícios na semana',
-      value: integer(totalExercisesThisWeek),
-      hint: `${uniqueAgendaDays.size} dia${uniqueAgendaDays.size === 1 ? '' : 's'} com treino`,
-      tone: totalExercisesThisWeek > 0 ? 'positive' : 'neutral',
-    },
-    {
-      id: 'plans-upcoming',
-      label: 'Planos a iniciar',
-      value: integer(upcomingPlans),
-      hint: upcomingPlans > 0 ? 'Confirma a agenda e prepara o material.' : 'Sem novos planos agendados.',
-      tone: upcomingPlans > 0 ? 'positive' : 'neutral',
-    },
-    {
-      id: 'last-update',
-      label: 'Última actualização',
-      value: latestUpdate ? formatRelativeDays(Math.round((today.getTime() - latestUpdate) / DAY_MS)) : '—',
-      hint: stalePlans > 0 ? `${stalePlans} plano${stalePlans === 1 ? '' : 's'} sem revisão há 3 semanas.` : null,
-      tone: stalePlans > 0 ? 'warning' : 'neutral',
-    },
-  ];
+  let hero: ClientPlanOverviewMetric[];
+  if (planRows.length === 0) {
+    hero = [
+      {
+        id: 'plans-total',
+        label: 'Planos sincronizados',
+        value: '0',
+        hint: opts.fallback
+          ? 'Sem ligação — volta a sincronizar quando estiveres online.'
+          : 'Assim que o teu PT publicar um plano ele aparece automaticamente aqui.',
+        tone: opts.fallback ? 'warning' : 'neutral',
+      },
+      {
+        id: 'agenda-week',
+        label: 'Exercícios na semana',
+        value: '0',
+        hint: 'Sem treinos registados para o período seleccionado.',
+        tone: 'neutral',
+      },
+    ];
+  } else {
+    hero = [
+      {
+        id: 'plans-active',
+        label: 'Planos activos',
+        value: integer(activePlans),
+        hint: `${draftPlans} rascunho${draftPlans === 1 ? '' : 's'} · ${archivedPlans} arquivado${
+          archivedPlans === 1 ? '' : 's'
+        }`,
+        tone: activePlans > 0 ? 'positive' : 'warning',
+      },
+      {
+        id: 'agenda-week',
+        label: 'Exercícios na semana',
+        value: integer(totalExercisesThisWeek),
+        hint: `${uniqueAgendaDays.size} dia${uniqueAgendaDays.size === 1 ? '' : 's'} com treino`,
+        tone: totalExercisesThisWeek > 0 ? 'positive' : 'neutral',
+      },
+      {
+        id: 'plans-upcoming',
+        label: 'Planos a iniciar',
+        value: integer(upcomingPlans),
+        hint: upcomingPlans > 0 ? 'Confirma a agenda e prepara o material.' : 'Sem novos planos agendados.',
+        tone: upcomingPlans > 0 ? 'positive' : 'neutral',
+      },
+      {
+        id: 'last-update',
+        label: 'Última actualização',
+        value: latestUpdate ? formatRelativeDays(Math.round((today.getTime() - latestUpdate) / DAY_MS)) : '—',
+        hint: stalePlans > 0 ? `${stalePlans} plano${stalePlans === 1 ? '' : 's'} sem revisão há 3 semanas.` : null,
+        tone: stalePlans > 0 ? 'warning' : 'neutral',
+      },
+    ];
+  }
 
   const highlights: ClientPlanOverviewHighlight[] = [];
-  if (upcomingPlans > 0) {
+  if (planRows.length === 0) {
     highlights.push({
-      id: 'upcoming',
-      title: 'Novos planos prontos',
-      description: `${upcomingPlans} plano${upcomingPlans === 1 ? '' : 's'} começam nos próximos dias.`,
-      tone: 'positive',
-      icon: 'calendar',
+      id: opts.fallback ? 'offline' : 'empty',
+      title: opts.fallback ? 'Sincronização necessária' : 'Ainda sem planos',
+      description: opts.fallback
+        ? 'Liga-te novamente à internet para veres os teus planos de treino.'
+        : 'O teu Personal Trainer ainda não partilhou planos contigo.',
+      tone: opts.fallback ? 'warning' : 'neutral',
+      icon: opts.fallback ? 'alert' : 'calendar',
     });
-  }
-  if (draftPlans > 0) {
-    highlights.push({
-      id: 'drafts',
-      title: 'Aguardam publicação',
-      description: `${draftPlans} plano${draftPlans === 1 ? '' : 's'} ainda estão em rascunho.`,
-      tone: 'warning',
-      icon: 'plans',
-    });
-  }
-  if (stalePlans > 0) {
-    highlights.push({
-      id: 'stale',
-      title: 'Revisão recomendada',
-      description: `${stalePlans} plano${stalePlans === 1 ? '' : 's'} não são actualizados há pelo menos 3 semanas.`,
-      tone: 'warning',
-      icon: 'alert',
-    });
-  }
-  if (!highlights.length) {
-    highlights.push({
-      id: 'steady',
-      title: 'Planos em dia',
-      description: 'Todos os planos estão actualizados e alinhados com a tua agenda.',
-      tone: 'positive',
-      icon: 'check-circle',
-    });
+  } else {
+    if (upcomingPlans > 0) {
+      highlights.push({
+        id: 'upcoming',
+        title: 'Novos planos prontos',
+        description: `${upcomingPlans} plano${upcomingPlans === 1 ? '' : 's'} começam nos próximos dias.`,
+        tone: 'positive',
+        icon: 'calendar',
+      });
+    }
+    if (draftPlans > 0) {
+      highlights.push({
+        id: 'drafts',
+        title: 'Aguardam publicação',
+        description: `${draftPlans} plano${draftPlans === 1 ? '' : 's'} ainda estão em rascunho.`,
+        tone: 'warning',
+        icon: 'plans',
+      });
+    }
+    if (stalePlans > 0) {
+      highlights.push({
+        id: 'stale',
+        title: 'Revisão recomendada',
+        description: `${stalePlans} plano${stalePlans === 1 ? '' : 's'} não são actualizados há pelo menos 3 semanas.`,
+        tone: 'warning',
+        icon: 'alert',
+      });
+    }
+    if (!highlights.length) {
+      highlights.push({
+        id: 'steady',
+        title: 'Planos actualizados',
+        description: 'Os teus planos estão revistos e alinhados com a agenda actual.',
+        tone: 'positive',
+        icon: 'check-circle',
+      });
+    }
   }
 
   const statusFilters: ClientPlanOverviewStatus[] = [

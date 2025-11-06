@@ -194,26 +194,30 @@ export async function loadNavigationSummary(
     );
     if (onboardingPending !== null) counts.onboardingPending = onboardingPending;
 
-    const notifications = await countFirst(client, [
-      params.userId
-        ? {
-            table: 'notifications',
-            builder: (query) => query.eq('user_id', params.userId).eq('read', false),
-          }
-        : { table: 'notifications', builder: (query) => query.eq('read', false) },
-      {
-        table: 'admin_notifications',
-        builder: (query) => query.eq('is_read', false),
-      },
-      {
-        table: 'notification_receipts',
-        builder: (query) =>
-          params.userId
-            ? query.eq('user_id', params.userId).is('read_at', null)
-            : query.is('read_at', null),
-      },
-    ]);
-    if (notifications !== null) counts.notificationsUnread = notifications;
+    if (role !== 'CLIENT') {
+      const notifications = await countFirst(client, [
+        params.userId
+          ? {
+              table: 'notifications',
+              builder: (query) => query.eq('user_id', params.userId).eq('read', false),
+            }
+          : { table: 'notifications', builder: (query) => query.eq('read', false) },
+        {
+          table: 'admin_notifications',
+          builder: (query) => query.eq('is_read', false),
+        },
+        {
+          table: 'notification_receipts',
+          builder: (query) =>
+            params.userId
+              ? query.eq('user_id', params.userId).is('read_at', null)
+              : query.is('read_at', null),
+        },
+      ]);
+      if (notifications !== null) counts.notificationsUnread = notifications;
+    } else {
+      counts.notificationsUnread = 0;
+    }
 
     const messagesUnread = params.userId
       ? await safeCount(client, 'messages', (query) =>
