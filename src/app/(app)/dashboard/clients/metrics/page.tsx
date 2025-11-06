@@ -41,11 +41,13 @@ export default async function Page() {
   const dashboard = computeClientMetrics(rows);
 
   return (
-    <MetricsClient
-      initialRows={rows}
-      initialSummary={dashboard.summary}
-      initialTimeline={dashboard.timeline}
-      fallback={source === 'fallback'}
-    />
+    <div className="client-page">
+      <MetricsClient
+        initialRows={rows}
+        initialSummary={dashboard.summary}
+        initialTimeline={dashboard.timeline}
+        fallback={source === 'fallback'}
+      />
+    </div>
   );
 }

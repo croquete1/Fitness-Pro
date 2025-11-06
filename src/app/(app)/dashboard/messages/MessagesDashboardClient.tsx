@@ -655,8 +655,8 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
       ) : null}
 
       {isFallback ? (
-        <Alert tone="warning" title="A mostrar dados de demonstração">
-          Não foi possível sincronizar com o servidor. Estás a ver dados determinísticos para manter a experiência operacional.
+        <Alert tone="warning" title="Sincronização indisponível">
+          Não foi possível ligar ao servidor. As métricas apresentadas podem estar desactualizadas até que a ligação seja reposta.
         </Alert>
       ) : null}
 

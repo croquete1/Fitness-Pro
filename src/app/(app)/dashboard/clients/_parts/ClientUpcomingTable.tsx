@@ -149,7 +149,7 @@ export default async function ClientUpcomingTable() {
             Próximas sessões
           </h2>
           <p className="neo-panel__subtitle">
-            Até seis compromissos futuros confirmados. Fonte: {source === "supabase" ? "servidor remoto" : "dados determinísticos"}.
+            Até seis compromissos futuros confirmados. Fonte: {source === "supabase" ? "servidor remoto" : "sem dados sincronizados"}.
           </p>
         </div>
         <div className="neo-panel__actions neo-panel__actions--table">
@@ -201,13 +201,13 @@ export default async function ClientUpcomingTable() {
             {!rows.length && (
               <tr>
                 <td colSpan={4}>
-                  <div className="neo-empty">
+                  <div className="neo-empty" role="status">
                     <span className="neo-empty__icon" aria-hidden>
                       🗓️
                     </span>
-                    <p className="neo-empty__title">Sem sessões marcadas</p>
+                    <p className="neo-empty__title">Sem sessões futuras</p>
                     <p className="neo-empty__description">
-                      Assim que o teu PT confirmar novos treinos, surgem aqui automaticamente.
+                      Ainda não existe qualquer compromisso sincronizado com o servidor.
                     </p>
                   </div>
                 </td>
