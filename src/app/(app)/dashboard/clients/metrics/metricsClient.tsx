@@ -595,8 +595,8 @@ export default function MetricsClient({ initialRows, initialSummary, initialTime
           </div>
         </div>
         {fallbackActive && (
-          <Alert tone="warning" title="A mostrar dados de referência">
-            Não foi possível ligar ao servidor. O painel apresenta um conjunto de exemplo até a ligação ser restabelecida.
+          <Alert tone="warning" title="Sincronização indisponível">
+            Não foi possível ligar ao servidor. Alguns indicadores podem ficar incompletos até a ligação ser restabelecida.
           </Alert>
         )}
         {remoteError && (
