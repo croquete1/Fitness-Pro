@@ -326,7 +326,7 @@ export default function PlanDetailClient({
   }
 
   return (
-    <div className="plan-detail">
+    <div className="client-page plan-detail">
       {role === "CLIENT" && !fallback ? <PlanViewBeacon planId={plan.id} /> : null}
       <section className="neo-panel plan-detail__header">
         <div className="plan-detail__heading">

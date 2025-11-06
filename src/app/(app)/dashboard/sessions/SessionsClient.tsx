@@ -676,7 +676,7 @@ export default function SessionsClient({ initialSessions, initialRequests }: Pro
   }
 
   return (
-    <div className="client-sessions">
+    <div className="client-page client-sessions">
       <header className="client-sessions__header">
         <div>
           <h1 className="client-sessions__title">Sessões &amp; Pedidos</h1>

@@ -194,7 +194,7 @@ export default function SearchClient({
     : 'Pesquisa global com métricas em tempo real, destaques operacionais e tendências de conteúdo.';
 
   return (
-    <div className="search-dashboard" data-loading={isValidating}>
+    <div className="client-page search-dashboard" data-loading={isValidating}>
       <PageHeader title="Pesquisa universal" subtitle={headline} sticky={false} />
 
       {error ? (

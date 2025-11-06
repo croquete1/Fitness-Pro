@@ -95,6 +95,8 @@ export default function MyPlanClient({ initialData, defaultRange }: Props) {
   const payload = data ?? initialData;
   const filteredPlans = React.useMemo(() => filterPlans(payload.plans, status, query), [payload.plans, status, query]);
   const hasAgenda = payload.agenda.some((day) => day.items.length > 0);
+  const hasHeroMetrics = payload.hero.length > 0;
+  const hasHighlights = payload.highlights.length > 0;
 
   const emptyStateTitle = payload.plans.length > 0 ? 'Sem resultados' : 'Ainda sem planos';
   const emptyStateDescription = payload.plans.length > 0
@@ -102,7 +104,7 @@ export default function MyPlanClient({ initialData, defaultRange }: Props) {
     : 'Assim que o teu PT publicar um plano vais recebê-lo automaticamente aqui.';
 
   return (
-    <div className="client-plan-overview">
+    <div className="client-page client-plan-overview">
       <PageHeader
         title="Os meus planos"
         subtitle="Confere a agenda semanal, vê destaques recentes e abre rapidamente cada plano."
@@ -123,17 +125,23 @@ export default function MyPlanClient({ initialData, defaultRange }: Props) {
 
       <section className="neo-panel client-plan-overview__hero" aria-label="Métricas principais">
         <div className="client-plan-overview__heroGrid">
-          {payload.hero.map((metric) => (
-            <article
-              key={metric.id}
-              className="client-plan-overview__heroCard"
-              data-tone={metric.tone ?? 'neutral'}
-            >
-              <span className="client-plan-overview__heroLabel">{metric.label}</span>
-              <strong className="client-plan-overview__heroValue">{metric.value}</strong>
-              {metric.hint ? <span className="client-plan-overview__heroHint">{metric.hint}</span> : null}
-            </article>
-          ))}
+          {hasHeroMetrics ? (
+            payload.hero.map((metric) => (
+              <article
+                key={metric.id}
+                className="client-plan-overview__heroCard"
+                data-tone={metric.tone ?? 'neutral'}
+              >
+                <span className="client-plan-overview__heroLabel">{metric.label}</span>
+                <strong className="client-plan-overview__heroValue">{metric.value}</strong>
+                {metric.hint ? <span className="client-plan-overview__heroHint">{metric.hint}</span> : null}
+              </article>
+            ))
+          ) : (
+            <div className="client-plan-overview__empty" role="status">
+              <p className="neo-text--muted">Sem métricas disponíveis para este período.</p>
+            </div>
+          )}
         </div>
       </section>
 
@@ -261,24 +269,36 @@ export default function MyPlanClient({ initialData, defaultRange }: Props) {
             <p className="neo-panel__subtitle">Resumo de mudanças e recomendações para acompanhar os teus planos.</p>
           </div>
         </header>
-        <div className="client-plan-overview__highlightGrid">
-          {payload.highlights.map((highlight) => (
-            <article key={highlight.id} className="client-plan-overview__highlight" data-tone={highlight.tone}>
-              <div className="client-plan-overview__highlightBody">
-                <h3>{highlight.title}</h3>
-                <p>{highlight.description}</p>
-              </div>
-              {highlight.icon ? (
-                <span className="client-plan-overview__highlightIcon" aria-hidden>
-                  {highlight.icon === 'calendar' && '📆'}
-                  {highlight.icon === 'plans' && '📋'}
-                  {highlight.icon === 'alert' && '⚠️'}
-                  {highlight.icon === 'check-circle' && '✅'}
-                </span>
-              ) : null}
-            </article>
-          ))}
-        </div>
+        {hasHighlights ? (
+          <div className="client-plan-overview__highlightGrid">
+            {payload.highlights.map((highlight) => (
+              <article key={highlight.id} className="client-plan-overview__highlight" data-tone={highlight.tone}>
+                <div className="client-plan-overview__highlightBody">
+                  <h3>{highlight.title}</h3>
+                  <p>{highlight.description}</p>
+                </div>
+                {highlight.icon ? (
+                  <span className="client-plan-overview__highlightIcon" aria-hidden>
+                    {highlight.icon === 'calendar' && '📆'}
+                    {highlight.icon === 'plans' && '📋'}
+                    {highlight.icon === 'alert' && '⚠️'}
+                    {highlight.icon === 'check-circle' && '✅'}
+                  </span>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="neo-empty">
+            <span className="neo-empty__icon" aria-hidden>
+              📌
+            </span>
+            <p className="neo-empty__title">Sem destaques no momento</p>
+            <p className="neo-empty__description">
+              Os destaques são gerados automaticamente quando existirem planos activos ou alterações recentes.
+            </p>
+          </div>
+        )}
       </section>
 
       <section className="neo-panel client-plan-overview__tableSection" aria-label="Lista de planos">

@@ -321,7 +321,7 @@ export default function SessionHistoryClient({ data, role, supabase, viewerName 
   }, []);
 
   return (
-    <section className="history-dashboard neo-stack neo-stack--xl">
+    <section className="client-page history-dashboard neo-stack neo-stack--xl">
       <header className="neo-panel neo-panel--header history-dashboard__hero">
         <div className="neo-stack neo-stack--sm">
           <span className="caps-tag">Sessões</span>
