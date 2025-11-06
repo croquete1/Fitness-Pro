@@ -182,14 +182,6 @@ function buildQuickMetrics(
       href: '/dashboard/my-plan',
     },
     {
-      id: 'notifications',
-      label: 'Notificações novas',
-      value: formatInteger(counts.notificationsUnread ?? 0),
-      tone: (counts.notificationsUnread ?? 0) > 0 ? 'warning' : 'neutral',
-      hint: 'Alertas e lembretes recentes',
-      href: '/dashboard/notifications',
-    },
-    {
       id: 'payments',
       label: 'Pagamentos pendentes',
       value: formatInteger(counts.invoicesPending ?? 0),
@@ -525,7 +517,6 @@ function buildGroups(role: NavigationSummaryInput['role'], counts: NavigationSum
     ];
   }
 
-  const notifications = counts.notificationsUnread ?? 0;
   const messages = counts.messagesUnread ?? 0;
   return [
     {
@@ -570,15 +561,6 @@ function buildGroups(role: NavigationSummaryInput['role'], counts: NavigationSum
           description: 'Conversa directa com o treinador.',
           badge: messages,
           tone: messages > 0 ? 'warning' : 'neutral',
-        },
-        {
-          id: 'client-notifications',
-          label: 'Notificações',
-          href: '/dashboard/notifications',
-          icon: 'notifications',
-          description: 'Alertas do sistema e lembretes.',
-          badge: notifications,
-          tone: notifications > 0 ? 'warning' : 'neutral',
         },
       ],
     },
