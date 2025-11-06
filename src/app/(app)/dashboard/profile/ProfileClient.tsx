@@ -699,7 +699,7 @@ export default function ProfileClient({
   const HeroHighlightIcon = heroHighlight?.id === 'questionnaire-reminder' ? AlertTriangle : ShieldCheck;
 
   return (
-    <div className="profile-dashboard">
+    <div className="client-page profile-dashboard">
       <PageHeader
         eyebrow="Área pessoal"
         title="Perfil"

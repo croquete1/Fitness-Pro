@@ -281,7 +281,7 @@ export default function DashboardClient() {
   }, [mutate]);
 
   return (
-    <div className="client-dashboard neo-stack neo-stack--xl">
+    <div className="client-page client-dashboard neo-stack neo-stack--xl">
       <PageHeader
         sticky={false}
         title={
