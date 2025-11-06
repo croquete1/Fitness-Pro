@@ -4,6 +4,14 @@ import type { ClientPlan } from '@/lib/plans/types';
 import { buildClientPlanOverview } from './overview/builder';
 import type { ClientPlanDayItem } from './overview/types';
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function normalizeUuid(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return UUID_REGEX.test(trimmed) ? trimmed : null;
+}
+
 function mapPlanRow(row: any): ClientPlan {
   const trainer = Array.isArray(row.trainer) ? row.trainer[0] : row.trainer;
   return {
@@ -65,6 +73,12 @@ export async function fetchClientPlanOverview(
   userId: string,
   opts: { rangeDays?: number; now?: Date | string | number } = {},
 ) {
+  const clientId = normalizeUuid(userId);
+  if (!clientId) {
+    console.warn('[client-plan-overview] id de cliente inválido — a devolver dados vazios');
+    return buildClientPlanOverview([], [], { rangeDays: opts.rangeDays, now: opts.now });
+  }
+
   const sb = createServerClient();
   const { data, error } = await sb
     .from('training_plans')
@@ -72,7 +86,7 @@ export async function fetchClientPlanOverview(
       `id,title,status,created_at,updated_at,start_date,end_date,trainer_id,
        trainer:users!training_plans_trainer_id_fkey(id,name,email)`,
     )
-    .eq('client_id', userId)
+    .eq('client_id', clientId)
     .order('updated_at', { ascending: false })
     .order('created_at', { ascending: false });
 
@@ -91,6 +105,12 @@ export async function fetchClientPlanOverviewSafe(
   userId: string,
   opts: { rangeDays?: number; now?: Date | string | number } = {},
 ) {
+  const clientId = normalizeUuid(userId);
+  if (!clientId) {
+    console.warn('[client-plan-overview] id de cliente inválido — sem sincronização de planos');
+    return buildClientPlanOverview([], [], { rangeDays: opts.rangeDays, now: opts.now });
+  }
+
   const sb = tryCreateServerClient();
   if (!sb) return null;
 
@@ -100,7 +120,7 @@ export async function fetchClientPlanOverviewSafe(
       `id,title,status,created_at,updated_at,start_date,end_date,trainer_id,
        trainer:users!training_plans_trainer_id_fkey(id,name,email)`,
     )
-    .eq('client_id', userId)
+    .eq('client_id', clientId)
     .order('updated_at', { ascending: false })
     .order('created_at', { ascending: false });
 

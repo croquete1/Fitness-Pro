@@ -98,6 +98,8 @@ export default function MyPlanClient({ initialData, defaultRange }: Props) {
   const hasHeroMetrics = payload.hero.length > 0;
   const hasHighlights = payload.highlights.length > 0;
 
+  const showConnectionWarning = payload.source !== 'supabase' && !isValidating;
+
   const emptyStateTitle = payload.plans.length > 0 ? 'Sem resultados' : 'Ainda sem planos';
   const emptyStateDescription = payload.plans.length > 0
     ? 'Ajusta os filtros ou limpa a pesquisa para voltares a ver a lista completa.'
@@ -117,7 +119,7 @@ export default function MyPlanClient({ initialData, defaultRange }: Props) {
         </Alert>
       ) : null}
 
-      {payload.fallback ? (
+      {showConnectionWarning ? (
         <Alert tone="warning" title="Modo offline">
           Alguns dados podem estar indisponíveis até restabeleceres ligação ao servidor.
         </Alert>
