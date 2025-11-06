@@ -12121,7 +12121,8 @@ h1,.h1{
 }
 
 .client-page {
-  width: min(100%, 1120px);
+  --client-page-max-width: 1120px;
+  width: min(100%, var(--client-page-max-width));
   margin-inline: auto;
   display: flex;
   flex-direction: column;
@@ -12129,6 +12130,13 @@ h1,.h1{
   flex: 1 0 auto;
   padding-block: clamp(12px, 2.5vh, 28px);
   min-width: 0;
+  min-height: min(100%, calc(100vh - var(--neo-header-height)));
+}
+
+@supports (height: 100dvh) {
+  .client-page {
+    min-height: min(100%, calc(100dvh - var(--neo-header-height)));
+  }
 }
 
 @media (max-width: 1024px) {
