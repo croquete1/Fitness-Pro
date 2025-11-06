@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Button from '@/components/ui/Button';
+import Alert from '@/components/ui/Alert';
 import LineChart from '@/components/dashboard/LineChart';
 import type { SessionHistoryDataset, SessionHistoryRow } from '@/lib/history/types';
 import type { AppRole } from '@/lib/roles';
@@ -153,6 +154,8 @@ export default function SessionHistoryClient({ data, role, supabase, viewerName 
   const [upcomingOnly, setUpcomingOnly] = React.useState(false);
 
   const generatedAt = React.useMemo(() => parseDate(data.generatedAt) ?? new Date(), [data.generatedAt]);
+  const initialRows = data.rows ?? [];
+  const isFallback = !supabase;
 
   const [startRange, endRange] = React.useMemo(() => {
     if (period === 'all') {
@@ -165,7 +168,7 @@ export default function SessionHistoryClient({ data, role, supabase, viewerName 
 
   const filteredRows = React.useMemo(() => {
     const now = new Date();
-    return data.rows.filter((row) => {
+    return initialRows.filter((row) => {
       const when = parseDate(row.scheduledAt) ?? parseDate(row.startAt) ?? null;
       if (startRange && when && when < startRange) return false;
       if (endRange && when && when > endRange) return false;
@@ -174,7 +177,7 @@ export default function SessionHistoryClient({ data, role, supabase, viewerName 
       if (search && !matchesQuery(row, search)) return false;
       return true;
     });
-  }, [data.rows, startRange, endRange, status, search, upcomingOnly]);
+  }, [initialRows, startRange, endRange, status, search, upcomingOnly]);
 
   const totals = React.useMemo(() => {
     let completed = 0;
@@ -305,6 +308,7 @@ export default function SessionHistoryClient({ data, role, supabase, viewerName 
   }, []);
 
   const greetingName = React.useMemo(() => firstNameOf(viewerName), [viewerName]);
+  const disableExport = filteredRows.length === 0;
 
   const statusBadge = React.useCallback((row: SessionHistoryRow) => {
     const kind = statusKind(row);
@@ -323,17 +327,25 @@ export default function SessionHistoryClient({ data, role, supabase, viewerName 
           <span className="caps-tag">Sessões</span>
           <h1 className="history-dashboard__title heading-solid">Histórico de sessões</h1>
           <p className="neo-text--sm neo-text--muted">
-            Explore resultados reais das sessões marcadas, concluídas ou canceladas. Filtre por período, estado e procure por
-            local, clientes ou Personal Trainers.
+            Acompanha marcações, cancelamentos e presença nas sessões. Filtra por período, estado ou pesquisa rápida para
+            localizar registos específicos.
           </p>
         </div>
         <div className="history-dashboard__meta neo-inline neo-inline--wrap neo-inline--sm">
-          <span className="history-dashboard__badge" data-state={supabase ? 'live' : 'demo'}>
-            {supabase ? 'Dados em tempo real via servidor' : 'Dados demonstrativos — configure a ligação ao servidor'}
+          <span className="history-dashboard__badge" data-state={isFallback ? 'offline' : 'live'}>
+            {isFallback
+              ? 'Modo offline — sem sincronização ativa com o servidor'
+              : 'Dados em tempo real via servidor'}
           </span>
           {greetingName ? <span>Olá, {greetingName}! 👋</span> : null}
           <span>Atualizado em {formatDateTime(generatedAt.toISOString())}</span>
         </div>
+        {isFallback ? (
+          <Alert tone="warning" title="Sem ligação ao servidor" role="status">
+            Não foi possível sincronizar o histórico de sessões. Assim que a ligação for restabelecida voltamos a carregar os
+            dados reais automaticamente.
+          </Alert>
+        ) : null}
       </header>
 
       <div className="history-dashboard__layout">
@@ -410,7 +422,7 @@ export default function SessionHistoryClient({ data, role, supabase, viewerName 
 
           <div className="history-dashboard__actions neo-stack neo-stack--xs">
             <div className="neo-inline neo-inline--wrap neo-inline--sm">
-              <Button variant="secondary" size="sm" onClick={handleExport}>
+              <Button variant="secondary" size="sm" onClick={handleExport} disabled={disableExport}>
                 Exportar CSV
               </Button>
               <Button variant="ghost" size="sm" onClick={handleReset}>
@@ -593,7 +605,7 @@ export default function SessionHistoryClient({ data, role, supabase, viewerName 
                   Registos detalhados
                 </h2>
                 <p className="neo-text--sm neo-text--muted">
-                  Mostramos até {data.rows.length} entradas mais recentes recebidas do servidor.
+                  Mostramos até {initialRows.length} entradas mais recentes recebidas do servidor.
                 </p>
               </div>
               <div className="history-dashboard__legend neo-inline neo-inline--sm">

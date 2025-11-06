@@ -10247,10 +10247,10 @@ h1,.h1{
   border-color:color-mix(in srgb, var(--success) 52%, rgba(12,34,66,0.18));
   background:color-mix(in srgb, var(--success) 14%, transparent);
 }
-.history-dashboard__badge[data-state="demo"]{
+.history-dashboard__badge[data-state="offline"]{
   color:var(--warning);
   border-color:color-mix(in srgb, var(--warning) 52%, rgba(12,34,66,0.18));
-  background:color-mix(in srgb, var(--warning) 14%, transparent);
+  background:color-mix(in srgb, var(--warning) 18%, transparent);
 }
 .history-dashboard__layout{ display:grid; gap:clamp(20px, 3vw, 32px); align-items:start; }
 @media (min-width:960px){
@@ -12068,6 +12068,7 @@ h1,.h1{
 
 .neo-shell {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   background: var(--neo-shell-bg);
@@ -12081,6 +12082,7 @@ h1,.h1{
   display: grid;
   grid-template-columns: 1fr;
   min-height: calc(100vh - var(--neo-header-height));
+  min-height: calc(100dvh - var(--neo-header-height));
 }
 
 @media (min-width: 1024px) {
@@ -12092,6 +12094,10 @@ h1,.h1{
 .neo-shell__main {
   padding: 24px clamp(16px, 4vw, 32px);
   width: 100%;
+  min-height: calc(100vh - var(--neo-header-height));
+  min-height: calc(100dvh - var(--neo-header-height));
+  display: flex;
+  flex-direction: column;
 }
 
 .neo-header {

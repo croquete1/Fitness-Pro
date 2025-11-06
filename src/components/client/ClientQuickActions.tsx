@@ -6,16 +6,16 @@ import { Box, Button, Paper, Stack, Typography } from '@mui/material';
 import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import EventAvailableOutlinedIcon from '@mui/icons-material/EventAvailableOutlined';
 import MessageOutlinedIcon from '@mui/icons-material/MessageOutlined';
-import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
 import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined';
+import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined';
 
 export default function ClientQuickActions() {
   const actions = [
-    { href: '/dashboard/my-plan',      label: 'Os meus planos', icon: <AssignmentOutlinedIcon /> },
-    { href: '/dashboard/sessions',     label: 'Sessões',        icon: <EventAvailableOutlinedIcon /> },
-    { href: '/dashboard/messages',     label: 'Mensagens',      icon: <MessageOutlinedIcon /> },
-    { href: '/dashboard/notifications',label: 'Notificações',   icon: <NotificationsNoneOutlinedIcon /> },
-    { href: '/dashboard/profile',      label: 'Perfil',         icon: <PersonOutlineOutlinedIcon /> },
+    { href: '/dashboard/my-plan', label: 'Os meus planos', icon: <AssignmentOutlinedIcon /> },
+    { href: '/dashboard/sessions', label: 'Sessões', icon: <EventAvailableOutlinedIcon /> },
+    { href: '/dashboard/messages', label: 'Mensagens', icon: <MessageOutlinedIcon /> },
+    { href: '/dashboard/clients/wallet', label: 'Carteira', icon: <AccountBalanceWalletOutlinedIcon /> },
+    { href: '/dashboard/profile', label: 'Perfil', icon: <PersonOutlineOutlinedIcon /> },
   ];
   return (
     <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 3 }}>
