@@ -6,7 +6,7 @@ import SessionHistoryClient from './SessionHistoryClient';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { tryCreateServerClient } from '@/lib/supabaseServer';
 import { toAppRole, type AppRole } from '@/lib/roles';
-import { getSampleSessionHistory } from '@/lib/fallback/history';
+import { getEmptySessionHistory } from '@/lib/fallback/history';
 import type { SessionHistoryDataset, SessionHistoryRow, SessionHistoryPerson } from '@/lib/history/types';
 
 function cleanName(value: any): string {
@@ -43,7 +43,7 @@ function toPerson(raw: any, fallbackId?: string | number | null): SessionHistory
 async function loadSessionHistory(userId: string, role: AppRole): Promise<{ data: SessionHistoryDataset; supabase: boolean }> {
   const sb = tryCreateServerClient();
   if (!sb) {
-    return { data: getSampleSessionHistory(), supabase: false };
+    return { data: getEmptySessionHistory(), supabase: false };
   }
 
   try {
@@ -107,8 +107,8 @@ async function loadSessionHistory(userId: string, role: AppRole): Promise<{ data
       supabase: true,
     };
   } catch (error) {
-    console.warn('[history] supabase query falhou, a usar fallback', error);
-    return { data: getSampleSessionHistory(), supabase: false };
+    console.warn('[history] supabase query falhou, a usar fallback vazio', error);
+    return { data: getEmptySessionHistory(), supabase: false };
   }
 }
 
