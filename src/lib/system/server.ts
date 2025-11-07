@@ -51,7 +51,7 @@ function mapUser(row: any): SystemUserRecord {
   const roleKey = typeof row.role === 'string' ? row.role.toUpperCase() : 'UNKNOWN';
   const statusKey = typeof row.status === 'string' ? row.status.toUpperCase() : 'UNKNOWN';
   const createdAt = row.created_at ?? null;
-  const lastSeen = row.last_seen_at ?? row.last_sign_in_at ?? row.updated_at ?? null;
+  const lastSeen = row.last_seen_at ?? row.last_login_at ?? row.last_sign_in_at ?? row.updated_at ?? null;
   return {
     id,
     role: USER_ROLE_MAP[roleKey] ?? 'unknown',
@@ -188,7 +188,7 @@ export async function loadSystemDashboard(rangeDays = 14): Promise<SystemDashboa
     const [usersResult, sessionsResult, notificationsResult, invoicesResult] = await Promise.all([
       sb
         .from('users')
-        .select('id,role,status,created_at,last_sign_in_at,updated_at')
+        .select('id,role,status,created_at,last_login_at,last_seen_at,updated_at')
         .order('created_at', { ascending: false })
         .limit(720),
       sb

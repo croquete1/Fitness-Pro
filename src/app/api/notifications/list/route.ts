@@ -7,6 +7,23 @@ import { extractNotificationMetadata } from '@/lib/notifications/metadata';
 import type { NotificationRow } from '@/lib/notifications/types';
 import { buildRateLimitHeaders, rateLimitRequest } from '@/lib/http/rateLimit';
 
+function buildSelect(columns: Array<string | null | false | undefined>) {
+  return columns.filter(Boolean).join(',');
+}
+
+function isMissingColumnError(error: unknown, column?: string) {
+  if (!error || typeof error !== 'object') return false;
+  const err = error as { code?: string | null; message?: string | null };
+  if (err.code === '42703') {
+    if (!column) return true;
+    return err.message ? err.message.includes(column) : true;
+  }
+  if (typeof err.message === 'string') {
+    return /column .* does not exist/i.test(err.message);
+  }
+  return false;
+}
+
 export async function GET(req: Request) {
   const rate = rateLimitRequest(req, { limit: 90, windowMs: 60_000, prefix: 'notifications:list' });
   const baseHeaders = buildRateLimitHeaders(rate);
@@ -58,9 +75,13 @@ export async function GET(req: Request) {
         .replace(/[%_]/g, (match) => `\\${match}`)
     : '';
 
-  const applyFilters = (query: any, options: { includeType?: boolean } = {}) => {
+  let includeMetadata = true;
+  let includeType = true;
+
+  const applyFilters = (query: any, options: { includeTypeFilter?: boolean } = {}) => {
+    const useTypeFilter = options.includeTypeFilter ?? includeType;
     let next = query.eq('user_id', uid);
-    if (options.includeType !== false && typeFilter && typeFilter !== 'all') {
+    if (useTypeFilter && typeFilter && typeFilter !== 'all') {
       next = next.eq('type', typeFilter);
     }
     if (escapedSearch) {
@@ -70,18 +91,45 @@ export async function GET(req: Request) {
     return next;
   };
 
-  let q = applyFilters(
+  const buildListQuery = () => {
+    const select = buildSelect([
+      'id',
+      'title',
+      'body',
+      'href',
+      includeMetadata ? 'metadata' : null,
+      'read',
+      includeType ? 'type' : null,
+      'created_at',
+    ]);
+
+    let query = applyFilters(
       sb
         .from('notifications')
-        .select('id,title,body,href,metadata,read,type,created_at', { count: 'exact' })
-      .order('created_at', { ascending: false })
-      .range(from, to),
-  );
+        .select(select, { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(from, to),
+      { includeTypeFilter: includeType },
+    );
 
-  if (status === 'unread') q = q.eq('read', false);
-  if (status === 'read') q = q.eq('read', true);
+    if (status === 'unread') query = query.eq('read', false);
+    if (status === 'read') query = query.eq('read', true);
+    return query;
+  };
 
-  const { data, count, error } = await q;
+  let listResult = await buildListQuery();
+
+  if (isMissingColumnError(listResult.error, 'metadata')) {
+    includeMetadata = false;
+    listResult = await buildListQuery();
+  }
+
+  if (isMissingColumnError(listResult.error, 'type')) {
+    includeType = false;
+    listResult = await buildListQuery();
+  }
+
+  const { data, count, error } = listResult;
   if (error) {
     console.error('[notifications:list] erro a carregar notificações', error);
     const fallback = buildFallback();
@@ -95,12 +143,13 @@ export async function GET(req: Request) {
   }
 
   const items: NotificationRow[] = (data ?? []).map((n: any) => {
-    const meta = extractNotificationMetadata(n?.metadata ?? null);
+    const meta = includeMetadata ? extractNotificationMetadata(n?.metadata ?? null) : { href: null, type: null };
     const hrefCandidate = [n?.href, meta.href]
       .map((value) => (typeof value === 'string' ? value.trim() : ''))
       .find((value) => value.length > 0);
 
-    const type = describeType((meta.type ?? n?.type ?? null) as string | null);
+    const typeSource = includeType ? (meta.type ?? n?.type ?? null) : meta.type ?? null;
+    const type = describeType((typeSource ?? null) as string | null);
 
     return {
       id: n.id as string,
@@ -119,35 +168,46 @@ export async function GET(req: Request) {
         .from('notifications')
         .select('id', { count: 'exact', head: true })
         .order('created_at', { ascending: false }),
+      { includeTypeFilter: includeType },
     );
 
-  const typeSummaryQuery = () => {
-    let summary = applyFilters(
-      sb
-        .from('notifications')
-        .select('type, count:id', { head: false }),
-      { includeType: false },
-    ) as any;
-    summary = summary.group('type').order('count', { ascending: false }).order('type', { ascending: true });
-    if (status === 'unread') {
-      summary = summary.eq('read', false);
-    }
-    if (status === 'read') {
-      summary = summary.eq('read', true);
-    }
-    return summary;
-  };
+  const typeSummaryPromise = includeType
+    ? (async () => {
+        let summary = applyFilters(
+          sb
+            .from('notifications')
+            .select('type, count:id', { head: false }),
+          { includeTypeFilter: true },
+        ) as any;
+        summary = summary.group('type').order('count', { ascending: false }).order('type', { ascending: true });
+        if (status === 'unread') {
+          summary = summary.eq('read', false);
+        }
+        if (status === 'read') {
+          summary = summary.eq('read', true);
+        }
+        return summary;
+      })()
+    : Promise.resolve({ data: [], error: null } as { data: any; error: null });
 
   const [allCount, unreadCount, readCount, typeRows] = await Promise.all([
     baseCountQuery(),
     baseCountQuery().eq('read', false),
     baseCountQuery().eq('read', true),
-    typeSummaryQuery(),
+    typeSummaryPromise,
   ]);
+
+  let filteredItems = items;
+  let effectiveTotal = count ?? items.length;
+
+  if (!includeType && typeFilter && typeFilter !== 'all') {
+    filteredItems = items.filter((item) => describeType(item.type ?? null).key === typeFilter);
+    effectiveTotal = filteredItems.length;
+  }
 
   const buildTypesFromItems = () => {
     const fallbackMap = new Map<string, { key: string; label: string; count: number }>();
-    items.forEach((item) => {
+    filteredItems.forEach((item) => {
       const meta = describeType(item.type ?? null);
       const current = fallbackMap.get(meta.key) ?? { key: meta.key, label: meta.label, count: 0 };
       current.count += 1;
@@ -160,7 +220,7 @@ export async function GET(req: Request) {
     console.error('[notifications:list] erro a calcular tipos', typeRows.error);
   }
 
-  const supabaseTypes = Array.isArray(typeRows.data) ? typeRows.data : [];
+  const supabaseTypes = includeType && Array.isArray(typeRows.data) ? typeRows.data : [];
   const typesSource =
     supabaseTypes.length > 0
       ? supabaseTypes.map((row: any) => {
@@ -179,15 +239,29 @@ export async function GET(req: Request) {
     return b.count - a.count;
   });
 
+  const countsFallback = (() => {
+    const unreadItems = filteredItems.filter((item) => !item.read).length;
+    return {
+      all: filteredItems.length,
+      unread: unreadItems,
+      read: filteredItems.length - unreadItems,
+    };
+  })();
+
+  const countsSource =
+    !includeType && typeFilter && typeFilter !== 'all'
+      ? countsFallback
+      : {
+          all: allCount.count ?? filteredItems.length,
+          unread: unreadCount.count ?? 0,
+          read: readCount.count ?? 0,
+        };
+
   return NextResponse.json(
     {
-      items,
-      total: count ?? 0,
-      counts: {
-        all: allCount.count ?? items.length,
-        unread: unreadCount.count ?? 0,
-        read: readCount.count ?? 0,
-      },
+      items: filteredItems,
+      total: effectiveTotal,
+      counts: countsSource,
       source: 'supabase',
       generatedAt: new Date().toISOString(),
       types,
