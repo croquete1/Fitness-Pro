@@ -58,6 +58,7 @@ export type TrainerHeroMetric = {
   hint?: string | null;
   trend?: string | null;
   tone: 'positive' | 'warning' | 'critical' | 'neutral';
+  href?: string | null;
 };
 
 export type TrainerTimelinePoint = {
