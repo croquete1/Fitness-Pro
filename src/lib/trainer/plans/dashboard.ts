@@ -8,6 +8,7 @@ import {
   type TrainerPlanHighlight,
   type TrainerPlanClientSnapshot,
   type TrainerPlanTableRow,
+  type TrainerPlanKind,
 } from './types';
 
 const DAY_MS = 86_400_000;
@@ -19,6 +20,12 @@ const STATUS_TOKENS: Record<TrainerPlanStatusKey, { label: string; tone: 'positi
   archived: { label: 'Arquivado', tone: 'neutral' },
   deleted: { label: 'Removido', tone: 'critical' },
   unknown: { label: 'Indefinido', tone: 'warning' },
+};
+
+const PLAN_TYPE_META: Record<TrainerPlanKind, { label: string; tone: 'positive' | 'warning' | 'neutral' }> = {
+  client: { label: 'Atribuído', tone: 'positive' },
+  unassigned: { label: 'Por atribuir', tone: 'warning' },
+  template: { label: 'Plano base', tone: 'neutral' },
 };
 
 const numberFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 });
@@ -167,6 +174,8 @@ export function buildTrainerPlansDashboard(
   let upcomingStarts = 0;
   let stalePlans = 0;
   let draftsAwaiting = 0;
+  let templateCount = 0;
+  let unassignedCount = 0;
   let lastUpdatedAt: Date | null = null;
 
   const sorted = [...rows].sort((a, b) => {
@@ -183,6 +192,12 @@ export function buildTrainerPlansDashboard(
     }
     if (statusKey === 'draft') {
       draftsAwaiting += 1;
+    }
+
+    if (row.planType === 'template') {
+      templateCount += 1;
+    } else if (row.planType === 'unassigned') {
+      unassignedCount += 1;
     }
 
     const createdAt = parseDate(row.createdAt);
@@ -234,7 +249,7 @@ export function buildTrainerPlansDashboard(
       }
     }
 
-    if (row.clientId) {
+    if (row.planType === 'client' && row.clientId) {
       const existing = clients.get(row.clientId) ?? {
         id: row.clientId,
         name: row.clientName ?? 'Cliente sem nome',
@@ -311,6 +326,24 @@ export function buildTrainerPlansDashboard(
   ];
 
   const highlights: TrainerPlanHighlight[] = [];
+  if (templateCount > 0) {
+    highlights.push({
+      id: 'highlight-templates',
+      title: 'Planos base prontos a usar',
+      description: 'Duplica e adapta os teus planos base para acelerar novas prescrições.',
+      value: numberFormatter.format(templateCount),
+      tone: 'positive',
+    });
+  }
+  if (unassignedCount > 0) {
+    highlights.push({
+      id: 'highlight-unassigned',
+      title: 'Planos por atribuir',
+      description: 'Associa estes planos a clientes para começares o acompanhamento.',
+      value: numberFormatter.format(unassignedCount),
+      tone: 'warning',
+    });
+  }
   if (upcomingStarts > 0) {
     highlights.push({
       id: 'highlight-upcoming',
@@ -372,15 +405,20 @@ export function buildTrainerPlansDashboard(
   const tableRows: TrainerPlanTableRow[] = sorted.map((row) => {
     const statusKey = normaliseStatus(row.status);
     const token = STATUS_TOKENS[statusKey];
+    const planMeta = PLAN_TYPE_META[row.planType];
     return {
       id: row.id,
       title: row.title?.trim() || 'Plano sem título',
       status: statusKey,
       statusLabel: token.label,
       statusTone: token.tone,
+      planType: row.planType,
+      planTypeLabel: planMeta.label,
+      planTypeTone: planMeta.tone,
       clientId: row.clientId,
-      clientName: row.clientName ?? 'Cliente sem nome',
-      clientEmail: row.clientEmail ?? null,
+      clientName:
+        row.planType === 'client' ? row.clientName ?? 'Cliente sem nome' : planMeta.label,
+      clientEmail: row.planType === 'client' ? row.clientEmail ?? null : null,
       startLabel: formatOptionalDate(row.startDate),
       endLabel: formatOptionalDate(row.endDate),
       updatedLabel: formatOptionalDateTime(row.updatedAt),

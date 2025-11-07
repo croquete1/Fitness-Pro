@@ -4,15 +4,23 @@ import PlanWizard from '@/components/plan/PlanWizard';
 
 type LiteClient = { id: string; name: string | null; email: string };
 
+type QuickCreatePayload = {
+  title: string;
+  description?: string | null;
+  clientId?: string | null;
+  privateNotes?: string | null;
+  publicNotes?: string | null;
+};
+
 export default function PlanQuickCreate({ clients = [] }: { clients?: LiteClient[] }) {
   const [okMsg, setOk] = useState<string>('');
   const [errMsg, setErr] = useState<string>('');
 
-  const onCreate = useCallback(async (p: { title: string; description?: string | null; clientId?: string | null }) => {
+  const onCreate = useCallback(async (p: QuickCreatePayload) => {
     setOk('');
     setErr('');
     try {
-      const res = await fetch('/api/pt/plans', {
+      const res = await fetch('/api/pt/training-plans', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(p),

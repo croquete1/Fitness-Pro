@@ -3,15 +3,57 @@ import { NextResponse } from 'next/server';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole } from '@/lib/roles';
 import { createServerClient } from '@/lib/supabaseServer';
+import { appendPlanHistory, writeEvent } from '@/lib/events';
+
+type UpdateNotesBody = {
+  action: 'update_notes';
+  privateNotes?: string | null;
+  publicNotes?: string | null;
+  private_notes?: string | null;
+  public_notes?: string | null;
+};
 
 type Body =
   | { action: 'update_day_note'; day_id: string; note: string }
   | { action: 'rename_plan'; title: string }
   | { action: 'change_status'; status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED' }
   | { action: 'reorder_days'; order: string[] }
-  | { action: 'reorder_exercises'; day_id: string; order: string[] };
+  | { action: 'reorder_exercises'; day_id: string; order: string[] }
+  | UpdateNotesBody;
 
 type Ctx = { params: Promise<{ id: string }> };
+
+function normaliseString(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length ? trimmed : null;
+}
+
+async function recordPlanChange(options: {
+  planId: string;
+  trainerId: string | null;
+  clientId: string | null;
+  actorId: string;
+  text: string;
+  extra?: Record<string, unknown>;
+}) {
+  const { planId, trainerId, clientId, actorId, text, extra } = options;
+  await appendPlanHistory(planId, {
+    kind: 'PLAN_UPDATED',
+    text,
+    by: actorId,
+    extra,
+  });
+
+  await writeEvent({
+    type: 'PLAN_UPDATED',
+    actorId,
+    trainerId,
+    userId: clientId,
+    planId,
+    meta: { description: text, ...(extra ?? {}) },
+  });
+}
 
 export async function PATCH(req: Request, ctx: Ctx): Promise<Response> {
   const me = await getSessionUserSafe();
@@ -32,24 +74,108 @@ export async function PATCH(req: Request, ctx: Ctx): Promise<Response> {
     return NextResponse.json({ ok: false, error: 'invalid_json' }, { status: 400 });
   }
 
+  const { data: plan, error: planError } = await sb
+    .from('training_plans' as const)
+    .select('id, trainer_id, client_id, title, status')
+    .eq('id', planId)
+    .maybeSingle();
+
+  if (planError) {
+    return NextResponse.json({ ok: false, error: planError.message }, { status: 500 });
+  }
+  if (!plan) {
+    return NextResponse.json({ ok: false, error: 'plan_not_found' }, { status: 404 });
+  }
+
+  if (role === 'PT' && plan.trainer_id && plan.trainer_id !== me.id) {
+    return NextResponse.json({ ok: false, error: 'plan_forbidden' }, { status: 403 });
+  }
+
+  const trainerId = plan.trainer_id ?? me.id;
+  const clientId = plan.client_id ?? null;
+  const nowIso = new Date().toISOString();
+
   try {
     // Renomear plano
     if (body.action === 'rename_plan') {
+      const newTitle = normaliseString((body as { title: string }).title);
+      if (!newTitle) {
+        return NextResponse.json({ ok: false, error: 'missing_title' }, { status: 400 });
+      }
       const { error } = await sb
         .from('training_plans' as const)
-        .update({ title: body.title })
+        .update({ title: newTitle, updated_at: nowIso })
         .eq('id', planId);
       if (error) throw new Error(error.message);
+      await recordPlanChange({
+        planId,
+        trainerId,
+        clientId,
+        actorId: me.id,
+        text: 'Título do plano atualizado.',
+        extra: { title: newTitle },
+      });
       return NextResponse.json({ ok: true });
     }
 
     // Alterar estado
     if (body.action === 'change_status') {
+      const allowed: Array<'DRAFT' | 'ACTIVE' | 'ARCHIVED'> = ['DRAFT', 'ACTIVE', 'ARCHIVED'];
+      if (!allowed.includes(body.status)) {
+        return NextResponse.json({ ok: false, error: 'invalid_status' }, { status: 400 });
+      }
       const { error } = await sb
         .from('training_plans' as const)
-        .update({ status: body.status })
+        .update({ status: body.status, updated_at: nowIso })
         .eq('id', planId);
       if (error) throw new Error(error.message);
+      await recordPlanChange({
+        planId,
+        trainerId,
+        clientId,
+        actorId: me.id,
+        text: 'Estado do plano atualizado.',
+        extra: { status: body.status },
+      });
+      return NextResponse.json({ ok: true });
+    }
+
+    if (body.action === 'update_notes') {
+      const privateNotes = body.privateNotes ?? body.private_notes;
+      const publicNotes = body.publicNotes ?? body.public_notes;
+
+      if (typeof privateNotes === 'undefined' && typeof publicNotes === 'undefined') {
+        return NextResponse.json({ ok: false, error: 'empty_update' }, { status: 400 });
+      }
+
+      const updates: Record<string, string | null> = { updated_at: nowIso } as any;
+      if (typeof privateNotes !== 'undefined') {
+        const normalised = normaliseString(privateNotes);
+        updates.private_notes = normalised;
+        updates.notes = normalised;
+      }
+      if (typeof publicNotes !== 'undefined') {
+        updates.public_notes = normaliseString(publicNotes);
+      }
+
+      const { error } = await sb
+        .from('training_plans' as const)
+        .update(updates)
+        .eq('id', planId);
+      if (error) throw new Error(error.message);
+
+      await recordPlanChange({
+        planId,
+        trainerId,
+        clientId,
+        actorId: me.id,
+        text: 'Notas do plano atualizadas.',
+        extra: {
+          hasPrivateNotes: Boolean(updates.private_notes),
+          hasPublicNotes: Boolean(updates.public_notes),
+        },
+      });
+
       return NextResponse.json({ ok: true });
     }
 
@@ -72,6 +198,7 @@ export async function PATCH(req: Request, ctx: Ctx): Promise<Response> {
         if (error) throw new Error(error.message);
       }
 
+      await sb.from('training_plans' as const).update({ updated_at: nowIso }).eq('id', planId);
       return NextResponse.json({ ok: true });
     }
 
@@ -92,32 +219,31 @@ export async function PATCH(req: Request, ctx: Ctx): Promise<Response> {
         if (error) throw new Error(error.message);
       }
 
+      await sb.from('training_plans' as const).update({ updated_at: nowIso }).eq('id', planId);
       return NextResponse.json({ ok: true });
     }
 
     // Atualizar notas do dia do plano
     if (body.action === 'update_day_note') {
+      const note = normaliseString(body.note);
       const { error } = await sb
         .from('plan_days' as const)
-        .update({ notes: body.note })
+        .update({ notes: note })
         .eq('id', body.day_id)
         .eq('plan_id', planId);
 
       if (error) throw new Error(error.message);
 
-      // 🔔 Notificação inline (substitui notifyPlanDayNotesUpdated(...))
-      // Ajusta os nomes das colunas conforme o teu schema de notifications.
-      try {
-        await sb.from('notifications' as const).insert({
-          user_id: me.id, // quem fez a alteração
-          type: 'PLAN_DAY_NOTE_UPDATED',
-          payload: { plan_id: planId, day_id: body.day_id },
-          read: false,
-          created_at: new Date().toISOString(),
-        } as any);
-      } catch {
-        // não bloquear a request por causa do centro de notificações
-      }
+      await sb.from('training_plans' as const).update({ updated_at: nowIso }).eq('id', planId);
+
+      await recordPlanChange({
+        planId,
+        trainerId,
+        clientId,
+        actorId: me.id,
+        text: 'Notas do dia do plano atualizadas.',
+        extra: { dayId: body.day_id },
+      });
 
       return NextResponse.json({ ok: true });
     }

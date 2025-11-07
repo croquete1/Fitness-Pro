@@ -72,14 +72,16 @@ function matchesQuery(row: TrainerPlanTableRow, query: string) {
     row.clientName.toLowerCase(),
     row.clientEmail?.toLowerCase() ?? '',
     row.statusLabel.toLowerCase(),
+    row.planTypeLabel.toLowerCase(),
   ].some((field) => field.includes(value));
 }
 
 function exportPlans(rows: TrainerPlanTableRow[]) {
-  const header = ['ID', 'Plano', 'Cliente', 'Email', 'Estado', 'Início', 'Fim', 'Última atualização'];
+  const header = ['ID', 'Plano', 'Tipo', 'Cliente', 'Email', 'Estado', 'Início', 'Fim', 'Última atualização'];
   const body = rows.map((row) => [
     row.id,
     row.title,
+    row.planTypeLabel,
     row.clientName,
     row.clientEmail ?? '',
     row.statusLabel,
@@ -403,6 +405,7 @@ export default function PTPlansClient({ initialData, viewerName }: Props) {
               <thead>
                 <tr>
                   <th scope="col">Plano</th>
+                  <th scope="col">Tipo</th>
                   <th scope="col">Cliente</th>
                   <th scope="col">Estado</th>
                   <th scope="col">Início</th>
@@ -415,6 +418,11 @@ export default function PTPlansClient({ initialData, viewerName }: Props) {
                   <tr key={row.id}>
                     <td>
                       <div className="trainer-plans__cellTitle">{row.title}</div>
+                    </td>
+                    <td>
+                      <span className="trainer-plans__statusBadge" data-tone={row.planTypeTone}>
+                        {row.planTypeLabel}
+                      </span>
                     </td>
                     <td>
                       <div className="trainer-plans__cellTitle">{row.clientName}</div>
