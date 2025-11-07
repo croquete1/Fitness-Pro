@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import useSWR from 'swr';
 import { Download } from 'lucide-react';
 import {
@@ -529,6 +530,37 @@ const nameCollator = new Intl.Collator('pt-PT', { sensitivity: 'base' });
 
 function heroToneClass(metric: TrainerHeroMetric) {
   return HERO_TONE_CLASS[metric.tone] ?? 'neutral';
+}
+
+function HeroCard({ metric }: { metric: TrainerHeroMetric }) {
+  const toneClass = heroToneClass(metric);
+  const baseClass = `trainer-dashboard__hero-card trainer-dashboard__hero-card--${toneClass}`;
+  const className = metric.href ? `${baseClass} trainer-dashboard__hero-card--link` : baseClass;
+  const content = (
+    <>
+      <div className="trainer-dashboard__hero-meta">
+        <span className="trainer-dashboard__hero-label">{metric.label}</span>
+        <span className="trainer-dashboard__hero-value">{metric.value}</span>
+      </div>
+      {metric.hint && <p className="trainer-dashboard__hero-hint">{metric.hint}</p>}
+      {metric.trend && <span className="trainer-dashboard__hero-trend">{metric.trend}</span>}
+    </>
+  );
+
+  if (metric.href) {
+    return (
+      <Link
+        href={metric.href}
+        prefetch={false}
+        className={className}
+        aria-label={`${metric.label} — abrir secção`}
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return <article className={className}>{content}</article>;
 }
 
 function highlightToneClass(highlight: TrainerHighlight) {
@@ -1302,17 +1334,7 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
         </div>
         <div className="trainer-dashboard__hero-grid">
           {dashboard.hero.map((metric) => (
-            <article
-              key={metric.id}
-              className={`trainer-dashboard__hero-card trainer-dashboard__hero-card--${heroToneClass(metric)}`}
-            >
-              <div className="trainer-dashboard__hero-meta">
-                <span className="trainer-dashboard__hero-label">{metric.label}</span>
-                <span className="trainer-dashboard__hero-value">{metric.value}</span>
-              </div>
-              {metric.hint && <p className="trainer-dashboard__hero-hint">{metric.hint}</p>}
-              {metric.trend && <span className="trainer-dashboard__hero-trend">{metric.trend}</span>}
-            </article>
+            <HeroCard key={metric.id} metric={metric} />
           ))}
         </div>
       </section>
