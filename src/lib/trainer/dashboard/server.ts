@@ -29,6 +29,27 @@ function firstString(...values: any[]): string | null {
   return null;
 }
 
+function normaliseDateValue(value: any): string | null {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length ? trimmed : null;
+  }
+  return null;
+}
+
+function pickDate(row: any, ...keys: string[]): string | null {
+  for (const key of keys) {
+    if (!key) continue;
+    const candidate = normaliseDateValue(row?.[key]);
+    if (candidate) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
 export async function loadTrainerDashboard(
   trainerId: string | null,
   trainerName: string | null = null,
@@ -166,22 +187,65 @@ export async function loadTrainerDashboard(
       } satisfies TrainerSessionRecord;
     });
 
-    const { data: planRows, error: plansError } = await sb
+    const planQuery = sb
       .from('training_plans')
-      .select('id, client_id, status, start_date, end_date, updated_at, title')
+      .select('id, client_id, status, start_date, end_date, updated_at, title', { head: false })
       .eq('trainer_id', trainerId)
       .limit(400);
+
+    let planRows: any[] | null = null;
+    let plansError = null;
+
+    const { data: planData, error: planError } = await planQuery;
+
+    if (planError && planError.code === '42703') {
+      const { data: fallbackData, error: fallbackError } = await sb
+        .from('training_plans')
+        .select('*')
+        .eq('trainer_id', trainerId)
+        .limit(400);
+
+      planRows = fallbackData ?? [];
+      plansError = fallbackError;
+    } else {
+      planRows = planData ?? [];
+      plansError = planError;
+    }
 
     if (plansError) throw plansError;
 
     const plans: TrainerPlanRecord[] = (planRows ?? []).map((row: any) => ({
-      id: String(row.id ?? crypto.randomUUID()),
-      clientId: row.client_id ? String(row.client_id) : null,
-      status: row.status ?? null,
-      startDate: row.start_date ?? null,
-      endDate: row.end_date ?? null,
-      updatedAt: row.updated_at ?? null,
-      title: row.title ?? null,
+      id: String(row?.id ?? crypto.randomUUID()),
+      clientId: row?.client_id ? String(row.client_id) : row?.clientId ? String(row.clientId) : null,
+      status: row?.status ?? null,
+      startDate: pickDate(
+        row,
+        'start_date',
+        'startDate',
+        'start_at',
+        'startAt',
+        'starts_at',
+        'startsAt',
+        'start_on',
+        'startOn',
+        'starts_on',
+        'startsOn',
+      ),
+      endDate: pickDate(
+        row,
+        'end_date',
+        'endDate',
+        'end_at',
+        'endAt',
+        'ends_at',
+        'endsAt',
+        'end_on',
+        'endOn',
+        'ends_on',
+        'endsOn',
+      ),
+      updatedAt: normaliseDateValue(row?.updated_at ?? row?.updatedAt),
+      title: firstString(row?.title, row?.name),
     }));
 
     const { data: approvalRows, error: approvalsError } = await sb
