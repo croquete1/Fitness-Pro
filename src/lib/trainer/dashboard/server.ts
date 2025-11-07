@@ -61,7 +61,7 @@ export async function loadTrainerDashboard(
 
     const { data: linkRows, error: linkError } = await sb
       .from('trainer_clients')
-      .select('client_id, status, created_at')
+      .select('client_id, created_at')
       .eq('trainer_id', trainerId)
       .limit(400);
 
@@ -106,7 +106,7 @@ export async function loadTrainerDashboard(
     const { data: sessionRows, error: sessionsError } = await sb
       .from('sessions')
       .select(
-        'id, client_id, client_name, start_time, start_at, scheduled_at, end_time, end_at, duration_minutes, duration_min, status, client_attendance_status, attendance_status, location',
+        'id, client_id, start_time, start_at, scheduled_at, end_time, end_at, duration_minutes, duration_min, status, client_attendance_status, attendance_status, location',
       )
       .eq('trainer_id', trainerId)
       .gte('start_time', rangeStart.toISOString())
@@ -116,15 +116,47 @@ export async function loadTrainerDashboard(
 
     if (sessionsError) throw sessionsError;
 
+    const sessionClientIds = Array.from(
+      new Set(
+        (sessionRows ?? [])
+          .map((row: any) => row?.client_id)
+          .filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
+      ),
+    );
+
+    const missingSessionProfiles = sessionClientIds.filter((id) => !profileMap.has(String(id)));
+    if (missingSessionProfiles.length) {
+      const { data: extraProfiles, error: extraProfilesError } = await sb
+        .from('profiles')
+        .select('id, full_name, name, email, status')
+        .in('id', missingSessionProfiles)
+        .limit(400);
+
+      if (extraProfilesError) throw extraProfilesError;
+
+      for (const profile of extraProfiles ?? []) {
+        profileMap.set(String(profile.id), profile);
+      }
+    }
+
+    const clientNameById = new Map(
+      clients.map((client) => [client.id, client.name ?? client.email ?? client.id] as const),
+    );
+
     const sessions: TrainerSessionRecord[] = (sessionRows ?? []).map((row: any) => {
       const startAt =
         row.start_time ?? row.start_at ?? row.scheduled_at ?? row.starts_at ?? row.startISO ?? row.start_iso ?? null;
       const endAt = row.end_time ?? row.end_at ?? row.finish_at ?? row.endISO ?? row.end_iso ?? null;
       const duration = normaliseDuration(row.duration_minutes ?? row.duration_min ?? row.duration);
+      const clientId = row.client_id ? String(row.client_id) : null;
+      const profile = clientId ? profileMap.get(clientId) : null;
+      const linkedName = clientId ? clientNameById.get(clientId) : undefined;
       return {
         id: String(row.id ?? crypto.randomUUID()),
-        clientId: row.client_id ? String(row.client_id) : null,
-        clientName: row.client_name ?? null,
+        clientId,
+        clientName:
+          firstString(profile?.full_name, profile?.name, profile?.email, linkedName, clientId) ??
+          null,
         startAt: typeof startAt === 'string' ? startAt : null,
         endAt: typeof endAt === 'string' ? endAt : null,
         durationMinutes: duration,
