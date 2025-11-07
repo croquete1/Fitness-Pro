@@ -12126,8 +12126,8 @@ h1,.h1{
 }
 
 .client-page {
-  --client-page-max-width: 1120px;
-  width: min(100%, var(--client-page-max-width));
+  width: 100%;
+  max-width: var(--client-page-max-width, 100%);
   margin-inline: auto;
   display: flex;
   flex-direction: column;
@@ -12142,6 +12142,18 @@ h1,.h1{
   .client-page {
     min-height: min(100%, calc(100dvh - var(--neo-header-height)));
   }
+}
+
+.neo-shell__main > :where([class^="trainer-"], [class*=" trainer-"]) {
+  width: 100%;
+  max-width: var(--trainer-page-max-width, 100%);
+  margin-inline: auto;
+}
+
+.neo-shell__main > :where([class^="admin-"], [class*=" admin-"]) {
+  width: 100%;
+  max-width: var(--admin-page-max-width, 100%);
+  margin-inline: auto;
 }
 
 @media (max-width: 1024px) {
