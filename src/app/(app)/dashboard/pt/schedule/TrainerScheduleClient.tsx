@@ -627,7 +627,7 @@ export default function TrainerScheduleClient({ pageSize = 20 }: { pageSize?: nu
     : `A mostrar ${filteredRows.length} registo(s) · ${rangeStart} – ${rangeEnd} de ${count}`;
 
   return (
-    <div className="neo-stack neo-stack--xl">
+    <div className="trainer-schedule neo-stack neo-stack--xl">
       <section className="neo-panel neo-stack neo-stack--xl" aria-labelledby="pt-schedule-heading">
         <div className="neo-inline neo-inline--wrap neo-inline--between neo-inline--md">
           <div>
