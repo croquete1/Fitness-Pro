@@ -1,15 +1,12 @@
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
-import clsx from 'clsx';
 import { RefreshCw } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import SidebarBase from '@/components/layout/SidebarBase';
 import { useSidebar } from '@/components/layout/SidebarProvider';
 import { SidebarNavSection } from '@/components/layout/SidebarNav';
 import SidebarHighlights from '@/components/layout/SidebarHighlights';
-import SidebarQuickMetrics from '@/components/layout/SidebarQuickMetrics';
 import DataSourceBadge from '@/components/ui/DataSourceBadge';
 import { useSidebarNavigationSummary } from '@/components/layout/useSidebarNavigationSummary';
 import type { ClientCounts } from '@/lib/hooks/useCounts';
@@ -42,7 +39,7 @@ export default function SidebarPT({ initialCounts, summary, loading, onRefreshNa
     } satisfies Partial<NavigationSummaryCounts>;
   }, [messagesCount, notificationsCount]);
 
-  const { groups: navGroups, quickMetrics, highlights, source, generatedAt } = useSidebarNavigationSummary({
+  const { groups: navGroups, highlights, source, generatedAt } = useSidebarNavigationSummary({
     role: 'TRAINER',
     summary,
     fallbackOverrides,
@@ -82,7 +79,6 @@ export default function SidebarPT({ initialCounts, summary, loading, onRefreshNa
           <span className="neo-sidebar__skeleton-bar" />
         </div>
       )}
-      <SidebarQuickMetrics metrics={quickMetrics} maxVisible={3} onNavigate={handleNavigate} />
       <nav className="neo-sidebar__nav" aria-label="Menu do personal trainer">
         {navGroups.map((group) => (
           <SidebarNavSection
