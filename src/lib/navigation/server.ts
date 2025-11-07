@@ -33,14 +33,16 @@ type AverageSource = {
   limit?: number;
 };
 
-const SKIPPABLE_TABLE_ERROR_CODES = new Set(['PGRST205', '42P01', '42703']);
+const SKIPPABLE_TABLE_ERROR_CODES = new Set(['PGRST205', '42P01', '42703', '42501', 'PGRST301']);
 
 function shouldSkipMissingRelation(error: any): boolean {
   if (!error || typeof error !== 'object') return false;
   const code = typeof (error as any).code === 'string' ? (error as any).code : null;
   if (code && SKIPPABLE_TABLE_ERROR_CODES.has(code)) return true;
   const message = typeof (error as any).message === 'string' ? error.message.toLowerCase() : '';
+  if (!message) return true;
   if (message.includes('does not exist')) return true;
+  if (message.includes('permission denied') || message.includes('not allowed')) return true;
   const hint = typeof (error as any).hint === 'string' ? error.hint.toLowerCase() : '';
   if (hint.includes('does not exist')) return true;
   return false;
@@ -76,7 +78,7 @@ function endOfMonth(date: Date): Date {
 async function safeCount(client: SupabaseLike, table: string, builder?: QueryBuilder): Promise<number | null> {
   if (!client) return null;
   try {
-    let query = (client as any).from(table).select('id', { count: 'exact', head: true });
+    let query = (client as any).from(table).select('*', { count: 'exact', head: true });
     if (builder) {
       query = builder(query);
     }
