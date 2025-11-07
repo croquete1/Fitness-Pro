@@ -12,12 +12,12 @@ export async function GET() {
   const sb = createServerClient();
   const { data } = await sb
     .from('trainer_clients')
-    .select('client_id, profiles:profiles!trainer_clients_client_id_fkey(name), users:users!trainer_clients_client_id_fkey(email)')
+    .select('client_id, profiles:profiles!trainer_clients_client_id_fkey(name,email)')
     .eq('trainer_id', s.user.id);
 
   const items = (data ?? []).map((r: any) => ({
     id: r.client_id,
-    label: r.profiles?.name ?? r.users?.email ?? r.client_id,
+    label: r.profiles?.name ?? r.profiles?.email ?? r.client_id,
   }));
   return NextResponse.json({ items });
 }
