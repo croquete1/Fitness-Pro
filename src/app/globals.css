@@ -12144,10 +12144,17 @@ h1,.h1{
   }
 }
 
-.neo-shell__main > :where([class^="trainer-"], [class*=" trainer-"]) {
+.neo-shell__main > :where([class^="trainer-"], [class*=" trainer-"], [class^="pt-"], [class*=" pt-"]) {
   width: 100%;
   max-width: var(--trainer-page-max-width, 100%);
   margin-inline: auto;
+  min-height: min(100%, calc(100vh - var(--neo-header-height)));
+}
+
+@supports (height: 100dvh) {
+  .neo-shell__main > :where([class^="trainer-"], [class*=" trainer-"], [class^="pt-"], [class*=" pt-"]) {
+    min-height: min(100%, calc(100dvh - var(--neo-header-height)));
+  }
 }
 
 .neo-shell__main > :where([class^="admin-"], [class*=" admin-"]) {
