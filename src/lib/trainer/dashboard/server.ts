@@ -106,7 +106,7 @@ export async function loadTrainerDashboard(
     const { data: sessionRows, error: sessionsError } = await sb
       .from('sessions')
       .select(
-        'id, client_id, start_time, start_at, scheduled_at, end_time, end_at, duration_minutes, duration_min, status, client_attendance_status, attendance_status, location',
+        'id, client_id, start_time, start_at, scheduled_at, end_time, end_at, duration_minutes, duration_min, status, client_attendance_status, location',
       )
       .eq('trainer_id', trainerId)
       .gte('start_time', rangeStart.toISOString())

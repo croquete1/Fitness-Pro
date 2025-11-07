@@ -64,7 +64,7 @@ async function loadSessionHistory(userId: string, role: AppRole): Promise<{ data
     let query = sb
       .from('sessions')
       .select(
-        'id, scheduled_at, start_at, start_time, end_at, end_time, duration_min, duration_minutes, status, session_status, client_attendance_status, attendance_status, location, notes, note, trainer_id, pt_id, client_id, user_id',
+        'id, scheduled_at, start_at, start_time, end_at, end_time, duration_min, duration_minutes, status, session_status, client_attendance_status, location, notes, note, trainer_id, pt_id, client_id, user_id',
       )
       .order('scheduled_at', { ascending: false })
       .limit(400);
