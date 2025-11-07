@@ -12,14 +12,10 @@ export default async function TrainerPlansPage() {
   const role = toAppRole(session.user.role) ?? 'CLIENT';
   if (!isPT(role) && !isAdmin(role)) redirect('/dashboard');
 
-  const dashboard = await loadTrainerPlansDashboard(session.user.id);
-  const rows = dashboard.rows.map((row) => ({
-    id: row.id,
-    title: row.title,
-    status: row.statusLabel,
-    updated_at: row.updatedAt,
-    client_id: row.clientId,
-  }));
+  const userMeta = (session.user as { user_metadata?: { full_name?: string | null; name?: string | null } }).user_metadata;
+  const viewerName = userMeta?.full_name ?? userMeta?.name ?? session.user.email ?? null;
 
-  return <PlansPTClient rows={rows} />;
+  const dashboard = await loadTrainerPlansDashboard(session.user.id);
+
+  return <PlansPTClient initialData={dashboard} viewerName={viewerName} />;
 }
