@@ -45,7 +45,8 @@ export default function NewPlanClient({ clients, templates }: NewPlanClientProps
   const router = useRouter();
   const [title, setTitle] = React.useState('');
   const [description, setDescription] = React.useState('');
-  const [notes, setNotes] = React.useState('');
+  const [privateNotes, setPrivateNotes] = React.useState('');
+  const [publicNotes, setPublicNotes] = React.useState('');
   const [clientId, setClientId] = React.useState('');
   const [status, setStatus] = React.useState<'DRAFT' | 'ACTIVE' | 'ARCHIVED'>('DRAFT');
   const [isTemplate, setIsTemplate] = React.useState(false);
@@ -87,7 +88,8 @@ export default function NewPlanClient({ clients, templates }: NewPlanClientProps
         body: JSON.stringify({
           title: title.trim(),
           description: description.trim() || null,
-          notes: notes.trim() || null,
+          privateNotes: privateNotes.trim() || null,
+          publicNotes: publicNotes.trim() || null,
           status,
           clientId: isTemplate ? null : clientId || null,
           isTemplate,
@@ -106,7 +108,8 @@ export default function NewPlanClient({ clients, templates }: NewPlanClientProps
       setFeedback({ tone: 'success', message: 'Plano criado com sucesso!' });
       setTitle('');
       setDescription('');
-      setNotes('');
+      setPrivateNotes('');
+      setPublicNotes('');
       setClientId('');
       setCopyFrom('');
       setIsTemplate(false);
@@ -177,9 +180,20 @@ export default function NewPlanClient({ clients, templates }: NewPlanClientProps
         <textarea
           className="neo-input"
           rows={3}
-          value={notes}
-          onChange={(event) => setNotes(event.target.value)}
+          value={privateNotes}
+          onChange={(event) => setPrivateNotes(event.target.value)}
           placeholder="Informação privada para o treinador."
+        />
+      </label>
+
+      <label className="grid gap-2">
+        <span className="neo-input-label">Notas para o cliente (opcional)</span>
+        <textarea
+          className="neo-input"
+          rows={3}
+          value={publicNotes}
+          onChange={(event) => setPublicNotes(event.target.value)}
+          placeholder="Informação partilhada com o cliente."
         />
       </label>
 

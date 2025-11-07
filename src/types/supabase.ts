@@ -1566,6 +1566,8 @@ export type Database = {
           client_id: string | null;
           trainer_id: string | null;
           notes: string | null;
+          private_notes: string | null;
+          public_notes: string | null;
           exercises: Json | null;
           start_date: string | null;
           end_date: string | null;
@@ -1582,6 +1584,8 @@ export type Database = {
           client_id?: string | null;
           trainer_id?: string | null;
           notes?: string | null;
+          private_notes?: string | null;
+          public_notes?: string | null;
           exercises?: Json | null;
           start_date?: string | null;
           end_date?: string | null;
@@ -1598,6 +1602,8 @@ export type Database = {
           client_id?: string | null;
           trainer_id?: string | null;
           notes?: string | null;
+          private_notes?: string | null;
+          public_notes?: string | null;
           exercises?: Json | null;
           start_date?: string | null;
           end_date?: string | null;

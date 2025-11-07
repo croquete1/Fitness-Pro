@@ -1,8 +1,16 @@
 'use client';
 import React, { useState, useTransition } from 'react';
 
+type CreatePayload = {
+  title: string;
+  description?: string | null;
+  clientId?: string | null;
+  privateNotes?: string | null;
+  publicNotes?: string | null;
+};
+
 type Props = {
-  onCreate: (payload: { title: string; description?: string | null; clientId?: string | null }) => Promise<void>;
+  onCreate: (payload: CreatePayload) => Promise<void>;
   clients?: Array<{ id: string; name: string | null; email: string }>;
 };
 
@@ -10,6 +18,8 @@ export default function PlanWizard({ onCreate, clients = [] }: Props) {
   const [title, setTitle] = useState('');
   const [description, setDesc] = useState<string>('');
   const [clientId, setClientId] = useState<string>('');
+  const [privateNotes, setPrivateNotes] = useState<string>('');
+  const [publicNotes, setPublicNotes] = useState<string>('');
   const [isPending, startTransition] = useTransition();
 
   const submit = () => {
@@ -19,10 +29,14 @@ export default function PlanWizard({ onCreate, clients = [] }: Props) {
         title: title.trim(),
         description: description.trim() || null,
         clientId: clientId || null,
+        privateNotes: privateNotes.trim() ? privateNotes.trim() : null,
+        publicNotes: publicNotes.trim() ? publicNotes.trim() : null,
       });
       setTitle('');
       setDesc('');
       setClientId('');
+      setPrivateNotes('');
+      setPublicNotes('');
     });
   };
 
@@ -40,6 +54,20 @@ export default function PlanWizard({ onCreate, clients = [] }: Props) {
           value={description}
           onChange={(e) => setDesc(e.target.value)}
           placeholder="Descrição (opcional)"
+          rows={3}
+          className="rounded-lg border px-3 py-2 bg-white dark:bg-slate-950 border-slate-300 dark:border-slate-700"
+        />
+        <textarea
+          value={publicNotes}
+          onChange={(e) => setPublicNotes(e.target.value)}
+          placeholder="Notas para o cliente (visíveis)"
+          rows={3}
+          className="rounded-lg border px-3 py-2 bg-white dark:bg-slate-950 border-slate-300 dark:border-slate-700"
+        />
+        <textarea
+          value={privateNotes}
+          onChange={(e) => setPrivateNotes(e.target.value)}
+          placeholder="Notas privadas do PT (invisíveis para o cliente)"
           rows={3}
           className="rounded-lg border px-3 py-2 bg-white dark:bg-slate-950 border-slate-300 dark:border-slate-700"
         />

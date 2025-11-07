@@ -164,7 +164,11 @@ export default function PlanEditorDnD({
   async function persistTitle(newTitle: string) {
     try {
       setSaving(true);
-      await sb.from('training_plans').update({ title: newTitle }).eq('id', planId);
+      await fetch(`/api/pt/training-plans/${planId}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'rename_plan', title: newTitle }),
+      });
     } finally {
       setSaving(false);
     }
@@ -173,7 +177,11 @@ export default function PlanEditorDnD({
   async function persistStatus(newStatus: PlanStatus) {
     try {
       setSaving(true);
-      await sb.from('training_plans').update({ status: newStatus }).eq('id', planId);
+      await fetch(`/api/pt/training-plans/${planId}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'change_status', status: newStatus }),
+      });
     } finally {
       setSaving(false);
     }

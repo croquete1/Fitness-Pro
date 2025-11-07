@@ -17,6 +17,58 @@ const ASSIGNMENT_TABLES = ['plan_assignments', 'plan_clients'];
 const PLAN_TABLES = ['training_plans', 'plans', 'programs'];
 const PLAN_TRAINER_CACHE = new Map<string, string | null>();
 
+const EVENT_NOTIFICATION_COPY: Record<
+  EventInput['type'],
+  {
+    trainer?: { type: string; title: string; body: string };
+    client?: { type: string; title: string; body: string };
+  }
+> = {
+  PLAN_CREATED: {
+    trainer: {
+      type: 'TRAINING_PLAN_CREATED',
+      title: 'Plano criado',
+      body: 'Criaste um novo plano de treino.',
+    },
+    client: {
+      type: 'TRAINING_PLAN_CREATED',
+      title: 'Novo plano de treino',
+      body: 'Recebeste um novo plano de treino do teu PT.',
+    },
+  },
+  PLAN_UPDATED: {
+    trainer: {
+      type: 'TRAINING_PLAN_UPDATED',
+      title: 'Plano atualizado',
+      body: 'O plano de treino foi atualizado.',
+    },
+    client: {
+      type: 'TRAINING_PLAN_UPDATED',
+      title: 'Plano atualizado',
+      body: 'O teu plano de treino foi atualizado pelo PT.',
+    },
+  },
+  PLAN_ASSIGNED: {
+    trainer: {
+      type: 'TRAINING_PLAN_ASSIGNED',
+      title: 'Plano atribuído',
+      body: 'Atribuíste um plano de treino.',
+    },
+    client: {
+      type: 'TRAINING_PLAN_ASSIGNED',
+      title: 'Plano atribuído',
+      body: 'Foi atribuído um plano de treino ao teu perfil.',
+    },
+  },
+  PLAN_VIEWED: {
+    trainer: {
+      type: 'TRAINING_PLAN_VIEWED',
+      title: 'Plano visualizado',
+      body: 'O cliente consultou o plano de treino.',
+    },
+  },
+};
+
 function normalizeDate(value?: Date | string | null) {
   if (!value) return new Date().toISOString();
   if (typeof value === 'string') return new Date(value).toISOString();
@@ -152,18 +204,34 @@ export async function writeEvent(data: EventInput) {
     event: payload,
   };
 
-  const notifPayload = {
-    user_id: trainerId ?? data.userId ?? null,
-    title: 'Atualização de plano',
-    body: data.type.replace('PLAN_', '').replace('_', ' '),
-    read: false,
-    created_at: createdAt,
-    createdAt,
-    metadata,
-  };
+  const copies = EVENT_NOTIFICATION_COPY[data.type] ?? {};
+  const recipients: Array<{ id: string; copy: { type: string; title: string; body: string } }> = [];
 
-  for (const table of NOTIFICATION_TABLES) {
-    if (await tryInsert(table, notifPayload)) break;
+  if (trainerId && copies.trainer) {
+    recipients.push({ id: trainerId, copy: copies.trainer });
+  }
+  if (data.userId && copies.client) {
+    recipients.push({ id: data.userId, copy: copies.client });
+  }
+
+  for (const recipient of recipients) {
+    const notifPayload = {
+      user_id: recipient.id,
+      title: recipient.copy.title,
+      body: recipient.copy.body,
+      type: recipient.copy.type,
+      read: false,
+      created_at: createdAt,
+      createdAt,
+      metadata: {
+        ...metadata,
+        recipient_id: recipient.id,
+      },
+    };
+
+    for (const table of NOTIFICATION_TABLES) {
+      if (await tryInsert(table, notifPayload)) break;
+    }
   }
 }
 

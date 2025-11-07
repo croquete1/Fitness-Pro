@@ -11,6 +11,10 @@ type CreatePlanBody = {
   title?: string | null;
   description?: string | null;
   notes?: string | null;
+  privateNotes?: string | null;
+  private_notes?: string | null;
+  publicNotes?: string | null;
+  public_notes?: string | null;
   status?: 'DRAFT' | 'ACTIVE' | 'ARCHIVED' | 'DELETED';
   clientId?: string | null;
   client_id?: string | null;
@@ -146,7 +150,10 @@ export async function POST(req: Request): Promise<Response> {
   const isTemplate = normaliseBoolean(body.isTemplate ?? body.is_template, false);
   const clientId = isTemplate ? null : requestedClientId;
   const description = normaliseString(body.description);
-  const notes = normaliseString(body.notes);
+  const privateNotes = normaliseString(
+    body.privateNotes ?? body.private_notes ?? body.notes,
+  );
+  const publicNotes = normaliseString(body.publicNotes ?? body.public_notes);
   const copyFromPlanId = normaliseString(body.copyFromPlanId ?? body.copy_from_plan_id);
 
   const sb = createServerClient();
@@ -176,7 +183,9 @@ export async function POST(req: Request): Promise<Response> {
       status,
       client_id: clientId,
       trainer_id: session.id,
-      notes,
+      notes: privateNotes,
+      private_notes: privateNotes,
+      public_notes: publicNotes,
       is_template: isTemplate,
       template_id: copyFromPlanId ?? null,
       created_at: nowIso,
@@ -235,30 +244,6 @@ export async function POST(req: Request): Promise<Response> {
       planId,
       meta: { clientId, isTemplate, copyFromPlanId },
     });
-
-    if (clientId) {
-      try {
-        const now = new Date().toISOString();
-        await sb.from('notifications').insert([
-          {
-            user_id: clientId,
-            type: 'TRAINING_PLAN_CREATED',
-            payload: { plan_id: planId, trainer_id: session.id, client_id: clientId },
-            read: false,
-            created_at: now,
-          } as any,
-          {
-            user_id: session.id,
-            type: 'TRAINING_PLAN_CREATED',
-            payload: { plan_id: planId, trainer_id: session.id, client_id: clientId },
-            read: false,
-            created_at: now,
-          } as any,
-        ]);
-      } catch {
-        // ignore notification failures
-      }
-    }
 
     return NextResponse.json({
       ok: true,
