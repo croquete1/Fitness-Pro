@@ -12144,6 +12144,18 @@ h1,.h1{
   }
 }
 
+.neo-shell__main > :where([class^="trainer-"], [class*=" trainer-"]) {
+  width: 100%;
+  max-width: var(--trainer-page-max-width, 100%);
+  margin-inline: auto;
+}
+
+.neo-shell__main > :where([class^="admin-"], [class*=" admin-"]) {
+  width: 100%;
+  max-width: var(--admin-page-max-width, 100%);
+  margin-inline: auto;
+}
+
 @media (max-width: 1024px) {
   .client-page {
     width: 100%;
