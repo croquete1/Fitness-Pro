@@ -130,6 +130,7 @@ function buildHeroMetrics(source: TrainerDashboardSource, sessions: { date: Date
         ? `${numberFormatter.format(activePlans)} plano(s) acompanhados`
         : 'Sem planos activos',
       tone: totalClients > 0 ? 'positive' : 'warning',
+      href: '/dashboard/pt/clients',
     },
     {
       id: 'sessions-week',
@@ -138,6 +139,7 @@ function buildHeroMetrics(source: TrainerDashboardSource, sessions: { date: Date
       hint: 'Inclui confirmadas e concluídas',
       trend: diffLabel,
       tone: sessionsThisWeek >= 6 ? 'positive' : sessionsThisWeek >= 3 ? 'neutral' : 'warning',
+      href: '/dashboard/pt/sessions',
     },
     {
       id: 'active-plans',
@@ -145,6 +147,7 @@ function buildHeroMetrics(source: TrainerDashboardSource, sessions: { date: Date
       value: numberFormatter.format(activePlans),
       hint: activePlans ? 'Clientes com plano em vigor' : 'Acompanhar planos dos clientes',
       tone: activePlans > 0 ? 'positive' : 'warning',
+      href: '/dashboard/pt/plans',
     },
     {
       id: 'approvals',
@@ -152,6 +155,7 @@ function buildHeroMetrics(source: TrainerDashboardSource, sessions: { date: Date
       value: numberFormatter.format(pendingApprovals),
       hint: pendingApprovals ? 'Precisa de revisão' : 'Tudo tratado',
       tone: pendingApprovals > 0 ? 'warning' : 'positive',
+      href: '/dashboard/pt/reschedules',
     },
   ];
 }
