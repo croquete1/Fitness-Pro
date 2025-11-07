@@ -104,7 +104,7 @@ function toAccountSnapshot(
   const trustedDevices = security.trusted_devices;
   return {
     createdAt: user?.created_at ?? null,
-    lastLoginAt: user?.last_sign_in_at ?? user?.last_sign_in ?? null,
+    lastLoginAt: user?.last_login_at ?? user?.last_sign_in ?? null,
     lastPasswordChangeAt: security.password_updated_at ?? null,
     emailConfirmedAt: user?.email_confirmed_at ?? null,
     mfaEnabled,
@@ -196,7 +196,7 @@ export async function loadSettingsContext(
     const [userRow, profileRow, privateRow] = await Promise.all([
       sb
         .from('users')
-        .select('id,email,name,role,created_at,last_sign_in_at,email_confirmed_at,raw_app_meta_data,factor_enabled_at')
+        .select('id,email,name,role,created_at,last_login_at,last_seen_at,email_confirmed_at,raw_app_meta_data,factor_enabled_at')
         .eq('id', userId)
         .maybeSingle(),
       sb

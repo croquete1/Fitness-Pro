@@ -78,7 +78,7 @@ type RawUserRow = {
   is_active?: boolean | null;
   created_at: string | null;
   updated_at: string | null;
-  last_sign_in_at: string | null;
+  last_sign_in_at?: string | null;
   last_login_at?: string | null;
   last_seen_at?: string | null;
   metadata: any;
@@ -236,7 +236,7 @@ export async function loadAdminClientsDashboard(
     const { data: userRows, error: userError } = await sb
       .from('users')
       .select(
-        'id,email,name,role,status,approved,active:is_active,created_at,updated_at,last_sign_in_at,last_login_at,last_seen_at,metadata',
+        'id,email,name,role,status,approved,active:is_active,created_at,updated_at,last_login_at,last_seen_at,metadata',
       )
       .eq('role', 'CLIENT')
       .order('created_at', { ascending: false })

@@ -42,7 +42,7 @@ function mergeUserProfile(user: any, profile: any | null): UserRecord {
     active: merged.active ?? merged.is_active ?? null,
     created_at: merged.created_at ?? merged.inserted_at ?? null,
     updated_at: merged.updated_at ?? merged.modified_at ?? null,
-    last_sign_in_at: merged.last_sign_in_at ?? merged.last_signin_at ?? null,
+    last_sign_in_at: merged.last_sign_in_at ?? merged.last_signin_at ?? merged.last_login_at ?? null,
     avatar_url: merged.avatar_url ?? null,
     username: merged.username ?? null,
     phone: merged.phone ?? null,

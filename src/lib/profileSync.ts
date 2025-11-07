@@ -18,7 +18,7 @@ const USER_FIELDS = new Set([
   'approved',
   'active',
   'metadata',
-  'last_sign_in_at',
+  'last_login_at',
 ]);
 
 const PROFILE_FIELDS = new Set([
