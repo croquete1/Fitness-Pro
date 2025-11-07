@@ -1295,6 +1295,15 @@ export default function TrainerDashboardClient({ initialData, viewerName }: Prop
         subtitle="Acompanha métricas, pedidos e sessões do teu portefólio."
         actions={
           <div className="trainer-dashboard__actions">
+            <Link
+              href="/dashboard/pt/plans/new"
+              className="btn"
+              data-variant="primary"
+              data-size="sm"
+              prefetch={false}
+            >
+              Criar plano de treino
+            </Link>
             <DataSourceBadge
               source={dashboard.source}
               generatedAt={dashboard.updatedAt}
