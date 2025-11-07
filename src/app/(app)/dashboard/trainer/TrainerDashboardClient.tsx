@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import useSWR from 'swr';
 import { Download } from 'lucide-react';
 import {
