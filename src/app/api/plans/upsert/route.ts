@@ -11,9 +11,10 @@ export async function POST(req: Request) {
 
   const body = await req.json();
   const id = body.id as string | undefined;
+  const clientId = typeof body.client_id === 'string' && body.client_id.trim() ? body.client_id.trim() : null;
   const payload = {
     name: String(body.name ?? '').slice(0, 200),
-    client_id: String(body.client_id ?? ''),
+    client_id: clientId,
     trainer_id: s.user.id,
     status: (body.status as string) ?? 'draft',
     updated_at: new Date().toISOString(),

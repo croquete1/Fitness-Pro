@@ -12,7 +12,7 @@ export default function PlanQuickCreate({ clients = [] }: { clients?: LiteClient
     setOk('');
     setErr('');
     try {
-      const res = await fetch('/api/pt/plans', {
+      const res = await fetch('/api/pt/training-plans', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(p),
