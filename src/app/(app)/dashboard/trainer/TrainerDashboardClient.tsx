@@ -13,7 +13,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import Link from 'next/link';
+import NextLink from 'next/link';
 import PageHeader from '@/components/ui/PageHeader';
 import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
@@ -550,9 +550,9 @@ function HeroCard({ metric }: { metric: TrainerHeroMetric }) {
 
   if (metric.href) {
     return (
-      <Link href={metric.href} className={className} aria-label={`${metric.label} — abrir secção`}>
+      <NextLink href={metric.href} className={className} aria-label={`${metric.label} — abrir secção`}>
         {content}
-      </Link>
+      </NextLink>
     );
   }
 

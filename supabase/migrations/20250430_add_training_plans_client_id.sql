@@ -38,11 +38,11 @@ begin
         and table_name = 'training_plans'
         and column_name = 'user_id'
     ) then
-      execute $sql$
+      execute $$
         update public.training_plans
         set client_id = coalesce(client_id, user_id)
-        where client_id is null and user_id is not null;
-      $sql$;
+        where client_id is null and user_id is not null
+      $$;
     end if;
 
     if exists (
@@ -52,11 +52,11 @@ begin
         and table_name = 'training_plans'
         and column_name = 'profile_id'
     ) then
-      execute $sql$
+      execute $$
         update public.training_plans
         set client_id = coalesce(client_id, profile_id)
-        where client_id is null and profile_id is not null;
-      $sql$;
+        where client_id is null and profile_id is not null
+      $$;
     end if;
 
   end if;
