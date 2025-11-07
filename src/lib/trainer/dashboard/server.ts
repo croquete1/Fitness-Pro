@@ -248,24 +248,113 @@ export async function loadTrainerDashboard(
       title: firstString(row?.title, row?.name),
     }));
 
-    const { data: approvalRows, error: approvalsError } = await sb
+    const approvalQuery = sb
       .from('approvals')
-      .select('id, client_id, client_name, status, type, requested_at, notes')
+      .select(
+        'id, client_id, clientId, client_name, clientName, user_id, userId, status, type, requested_at, requestedAt, notes, metadata, name, email, created_at, createdAt',
+      )
       .eq('trainer_id', trainerId)
       .order('requested_at', { ascending: false })
       .limit(60);
 
+    let approvalRows: any[] | null = null;
+    let approvalsError = null;
+
+    const { data: approvalData, error: approvalFetchError } = await approvalQuery;
+
+    if (approvalFetchError && approvalFetchError.code === '42703') {
+      const { data: fallbackData, error: fallbackError } = await sb
+        .from('approvals')
+        .select('id, user_id, trainer_id, status, requested_at, created_at, metadata, name, email')
+        .eq('trainer_id', trainerId)
+        .order('requested_at', { ascending: false })
+        .limit(60);
+
+      approvalRows = fallbackData ?? [];
+      approvalsError = fallbackError;
+    } else {
+      approvalRows = approvalData ?? [];
+      approvalsError = approvalFetchError;
+    }
+
     if (approvalsError) throw approvalsError;
 
-    const approvals: TrainerApprovalRecord[] = (approvalRows ?? []).map((row: any) => ({
-      id: String(row.id ?? crypto.randomUUID()),
-      clientId: row.client_id ? String(row.client_id) : null,
-      clientName: row.client_name ?? null,
-      requestedAt: row.requested_at ?? null,
-      status: row.status ?? null,
-      type: row.type ?? null,
-      notes: row.notes ?? null,
-    }));
+    const approvals: TrainerApprovalRecord[] = (approvalRows ?? []).map((row: any) => {
+      const metadata =
+        row && typeof row.metadata === 'object' && row.metadata !== null ? (row.metadata as Record<string, any>) : {};
+
+      const clientId =
+        firstString(
+          row.client_id,
+          row.clientId,
+          typeof metadata.client_id === 'string' ? metadata.client_id : null,
+          typeof metadata.clientId === 'string' ? metadata.clientId : null,
+        ) ??
+        firstString(
+          row.user_id,
+          row.userId,
+          typeof metadata.user_id === 'string' ? metadata.user_id : null,
+          typeof metadata.userId === 'string' ? metadata.userId : null,
+        );
+
+      const clientName =
+        firstString(
+          row.client_name,
+          row.clientName,
+          typeof metadata.client_name === 'string' ? metadata.client_name : null,
+          typeof metadata.clientName === 'string' ? metadata.clientName : null,
+          row.name,
+          typeof metadata.name === 'string' ? metadata.name : null,
+        ) ??
+        firstString(row.email, typeof metadata.email === 'string' ? metadata.email : null);
+
+      const requestedAt =
+        pickDate(row, 'requested_at', 'requestedAt', 'created_at', 'createdAt') ??
+        pickDate(
+          metadata,
+          'requested_at',
+          'requestedAt',
+          'requested_on',
+          'requestedOn',
+          'created_at',
+          'createdAt',
+          'submitted_at',
+          'submittedAt',
+        );
+
+      const status =
+        firstString(row.status, typeof metadata.status === 'string' ? metadata.status : null)?.toLowerCase() ??
+        null;
+
+      const type =
+        firstString(
+          row.type,
+          typeof metadata.type === 'string' ? metadata.type : null,
+          typeof metadata.request_type === 'string' ? metadata.request_type : null,
+          typeof metadata.category === 'string' ? metadata.category : null,
+          typeof metadata.kind === 'string' ? metadata.kind : null,
+        ) ?? null;
+
+      const notes =
+        firstString(
+          row.notes,
+          typeof metadata.notes === 'string' ? metadata.notes : null,
+          typeof metadata.message === 'string' ? metadata.message : null,
+          typeof metadata.reason === 'string' ? metadata.reason : null,
+          typeof metadata.justification === 'string' ? metadata.justification : null,
+          typeof metadata.context === 'string' ? metadata.context : null,
+        ) ?? null;
+
+      return {
+        id: String(row.id ?? crypto.randomUUID()),
+        clientId: clientId ?? null,
+        clientName: clientName ?? null,
+        requestedAt: requestedAt ?? null,
+        status,
+        type,
+        notes,
+      } satisfies TrainerApprovalRecord;
+    });
 
     const source: TrainerDashboardSource = {
       trainerId,
