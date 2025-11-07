@@ -61,7 +61,7 @@ export async function loadTrainerDashboard(
 
     const { data: linkRows, error: linkError } = await sb
       .from('trainer_clients')
-      .select('client_id, status, created_at')
+      .select('client_id, created_at')
       .eq('trainer_id', trainerId)
       .limit(400);
 
