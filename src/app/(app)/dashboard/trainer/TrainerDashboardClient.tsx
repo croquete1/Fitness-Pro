@@ -13,7 +13,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import PageHeader from '@/components/ui/PageHeader';
 import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
@@ -534,7 +534,6 @@ function heroToneClass(metric: TrainerHeroMetric) {
 }
 
 function HeroCard({ metric }: { metric: TrainerHeroMetric }) {
-  const router = useRouter();
   const toneClass = heroToneClass(metric);
   const baseClass = `trainer-dashboard__hero-card trainer-dashboard__hero-card--${toneClass}`;
   const className = metric.href ? `${baseClass} trainer-dashboard__hero-card--interactive` : baseClass;
@@ -550,21 +549,10 @@ function HeroCard({ metric }: { metric: TrainerHeroMetric }) {
   );
 
   if (metric.href) {
-    const href = metric.href;
-    const handleClick = React.useCallback(() => {
-      if (!href) return;
-      router.push(href);
-    }, [href, router]);
-
     return (
-      <button
-        type="button"
-        onClick={handleClick}
-        className={className}
-        aria-label={`${metric.label} — abrir secção`}
-      >
+      <Link href={metric.href} className={className} aria-label={`${metric.label} — abrir secção`}>
         {content}
-      </button>
+      </Link>
     );
   }
 
