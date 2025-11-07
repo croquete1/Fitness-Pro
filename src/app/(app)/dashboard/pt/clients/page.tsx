@@ -43,8 +43,6 @@ type PreparedQuery = {
   digits: string | null;
 };
 
-const PREPARED_CANDIDATE_CACHE = new Map<string, PreparedQuery>();
-
 type ClientAlertKey =
   | 'NO_UPCOMING'
   | 'NO_PLAN'
@@ -217,12 +215,8 @@ function prepareCandidateQuery(value: string | null | undefined): PreparedQuery 
   if (!value) return null;
   const trimmed = value.toString().trim();
   if (!trimmed) return null;
-  const cacheKey = trimmed.toLocaleLowerCase('pt-PT');
-  const cached = PREPARED_CANDIDATE_CACHE.get(cacheKey);
-  if (cached) return cached;
   const prepared = prepareQuery(trimmed);
   if (!prepared.raw) return null;
-  PREPARED_CANDIDATE_CACHE.set(cacheKey, prepared);
   return prepared;
 }
 
