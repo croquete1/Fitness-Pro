@@ -1561,6 +1561,7 @@ export type Database = {
         Row: {
           id: string;
           title: string | null;
+          description: string | null;
           status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED' | 'DELETED' | null;
           client_id: string | null;
           trainer_id: string | null;
@@ -1568,12 +1569,15 @@ export type Database = {
           exercises: Json | null;
           start_date: string | null;
           end_date: string | null;
+          is_template: boolean;
+          template_id: string | null;
           created_at: string | null;
           updated_at: string | null;
         };
         Insert: {
           id?: string;
           title?: string | null;
+          description?: string | null;
           status?: 'DRAFT' | 'ACTIVE' | 'ARCHIVED' | 'DELETED' | null;
           client_id?: string | null;
           trainer_id?: string | null;
@@ -1581,12 +1585,15 @@ export type Database = {
           exercises?: Json | null;
           start_date?: string | null;
           end_date?: string | null;
+          is_template?: boolean;
+          template_id?: string | null;
           created_at?: string | null;
           updated_at?: string | null;
         };
         Update: {
           id?: string;
           title?: string | null;
+          description?: string | null;
           status?: 'DRAFT' | 'ACTIVE' | 'ARCHIVED' | 'DELETED' | null;
           client_id?: string | null;
           trainer_id?: string | null;
@@ -1594,6 +1601,8 @@ export type Database = {
           exercises?: Json | null;
           start_date?: string | null;
           end_date?: string | null;
+          is_template?: boolean;
+          template_id?: string | null;
           created_at?: string | null;
           updated_at?: string | null;
         };

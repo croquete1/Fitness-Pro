@@ -1,3 +1,5 @@
+export type TrainerPlanKind = 'template' | 'unassigned' | 'client';
+
 export type TrainerPlanRecord = {
   id: string;
   title: string | null;
@@ -9,6 +11,9 @@ export type TrainerPlanRecord = {
   endDate: string | null;
   createdAt: string | null;
   updatedAt: string | null;
+  isTemplate: boolean;
+  templateId: string | null;
+  planType: TrainerPlanKind;
 };
 
 export type TrainerPlanStatusKey = 'draft' | 'active' | 'archived' | 'deleted' | 'unknown';
@@ -64,6 +69,9 @@ export type TrainerPlanTableRow = {
   status: TrainerPlanStatusKey;
   statusLabel: string;
   statusTone: 'positive' | 'warning' | 'critical' | 'neutral';
+  planType: TrainerPlanKind;
+  planTypeLabel: string;
+  planTypeTone: 'positive' | 'warning' | 'neutral';
   clientId: string | null;
   clientName: string;
   clientEmail: string | null;

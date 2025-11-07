@@ -1,6 +1,6 @@
 import { tryCreateServerClient } from '@/lib/supabaseServer';
 import { buildTrainerPlansDashboard } from './dashboard';
-import type { TrainerPlanRecord, TrainerPlansDashboardData } from './types';
+import type { TrainerPlanRecord, TrainerPlansDashboardData, TrainerPlanKind } from './types';
 import { getTrainerPlansFallback } from '@/lib/fallback/trainer-plans';
 
 const VALID_STATUSES = new Set(['DRAFT', 'ACTIVE', 'ARCHIVED', 'DELETED']);
@@ -11,18 +11,34 @@ type ProfilesMap = Map<string, { name: string | null }>;
 
 type UsersMap = Map<string, { name: string | null; email: string | null }>;
 
+function resolvePlanType(isTemplate: boolean, clientId: string | null): TrainerPlanKind {
+  if (isTemplate) return 'template';
+  if (clientId) return 'client';
+  return 'unassigned';
+}
+
 function mapRow(row: any): TrainerPlanRecord {
+  const id = String(row.id ?? crypto.randomUUID());
+  const clientId = row.client_id ? String(row.client_id) : null;
+  const isTemplate = Boolean(row.is_template);
+  const planType = resolvePlanType(isTemplate, clientId);
+  const clientNameFallback =
+    planType === 'template' ? 'Plano base' : planType === 'unassigned' ? 'Sem cliente' : 'Cliente sem nome';
+
   return {
-    id: String(row.id ?? crypto.randomUUID()),
+    id,
     title: row.title ?? 'Plano sem título',
     status: typeof row.status === 'string' && VALID_STATUSES.has(row.status) ? row.status : row.status ?? null,
-    clientId: row.client_id ?? null,
-    clientName: row.client_name ?? row.client_full_name ?? row.client_email ?? null,
+    clientId,
+    clientName: row.client_name ?? row.client_full_name ?? row.client_email ?? clientNameFallback,
     clientEmail: row.client_email ?? null,
     startDate: row.start_date ?? null,
     endDate: row.end_date ?? null,
     createdAt: row.created_at ?? null,
     updatedAt: row.updated_at ?? row.created_at ?? null,
+    isTemplate,
+    templateId: row.template_id ?? null,
+    planType,
   } satisfies TrainerPlanRecord;
 }
 
@@ -92,7 +108,7 @@ export async function loadTrainerPlansDashboard(trainerId: string): Promise<Load
 
   const { data, error } = await sb
     .from('training_plans')
-    .select('id,title,status,client_id,start_date,end_date,created_at,updated_at')
+    .select('id,title,status,client_id,start_date,end_date,created_at,updated_at,is_template,template_id')
     .eq('trainer_id', trainerId)
     .order('updated_at', { ascending: false, nullsFirst: false })
     .limit(360);
