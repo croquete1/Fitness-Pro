@@ -9,6 +9,9 @@ const nextConfig = {
     formats: ['image/avif', 'image/webp'],
     dangerouslyAllowSVG: true,
   },
+  env: {
+    SUPABASE_URL: process.env.SUPABASE_URL || 'https://ecatvxnefunhdrtqxeiz.supabase.co',
+  },
 };
 
 export default nextConfig;

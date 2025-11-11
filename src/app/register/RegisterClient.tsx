@@ -178,6 +178,24 @@ export default function RegisterClient() {
           loading={loading}
           loadingText="A criar…"
           leftIcon={<UserPlus aria-hidden />}
+          style={{
+            backgroundColor: '#007bff', // Cor de fundo azul vibrante
+            borderRadius: '8px', // Borda arredondada
+            padding: '12px 24px', // Espaçamento interno maior
+            fontSize: '16px', // Tamanho da fonte maior
+            transition: 'background-color 0.5s ease, transform 0.5s ease', // Transições suaves com duração de 0.5s
+            color: '#fff', // Cor do texto branca
+            border: 'none', // Sem borda
+            cursor: 'pointer', // Cursor ao passar o mouse
+          }}
+          onMouseEnter={(e) => {
+            (e.target as HTMLElement).style.backgroundColor = '#0056b3'; // Cor de fundo mais escura ao passar o mouse
+            (e.target as HTMLElement).style.transform = 'scale(1.05)'; // Efeito de zoom ao passar o mouse
+          }}
+          onMouseLeave={(e) => {
+            (e.target as HTMLElement).style.backgroundColor = '#007bff'; // Cor de fundo original ao sair do mouse
+            (e.target as HTMLElement).style.transform = 'scale(1)'; // Tamanho original ao sair do mouse
+          }}
         >
           Criar conta
         </Button>

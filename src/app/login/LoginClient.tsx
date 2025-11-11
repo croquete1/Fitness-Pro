@@ -2,138 +2,88 @@
 'use client';
 
 import * as React from 'react';
-import { signIn } from 'next-auth/react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
 import clsx from 'clsx';
 import { z } from 'zod';
-import { Mail, Lock, Eye, EyeOff, LogIn } from 'lucide-react';
+import { User, Mail, Lock } from 'lucide-react';
 
 import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
 import { toast } from '@/components/ui/Toaster';
+import { brand } from '@/lib/brand';
+import { LoginSchema } from '@/lib/validation/auth';
 import { AuthNeoShell } from '@/components/auth/AuthNeoShell';
 
-const loginSchema = z.object({
-  identifier: z.string().trim().min(1, 'Indica o email ou o username'),
-  password: z.string().min(6, 'Mínimo 6 caracteres'),
-});
-
-function sanitizeNext(next?: string | null) {
-  const fallback = '/dashboard';
-  if (!next) return fallback;
-  try {
-    const base = typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
-    const url = new URL(next, base);
-    if (url.origin !== base) return fallback;
-    if (!url.pathname.startsWith('/')) return fallback;
-    if (url.pathname.startsWith('/login')) return fallback;
-    return `${url.pathname}${url.search}${url.hash}`;
-  } catch {
-    if (next.startsWith('/login')) return fallback;
-    if (next.startsWith('/') && !next.startsWith('//')) return next;
-    return fallback;
-  }
-}
-
-function mapAuthError(code?: string | null) {
-  if (!code) return null;
-  const value = code.toLowerCase();
-  if (value.includes('credential') || value.includes('signin')) return 'Credenciais inválidas.';
-  if (value.includes('configuration')) return 'Erro de configuração do login.';
-  if (value.includes('accessdenied')) return 'Acesso negado.';
-  return 'Não foi possível iniciar sessão.';
-}
-
 export default function LoginClient() {
-  const searchParams = useSearchParams();
-  const nextParam = searchParams.get('next');
-  const errParam = searchParams.get('error');
-
-  const [identifier, setIdentifier] = React.useState('');
-  const [password, setPassword] = React.useState('');
-  const [showPassword, setShowPassword] = React.useState(false);
+  const [form, setForm] = React.useState({ email: '', password: '' });
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = React.useState<{ identifier?: string; password?: string }>({});
+  const [success, setSuccess] = React.useState(false);
+  const [fieldErrors, setFieldErrors] = React.useState<{ email?: string; password?: string }>({});
 
-  React.useEffect(() => {
-    setError(mapAuthError(errParam));
-  }, [errParam]);
+  const FormSchema = React.useMemo(
+    () =>
+      LoginSchema.extend({
+        email: z.string().min(1, 'Email é obrigatório.').email('Email inválido.'),
+        password: z
+          .string()
+          .min(1, 'Palavra-passe obrigatória.')
+          .min(6, 'Mínimo 6 caracteres.'),
+      }),
+    [],
+  );
 
-  React.useEffect(() => {
-    try {
-      const last = localStorage.getItem('fp:lastIdentifier');
-      if (last) setIdentifier(last);
-    } catch {}
-  }, []);
-
-  React.useEffect(() => {
-    try {
-      const trimmed = identifier.trim();
-      if (trimmed) {
-        localStorage.setItem('fp:lastIdentifier', trimmed);
-      } else {
-        localStorage.removeItem('fp:lastIdentifier');
-      }
-    } catch {}
-  }, [identifier]);
-
-  const validateField = React.useCallback((key: 'identifier' | 'password', value: string) => {
-    const schema = key === 'identifier' ? loginSchema.shape.identifier : loginSchema.shape.password;
-    const result = schema.safeParse(value);
-    setFieldErrors((prev) => ({ ...prev, [key]: result.success ? undefined : result.error.issues[0]?.message }));
-    return result.success;
-  }, []);
-
-  const isFormValid = loginSchema.safeParse({ identifier, password }).success && !loading;
-
-  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (loading) return;
-
     setError(null);
-    const parsed = loginSchema.safeParse({ identifier, password });
+    setSuccess(false);
+    setFieldErrors({});
+
+    const parsed = FormSchema.safeParse({ ...form });
     if (!parsed.success) {
-      const nextErrors: { identifier?: string; password?: string } = {};
+      const nextErrors: { email?: string; password?: string } = {};
       parsed.error.issues.forEach((issue) => {
-        const key = issue.path[0] as 'identifier' | 'password';
+        const key = issue.path[0] as 'email' | 'password';
         nextErrors[key] = issue.message;
       });
       setFieldErrors(nextErrors);
+      toast('Verifica os campos destacados.', 2600, 'warning');
       return;
     }
 
     setLoading(true);
     try {
-      const callbackUrl = sanitizeNext(nextParam);
-      await signIn('credentials', {
-        identifier: parsed.data.identifier,
-        password: parsed.data.password,
-        redirect: true,
-        callbackUrl,
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(parsed.data),
       });
-    } catch (err) {
-      console.error('[auth] signin failed', err);
-      setError('Não foi possível iniciar sessão. Tenta novamente.');
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const message = typeof json?.error === 'string' && json.error.length > 0 ? json.error : 'Falha no login.';
+        throw new Error(message);
+      }
+      setSuccess(true);
+      toast('Login realizado com sucesso! 🎉', 2500, 'success');
+      setForm({ email: '', password: '' });
+    } catch (err: any) {
+      const message = err?.message || 'Falha de rede.';
+      setError(message);
+      toast(message, 2500, 'error');
+    } finally {
       setLoading(false);
     }
   }
 
-  React.useEffect(() => {
-    if (!error) return;
-    toast(error, 2400, 'error');
-  }, [error]);
-
   return (
     <AuthNeoShell
-      title="Inicia sessão"
-      subtitle="Acede ao painel com as tuas credenciais para continuar."
+      title="Iniciar sessão"
+      subtitle={`Preenche os teus dados para entrares no ecossistema ${brand.name}.`}
       footer={
         <p className="neo-auth__footnote">
-          Ainda não tens acesso?{' '}
+          Ainda não tens conta?{' '}
           <Link href="/register" className="neo-auth__link">
-            Cria uma conta
+            Regista-te aqui
           </Link>
         </p>
       }
@@ -143,27 +93,32 @@ export default function LoginClient() {
           {error}
         </Alert>
       ) : null}
+      {success ? (
+        <Alert tone="success" className="neo-auth__alert">
+          Login efetuado com sucesso! Já podes começar.
+        </Alert>
+      ) : null}
 
       <form className="neo-auth__form" onSubmit={onSubmit} noValidate>
         <label className="neo-auth__field">
-          <span className="neo-auth__label">Email ou username</span>
-          <div className={clsx('neo-auth__inputWrap', fieldErrors.identifier && 'neo-auth__inputWrap--error')}>
+          <span className="neo-auth__label">Email</span>
+          <div className={clsx('neo-auth__inputWrap', fieldErrors.email && 'neo-auth__inputWrap--error')}>
             <Mail className="neo-auth__inputIcon" aria-hidden />
             <input
               className="neo-auth__input"
-              value={identifier}
-              onChange={(event) => {
-                setIdentifier(event.target.value);
-                if (fieldErrors.identifier) validateField('identifier', event.target.value);
+              type="email"
+              value={form.email}
+              onChange={(event) => setForm((state) => ({ ...state, email: event.target.value }))}
+              onBlur={(event) => {
+                const result = FormSchema.pick({ email: true }).safeParse({ email: event.target.value });
+                setFieldErrors((prev) => ({ ...prev, email: result.success ? undefined : result.error.issues[0]?.message }));
               }}
-              onBlur={(event) => validateField('identifier', event.target.value)}
               autoComplete="email"
-              inputMode="email"
               required
             />
           </div>
-          <span className={clsx('neo-auth__helper', fieldErrors.identifier && 'neo-auth__helper--error')}>
-            {fieldErrors.identifier ?? 'Utiliza o email ou username registado.'}
+          <span className={clsx('neo-auth__helper', fieldErrors.email && 'neo-auth__helper--error')}>
+            {fieldErrors.email ?? 'Vamos enviar as notificações para este email.'}
           </span>
         </label>
 
@@ -173,46 +128,48 @@ export default function LoginClient() {
             <Lock className="neo-auth__inputIcon" aria-hidden />
             <input
               className="neo-auth__input"
-              type={showPassword ? 'text' : 'password'}
-              value={password}
-              onChange={(event) => {
-                setPassword(event.target.value);
-                if (fieldErrors.password) validateField('password', event.target.value);
+              type="password"
+              value={form.password}
+              onChange={(event) => setForm((state) => ({ ...state, password: event.target.value }))}
+              onBlur={(event) => {
+                const result = FormSchema.pick({ password: true }).safeParse({ password: event.target.value });
+                setFieldErrors((prev) => ({ ...prev, password: result.success ? undefined : result.error.issues[0]?.message }));
               }}
-              onBlur={(event) => validateField('password', event.target.value)}
               autoComplete="current-password"
               minLength={6}
               required
             />
-            <button
-              type="button"
-              className="neo-auth__reveal"
-              onClick={() => setShowPassword((prev) => !prev)}
-              aria-label={showPassword ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'}
-            >
-              {showPassword ? <EyeOff aria-hidden /> : <Eye aria-hidden />}
-            </button>
           </div>
           <span className={clsx('neo-auth__helper', fieldErrors.password && 'neo-auth__helper--error')}>
             {fieldErrors.password ?? 'Mínimo 6 caracteres.'}
           </span>
         </label>
 
-        <div className="neo-auth__formFooter">
-          <Link href="/login/forgot" className="neo-auth__link">
-            Esqueceste-te da palavra-passe?
-          </Link>
-          <Button
-            type="submit"
-            disabled={!isFormValid}
-            loading={loading}
-            leftIcon={<LogIn aria-hidden />}
-            className="neo-auth__submit"
-            loadingText="A iniciar sessão…"
-          >
-            Entrar
-          </Button>
-        </div>
+        <Button
+          type="submit"
+          className="neo-auth__submit"
+          disabled={loading}
+          loading={loading}
+          loadingText="A iniciar sessão…"
+          leftIcon={<User aria-hidden />}
+          style={{
+            borderRadius: '8px', // Borda arredondada
+            padding: '12px 24px', // Espaçamento interno maior
+            fontSize: '16px', // Tamanho da fonte maior
+            transition: 'transform 0.5s ease', // Transições suaves com duração de 0.5s
+            color: '#fff', // Cor do texto branca
+            border: 'none', // Sem borda
+            cursor: 'pointer', // Cursor ao passar o mouse
+          }}
+          onMouseEnter={(e) => {
+            (e.target as HTMLElement).style.transform = 'scale(1.05)'; // Efeito de zoom ao passar o mouse
+          }}
+          onMouseLeave={(e) => {
+            (e.target as HTMLElement).style.transform = 'scale(1)'; // Tamanho original ao sair do mouse
+          }}
+        >
+          Entrar
+        </Button>
       </form>
     </AuthNeoShell>
   );
