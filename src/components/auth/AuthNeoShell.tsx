@@ -40,9 +40,9 @@ export function AuthNeoShell({
 
       <main className="neo-auth__main" aria-live="polite">
         <header className="neo-auth__header">
-          <div className="neo-auth__brand" aria-label={`Plataforma ${brand.name}`}>
+          <div className="neo-auth__brand" aria-label={`Plataforma ${brand.name}`} style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
             <span className="neo-auth__brandMark">
-              <BrandLogo size={48} />
+              <BrandLogo size={100} />
             </span>
             <span className="sr-only">{brand.name}</span>
           </div>

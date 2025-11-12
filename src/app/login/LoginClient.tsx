@@ -21,17 +21,7 @@ export default function LoginClient() {
   const [success, setSuccess] = React.useState(false);
   const [fieldErrors, setFieldErrors] = React.useState<{ email?: string; password?: string }>({});
 
-  const FormSchema = React.useMemo(
-    () =>
-      LoginSchema.extend({
-        email: z.string().min(1, 'Email é obrigatório.').email('Email inválido.'),
-        password: z
-          .string()
-          .min(1, 'Palavra-passe obrigatória.')
-          .min(6, 'Mínimo 6 caracteres.'),
-      }),
-    [],
-  );
+  const FormSchema = LoginSchema;
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
