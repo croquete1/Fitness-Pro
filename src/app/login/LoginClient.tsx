@@ -15,11 +15,11 @@ import { LoginSchema } from '@/lib/validation/auth';
 import { AuthNeoShell } from '@/components/auth/AuthNeoShell';
 
 export default function LoginClient() {
-  const [form, setForm] = React.useState({ email: '', password: '' });
+  const [form, setForm] = React.useState({ identifier: '', password: '' });
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [success, setSuccess] = React.useState(false);
-  const [fieldErrors, setFieldErrors] = React.useState<{ email?: string; password?: string }>({});
+  const [fieldErrors, setFieldErrors] = React.useState<{ identifier?: string; password?: string }>({});
 
   const FormSchema = LoginSchema;
 
@@ -31,9 +31,9 @@ export default function LoginClient() {
 
     const parsed = FormSchema.safeParse({ ...form });
     if (!parsed.success) {
-      const nextErrors: { email?: string; password?: string } = {};
+      const nextErrors: { identifier?: string; password?: string } = {};
       parsed.error.issues.forEach((issue) => {
-        const key = issue.path[0] as 'email' | 'password';
+        const key = issue.path[0] as 'identifier' | 'password';
         nextErrors[key] = issue.message;
       });
       setFieldErrors(nextErrors);
@@ -55,7 +55,7 @@ export default function LoginClient() {
       }
       setSuccess(true);
       toast('Login realizado com sucesso! 🎉', 2500, 'success');
-      setForm({ email: '', password: '' });
+      setForm({ identifier: '', password: '' });
     } catch (err: any) {
       const message = err?.message || 'Falha de rede.';
       setError(message);
@@ -92,23 +92,23 @@ export default function LoginClient() {
       <form className="neo-auth__form" onSubmit={onSubmit} noValidate>
         <label className="neo-auth__field">
           <span className="neo-auth__label">Email</span>
-          <div className={clsx('neo-auth__inputWrap', fieldErrors.email && 'neo-auth__inputWrap--error')}>
+          <div className={clsx('neo-auth__inputWrap', fieldErrors.identifier && 'neo-auth__inputWrap--error')}>
             <Mail className="neo-auth__inputIcon" aria-hidden />
             <input
               className="neo-auth__input"
               type="email"
-              value={form.email}
-              onChange={(event) => setForm((state) => ({ ...state, email: event.target.value }))}
+              value={form.identifier}
+              onChange={(event) => setForm((state) => ({ ...state, identifier: event.target.value }))}
               onBlur={(event) => {
-                const result = FormSchema.pick({ email: true }).safeParse({ email: event.target.value });
-                setFieldErrors((prev) => ({ ...prev, email: result.success ? undefined : result.error.issues[0]?.message }));
+                const result = FormSchema.pick({ identifier: true }).safeParse({ identifier: event.target.value });
+                setFieldErrors((prev) => ({ ...prev, identifier: result.success ? undefined : result.error.issues[0]?.message }));
               }}
               autoComplete="email"
               required
             />
           </div>
-          <span className={clsx('neo-auth__helper', fieldErrors.email && 'neo-auth__helper--error')}>
-            {fieldErrors.email ?? 'Vamos enviar as notificações para este email.'}
+          <span className={clsx('neo-auth__helper', fieldErrors.identifier && 'neo-auth__helper--error')}>
+            {fieldErrors.identifier ?? 'Vamos enviar as notificações para este email.'}
           </span>
         </label>
 
