@@ -3,6 +3,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import clsx from 'clsx';
 import { z } from 'zod';
 import { UserPlus, Mail, Lock, User } from 'lucide-react';
@@ -15,31 +16,19 @@ import { RegisterSchema } from '@/lib/validation/auth';
 import { AuthNeoShell } from '@/components/auth/AuthNeoShell';
 
 export default function RegisterClient() {
+  const router = useRouter();
   const [form, setForm] = React.useState({ name: '', email: '', password: '' });
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [success, setSuccess] = React.useState(false);
   const [fieldErrors, setFieldErrors] = React.useState<{ name?: string; email?: string; password?: string }>({});
 
-  const FormSchema = React.useMemo(
-    () =>
-      RegisterSchema.extend({
-        name: z
-          .string()
-          .min(1, 'Nome é obrigatório.')
-          .min(2, 'Nome muito curto.')
-          .max(100, 'Nome muito longo.'),
-        email: z.string().min(1, 'Email é obrigatório.').email('Email inválido.'),
-        password: z
-          .string()
-          .min(1, 'Palavra-passe obrigatória.')
-          .min(6, 'Mínimo 6 caracteres.'),
-      }),
-    [],
-  );
+  const FormSchema = RegisterSchema;
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (loading) return; // Prevenir múltiplos submits
+    
     setError(null);
     setSuccess(false);
     setFieldErrors({});
@@ -63,22 +52,41 @@ export default function RegisterClient() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(parsed.data),
       });
+      
       const json = await response.json().catch(() => ({}));
+      
       if (!response.ok) {
-        const message = typeof json?.error === 'string' && json.error.length > 0 ? json.error : 'Falha no registo.';
+        const message = json?.error === 'Email already exists'
+          ? 'Este email já está registado.'
+          : typeof json?.error === 'string' && json.error.length > 0 
+            ? json.error 
+            : `Falha no registo. Status: ${response.status}`;
         throw new Error(message);
       }
+      
       setSuccess(true);
       toast('Conta criada com sucesso! 🎉', 2500, 'success');
       setForm({ name: '', email: '', password: '' });
+      
+      // Usar window.location para redirecionamento garantido
+      window.location.href = '/login';
     } catch (err: any) {
       const message = err?.message || 'Falha de rede.';
+      console.error('Register error:', err);
       setError(message);
       toast(message, 2500, 'error');
     } finally {
       setLoading(false);
     }
   }
+
+  // Limpar erro ao editar campo
+  const handleFieldChange = (field: 'name' | 'email' | 'password', value: string) => {
+    setForm((state) => ({ ...state, [field]: value }));
+    if (fieldErrors[field]) {
+      setFieldErrors((prev) => ({ ...prev, [field]: undefined }));
+    }
+  };
 
   return (
     <AuthNeoShell
@@ -100,7 +108,7 @@ export default function RegisterClient() {
       ) : null}
       {success ? (
         <Alert tone="success" className="neo-auth__alert">
-          Conta criada! Já podes iniciar sessão.
+          Conta criada! A redirecionar…
         </Alert>
       ) : null}
 
@@ -112,7 +120,7 @@ export default function RegisterClient() {
             <input
               className="neo-auth__input"
               value={form.name}
-              onChange={(event) => setForm((state) => ({ ...state, name: event.target.value }))}
+              onChange={(event) => handleFieldChange('name', event.target.value)}
               onBlur={(event) => {
                 const result = FormSchema.pick({ name: true }).safeParse({ name: event.target.value });
                 setFieldErrors((prev) => ({ ...prev, name: result.success ? undefined : result.error.issues[0]?.message }));
@@ -134,7 +142,7 @@ export default function RegisterClient() {
               className="neo-auth__input"
               type="email"
               value={form.email}
-              onChange={(event) => setForm((state) => ({ ...state, email: event.target.value }))}
+              onChange={(event) => handleFieldChange('email', event.target.value)}
               onBlur={(event) => {
                 const result = FormSchema.pick({ email: true }).safeParse({ email: event.target.value });
                 setFieldErrors((prev) => ({ ...prev, email: result.success ? undefined : result.error.issues[0]?.message }));
@@ -156,7 +164,7 @@ export default function RegisterClient() {
               className="neo-auth__input"
               type="password"
               value={form.password}
-              onChange={(event) => setForm((state) => ({ ...state, password: event.target.value }))}
+              onChange={(event) => handleFieldChange('password', event.target.value)}
               onBlur={(event) => {
                 const result = FormSchema.pick({ password: true }).safeParse({ password: event.target.value });
                 setFieldErrors((prev) => ({ ...prev, password: result.success ? undefined : result.error.issues[0]?.message }));

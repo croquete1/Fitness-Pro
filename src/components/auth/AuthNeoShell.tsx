@@ -39,14 +39,16 @@ export function AuthNeoShell({
       ) : null}
 
       <main className="neo-auth__main" aria-live="polite">
-        <header className="neo-auth__header">
-          <div className="neo-auth__brand" aria-label={`Plataforma ${brand.name}`} style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+        <header className="neo-auth__header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="neo-auth__brand" aria-label={`Plataforma ${brand.name}`} style={{ display: 'flex', justifyContent: 'center', flex: 1 }}>
             <span className="neo-auth__brandMark">
               <BrandLogo size={100} />
             </span>
             <span className="sr-only">{brand.name}</span>
           </div>
-          <ThemeToggle variant="subtle" />
+          <div style={{ marginLeft: 'auto' }}>
+            <ThemeToggle variant="subtle" />
+          </div>
         </header>
 
         <div className="neo-auth__intro">

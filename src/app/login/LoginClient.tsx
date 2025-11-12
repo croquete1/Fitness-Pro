@@ -3,6 +3,8 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { signIn } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import clsx from 'clsx';
 import { z } from 'zod';
 import { User, Mail, Lock } from 'lucide-react';
@@ -15,6 +17,7 @@ import { LoginSchema } from '@/lib/validation/auth';
 import { AuthNeoShell } from '@/components/auth/AuthNeoShell';
 
 export default function LoginClient() {
+  const router = useRouter();
   const [form, setForm] = React.useState({ identifier: '', password: '' });
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -25,6 +28,8 @@ export default function LoginClient() {
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (loading) return;
+    
     setError(null);
     setSuccess(false);
     setFieldErrors({});
@@ -43,27 +48,42 @@ export default function LoginClient() {
 
     setLoading(true);
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(parsed.data),
+      const result = await signIn('credentials', {
+        identifier: form.identifier,
+        password: form.password,
+        redirect: false,
       });
-      const json = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        const message = typeof json?.error === 'string' && json.error.length > 0 ? json.error : 'Falha no login.';
-        throw new Error(message);
+
+      console.log('SignIn result:', result);
+
+      if (!result?.ok) {
+        throw new Error(result?.error || 'Falha no login.');
       }
+
       setSuccess(true);
       toast('Login realizado com sucesso! 🎉', 2500, 'success');
       setForm({ identifier: '', password: '' });
+      
+      setTimeout(() => {
+        window.location.href = '/dashboard';
+      }, 500);
     } catch (err: any) {
       const message = err?.message || 'Falha de rede.';
+      console.error('Login error:', err);
       setError(message);
       toast(message, 2500, 'error');
     } finally {
       setLoading(false);
     }
   }
+
+  // Limpar erro ao editar campo
+  const handleFieldChange = (field: 'identifier' | 'password', value: string) => {
+    setForm((state) => ({ ...state, [field]: value }));
+    if (fieldErrors[field]) {
+      setFieldErrors((prev) => ({ ...prev, [field]: undefined }));
+    }
+  };
 
   return (
     <AuthNeoShell
@@ -85,7 +105,7 @@ export default function LoginClient() {
       ) : null}
       {success ? (
         <Alert tone="success" className="neo-auth__alert">
-          Login efetuado com sucesso! Já podes começar.
+          Login efetuado com sucesso! A redirecionar…
         </Alert>
       ) : null}
 
@@ -98,7 +118,7 @@ export default function LoginClient() {
               className="neo-auth__input"
               type="email"
               value={form.identifier}
-              onChange={(event) => setForm((state) => ({ ...state, identifier: event.target.value }))}
+              onChange={(event) => handleFieldChange('identifier', event.target.value)}
               onBlur={(event) => {
                 const result = FormSchema.pick({ identifier: true }).safeParse({ identifier: event.target.value });
                 setFieldErrors((prev) => ({ ...prev, identifier: result.success ? undefined : result.error.issues[0]?.message }));
@@ -120,7 +140,7 @@ export default function LoginClient() {
               className="neo-auth__input"
               type="password"
               value={form.password}
-              onChange={(event) => setForm((state) => ({ ...state, password: event.target.value }))}
+              onChange={(event) => handleFieldChange('password', event.target.value)}
               onBlur={(event) => {
                 const result = FormSchema.pick({ password: true }).safeParse({ password: event.target.value });
                 setFieldErrors((prev) => ({ ...prev, password: result.success ? undefined : result.error.issues[0]?.message }));
