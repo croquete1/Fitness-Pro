@@ -5,8 +5,13 @@ import { requireUserGuard, isGuardErr } from '@/lib/api-guards';
 import { brand } from '@/lib/brand';
 
 const FALLBACK_ITEMS = [
-  { id: 'fallback-1', title: `Bem-vindo à ${brand.name}`, href: '/dashboard' },
-  { id: 'fallback-2', title: 'Actualiza o teu perfil para personalizar a experiência.', href: '/dashboard/profile' },
+  { id: 'fallback-1', title: `Bem-vindo à ${brand.name}`, href: '/dashboard', read: true },
+  {
+    id: 'fallback-2',
+    title: 'Actualiza o teu perfil para personalizar a experiência.',
+    href: '/dashboard/profile',
+    read: true,
+  },
 ];
 
 export async function GET() {
@@ -15,7 +20,7 @@ export async function GET() {
 
   const sb = tryCreateServerClient();
   if (!sb) {
-    return supabaseFallbackJson({ items: FALLBACK_ITEMS });
+    return supabaseFallbackJson({ items: FALLBACK_ITEMS, source: 'fallback' });
   }
 
   try {

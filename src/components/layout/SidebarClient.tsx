@@ -10,7 +10,6 @@ import { useSidebar } from '@/components/layout/SidebarProvider';
 import { SidebarNavSection } from '@/components/layout/SidebarNav';
 import SidebarHighlights from '@/components/layout/SidebarHighlights';
 import SidebarQuickMetrics from '@/components/layout/SidebarQuickMetrics';
-import DataSourceBadge from '@/components/ui/DataSourceBadge';
 import { useSidebarNavigationSummary } from '@/components/layout/useSidebarNavigationSummary';
 import type { ClientCounts } from '@/lib/hooks/useCounts';
 import type { NavigationSummary, NavigationSummaryCounts } from '@/lib/navigation/types';
@@ -42,7 +41,7 @@ export default function SidebarClient({ initialCounts, summary, loading, onRefre
     } satisfies Partial<NavigationSummaryCounts>;
   }, [messagesCount, notificationsCount]);
 
-  const { groups: navGroups, quickMetrics, highlights, source, generatedAt } = useSidebarNavigationSummary({
+  const { groups: navGroups, quickMetrics, highlights } = useSidebarNavigationSummary({
     role: 'CLIENT',
     summary,
     fallbackOverrides,
@@ -52,13 +51,6 @@ export default function SidebarClient({ initialCounts, summary, loading, onRefre
     <div className="neo-sidebar__headline">
       <div className="neo-sidebar__headline-meta">
         <span className="neo-sidebar__headline-label">Acesso rápido</span>
-        {source && (
-          <DataSourceBadge
-            source={source}
-            generatedAt={generatedAt}
-            className="neo-sidebar__headline-badge"
-          />
-        )}
       </div>
       {onRefreshNavigation && (
         <button

@@ -12078,6 +12078,7 @@ h1,.h1{
   --neo-shell-bg-dark: linear-gradient(180deg, rgba(15, 23, 42, 0.78) 0%, rgba(15, 23, 42, 0.92) 100%);
   --neo-sidebar-width: 296px;
   --neo-sidebar-width-rail: 86px;
+  --neo-sidebar-current-width: var(--neo-sidebar-width);
   --neo-sidebar-surface: rgba(255, 255, 255, 0.85);
   --neo-sidebar-border: rgba(148, 163, 184, 0.35);
   --neo-sidebar-active: rgba(59, 130, 246, 0.18);
@@ -12086,6 +12087,14 @@ h1,.h1{
   --neo-header-height: 68px;
   --neo-header-border: rgba(148, 163, 184, 0.32);
   --neo-popover-shadow: 0 22px 54px rgba(15, 23, 42, 0.28);
+}
+
+html[data-sb-collapsed='1'] {
+  --neo-sidebar-current-width: var(--neo-sidebar-width-rail);
+}
+
+html[data-sb-collapsed='1'][data-sb-peek='1'] {
+  --neo-sidebar-current-width: var(--neo-sidebar-width);
 }
 
 .neo-shell {
@@ -12111,7 +12120,9 @@ h1,.h1{
 
 @media (min-width: 1024px) {
   .neo-shell__body {
-    grid-template-columns: var(--neo-sidebar-width) minmax(0, 1fr);
+    grid-template-columns: var(--neo-sidebar-current-width) minmax(0, 1fr);
+    transition: grid-template-columns var(--motion-medium, 220ms)
+      var(--motion-ease, cubic-bezier(.18, .9, .22, 1));
     padding: clamp(16px, 3vw, 28px);
   }
 }
