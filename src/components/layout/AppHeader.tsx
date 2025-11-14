@@ -58,7 +58,7 @@ export default function AppHeader({
   onRefreshNavigation,
 }: Props) {
   const router = useRouter();
-  const { openMobile } = useSidebar();
+  const { openMobile, isMobile } = useSidebar();
   const headerCounts = useHeaderCounts();
   const toast = useToast();
   const { alerts, dismiss } = useAlerts();
@@ -231,14 +231,16 @@ export default function AppHeader({
   return (
     <header className="neo-header" data-role={String(role).toLowerCase()}>
       <div className="neo-header__bar">
-        <button
-          type="button"
-          className="neo-header__menu"
-          onClick={() => openMobile(true)}
-          aria-label="Abrir menu de navegação"
-        >
-          <Menu size={18} strokeWidth={1.8} />
-        </button>
+        {isMobile && (
+          <button
+            type="button"
+            className="neo-header__menu"
+            onClick={() => openMobile(true)}
+            aria-label="Abrir menu de navegação"
+          >
+            <Menu size={18} strokeWidth={1.8} />
+          </button>
+        )}
         <Link
           href="/dashboard"
           className="neo-header__brand"
