@@ -1,13 +1,15 @@
 // src/app/(app)/dashboard/pt/profile/page.tsx
 export const dynamic = 'force-dynamic';
 
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole } from '@/lib/roles';
 import { createServerClient } from '@/lib/supabaseServer';
-import ProfileForm from '@/app/(app)/dashboard/admin/profile/ProfileForm.client';
-import ProfileHeroTabs, { type ProfileHeroTab } from '@/app/(app)/dashboard/profile/ProfileHeroTabs';
+import { loadTrainerPlansDashboard } from '@/lib/trainer/plans/server';
+import { loadMessagesDashboard } from '@/lib/messages/server';
+import type { MessagesDashboardResponse } from '@/lib/messages/server';
+
+import PTProfileClient from './PTProfileClient';
 
 const PT_ROLE_LABELS: Record<string, string> = {
   PT: 'Personal Trainer',
@@ -75,121 +77,31 @@ export default async function PTProfilePage() {
       helper: username ? 'Identificador público em planos e mensagens.' : 'Define um username para ser mais fácil encontrar-te.',
       tone: username ? 'neutral' : 'warning',
     },
-  ] as const;
+  ];
   const highlight = bio
     ? null
     : {
-        tone: 'info',
+        tone: 'info' as const,
         title: 'Partilha a tua história',
         description: 'Uma biografia completa ajuda os clientes a confiar no teu acompanhamento.',
       };
-  const heroTabs: ProfileHeroTab[] = [
-    { label: 'Perfil', href: '/dashboard/pt/profile', current: true },
-    { label: 'Planos de treino', href: '/dashboard/pt/plans' },
-    { label: 'Clientes', href: '/dashboard/pt/clients' },
-    { label: 'Mensagens', href: '/dashboard/pt/messages' },
-    { label: 'Definições', href: '/dashboard/settings' },
-  ];
+
+  const trainerPlans = await loadTrainerPlansDashboard(session.user.id);
+  const trainerMessages: MessagesDashboardResponse = await loadMessagesDashboard(session.user.id, 14);
 
   return (
-    <div className="profile-dashboard profile-shell">
-      <section className="profile-dashboard__hero" aria-label="Resumo do perfil do PT">
-        <div className="profile-dashboard__heroBackdrop" aria-hidden />
-        <div className="profile-dashboard__heroInner">
-          <div className="profile-dashboard__heroHeader">
-            <div className="profile-dashboard__heroIdentity">
-              <div className="profile-dashboard__avatar" aria-hidden>
-                {avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={avatarUrl} alt={displayName} />
-                ) : (
-                  <span>{displayName.slice(0, 2).toUpperCase()}</span>
-                )}
-              </div>
-              <div>
-                <span className="profile-dashboard__heroRole">{roleLabelText}</span>
-                <h1>{displayName}</h1>
-                <p>{aboutText}</p>
-              </div>
-            </div>
-            <div className="profile-dashboard__heroActions">
-              {email ? <span className="profile-dashboard__heroStatus">Conta · {email}</span> : null}
-              <div className="profile-dashboard__heroButtons">
-                <Link href="#profile-shell-form" className="btn" data-variant="secondary" data-size="sm">
-                  Actualizar dados
-                </Link>
-              </div>
-            </div>
-          </div>
-
-          {heroMeta.length ? (
-            <ul className="profile-dashboard__heroMeta" role="list">
-              {heroMeta.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          ) : null}
-
-          <ProfileHeroTabs tabs={heroTabs} ariaLabel="Navegação do perfil do personal trainer" />
-
-          {highlight ? (
-            <div className={`profile-dashboard__highlight ${highlight.tone}`}>
-              <div className="profile-dashboard__highlightContent">
-                <strong>{highlight.title}</strong>
-                <p>{highlight.description}</p>
-              </div>
-            </div>
-          ) : null}
-
-          <div className="profile-dashboard__heroMetrics">
-            {metrics.map((metric) => (
-              <article key={metric.label} className={`profile-hero__metric ${metric.tone}`}>
-                <header>
-                  <span>{metric.label}</span>
-                </header>
-                <strong>{metric.value}</strong>
-                <p>{metric.helper}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="profile-shell__details">
-        <div className="profile-shell__detailsGrid">
-          <article className="profile-shell__infoCard">
-            <h2>Sobre</h2>
-            <p>{aboutText}</p>
-          </article>
-          <article className="profile-shell__infoCard">
-            <h2>Contactos</h2>
-            <dl>
-              <div>
-                <dt>Email</dt>
-                <dd>{email || '—'}</dd>
-              </div>
-              <div>
-                <dt>Telefone</dt>
-                <dd>{phone ?? '—'}</dd>
-              </div>
-              <div>
-                <dt>Username</dt>
-                <dd>{username ?? '—'}</dd>
-              </div>
-            </dl>
-          </article>
-        </div>
-      </section>
-
-      <section className="neo-panel profile-shell__form" id="profile-shell-form">
-        <header className="profile-shell__formHeader">
-          <div>
-            <h2>Editar informação</h2>
-            <p>Actualiza dados pessoais para que clientes e equipa tenham contextos actualizados.</p>
-          </div>
-        </header>
-        <ProfileForm userId={String(session.user.id)} initial={initial} canEditPrivate />
-      </section>
-    </div>
+    <PTProfileClient
+      userId={String(session.user.id)}
+      email={email}
+      displayName={displayName}
+      roleLabel={roleLabelText}
+      aboutText={aboutText}
+      heroMeta={heroMeta}
+      metrics={metrics}
+      highlight={highlight}
+      initialForm={initial}
+      trainerPlans={trainerPlans}
+      messages={trainerMessages}
+    />
   );
 }

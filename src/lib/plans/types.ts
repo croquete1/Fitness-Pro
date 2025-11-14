@@ -63,3 +63,9 @@ export type PlansDashboardData = {
   updatedAt: string;
   fallback: boolean;
 };
+
+export type PlansDashboardPayload = PlansDashboardData & {
+  ok: boolean;
+  source: 'supabase' | 'fallback';
+  message?: string;
+};
