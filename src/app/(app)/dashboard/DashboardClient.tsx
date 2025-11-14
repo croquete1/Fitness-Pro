@@ -17,7 +17,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import PageHeader from "@/components/ui/PageHeader";
 import Button from "@/components/ui/Button";
 import Alert from "@/components/ui/Alert";
-import DataSourceBadge from "@/components/ui/DataSourceBadge";
 import { useMe } from "@/hooks/useMe";
 import { greetingForDate } from "@/lib/time";
 import type {
@@ -316,11 +315,6 @@ export default function DashboardClient() {
             </h2>
             <p className="neo-panel__subtitle">Actualizados automaticamente com base nos teus dados.</p>
           </div>
-          <DataSourceBadge
-            source={data?.source}
-            generatedAt={data?.generatedAt ?? null}
-            className="client-dashboard__badge"
-          />
         </header>
         {isLoading && !data ? (
           <div className="client-dashboard__skeleton" aria-hidden>

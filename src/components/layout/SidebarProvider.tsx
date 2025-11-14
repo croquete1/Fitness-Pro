@@ -25,6 +25,17 @@ export default function SidebarProvider({ children }: { children: React.ReactNod
   const [peek, _setPeek] = React.useState(false);
 
   React.useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const html = document.documentElement;
+    if (!html.dataset.sbPinned) {
+      html.dataset.sbPinned = '1';
+    }
+    return () => {
+      delete html.dataset.sbPinned;
+    };
+  }, []);
+
+  React.useEffect(() => {
     if (typeof window === 'undefined') return;
     const stored = window.localStorage.getItem('fp:sidebar-collapsed');
     if (stored === '1') {

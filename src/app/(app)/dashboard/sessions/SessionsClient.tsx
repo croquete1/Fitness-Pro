@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import Alert from '@/components/ui/Alert';
 import Button from '@/components/ui/Button';
+import PageHeader from '@/components/ui/PageHeader';
 import { buildClientSessionDashboard } from '@/lib/sessions/dashboard';
 import type {
   ClientSession,
@@ -191,13 +192,13 @@ function computeMetricCards(metrics: SessionDashboardData['metrics']) {
 type Props = {
   initialSessions: ClientSession[];
   initialRequests: SessionRequest[];
+  supabaseAvailable: boolean;
 };
 
-export default function SessionsClient({ initialSessions, initialRequests }: Props) {
-  const supabaseSessions = initialSessions.length > 0;
-  const supabaseRequests = initialRequests.length > 0;
+export default function SessionsClient({ initialSessions, initialRequests, supabaseAvailable }: Props) {
   const [sessions, setSessions] = React.useState<ClientSession[]>(() => initialSessions);
   const [requests, setRequests] = React.useState<SessionRequest[]>(() => initialRequests);
+  const [hasSupabase, setHasSupabase] = React.useState<boolean>(supabaseAvailable);
   const [sessionError, setSessionError] = React.useState<string | null>(null);
   const [requestError, setRequestError] = React.useState<string | null>(null);
   const [requestSuccess, setRequestSuccess] = React.useState<string | null>(null);
@@ -219,8 +220,8 @@ export default function SessionsClient({ initialSessions, initialRequests }: Pro
   const dialogFormId = React.useId();
 
   const dashboard = React.useMemo(
-    () => buildClientSessionDashboard(sessions, requests, { supabase: supabaseSessions || supabaseRequests }),
-    [sessions, requests, supabaseSessions, supabaseRequests],
+    () => buildClientSessionDashboard(sessions, requests, { supabase: hasSupabase }),
+    [sessions, requests, hasSupabase],
   );
 
   const sortedSessions = React.useMemo(() => {
@@ -323,6 +324,7 @@ export default function SessionsClient({ initialSessions, initialRequests }: Pro
             : session,
         ),
       );
+      setHasSupabase(true);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Não foi possível atualizar a presença.';
       setSessionError(message);
@@ -418,6 +420,7 @@ export default function SessionsClient({ initialSessions, initialRequests }: Pro
       if (json?.request) {
         setRequests((prev) => [json.request as SessionRequest, ...prev]);
       }
+      setHasSupabase(true);
       setRequestDialogOpen(false);
       resetRequestForm();
       setRequestSuccess('Pedido enviado — o PT será notificado.');
@@ -458,6 +461,7 @@ export default function SessionsClient({ initialSessions, initialRequests }: Pro
       if (json?.request) {
         setRequests((prev) => prev.map((request) => (request.id === id ? (json.request as SessionRequest) : request)));
       }
+      setHasSupabase(true);
       if (successMessage) {
         setRequestSuccess(successMessage);
       }
@@ -677,25 +681,24 @@ export default function SessionsClient({ initialSessions, initialRequests }: Pro
 
   return (
     <div className="client-page client-sessions">
-      <header className="client-sessions__header">
-        <div>
-          <h1 className="client-sessions__title">Sessões &amp; Pedidos</h1>
-          <p className="client-sessions__subtitle">
-            Visão Neo das tuas sessões com métricas reais, pedidos de reagendamento e evolução recente.
-          </p>
-        </div>
-        <div className="client-sessions__headerActions">
-          <Button variant="primary" onClick={() => setRequestDialogOpen(true)}>
-            Nova sessão
-          </Button>
-          <Link href="/dashboard/history" prefetch={false} className="btn" data-variant="ghost">
-            <span className="btn__icon btn__icon--left" aria-hidden>
-              <Download size={16} />
-            </span>
-            <span className="btn__label">Exportar histórico</span>
-          </Link>
-        </div>
-      </header>
+      <PageHeader
+        title="Sessões &amp; Pedidos"
+        subtitle="Visão Neo das tuas sessões com métricas reais, pedidos de reagendamento e evolução recente."
+        sticky={false}
+        actions={
+          <div className="client-sessions__headerActions">
+            <Button variant="primary" onClick={() => setRequestDialogOpen(true)}>
+              Nova sessão
+            </Button>
+            <Link href="/dashboard/history" prefetch={false} className="btn" data-variant="ghost">
+              <span className="btn__icon btn__icon--left" aria-hidden>
+                <Download size={16} />
+              </span>
+              <span className="btn__label">Exportar histórico</span>
+            </Link>
+          </div>
+        }
+      />
 
       {sessionError ? <Alert tone="danger" title={sessionError} /> : null}
       {requestError ? <Alert tone="danger" title={requestError} /> : null}
@@ -725,7 +728,7 @@ export default function SessionsClient({ initialSessions, initialRequests }: Pro
       </section>
 
       <div className="client-sessions__grid">
-        <section className="neo-panel client-sessions__panel" aria-labelledby={upcomingHeadingId}>
+        <section className="neo-panel client-sessions__panel client-sessions__panel--wide" aria-labelledby={upcomingHeadingId}>
           <header className="neo-panel__header">
             <div className="neo-panel__meta">
               <h2 id={upcomingHeadingId} className="neo-panel__title">
@@ -836,21 +839,6 @@ export default function SessionsClient({ initialSessions, initialRequests }: Pro
           )}
         </section>
 
-        <section className="neo-panel client-sessions__panel client-sessions__panel--timeline" aria-label="Tendência de sessões">
-          <header className="neo-panel__header">
-            <div className="neo-panel__meta">
-              <h2 className="neo-panel__title">Tendência (14 dias)</h2>
-              <p className="neo-panel__subtitle">
-                Sessões agendadas, concluídas e canceladas nos últimos dias — destaca padrões de assiduidade.
-              </p>
-            </div>
-            <div className="client-sessions__timelineMeta">
-              {dashboard.metrics.busiestDayLabel ? `Dia com mais sessões: ${dashboard.metrics.busiestDayLabel}` : 'Sem picos recentes'}
-            </div>
-          </header>
-          <ul className="client-sessions__timeline">{dashboard.timeline.map(renderTimelinePoint)}</ul>
-        </section>
-
         <section className="neo-panel client-sessions__panel" aria-labelledby={requestHeadingId}>
           <header className="neo-panel__header client-sessions__requestsHeader">
             <div className="neo-panel__meta">
@@ -915,67 +903,19 @@ export default function SessionsClient({ initialSessions, initialRequests }: Pro
             </div>
           )}
         </section>
-
-        <section className="neo-panel client-sessions__panel client-sessions__panel--insights" aria-label="Insights adicionais">
+        <section className="neo-panel client-sessions__panel client-sessions__panel--wide" aria-label="Tendência de sessões">
           <header className="neo-panel__header">
             <div className="neo-panel__meta">
-              <h2 className="neo-panel__title">Insights rápidos</h2>
+              <h2 className="neo-panel__title">Tendência (14 dias)</h2>
               <p className="neo-panel__subtitle">
-                Distribuição de presenças, ranking de PT e actividades recentes para planear o próximo ciclo.
+                Sessões agendadas, concluídas e canceladas nos últimos dias — destaca padrões de assiduidade.
               </p>
             </div>
+            <div className="client-sessions__timelineMeta">
+              {dashboard.metrics.busiestDayLabel ? `Dia com mais sessões: ${dashboard.metrics.busiestDayLabel}` : 'Sem picos recentes'}
+            </div>
           </header>
-
-          <div className="client-sessions__insightsGrid">
-            <article className="client-sessions__insight">
-              <h3>Estado das sessões</h3>
-              <ul>
-                {dashboard.attendance.map((item) => (
-                  <li key={item.key}>
-                    <span className="status-pill" data-state={item.tone}>
-                      {item.label}
-                    </span>
-                    <span className="client-sessions__insightValue">{item.count}</span>
-                    <span className="client-sessions__insightHint">{item.percentage}%</span>
-                  </li>
-                ))}
-              </ul>
-            </article>
-            <article className="client-sessions__insight">
-              <h3>Top PT</h3>
-              <ul>
-                {dashboard.trainers.length ? (
-                  dashboard.trainers.map((trainer) => (
-                    <li key={trainer.trainerId}>
-                      <span className="client-sessions__insightLabel">
-                        {trainer.trainerName ?? trainer.trainerEmail ?? 'Personal trainer'}
-                      </span>
-                      <span className="client-sessions__insightValue">{trainer.upcoming} agendada(s)</span>
-                      <span className="client-sessions__insightHint">{trainer.completed} concluída(s)</span>
-                    </li>
-                  ))
-                ) : (
-                  <li className="client-sessions__insightEmpty">Sem dados suficientes.</li>
-                )}
-              </ul>
-            </article>
-            <article className="client-sessions__insight client-sessions__insight--activity">
-              <h3>Atividade recente</h3>
-              <ol>
-                {dashboard.activities.length ? (
-                  dashboard.activities.map((activity) => (
-                    <li key={activity.id}>
-                      <span className="client-sessions__activityTitle">{activity.title}</span>
-                      <span className="client-sessions__activityMeta">{activity.description}</span>
-                      <span className="client-sessions__activityTime">{formatRelative(activity.at)}</span>
-                    </li>
-                  ))
-                ) : (
-                  <li className="client-sessions__insightEmpty">Sem actividade nos últimos dias.</li>
-                )}
-              </ol>
-            </article>
-          </div>
+          <ul className="client-sessions__timeline">{dashboard.timeline.map(renderTimelinePoint)}</ul>
         </section>
       </div>
 
