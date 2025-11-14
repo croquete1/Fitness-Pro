@@ -14,6 +14,11 @@ const ROLE_LABEL: Record<string, string> = {
   ADMIN: 'Administrador',
 };
 
+const ROLE_LABEL: Record<string, string> = {
+  PT: 'Personal Trainer',
+  ADMIN: 'Administrador',
+};
+
 export default async function PTProfilePage() {
   const session = await getSessionUserSafe();
   if (!session?.user?.id) redirect('/login');
