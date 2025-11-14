@@ -648,6 +648,189 @@ export type Database = {
         Relationships: [];
       };
 
+      message_attachments: {
+        Row: {
+          id: string;
+          message_id: string;
+          bucket: string;
+          storage_path: string;
+          file_name: string;
+          content_type: string | null;
+          size_bytes: number | null;
+          is_ephemeral: boolean;
+          expires_at: string | null;
+          metadata: Json;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          message_id: string;
+          bucket?: string;
+          storage_path: string;
+          file_name: string;
+          content_type?: string | null;
+          size_bytes?: number | null;
+          is_ephemeral?: boolean;
+          expires_at?: string | null;
+          metadata?: Json;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          message_id?: string;
+          bucket?: string;
+          storage_path?: string;
+          file_name?: string;
+          content_type?: string | null;
+          size_bytes?: number | null;
+          is_ephemeral?: boolean;
+          expires_at?: string | null;
+          metadata?: Json;
+          created_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'message_attachments_message_id_fkey';
+            columns: ['message_id'];
+            referencedRelation: 'messages';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+
+      message_threads: {
+        Row: {
+          id: string;
+          client_id: string;
+          trainer_id: string;
+          status: 'active' | 'archived';
+          last_message_at: string | null;
+          last_message_preview: string | null;
+          last_message_author_id: string | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          client_id: string;
+          trainer_id: string;
+          status?: 'active' | 'archived';
+          last_message_at?: string | null;
+          last_message_preview?: string | null;
+          last_message_author_id?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          client_id?: string;
+          trainer_id?: string;
+          status?: 'active' | 'archived';
+          last_message_at?: string | null;
+          last_message_preview?: string | null;
+          last_message_author_id?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'message_threads_client_id_fkey';
+            columns: ['client_id'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'message_threads_trainer_id_fkey';
+            columns: ['trainer_id'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'message_threads_last_message_author_id_fkey';
+            columns: ['last_message_author_id'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+
+      messages: {
+        Row: {
+          id: string;
+          thread_id: string;
+          from_id: string;
+          to_id: string | null;
+          body: string | null;
+          channel: 'in-app' | 'whatsapp' | 'email' | 'sms' | 'call' | 'social' | 'file';
+          status: 'draft' | 'sent' | 'delivered' | 'read' | 'failed';
+          metadata: Json;
+          sent_at: string | null;
+          read_at: string | null;
+          reply_to_id: string | null;
+          expires_at: string | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          thread_id: string;
+          from_id: string;
+          to_id?: string | null;
+          body?: string | null;
+          channel?: 'in-app' | 'whatsapp' | 'email' | 'sms' | 'call' | 'social' | 'file';
+          status?: 'draft' | 'sent' | 'delivered' | 'read' | 'failed';
+          metadata?: Json;
+          sent_at?: string | null;
+          read_at?: string | null;
+          reply_to_id?: string | null;
+          expires_at?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          thread_id?: string;
+          from_id?: string;
+          to_id?: string | null;
+          body?: string | null;
+          channel?: 'in-app' | 'whatsapp' | 'email' | 'sms' | 'call' | 'social' | 'file';
+          status?: 'draft' | 'sent' | 'delivered' | 'read' | 'failed';
+          metadata?: Json;
+          sent_at?: string | null;
+          read_at?: string | null;
+          reply_to_id?: string | null;
+          expires_at?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'messages_thread_id_fkey';
+            columns: ['thread_id'];
+            referencedRelation: 'message_threads';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'messages_from_id_fkey';
+            columns: ['from_id'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'messages_to_id_fkey';
+            columns: ['to_id'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'messages_reply_to_id_fkey';
+            columns: ['reply_to_id'];
+            referencedRelation: 'messages';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+
       motivation_phrases: {
         Row: {
           id: string;
@@ -896,6 +1079,7 @@ export type Database = {
           birthdate: string | null;
           height_cm: number | null;
           weight_kg: number | null;
+          role: 'CLIENT' | 'TRAINER' | 'ADMIN' | null;
           rejection_reason: string | null;
           created_at: string | null;
           updated_at: string | null;
@@ -911,6 +1095,7 @@ export type Database = {
           birthdate?: string | null;
           height_cm?: number | null;
           weight_kg?: number | null;
+          role?: 'CLIENT' | 'TRAINER' | 'ADMIN' | null;
           rejection_reason?: string | null;
           created_at?: string | null;
           updated_at?: string | null;
@@ -926,6 +1111,7 @@ export type Database = {
           birthdate?: string | null;
           height_cm?: number | null;
           weight_kg?: number | null;
+          role?: 'CLIENT' | 'TRAINER' | 'ADMIN' | null;
           rejection_reason?: string | null;
           created_at?: string | null;
           updated_at?: string | null;
@@ -1226,6 +1412,47 @@ export type Database = {
           responded_by?: string | null;
         };
         Relationships: [];
+      };
+
+      trainer_clients: {
+        Row: {
+          id: string;
+          trainer_id: string;
+          client_id: string;
+          status: string;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          trainer_id: string;
+          client_id: string;
+          status?: string;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          trainer_id?: string;
+          client_id?: string;
+          status?: string;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'trainer_clients_trainer_id_fkey';
+            columns: ['trainer_id'];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'trainer_clients_client_id_fkey';
+            columns: ['client_id'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          }
+        ];
       };
 
       trainer_blocks: {

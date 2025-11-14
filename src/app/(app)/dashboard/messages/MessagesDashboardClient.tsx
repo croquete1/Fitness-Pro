@@ -32,14 +32,13 @@ import type {
   MessageHeroMetric,
   MessageHighlight,
   MessageListRow,
-  MessageConversationRow,
   MessageDirection,
-  MessageDistributionSegment,
   MessageTimelinePoint,
   MessagesDashboardData,
 } from '@/lib/messages/types';
 import type { MessagesDashboardResponse } from '@/lib/messages/server';
 import MessagesFeed from './_components/MessagesFeed';
+import ChatPanel from './_components/ChatPanel';
 import MarkAllRead from './parts/MarkAllRead';
 
 const RANGE_OPTIONS = [
@@ -51,15 +50,7 @@ const RANGE_OPTIONS = [
 ];
 
 const numberFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 });
-const percentFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 1, minimumFractionDigits: 0 });
-const durationFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 });
 const relativeFormatter = new Intl.RelativeTimeFormat('pt-PT', { numeric: 'auto' });
-const conversationDateFormatter = new Intl.DateTimeFormat('pt-PT', {
-  day: '2-digit',
-  month: 'short',
-  hour: '2-digit',
-  minute: '2-digit',
-});
 
 function normalizeSearchTerm(value: string): string {
   return value
@@ -101,11 +92,6 @@ function directionTokens(direction: MessageDirection): string {
   }
 }
 
-type ConversationIndexEntry = {
-  conversation: MessageConversationRow;
-  searchIndex: string;
-};
-
 type MessageIndexEntry = {
   message: MessageListRow;
   searchIndex: string;
@@ -114,24 +100,6 @@ type MessageIndexEntry = {
 function formatNumber(value: number): string {
   if (!Number.isFinite(value)) return '0';
   return numberFormatter.format(Math.round(value));
-}
-
-function formatPercent(value: number): string {
-  if (!Number.isFinite(value) || value <= 0) return '0%';
-  return `${percentFormatter.format(value * 100)}%`;
-}
-
-function formatDuration(minutes: number | null): string {
-  if (!Number.isFinite(minutes) || minutes === null) return '—';
-  const abs = Math.max(0, minutes);
-  const hours = Math.floor(abs / 60);
-  const mins = Math.round(abs % 60);
-  if (hours >= 1) {
-    if (mins === 0) return `${hours}h`;
-    return `${hours}h ${mins}m`;
-  }
-  if (mins > 0) return `${mins}m`;
-  return `${durationFormatter.format(Math.round(abs * 60))}s`;
 }
 
 function formatRelativeTime(target: Date | null): string | null {
@@ -150,20 +118,6 @@ function formatRelativeTime(target: Date | null): string | null {
   const bucket = ranges.find((item) => absMs < item.limit) ?? ranges[ranges.length - 1]!;
   const value = Math.round(diffMs / bucket.size);
   return relativeFormatter.format(value, bucket.unit);
-}
-
-function formatConversationMoment(value: string | null): { absolute: string | null; relative: string | null } {
-  if (!value) {
-    return { absolute: null, relative: null };
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return { absolute: null, relative: null };
-  }
-  return {
-    absolute: conversationDateFormatter.format(date),
-    relative: formatRelativeTime(date),
-  };
 }
 
 type ChartDatum = {
@@ -262,35 +216,6 @@ function TimelineTooltip({ active, payload, label }: TimelineTooltipProps) {
   );
 }
 
-function DistributionList({ distribution }: { distribution: MessageDistributionSegment[] }) {
-  if (!distribution.length) {
-    return (
-      <div className="messages-dashboard__empty" role="status">
-        <span className="neo-text--sm neo-text--muted">Sem dados suficientes para calcular a distribuição.</span>
-      </div>
-    );
-  }
-  return (
-    <ul className="messages-dashboard__distribution" role="list">
-      {distribution.map((segment) => (
-        <li key={segment.key} className="messages-dashboard__distributionItem" data-tone={segment.tone ?? 'neutral'}>
-          <div>
-            <span className="messages-dashboard__distributionLabel">{segment.label}</span>
-            <span className="messages-dashboard__distributionValue">{formatNumber(segment.value)}</span>
-          </div>
-          <div className="messages-dashboard__distributionBar" role="presentation">
-            <div
-              className="messages-dashboard__distributionFill"
-              style={{ width: `${Math.min(100, Math.max(0, segment.percentage * 100))}%` }}
-            />
-            <span className="messages-dashboard__distributionPercent">{formatPercent(segment.percentage)}</span>
-          </div>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 function HighlightsList({ highlights }: { highlights: MessageHighlight[] }) {
   if (!highlights.length) {
     return (
@@ -312,73 +237,6 @@ function HighlightsList({ highlights }: { highlights: MessageHighlight[] }) {
         </li>
       ))}
     </ul>
-  );
-}
-
-function ConversationsTable({
-  conversations,
-}: {
-  conversations: MessageConversationRow[];
-}) {
-  if (!conversations.length) {
-    return (
-      <div className="messages-dashboard__empty" role="status">
-        <span className="neo-text--sm neo-text--muted">Nenhuma conversa corresponde aos filtros seleccionados.</span>
-      </div>
-    );
-  }
-  return (
-    <div className="messages-dashboard__tableWrapper">
-      <table className="messages-dashboard__table">
-        <thead>
-          <tr>
-            <th scope="col">Conversa</th>
-            <th scope="col">Mensagens</th>
-            <th scope="col">Entrantes</th>
-            <th scope="col">Respondidas</th>
-            <th scope="col">Internas</th>
-            <th scope="col">Canal principal</th>
-            <th scope="col">Tempo médio de resposta</th>
-            <th scope="col">Pendentes</th>
-          </tr>
-        </thead>
-        <tbody>
-          {conversations.map((conversation) => {
-            const moment = formatConversationMoment(conversation.lastMessageAt);
-            const metaLabel = moment.absolute
-              ? `Última ${moment.absolute}${moment.relative ? ` • ${moment.relative}` : ''}`
-              : 'Sem registos';
-            return (
-              <tr key={conversation.id}>
-                <th scope="row">
-                  <div className="messages-dashboard__conversationName">{conversation.counterpartName}</div>
-                  <span className="messages-dashboard__conversationMeta">{metaLabel}</span>
-                </th>
-                <td>{formatNumber(conversation.totalMessages)}</td>
-                <td>{formatNumber(conversation.inbound)}</td>
-                <td>{formatNumber(conversation.outbound)}</td>
-                <td>{formatNumber(conversation.internal)}</td>
-                <td>
-                  <span className="messages-dashboard__channel" data-channel={conversation.mainChannel}>
-                    {conversation.mainChannelLabel}
-                  </span>
-                </td>
-                <td>{formatDuration(conversation.averageResponseMinutes)}</td>
-                <td>
-                  {conversation.pendingResponses > 0 ? (
-                    <span className="messages-dashboard__pending" data-active>
-                      {formatNumber(conversation.pendingResponses)}
-                    </span>
-                  ) : (
-                    <span className="messages-dashboard__pending">0</span>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
   );
 }
 
@@ -535,28 +393,6 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
     }));
   }, [dashboard.timeline]);
 
-  const conversationIndex = React.useMemo<ConversationIndexEntry[]>(() => {
-    return (dashboard.conversations ?? []).map((conversation) => {
-      const pendingTokens =
-        conversation.pendingResponses > 0
-          ? 'pendente pendentes follow-up por responder'
-          : 'sem-pendentes';
-      const searchIndex = normalizeSearchTerm(
-        [
-          conversation.counterpartName,
-          conversation.counterpartId ?? '',
-          conversation.mainChannelLabel,
-          conversation.mainChannel,
-          conversation.lastMessageAt ?? '',
-          directionTokens(conversation.lastDirection),
-          pendingTokens,
-          conversation.id,
-        ].join(' '),
-      );
-      return { conversation, searchIndex } satisfies ConversationIndexEntry;
-    });
-  }, [dashboard.conversations]);
-
   const messageIndex = React.useMemo<MessageIndexEntry[]>(() => {
     return (dashboard.messages ?? []).map((message) => {
       const hasResponseMinutes =
@@ -583,19 +419,6 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
       return { message, searchIndex } satisfies MessageIndexEntry;
     });
   }, [dashboard.messages]);
-
-  const filteredConversations = React.useMemo(() => {
-    return conversationIndex
-      .filter(({ conversation, searchIndex }) => {
-        if (directionFilter === 'inbound' && conversation.inbound <= 0) return false;
-        if (directionFilter === 'outbound' && conversation.outbound <= 0) return false;
-        if (directionFilter === 'internal' && conversation.internal <= 0) return false;
-        if (searchTokens.length && !matchesSearchTokens(searchIndex, searchTokens)) return false;
-        return true;
-      })
-      .slice(0, 40)
-      .map(({ conversation }) => conversation);
-  }, [conversationIndex, directionFilter, searchTokens]);
 
   const filteredMessages = React.useMemo<MessageListRow[]>(() => {
     return messageIndex
@@ -712,8 +535,8 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
           <span className="messages-dashboard__stat">
             <Filter size={16} aria-hidden />
             <span>
-              <strong>{formatNumber(filteredConversations.length)}</strong>
-              <small>Conversas filtradas</small>
+              <strong>{formatNumber(filteredMessages.length)}</strong>
+              <small>Mensagens filtradas</small>
             </span>
           </span>
           <span
@@ -771,83 +594,18 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
           </div>
         </div>
 
-        <div className="messages-dashboard__split">
-          <section className="messages-dashboard__panel neo-panel">
-            <header className="messages-dashboard__panelHeader">
-              <div>
-                <h2 className="messages-dashboard__panelTitle">Distribuição por canal</h2>
-                <p className="messages-dashboard__panelSubtitle">Percebe onde os clientes preferem interagir contigo.</p>
-              </div>
-            </header>
-            <DistributionList distribution={dashboard.distribution} />
-          </section>
-
-          <section className="messages-dashboard__panel neo-panel">
-            <header className="messages-dashboard__panelHeader">
-              <div>
-                <h2 className="messages-dashboard__panelTitle">Destaques automáticos</h2>
-                <p className="messages-dashboard__panelSubtitle">
-                  Insights sobre conversas activas, tempos de resposta e pendentes críticos.
-                </p>
-              </div>
-            </header>
-            <HighlightsList highlights={dashboard.highlights} />
-          </section>
-        </div>
+        <ChatPanel viewerId={viewerId} />
 
         <section className="messages-dashboard__panel neo-panel">
-          <header className="messages-dashboard__panelHeader messages-dashboard__panelHeader--controls">
+          <header className="messages-dashboard__panelHeader">
             <div>
-              <h2 className="messages-dashboard__panelTitle">Conversa por participante</h2>
+              <h2 className="messages-dashboard__panelTitle">Destaques automáticos</h2>
               <p className="messages-dashboard__panelSubtitle">
-                Tabela filtrável com os contactos mais activos e respectivos tempos de resposta.
+                Insights sobre conversas activas, tempos de resposta e pendentes críticos.
               </p>
             </div>
-            <div className="messages-dashboard__filters">
-              <div className="messages-dashboard__segmented" role="group" aria-label="Filtrar direcção">
-                <button
-                  type="button"
-                  className={`messages-dashboard__segmentedItem${directionFilter === 'all' ? ' is-active' : ''}`}
-                  onClick={() => onDirectionChange('all')}
-                >
-                  Todas
-                </button>
-                <button
-                  type="button"
-                  className={`messages-dashboard__segmentedItem${directionFilter === 'inbound' ? ' is-active' : ''}`}
-                  onClick={() => onDirectionChange('inbound')}
-                >
-                  Recebidas
-                </button>
-                <button
-                  type="button"
-                  className={`messages-dashboard__segmentedItem${directionFilter === 'outbound' ? ' is-active' : ''}`}
-                  onClick={() => onDirectionChange('outbound')}
-                >
-                  Enviadas
-                </button>
-                <button
-                  type="button"
-                  className={`messages-dashboard__segmentedItem${directionFilter === 'internal' ? ' is-active' : ''}`}
-                  onClick={() => onDirectionChange('internal')}
-                >
-                  Internas
-                </button>
-              </div>
-              <label className="messages-dashboard__search">
-                <span className="sr-only">Pesquisar mensagens</span>
-                <SearchIcon aria-hidden size={16} />
-                <input
-                  type="search"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Procurar por nome, conteúdo ou canal"
-                  className="neo-field"
-                />
-              </label>
-            </div>
           </header>
-          <ConversationsTable conversations={filteredConversations} />
+          <HighlightsList highlights={dashboard.highlights} />
         </section>
 
         <section className="messages-dashboard__panel neo-panel">
@@ -863,6 +621,49 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
               {isValidating ? ' • a sincronizar…' : null}
             </span>
           </header>
+          <div className="messages-dashboard__filters">
+            <div className="messages-dashboard__segmented" role="group" aria-label="Filtrar direcção">
+              <button
+                type="button"
+                className={`messages-dashboard__segmentedItem${directionFilter === 'all' ? ' is-active' : ''}`}
+                onClick={() => onDirectionChange('all')}
+              >
+                Todas
+              </button>
+              <button
+                type="button"
+                className={`messages-dashboard__segmentedItem${directionFilter === 'inbound' ? ' is-active' : ''}`}
+                onClick={() => onDirectionChange('inbound')}
+              >
+                Recebidas
+              </button>
+              <button
+                type="button"
+                className={`messages-dashboard__segmentedItem${directionFilter === 'outbound' ? ' is-active' : ''}`}
+                onClick={() => onDirectionChange('outbound')}
+              >
+                Enviadas
+              </button>
+              <button
+                type="button"
+                className={`messages-dashboard__segmentedItem${directionFilter === 'internal' ? ' is-active' : ''}`}
+                onClick={() => onDirectionChange('internal')}
+              >
+                Internas
+              </button>
+            </div>
+            <label className="messages-dashboard__search">
+              <span className="sr-only">Pesquisar mensagens</span>
+              <SearchIcon aria-hidden size={16} />
+              <input
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Procurar por participante ou conteúdo"
+                className="neo-field"
+              />
+            </label>
+          </div>
           <MessagesFeed viewerId={viewerId} messages={filteredMessages} />
         </section>
       </section>

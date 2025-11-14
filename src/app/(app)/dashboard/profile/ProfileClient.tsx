@@ -160,6 +160,21 @@ function applyServerPatch(base: FormState, patch: unknown): FormState {
   return next;
 }
 
+function resolveProfileSaveError(payload: unknown) {
+  if (!payload || typeof payload !== 'object') {
+    return { code: null as string | null, message: 'Não foi possível guardar as alterações.' };
+  }
+
+  const record = payload as Record<string, unknown>;
+  const code = typeof record.error === 'string' ? record.error : null;
+  const rawMessage = typeof record.message === 'string' ? record.message.trim() : '';
+  const detail = typeof record.detail === 'string' ? record.detail.trim() : '';
+
+  const message = rawMessage || detail || 'Não foi possível guardar as alterações.';
+
+  return { code, message };
+}
+
 function TrendPill({ trend }: TrendProps) {
   if (!trend) return null;
   return (
@@ -616,17 +631,18 @@ export default function ProfileClient({
       });
       const response = await res.json().catch(() => null);
       if (!res.ok || !response?.ok) {
-        if (response?.error === 'USERNAME_TAKEN') {
+        const { code, message } = resolveProfileSaveError(response);
+        if (code === 'USERNAME_TAKEN') {
           setUsernameStatus({ state: 'taken' });
-          throw new Error('Este username já está em uso.');
+        } else if (code === 'INVALID_USERNAME') {
+          const reason = response && typeof response === 'object' && 'reason' in response
+            ? (response.reason as string | undefined)
+            : undefined;
+          setUsernameStatus({ state: 'invalid', reason });
+        } else if (code === 'USERNAME_CHECK_FAILED') {
+          setUsernameStatus({ state: 'error' });
         }
-        if (response?.error === 'INVALID_USERNAME') {
-          throw new Error('O username escolhido não é válido.');
-        }
-        if (response?.error === 'INVALID_DATE') {
-          throw new Error('Insere uma data válida (AAAA-MM-DD).');
-        }
-        throw new Error('Não foi possível guardar as alterações.');
+        throw new Error(message);
       }
 
       const merged = applyServerPatch(next, response?.profile);
