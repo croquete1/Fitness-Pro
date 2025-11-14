@@ -38,11 +38,22 @@ function ensureString(value: unknown) {
   return str.length ? str : null;
 }
 
+function jsonError(
+  code: string,
+  message: string,
+  status: number,
+  extra: Record<string, unknown> = {},
+) {
+  return NextResponse.json({ ok: false, error: code, message, ...extra }, { status });
+}
+
 async function ensureAuth() {
   const session = (await getSessionUserSafe()) as SessionLike;
   const user = session?.user;
   if (!user?.id) {
-    return { error: new NextResponse('Unauthorized', { status: 401 }) } as const;
+    return {
+      error: jsonError('UNAUTHORIZED', 'É necessário iniciar sessão para aceder ao perfil.', 401),
+    } as const;
   }
   return { session, userId: user.id } as const;
 }
@@ -73,10 +84,8 @@ export async function GET() {
   ]);
 
   const firstError = userRow.error ?? profileRow.error ?? privateRow.error;
-  if (firstError) {
-    if (String(firstError.code) !== 'PGRST116') {
-      return NextResponse.json({ ok: false, error: firstError.message ?? 'UNEXPECTED_ERROR' }, { status: 500 });
-    }
+  if (firstError && String(firstError.code) !== 'PGRST116') {
+    return jsonError('UNEXPECTED_ERROR', firstError.message ?? 'Não foi possível carregar o perfil.', 500);
   }
 
   const profile = profileRow.data ?? null;
@@ -106,7 +115,7 @@ async function handleUpdate(req: Request) {
   try {
     body = (await req.json()) as Body;
   } catch {
-    return NextResponse.json({ ok: false, error: 'INVALID_JSON' }, { status: 400 });
+    return jsonError('INVALID_JSON', 'Não foi possível ler os dados enviados.', 400);
   }
 
   const sb = createServerClient();
@@ -137,7 +146,7 @@ async function handleUpdate(req: Request) {
   if (body.birth_date !== undefined) {
     const value = ensureDate(body.birth_date);
     if (value === undefined) {
-      return NextResponse.json({ ok: false, error: 'INVALID_DATE' }, { status: 400 });
+      return jsonError('INVALID_DATE', 'Insere uma data válida (AAAA-MM-DD).', 400);
     }
     patch.birth_date = value;
     responsePatch.birth_date = value ?? null;
@@ -146,7 +155,10 @@ async function handleUpdate(req: Request) {
   if (body.phone !== undefined) {
     const result = validatePhone(body.phone);
     if (!result.ok) {
-      return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
+      const phoneMessage = result.error === 'PHONE_TOO_SHORT'
+        ? 'O número de telefone parece incompleto.'
+        : 'O número de telefone é demasiado longo.';
+      return jsonError(result.error, phoneMessage, 400);
     }
     privatePatch.phone = result.value;
     responsePatch.phone = result.value ?? null;
@@ -161,19 +173,19 @@ async function handleUpdate(req: Request) {
       const validationResult = validateUsernameCandidate(String(raw));
       if (!validationResult.ok) {
         const reason = 'reason' in validationResult ? validationResult.reason : 'invalid';
-        return NextResponse.json({ ok: false, error: 'INVALID_USERNAME', reason }, { status: 400 });
+        return jsonError('INVALID_USERNAME', 'Escolhe um username válido (3-30 caracteres).', 400, { reason });
       }
 
       const normalized = validationResult.normalized;
       const availability = await checkUsernameAvailability(sb, normalized, { excludeUserId: userId });
       if (!availability.ok) {
-        const reason = 'reason' in availability ? availability.reason : 'ERROR';
+        const reason = 'reason' in availability ? availability.reason : 'USERNAME_CHECK_FAILED';
         const status = 'status' in availability ? availability.status : undefined;
-        return NextResponse.json({ ok: false, error: reason }, { status: status ?? 500 });
+        return jsonError(reason, 'Não foi possível validar o username.', status ?? 500);
       }
 
       if (!availability.available) {
-        return NextResponse.json({ ok: false, error: 'USERNAME_TAKEN' }, { status: 409 });
+        return jsonError('USERNAME_TAKEN', 'Este username já está em uso.', 409);
       }
 
       patch.username = normalized;
@@ -188,7 +200,9 @@ async function handleUpdate(req: Request) {
   if (Object.keys(patch).length) {
     const result = await syncUserProfile(sb, userId, patch);
     if (!result.ok) {
-      return NextResponse.json({ ok: false, error: result.error ?? 'UPDATE_FAILED' }, { status: 400 });
+      return jsonError('UPDATE_FAILED', 'Não foi possível guardar as alterações.', 400, {
+        detail: result.error ?? null,
+      });
     }
   }
 
@@ -199,9 +213,9 @@ async function handleUpdate(req: Request) {
     if (error) {
       const message = error.message ?? '';
       if (error.code === '23505' || /profile_private.*phone/i.test(message) || /phone_?key/i.test(message)) {
-        return NextResponse.json({ ok: false, error: 'PHONE_TAKEN' }, { status: 409 });
+        return jsonError('PHONE_TAKEN', 'Este número já está associado a outro utilizador.', 409);
       }
-      return NextResponse.json({ ok: false, error: 'UPDATE_FAILED' }, { status: 400 });
+      return jsonError('UPDATE_FAILED', 'Não foi possível guardar as alterações.', 400, { detail: message });
     }
   }
 
