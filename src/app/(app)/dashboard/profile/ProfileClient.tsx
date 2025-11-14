@@ -31,6 +31,7 @@ import Alert from '@/components/ui/Alert';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import PageHeader from '@/components/ui/PageHeader';
+import ProfileHeroTabs, { type ProfileHeroTab } from './ProfileHeroTabs';
 import FitnessQuestionnaireSummary from '@/components/questionnaire/FitnessQuestionnaireSummary';
 import { normalizeQuestionnaire } from '@/lib/questionnaire';
 import type { FitnessQuestionnaireRow } from '@/lib/questionnaire';
@@ -415,6 +416,18 @@ export default function ProfileClient({
     if (Number.isNaN(unread) || unread <= 0) return 'Sem alertas por ler';
     if (unread === 1) return '1 alerta por ler';
     return `${unread} alertas por ler`;
+  }, [dashboard.notifications.unread]);
+  const heroTabs = React.useMemo<ProfileHeroTab[]>(() => {
+    const unread = dashboard.notifications.unread;
+    const unreadNumber = typeof unread === 'number' && Number.isFinite(unread) ? unread : Number(unread ?? 0);
+    const unreadBadge = Number.isNaN(unreadNumber) || unreadNumber <= 0 ? null : unreadNumber;
+
+    return [
+      { label: 'Perfil', href: '/dashboard/profile', current: true },
+      { label: 'Planos de treino', href: '/dashboard/plans' },
+      { label: 'Mensagens', href: '/dashboard/messages', badge: unreadBadge },
+      { label: 'Definições', href: '/dashboard/settings' },
+    ];
   }, [dashboard.notifications.unread]);
   const favouriteTrainerLabel = React.useMemo(() => {
     const label = dashboard.sessions.favouriteTrainer;
@@ -857,6 +870,8 @@ export default function ProfileClient({
               ))}
             </ul>
           ) : null}
+
+          <ProfileHeroTabs tabs={heroTabs} ariaLabel="Navegação do perfil" />
 
           {heroHighlight ? (
             <div className={clsx('profile-dashboard__highlight', heroHighlight.tone)}>

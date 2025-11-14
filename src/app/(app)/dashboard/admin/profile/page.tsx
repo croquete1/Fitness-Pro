@@ -7,6 +7,13 @@ import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole } from '@/lib/roles';
 import { createServerClient } from '@/lib/supabaseServer';
 import ProfileForm from '@/app/(app)/dashboard/admin/profile/ProfileForm.client';
+import ProfileHeroTabs, { type ProfileHeroTab } from '@/app/(app)/dashboard/profile/ProfileHeroTabs';
+
+const ROLE_LABEL: Record<string, string> = {
+  CLIENT: 'Cliente',
+  PT: 'Personal Trainer',
+  ADMIN: 'Administrador',
+};
 
 const ROLE_LABEL: Record<string, string> = {
   CLIENT: 'Cliente',
@@ -83,6 +90,12 @@ export default async function ClientProfilePage() {
         title: 'Completa a tua biografia',
         description: 'Partilha especializações, certificações e objectivos para melhorar a comunicação com a equipa.',
       };
+  const heroTabs: ProfileHeroTab[] = [
+    { label: 'Perfil', href: '/dashboard/admin/profile', current: true },
+    { label: 'Equipa', href: '/dashboard/admin/users' },
+    { label: 'Planos', href: '/dashboard/admin/plans' },
+    { label: 'Definições', href: '/dashboard/settings' },
+  ];
 
   return (
     <div className="profile-dashboard profile-shell">
@@ -122,6 +135,8 @@ export default async function ClientProfilePage() {
               ))}
             </ul>
           ) : null}
+
+          <ProfileHeroTabs tabs={heroTabs} ariaLabel="Navegação do perfil do administrador" />
 
           {highlight ? (
             <div className={`profile-dashboard__highlight ${highlight.tone}`}>

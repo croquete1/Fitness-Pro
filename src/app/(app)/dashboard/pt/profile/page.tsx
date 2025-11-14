@@ -7,6 +7,12 @@ import { getSessionUserSafe } from '@/lib/session-bridge';
 import { toAppRole } from '@/lib/roles';
 import { createServerClient } from '@/lib/supabaseServer';
 import ProfileForm from '@/app/(app)/dashboard/admin/profile/ProfileForm.client';
+import ProfileHeroTabs, { type ProfileHeroTab } from '@/app/(app)/dashboard/profile/ProfileHeroTabs';
+
+const ROLE_LABEL: Record<string, string> = {
+  PT: 'Personal Trainer',
+  ADMIN: 'Administrador',
+};
 
 const ROLE_LABEL: Record<string, string> = {
   PT: 'Personal Trainer',
@@ -82,6 +88,13 @@ export default async function PTProfilePage() {
         title: 'Partilha a tua história',
         description: 'Uma biografia completa ajuda os clientes a confiar no teu acompanhamento.',
       };
+  const heroTabs: ProfileHeroTab[] = [
+    { label: 'Perfil', href: '/dashboard/pt/profile', current: true },
+    { label: 'Planos de treino', href: '/dashboard/pt/plans' },
+    { label: 'Clientes', href: '/dashboard/pt/clients' },
+    { label: 'Mensagens', href: '/dashboard/pt/messages' },
+    { label: 'Definições', href: '/dashboard/settings' },
+  ];
 
   return (
     <div className="profile-dashboard profile-shell">
@@ -121,6 +134,8 @@ export default async function PTProfilePage() {
               ))}
             </ul>
           ) : null}
+
+          <ProfileHeroTabs tabs={heroTabs} ariaLabel="Navegação do perfil do personal trainer" />
 
           {highlight ? (
             <div className={`profile-dashboard__highlight ${highlight.tone}`}>
