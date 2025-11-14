@@ -632,8 +632,6 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
     router.push('/dashboard/messages/new');
   }, [router]);
 
-  const isFallback = dashboard.source === 'fallback';
-
   return (
     <div className="messages-dashboard">
       <PageHeader
@@ -651,12 +649,6 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
       {error ? (
         <Alert tone="danger" title="Não foi possível actualizar as métricas">
           {error.message || 'Verifica a ligação e tenta novamente.'}
-        </Alert>
-      ) : null}
-
-      {isFallback ? (
-        <Alert tone="warning" title="Sincronização indisponível">
-          Não foi possível ligar ao servidor. As métricas apresentadas podem estar desactualizadas até que a ligação seja reposta.
         </Alert>
       ) : null}
 
@@ -739,7 +731,20 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
       </section>
 
       <section className="neo-stack neo-stack--lg">
-        <HeroMetrics metrics={dashboard.hero} />
+        <section
+          className="messages-dashboard__panel neo-panel messages-dashboard__heroPanel"
+          aria-label="Resumo das mensagens"
+        >
+          <header className="messages-dashboard__panelHeader">
+            <div>
+              <h2 className="messages-dashboard__panelTitle">Resumo rápido</h2>
+              <p className="messages-dashboard__panelSubtitle">
+                Principais indicadores das conversas no intervalo seleccionado.
+              </p>
+            </div>
+          </header>
+          <HeroMetrics metrics={dashboard.hero} />
+        </section>
 
         <div className="messages-dashboard__panel neo-panel">
           <header className="messages-dashboard__panelHeader">

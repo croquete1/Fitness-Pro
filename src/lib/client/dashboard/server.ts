@@ -1,4 +1,5 @@
 import { tryCreateServerClient } from '@/lib/supabaseServer';
+import { isSkippableSchemaError } from '@/lib/supabase/errors';
 
 import { buildClientDashboard } from './dashboard';
 import type {
@@ -16,6 +17,81 @@ import { getClientDashboardFallback } from '@/lib/fallback/client-dashboard';
 
 function uniq<T>(values: Iterable<T>): T[] {
   return Array.from(new Set(values));
+}
+
+function normaliseReadFlag(value: unknown): boolean | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') {
+    if (Number.isNaN(value)) return null;
+    return value !== 0;
+  }
+  if (typeof value === 'string') {
+    const normalised = value.trim().toLowerCase();
+    if (!normalised) return null;
+    if (['true', 't', '1', 'yes', 'y'].includes(normalised)) return true;
+    if (['false', 'f', '0', 'no', 'n'].includes(normalised)) return false;
+  }
+  if (typeof value === 'object') return Boolean(value);
+  return Boolean(value);
+}
+
+async function fetchClientNotifications(
+  sb: ReturnType<typeof tryCreateServerClient>,
+  clientId: string,
+): Promise<ClientNotificationRow[]> {
+  if (!sb) return [];
+
+  const baseQuery = sb
+    .from('notifications' as any)
+    .select('id,title,type,read,created_at')
+    .eq('user_id', clientId)
+    .order('created_at', { ascending: false })
+    .limit(24);
+
+  const { data, error } = await baseQuery;
+  if (!error) {
+    return (data ?? []).map((row: any) => ({
+      id: row.id,
+      title: row.title ?? null,
+      type: row.type ?? null,
+      read: normaliseReadFlag(row.read),
+      created_at: row.created_at ?? null,
+    }));
+  }
+
+  if (!isSkippableSchemaError(error)) {
+    throw error;
+  }
+
+  console.warn(
+    '[client-dashboard] notificações com esquema diferente do esperado, a recuar para selecção reduzida',
+    error,
+  );
+
+  const fallbackQuery = sb
+    .from('notifications' as any)
+    .select('id,title,read,created_at')
+    .eq('user_id', clientId)
+    .order('created_at', { ascending: false })
+    .limit(24);
+
+  const { data: fallbackData, error: fallbackError } = await fallbackQuery;
+  if (fallbackError) {
+    if (isSkippableSchemaError(fallbackError)) {
+      console.warn('[client-dashboard] tabela de notificações indisponível, a apresentar lista vazia', fallbackError);
+      return [];
+    }
+    throw fallbackError;
+  }
+
+  return (fallbackData ?? []).map((row: any) => ({
+    id: row.id,
+    title: row.title ?? null,
+    type: null,
+    read: normaliseReadFlag(row.read),
+    created_at: row.created_at ?? null,
+  }));
 }
 
 export async function loadClientDashboard(
@@ -38,7 +114,13 @@ export async function loadClientDashboard(
   futureEnd.setDate(futureEnd.getDate() + 30);
 
   try {
-    const [{ data: planRows, error: planError }, { data: sessionRows, error: sessionError }, { data: notificationRows, error: notificationError }, { data: measurementRows, error: measurementError }, { data: walletRow, error: walletError }, { data: walletEntryRows, error: walletEntryError }] = await Promise.all([
+    const [
+      { data: planRows, error: planError },
+      { data: sessionRows, error: sessionError },
+      { data: measurementRows, error: measurementError },
+      { data: walletRow, error: walletError },
+      { data: walletEntryRows, error: walletEntryError },
+    ] = await Promise.all([
       sb
         .from('training_plans')
         .select('id,title,status,client_id,trainer_id,start_date,end_date,updated_at,notes')
@@ -53,12 +135,6 @@ export async function loadClientDashboard(
         .lte('scheduled_at', futureEnd.toISOString())
         .order('scheduled_at', { ascending: true })
         .limit(180),
-      sb
-        .from('notifications')
-        .select('id,title,type,read,created_at')
-        .eq('user_id', clientId)
-        .order('created_at', { ascending: false })
-        .limit(24),
       sb
         .from('anthropometry')
         .select('measured_at,weight_kg,body_fat_pct,bmi')
@@ -78,13 +154,13 @@ export async function loadClientDashboard(
         .limit(24),
     ]);
 
-    if (planError || sessionError || notificationError || measurementError || walletError || walletEntryError) {
-      throw planError || sessionError || notificationError || measurementError || walletError || walletEntryError;
+    if (planError || sessionError || measurementError || walletError || walletEntryError) {
+      throw planError || sessionError || measurementError || walletError || walletEntryError;
     }
 
     const plans = (planRows ?? []) as ClientPlanRow[];
     const sessions = (sessionRows ?? []) as ClientSessionRowRaw[];
-    const notifications = (notificationRows ?? []) as ClientNotificationRow[];
+    const notifications = await fetchClientNotifications(sb, clientId);
     const measurements = (measurementRows ?? []) as ClientMeasurementRow[];
     const wallet = (walletRow ?? null) as ClientWalletRow | null;
     const walletEntries = (walletEntryRows ?? []) as ClientWalletEntryRow[];

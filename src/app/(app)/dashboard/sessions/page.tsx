@@ -5,6 +5,7 @@ import { createServerClient } from '@/lib/supabaseServer';
 import { getSessionUserSafe } from '@/lib/session-bridge';
 import SessionsClient from './SessionsClient';
 import type { ClientSession, SessionRequest } from '@/lib/sessions/types';
+import { isSkippableSchemaError } from '@/lib/supabase/errors';
 
 export default async function ClientSessionsPage() {
   const session = await getSessionUserSafe();
@@ -36,49 +37,58 @@ export default async function ClientSessionsPage() {
         .limit(80),
     ]);
 
-    if (sessionsResult.error) throw sessionsResult.error;
-    if (requestsResult.error) throw requestsResult.error;
+    if (!sessionsResult.error) {
+      sessions = (sessionsResult.data ?? []).map((row: any) => ({
+        id: row.id,
+        startISO: row.start_at ?? row.scheduled_at ?? null,
+        endISO: row.end_at ?? null,
+        durationMin: row.duration_min ?? null,
+        location: row.location ?? null,
+        notes: row.notes ?? null,
+        trainerId: row.trainer?.id ?? null,
+        trainerName: row.trainer?.name ?? null,
+        trainerEmail: row.trainer?.email ?? null,
+        status: row.status ?? null,
+        attendanceStatus: row.client_attendance_status ?? 'pending',
+        attendanceAt: row.client_attendance_at ?? null,
+      }));
+      supabaseAvailable = true;
+    } else if (isSkippableSchemaError(sessionsResult.error)) {
+      console.warn('[dashboard/sessions] tabela de sessões indisponível, a apresentar dados vazios', sessionsResult.error);
+    } else {
+      throw sessionsResult.error;
+    }
 
-    sessions = (sessionsResult.data ?? []).map((row: any) => ({
-      id: row.id,
-      startISO: row.start_at ?? row.scheduled_at ?? null,
-      endISO: row.end_at ?? null,
-      durationMin: row.duration_min ?? null,
-      location: row.location ?? null,
-      notes: row.notes ?? null,
-      trainerId: row.trainer?.id ?? null,
-      trainerName: row.trainer?.name ?? null,
-      trainerEmail: row.trainer?.email ?? null,
-      status: row.status ?? null,
-      attendanceStatus: row.client_attendance_status ?? 'pending',
-      attendanceAt: row.client_attendance_at ?? null,
-    }));
-
-    requests = (requestsResult.data ?? []).map((row: any) => ({
-      id: row.id,
-      sessionId: row.session_id ?? null,
-      status: (row.status ?? 'pending') as SessionRequest['status'],
-      requestedStart: row.requested_start ?? null,
-      requestedEnd: row.requested_end ?? null,
-      proposedStart: row.proposed_start ?? null,
-      proposedEnd: row.proposed_end ?? null,
-      message: row.message ?? null,
-      trainerNote: row.trainer_note ?? null,
-      rescheduleNote: row.reschedule_note ?? null,
-      createdAt: row.created_at ?? null,
-      updatedAt: row.updated_at ?? null,
-      respondedAt: row.responded_at ?? null,
-      proposedAt: row.proposed_at ?? null,
-      trainer: row.trainer
-        ? {
-            id: row.trainer.id ?? '',
-            name: row.trainer.name ?? null,
-            email: row.trainer.email ?? null,
-          }
-        : null,
-    }));
-
-    supabaseAvailable = true;
+    if (!requestsResult.error) {
+      requests = (requestsResult.data ?? []).map((row: any) => ({
+        id: row.id,
+        sessionId: row.session_id ?? null,
+        status: (row.status ?? 'pending') as SessionRequest['status'],
+        requestedStart: row.requested_start ?? null,
+        requestedEnd: row.requested_end ?? null,
+        proposedStart: row.proposed_start ?? null,
+        proposedEnd: row.proposed_end ?? null,
+        message: row.message ?? null,
+        trainerNote: row.trainer_note ?? null,
+        rescheduleNote: row.reschedule_note ?? null,
+        createdAt: row.created_at ?? null,
+        updatedAt: row.updated_at ?? null,
+        respondedAt: row.responded_at ?? null,
+        proposedAt: row.proposed_at ?? null,
+        trainer: row.trainer
+          ? {
+              id: row.trainer.id ?? '',
+              name: row.trainer.name ?? null,
+              email: row.trainer.email ?? null,
+            }
+          : null,
+      }));
+      supabaseAvailable = true;
+    } else if (isSkippableSchemaError(requestsResult.error)) {
+      console.warn('[dashboard/sessions] pedidos de sessão indisponíveis na instância actual', requestsResult.error);
+    } else {
+      throw requestsResult.error;
+    }
   } catch (error) {
     console.warn('[dashboard/sessions] supabase indisponível', error);
   }

@@ -11547,14 +11547,15 @@ h1,.h1{
 /* Messages dashboard */
 .messages-dashboard{ display:flex; flex-direction:column; gap:28px; }
 .messages-dashboard__headerActions{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
-.messages-dashboard__hero{ display:grid; gap:18px; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); }
-.messages-dashboard__heroCard{ border:1px solid color-mix(in srgb, var(--border) 76%, transparent); border-radius:20px; padding:22px; background:color-mix(in srgb, var(--surface) 96%, transparent); display:flex; flex-direction:column; gap:10px; transition:border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease; }
+.messages-dashboard__heroPanel{ gap:24px; padding:28px; border:1px solid color-mix(in srgb, var(--border) 82%, transparent); background:color-mix(in srgb, var(--surface) 99%, transparent); box-shadow:0 20px 54px color-mix(in srgb, var(--shadow) 12%, transparent); }
+.messages-dashboard__hero{ display:grid; gap:20px; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); }
+.messages-dashboard__heroCard{ border:1px solid color-mix(in srgb, var(--border) 88%, transparent); border-radius:20px; padding:24px; background:color-mix(in srgb, var(--surface) 99%, transparent); display:flex; flex-direction:column; gap:12px; box-shadow:0 18px 40px color-mix(in srgb, var(--shadow) 16%, transparent); transition:border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease; }
 .messages-dashboard__heroCard[data-tone="positive"]{ border-color:color-mix(in srgb, var(--neo-success) 55%, transparent); }
 .messages-dashboard__heroCard[data-tone="warning"]{ border-color:color-mix(in srgb, var(--neo-warning) 55%, transparent); }
-.messages-dashboard__heroCard:hover{ transform:translateY(-3px); border-color:color-mix(in srgb, var(--neo-primary) 55%, transparent); box-shadow:0 18px 42px color-mix(in srgb, var(--neo-primary) 18%, transparent); }
-.messages-dashboard__heroIcon{ display:inline-flex; width:40px; height:40px; align-items:center; justify-content:center; border-radius:14px; background:color-mix(in srgb, var(--neo-primary) 12%, transparent); color:color-mix(in srgb, var(--neo-primary) 65%, transparent); }
+.messages-dashboard__heroCard:hover{ transform:translateY(-4px); border-color:color-mix(in srgb, var(--neo-primary) 55%, transparent); box-shadow:0 24px 60px color-mix(in srgb, var(--neo-primary) 22%, transparent); }
+.messages-dashboard__heroIcon{ display:inline-flex; width:42px; height:42px; align-items:center; justify-content:center; border-radius:14px; background:color-mix(in srgb, var(--neo-primary) 16%, transparent); color:color-mix(in srgb, var(--neo-primary) 68%, transparent); box-shadow:0 12px 26px color-mix(in srgb, var(--neo-primary) 20%, transparent); }
 .messages-dashboard__heroLabel{ font-size:13px; text-transform:uppercase; letter-spacing:0.08em; color:color-mix(in srgb, var(--muted-fg) 80%, transparent); }
-.messages-dashboard__heroValue{ font-size:32px; font-weight:700; color:var(--fg); }
+.messages-dashboard__heroValue{ font-size:34px; font-weight:700; color:var(--fg); }
 .messages-dashboard__heroHint{ font-size:14px; color:var(--muted-fg); }
 .messages-dashboard__heroTrend{ font-size:12px; color:color-mix(in srgb, var(--neo-primary) 70%, transparent); font-weight:600; }
 .messages-dashboard__panel{ display:flex; flex-direction:column; gap:16px; padding:24px; border-radius:22px; border:1px solid color-mix(in srgb, var(--border) 78%, transparent); background:color-mix(in srgb, var(--surface) 98%, transparent); box-shadow:0 12px 42px color-mix(in srgb, var(--shadow) 6%, transparent); }

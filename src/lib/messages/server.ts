@@ -2,6 +2,7 @@ import { tryCreateServerClient } from '@/lib/supabaseServer';
 import { buildMessagesDashboard } from './dashboard';
 import type { MessageRecord, MessagesDashboardData } from './types';
 import { getMessagesDashboardFallback } from '@/lib/fallback/messages';
+import { isSkippableSchemaError } from '@/lib/supabase/errors';
 
 const DAY_MS = 86_400_000;
 const MIN_RANGE = 7;
@@ -78,7 +79,13 @@ export async function loadMessagesDashboard(viewerId: string, rangeDays = 14): P
       .limit(limit);
 
     const { data, error } = await query;
-    if (error) throw error;
+    if (error) {
+      if (isSkippableSchemaError(error)) {
+        console.warn('[messages-dashboard] tabela de mensagens indisponível, a recorrer aos dados fictícios', error);
+        return { ...fallback, ok: true, source: 'fallback' } satisfies MessagesDashboardResponse;
+      }
+      throw error;
+    }
 
     const rows: MessageRow[] = Array.isArray(data) ? (data as MessageRow[]) : [];
     const participantIds = new Set<string>();
@@ -137,7 +144,11 @@ export async function loadMessagesDashboard(viewerId: string, rangeDays = 14): P
     const dashboard = buildMessagesDashboard(records, { viewerId, rangeDays: safeRange });
     return { ...dashboard, ok: true, source: 'supabase' } satisfies MessagesDashboardResponse;
   } catch (error) {
-    console.error('[messages-dashboard] erro ao carregar dados', error);
-    return { ...fallback, ok: true, source: 'fallback' };
+    if (isSkippableSchemaError(error)) {
+      console.warn('[messages-dashboard] estrutura do supabase incompatível, a recorrer aos dados fictícios', error);
+    } else {
+      console.error('[messages-dashboard] erro ao carregar dados', error);
+    }
+    return { ...fallback, ok: true, source: 'fallback' } satisfies MessagesDashboardResponse;
   }
 }
