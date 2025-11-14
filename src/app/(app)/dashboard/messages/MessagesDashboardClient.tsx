@@ -21,6 +21,7 @@ import {
   RefreshCcw,
   Search as SearchIcon,
   Send,
+  Sparkles,
   Users,
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
@@ -351,6 +352,15 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
   const generatedRelative = React.useMemo(() => formatRelativeTime(generatedAt), [generatedAt]);
   const pendingResponses = dashboard.totals.pendingResponses;
   const hasPendingResponses = pendingResponses > 0;
+  const responseMetric = React.useMemo(
+    () => dashboard.hero.find((metric) => metric.key === 'messages-response-time') ?? null,
+    [dashboard.hero],
+  );
+  const scrollToChat = React.useCallback(() => {
+    const element = document.getElementById('messages-chat');
+    if (!element) return;
+    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
 
   React.useEffect(() => {
     const rawRange = searchParams?.get('range');
@@ -468,6 +478,45 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
           </div>
         }
       />
+
+      <section className="messages-dashboard__cta" aria-label="Enviar mensagem ao Personal Trainer">
+        <div className="messages-dashboard__ctaBackground" aria-hidden />
+        <div className="messages-dashboard__ctaContent">
+          <span className="messages-dashboard__ctaBadge">
+            <Sparkles size={16} aria-hidden /> Conversa com o teu PT
+          </span>
+          <div className="messages-dashboard__ctaBody">
+            <h2>Partilha actualizações em segundos</h2>
+            <p>
+              Mantém o teu Personal Trainer a par dos treinos, dúvidas ou progresso. O tempo mediano de resposta é
+              {' '}
+              {responseMetric?.value ?? 'indisponível'}, com base nas tuas conversas recentes.
+            </p>
+          </div>
+          <div className="messages-dashboard__ctaActions">
+            <Button variant="primary" size="sm" onClick={goToComposer} leftIcon={<Send size={16} aria-hidden />}> 
+              Escrever mensagem
+            </Button>
+            <Button variant="ghost" size="sm" onClick={scrollToChat}>
+              Ver conversas
+            </Button>
+          </div>
+        </div>
+        <dl className="messages-dashboard__ctaStats">
+          <div>
+            <dt>Mensagens trocadas</dt>
+            <dd>{formatNumber(totalMessages)}</dd>
+          </div>
+          <div>
+            <dt>Tempo mediano de resposta</dt>
+            <dd>{responseMetric?.value ?? '—'}</dd>
+          </div>
+          <div>
+            <dt>Pendentes para resposta</dt>
+            <dd data-warning={hasPendingResponses ? 'true' : undefined}>{formatNumber(pendingResponses)}</dd>
+          </div>
+        </dl>
+      </section>
 
       {error ? (
         <Alert tone="danger" title="Não foi possível actualizar as métricas">
@@ -594,7 +643,9 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
           </div>
         </div>
 
-        <ChatPanel viewerId={viewerId} />
+        <div id="messages-chat">
+          <ChatPanel viewerId={viewerId} />
+        </div>
 
         <section className="messages-dashboard__panel neo-panel">
           <header className="messages-dashboard__panelHeader">
