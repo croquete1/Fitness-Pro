@@ -17,6 +17,7 @@ import {
   Bell,
   CalendarClock,
   CheckCircle2,
+  Edit3,
   Loader2,
   Mail,
   RefreshCcw,
@@ -30,6 +31,7 @@ import Alert from '@/components/ui/Alert';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import PageHeader from '@/components/ui/PageHeader';
+import ProfileHeroTabs, { type ProfileHeroTab } from './ProfileHeroTabs';
 import FitnessQuestionnaireSummary from '@/components/questionnaire/FitnessQuestionnaireSummary';
 import { normalizeQuestionnaire } from '@/lib/questionnaire';
 import type { FitnessQuestionnaireRow } from '@/lib/questionnaire';
@@ -183,6 +185,14 @@ function TrendPill({ trend }: TrendProps) {
       {trend.label}
     </span>
   );
+}
+
+function resolveRoleLabel(role: string | null): string {
+  if (!role) return 'Cliente';
+  const normalized = role.trim().toUpperCase();
+  if (normalized === 'PT' || normalized === 'PERSONAL_TRAINER') return 'Personal Trainer';
+  if (normalized === 'ADMIN' || normalized === 'ADMINISTRATOR') return 'Administrador';
+  return 'Cliente';
 }
 
 function TimelineTooltip({ active, payload, label }: any) {
@@ -391,6 +401,7 @@ export default function ProfileClient({
 
   const dashboard = data ?? initialDashboard;
   const account = dashboard.account;
+  const roleLabel = React.useMemo(() => resolveRoleLabel(account.role), [account.role]);
   const nextReminderDescriptor = React.useMemo(
     () => getTemporalDescriptor(dashboard.notifications.nextReminderAt, relativeNow),
     [dashboard.notifications.nextReminderAt, relativeNow],
@@ -406,12 +417,62 @@ export default function ProfileClient({
     if (unread === 1) return '1 alerta por ler';
     return `${unread} alertas por ler`;
   }, [dashboard.notifications.unread]);
+  const heroTabs = React.useMemo<ProfileHeroTab[]>(() => {
+    const unread = dashboard.notifications.unread;
+    const unreadNumber = typeof unread === 'number' && Number.isFinite(unread) ? unread : Number(unread ?? 0);
+    const unreadBadge = Number.isNaN(unreadNumber) || unreadNumber <= 0 ? null : unreadNumber;
+
+    return [
+      { label: 'Perfil', href: '/dashboard/profile', current: true },
+      { label: 'Planos de treino', href: '/dashboard/plans' },
+      { label: 'Mensagens', href: '/dashboard/messages', badge: unreadBadge },
+      { label: 'Definições', href: '/dashboard/settings' },
+    ];
+  }, [dashboard.notifications.unread]);
   const favouriteTrainerLabel = React.useMemo(() => {
     const label = dashboard.sessions.favouriteTrainer;
     if (typeof label !== 'string') return null;
     const trimmed = label.trim();
     return trimmed.length > 0 ? trimmed : null;
   }, [dashboard.sessions.favouriteTrainer]);
+  const memberSinceDescriptor = React.useMemo(
+    () => getTemporalDescriptor(account.createdAt, relativeNow),
+    [account.createdAt, relativeNow],
+  );
+  const nextSessionDescriptor = React.useMemo(
+    () => getTemporalDescriptor(dashboard.sessions.nextSessionAt, relativeNow),
+    [dashboard.sessions.nextSessionAt, relativeNow],
+  );
+  const lastSessionDescriptor = React.useMemo(
+    () => getTemporalDescriptor(dashboard.sessions.lastCompletedAt, relativeNow),
+    [dashboard.sessions.lastCompletedAt, relativeNow],
+  );
+  const memberSinceLabel = React.useMemo(() => {
+    if (!memberSinceDescriptor) return null;
+    return `Conta activa desde ${memberSinceDescriptor.absolute}`;
+  }, [memberSinceDescriptor]);
+  const heroMetaItems = React.useMemo(() => {
+    const items: string[] = [];
+    if (nextSessionDescriptor) {
+      const nextLabel =
+        nextSessionDescriptor.relative ?? `a ${nextSessionDescriptor.absolute}`;
+      items.push(`Próxima sessão ${nextLabel}`);
+    }
+    if (lastSessionDescriptor) {
+      const lastLabel =
+        lastSessionDescriptor.relative ?? lastSessionDescriptor.absolute;
+      items.push(`Última sessão ${lastLabel}`);
+    }
+    if (favouriteTrainerLabel) {
+      items.push(`PT preferido: ${favouriteTrainerLabel}`);
+    }
+    return items;
+  }, [favouriteTrainerLabel, lastSessionDescriptor, nextSessionDescriptor]);
+  const profileBio = React.useMemo(() => {
+    const bio = account.bio?.trim();
+    if (bio && bio.length > 0) return bio;
+    return 'Adiciona uma breve biografia para orientar o teu Personal Trainer.';
+  }, [account.bio]);
   const notificationsLastDeliveryMessage = React.useMemo(() => {
     if (!lastDeliveryDescriptor) {
       return 'Ainda não recebeste alertas automáticos.';
@@ -576,6 +637,12 @@ export default function ProfileClient({
     setRefreshStatus({ type: 'success', message: 'Dados sincronizados com sucesso.' });
   }
 
+  const scrollToForm = React.useCallback(() => {
+    const element = document.getElementById('profile-form');
+    if (!element) return;
+    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
+
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving || !dirty) return;
@@ -720,18 +787,6 @@ export default function ProfileClient({
         eyebrow="Área pessoal"
         title="Perfil"
         subtitle="Actualiza os teus dados pessoais e acompanha a tua actividade recente."
-        actions={
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={refreshDashboard}
-            leftIcon={refreshBusy ? <Loader2 className="icon-spin" aria-hidden /> : <RefreshCcw className="icon" aria-hidden />}
-            disabled={refreshBusy}
-            aria-describedby={refreshStatus.type !== 'idle' ? refreshStatusId : undefined}
-          >
-            Actualizar dados
-          </Button>
-        }
       />
 
       {refreshStatus.type !== 'idle' ? (
@@ -768,23 +823,56 @@ export default function ProfileClient({
         </Alert>
       ) : null}
 
-      <section className="neo-panel profile-dashboard__hero">
-        <div className="profile-dashboard__heroHeader">
-          <div className="profile-dashboard__heroIdentity">
-            <div className="profile-dashboard__avatar" aria-hidden>
-              {form.avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={form.avatarUrl} alt={account.name ?? account.email} />
-              ) : (
-                <span>{(account.name ?? account.email).slice(0, 2).toUpperCase()}</span>
-              )}
+      <section className="profile-dashboard__hero" aria-label="Resumo do perfil">
+        <div className="profile-dashboard__heroBackdrop" aria-hidden />
+        <div className="profile-dashboard__heroInner">
+          <div className="profile-dashboard__heroHeader">
+            <div className="profile-dashboard__heroIdentity">
+              <div className="profile-dashboard__avatar" aria-hidden>
+                {form.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={form.avatarUrl} alt={account.name ?? account.email} />
+                ) : (
+                  <span>{(account.name ?? account.email).slice(0, 2).toUpperCase()}</span>
+                )}
+              </div>
+              <div>
+                <span className="profile-dashboard__heroRole">{roleLabel}</span>
+                <h1>{account.name || account.email}</h1>
+                <p>{profileBio}</p>
+              </div>
             </div>
-            <div>
-              <h1>{account.name || account.email}</h1>
-              <p>{account.email}</p>
-              {account.role ? <span className="profile-dashboard__role">{account.role}</span> : null}
+            <div className="profile-dashboard__heroActions">
+              {memberSinceLabel ? <span className="profile-dashboard__heroStatus">{memberSinceLabel}</span> : null}
+              <div className="profile-dashboard__heroButtons">
+                <Button variant="secondary" size="sm" onClick={scrollToForm} leftIcon={<Edit3 className="icon" aria-hidden />}>
+                  Editar perfil
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={refreshDashboard}
+                  leftIcon={refreshBusy ? <Loader2 className="icon-spin" aria-hidden /> : <RefreshCcw className="icon" aria-hidden />}
+                  disabled={refreshBusy}
+                  loading={refreshBusy}
+                  aria-describedby={refreshStatus.type !== 'idle' ? refreshStatusId : undefined}
+                >
+                  Actualizar dados
+                </Button>
+              </div>
             </div>
           </div>
+
+          {heroMetaItems.length ? (
+            <ul className="profile-dashboard__heroMeta" role="list">
+              {heroMetaItems.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          ) : null}
+
+          <ProfileHeroTabs tabs={heroTabs} ariaLabel="Navegação do perfil" />
+
           {heroHighlight ? (
             <div className={clsx('profile-dashboard__highlight', heroHighlight.tone)}>
               <HeroHighlightIcon aria-hidden />
@@ -803,19 +891,19 @@ export default function ProfileClient({
               </div>
             </div>
           ) : null}
-        </div>
 
-        <div className="profile-dashboard__heroMetrics">
-          {dashboard.hero.map((metric) => (
-            <article key={metric.id} className={clsx('profile-hero__metric', metric.tone)}>
-              <header>
-                <span>{metric.label}</span>
-                <TrendPill trend={metric.trend ?? null} />
-              </header>
-              <strong>{metric.value}</strong>
-              <p>{metric.helper}</p>
-            </article>
-          ))}
+          <div className="profile-dashboard__heroMetrics">
+            {dashboard.hero.map((metric) => (
+              <article key={metric.id} className={clsx('profile-hero__metric', metric.tone)}>
+                <header>
+                  <span>{metric.label}</span>
+                  <TrendPill trend={metric.trend ?? null} />
+                </header>
+                <strong>{metric.value}</strong>
+                <p>{metric.helper}</p>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -999,7 +1087,7 @@ export default function ProfileClient({
         </section>
       </div>
 
-      <section className="neo-panel profile-dashboard__form">
+      <section className="neo-panel profile-dashboard__form" id="profile-form">
         <header>
           <div>
             <h2>Dados pessoais</h2>
