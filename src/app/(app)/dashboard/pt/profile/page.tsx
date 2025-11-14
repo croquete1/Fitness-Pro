@@ -9,12 +9,7 @@ import { createServerClient } from '@/lib/supabaseServer';
 import ProfileForm from '@/app/(app)/dashboard/admin/profile/ProfileForm.client';
 import ProfileHeroTabs, { type ProfileHeroTab } from '@/app/(app)/dashboard/profile/ProfileHeroTabs';
 
-const ROLE_LABEL: Record<string, string> = {
-  PT: 'Personal Trainer',
-  ADMIN: 'Administrador',
-};
-
-const ROLE_LABEL: Record<string, string> = {
+const PT_ROLE_LABELS: Record<string, string> = {
   PT: 'Personal Trainer',
   ADMIN: 'Administrador',
 };
@@ -54,7 +49,7 @@ export default async function PTProfilePage() {
   const username = initial.username?.trim() || null;
   const phone = initial.phone?.trim() || null;
   const bio = initial.bio?.trim() || '';
-  const roleLabelText = ROLE_LABEL[role] ?? 'Personal Trainer';
+  const roleLabelText = PT_ROLE_LABELS[role] ?? 'Personal Trainer';
   const aboutText = bio || 'Explica a tua metodologia de treino, áreas de especialização e objectivos com os clientes.';
   const heroMeta = [
     `Email: ${email || '—'}`,
