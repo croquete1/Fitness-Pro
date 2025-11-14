@@ -32,6 +32,9 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import PageHeader from '@/components/ui/PageHeader';
 import ProfileHeroTabs, { type ProfileHeroTab } from './ProfileHeroTabs';
+import ProfilePlansPanel, { type ProfilePlansPanelData } from './ProfilePlansPanel';
+import ProfileMessagesPanel from './ProfileMessagesPanel';
+import type { MessagesDashboardResponse } from '@/lib/messages/server';
 import FitnessQuestionnaireSummary from '@/components/questionnaire/FitnessQuestionnaireSummary';
 import { normalizeQuestionnaire } from '@/lib/questionnaire';
 import type { FitnessQuestionnaireRow } from '@/lib/questionnaire';
@@ -251,6 +254,13 @@ type QuestionnaireResponse = {
   error?: string;
 };
 
+type ProfileClientProps = {
+  initialDashboard: ProfileDashboardResponse;
+  initialQuestionnaire: QuestionnaireResponse | null;
+  initialPlans: ProfilePlansPanelData;
+  initialMessages: MessagesDashboardResponse;
+};
+
 async function fetchProfileDashboard(url: string): Promise<ProfileDashboardResponse> {
   const res = await fetch(url, { cache: 'no-store' });
   const payload = await res.json().catch(() => null);
@@ -296,10 +306,9 @@ function extractErrorMessage(error: unknown): string | null {
 export default function ProfileClient({
   initialDashboard,
   initialQuestionnaire,
-}: {
-  initialDashboard: ProfileDashboardResponse;
-  initialQuestionnaire: QuestionnaireResponse | null;
-}) {
+  initialPlans,
+  initialMessages,
+}: ProfileClientProps) {
   const {
     data,
     mutate,
@@ -357,6 +366,7 @@ export default function ProfileClient({
   }, [mutateQuestionnaire]);
 
   const refreshStatusId = React.useId();
+  const [activeTab, setActiveTab] = React.useState<'profile' | 'plans' | 'messages' | 'settings'>('profile');
 
   const [relativeNow, setRelativeNow] = React.useState(() => Date.now());
   React.useEffect(() => {
@@ -417,16 +427,16 @@ export default function ProfileClient({
     if (unread === 1) return '1 alerta por ler';
     return `${unread} alertas por ler`;
   }, [dashboard.notifications.unread]);
-  const heroTabs = React.useMemo<ProfileHeroTab[]>(() => {
+  const heroTabs = React.useMemo<ProfileHeroTab<'profile' | 'plans' | 'messages' | 'settings'>[]>(() => {
     const unread = dashboard.notifications.unread;
     const unreadNumber = typeof unread === 'number' && Number.isFinite(unread) ? unread : Number(unread ?? 0);
     const unreadBadge = Number.isNaN(unreadNumber) || unreadNumber <= 0 ? null : unreadNumber;
 
     return [
-      { label: 'Perfil', href: '/dashboard/profile', current: true },
-      { label: 'Planos de treino', href: '/dashboard/plans' },
-      { label: 'Mensagens', href: '/dashboard/messages', badge: unreadBadge },
-      { label: 'Definições', href: '/dashboard/settings' },
+      { label: 'Perfil', value: 'profile', kind: 'local' },
+      { label: 'Planos de treino', value: 'plans', kind: 'local' },
+      { label: 'Mensagens', value: 'messages', kind: 'local', badge: unreadBadge },
+      { label: 'Definições', value: 'settings', kind: 'link', href: '/dashboard/settings' },
     ];
   }, [dashboard.notifications.unread]);
   const favouriteTrainerLabel = React.useMemo(() => {
@@ -871,7 +881,12 @@ export default function ProfileClient({
             </ul>
           ) : null}
 
-          <ProfileHeroTabs tabs={heroTabs} ariaLabel="Navegação do perfil" />
+          <ProfileHeroTabs<'profile' | 'plans' | 'messages' | 'settings'>
+            tabs={heroTabs}
+            value={activeTab}
+            onValueChange={setActiveTab}
+            ariaLabel="Navegação do perfil"
+          />
 
           {heroHighlight ? (
             <div className={clsx('profile-dashboard__highlight', heroHighlight.tone)}>
@@ -906,6 +921,13 @@ export default function ProfileClient({
           </div>
         </div>
       </section>
+      <div className="profile-dashboard__panels">
+        <div
+          id="profile-panel-profile"
+          role="tabpanel"
+          aria-labelledby="profile-tab-profile"
+          hidden={activeTab !== 'profile'}
+        >
 
       <section
         className="neo-panel profile-dashboard__questionnaire"
@@ -1193,8 +1215,8 @@ export default function ProfileClient({
         </form>
       </section>
 
-      <div className="profile-dashboard__columns">
-        <section className="neo-panel profile-dashboard__preferences">
+          <div className="profile-dashboard__columns">
+            <section className="neo-panel profile-dashboard__preferences">
           <header>
             <div>
               <h2>Preferências de notificação</h2>
@@ -1216,9 +1238,9 @@ export default function ProfileClient({
               </li>
             ))}
           </ul>
-        </section>
+            </section>
 
-        <section className="neo-panel profile-dashboard__devices">
+            <section className="neo-panel profile-dashboard__devices">
           <header>
             <div>
               <h2>Dispositivos sincronizados</h2>
@@ -1241,35 +1263,55 @@ export default function ProfileClient({
               <li className="profile-dashboard__empty">Nenhum dispositivo registado.</li>
             )}
           </ul>
-        </section>
-      </div>
-
-      <section className="neo-panel profile-dashboard__activity">
-        <header>
-          <div>
-            <h2>Actividade recente</h2>
-            <p>Os registos mais relevantes associados à tua conta.</p>
+            </section>
           </div>
-          <ShieldCheck aria-hidden />
-        </header>
-        <ul>
-          {dashboard.activity.length ? (
-            dashboard.activity.map((entry) => (
-              <li key={entry.id} data-tone={entry.tone}>
-                <div>
-                  <strong>{entry.title}</strong>
-                  <p>{entry.description}</p>
-                </div>
-                <time dateTime={entry.at ?? undefined}>
-                  {entry.at ? new Date(entry.at).toLocaleString('pt-PT') : '—'}
-                </time>
-              </li>
-            ))
-          ) : (
-            <li className="profile-dashboard__empty">Sem registos recentes.</li>
-          )}
-        </ul>
-      </section>
+
+          <section className="neo-panel profile-dashboard__activity">
+            <header>
+              <div>
+                <h2>Actividade recente</h2>
+                <p>Os registos mais relevantes associados à tua conta.</p>
+              </div>
+              <ShieldCheck aria-hidden />
+            </header>
+            <ul>
+              {dashboard.activity.length ? (
+                dashboard.activity.map((entry) => (
+                  <li key={entry.id} data-tone={entry.tone}>
+                    <div>
+                      <strong>{entry.title}</strong>
+                      <p>{entry.description}</p>
+                    </div>
+                    <time dateTime={entry.at ?? undefined}>
+                      {entry.at ? new Date(entry.at).toLocaleString('pt-PT') : '—'}
+                    </time>
+                  </li>
+                ))
+              ) : (
+                <li className="profile-dashboard__empty">Sem registos recentes.</li>
+              )}
+            </ul>
+          </section>
+        </div>
+
+        <div
+          id="profile-panel-plans"
+          role="tabpanel"
+          aria-labelledby="profile-tab-plans"
+          hidden={activeTab !== 'plans'}
+        >
+          <ProfilePlansPanel initialData={initialPlans} />
+        </div>
+
+        <div
+          id="profile-panel-messages"
+          role="tabpanel"
+          aria-labelledby="profile-tab-messages"
+          hidden={activeTab !== 'messages'}
+        >
+          <ProfileMessagesPanel initialData={initialMessages} viewerRole="client" />
+        </div>
+      </div>
     </div>
   );
 }

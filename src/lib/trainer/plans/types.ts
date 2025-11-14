@@ -92,3 +92,8 @@ export type TrainerPlansDashboardData = {
   clients: TrainerPlanClientSnapshot[];
   rows: TrainerPlanTableRow[];
 };
+
+export type TrainerPlansDashboardPayload = TrainerPlansDashboardData & {
+  ok: true;
+  source: 'supabase' | 'fallback';
+};
