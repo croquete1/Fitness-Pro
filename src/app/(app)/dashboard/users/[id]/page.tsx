@@ -13,6 +13,7 @@ import ClientProfileClient, {
   type SessionSummary,
   type TrainerOption,
 } from './profile.client';
+import { loadClientPlanFeedback } from '@/lib/plan-feedback/server';
 
 export default async function UserProfileView({ params }: { params: Promise<{ id: string }> }) {
   const { id: targetId } = await params;
@@ -281,6 +282,10 @@ export default async function UserProfileView({ params }: { params: Promise<{ id
     .filter((value): value is string => typeof value === 'string' && value.length > 0)
     .sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
+  const planFeedback = await loadClientPlanFeedback(sb, targetId, {
+    clientName: u.name ?? u.email ?? null,
+  });
+
   const payload: ClientProfilePayload = {
     viewer: {
       id: me.id,
@@ -319,6 +324,7 @@ export default async function UserProfileView({ params }: { params: Promise<{ id
       lastSession,
       lastActivity: activityCandidates.length ? activityCandidates[0] : null,
     },
+    planFeedback,
   };
 
   return <ClientProfileClient {...payload} />;

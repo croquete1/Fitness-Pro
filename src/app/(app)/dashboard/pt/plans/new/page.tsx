@@ -9,7 +9,11 @@ function normaliseName(record: { full_name?: string | null; name?: string | null
   return null;
 }
 
-export default async function NewPlanPage() {
+type PageProps = {
+  searchParams?: Record<string, string | string[] | undefined>;
+};
+
+export default async function NewPlanPage({ searchParams }: PageProps) {
   const sb = createServerClient();
   const {
     data: { user },
@@ -61,9 +65,14 @@ export default async function NewPlanPage() {
     // ignorar falhas neste bloco
   }
 
+  const clientIdParam = Array.isArray(searchParams?.clientId)
+    ? searchParams?.clientId[0]
+    : searchParams?.clientId;
+  const defaultClientId = typeof clientIdParam === 'string' ? clientIdParam : '';
+
   return (
     <div className="max-w-3xl space-y-6">
-      <NewPlanClient clients={clients} templates={templates} />
+      <NewPlanClient clients={clients} templates={templates} defaultClientId={defaultClientId || undefined} />
     </div>
   );
 }
