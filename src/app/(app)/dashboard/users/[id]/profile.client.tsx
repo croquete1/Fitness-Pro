@@ -693,7 +693,7 @@ export default function ClientProfileClient({
             </div>
           </section>
 
-          <section className="neo-panel client-profile__card">
+          <section id="trainer-management" className="neo-panel client-profile__card">
             <div className="client-profile__cardHeader">
               <h2 className="client-profile__sectionTitle">Gestão do PT</h2>
               <span className="client-profile__muted">Controla o vínculo entre o cliente e um treinador principal.</span>

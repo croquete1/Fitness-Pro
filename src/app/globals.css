@@ -2818,6 +2818,15 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
   align-items:center;
   gap:12px;
 }
+.admin-users__nameLink{
+  text-decoration:none;
+  color:inherit;
+}
+.admin-users__nameLink:focus-visible{
+  outline:2px solid color-mix(in srgb, var(--primary) 70%, transparent);
+  outline-offset:3px;
+  border-radius:999px;
+}
 .admin-users__avatar{
   width:38px;
   height:38px;
@@ -2943,6 +2952,20 @@ html[data-sb-collapsed="1"] .fp-sidebar:hover .nav-section{ display:block; }
 }
 .admin-users__actions{
   text-align:right;
+}
+.admin-users__actionsGroup{
+  display:inline-flex;
+  flex-wrap:wrap;
+  gap:8px;
+  justify-content:flex-end;
+}
+.clientes-table__nameLink{
+  color:inherit;
+  text-decoration:none;
+}
+.clientes-table__nameLink:hover,
+.clientes-table__nameLink:focus-visible{
+  text-decoration:underline;
 }
 .admin-users__loading{
   margin-top:12px;
