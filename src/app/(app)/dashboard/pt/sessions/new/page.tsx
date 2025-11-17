@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 import Alert from '@/components/ui/Alert';
 import Button from '@/components/ui/Button';
@@ -128,6 +128,7 @@ function computeMetrics(sessions: SessionLite[]): {
 
 export default function NewSessionPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [clients, setClients] = React.useState<ClientOption[]>([]);
   const [clientMeta, setClientMeta] = React.useState<SourceMeta>({ source: 'supabase', fetchedAt: null });
   const [sessions, setSessions] = React.useState<SessionLite[]>([]);
@@ -137,6 +138,16 @@ export default function NewSessionPage() {
   const [errors, setErrors] = React.useState<FormErrors>({});
   const [feedback, setFeedback] = React.useState<{ tone: 'success' | 'danger'; message: string } | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
+  const clientPresetApplied = React.useRef(false);
+
+  React.useEffect(() => {
+    if (clientPresetApplied.current) return;
+    const preset = searchParams?.get('clientId');
+    if (preset) {
+      setForm((prev) => ({ ...prev, clientId: preset }));
+      clientPresetApplied.current = true;
+    }
+  }, [searchParams]);
 
   React.useEffect(() => {
     const fallbackClients = getFallbackTrainerClientOptions();

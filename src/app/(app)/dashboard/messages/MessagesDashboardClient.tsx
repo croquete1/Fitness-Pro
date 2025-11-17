@@ -245,6 +245,8 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const counterpartParam = searchParams?.get('counterpart');
+  const threadParam = searchParams?.get('thread');
   const [range, setRange] = React.useState(() => {
     const raw = searchParams?.get('range');
     if (raw) {
@@ -644,7 +646,11 @@ export default function MessagesDashboardClient({ viewerId, initialRange, initia
         </div>
 
         <div id="messages-chat">
-          <ChatPanel viewerId={viewerId} />
+          <ChatPanel
+            viewerId={viewerId}
+            initialCounterpartId={counterpartParam ?? undefined}
+            initialThreadId={threadParam ?? undefined}
+          />
         </div>
 
         <section className="messages-dashboard__panel neo-panel">

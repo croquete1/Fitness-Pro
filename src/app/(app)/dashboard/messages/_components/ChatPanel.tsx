@@ -54,6 +54,8 @@ type PendingAttachment = {
 
 type ChatPanelProps = {
   viewerId: string;
+  initialCounterpartId?: string | null;
+  initialThreadId?: string | null;
 };
 
 const timeFormatter = new Intl.DateTimeFormat('pt-PT', { hour: '2-digit', minute: '2-digit' });
@@ -85,7 +87,7 @@ function isImageAttachment(attachment: ChatAttachment | PendingAttachment): bool
   return attachment.kind === 'image';
 }
 
-export default function ChatPanel({ viewerId }: ChatPanelProps) {
+export default function ChatPanel({ viewerId, initialCounterpartId, initialThreadId }: ChatPanelProps) {
   const {
     data: threadList,
     isLoading: threadsLoading,
@@ -104,8 +106,10 @@ export default function ChatPanel({ viewerId }: ChatPanelProps) {
     realtimeEnabled: Boolean(viewerId),
   });
 
-  const [activeThreadId, setActiveThreadId] = React.useState<string | null>(null);
-  const [activeCounterpartId, setActiveCounterpartId] = React.useState<string | null>(null);
+  const [activeThreadId, setActiveThreadId] = React.useState<string | null>(initialThreadId ?? null);
+  const [activeCounterpartId, setActiveCounterpartId] = React.useState<string | null>(
+    initialThreadId ? null : initialCounterpartId ?? null,
+  );
   const [composerValue, setComposerValue] = React.useState('');
   const [pendingAttachments, setPendingAttachments] = React.useState<PendingAttachment[]>([]);
   const [composerError, setComposerError] = React.useState<string | null>(null);
@@ -138,7 +142,20 @@ export default function ChatPanel({ viewerId }: ChatPanelProps) {
     swr: { revalidateOnFocus: true },
   });
 
-  const initialisedRef = React.useRef(false);
+  const initialisedRef = React.useRef(Boolean(initialThreadId || initialCounterpartId));
+  React.useEffect(() => {
+    if (initialThreadId) {
+      setActiveThreadId(initialThreadId);
+      setActiveCounterpartId(null);
+      initialisedRef.current = true;
+      return;
+    }
+    if (initialCounterpartId) {
+      setActiveThreadId(null);
+      setActiveCounterpartId(initialCounterpartId);
+      initialisedRef.current = true;
+    }
+  }, [initialCounterpartId, initialThreadId]);
   React.useEffect(() => {
     if (initialisedRef.current) return;
     if (!threadList) return;
