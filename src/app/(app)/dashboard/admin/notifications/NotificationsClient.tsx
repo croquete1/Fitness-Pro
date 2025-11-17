@@ -878,7 +878,7 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
                           className="btn"
                           data-variant="ghost"
                           data-size="sm"
-                          onClick={() => navigate(`/dashboard/admin/users/${row.user_id}`, openInNew)}
+                          onClick={() => navigate(`/dashboard/users/${row.user_id}`, openInNew)}
                         >
                           <span className="btn__icon">
                             <ArrowUpRight className="neo-icon neo-icon--sm" aria-hidden="true" />

@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useToast } from '@/components/ui/ToastProvider';
+import type { PlanFeedbackDashboard } from '@/lib/plan-feedback/types';
 
 type Role = 'ADMIN' | 'PT' | 'CLIENT';
 
@@ -92,6 +93,7 @@ export type ClientProfilePayload = {
   recentSessions: SessionSummary[];
   measurement: MeasurementSnapshot | null;
   activity: ActivitySnapshot;
+  planFeedback: PlanFeedbackDashboard;
 };
 
 type NoteEntry = {
@@ -269,6 +271,7 @@ export default function ClientProfileClient({
   recentSessions,
   measurement,
   activity,
+  planFeedback,
 }: ClientProfilePayload) {
   const toast = useToast();
   const [trainerId, setTrainerId] = React.useState<string>(trainer.current?.id ?? '');
@@ -281,12 +284,20 @@ export default function ClientProfileClient({
   const [noteText, setNoteText] = React.useState('');
   const [savingNote, setSavingNote] = React.useState(false);
   const noteTextTrimmed = noteText.trim();
+  const viewerIsTrainer = viewer.role === 'PT';
+  const viewerIsAdmin = viewer.role === 'ADMIN';
+  const viewerIsStaff = viewerIsTrainer || viewerIsAdmin;
+  const canMessage = viewerIsStaff;
+  const canManagePlans = viewerIsTrainer;
 
   const measurementSummary = React.useMemo(() => summarizeMeasurement(measurement), [measurement]);
   const metricsHistoryHref = React.useMemo(
     () => `/dashboard/profile?tab=metrics&user=${encodeURIComponent(user.id)}`,
     [user.id],
   );
+  const planSectionHref = '#client-plans';
+  const sessionsSectionHref = '#client-sessions';
+  const measurementsSectionHref = '#client-measurements';
   const currentPackage = packageState.current;
   const packageHistory = packageState.history;
   const circumferenceMetrics = React.useMemo(
@@ -308,6 +319,159 @@ export default function ClientProfileClient({
   const hasCircumferenceData = circumferenceMetrics.some((metric) => metric.value != null);
   const sessionNotes = React.useMemo(() => recentSessions.filter((session) => session.notes), [recentSessions]);
   const hasAutoNotes = Boolean(measurement?.notes || sessionNotes.length);
+  const heroSubtitle = React.useMemo(() => {
+    const displayName = user.name?.split(' ')[0] ?? user.name ?? user.email ?? 'o cliente';
+    const planLabel = activity.activePlans === 1 ? 'plano ativo' : 'planos ativos';
+    const sessionLabel = activity.upcomingSessions === 1 ? 'treino presencial' : 'treinos presenciais';
+    if (viewerIsTrainer) {
+      return `Acompanha ${displayName} com ${activity.activePlans} ${planLabel} e ${activity.upcomingSessions} ${sessionLabel} agendados.`;
+    }
+    if (viewerIsAdmin) {
+      const totalLabel = activity.totalPlans === 1 ? 'plano' : 'planos';
+      const lastAccess = user.lastSignInAt ? ` · Último acesso ${formatDate(user.lastSignInAt)}` : '';
+      return `Gestão administrativa · ${activity.totalPlans} ${totalLabel} registados${lastAccess}`;
+    }
+    return 'Resumo completo com dados, planos e progresso.';
+  }, [
+    activity.activePlans,
+    activity.totalPlans,
+    activity.upcomingSessions,
+    user.email,
+    user.lastSignInAt,
+    user.name,
+    viewerIsAdmin,
+    viewerIsTrainer,
+  ]);
+  const heroStats = React.useMemo(
+    () =>
+      [
+        {
+          key: 'plans',
+          label: 'Planos ativos',
+          value: activity.activePlans,
+          helper: `${activity.totalPlans} no total`,
+        },
+        {
+          key: 'sessions',
+          label: 'Treinos presenciais',
+          value: activity.upcomingSessions,
+          helper: `${recentSessions.length} concluídos`,
+        },
+        {
+          key: 'assessment',
+          label: 'Última avaliação',
+          value: measurementSummary?.date ? formatDate(measurementSummary.date, { dateStyle: 'medium' }) : 'Sem registo',
+          helper:
+            measurementSummary?.weight != null
+              ? `${measurementSummary.weight} kg`
+              : measurementSummary?.bodyFat != null
+                ? `${measurementSummary.bodyFat}% GC`
+                : undefined,
+        },
+        {
+          key: 'trainer',
+          label: 'PT responsável',
+          value: currentTrainer?.name ?? 'Sem atribuição',
+          helper: trainerId ? 'Acompanhamento direto' : 'Adiciona um treinador',
+          href: trainer.allowEdit ? '#trainer-management' : undefined,
+        },
+      ],
+    [
+      activity.activePlans,
+      activity.totalPlans,
+      activity.upcomingSessions,
+      currentTrainer?.name,
+      measurementSummary?.bodyFat,
+      measurementSummary?.date,
+      measurementSummary?.weight,
+      recentSessions.length,
+      trainer.allowEdit,
+      trainerId,
+    ],
+  );
+  const messageHref = React.useMemo(
+    () => `/dashboard/messages?counterpart=${encodeURIComponent(user.id)}#messages-chat`,
+    [user.id],
+  );
+  const quickActions = React.useMemo(() => {
+    const base: Array<{ key: string; label: string; href: string; variant: 'primary' | 'ghost' }> = [];
+    if (canMessage) {
+      base.push({
+        key: 'message',
+        label: 'Enviar mensagem',
+        href: messageHref,
+        variant: 'primary',
+      });
+    }
+    if (canManagePlans) {
+      base.push({
+        key: 'plan',
+        label: 'Criar plano',
+        href: `/dashboard/pt/plans/new?clientId=${encodeURIComponent(user.id)}`,
+        variant: 'ghost',
+      });
+      base.push({
+        key: 'session',
+        label: 'Agendar treino presencial',
+        href: `/dashboard/pt/sessions/new?clientId=${encodeURIComponent(user.id)}`,
+        variant: 'ghost',
+      });
+    }
+    return base;
+  }, [canManagePlans, canMessage, messageHref, user.id]);
+  const planCoveragePct = React.useMemo(() => {
+    if (!activity.totalPlans) return 0;
+    return Math.min(100, Math.round((activity.activePlans / Math.max(activity.totalPlans, 1)) * 100));
+  }, [activity.activePlans, activity.totalPlans]);
+  const planCoverageHelper = React.useMemo(
+    () => `${activity.activePlans} de ${activity.totalPlans} planos em execução`,
+    [activity.activePlans, activity.totalPlans],
+  );
+  const adherencePct = React.useMemo(() => {
+    const total = activity.upcomingSessions + recentSessions.length;
+    if (!total) return 0;
+    return Math.min(100, Math.round((recentSessions.length / total) * 100));
+  }, [activity.upcomingSessions, recentSessions.length]);
+  const adherenceHelper = React.useMemo(
+    () => `${recentSessions.length} sessões concluídas · ${activity.upcomingSessions} agendadas`,
+    [activity.upcomingSessions, recentSessions.length],
+  );
+  const lastFeedbackAt = React.useMemo(() => {
+    return (
+      planFeedback.plan[0]?.createdAt ??
+      planFeedback.days[0]?.createdAt ??
+      planFeedback.exercises[0]?.createdAt ??
+      null
+    );
+  }, [planFeedback]);
+  const [feedbackTab, setFeedbackTab] = React.useState<'plan' | 'days' | 'exercises'>('plan');
+  const feedbackEntries = React.useMemo(() => {
+    if (feedbackTab === 'plan') return planFeedback.plan;
+    if (feedbackTab === 'days') return planFeedback.days;
+    return planFeedback.exercises;
+  }, [planFeedback, feedbackTab]);
+  const feedbackCounters = React.useMemo(
+    () => ({
+      plan: planFeedback.plan.length,
+      days: planFeedback.days.length,
+      exercises: planFeedback.exercises.length,
+      total: planFeedback.plan.length + planFeedback.days.length + planFeedback.exercises.length,
+    }),
+    [planFeedback],
+  );
+  const feedbackUpdatedLabel = React.useMemo(() => {
+    if (planFeedback.updatedAt) {
+      return `Actualizado ${formatDate(planFeedback.updatedAt)}`;
+    }
+    if (planFeedback.source === 'fallback') {
+      return 'Dados de exemplo';
+    }
+    return 'Sincronização automática';
+  }, [planFeedback]);
+  const lastFeedbackLabel = React.useMemo(
+    () => (lastFeedbackAt ? formatDate(lastFeedbackAt) : 'Sem feedback registado'),
+    [lastFeedbackAt],
+  );
   const selectedTrainer = React.useMemo(
     () => trainer.options.find((option) => option.id === trainerId) ?? null,
     [trainer.options, trainerId],
@@ -446,8 +610,49 @@ export default function ClientProfileClient({
                 <span className="neo-tag" data-tone="neutral">Offline</span>
               )}
             </div>
+            {heroSubtitle ? <p className="client-profile__heroSubtitle">{heroSubtitle}</p> : null}
           </div>
         </div>
+        {heroStats.length ? (
+          <div className="client-profile__heroStats" role="list">
+            {heroStats.map((stat) => {
+              const content = (
+                <>
+                  <span className="client-profile__heroStatLabel">{stat.label}</span>
+                  <span className="client-profile__heroStatValue">{stat.value}</span>
+                  {stat.helper ? (
+                    <span className="client-profile__heroStatHelper">{stat.helper}</span>
+                  ) : null}
+                </>
+              );
+              if (stat.href) {
+                return (
+                  <Link key={stat.key} href={stat.href} className="client-profile__heroStat" role="listitem">
+                    {content}
+                  </Link>
+                );
+              }
+              return (
+                <div key={stat.key} className="client-profile__heroStat" role="listitem">
+                  {content}
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+        {quickActions.length ? (
+          <div className="client-profile__heroActions">
+            {quickActions.map((action) => (
+              <Link
+                key={action.key}
+                href={action.href}
+                className={`neo-button neo-button--${action.variant} neo-button--small`}
+              >
+                {action.label}
+              </Link>
+            ))}
+          </div>
+        ) : null}
         <dl className="client-profile__meta">
           <div>
             <dt>Último acesso</dt>
@@ -488,7 +693,7 @@ export default function ClientProfileClient({
             </div>
           </section>
 
-          <section className="neo-panel client-profile__card">
+          <section id="trainer-management" className="neo-panel client-profile__card">
             <div className="client-profile__cardHeader">
               <h2 className="client-profile__sectionTitle">Gestão do PT</h2>
               <span className="client-profile__muted">Controla o vínculo entre o cliente e um treinador principal.</span>
@@ -524,7 +729,159 @@ export default function ClientProfileClient({
         </aside>
 
         <main className="client-profile__main neo-stack neo-stack--lg">
-          <section className="neo-panel client-profile__card">
+          {viewerIsTrainer ? (
+            <section className="neo-panel client-profile__card client-profile__toolbox" aria-labelledby="trainer-toolbox">
+              <div className="client-profile__cardHeader">
+                <div>
+                  <h2 id="trainer-toolbox" className="client-profile__sectionTitle">
+                    Área do treinador
+                  </h2>
+                  <span className="client-profile__muted">
+                    Atalhos para gerir planos, treinos presenciais e comunicação com o cliente.
+                  </span>
+                </div>
+              </div>
+              <div className="client-profile__actionGrid">
+                <article className="client-profile__actionCard">
+                  <header>
+                    <div>
+                      <h3>Planos de treino</h3>
+                      <p>Revê ou ajusta rapidamente os planos ativos deste cliente.</p>
+                    </div>
+                    <span className="client-profile__actionBadge">{activity.activePlans} ativos</span>
+                  </header>
+                  <div className="client-profile__actionButtons">
+                    <Link href={planSectionHref} className="neo-button neo-button--ghost neo-button--small">
+                      Ver planos
+                    </Link>
+                    <Link
+                      href={`/dashboard/pt/plans/new?clientId=${encodeURIComponent(user.id)}`}
+                      className="neo-button neo-button--primary neo-button--small"
+                    >
+                      Criar plano
+                    </Link>
+                  </div>
+                </article>
+                <article className="client-profile__actionCard">
+                  <header>
+                    <div>
+                      <h3>Treinos presenciais</h3>
+                      <p>Confere as próximas marcações ou agenda uma nova sessão.</p>
+                    </div>
+                    <span className="client-profile__actionBadge">{activity.upcomingSessions} agendados</span>
+                  </header>
+                  <div className="client-profile__actionButtons">
+                    <Link href={sessionsSectionHref} className="neo-button neo-button--ghost neo-button--small">
+                      Consultar sessões
+                    </Link>
+                    <Link
+                      href={`/dashboard/pt/sessions/new?clientId=${encodeURIComponent(user.id)}`}
+                      className="neo-button neo-button--primary neo-button--small"
+                    >
+                      Agendar treino
+                    </Link>
+                  </div>
+                </article>
+                <article className="client-profile__actionCard">
+                  <header>
+                    <div>
+                      <h3>Mensagens</h3>
+                      <p>Alinha expectativas e envia feedback personalizado.</p>
+                    </div>
+                    <span className="client-profile__actionBadge">
+                      {user.lastSeenAt ? `Última atividade ${formatDate(user.lastSeenAt)}` : 'Sem atividade recente'}
+                    </span>
+                  </header>
+                  <div className="client-profile__actionButtons">
+                    <Link href={messageHref} className="neo-button neo-button--primary neo-button--small">
+                      Enviar mensagem
+                    </Link>
+                    <Link href={planSectionHref} className="neo-button neo-button--ghost neo-button--small">
+                      Rever plano
+                    </Link>
+                  </div>
+                </article>
+                <article className="client-profile__actionCard">
+                  <header>
+                    <div>
+                      <h3>Dados antropométricos</h3>
+                      <p>Acompanha peso, medidas e notas da última avaliação.</p>
+                    </div>
+                    <span className="client-profile__actionBadge">
+                      {measurementSummary?.date ? formatDate(measurementSummary.date) : 'Sem registos'}
+                    </span>
+                  </header>
+                  <div className="client-profile__actionButtons">
+                    <Link href={measurementsSectionHref} className="neo-button neo-button--ghost neo-button--small">
+                      Ver resumo
+                    </Link>
+                    <Link href={metricsHistoryHref} className="neo-button neo-button--primary neo-button--small">
+                      Histórico completo
+                    </Link>
+                  </div>
+                </article>
+              </div>
+            </section>
+          ) : null}
+          <section className="neo-panel client-profile__card client-profile__progress">
+            <div className="client-profile__cardHeader">
+              <div>
+                <h2 className="client-profile__sectionTitle">Progresso dos treinos</h2>
+                <span className="client-profile__muted">
+                  {activity.lastActivity ? `Última actividade ${formatDate(activity.lastActivity)}` : 'Sem histórico recente'}
+                </span>
+              </div>
+            </div>
+            <ul className="client-profile__progressList">
+              <li>
+                <div>
+                  <strong>Planos activos</strong>
+                  <span>{planCoverageHelper}</span>
+                </div>
+                <div className="client-profile__progressMeter">
+                  <div
+                    className="client-profile__progressBar"
+                    role="progressbar"
+                    aria-valuenow={planCoveragePct}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                  >
+                    <span style={{ width: `${planCoveragePct}%` }} />
+                  </div>
+                  <span className="client-profile__progressValue">{planCoveragePct}%</span>
+                </div>
+              </li>
+              <li>
+                <div>
+                  <strong>Aderência semanal</strong>
+                  <span>{adherenceHelper}</span>
+                </div>
+                <div className="client-profile__progressMeter">
+                  <div
+                    className="client-profile__progressBar"
+                    role="progressbar"
+                    aria-valuenow={adherencePct}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                  >
+                    <span style={{ width: `${adherencePct}%` }} />
+                  </div>
+                  <span className="client-profile__progressValue">{adherencePct}%</span>
+                </div>
+              </li>
+              <li className="client-profile__progressNote">
+                <div>
+                  <strong>Último feedback do cliente</strong>
+                  <span>{lastFeedbackLabel}</span>
+                </div>
+                <Link href="#plan-feedback" className="neo-button neo-button--ghost neo-button--small">
+                  Ver comentários
+                </Link>
+              </li>
+            </ul>
+          </section>
+
+          <section className="neo-panel client-profile__card" id="client-measurements">
             <div className="client-profile__cardHeader">
               <h2 className="client-profile__sectionTitle">Avaliação física</h2>
               <div className="client-profile__cardMeta">
@@ -566,6 +923,77 @@ export default function ClientProfileClient({
               </div>
             ) : (
               <p className="client-profile__muted">Ainda não existem medições registadas.</p>
+            )}
+          </section>
+
+          <section className="neo-panel client-profile__card" id="plan-feedback">
+            <div className="client-profile__cardHeader">
+              <div>
+                <h2 className="client-profile__sectionTitle">Comentários dos planos</h2>
+                <span className="client-profile__muted">{feedbackUpdatedLabel}</span>
+              </div>
+              <div className="client-profile__feedbackTabs" role="tablist">
+                <button
+                  type="button"
+                  role="tab"
+                  className={feedbackTab === 'plan' ? 'is-active' : ''}
+                  aria-selected={feedbackTab === 'plan'}
+                  onClick={() => setFeedbackTab('plan')}
+                >
+                  Plano completo
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  className={feedbackTab === 'days' ? 'is-active' : ''}
+                  aria-selected={feedbackTab === 'days'}
+                  onClick={() => setFeedbackTab('days')}
+                >
+                  Dias
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  className={feedbackTab === 'exercises' ? 'is-active' : ''}
+                  aria-selected={feedbackTab === 'exercises'}
+                  onClick={() => setFeedbackTab('exercises')}
+                >
+                  Exercícios
+                </button>
+              </div>
+            </div>
+            <div className="client-profile__feedbackSummary">
+              <div>
+                <strong>{feedbackCounters.total ? `${feedbackCounters.total} comentários do cliente` : 'Sem feedback registado'}</strong>
+                <span className="client-profile__muted">Último registo: {lastFeedbackLabel}</span>
+              </div>
+              <div className="client-profile__feedbackPills" role="status">
+                <span data-active={feedbackTab === 'plan'}>Plano · {feedbackCounters.plan}</span>
+                <span data-active={feedbackTab === 'days'}>Dias · {feedbackCounters.days}</span>
+                <span data-active={feedbackTab === 'exercises'}>Exercícios · {feedbackCounters.exercises}</span>
+              </div>
+              <Link href={planSectionHref} className="neo-button neo-button--ghost neo-button--small">
+                Abrir planos
+              </Link>
+            </div>
+            {feedbackEntries.length === 0 ? (
+              <p className="client-profile__muted">Ainda não existem comentários para este plano.</p>
+            ) : (
+              <ul className="client-profile__feedbackList">
+                {feedbackEntries.map((entry) => (
+                  <li key={entry.id} className="client-profile__feedbackItem" data-tone={entry.mood ?? 'neutral'}>
+                    <div>
+                      <span className="client-profile__feedbackScope">
+                        {entry.targetLabel ?? entry.planTitle ?? 'Plano'} · {entry.planTitle ?? 'Plano sem título'}
+                      </span>
+                      <p>{entry.comment}</p>
+                    </div>
+                    <span className="client-profile__muted">
+                      {entry.createdAt ? formatDate(entry.createdAt) : 'Sem data'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             )}
           </section>
 
@@ -634,14 +1062,36 @@ export default function ClientProfileClient({
             )}
           </section>
 
-          <section className="neo-panel client-profile__card">
+          <section className="neo-panel client-profile__card" id="client-plans">
             <div className="client-profile__cardHeader">
               <h2 className="client-profile__sectionTitle">Planos de treino</h2>
-              <div className="client-profile__cardMeta">
-                <span>{plans.length ? `${plans.length} planos recentes` : 'Sem planos registados'}</span>
-                <Link href="/dashboard/plans" className="neo-button neo-button--ghost neo-button--small">
-                  Ver todos
-                </Link>
+              <div className="client-profile__cardHeaderActions">
+                <div className="client-profile__cardMeta">
+                  <span>{plans.length ? `${plans.length} planos recentes` : 'Sem planos registados'}</span>
+                  <span className="client-profile__muted">
+                    {activity.activePlans} ativos · {activity.draftPlans} rascunhos · {activity.archivedPlans} arquivados
+                  </span>
+                </div>
+                <div className="client-profile__cardButtons">
+                  <Link href="#plan-feedback" className="neo-button neo-button--ghost neo-button--small">
+                    Ver feedback
+                  </Link>
+                  {viewerIsStaff ? (
+                    <>
+                      <Link href="/dashboard/pt/plans" className="neo-button neo-button--ghost neo-button--small">
+                        Gerir planos
+                      </Link>
+                      {canManagePlans ? (
+                        <Link
+                          href={`/dashboard/pt/plans/new?clientId=${encodeURIComponent(user.id)}`}
+                          className="neo-button neo-button--primary neo-button--small"
+                        >
+                          Novo plano
+                        </Link>
+                      ) : null}
+                    </>
+                  ) : null}
+                </div>
               </div>
             </div>
             {plans.length === 0 ? (
@@ -663,7 +1113,7 @@ export default function ClientProfileClient({
                       ) : null}
                     </div>
                     <Link href={`/dashboard/pt/plans/${plan.id}`} className="neo-button neo-button--ghost neo-button--small">
-                      Abrir
+                      {viewerIsTrainer ? 'Gerir plano' : 'Abrir'}
                     </Link>
                   </article>
                 ))}
@@ -671,10 +1121,20 @@ export default function ClientProfileClient({
             )}
           </section>
 
-          <section className="neo-panel client-profile__card">
+          <section className="neo-panel client-profile__card" id="client-sessions">
             <div className="client-profile__cardHeader">
               <h2 className="client-profile__sectionTitle">Sessões</h2>
-              <span className="client-profile__muted">Próximas marcações e histórico recente.</span>
+              <div className="client-profile__cardHeaderActions">
+                <span className="client-profile__muted">Próximas marcações e histórico recente.</span>
+                {viewerIsTrainer ? (
+                  <Link
+                    href={`/dashboard/pt/sessions/new?clientId=${encodeURIComponent(user.id)}`}
+                    className="neo-button neo-button--ghost neo-button--small"
+                  >
+                    Nova marcação
+                  </Link>
+                ) : null}
+              </div>
             </div>
             <div className="client-profile__sessions">
               <div>

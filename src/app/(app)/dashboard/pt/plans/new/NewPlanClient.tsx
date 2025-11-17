@@ -15,6 +15,7 @@ export type NewPlanClientProps = {
     updatedAt: string | null;
     planType: 'template' | 'unassigned' | 'client';
   }>;
+  defaultClientId?: string | null;
 };
 
 const STATUS_OPTIONS: Array<{ value: 'DRAFT' | 'ACTIVE' | 'ARCHIVED'; label: string }> = [
@@ -41,13 +42,13 @@ function formatUpdatedAt(value: string | null) {
   return date.toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-export default function NewPlanClient({ clients, templates }: NewPlanClientProps) {
+export default function NewPlanClient({ clients, templates, defaultClientId }: NewPlanClientProps) {
   const router = useRouter();
   const [title, setTitle] = React.useState('');
   const [description, setDescription] = React.useState('');
   const [privateNotes, setPrivateNotes] = React.useState('');
   const [publicNotes, setPublicNotes] = React.useState('');
-  const [clientId, setClientId] = React.useState('');
+  const [clientId, setClientId] = React.useState(defaultClientId ?? '');
   const [status, setStatus] = React.useState<'DRAFT' | 'ACTIVE' | 'ARCHIVED'>('DRAFT');
   const [isTemplate, setIsTemplate] = React.useState(false);
   const [copyFrom, setCopyFrom] = React.useState('');

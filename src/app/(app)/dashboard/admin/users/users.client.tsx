@@ -1331,7 +1331,12 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
                 {rows.map((row) => (
                   <tr key={row.id}>
                     <td>
-                      <div className="admin-users__name">
+                      <Link
+                        href={`/dashboard/users/${row.id}`}
+                        className="admin-users__name admin-users__nameLink"
+                        title={`Abrir perfil de ${row.name || row.email || row.id}`}
+                        aria-label={`Abrir perfil de ${row.name || row.email || row.id}`}
+                      >
                         <span className="admin-users__avatar" aria-hidden>
                           {row.name
                             .split(/\s+/)
@@ -1344,7 +1349,7 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
                           <p className="admin-users__nameText">{row.name}</p>
                           <p className="admin-users__meta">ID {row.id}</p>
                         </div>
-                      </div>
+                      </Link>
                     </td>
                     <td>
                       <div className="admin-users__contact">
@@ -1378,17 +1383,43 @@ export default function UsersClient({ pageSize = 20 }: { pageSize?: number }) {
                       <OnlineBadge online={row.online} />
                     </td>
                     <td className="admin-users__actions">
-                      <Link
-                        href={`/dashboard/admin/users/${row.id}`}
-                        className="btn"
-                        data-variant="ghost"
-                        data-size="sm"
-                      >
-                        <span className="btn__icon btn__icon--left">
-                          <UserCog className="neo-icon neo-icon--xs" aria-hidden />
-                        </span>
-                        <span className="btn__label">Gerir</span>
-                      </Link>
+                      <div className="admin-users__actionsGroup">
+                        <Link
+                          href={`/dashboard/users/${row.id}`}
+                          className="btn"
+                          data-variant="ghost"
+                          data-size="sm"
+                        >
+                          <span className="btn__icon btn__icon--left">
+                            <UserCheck className="neo-icon neo-icon--xs" aria-hidden />
+                          </span>
+                          <span className="btn__label">Perfil</span>
+                        </Link>
+                        {row.roleKey === 'CLIENT' ? (
+                          <Link
+                            href={`/dashboard/users/${row.id}#trainer-management`}
+                            className="btn"
+                            data-variant="ghost"
+                            data-size="sm"
+                          >
+                            <span className="btn__icon btn__icon--left">
+                              <UserPlus className="neo-icon neo-icon--xs" aria-hidden />
+                            </span>
+                            <span className="btn__label">Atribuir PT</span>
+                          </Link>
+                        ) : null}
+                        <Link
+                          href={`/dashboard/admin/users/${row.id}`}
+                          className="btn"
+                          data-variant="ghost"
+                          data-size="sm"
+                        >
+                          <span className="btn__icon btn__icon--left">
+                            <UserCog className="neo-icon neo-icon--xs" aria-hidden />
+                          </span>
+                          <span className="btn__label">Editar</span>
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 
 import Button from "@/components/ui/Button";
@@ -261,7 +262,9 @@ export default function ClientesTable() {
                   <tr key={u.id}>
                     <td>
                       <div className="neo-text-strong">
-                        {u.name || u.email.split("@")[0]}
+                        <Link href={`/dashboard/users/${u.id}`} className="clientes-table__nameLink">
+                          {u.name || u.email.split("@")[0]}
+                        </Link>
                       </div>
                       <div className="neo-surface__hint">{u.email}</div>
                     </td>
@@ -293,24 +296,17 @@ export default function ClientesTable() {
                     <td>{formatDate(u.createdAt)}</td>
                     <td className="neo-table__cell--right">
                       <div className="neo-table__actions">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            alert(`Ver utilizador ${u.email}`);
-                          }}
+                        <Link href={`/dashboard/users/${u.id}`} className="btn" data-variant="ghost" data-size="sm">
+                          <span className="btn__label">Ver perfil</span>
+                        </Link>
+                        <Link
+                          href={`/dashboard/admin/users/${u.id}`}
+                          className="btn"
+                          data-variant="ghost"
+                          data-size="sm"
                         >
-                          Ver
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            alert(`Editar utilizador ${u.email}`);
-                          }}
-                        >
-                          Editar
-                        </Button>
+                          <span className="btn__label">Editar</span>
+                        </Link>
                       </div>
                     </td>
                   </tr>

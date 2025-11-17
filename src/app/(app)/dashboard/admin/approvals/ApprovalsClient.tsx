@@ -1554,7 +1554,7 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px
                           type="button"
                           className="btn"
                           data-variant="ghost"
-                          onClick={() => navigate(`/dashboard/admin/users/${row.user_id}`, openInNew)}
+                          onClick={() => navigate(`/dashboard/users/${row.user_id}`, openInNew)}
                           title="Ver utilizador"
                         >
                           <ArrowUpRight className="neo-icon neo-icon--sm" aria-hidden="true" />
