@@ -14,10 +14,24 @@ const __dirname = path.dirname(new URL(import.meta.url).pathname);
 // tries to package the traced files. We look two levels up for a shared
 // node_modules folder and fall back to the current directory when running this
 // repo standalone.
-const monorepoRoot = path.resolve(__dirname, '..', '..');
-const outputFileTracingRoot = fs.existsSync(path.join(monorepoRoot, 'node_modules'))
-  ? monorepoRoot
-  : __dirname;
+/**
+ * Find the nearest ancestor directory that contains a node_modules folder so
+ * Next.js file tracing can resolve dependencies without generating invalid
+ * relative paths (e.g. ../../node_modules/client-only/package.json when the
+ * app lives in apps/web). We walk up the tree until the filesystem root.
+ */
+function findTracingRoot(dir) {
+  let current = dir;
+  while (true) {
+    if (fs.existsSync(path.join(current, 'node_modules'))) return current;
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return dir;
+}
+
+const outputFileTracingRoot = findTracingRoot(__dirname);
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
